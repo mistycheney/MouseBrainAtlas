@@ -1,6 +1,6 @@
-output/
-partha_samples/
-*.pdf
+data/
+scratch/
+collection/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

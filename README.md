@@ -4,7 +4,9 @@ BrainSaliencyDetection
 Framework for detecting salient regions in mouse brain images
 
 Project files are at `/oasis/projects/nsf/csd181/yuncong/Brain`
+
 Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData`
+
 Output are at `/oasis/scratch/csd181/yuncong`
 
 Usage

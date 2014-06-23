@@ -13,45 +13,21 @@ from skimage.color import gray2rgb
 
 # <codecell>
 
-def create_param(param_id, **args):
-    param_dict = {
-        "n_texton": 20, 
-        "max_freq": 0.2, 
-        "freq_step": 2,
-        "param_id": param_id, 
-        "theta_interval": 10, 
-        "n_freq": 4,
-        'n_superpixels': 2000,
-        'slic_compactness': 5,
-        'slic_sigma': 10
-    }
-    param_dict.update(args)    
-    json.dump(param_dict, open('../params/param%d.json'%param_id, 'w'))
-    
-def load_param(param_id):
-    param = json.load(open('../params/param%d.json'%param_id, 'r'))
-    pprint(param)
-
-# <codecell>
-
 def load_array(suffix, img_name, param_id, cache_dir='scratch'):
-    arr_file = os.path.join(cache_dir, img_name,
-                        '%s_param%d_%s.npy'%(img_name, param_id,
-                                             suffix))
+    result_name = img_name + '_param' + str(param_id)
+    arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
     return arr
 
 def save_array(arr, suffix, img_name, param_id, cache_dir='scratch'):
-    arr_file = os.path.join(cache_dir, img_name,
-                        '%s_param%d_%s.npy'%(img_name, param_id,
-                                             suffix))
+    result_name = img_name + '_param' + str(param_id)
+    arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     if not os.path.exists(arr_file):
         np.save(arr_file, arr)
         print '%s saved to %s' % (suffix, arr_file)
     else:
         print '%s already exists' % (arr_file)
-
         
 def regulate_images(imgs):
     return np.array(map(regulate_img, imgs))
@@ -70,7 +46,7 @@ def regulate_img(img):
     return img
         
 def save_img(img, suffix, img_name, param_id, 
-             cache_dir='scratch', overwrite=False):
+             cache_dir='scratch', overwrite=True):
     '''
     img is in uint8 type or float type
     '''
@@ -90,11 +66,53 @@ def save_img(img, suffix, img_name, param_id,
     else:
         print '%s already exists' % (img_fn)
 
-        
 def get_img_filename(suffix, img_name, param_id, cache_dir='scratch', ext='tif'):
-#     img_fn = os.path.join(args.cache_dir,
-#                 '%s_param%d_%s.png'%(img_name, params['param_id'], suffix))
-    img_fn = os.path.join(cache_dir, img_name,
-                '%s_param%d_%s.%s'%(img_name, param_id, suffix, ext))
+    result_name = img_name + '_param' + str(param_id)
+    img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
     return img_fn
+
+# <codecell>
+
+def load_parameters(params_file, dump_dir='../params', redownload=False):
+
+    import csv
+    
+    if redownload:
+        import gspread
+        import getpass
+        
+        username = "cyc3700@gmail.com"
+        password = getpass.getpass()
+
+        docid = "1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE"
+
+        client = gspread.login(username, password)
+        spreadsheet = client.open_by_key(docid)
+        for i, worksheet in enumerate(spreadsheet.worksheets()):
+            with open(params_file, 'wb') as f:
+                writer = csv.writer(f)
+                writer.writerows(worksheet.get_all_values())
+
+    parameters = dict([])
+    with open(params_file, 'r') as f:
+        param_reader = csv.DictReader(f)
+        for param in param_reader:
+            for k in param.iterkeys():
+                if param[k] != '':
+                    try:
+                        param[k] = int(param[k])
+                    except ValueError:
+                        param[k] = float(param[k])
+            if param['param_id'] == 0:
+                default_param = param
+            else:
+                for k, v in param.iteritems():
+                    if v == '':
+                        param[k] = default_param[k]
+            parameters[param['param_id']] = param
+        
+            param_file = os.path.join(dump_dir, 'param%s.json'%param['param_id'])
+            json.dump(param, open(param_file, 'w'))
+            
+    return parameters
 

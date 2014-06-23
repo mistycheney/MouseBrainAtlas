@@ -39,29 +39,8 @@ import glob, re, os, sys, subprocess, argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("param_file", type=str, help="parameter file name")
 parser.add_argument("img_file", type=str, help="path to image file")
-parser.add_argument("-c", "--cache_dir", default='scratch', help="directory to store outputs")
+parser.add_argument("output_dir", type=str, help="directory to store outputs")
 args = parser.parse_args()
-
-img_dir = '../data/PMD1305_reduce2_region0'
-img_name_full = 'PMD1305_reduce2_region0_0244.tif'
-
-# img_dir = '../data/PMD1305_reduce2_region2'
-# img_name_full = 'PMD1305_reduce2_region2_0001.tif'
-
-# img_path = os.path.join(img_dir, img_name_full)
-# img_name, ext = os.path.splitext(img_name_full)
-
-# param_id = 5
-# param_file = '../params/param%d.json'%param_id
-
-# class args:
-#     param_file = param_file
-#     img_file = img_path
-#     output_feature = True
-#     output_textonmap = True
-#     output_dirmap = True
-#     output_segmentation = True
-#     cache_dir = '../scratch'
 
 # <codecell>
 
@@ -83,14 +62,17 @@ def get_img_filename(suffix, ext='tif'):
 # <codecell>
 
 params = json.load(open(args.param_file))
+
 p, ext = os.path.splitext(args.img_file)
 img_dir, img_name = os.path.split(p)
-img = cv2.imread(os.path.join(args.img_file), 0)
+img = cv2.imread(args.img_file, 0)
+
+print 'read %s' % args.img_file
+
 im_height, im_width = img.shape[:2]
 
-output_dir = os.path.join(args.cache_dir, img_name)
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
 print '=== finding foreground mask ==='
 mask = foreground_mask(rescale(img, .5**3), min_size=100)
@@ -235,17 +217,17 @@ except IOError:
     
     save_array(segmentation, 'segmentation')
     
-    sp_props = regionprops(segmentation+1, intensity_image=img, cache=True)
-    
-    def foo2(i):
-        return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity
+sp_props = regionprops(segmentation+1, intensity_image=img, cache=True)
 
-    r = Parallel(n_jobs=16)(delayed(foo2)(i) for i in range(len(sp_props)))
-    sp_centroids_areas_meanintensitys = np.array(r)
+def foo2(i):
+    return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity
 
-    sp_centroids = sp_centroids_areas_meanintensitys[:,0]
-    sp_areas = sp_centroids_areas_meanintensitys[:,1]
-    sp_mean_intensity = sp_centroids_areas_meanintensitys[:,2]
+r = Parallel(n_jobs=16)(delayed(foo2)(i) for i in range(len(sp_props)))
+sp_centroids_areas_meanintensitys = np.array(r)
+
+sp_centroids = sp_centroids_areas_meanintensitys[:,0]
+sp_areas = sp_centroids_areas_meanintensitys[:,1]
+sp_mean_intensity = sp_centroids_areas_meanintensitys[:,2]
 
 n_superpixels = len(np.unique(segmentation))
 

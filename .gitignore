@@ -1,5 +1,5 @@
-data/
-scratch/
+data
+scratch
 collection/
 
 # Byte-compiled / optimized / DLL files

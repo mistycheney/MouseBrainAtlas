@@ -1,0 +1,8 @@
+param_id,min_wavelen,max_wavelen,freq_step,theta_interval,n_superpixels,slic_compactness,slic_sigma,n_texton
+0,5,40,2,15,200,5,10,20
+1,,,1.41,,,,,
+2,10,80,2,,,,,
+3,10,80,1.41,,,,,
+4,20,160,2,,,,,
+5,,,,,500,20,5,
+6,,,,,1000,10,5,

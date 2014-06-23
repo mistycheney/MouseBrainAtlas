@@ -21,7 +21,7 @@ In the notebook, specify the inputs:
 
 The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. 
 
-Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running this script on the local machine. <script src="https://gist.github.com/mistycheney/8e31ea126e23011871e6.js"></script>
+Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [this script](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
 
 <a name="param"></a> Parameters
 -----

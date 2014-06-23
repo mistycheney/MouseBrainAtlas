@@ -14,3 +14,14 @@ Parameters are set [in this spreadsheet](https://docs.google.com/spreadsheets/d/
 * **slic_compactness**: larger value leads to more square segmentation. Default 5.
 * **slic_sigma**: width of Gaussian kernel used in pre-smoothing before segmentation. Default 10.
 * **n_texton**: number of texton, or the number of clusters when doing rotation-invariant k-means over Gabor responses.
+
+
+cd into `notebooks/`
+
+start iPython notebook `ManagerScriptV1`
+
+Adjust [the parameter spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit#gid=0)
+
+
+
+ManagerScriptV1 sets and calls CrossValidationPipelineScriptShellNoMagicV1.py

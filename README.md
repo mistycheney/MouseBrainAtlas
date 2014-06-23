@@ -12,14 +12,14 @@ Output are at `/oasis/scratch/csd181/yuncong/output`
 Usage
 -----
 
-The entrance code is an ipython notebook `ManagerScriptV1` under `notebooks/`.
+The main script is an ipython notebook `ManagerScriptV1` under `notebooks/`.
 
 In the notebook, specify the inputs:
 * dataset name, e.g. `dataset_name = 'PMD1305_reduce0_region0'`
 * image index, e.g. `image_idx = 244`
 * parameter id, e.g. `param_id = 5`
 
-The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py`.
+The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments.
 
 <a name="param"></a> Parameters
 -----

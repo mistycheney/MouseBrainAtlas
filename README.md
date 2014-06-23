@@ -19,7 +19,9 @@ In the notebook, specify the inputs:
 * image index, e.g. `image_idx = 244`
 * parameter id, e.g. `param_id = 5`
 
-The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path.
+The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. 
+
+Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running this script on the local machine. <script src="https://gist.github.com/mistycheney/8e31ea126e23011871e6.js"></script>
 
 <a name="param"></a> Parameters
 -----
@@ -36,5 +38,3 @@ Parameters are set [in this spreadsheet](https://docs.google.com/spreadsheets/d/
 * **n_texton**: number of texton, or the number of clusters when doing rotation-invariant k-means over Gabor responses.
 
 
-
-ManagerScriptV1 sets and calls CrossValidationPipelineScriptShellNoMagicV1.py

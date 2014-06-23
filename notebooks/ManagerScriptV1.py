@@ -79,27 +79,5 @@ for param_id in [0]:
     param = [p for p in parameters if p['param_id'] == param_id][0]
     json.dump(param, open(param_file, 'w'))
 
-    %run CrossValidationPipelineScriptShellNoMagic.py {param_file} {img_path} -c {cache_dir}
-
-# <codecell>
-
-from skimage.io._plugins import freeimage_plugin as fi
-image = np.zeros((32, 256, 256), 'uint16')
-fi.write_multipage(image, 'multipage.tif')
-
-# <codecell>
-
-import tifffile
-multipage = manager_utilities.regulate_images([segmentation, textonmap, texton_saliency_map])
-multipage = multipage.astype(np.uint16)
-tifffile.imsave(os.path.join(args.cache_dir, 'multipage.tif'), multipage)
-
-# <markdowncell>
-
-# View or download the results here
-
-# <codecell>
-
-!rm scratch/{img_name}_param{param_id}_*.tif
-!convert scratch/{img_name}_param{param_id}_*.tif all.tif
+    %run CrossValidationPipelineScriptShellNoMagicV1.py {param_file} {img_path} -c {cache_dir}
 

@@ -67,8 +67,12 @@ else:
 # extract the bounding box at specific reduce level
 level = args.reduce_level
 
+bbox_dir, bbox_fn = os.path.split(args.bbox_file)
+bbox_name, _ = os.path.splitext(bbox_fn)
+bbox_name = bbox_name.split('_')[0]
+
 if args.out_dir is None:
-    output_dir = os.path.join(DATA_DIR, stack_name+'_reduce%d'%level)
+    output_dir = os.path.join(DATA_DIR, stack_name+'_reduce%d_%s'%(level, bbox_name))
 else:
     output_dir = os.path.join(DATA_DIR, args.out_dir)
     
@@ -79,7 +83,7 @@ for jp2 in glob.iglob('*.jp2'):
     m = re.match('.*_([0-9]{4}).jp2', jp2)
     idx = int(m.groups()[0])
     if idx < args.start_frame or idx > args.stop_frame: continue
-    tif = '%s_%04d_reduce%d.tif'%(stack_name, idx, level)
+    tif = '%s_reduce%d_%s_%04d.tif'%(stack_name, level, bbox_name, idx)
     top,left,height,width = bbox[idx]
 
     command = "kdu_expand -i '%s' -o '%s' -reduce %d -region '{%f,%f},{%f,%f}'"%(jp2, os.path.join(output_dir, tif),

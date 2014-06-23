@@ -19,7 +19,7 @@ In the notebook, specify the inputs:
 * image index, e.g. `image_idx = 244`
 * parameter id, e.g. `param_id = 5`
 
-The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1`.
+The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py`.
 
 <a name="param"></a> Parameters
 -----

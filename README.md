@@ -7,23 +7,19 @@ Project files are at `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData`
 
-Output are at `/oasis/scratch/csd181/yuncong`
+Output are at `/oasis/scratch/csd181/yuncong/output`
 
 Usage
 -----
 
-```bash
-cd Brain/notebooks
-ipython notebook ManagerScriptV1
-```
+The entrance code is an ipython notebook `ManagerScriptV1` under `notebooks/`.
 
-Adjust [parameter spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit#gid=0). Meanings of all parameter are explained [here](#param).
-
-Specify the inputs:
+In the notebook, specify the inputs:
 * dataset name, e.g. `dataset_name = 'PMD1305_reduce0_region0'`
 * image index, e.g. `image_idx = 244`
 * parameter id, e.g. `param_id = 5`
 
+The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1`.
 
 <a name="param"></a> Parameters
 -----

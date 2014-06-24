@@ -13,9 +13,9 @@ from skimage.color import gray2rgb
 
 # <codecell>
 
-def load_array(suffix, img_name, param_id, cache_dir='scratch'):
+def load_array(suffix, img_name, param_id, output_dir):
     result_name = img_name + '_param' + str(param_id)
-    arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
+    arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
     return arr
@@ -73,7 +73,7 @@ def get_img_filename(suffix, img_name, param_id, cache_dir='scratch', ext='tif')
 
 # <codecell>
 
-def load_parameters(params_file, dump_dir='../params', redownload=False):
+def load_parameters(params_file, dump_dir, redownload=False):
 
     import csv
     

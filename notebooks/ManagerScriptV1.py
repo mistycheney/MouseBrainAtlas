@@ -8,6 +8,7 @@
 
 import os
 from IPython.display import FileLink, Image, FileLinks
+import itertools
 import manager_utilities
 
 # <markdowncell>
@@ -16,13 +17,13 @@ import manager_utilities
 
 # <codecell>
 
-scratch_dir = 'scratch/output'
+output_dir = '../output'
 data_dir = '../data'
 param_dump_dir = '../params'
 
-dataset_name = 'PMD1305_reduce0_region0'
-img_idxs = 244
-param_ids = [5]
+dataset_name = 'PMD1305_reduce2_region0'
+img_idxs = [244,245]
+param_ids = [2,3]
 
 # <markdowncell>
 
@@ -40,12 +41,12 @@ parameters = manager_utilities.load_parameters('params.csv', redownload=False, d
 
 %%time
 
-for img_idx, param_id in zip(img_idxs, param_ids):
+for img_idx, param_id in itertools.product(img_idxs, param_ids):
     img_path = os.path.join(data_dir, dataset_name, dataset_name + '_%04d.tif'%img_idx)
     param_file = os.path.join(param_dump_dir, 'param%d.json'%param_id)
-    output_dir = os.path.join(scratch_dir, dataset_name + '_%04d'%img_idx + '_param%d'%param_id)
     
     %run CrossValidationPipelineScriptShellNoMagicV1.py {param_file} {img_path} {output_dir} 
+    print '\n'
 
 # <codecell>
 

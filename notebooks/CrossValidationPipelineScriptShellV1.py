@@ -36,19 +36,6 @@ import glob, re, os, sys, subprocess, argparse
 
 # <codecell>
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("param_file", type=str, help="parameter file name")
-# parser.add_argument("img_file", type=str, help="path to image file")
-# # parser.add_argument("-of", "--output_feature", action='store_true', help="whether to output feature array")
-# # parser.add_argument("-ot", "--output_textonmap", action='store_true', help="whether to output textonmap file")
-# # parser.add_argument("-od", "--output_dirmap", action='store_true', help="whether to output dirmap file")
-# # parser.add_argument("-os", "--output_segmentation", action='store_true', help="whether to output superpixel segmentation file")
-# parser.add_argument("-c", "--cache_dir", default='scratch', help="directory to store outputs")
-# args = parser.parse_args()
-
-# img_dir = '../data/PMD1305_reduce2_region0'
-# img_name_full = 'PMD1305_reduce2_region0_0244.tif'
-
 img_dir = '../data/PMD1305_reduce2_region2'
 img_name_full = 'PMD1305_reduce2_region2_0001.tif'
 
@@ -56,48 +43,48 @@ img_path = os.path.join(img_dir, img_name_full)
 img_name, ext = os.path.splitext(img_name_full)
 
 param_id = 5
-param_file = '../params/param%d.json'%param_id
 
 class args:
-    param_file = param_file
+    param_file = '../params/param%d.json'%param_id
     img_file = img_path
-    output_feature = True
-    output_textonmap = True
-    output_dirmap = True
-    output_segmentation = True
-    cache_dir = '../scratch'
+    output_dir = '../output'
 
 # <codecell>
 
 def load_array(suffix):
     return manager_utilities.load_array(suffix, img_name, 
-                                 params['param_id'], args.cache_dir)
+                                 params['param_id'], args.output_dir)
 
 def save_array(arr, suffix):
     manager_utilities.save_array(arr, suffix, img_name, 
-                                 params['param_id'], args.cache_dir)
+                                 params['param_id'], args.output_dir)
         
 def save_img(img, suffix):
     manager_utilities.save_img(img, suffix, img_name, params['param_id'], 
-                               args.cache_dir, overwrite=True)
+                               args.output_dir, overwrite=True)
 
 def get_img_filename(suffix, ext='tif'):
-    return manager_utilities.get_img_filename(suffix, img_name, params['param_id'], args.cache_dir, ext=ext)
+    return manager_utilities.get_img_filename(suffix, img_name, params['param_id'], args.output_dir, ext=ext)
+
+# <codecell>
+
+params = json.load(open(args.param_file))
+
+p, ext = os.path.splitext(args.img_file)
+img_dir, img_name = os.path.split(p)
+img = cv2.imread(args.img_file, 0)
+im_height, im_width = img.shape[:2]
+
+print 'read %s' % args.img_file
+
+result_name = img_name + '_param' + str(params['param_id'])
+result_dir = os.path.join(args.output_dir, result_name)
+if not os.path.exists(result_dir):
+    os.makedirs(result_dir)
 
 # <codecell>
 
 %%time
-
-params = json.load(open(args.param_file))
-p, ext = os.path.splitext(args.img_file)
-img_dir, img_name = os.path.split(p)
-img = cv2.imread(os.path.join(args.img_file), 0)
-im_height, im_width = img.shape[:2]
-
-output_dir = os.path.join(args.cache_dir, img_name)
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
 print '=== finding foreground mask ==='
 mask = foreground_mask(rescale(img, .5**3), min_size=100)
 mask = resize(mask, img.shape) > .5

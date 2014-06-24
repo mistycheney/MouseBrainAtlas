@@ -46,18 +46,18 @@ args = parser.parse_args()
 
 def load_array(suffix):
     return manager_utilities.load_array(suffix, img_name, 
-                                 params['param_id'], args.cache_dir)
+                                 params['param_id'], args.output_dir)
 
 def save_array(arr, suffix):
     manager_utilities.save_array(arr, suffix, img_name, 
-                                 params['param_id'], args.cache_dir)
+                                 params['param_id'], args.output_dir)
         
 def save_img(img, suffix):
     manager_utilities.save_img(img, suffix, img_name, params['param_id'], 
-                               args.cache_dir, overwrite=True)
+                               args.output_dir, overwrite=True)
 
 def get_img_filename(suffix, ext='tif'):
-    return manager_utilities.get_img_filename(suffix, img_name, params['param_id'], args.cache_dir, ext=ext)
+    return manager_utilities.get_img_filename(suffix, img_name, params['param_id'], args.output_dir, ext=ext)
 
 # <codecell>
 
@@ -66,13 +66,16 @@ params = json.load(open(args.param_file))
 p, ext = os.path.splitext(args.img_file)
 img_dir, img_name = os.path.split(p)
 img = cv2.imread(args.img_file, 0)
+im_height, im_width = img.shape[:2]
 
 print 'read %s' % args.img_file
 
-im_height, im_width = img.shape[:2]
+result_name = img_name + '_param' + str(params['param_id'])
+result_dir = os.path.join(args.output_dir, result_name)
+if not os.path.exists(result_dir):
+    os.makedirs(result_dir)
 
-if not os.path.exists(args.output_dir):
-    os.makedirs(args.output_dir)
+# <codecell>
 
 print '=== finding foreground mask ==='
 mask = foreground_mask(rescale(img, .5**3), min_size=100)

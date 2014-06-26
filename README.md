@@ -38,13 +38,12 @@ For example, the following command downloads the relevant data computed, using p
 
 Data
 ----
-
-
 The original data are tar.gz files. Use [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory to generate a new dataset.
 <pre>
 usage: preprocess.py [-h] [-b BBOX_FILE] [-i DATA_DIR] [-o OUT_DIR]
                      stack_name start_frame stop_frame reduce_level
 </pre>
+**Yuncong** add in the script more documentation, including the format of the bbox file etc.
 
 Data from Partha:
 Original data is in the directories whose names are PMD1305  PMD1328  PMD1337  PMD1340  PMD1342

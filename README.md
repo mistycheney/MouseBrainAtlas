@@ -9,8 +9,13 @@ Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData`
 
 Output are at `/oasis/scratch/csd181/yuncong/output`
 
+Yoav to check that these are public
+
 Usage
 -----
+
+
+Remove the use of the notebook.
 
 The main script is an ipython notebook `ManagerScriptV1` under `notebooks/`.
 
@@ -20,6 +25,8 @@ In the notebook, specify the inputs:
 * parameter id, e.g. `param_id = 5`
 
 The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. 
+
+Yuncong to explain how to run thing using just the notebook and taking parameters from a file (not google doc)
 
 Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all.sh`](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
 
@@ -31,12 +38,18 @@ For example, the following command downloads the relevant data computed, using p
 
 Data
 ----
-The original data are tar.gz files. Use [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory to generate a new dataset.
 
+
+The original data are tar.gz files. Use [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory to generate a new dataset.
 <pre>
 usage: preprocess.py [-h] [-b BBOX_FILE] [-i DATA_DIR] [-o OUT_DIR]
                      stack_name start_frame stop_frame reduce_level
 </pre>
+
+Data from Partha:
+Original data is in the directories whose names are PMD1305  PMD1328  PMD1337  PMD1340  PMD1342
+
+Files after processing are in directories with names of the form: PMD1305_reduce0_region0  where reduce0 means no reduction in resolution and region0 defines a bounding box containing the stem.
 
 Output
 -----

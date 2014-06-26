@@ -21,7 +21,41 @@ In the notebook, specify the inputs:
 
 The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. 
 
-Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [this script](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
+Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all.sh`](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
+
+<pre>
+Usage: ./download_all.sh <dataset_name> <image_idx> <param_id>
+For example, the following command downloads the relevant data computed, using parameter set 0, on image 244 in the dataset PMD1305_reduce0_region0.
+./download_all.sh PMD1305_reduce0_region0 244 0
+</pre>
+
+Data
+----
+The original data are tar.gz files. Use [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory to generate a new dataset.
+
+<pre>
+usage: preprocess.py [-h] [-b BBOX_FILE] [-i DATA_DIR] [-o OUT_DIR]
+                     stack_name start_frame stop_frame reduce_level
+</pre>
+
+Output
+-----
+A result set is the set of outputs from a particular image using a particular parameter setting. All results are stored in the output directory. Each result set is a sub-directory named `<dataset name>_<image index>_param<parameter id>`. The content of each sub-directory are .npy files or image files with different `_<suffix>`. 
+
+`<suffix>` is one of:
+* `features.npy`: Gabor filter responses. shape (`im_height`, `im_width`, `n_features`)
+* `segmentation.npy`: same size as the image, each pixel is an integer indicating the index of the suerpixel it belongs to.
+* `sp_dir_hist_normalized.npy`: energy distribution over different directions for each superpixel, shape (`n_superpixel`, `n_angle`)
+* `sp_texton_hist_normalized.npy`: texton distribution for each superpixel, shape (`n_superpixel`, `n_texton`)
+* `textonmap.npy`: same size as the image, each pixel is an integer from 0 to `n_texton-1` or -1 for background, shape (`im_height`, `im_width`)
+
+* `segmentation.png`
+* `textonmap.png`
+* `texton_saliencymap.png`
+
+
+Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of available results.
+
 
 <a name="param"></a> Parameters
 -----

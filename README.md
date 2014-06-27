@@ -5,6 +5,8 @@ Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
 This currently includes two scripts: `feature_extraction_pipeline.py` and `generate_dataset.py`
+It is recommended to run the code on gcn (instead of ion).
+
 
 Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 

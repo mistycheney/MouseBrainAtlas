@@ -11,11 +11,11 @@ Output are at `/oasis/scratch/csd181/yuncong/output`
 
 **Yoav** to check that these are public
 
-Usage
+Feature Extraction
 -----
 
-The executable script `CrossValidationPipelineScriptShellNoMagicV1.py` is under project directory `Brain/notebooks`.
-Run `python CrossValidationPipelineScriptShellNoMagicV1.py -h` to see the usage.
+The executable script `feature_extraction_pipeline.py` is under project directory `Brain/notebooks`.
+Run `python feature_extraction_pipeline.py -h` to see the detailed help message.
 
 Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all.sh`](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
 Just type `./download_all.sh` to see the usage.

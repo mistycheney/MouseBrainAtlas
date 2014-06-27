@@ -3,7 +3,7 @@ BrainSaliencyDetection
 
 Framework for detecting salient regions in mouse brain images
 
-Project files are at `/oasis/projects/nsf/csd181/yuncong/Brain`
+Codes are at `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
 This currently includes two scripts: `feature_extraction_pipeline.py` and `preprocess_script.py`

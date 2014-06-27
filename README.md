@@ -56,7 +56,7 @@ A result set is the set of outputs from a particular image using a particular pa
 * `texton_saliencymap.png`
 
 
-Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of available results.
+Running `ssh <gordon username>@ion-21-14.sdsc.edu 'ls -d Brain/output/*/'` from local machine returns a list of available results.
 
 
 <a name="param"></a> Parameters

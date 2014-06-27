@@ -1,16 +1,15 @@
 BrainSaliencyDetection
 ======================
 
-Framework for detecting salient regions in mouse brain images
-
-Codes are at `/oasis/projects/nsf/csd181/yuncong/Brain`
+Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
 This currently includes two scripts: `feature_extraction_pipeline.py` and `generate_dataset.py`
 
-Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
+Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 
-Output are at `/oasis/scratch/csd181/yuncong/output`
+Output are in `/oasis/scratch/csd181/yuncong/output`
+
 
 **Yoav** to check that these are public
 
@@ -62,6 +61,11 @@ Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of a
 
 <a name="param"></a> Parameters
 -----
+
+Parameter settings are specified in `params.csv` under the project directory. 
+
+To make editing the parameters easier, you can also modify [this google spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit), and then use [this script](https://gist.github.com/mistycheney/be1f758bfcd5f852c9b5#file-sync_params_google_spreadsheet-py) to download the corresponding csv file to overwrite `params.csv`.
+
 #### Gabor filter bank parameters ##
 * **param_id**: an integer id for this set of parameters, default parameter is id 0
 * **min_wavelen**: minimum wavelength of Gabor filter, in number of pixels, default 5
@@ -69,9 +73,6 @@ Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of a
 * **freq_step**: multiply factor to the next frequency, default 2 (same as factor for wavelength)
 * **theta_interval**: interval of Gabor filter orientations, in degrees, default 15.
 * **bandwidth**: larger value means narrower Gaussian in spatial domain, thus smaller kernel size. default 1.0
-
-**Yuncong** What about the other parameters that define a filter: the width of the gaussian envelope, the size of the filter in pixels. I would like those exposed, and their default value equal to the current setting. Are there any other parameters?
-
 
 #### Segmentation parameters ##
 * **n_superpixels**: desired number of superpixels in the over-segmentation, default 100. Large number leads to smaller superpixels. Default 100.

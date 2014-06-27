@@ -6,7 +6,7 @@ Framework for detecting salient regions in mouse brain images
 Codes are at `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
-This currently includes two scripts: `feature_extraction_pipeline.py` and `preprocess_script.py`
+This currently includes two scripts: `feature_extraction_pipeline.py` and `generate_dataset.py`
 
 Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 
@@ -33,7 +33,7 @@ The original data are 10 tar.gz files with names such as `PMD1305.tar.gz`. Each 
 
 The other directories contains particular un-compressed subsets of the images, in single-page `tif` format. Each subset is referred to as a *dataset*. For example, `PMD1305_region0` is the dataset that includes images 240 through 250 in stack PMD1305. There is no enforced naming rules for a dataset. In this example, `region0` refers to a bounding box containing the brainstem. The dataset definition files are stored in `dataset_defs`.
 
-To generate a new dataset, use the script [`generate_dataset.py`]. Just type `python generate_dataset.py -h` to see the detailed help message.
+To generate a new dataset, use the script `generate_dataset.py`. Just type `python generate_dataset.py -h` to see the detailed help message.
 
 **Data from David**: 
 

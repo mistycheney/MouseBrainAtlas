@@ -62,9 +62,6 @@ Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of a
 
 <a name="param"></a> Parameters
 -----
-Parameters are specified in [this spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit#gid=0). ManagerScriptV1 will automatically read this spreadsheet and know about all the parameter settings. If you have made some change to the spreadsheet, set the flag `redownload=True` for the `load_parameters` function in ManagerScriptV1.
-
-
 #### Gabor filter bank parameters ##
 * **param_id**: an integer id for this set of parameters, default parameter is id 0
 * **min_wavelen**: minimum wavelength of Gabor filter, in number of pixels, default 5

@@ -5,7 +5,7 @@ Framework for detecting salient regions in mouse brain images
 
 Project files are at `/oasis/projects/nsf/csd181/yuncong/Brain`
 
-Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData`
+Data are at `/oasis/projects/nsf/csd181/yuncong`
 
 Output are at `/oasis/scratch/csd181/yuncong/output`
 
@@ -22,19 +22,21 @@ Just type `./download_all.sh` to see the usage.
 
 Data
 ----
-The original data are tar.gz files. Use [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory to generate a new dataset.
-<pre>
-usage: preprocess.py [-h] [-b BBOX_FILE] [-i DATA_DIR] [-o OUT_DIR]
-                     stack_name start_frame stop_frame reduce_level
-</pre>
-**Yuncong** add in the script more documentation, including the format of the bbox file etc.
+*Data from Partha*:
 
-Data from Partha:
-Original data is in the directories whose names are PMD1305  PMD1328  PMD1337  PMD1340  PMD1342
+Data are stored at `/oasis/projects/nsf/csd181/yuncong/ParthaData`.
 
-Data from David: 
+The original data are 10 tar.gz files with names such as `PMD1305.tar.gz`. Each tarball contains a stack of images. Untarred jpeg2000 files from each tarball are stored in directories `PMD1305`, `PMD1328`, etc.
 
-Files after processing are in directories with names of the form: PMD1305_reduce0_region0  where reduce0 means no reduction in resolution and region0 defines a bounding box containing the stem.
+The other directories contains particular un-compressed subsets of the images, in single-page `tif` format. Each subset is referred to as a *dataset*. For example, `PMD1305_reduced0_region0` is the dataset that includes images 240 through 250 in stack PMD1305. There is no enforced naming rules for a dataset. In this example, `reduce0` means no reduction in resolution and `region0` defines a bounding box containing the stem. The definition of a dataset is stored in `dataset_defs`.
+
+To generate a new dataset, use the script [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory. Just type `python preprocess.py -h` to see the usage.
+
+*Data from David*: 
+
+Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
+
+Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in directories `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. `x20` contains the images with the highest resolution.
 
 Output
 -----

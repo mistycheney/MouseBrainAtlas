@@ -8,7 +8,7 @@ Project files are at `/oasis/projects/nsf/csd181/yuncong/Brain`
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
 This currently includes two scripts: `feature_extraction_pipeline.py` and `preprocess_script.py`
 
-Data are at `/oasis/projects/nsf/csd181/yuncong`
+Data are at `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 
 Output are at `/oasis/scratch/csd181/yuncong/output`
 

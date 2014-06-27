@@ -14,27 +14,11 @@ Output are at `/oasis/scratch/csd181/yuncong/output`
 Usage
 -----
 
-
-Remove the use of the notebook.
-
-The main script is an ipython notebook `ManagerScriptV1` under `notebooks/`.
-
-In the notebook, specify the inputs:
-* dataset name, e.g. `dataset_name = 'PMD1305_reduce0_region0'`
-* image index, e.g. `image_idx = 244`
-* parameter id, e.g. `param_id = 5`
-
-The notebook then calls the script `CrossValidationPipelineScriptShellNoMagicV1.py` with proper arguments. 
-
-**Yuncong** to explain how to run thing using just the notebook and taking parameters from a file (not google doc)
+The executable script `CrossValidationPipelineScriptShellNoMagicV1.py` is under project directory `Brain/notebooks`.
+Run `python CrossValidationPipelineScriptShellNoMagicV1.py -h` to see the usage.
 
 Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all.sh`](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
-
-<pre>
-Usage: ./download_all.sh <dataset_name> <image_idx> <param_id>
-For example, the following command downloads the relevant data computed, using parameter set 0, on image 244 in the dataset PMD1305_reduce0_region0.
-./download_all.sh PMD1305_reduce0_region0 244 0
-</pre>
+Just type `./download_all.sh` to see the usage.
 
 Data
 ----

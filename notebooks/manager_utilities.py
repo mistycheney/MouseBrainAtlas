@@ -23,11 +23,11 @@ def load_array(suffix, img_name, param_id, output_dir):
 def save_array(arr, suffix, img_name, param_id, cache_dir='scratch'):
     result_name = img_name + '_param' + str(param_id)
     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
-    if not os.path.exists(arr_file):
-        np.save(arr_file, arr)
-        print '%s saved to %s' % (suffix, arr_file)
-    else:
-        print '%s already exists' % (arr_file)
+#     if not os.path.exists(arr_file):
+    np.save(arr_file, arr)
+    print '%s saved to %s' % (suffix, arr_file)
+#     else:
+#         print '%s already exists' % (arr_file)
         
 def regulate_images(imgs):
     return np.array(map(regulate_img, imgs))

@@ -21,9 +21,9 @@ output_dir = '../output'
 data_dir = '../data'
 param_dump_dir = '../params'
 
-dataset_name = 'PMD1305_reduce2_region0'
-img_idxs = [244,245]
-param_ids = [2,3]
+dataset_name = 'PMD1305_reduce2_region1'
+img_idxs = [160]
+param_ids = [10, 17, 29]
 
 # <markdowncell>
 
@@ -31,7 +31,7 @@ param_ids = [2,3]
 
 # <codecell>
 
-parameters = manager_utilities.load_parameters('params.csv', redownload=False, dump_dir=param_dump_dir)
+parameters = manager_utilities.load_parameters('params.csv', redownload=True, dump_dir=param_dump_dir)
 
 # <markdowncell>
 
@@ -50,9 +50,9 @@ for img_idx, param_id in itertools.product(img_idxs, param_ids):
 
 # <codecell>
 
-Image(manager_utilities.get_img_filename('segmentation', img_name, param_id, cache_dir=cache_dir, ext='png'))
+#Image(manager_utilities.get_img_filename('segmentation', img_name, param_id, cache_dir=cache_dir, ext='png'))
 
 # <codecell>
 
-Image(manager_utilities.get_img_filename('segmentation', img_name, param_id, cache_dir=cache_dir, ext='png'))
+#Image(manager_utilities.get_img_filename('segmentation', img_name, param_id, cache_dir=cache_dir, ext='png'))
 

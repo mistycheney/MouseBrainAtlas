@@ -36,10 +36,28 @@ import glob, re, os, sys, subprocess, argparse
 
 # <codecell>
 
-parser = argparse.ArgumentParser()
-parser.add_argument("param_file", type=str, help="parameter file name")
+parser = argparse.ArgumentParser(
+formatter_class=argparse.RawDescriptionHelpFormatter,
+description='Execute feature extraction pipeline',
+epilog="""
+The following command processes image PMD1305_region0_reduce2_0244.tif using the parameter setting number 10.
+python %s /oasis/projects/nsf/csd181/yuncong/ParthaData/PMD1305_region0/PMD1305_region0_reduce2_0244.tif 10
+
+This script loads the parameters from /oasis/projects/nsf/csd181/yuncong/Brain/data/params.csv. 
+The meanings of all parameters are explained in GitHub README.
+
+The results are stored in a sub-directory under the output directory. 
+The sub-directory is named <dataset name>_reduce<reduce level>_<image index>_param<parameter id>.
+The content of this sub-directory are the .npy files or image files with different _<suffix>. See GitHub README for details of these files.
+
+* GitHub README *
+https://github.com/mistycheney/BrainSaliencyDetection/blob/master/README.md
+"""%(os.path.basename(sys.argv[0]), ))
+
 parser.add_argument("img_file", type=str, help="path to image file")
-parser.add_argument("output_dir", type=str, help="directory to store outputs")
+parser.add_argument("param_id", type=str, help="parameter id")
+parser.add_argument("-o", "--output_dir", type=str, help="output directory (default: %(default)s)", default='/oasis/scratch/csd181/yuncong/output')
+parser.add_argument("-p", "--params_file", type=str, help="csv file of all parameter settings (default: %(default)s)", default='/oasis/projects/nsf/csd181/yuncong/Brain/data/params.csv')
 args = parser.parse_args()
 
 # <codecell>
@@ -61,17 +79,38 @@ def get_img_filename(suffix, ext='tif'):
 
 # <codecell>
 
-params = json.load(open(args.param_file))
+params_file = os.path.realpath(args.params_file)
+parameters = dict([])
+with open(params_file, 'r') as f:
+    param_reader = csv.DictReader(f)
+    for param in param_reader:
+        for k in param.iterkeys():
+            if param[k] != '':
+                try:
+                    param[k] = int(param[k])
+                except ValueError:
+                    param[k] = float(param[k])
+        if param['param_id'] == 0:
+            default_param = param
+        else:
+            for k, v in param.iteritems():
+                if v == '':
+                    param[k] = default_param[k]
+        parameters[param['param_id']] = param
 
-p, ext = os.path.splitext(args.img_file)
-img_dir, img_name = os.path.split(p)
-img = cv2.imread(args.img_file, 0)
+param = parameters[args.param_id]
+        
+img_file = os.path.realpath(args.img_file)
+img_path, ext = os.path.splitext(img_file)
+img_dir, img_name = os.path.split(img_path)
+img = cv2.imread(img_file, 0)
 im_height, im_width = img.shape[:2]
+print 'read %s' % img_file
 
-print 'read %s' % args.img_file
+output_dir = os.path.realpath(args.output_dir)
 
 result_name = img_name + '_param' + str(params['param_id'])
-result_dir = os.path.join(args.output_dir, result_name)
+result_dir = os.path.join(output_dir, result_name)
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
 
@@ -128,9 +167,9 @@ n_feature = features.shape[-1]
 # <codecell>
 
 print 'crop border where filters show border effects'
-features = features[max_kern_size:-max_kern_size, max_kern_size:-max_kern_size, :]
-img = img[max_kern_size:-max_kern_size, max_kern_size:-max_kern_size]
-mask = mask[max_kern_size:-max_kern_size, max_kern_size:-max_kern_size]
+features = features[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2, :]
+img = img[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
+mask = mask[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 im_height, im_width = img.shape[:2]
 
 # <codecell>
@@ -147,9 +186,9 @@ except IOError:
     n_data = X.shape[0]
     n_splits = 1000
     n_sample = 10000
-    centroids = random.sample(X, n_texton)
+    centroids = np.array(random.sample(X, n_texton))
     
-    n_iter = 5
+    n_iter = 10
 
     def compute_dist_per_proc(X_partial, c_all_rot):
         D = cdist(X_partial, c_all_rot, 'sqeuclidean')
@@ -177,8 +216,9 @@ except IOError:
             rot = np.concatenate(np.roll(np.split(d, n_freq), i))
             centroids_new[l] += rot
 
-        counts = np.bincount(labels)
+        counts = np.bincount(labels, minlength=n_texton)
         centroids_new /= counts[:, np.newaxis]
+        centroids_new[counts==0] = centroids[counts==0]
         print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
 
         centroids = centroids_new
@@ -226,11 +266,9 @@ def foo2(i):
     return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity
 
 r = Parallel(n_jobs=16)(delayed(foo2)(i) for i in range(len(sp_props)))
-sp_centroids_areas_meanintensitys = np.array(r)
-
-sp_centroids = sp_centroids_areas_meanintensitys[:,0]
-sp_areas = sp_centroids_areas_meanintensitys[:,1]
-sp_mean_intensity = sp_centroids_areas_meanintensitys[:,2]
+sp_centroids = np.array([s[0] for s in r])
+sp_areas = np.array([s[1] for s in r])
+sp_mean_intensity = np.array([s[2] for s in r])
 
 n_superpixels = len(np.unique(segmentation))
 

@@ -22,7 +22,7 @@ Just type `./download_all.sh` to see the usage.
 
 Data
 ----
-*Data from Partha*:
+**Data from Partha**:
 
 Data are stored at `/oasis/projects/nsf/csd181/yuncong/ParthaData`.
 
@@ -32,7 +32,7 @@ The other directories contains particular un-compressed subsets of the images, i
 
 To generate a new dataset, use the script [`preprocess.py`](https://gist.github.com/mistycheney/4e5cafdf049b9cdc478c) under the data directory. Just type `python preprocess.py -h` to see the usage.
 
-*Data from David*: 
+**Data from David**: 
 
 Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
 

@@ -30,7 +30,7 @@ Data are stored at `/oasis/projects/nsf/csd181/yuncong/ParthaData`.
 
 The original data are 10 tar.gz files with names such as `PMD1305.tar.gz`. Each tarball contains a stack of images. Untarred jpeg2000 files from each tarball are stored in directories `PMD1305`, `PMD1328`, etc.
 
-The other directories contains particular un-compressed subsets of the images, in single-page `tif` format. Each subset is referred to as a *dataset*. For example, `PMD1305_region0` is the dataset that includes images 240 through 250 in stack PMD1305. There is no enforced naming rules for a dataset. In this example, `region0` refers to a bounding box containing the brainstem. The dataset definition files are stored in `dataset_defs`.
+The other directories contains un-compressed subsets of the images at a particular resolution, in tif format. Each subset is referred to as a *dataset*. For example, `PMD1305_region0` is the dataset that includes images 240 through 250 in stack PMD1305. There is no enforced naming rules for a dataset. In this example, `region0` refers to a bounding box containing the brainstem. The dataset definition files are stored in `dataset_defs`.
 
 To generate a new dataset, use the script `generate_dataset.py`. Just type `python generate_dataset.py -h` to see the detailed help message.
 

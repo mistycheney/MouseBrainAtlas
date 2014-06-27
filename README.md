@@ -67,15 +67,20 @@ Running `ssh gcn 'ls -d Brain/output/*/'` from local machine returns a list of a
 * **min_wavelen**: minimum wavelength of Gabor filter, in number of pixels, default 5
 * **max_wavelen**: maximum wavelength of Gabor filter, in number of pixels, default 40
 * **freq_step**: multiply factor to the next frequency, default 2 (same as factor for wavelength)
-* **theta_interval**: interval of Gabor filter orientations, in degrees, defauly 15.
+* **theta_interval**: interval of Gabor filter orientations, in degrees, default 15.
+* **bandwidth**: larger value means narrower Gaussian in spatial domain, thus smaller kernel size. default 1.0
 
 **Yuncong** What about the other parameters that define a filter: the width of the gaussian envelope, the size of the filter in pixels. I would like those exposed, and their default value equal to the current setting. Are there any other parameters?
 
 
-#### Super-Pixel parameters ##
+#### Segmentation parameters ##
 * **n_superpixels**: desired number of superpixels in the over-segmentation, default 100. Large number leads to smaller superpixels. Default 100.
 * **slic_compactness**: larger value leads to more square segmentation. Default 5.
 * **slic_sigma**: width of Gaussian kernel used in pre-smoothing before segmentation. Default 10.
+
+#### Texton K-Means parameters ##
 * **n_texton**: number of texton, or the number of clusters when doing rotation-invariant k-means over Gabor responses.
+* **n_sample**: number of samples to use at each iteration of Kmeans. default 10,000 
+* **n_iter**: number of iterations of Kmeans. default 10
 
 

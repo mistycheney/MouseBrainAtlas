@@ -36,7 +36,7 @@ To generate a new dataset, use the script [`preprocess.py`](https://gist.github.
 
 Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
 
-Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in directories `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. `x20` contains the images with the highest resolution.
+Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
 
 Output
 -----

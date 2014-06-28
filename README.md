@@ -13,7 +13,20 @@ Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects
 Output are in `/oasis/scratch/csd181/yuncong/output`
 
 
-**Yoav** to check that these are public
+Example Workflow
+-----
+
+Below are the steps to process an image from DavidData.
+
+First log into Gordon
+<pre>
+cd Brain/scripts
+python feature_extraction_pipeline.py python feature_extraction_pipeline.py ../../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
+</pre>
+
+Then on local machine
+`./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0 output yuncong`
+
 
 Feature Extraction
 -----
@@ -21,8 +34,8 @@ Feature Extraction
 Feature extraction pipeline is implemented in the script `feature_extraction_pipeline.py`.
 Run `python feature_extraction_pipeline.py -h` to see the detailed help message.
 
-Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all.sh`](https://gist.github.com/mistycheney/8e31ea126e23011871e6) on the local machine.
-Just type `./download_all.sh` to see the usage.
+Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on the local machine.
+Just type `./download_all2.sh` to see the usage.
 
 Data
 ----

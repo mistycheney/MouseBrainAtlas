@@ -30,7 +30,7 @@ Then on local machine
 </pre>
 
 
-**Note**: Currently, background removal does not work well for David's data. Implementation of background removal is in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
+**Note**: Currently, foreground mask detection does not work well for David's data. It is implemented in the function `foreground_mask` in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
 
 Feature Extraction
 -----

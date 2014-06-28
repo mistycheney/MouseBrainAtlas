@@ -26,7 +26,7 @@ python feature_extraction_pipeline.py ../../DavidData/x1.25/RS141_2_x1.25_z0.tif
 
 Then on local machine
 <pre>
-./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0 output yuncong
+./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
 </pre>
 
 Feature Extraction

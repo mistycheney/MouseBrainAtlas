@@ -18,16 +18,17 @@ Example Workflow
 
 Below are the steps to process an image from DavidData.
 
-First log into Gordon
+First log into Gordon. Run the feature extraction pipeline.
 <pre>
 cd Brain/scripts
 python feature_extraction_pipeline.py ../../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
 </pre>
 
-Then on local machine
+Then download results to local machine using [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d).
 <pre>
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
 </pre>
+Just type `./download_all2.sh` to see the detailed help message.
 
 
 **Note**: Currently, foreground mask detection does not work well for David's data. It is implemented in the function `foreground_mask` in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
@@ -38,8 +39,6 @@ Feature Extraction
 Feature extraction pipeline is implemented in the script `feature_extraction_pipeline.py`.
 Run `python feature_extraction_pipeline.py -h` to see the detailed help message.
 
-Output will be generated in the sub-directory `<dataset name>_<image index>_param<parameter id>` under the output path. One can download the output by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on the local machine.
-Just type `./download_all2.sh` to see the usage.
 
 Data
 ----

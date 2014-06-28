@@ -29,6 +29,9 @@ Then on local machine
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
 </pre>
 
+
+**Note**: Currently, background removal does not work well for David's data. Implementation of background removal is in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
+
 Feature Extraction
 -----
 

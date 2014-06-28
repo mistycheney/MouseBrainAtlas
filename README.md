@@ -19,25 +19,25 @@ Example Workflow
 Below are the steps to process an image.
 
 First log into Gordon.
-<pre>
+```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts
-</pre>
+```
 
 Run the feature extraction pipeline.
-<pre>
+```shell
 # david data
 python feature_extraction_pipeline.py ../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
 # partha data
 python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif 10
-</pre>
+```
 
 Then download results to local machine using [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d).
-<pre>
+```shell
 # david data
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
 # partha data
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif PMD1305_region0_reduce2_0244_param10 output yuncong
-</pre>
+```
 Just type `./download_all2.sh` to see the detailed help message.
 
 

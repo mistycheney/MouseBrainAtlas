@@ -16,8 +16,6 @@ Output are in `/oasis/scratch/csd181/yuncong/output`
 Example Workflow
 -----
 
-Below are the steps to process an image.
-
 First log into Gordon.
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts

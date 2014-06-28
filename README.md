@@ -21,7 +21,7 @@ Below are the steps to process an image from DavidData.
 First log into Gordon
 <pre>
 cd Brain/scripts
-python feature_extraction_pipeline.py python feature_extraction_pipeline.py ../../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
+python feature_extraction_pipeline.py ../../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
 </pre>
 
 Then on local machine

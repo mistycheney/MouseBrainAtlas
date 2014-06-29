@@ -82,6 +82,7 @@ param = parameters[int(args.param_id)]
 img_file = os.path.realpath(args.img_file)
 img_path, ext = os.path.splitext(img_file)
 img_dir, img_name = os.path.split(img_path)
+
 img = cv2.imread(img_file, 0)
 im_height, im_width = img.shape[:2]
 print 'read %s' % img_file

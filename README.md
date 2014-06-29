@@ -46,7 +46,8 @@ Setup
 -----
 
 Make sure your virtualEnv has the following package installed:
-`sudo pip install numpy scipy matplotlib scikit-mage joblib`
+
+`sudo pip install numpy scipy matplotlib scikit-image joblib`
 
 run [`setup.sh`](https://gist.github.com/mistycheney/5964e03fa0a8539641b5) to set up PATH and PYTHONPATH for cv2 python package and `kdu_expand` executable.
 

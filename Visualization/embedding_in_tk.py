@@ -1,13 +1,30 @@
-"""
-Paint by numbers GUI
-Written by Yoav Freund
-"""
+#!/usr/bin/env python
+
+import matplotlib
+matplotlib.use('TkAgg')
+
+from numpy import arange, sin, pi
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+# implement the default mpl key bindings
+from matplotlib.backend_bases import key_press_handler
+
+from matplotlib.figure import Figure
+
 import numpy as np
 import pylab
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 import Image
 from time import time
+
+import sys
+if sys.version_info[0] < 3:
+    import Tkinter as Tk
+else:
+    import tkinter as Tk
+
+root = Tk.Tk()
+root.wm_title("Embedding in TK")
 
 #subsample image (this is put here to improve reaction time)
 from scipy.signal import convolve2d
@@ -56,7 +73,6 @@ def mark_super_pixels(axes,seg,seg_no,indexes,colors=['r'],alpha=0.2):
             w : white
             or http://www.w3schools.com/html/html_colornames.asp
     """
-    
     t0=time()
     Clist=['none']*seg_no
     nc=len(colors)
@@ -74,6 +90,7 @@ def on_pick(event):
     x = event.mouseevent.xdata
     y = event.mouseevent.ydata
     s = seg[y,x]
+    print('you pressed %s'%event.key)
     print 'x=',x,'y=',y,'seg=',s
     cbox_txt.set_text('x='+str(x)+', y='+str(y)+' seg='+str(seg[y,x]))
     mark_super_pixels(main_ax,seg,seg_no,[s],colors=['r'])
@@ -114,13 +131,42 @@ h,w=h2,w2
 
 fig = plt.figure(figsize=(8,8.0*h/w))
 main_ax = plt.axes([0.05, 0.1, 0.9,0.9], xticks=[], yticks=[])
-cbox_ax = plt.axes([0.0, 0.04, 0.04, 0.04], xticks=[], yticks=[])
-cbox_txt = cbox_ax.text(1.5, 0.5, "", transform=cbox_ax.transAxes,
-                        fontsize=20, va='center', ha='left')
+#cbox_ax = plt.axes([0.0, 0.04, 0.04, 0.04], xticks=[], yticks=[])
+#cbox_txt = cbox_ax.text(1.5, 0.5, "", transform=cbox_ax.transAxes,
+#     fontsize=20, va='center', ha='left')
 
 main_ax.imshow(bwaim,cmap=colormap,aspect='equal',picker=True)
 main_ax.imshow(borders,cmap=mpl.colors.ListedColormap(['w','m']),alpha=0.5)
-fig.canvas.mpl_connect('pick_event', on_pick)
+# fig.canvas.mpl_connect('click_event', on_pick)
 
-plt.show()
+#plt.show()
+
+# a tk.DrawingArea
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas.show()
+canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+toolbar = NavigationToolbar2TkAgg( canvas, root )
+toolbar.update()
+canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+def on_key_event(event):
+    print('you pressed %s'%event.key)
+    key_press_handler(event, canvas, toolbar)
+
+canvas.mpl_connect('button_press_event', lambda event:canvas._tkcanvas.focus_set())
+canvas.mpl_connect('click', on_pick)
+
+def _quit():
+    root.quit()     # stops mainloop
+    root.destroy()  # this is necessary on Windows to prevent
+                    # Fatal Python Error: PyEval_RestoreThread: NULL tstate
+
+button = Tk.Button(master=root, text='Quit', command=_quit)
+button.pack(side=Tk.BOTTOM)
+
+Tk.mainloop()
+# If you put root.destroy() here, it will cause an error if
+# the window is closed with the window manager.
+
 

@@ -103,16 +103,16 @@ Parameter settings are specified in `params.csv` under the project directory.
 To make editing the parameters easier, you can also modify [this google spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit), and then use [this script](https://gist.github.com/mistycheney/be1f758bfcd5f852c9b5#file-sync_params_google_spreadsheet-py) to download the corresponding csv file to overwrite `params.csv`.
 
 #### Gabor filter bank parameters ##
-* **param_id**: an integer id for this set of parameters, default parameter is id 0
+* **param_id**: an integer id for this set of parameters, default parameter is id 0 (change to string)
 * **min_wavelen**: minimum wavelength of Gabor filter, in number of pixels, default 5
 * **max_wavelen**: maximum wavelength of Gabor filter, in number of pixels, default 40
 * **freq_step**: multiply factor to the next frequency, default 2 (same as factor for wavelength)
 * **theta_interval**: interval of Gabor filter orientations, in degrees, default 15.
-* **bandwidth**: larger value means narrower Gaussian in spatial domain, thus smaller kernel size. default 1.0
+* **bandwidth**: wave-length/std-of-gaussian, doubling the value corresponds to halving the size of the Gaussian kernel in each dimension (kernel is always spherical). Default 1.0 = 3/2 wavelengths within the window.
 
 #### Segmentation parameters ##
-* **n_superpixels**: desired number of superpixels in the over-segmentation, default 100. Large number leads to smaller superpixels. Default 100.
-* **slic_compactness**: larger value leads to more square segmentation. Default 5.
+* **n_superpixels**: desired number of superpixels in the over-segmentation, default 100. Large number leads to smaller superpixels.
+* **slic_compactness**: larger value leads to super-pixels that are more square. Default 5.
 * **slic_sigma**: width of Gaussian kernel used in pre-smoothing before segmentation. Default 10.
 
 #### Texton K-Means parameters ##

@@ -38,7 +38,7 @@ class AppForm(QMainWindow):
         self.get_data()
         self.create_main_frame()
         self.on_draw()
-        self.paint_label = -1
+        self.paint_label = None
         self.pick_mode  =False
         self.new_labels = []
 
@@ -66,13 +66,11 @@ class AppForm(QMainWindow):
         for i, (btn, edt) in enumerate(zip(self.colorButtons, self.descEdits)):
 
             r, g, b, a = self.label_cmap(i)
-            print i-1, r
             btn.setStyleSheet("background-color: rgba(%d, %d, %d, 20%%)"%(
                 int(r*255), int(g*255), int(b*255)))
             btn.setFixedSize(20, 20)
             self.color_box.addWidget(btn, i, 0)
             self.color_box.addWidget(edt, i, 1)
-
 
         self.newcolor_box = QGridLayout()
 
@@ -101,19 +99,14 @@ class AppForm(QMainWindow):
 
         self.setWindowTitle('Brain')
 
-        self.statusBar().showMessage('Ctrl + Left Click to pick a color; Left Click to assign color to a superpixel')
+        self.statusBar().showMessage('Ctrl + Left Click to pick a color; Left Click to assign color to a superpixel; Scroll to zoom, Left Click + drag to pan')
 
         self.show()
 
     def newcolor_button_clicked(self):
 
-        print 'old nlabels', self.n_labels
         self.n_labels += 1
         self.paint_label = self.n_labels - 2
-        print 'new nlabels', self.n_labels
-
-        self.statusBar().showMessage('superpixel %d, curr_label = %d'%(self.selected_sp,
-                                    self.paint_label))
 
         btn = QPushButton('%d'%self.paint_label, self)
         edt = QLineEdit()
@@ -238,9 +231,14 @@ class AppForm(QMainWindow):
                 if self.pick_mode:
                     self.paint_label = self.labelmap_new[int(event.ydata), int(event.xdata)]
                 else:
-                    self.labelmap_new[self.segmentation == self.selected_sp] = self.paint_label
+                    if self.paint_label is None:
+                        self.statusBar().showMessage('superpixel %d, selected label = %d'%(self.selected_sp,
+                                    self.selected_label))
+                    else:
+                        self.labelmap_new[self.segmentation == self.selected_sp] = self.paint_label
 
-                self.statusBar().showMessage('superpixel %d, selected label = %d, paint label = %d'%(self.selected_sp,
+                if self.paint_label is not None:
+                    self.statusBar().showMessage('superpixel %d, selected label = %d, paint label = %d'%(self.selected_sp,
                                     self.selected_label,
                                     self.paint_label))
 
@@ -249,7 +247,6 @@ class AppForm(QMainWindow):
 
                 self.label_layer.remove()
 
-                print [self.label_cmap(i)[0] for i in range(self.n_labels)]
                 self.label_layer = self.axes.imshow(self.labelmap_new + 1, cmap=self.label_cmap, alpha=.2,
                         aspect='equal', norm=NoNorm())
 

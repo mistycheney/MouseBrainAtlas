@@ -2,6 +2,7 @@
 Paint by numbers GUI
 Written by Yoav Freund
 """
+import os
 import numpy as np
 import pylab
 from matplotlib import pyplot as plt
@@ -74,32 +75,69 @@ def on_pick(event):
     x = event.mouseevent.xdata
     y = event.mouseevent.ydata
     s = seg[y,x]
-    print 'x=',x,'y=',y,'seg=',s
-    cbox_txt.set_text('x='+str(x)+', y='+str(y)+' seg='+str(seg[y,x]))
+    cbox_txt.set_text('x='+str(x)+', y='+str(y)+' seg='+str(seg[int(y),int(x)]))
     mark_super_pixels(main_ax,seg,seg_no,[s],colors=['r'])
     fig.canvas.draw()
 
-#read data
-setName='PMD1305_reduce2_region0_0244_param5'
-stem='../YuncongBrain/'+setName+'_data'
+import matplotlib.pyplot as plt
+ 
+ 
+def zoom_factory(ax,base_scale = 2.):
+    def zoom_fun(event):
+        # get the current x and y limits
+        cur_xlim = ax.get_xlim()
+        cur_ylim = ax.get_ylim()
+        # set the range
+        cur_xrange = (cur_xlim[1] - cur_xlim[0])*.5
+        cur_yrange = (cur_ylim[1] - cur_ylim[0])*.5
+        xdata = event.xdata # get event x location
+        ydata = event.ydata # get event y location
+        if event.button == 'up':
+            # deal with zoom in
+            scale_factor = 1/base_scale
+        elif event.button == 'down':
+            # deal with zoom out
+            scale_factor = base_scale
+        else:
+            # deal with something that should never happen
+            scale_factor = 1
+            print event.button
+        # set new limits
+        ax.set_xlim([xdata - cur_xrange*scale_factor,
+                     xdata + cur_xrange*scale_factor])
+        ax.set_ylim([ydata - cur_yrange*scale_factor,
+                     ydata + cur_yrange*scale_factor])
+        ax.figure.canvas.draw() # force re-draw
+ 
+    fig = ax.get_figure() # get the figure of interest
+    # attach the call back
+    fig.canvas.mpl_connect('scroll_event',zoom_fun)
+ 
+    #return the function
+    return zoom_fun
 
-seg=np.load(stem+'/'+setName+'_segmentation.npy')
-direction=np.load(stem+'/'+setName+'_sp_dir_hist_normalized.npy')
-texton=np.load(stem+'/'+setName+'_sp_texton_hist_normalized.npy')
+#read data
+img_name = 'PMD1305_region0_reduce2_0244'
+setName='%s_param10'%img_name
+data_dir = '/home/yuncong/BrainMiscs/output/'+setName+'_data'
+
+seg=np.load(data_dir+'/'+setName+'_segmentation.npy')
+texton = np.load(os.path.join(data_dir, setName+'_sp_texton_hist_normalized.npy'))
 
 seg_no=np.shape(texton)[0]
 print 'seg_no=',seg_no
 
 # Initialize image
-im=Image.open(stem+'/PMD1305_reduce2_region0_0244.tif')
+im=Image.open(os.path.join(data_dir, img_name+'.tif'))
 aim=np.array(im)/256.0
 bwaim=np.mean(aim,axis=2)  # make into BW picture
 
 borders=boundaries(seg,t=3)
 print np.shape(seg),np.shape(borders),np.shape(bwaim)
 
-bwaim=subsample(bwaim,smooth=True,k=1)
+bwaim=subsample(bwaim,smooth=False,k=1)
 seg=subsample(seg,smooth=False,k=1)
+print seg.shape
 print np.shape(bwaim)
 
 colormap=pylab.get_cmap('gray')
@@ -122,5 +160,9 @@ main_ax.imshow(bwaim,cmap=colormap,aspect='equal',picker=True)
 main_ax.imshow(borders,cmap=mpl.colors.ListedColormap(['w','m']),alpha=0.5)
 fig.canvas.mpl_connect('pick_event', on_pick)
 
+zoom_factory(main_ax, base_scale=2.0)
+
 plt.show()
+
+
 

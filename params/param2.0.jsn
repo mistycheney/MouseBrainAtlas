@@ -1,0 +1,14 @@
+{
+ "param_id": 2.0, 
+ "min_wavelen": 10.0, 
+ "max_wavelen": 80.0, 
+ "freq_step": 2.0, 
+ "theta_interval": NaN, 
+ "bandwidth": NaN, 
+ "n_superpixels": NaN, 
+ "slic_compactness": NaN, 
+ "slic_sigma": NaN, 
+ "n_texton": NaN, 
+ "n_sample": NaN, 
+ "n_iter": NaN
+}

@@ -2,7 +2,8 @@
 
 import sys
 import os
-import cv2
+#import cv2
+import Image
 
 import numpy as np
 import matplotlib as mpl
@@ -27,7 +28,7 @@ else:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
 
-output_dir = '/home/yuncong/BrainLocal/output'
+output_dir = './'
 img_name = 'PMD1305_region0_reduce2_0244'
 result_name = '%s_param10'%img_name
 
@@ -123,7 +124,9 @@ class AppForm(QMainWindow):
 
 
     def get_data(self):
-        data_dir = os.path.join(output_dir, result_name+'_data')
+        data_dir='.'
+#        data_dir = os.path.join(output_dir, result_name+'_data')
+        print 'data dir=',data_dir
         # img_filename = os.path.join(data_dir, result_name + '_img_cropped.png')
         img_filename = os.path.join(data_dir, result_name + '_segmentation.tif')
         seg_filename = os.path.join(data_dir, result_name + '_segmentation.npy')
@@ -139,7 +142,8 @@ class AppForm(QMainWindow):
         self.colors = [(1,1,1)] + [(random(),random(),random()) for i in xrange(30)]
         self.label_cmap = ListedColormap(self.colors, name='label_cmap')
         # self.label_cmap = mpl.colors.LinearSegmentedColormap.from_list()
-        self.img = cv2.imread(img_filename, 0)
+        im = Image.open(img_filename)
+        self.img = np.mean(im,axis=2)  # make into BW picture
 
     def on_draw(self):
         self.fig.clear()

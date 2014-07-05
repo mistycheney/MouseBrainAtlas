@@ -1,5 +1,4 @@
-BrainSaliencyDetection
-======================
+### BrainSaliencyDetection
 
 Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
@@ -100,7 +99,7 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-**YunCong, can you describe how to use the JSON files instead of the .csv file **
+**YunCong, can you describe how to use the JSON files instead of the .csv file?**
 
 Parameter settings are specified in `params.csv` under the project directory. 
 

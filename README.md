@@ -16,7 +16,8 @@ Output are in `/oasis/scratch/csd181/yuncong/output`
 Example Workflow
 -----
 
-First log into one of the gcn computers: (list)
+First log into one of the gcn computers: 
+gcn-20-41 gcn-20-38 gcn-20-33 gcn-20-48 gcn-20-45 gcn-20-34 gcn-20-43                                                     gcn-20-35 gcn-20-31 gcn-20-37 gcn-20-32 gcn-20-47 gcn-20-44 gcn-20-46                                                     gcn-20-36 gcn-20-42
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts
 ```

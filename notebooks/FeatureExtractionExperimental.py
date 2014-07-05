@@ -3,6 +3,8 @@
 
 # <codecell>
 
+%autosave 60
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -275,11 +277,11 @@ n_superpixels = len(np.unique(segmentation))
 
 img_superpixelized = mark_boundaries(img_rgb, segmentation)
 sptext = img_as_ubyte(img_superpixelized)
-for s in range(n_superpixels):
-    sptext = cv2.putText(sptext, str(s), 
-                      tuple(np.floor(sp_centroids[s][::-1]).astype(np.int)), 
-                      cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                      .5, ((255,0,255)), 1)
+# for s in range(n_superpixels):
+#     sptext = cv2.putText(sptext, str(s), 
+#                       tuple(np.floor(sp_centroids[s][::-1]).astype(np.int)), 
+#                       cv2.FONT_HERSHEY_COMPLEX_SMALL,
+#                       .5, ((255,0,255)), 1)
 save_img(sptext, 'segmentation')
 
 # <codecell>
@@ -293,153 +295,20 @@ def foo(i):
 r = Parallel(n_jobs=16)(delayed(foo)(i) for i in range(n_superpixels))
 superpixels_fg_count = np.array(r)
 bg_superpixels = np.nonzero((superpixels_fg_count/sp_areas) < 0.3)[0]
+
+bg_superpixels = np.array(list(set(bg_superpixels.tolist()+range(47,72)
+                          +[76,105,108,151,142,187,218,188,122,84,171,202,265,106,152,119,78,79,152,158,202,285,209,310,323,253]
+                          +[0,1,2,3,4,5,6,7,8,15,80,100,174,153,162,75])))
+
 print '%d background superpixels'%len(bg_superpixels)
+
+fg_superpixels = np.array([i for i in range(n_superpixels) if i not in bg_superpixels])
 
 # pool = Pool(16)
 # superpixels_fg_count = np.array(pool.map(foo, range(n_superpixels)))
 # pool.close()
 # pool.join()
 # del pool
-
-# <codecell>
-
-%%time
-
-print '=== compute texton and directionality histogram of each superpixel ==='
-
-# sample_interval = 1
-# gridy, gridx = np.mgrid[:img.shape[0]:sample_interval, :img.shape[1]:sample_interval]
-
-# all_seg = segmentation[gridy.ravel(), gridx.ravel()]
-
-try:
-    raise IOError
-    sp_texton_hist_normalized = load_array('sp_texton_hist_normalized')
-except IOError:
-#     all_texton = textonmap[gridy.ravel(), gridx.ravel()]
-
-    def bar(i):
-        return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
-
-    r = Parallel(n_jobs=16)(delayed(bar)(i) for i in range(n_superpixels))
-    sp_texton_hist = np.array(r)
-    # sp_texton_hist = np.array([np.bincount(textonmap[(segmentation == s)&(textonmap != -1)], minlength=n_texton) 
-    #                  for s in range(n_superpixels)])
-    sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis]
-    save_array(sp_texton_hist_normalized, 'sp_texton_hist_normalized')
-
-# <codecell>
-
-D = pdist(sp_texton_hist_normalized)
-D = squareform(D)
-
-# <codecell>
-
-%%time
-
-try:
-    raise IOError
-    sp_dir_hist_normalized = load_array('sp_dir_hist_normalized')
-except IOError:
-    f = np.reshape(features, (features.shape[0], features.shape[1], n_freq, n_angle))
-    dir_energy = np.sum(abs(f), axis=2)
-
-    def bar2(i):
-        segment_dir_energies = dir_energy[segmentation == i].astype(np.float_).mean(axis=0)
-        return segment_dir_energies    
-
-    r = Parallel(n_jobs=16)(delayed(bar2)(i) for i in range(n_superpixels))
-    
-    sp_dir_hist = np.vstack(r)
-    sp_dir_hist_normalized = sp_dir_hist/sp_dir_hist.sum(axis=1)[:,np.newaxis]
-    save_array(sp_dir_hist_normalized, 'sp_dir_hist_normalized')
-
-# pool = Pool(16)
-# r = pool.map(bar2, range(n_superpixels))
-# try:
-#     sp_dir_hist_normalized = load_array('sp_dir_hist_normalized')
-# except IOError:
-# sp_dir_hist_normalized = np.empty((n_superpixels, n_angle))
-# for i in range(n_superpixels):
-#     segment_dir_energies = dir_energy[segmentation == i].astype(np.float_).sum(axis=0)
-#     sp_dir_hist_normalized[i,:] = segment_dir_energies/segment_dir_energies.sum()    
-# save_array(sp_dir_hist_normalized, 'sp_dir_hist_normalized')
-
-# <codecell>
-
-%%time
-
-def chi2(u,v):
-    return np.sum(np.where(u+v!=0, (u-v)**2/(u+v), 0))
-
-print '=== compute significance of each superpixel ==='
-
-overall_texton_hist = np.bincount(textonmap[mask].flat)
-overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
-
-# individual_texton_saliency_score = np.zeros((n_superpixels, ))
-# for i, sp_hist in enumerate(sp_texton_hist_normalized):
-#     individual_texton_saliency_score[i] = chi2(sp_hist, overall_texton_hist_normalized)
-
-# individual_texton_saliency_score = cdist(sp_texton_hist_normalized, overall_texton_hist_normalized[np.newaxis,:], chi2)
-# individual_texton_saliency_score[bg_superpixels] = 0
-individual_texton_saliency_score = np.array([chi2(sp_hist, overall_texton_hist_normalized) 
-                                             if sp_hist not in bg_superpixels else 0 
-                                             for sp_hist in sp_texton_hist_normalized])
-
-# texton_saliency_score = individual_texton_saliency_score
-
-texton_saliency_score = np.zeros((n_superpixels,))
-for i, sp_hist in enumerate(sp_texton_hist_normalized):
-    if i not in bg_superpixels:
-        texton_saliency_score[i] = individual_texton_saliency_score[i]
-        
-texton_saliency_map = texton_saliency_score[segmentation]
-
-# save_img(texton_saliency_map, 'texton_saliencymap')
-# Image(get_img_filename('texton_saliencymap', 'png'))
-
-texton_saliency_map = texton_saliency_score[segmentation]
-plt.matshow(texton_saliency_map, cmap=cm.Greys_r)
-plt.colorbar()
-plt.show()
-
-# <codecell>
-
-x = np.linspace(0,1,100)
-plot(x, np.exp(-100*x));
-
-# <codecell>
-
-%%time
-
-# mean_diameter = np.sqrt(sp_areas).mean()
-mean_unit = .5*(im_height + im_width)
-
-sp_centroid_dist = pdist(sp_centroids)
-sp_centroid_dist_matrix = squareform(sp_centroid_dist)
-
-def bar4(i):
-    if i not in bg_superpixels: 
-        return np.mean([np.exp(-100*sp_centroid_dist_matrix[i,j]/mean_unit) * D[i,j] 
-                            for j in range(n_superpixels) if j != i and j not in bg_superpixels])
-    else:
-        return 0
-
-# texton_saliency_score = np.zeros((n_superpixels,))
-r = Parallel(n_jobs=16)(delayed(bar4)(i) for i in range(n_superpixels))
-texton_saliency_score = np.array(r)
-
-
-# for i in range(n_superpixels):
-#     if i not in bg_superpixels: 
-#         texton_saliency_score[i] = np.sum([np.exp(-.1*sp_centroid_dist_matrix[i,j]) * D[i,j] 
-#                             for j in range(n_superpixels) if j != i and j not in bg_superpixels])
-
-texton_saliency_map = texton_saliency_score[segmentation]
-plt.matshow(texton_saliency_map, cmap=cm.Greys_r)
-plt.colorbar()
-plt.show()
 
 # <codecell>
 
@@ -481,6 +350,110 @@ connectivity_matrix = connectivity_matrix.transpose() * connectivity_matrix
 
 # <codecell>
 
+%%time
+print '=== compute texton and directionality histogram of each superpixel ==='
+
+try:
+    raise IOError
+    sp_texton_hist_normalized = load_array('sp_texton_hist_normalized')
+except IOError:
+    def bar(i):
+        return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
+
+    r = Parallel(n_jobs=16)(delayed(bar)(i) for i in range(n_superpixels))
+    sp_texton_hist = np.array(r)
+    sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis]
+    save_array(sp_texton_hist_normalized, 'sp_texton_hist_normalized')
+    
+overall_texton_hist = np.bincount(textonmap[mask].flat)
+overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
+
+# <codecell>
+
+%%time
+
+try:
+    raise IOError
+    sp_dir_hist_normalized = load_array('sp_dir_hist_normalized')
+except IOError:
+    f = np.reshape(features, (features.shape[0], features.shape[1], n_freq, n_angle))
+    dir_energy = np.sum(abs(f), axis=2)
+
+    def bar2(i):
+        segment_dir_energies = dir_energy[segmentation == i].astype(np.float_).mean(axis=0)
+        return segment_dir_energies    
+
+    r = Parallel(n_jobs=16)(delayed(bar2)(i) for i in range(n_superpixels))
+    
+    sp_dir_hist = np.vstack(r)
+    sp_dir_hist_normalized = sp_dir_hist/sp_dir_hist.sum(axis=1)[:,np.newaxis]
+    save_array(sp_dir_hist_normalized, 'sp_dir_hist_normalized')
+    
+overall_dir_hist = sp_dir_hist_normalized[fg_superpixels].mean(axis=0)
+overall_dir_hist_normalized = overall_dir_hist.astype(np.float) / overall_dir_hist.sum()
+
+# <codecell>
+
+def chi2(u,v):
+    r = np.sum(np.where(u+v!=0, (u-v)**2/(u+v), 0))
+    assert not np.isnan(r).any(), (u, v)
+    return r
+
+D_texton = squareform(pdist(sp_texton_hist_normalized))
+D_dir = squareform(pdist(sp_dir_hist_normalized))
+
+# <markdowncell>
+
+# experimental stuff starts here
+
+# <codecell>
+
+save_img(img, 'img_cropped')
+
+# <codecell>
+
+from sklearn.cluster import MiniBatchKMeans
+kmeans = MiniBatchKMeans(10)
+kmeans.fit(sp_dir_hist_normalized)
+dirlabels = kmeans.labels_
+dirlabelmap = dirlabels[segmentation]
+dirlabelmap_rgb = label2rgb(dirlabelmap)
+save_img(dirlabelmap_rgb, 'dirmap')
+FileLink(get_img_filename('dirmap', 'png')[30:])
+
+# <codecell>
+
+%%time
+
+# mean_diameter = np.sqrt(sp_areas).mean()
+mean_unit = .5*(im_height + im_width)
+
+sp_centroid_dist = pdist(sp_centroids)
+sp_centroid_dist_matrix = squareform(sp_centroid_dist)
+
+def bar4(i):
+    if i not in bg_superpixels: 
+        return np.mean([np.exp(-100*sp_centroid_dist_matrix[i,j]/mean_unit) * D[i,j] 
+                            for j in range(n_superpixels) if j != i and j not in bg_superpixels])
+    else:
+        return 0
+
+# texton_saliency_score = np.zeros((n_superpixels,))
+r = Parallel(n_jobs=16)(delayed(bar4)(i) for i in range(n_superpixels))
+texton_saliency_score = np.array(r)
+
+# for i in range(n_superpixels):
+#     if i not in bg_superpixels: 
+#         texton_saliency_score[i] = np.sum([np.exp(-.1*sp_centroid_dist_matrix[i,j]) * D[i,j] 
+#                             for j in range(n_superpixels) if j != i and j not in bg_superpixels])
+
+texton_saliency_map = texton_saliency_score[segmentation]
+plt.matshow(texton_saliency_map, cmap=cm.Greys_r)
+plt.colorbar()
+plt.show()
+
+# <codecell>
+
 q = sp_dir_hist_normalized.argsort(axis=1)
 
 a = np.zeros((n_superpixels, ))
@@ -496,12 +469,6 @@ for i in w:
     maxdir_map[segmentation==i] = q[i,-1]
 # maxdir_map[~mask] = 1
 
-# <codecell>
-
-plt.bar(np.arange(n_angle), sp_dir_hist[455]);
-
-# <codecell>
-
 plt.matshow(maxdir_map);
 plt.axis('off')
 plt.colorbar();
@@ -514,15 +481,6 @@ plt.show()
 
 # <codecell>
 
-FileLink(get_img_filename('segmentation', 'png'))
-
-# <codecell>
-
-FileLink(get_img_filename('textonmap', 'png'))
-
-# <codecell>
-
-fg_superpixels = np.array([i for i in range(n_superpixels) if i not in bg_superpixels])
 D_fg = D[ix_(fg_superpixels, fg_superpixels)]
 # co = connectivity_matrix.todense()
 # connectivity_fg = co[ix_(fg_superpixels, fg_superpixels)]
@@ -636,58 +594,268 @@ q = np.random.randint(0,n_superpixels,100)
 scatter(sp_texton_hist_normalized[q,0],sp_texton_hist_normalized[q,1],s=10,c='b');
 plt.show()
 
+# <markdowncell>
+
+# experimental stuff ends here
+
 # <codecell>
 
-%autosave 60
-
-# <codecell>
-
-# vis = np.exp(-2*D[:,seed])[segmentation]
-sig_sp_sorted = np.argsort(texton_saliency_score)[::-1]
-sp_overall_dist = np.array([chi2(h, overall_texton_hist_normalized) for h in sp_texton_hist_normalized])
-
-sp_sorted = sig_sp_sorted
-
-models = np.zeros((4, n_texton))
-scores = np.zeros((n_superpixels, 4))
-matched_all = np.array([])
-for t in range(4):
-    sp_sorted = [i for i in sp_sorted if i not in matched_all]
-    seed = sp_sorted[0]
-    models[t] = seed
-    scores[:,t] = sp_overall_dist - D[:,seed]
-    vis = -scores[:,t][segmentation]
-    # vis = np.exp(-2*(D[:,seed]-sp_overall_dist))[segmentation]
+def grow_cluster_sig(seed, model=None, max_cluster=999):
     
-    matched = (scores < 0).nonzero()[0]
-    matched_selection = np.equal.outer(segmentation, matched).any(axis=2)
-    vis[~matched_selection] = 0
+    if seed in bg_superpixels:
+        return [], -1
 
+    curr_cluster = set([seed])
+    frontier = [seed]
+
+    thresh = 0.1
+    
+    if model is None:
+        model = sp_texton_hist_normalized[seed]
+    
+    while len(frontier) > 0:
+        u = frontier.pop(-1)
+        for v in neighbors[u]:
+            if v in bg_superpixels or v in curr_cluster: continue                                
+            ratio_v = sp_overall_dist[v] - chi2(sp_texton_hist_normalized[v], model)
+            if ratio_v > thresh:
+                curr_cluster.add(v)
+                frontier.append(v)
+
+    if len(curr_cluster) > max_cluster:
+        return curr_cluster, thresh
+                                
+    return curr_cluster, thresh
+
+def grow_cluster(seed, model=None, min_thresh=0.2, max_thresh=0.8, max_cluster=20, dist='seed', criteria='frontier'):
+
+    bg_set = set(bg_superpixels.tolist())
+    
+    if seed in bg_set:
+        return [], -1
+    
+    prev_cluster = None
+    prev_thresh = None
+    
+    frontier_surround_dists = []
+    frontier_surround_dist = np.inf
+    for thresh in np.arange(min_thresh, max_thresh, 0.01):
+        seed_hist = sp_texton_hist_normalized[seed]
+        curr_cluster = set([seed])
+        frontier = [seed]
+        
+        while len(frontier) > 0:
+            u = frontier.pop(-1)
+            for v in neighbors[u]:
+                if v in bg_set or v in curr_cluster: continue
+                                
+                if dist == 'seed':
+                    dv = D_texton[v, seed]
+                elif dist == 'model':
+                    dv = chi2(sp_texton_hist_normalized[v], model)
+                    
+                if dv < thresh:
+                    curr_cluster.add(v)
+                    frontier.append(v)
+
+        if len(curr_cluster) > max_cluster:
+            if prev_cluster is not None:
+                return prev_cluster, prev_thresh
+                    
+        if criteria == 'frontier':        
+            surround = set.union(*[neighbors[i] for i in curr_cluster]) - set.union(curr_cluster, bg_set)
+            assert len(surround) != 0, seed
+
+            frontier_in_cluster = set.intersection(set.union(*[neighbors[i] for i in surround]), curr_cluster)
+
+            frontier_surround_dist_prev = frontier_surround_dist
+            frontier_surround_dist = np.max([np.nanmax(D_texton[i, list(neighbors[i]-bg_set)]) for i in frontier_in_cluster])
+        
+            if frontier_surround_dist - frontier_surround_dist_prev > 0.1:
+                    return curr_cluster, thresh                
+#                 if prev_cluster is not None:
+#                     return prev_cluster, prev_thresh
+            
+        prev_cluster = curr_cluster
+        prev_thresh = thresh
+            
+    return curr_cluster, thresh
+        
+
+def visualize_cluster(all_score, cluster='all', title='', filename=None):
+    vis = all_score[segmentation]
+    if cluster != 'all':
+        cluster_selection = np.equal.outer(segmentation, cluster).any(axis=2)
+        vis[~cluster_selection] = 0
+    
     plt.matshow(vis, cmap=plt.cm.Greys_r);
-    plt.title('%.2f'%thresh)
     plt.axis('off');
-    plt.colorbar();
+    plt.title(title)
+#     plt.colorbar();
     plt.show()
+#     if filename is not None:
+#         plt.savefig(args.output_dir + '/tmp/' + filename + '.png', bbox_inches='tight')
     
-    matched_all = np.r_[matched_all, matched]
-    
-
-best_model = scores.argmax(axis=1)
-best_score = np.array([scores[i,m] for i, m in enumerate(best_model)])
-best_model[best_score < 0.01] = -1
-for i, m in enumerate(best_model):
-    
+#     plt.close();
+#     return vis
 
 # <codecell>
 
-plt.matshow(texton_saliency_map, cmap=cm.Greys_r)
-plt.colorbar()
-plt.show()
+%%time
+r = Parallel(n_jobs=16)(delayed(grow_cluster)(i) 
+                        for i in range(n_superpixels))
+clusters = [list(c) for c, t in r]
+print 'clusters computed'
 
 # <codecell>
 
-# thresh_choices = np.arange(.2,.5,0.01)
-thresh_choices = [.34]
+%%time
+r = Parallel(n_jobs=16)(delayed(grow_cluster_sig)(i) 
+                        for i in range(n_superpixels))
+clusters = [list(c) for c, t in r]
+print 'clusters computed'
+
+# <codecell>
+
+# sig_sp_sorted = np.argsort(texton_saliency_score)[::-1]
+sp_overall_dist = np.empty((n_superpixels, ))
+sp_overall_dist[fg_superpixels] = [chi2(sp_texton_hist_normalized[i], overall_texton_hist_normalized) 
+                                    for i in fg_superpixels]
+sp_overall_dist[bg_superpixels] = np.nan
+
+n_models = 20
+
+models = np.zeros((n_models, n_texton))
+matched_all = np.array([])
+
+model_idx = np.zeros((n_models,))
+
+# T = 0.05
+weights = np.ones((n_superpixels, ))/n_superpixels
+weights[bg_superpixels] = 0
+
+for t in range(n_models):
+    
+    print 'model %d' % (t)
+    
+    sig_score = np.zeros((n_superpixels, ))
+    for i in range(n_superpixels):
+        if i not in bg_superpixels:
+            cluster = clusters[i]
+#             sig_score[i] = np.mean(weights[cluster] * np.exp(sp_overall_dist[cluster] - D[i, cluster]))
+            sig_score[i] = np.mean(weights[cluster] * (sp_overall_dist[cluster] - D_texton[i, cluster]))
+
+    visualize_cluster(sig_score, 'all', title='significance score for each superpixel', filename='sigscore%d'%t)
+    
+    model_idx_next = sig_score.argsort()[-1]
+    print model_idx_next
+    
+    visualize_cluster(sig_score, [model_idx_next], title='most significant superpixel', filename='mostsig%d'%t)
+    
+    visualize_cluster(sig_score, clusters[model_idx_next], title='cluster growed by the most significant superpixel')
+
+    model_next = sp_texton_hist_normalized[clusters[model_idx_next]].mean(axis=0)
+    
+#     match_scores = sp_overall_dist - D[:, model_idx_next]
+
+    d_model = np.empty((n_superpixels,))    
+    d_model[fg_superpixels] = np.array([chi2(sp_texton_hist_normalized[i], model_next) for i in fg_superpixels])
+    d_model[bg_superpixels] = np.nan
+    
+    match_scores = np.empty((n_superpixels,))    
+    match_scores[fg_superpixels] = sp_overall_dist[fg_superpixels] - d_model[fg_superpixels]
+    match_scores[bg_superpixels] = np.nan
+#     matched = (match_scores > T).nonzero()[0]
+    matched, _ = grow_cluster_sig(model_idx_next, model=model_next)
+    matched = list(matched)
+#     visualize_cluster(match_scores, matched, title='superpixels matched by new model and match scores')
+    visualize_cluster(match_scores, matched, title='growed cluster', filename='grow%d'%t)
+    
+#     weights[matched] = weights[matched] * np.exp(10*(D[model_idx_next, matched] - sp_overall_dist[matched]))
+    weights[matched] = weights[matched] * np.exp(d_model[matched] - sp_overall_dist[matched])
+#     weights[matched] = weights[matched] * np.exp(d_model[matched] - sp_overall_dist[matched])
+    weights[bg_superpixels] = 0
+    weights = weights/weights.sum()
+    
+    visualize_cluster((weights - weights.min())/(weights.max()-weights.min()), 'all', title='updated superpixel weights', filename='weight%d'%t)
+    
+    
+#     labels = -1*np.ones_like(segmentation)
+#     for i in matched:
+#         labels[segmentation == i] = 1
+#     q = label2rgb(labels, img)
+#     cv2.imwrite(args.output_dir + '/tmp/' + 'real%d.png'%t, img_as_ubyte(q))
+    
+    model_idx[t] = model_idx_next
+    models[t] = model_next
+
+# <codecell>
+
+T = 0.3
+model_score = np.empty((n_models, ))
+
+def f(i):
+    if i in bg_superpixels:
+        return -1
+    else:
+        
+        for j in range(n_models):
+            matched, _ = grow_cluster_sig(i, model=models[j])
+            matched = list(matched)
+            model_score[j] = np.mean([sp_overall_dist[k] - chi2(sp_texton_hist_normalized[k], models[j]) for k in matched])
+
+#         model_score = np.array([sp_overall_dist[i] - chi2(sp_texton_hist_normalized[i], models[j]) for j in range(n_models)])
+        
+        best_sig = model_score.max()
+        if best_sig > T: # sp whose sig is smaller than this is assigned null
+          return model_score.argmax()
+    return -1
+
+r = Parallel(n_jobs=16)(delayed(f)(i) for i in range(n_superpixels))
+labels = np.array(r, dtype=np.int)
+
+# labels = -1*np.ones((n_superpixels, ))
+# for i in range(n_superpixels):
+#     if i not in bg_superpixels:
+# #         cluster = clusters[i]
+#         for j in range(n_models):
+# #             model_score[j] = np.mean(sp_overall_dist[cluster] - D[i, cluster])
+# #         print  model_score
+
+#             matched, _ = grow_cluster_sig(i, model=models[j])
+#             matched = list(matched)
+#             model_score[j] = np.mean(sp_overall_dist[matched] - D[i, matched])
+        
+# #         model_score = np.array([sp_overall_dist[i] - chi2(sp_texton_hist_normalized[i], models[j]) for j in range(n_models)])
+#         best_sig = model_score.max()
+#         if best_sig > 0.1: # sp whose sig is smaller than this is assigned null
+#           labels[i] = model_score.argmax()
+
+labelmap = labels[segmentation]
+save_array(labelmap, 'labelmap')
+
+labelmap_rgb = label2rgb(labelmap.astype(np.int), image=img)
+save_img(labelmap_rgb, 'labelmap')
+FileLink(get_img_filename('labelmap', ext='png')[30:])
+# plt.imshow(labelmap_rgb)
+
+# <codecell>
+
+np.unique(r)
+
+# <codecell>
+
+for j in range(n_models):
+    matched, _ = grow_cluster_sig(618, model=models[j])
+    matched = list(matched)
+    print matched
+    print np.mean(sp_overall_dist[matched] - D[618, matched])
+# [sp_overall_dist[381] - chi2(sp_texton_hist_normalized[381], models[j]) for j in range(n_models)]
+
+# <codecell>
+
+thresh_choices = np.arange(.2,.6,0.01)
+# thresh_choices = [.34]
 new_sig_scores = []
 in_class_vars = []
 seed_surround_dists = []
@@ -705,6 +873,7 @@ for thresh in thresh_choices:
 #             seed = 1589
 #             seed = 1407
             seed = 829
+#             seed = 618
         else:
             seed = next((i for i in sig_sp_sorted if i not in chosen_superpixels\
                      and i not in bg_superpixels))
@@ -749,6 +918,8 @@ for thresh in thresh_choices:
         
         frontier_surround_dist = np.max([np.max([D[i,j] for j in neighbors[i] if j not in bg_superpixels]) for i in frontier_in_cluster])
         frontier_surround_dists.append(frontier_surround_dist)
+        if len(frontier_surround_dists) >= 2:
+            print frontier_surround_dists[-1] - frontier_surround_dists[-2]
 #         surround_hist = sp_texton_hist_normalized[list(surround),:].mean(axis=0)
 #         propagate_selection = np.equal.outer(segmentation, list(surround)).any(axis=2)
 #         surround_hist = np.bincount(textonmap[mask * propagate_selection].flat, minlength=n_texton)

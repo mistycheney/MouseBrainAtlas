@@ -70,7 +70,7 @@ os.chdir(data_dir)
 for s, i, bb in zip(stack_names, image_indices, bounding_boxes):
     if bb[0] == -1: # meaning the bb is not specified
         margin = 0 # at lowest level, image dimension is 120 by 90
-        fn = glob.iglob(os.path.join(s, '.*_%04d.jpg'%i))[0]
+        fn = glob.glob(os.path.join(s, '*_%04d.jpg'%i))[0]
         img = cv2.imread(fn, 0)
         blurred = gaussian_filter(img, 2)
         thresholded = blurred < threshold_otsu(blurred) + 10./255.

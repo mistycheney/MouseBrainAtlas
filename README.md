@@ -120,4 +120,7 @@ To make editing the parameters easier, you can also modify [this google spreadsh
 * **n_sample**: number of samples to use at each iteration of Kmeans. default 10,000 
 * **n_iter**: number of iterations of Kmeans. default 10
 
+## Detector parameters ##
+* **n_models**: number of models to detect
+
 

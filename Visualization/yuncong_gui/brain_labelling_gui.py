@@ -21,26 +21,44 @@ from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
 
 if use_pyside:
+    print 'Using PySide'
     from PySide.QtCore import *
     from PySide.QtGui import *
 else:
+    print 'Using PyQt4'
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
 
 import argparse
 
 class PickByColorsGUI(QMainWindow):
-    def __init__(self, parent=None, img=None, segmentation=None, labellist=None, n_models=20):
+    def __init__(self, parent=None, recalc_callback=None, save_callback=None,\
+                img=None, segmentation=None, labellist=None, n_models=20):
+        """
+        Initialization of PickByColorsGUI:
+        parent:       the parent window within which this window is embedded.
+        recalc_callback: A callback function which is launched when the user clicks on the "recalculate" button.
+        save_callback: A callback function which is launched when the user clicks on the "save" button.
+        img:          2D array containing the image.
+        segmentation: 2D array containing the segment index for each pixel, generated using the super-pixel alg.
+        labellist:    an array associating a label with each segment index.
+        n_models:     the number of super-pixel models (=length of label-list minus 1)
+        """
         QMainWindow.__init__(self, parent)
         
         self.paint_label = None     # color of pen
-        self.pick_mode  = False     # True while you hold ctrl; that let's you pick a color from image
+        self.pick_mode  = False     # True while you hold ctrl; used to pick a color from the image
         self.press = False          # related to pan (press and drag) vs. select (click)
         self.base_scale = 1.3       # multiplication factor for zoom using scroll wheel
 
         self.segmentation = segmentation
 
+        self.recalc_callback=recalc_callback
+        self.save_callback=save_callback
+
         # convert labelmap (dict) to pixel values
+        self.labellist=labellist
+        print 'shape of labellist',np.shape(labellist)
         self.labelmap_orig = -1*np.ones_like(segmentation, dtype=np.int)
         self.labelmap_orig = labellist[segmentation]
         self.labelmap_new = self.labelmap_orig.copy()
@@ -63,7 +81,8 @@ class PickByColorsGUI(QMainWindow):
         self.main_frame = QWidget()
 
         # matplotlib region (the brain image)
-        self.fig = Figure((10.0, 5.0), dpi=100)
+        # TODO: allow it to fill the whole available frame
+        self.fig = Figure((10.0, 10.0), dpi=100)
         self.fig.set_tight_layout(True)
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setParent(self.main_frame)
@@ -78,15 +97,15 @@ class PickByColorsGUI(QMainWindow):
         self.canvas.mpl_connect('button_release_event', self.release_fun)
         self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
 
-        # QT widgets definitions below
-
+        ############################################
+        # QT widgets definitions and layout 
+        ############################################
         # existing color button/decription region
         self.colorButtons = [QPushButton('%d'%(i), self) for i in range(-1, self.n_labels-1)]    # push buttons with colors
-        self.descEdits = [QLineEdit() for i in range(self.n_labels)]                            # corresponding decription fields
+        self.descEdits = [QLineEdit() for i in range(self.n_labels)] # corresponding decription fields
 
         self.color_box = QGridLayout()
         for i, (btn, edt) in enumerate(zip(self.colorButtons, self.descEdits)):
-
             r, g, b, a = self.label_cmap(i)
             btn.setStyleSheet("background-color: rgba(%d, %d, %d, 20%%)"%(
                 int(r*255), int(g*255), int(b*255)))
@@ -106,15 +125,28 @@ class PickByColorsGUI(QMainWindow):
         left_box = QVBoxLayout()
         left_box.addWidget(self.canvas)
 
+        buttons_box=QHBoxLayout()
+        left_box.addLayout(buttons_box)
+
         # "add new color" button
         newcolor_button = QPushButton('add new color', self)
-        left_box.addWidget(newcolor_button)
+        buttons_box.addWidget(newcolor_button)
         # callback
         newcolor_button.clicked.connect(self.newcolor_button_clicked)
 
+        # Recalculate button
+        recalc_button = QPushButton('recalculate models', self)
+        buttons_box.addWidget(recalc_button)
+        recalc_button.clicked.connect(self.recalc_callback)
+
+        # Recalculate button
+        save_button = QPushButton('save', self)
+        buttons_box.addWidget(save_button)
+        save_button.clicked.connect(self.save_callback)
+
         # quit button
         quit_button = QPushButton('quit', self)
-        left_box.addWidget(quit_button)
+        buttons_box.addWidget(quit_button)
         quit_button.clicked.connect(self.close)
 
         # overall box = left box + right box
@@ -161,10 +193,10 @@ class PickByColorsGUI(QMainWindow):
         self.axes = self.fig.add_subplot(111)
         self.axes.axis('off')
 
-        self.axes.imshow(self.img, cmap=plt.cm.Greys_r,
-                        aspect='equal')
-        self.label_layer = self.axes.imshow(self.labelmap_orig + 1, cmap=self.label_cmap, alpha=0.2,
-                        aspect='equal', norm=NoNorm())
+        self.axes.imshow(self.img, cmap=plt.cm.Greys_r, aspect='equal')
+        self.label_layer = self.axes.imshow(self.labelmap_orig + 1,\
+                                            cmap=self.label_cmap, alpha=0.2,
+                                            aspect='equal', norm=NoNorm())
         self.canvas.draw()
 
 
@@ -228,6 +260,9 @@ class PickByColorsGUI(QMainWindow):
             self.axes.figure.canvas.draw()
 
     def release_fun(self, event):
+        """
+        The release-button callback is responsible for picking a color or changing a color.
+        """
         self.press = False
         
         # click without moving, means selection
@@ -239,13 +274,16 @@ class PickByColorsGUI(QMainWindow):
             self.selected_label = self.labelmap_new[int(event.ydata), int(event.xdata)]
             
             if self.pick_mode:
+                # Picking a color
                 self.paint_label = self.labelmap_new[int(event.ydata), int(event.xdata)]
             else:
+                #Painting a color
                 if self.paint_label is None:
                     self.statusBar().showMessage('superpixel %d, selected label = %d'%(self.selected_sp,
                                 self.selected_label))
                 else:
                     self.labelmap_new[self.segmentation == self.selected_sp] = self.paint_label
+                    self.labellist[self.selected_sp]=self.paint_label
 
             if self.paint_label is not None:
                 self.statusBar().showMessage('superpixel %d, selected label = %d, paint label = %d'%(self.selected_sp,
@@ -263,43 +301,58 @@ class PickByColorsGUI(QMainWindow):
             self.axes.set_xlim(curr_xlim)
             self.axes.set_ylim(curr_ylim)
             self.axes.figure.canvas.draw() # force re-draw
-
-def main():
-    parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='GUI for coloring superpixels',
-    epilog="""Example:
-    python %s PMD1305_region0_reduce2_0244_param_nissl324
-    """%(os.path.basename(sys.argv[0]), ))
-
-    parser.add_argument("result_name", type=str, help="name of the result")
-    parser.add_argument("-d", "--data_dir", type=str, help="result data directory (default: %(default)s)", default='.')
-    args = parser.parse_args()
-
-    data_dir = os.path.realpath(args.data_dir)
-
-    # The brain image with superpixel boundaries drawn on it
-    img_filename = os.path.join(data_dir, args.result_name + '_segmentation.png')
-
-    # a matrix of labels indicating which superpixel a pixel belongs to 
-    # each label is an integer from 0 to n_superpixels.
-    # -1 means background, 0 to n_superpixel-1 corresponds to each superpixel
-    seg_filename = os.path.join(data_dir, args.result_name + '_segmentation.npy')
     
-    # a list of labels indicating which model a suerpixel is associated with. 
-    # Each label is an integer from -1 to n_models-1.
-    # -1 means background, 0 to n_models-1 corresponds to each model
-    labellist_filename = os.path.join(data_dir, args.result_name + '_labellist.npy') 
+    def get_labels(self):
+        return self.labellist
+        
+class Interactive_Labeling:
+    def recalc_handler(self,event):
+        print 'recalc_handler',event
+        print self.main_window.get_labels()
 
-    img = np.array(Image.open(img_filename)).mean(axis=-1)
-    segmentation = np.load(seg_filename)
-    labellist = np.load(labellist_filename)
+    def save_handler(self,event):
+        print 'save_handler',event
 
-    app = QApplication(sys.argv)
-    main_window = PickByColorsGUI(img=img, segmentation=segmentation, 
-                                    labellist=labellist, n_models=20)
-    main_window.show()
-    app.exec_()
+    def main(self):
+        parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='GUI for coloring superpixels',
+        epilog="""Example:
+        python %s PMD1305_region0_reduce2_0244_param_nissl324
+        """%(os.path.basename(sys.argv[0]), ))
+
+        parser.add_argument("result_name", type=str, help="name of the result")
+        parser.add_argument("-d", "--data_dir", type=str, help="result data directory (default: %(default)s)", default='.')
+        args = parser.parse_args()
+
+        data_dir = os.path.realpath(args.data_dir)
+
+        # The brain image with superpixel boundaries drawn on it
+        img_filename = os.path.join(data_dir, args.result_name + '_segmentation.png')
+
+        # a matrix of labels indicating which superpixel a pixel belongs to 
+        # each label is an integer from 0 to n_superpixels.
+        # -1 means background, 0 to n_superpixel-1 corresponds to each superpixel
+        seg_filename = os.path.join(data_dir, args.result_name + '_segmentation.npy')
+
+        # a list of labels indicating which model a suerpixel is associated with. 
+        # Each label is an integer from -1 to n_models-1.
+        # -1 means background, 0 to n_models-1 corresponds to each model
+        labellist_filename = os.path.join(data_dir, args.result_name + '_labellist.npy') 
+
+        img = np.array(Image.open(img_filename)).mean(axis=-1)
+        segmentation = np.load(seg_filename)
+        labellist = np.load(labellist_filename)
+
+        app = QApplication(sys.argv)
+        main_window = PickByColorsGUI(img=img, segmentation=segmentation,\
+                                      recalc_callback=self.recalc_handler,\
+                                      save_callback=self.save_handler,\
+                                      labellist=labellist, n_models=20)
+        main_window.show()
+        self.main_window=main_window
+        app.exec_()
 
 if __name__ == "__main__":
-    main()
+    IL=Interactive_Labeling()
+    IL.main()

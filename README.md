@@ -30,7 +30,7 @@ python feature_extraction_pipeline.py ../DavidData/RS141_x1.25/RS141_x5_0004.tif
 python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
 ```
 
-*obsolete* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
+*(needs update)* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
 ```shell
 # david data
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong

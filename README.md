@@ -3,7 +3,7 @@
 Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
 Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
-This currently includes two scripts: `feature_extraction_pipeline.py` and `generate_dataset.py`
+This currently includes two scripts: `feature_extraction_pipeline_v2.py` and `generate_dataset.py`
 It is recommended to run the code on gcn (instead of ion).
 
 
@@ -15,8 +15,7 @@ Output are in `/oasis/scratch/csd181/yuncong/output`
 Example Workflow
 -----
 
-First log into one of the gcn computers: 
-> gcn-20-41 gcn-20-38 gcn-20-33 gcn-20-48 gcn-20-45 gcn-20-34 gcn-20-43 gcn-20-35 gcn-20-31 gcn-20-37 gcn-20-32 gcn-20-47 gcn-20-44 gcn-20-46 gcn-20-36 gcn-20-42
+First log into one of the gcn computers: `gcn-20-[31-38]` or `gcn-20-[41-48]`
 
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts
@@ -99,9 +98,8 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-**YunCong, can you describe how to use the JSON files instead of the .csv file?**
+Parameter settings are stored as JSON files under the `params` sub-directory.
 
-Parameter settings are specified in `params.csv` under the project directory. 
 
 To make editing the parameters easier, you can also modify [this google spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit), and then use [this script](https://gist.github.com/mistycheney/be1f758bfcd5f852c9b5#file-sync_params_google_spreadsheet-py) to download the corresponding csv file to overwrite `params.csv`.
 

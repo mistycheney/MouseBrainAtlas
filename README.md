@@ -98,10 +98,8 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-Parameter settings are stored as JSON files under the `params` sub-directory.
+Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named param_<param id>.json.
 
-
-To make editing the parameters easier, you can also modify [this google spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit), and then use [this script](https://gist.github.com/mistycheney/be1f758bfcd5f852c9b5#file-sync_params_google_spreadsheet-py) to download the corresponding csv file to overwrite `params.csv`.
 
 #### Gabor filter bank parameters ##
 * **param_id**: an integer id for this set of parameters, default parameter is id 0 (change to string)

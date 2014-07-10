@@ -2,10 +2,7 @@
 
 Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
-Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
-This currently includes two scripts: `feature_extraction_pipeline_v2.py` and `generate_dataset.py`
-It is recommended to run the code on gcn (instead of ion).
-
+Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`. It is recommended to run the code on gcn (instead of ion) because the numpy in yuncong's virtualenv is compiled with MKL (Intel Math Kernel Library) which is only installed on gcn.
 
 Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 
@@ -28,12 +25,12 @@ source /oasis/projects/nsf/csd181/yuncong/Brain/local_scripts/setup.sh
 Run the feature extraction pipeline.
 ```shell
 # david data
-python feature_extraction_pipeline.py ../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
+python feature_extraction_pipeline.py ../DavidData/RS141_x1.25/RS141_x5_0004.tif nissl324
 # partha data
-python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif 10
+python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
 ```
 
-Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
+*obsolete* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
 ```shell
 # david data
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
@@ -46,16 +43,24 @@ Just type `./download_all2.sh` to see the detailed help message.
 **Note**: Currently, foreground mask detection does not work well for David's data. It is implemented in the function `foreground_mask` in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
 
 
-
 Feature Extraction
 -----
 
-Feature extraction pipeline is implemented in the script `feature_extraction_pipeline.py`.
-Run `python feature_extraction_pipeline.py -h` to see the detailed help message.
+Feature extraction pipeline is implemented in the script `feature_extraction_pipeline_v2.py`.
+Run `python feature_extraction_pipeline_v2.py -h` to see the detailed help message.
 
 
 Data
 ----
+**Data from David**: 
+
+Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
+
+Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
+
+_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
+
+
 **Data from Partha**:
 
 Data are stored at `/oasis/projects/nsf/csd181/yuncong/ParthaData`.
@@ -65,14 +70,6 @@ The original data are 10 tar.gz files with names such as `PMD1305.tar.gz`. Each 
 The other directories contains un-compressed subsets of the images at a particular resolution, in tif format. Each subset is referred to as a *dataset*. For example, `PMD1305_region0` is the dataset that includes images 240 through 250 in stack PMD1305. There is no enforced naming rules for a dataset. In this example, `region0` refers to a bounding box containing the brainstem. The dataset definition files are stored in `dataset_defs`.
 
 To generate a new dataset, use the script `generate_dataset.py`. Just type `python generate_dataset.py -h` to see the detailed help message.
-
-**Data from David**: 
-
-Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
-
-Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
-
-_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
 
 Output
 -----

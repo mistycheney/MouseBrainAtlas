@@ -15,7 +15,7 @@ Output are in `/oasis/scratch/csd181/yuncong/output`
 Example Workflow
 -----
 
-First log into one of the gcn computers: `gcn-20-[31-38]` or `gcn-20-[41-48]`
+First log into any one of the 16 gcn computers. The hostnames of these computers are`gcn-20-x.sdsc.edu` where `x` is a number between 31 and 38 and between 41 and 48.
 
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts

@@ -30,10 +30,11 @@ else:
     from PyQt4.QtGui import *
 
 import argparse
+import pickle
 
 class PickByColorsGUI(QMainWindow):
     def __init__(self, parent=None, recalc_callback=None, save_callback=None,\
-                img=None, segmentation=None, labellist=None, n_models=20):
+                img=None, segmentation=None, labeling=None):
         """
         Initialization of PickByColorsGUI:
         parent:       the parent window within which this window is embedded.
@@ -41,8 +42,8 @@ class PickByColorsGUI(QMainWindow):
         save_callback: A callback function which is launched when the user clicks on the "save" button.
         img:          2D array containing the image.
         segmentation: 2D array containing the segment index for each pixel, generated using the super-pixel alg.
-        labellist:    an array associating a label with each segment index.
-        n_models:     the number of super-pixel models (=length of label-list minus 1)
+        labeling:    A dictionary containing the mapping of super-pixels to colors (labellist) 
+                      and ascii names for the colors.
         """
         QMainWindow.__init__(self, parent)
         
@@ -57,16 +58,25 @@ class PickByColorsGUI(QMainWindow):
         self.save_callback=save_callback
 
         # convert labelmap (dict) to pixel values
-        self.labellist=labellist
-        print 'shape of labellist',np.shape(labellist)
+        self.labellist=labeling['labellist']
+        print 'shape of labellist',np.shape(self.labellist)
+        self.buttonTexts=labeling['oldnames']
+
         self.labelmap_orig = -1*np.ones_like(segmentation, dtype=np.int)
-        self.labelmap_orig = labellist[segmentation]
+        self.labelmap_orig = self.labellist[segmentation]
         self.labelmap_new = self.labelmap_orig.copy()
 
-        self.n_models = n_models
+        self.n_models = max(self.labellist)+1
         self.n_labels = self.n_models + 1
 
-        self.colors = [(1,1,1)] + [(random(),random(),random()) for i in xrange(30)] # be interactive
+        # Colors proposed by Green-Armytage 
+        self.colors = [(255,255,255),
+                       (240,163,255),(0,117,220),(153,63,0),(76,0,92),(25,25,25),(0,92,49),(43,206,72),
+                       (255,204,153),(128,128,128),(148,255,181),(143,124,0),(157,204,0),(194,0,136),
+                       (0,51,128),(255,164,5),(255,168,187),(66,102,0),(255,0,16),(94,241,242),(0,153,143),
+                       (224,255,102),(116,10,255),(153,0,0),(255,255,128),(255,255,0),(255,80,5)]
+        for i in range(len(self.colors)):
+            self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
         self.label_cmap = ListedColormap(self.colors, name='label_cmap')
         self.img = img
 
@@ -102,7 +112,8 @@ class PickByColorsGUI(QMainWindow):
         ############################################
         # existing color button/decription region
         self.colorButtons = [QPushButton('%d'%(i), self) for i in range(-1, self.n_labels-1)]    # push buttons with colors
-        self.descEdits = [QLineEdit() for i in range(self.n_labels)] # corresponding decription fields
+        self.descEdits = [QLineEdit(QString(self.buttonTexts[i])) for i in range(self.n_labels)] # corresponding decription fields
+        self.newDescEdits=[]
 
         self.color_box = QGridLayout()
         for i, (btn, edt) in enumerate(zip(self.colorButtons, self.descEdits)):
@@ -139,7 +150,7 @@ class PickByColorsGUI(QMainWindow):
         buttons_box.addWidget(recalc_button)
         recalc_button.clicked.connect(self.recalc_callback)
 
-        # Recalculate button
+        # save button: save current labeling and current classifiers.
         save_button = QPushButton('save', self)
         buttons_box.addWidget(save_button)
         save_button.clicked.connect(self.save_callback)
@@ -174,6 +185,8 @@ class PickByColorsGUI(QMainWindow):
 
         btn = QPushButton('%d'%self.paint_label, self)
         edt = QLineEdit()
+
+        self.newDescEdits.append(edt)
 
         r, g, b, a = self.label_cmap(self.paint_label+1)
 
@@ -252,6 +265,9 @@ class PickByColorsGUI(QMainWindow):
             cur_xlim = self.axes.get_xlim()
             cur_ylim = self.axes.get_ylim()
             
+            if (event.xdata==None) | (event.ydata==None):
+                #print 'one of event.xdata or event.ydata is None'
+                return
             offset_x = self.press_x - event.xdata
             offset_y = self.press_y - event.ydata
             
@@ -303,52 +319,65 @@ class PickByColorsGUI(QMainWindow):
             self.axes.figure.canvas.draw() # force re-draw
     
     def get_labels(self):
-        return self.labellist
-        
+        A={}
+        A['labellist']=self.labellist
+        A['oldnames']=[str(q.text()) for q in self.descEdits]
+        A['newnames']=[str(q.text()) for q in self.newDescEdits]
+        return A
+
 class Interactive_Labeling:
     def recalc_handler(self,event):
         print 'recalc_handler',event
         print self.main_window.get_labels()
 
     def save_handler(self,event):
-        print 'save_handler',event
+        print 'save_handler'
+        state = self.main_window.get_labels()
+        print state
+        pickle.dump(state,open(self.labellist_filename,'w'))
+
+    def full_name(self,extension):
+        return os.path.join(self.data_dir, self.result_name + extension)
 
     def main(self):
         parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='GUI for coloring superpixels',
-        epilog="""Example:
-        python %s PMD1305_region0_reduce2_0244_param_nissl324
-        """%(os.path.basename(sys.argv[0]), ))
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            description='GUI for coloring superpixels',
+            epilog="""Example:
+            python %s PMD1305_region0_reduce2_0244_param_nissl324
+            """%(os.path.basename(sys.argv[0]), ))
 
         parser.add_argument("result_name", type=str, help="name of the result")
-        parser.add_argument("-d", "--data_dir", type=str, help="result data directory (default: %(default)s)", default='.')
+        parser.add_argument("-d", "--data_dir", type=str, help="result data directory (default: %(default)s)",\
+                            default='.')
         args = parser.parse_args()
-
+        self.result_name=args.result_name
+        self.data_dir=args.data_dir
         data_dir = os.path.realpath(args.data_dir)
 
         # The brain image with superpixel boundaries drawn on it
-        img_filename = os.path.join(data_dir, args.result_name + '_segmentation.png')
+        self.img_filename = self.full_name('_segmentation.png')
 
         # a matrix of labels indicating which superpixel a pixel belongs to 
         # each label is an integer from 0 to n_superpixels.
         # -1 means background, 0 to n_superpixel-1 corresponds to each superpixel
-        seg_filename = os.path.join(data_dir, args.result_name + '_segmentation.npy')
+        self.seg_filename = self.full_name('_segmentation.npy')
 
         # a list of labels indicating which model a suerpixel is associated with. 
         # Each label is an integer from -1 to n_models-1.
         # -1 means background, 0 to n_models-1 corresponds to each model
-        labellist_filename = os.path.join(data_dir, args.result_name + '_labellist.npy') 
+        self.labellist_filename = self.full_name('_labeling.pkl') 
 
-        img = np.array(Image.open(img_filename)).mean(axis=-1)
-        segmentation = np.load(seg_filename)
-        labellist = np.load(labellist_filename)
+        img = np.array(Image.open(self.img_filename)).mean(axis=-1)
+        segmentation = np.load(self.seg_filename)
+
+        self.labeling = pickle.load(open(self.labellist_filename,'r'))
 
         app = QApplication(sys.argv)
         main_window = PickByColorsGUI(img=img, segmentation=segmentation,\
                                       recalc_callback=self.recalc_handler,\
                                       save_callback=self.save_handler,\
-                                      labellist=labellist, n_models=20)
+                                      labeling=self.labeling)
         main_window.show()
         self.main_window=main_window
         app.exec_()
@@ -356,3 +385,4 @@ class Interactive_Labeling:
 if __name__ == "__main__":
     IL=Interactive_Labeling()
     IL.main()
+

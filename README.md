@@ -98,7 +98,7 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named param_<param id>.json.
+Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`.
 
 
 #### Gabor filter bank parameters ##

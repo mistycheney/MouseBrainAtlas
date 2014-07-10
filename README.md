@@ -72,6 +72,8 @@ Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
 
 Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
 
+_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
+
 Output
 -----
 A result set is the set of outputs from a particular image using a particular parameter setting. All results are stored in the output directory. Each result set is a sub-directory named `<dataset name>_<image index>_param<parameter id>`. The content of each sub-directory are .npy files or image files with different `_<suffix>`. 
@@ -98,7 +100,7 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`.
+Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`. `param_id` can be any string, for example `nissl324`. The default parameter file is named `param_default.json`.
 
 
 #### Gabor filter bank parameters ##

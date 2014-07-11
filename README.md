@@ -97,8 +97,9 @@ from local machine returns a list of available results.
 <a name="param"></a> Parameters
 -----
 
-Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`. `param_id` can be any string, for example `nissl324`. The default parameter file is named `param_default.json`.
+Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`. `param id` can be any string, for example `nissl324`. The default parameter file is named `param_default.json`.
 
+Parameter fields are allowed to be NaN, in which case the values will be replaced by the corresponding values in the default setting.
 
 #### Gabor filter bank parameters ##
 * **param_id**: an integer id for this set of parameters, default parameter is id 0 (change to string)
@@ -119,6 +120,10 @@ Parameter settings are stored as JSON files under the `params` sub-directory. Ea
 * **n_iter**: number of iterations of Kmeans. default 10
 
 ## Detector parameters ##
-* **n_models**: number of models to detect
-
+* **n_models**: number of models to detect. default 10
+* **beta**: a number that controls how close the significance under new weight is to zero. defaut 1.0
+* **frontier_contrast_diff_thresh**: relative entropy region growing will stop incrementing threshold as long as the difference between the current and the previous frontier contrasts exceeds this value. default 0.2
+* **lr_grow_thresh**: include a neighbor superpixel into current cluster if the likelihood ratio P(i|model)/P(i|null) of this superpixel exceeds this value. default 0.1
+* **lr_null_thresh**: when applying learned models, if the likelihood ratio of a superpixel P(i|model)/P(i|null) is smaller than this value, this suerpixel is classified as NULL. default 0.3
+ 
 

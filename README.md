@@ -82,7 +82,8 @@ To generate a new dataset, use the script `generate_dataset.py`. Just type `pyth
 
 Output
 -----
-A result set is the set of outputs from a particular image using a particular parameter setting. All results are stored in the output directory. Each result set is a sub-directory named `<dataset name>_<image index>_param<parameter id>`. The content of each sub-directory are .npy files or image files with different `_<suffix>`. 
+
+Outputs are stored in a sub-directory named `<image name>_param_<parameter id>`, under `/oasis/scratch/csd181/yuncong/output`.
 
 `<suffix>` is one of:
 * `features.npy`: Gabor filter responses. shape (`im_height`, `im_width`, `n_features`)
@@ -96,11 +97,14 @@ A result set is the set of outputs from a particular image using a particular pa
 * `texton_saliencymap.png`
 
 
-Running 
+Running the following command on your local machine returns a list of available results.
 ```shell
-ssh <gordon username>@ion-21-14.sdsc.edu 'ls -d Brain/output/*/'
+ssh <gordon username>@gcn-20-32.sdsc.edu 'ls -d /oasis/scratch/csd181/yuncong/output/*/'
 ``` 
-from local machine returns a list of available results.
+
+One can issue the following command to download all generated images.
+`scp <gordon username>@gcn-20-32.sdsc.edu:/oasis/scratch/csd181/yuncong/output/<image name>/*.png <image name>`.
+
 
 
 <a name="param"></a> Parameters

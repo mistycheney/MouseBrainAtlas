@@ -25,9 +25,9 @@ source /oasis/projects/nsf/csd181/yuncong/Brain/local_scripts/setup.sh
 Run the feature extraction pipeline, for example,
 ```shell
 # david data
-python feature_extraction_pipeline.py ../DavidData/RS155_x5/RS155_x5_0004.tif nissl324
+python feature_extraction_pipeline_v2.py ../DavidData/RS155_x5/RS155_x5_0004.tif nissl324
 # partha data
-python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
+python feature_extraction_pipeline_v2.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
 ```
 
 

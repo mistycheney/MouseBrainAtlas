@@ -115,14 +115,14 @@ def timeit(func=None,loops=1,verbose=False):
 # <codecell>
 
 def load_array(suffix, img_name, param_id, output_dir):
-    result_name = img_name + '_param' + str(param_id)
+    result_name = img_name + '_param_' + str(param_id)
     arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
     return arr
 
 def save_array(arr, suffix, img_name, param_id, cache_dir='scratch'):
-    result_name = img_name + '_param' + str(param_id)
+    result_name = img_name + '_param_' + str(param_id)
     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
 #     if not os.path.exists(arr_file):
     np.save(arr_file, arr)
@@ -167,8 +167,8 @@ def save_img(img, suffix, img_name, param_id,
     else:
         print '%s already exists' % (img_fn)
 
-def get_img_filename(suffix, img_name, param_id, cache_dir='scratch', ext='tif'):
-    result_name = img_name + '_param' + str(param_id)
+def get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif'):
+    result_name = img_name + '_param_' + str(param_id)
     img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
     return img_fn
 

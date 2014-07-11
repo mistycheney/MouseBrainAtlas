@@ -236,6 +236,14 @@ except IOError:
 
 # <codecell>
 
+param
+
+# <codecell>
+
+img.sum()
+
+# <codecell>
+
 %%time
 
 print '=== over-segment the image into superpixels based on color information ==='
@@ -399,8 +407,8 @@ def chi2(u,v):
     assert not np.isnan(r).any(), (u, v)
     return r
 
-D_texton = squareform(pdist(sp_texton_hist_normalized))
-D_dir = squareform(pdist(sp_dir_hist_normalized))
+D_texton = squareform(pdist(sp_texton_hist_normalized, chi2))
+# D_dir = squareform(pdist(sp_dir_hist_normalized, chi2))
 
 # <markdowncell>
 
@@ -714,6 +722,14 @@ r = Parallel(n_jobs=16)(delayed(grow_cluster_sig)(i)
                         for i in range(n_superpixels))
 clusters = [list(c) for c, t in r]
 print 'clusters computed'
+
+# <codecell>
+
+clusters[1495]
+
+# <codecell>
+
+FileLink(get_img_filename('segmentation','png')[30:])
 
 # <codecell>
 

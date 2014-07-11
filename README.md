@@ -123,7 +123,7 @@ Parameter fields are allowed to be NaN, in which case the values will be replace
 * **n_models**: number of models to detect. default 10
 * **beta**: a number that controls how close the significance under new weight is to zero. defaut 1.0
 * **frontier_contrast_diff_thresh**: relative entropy region growing will stop incrementing threshold as long as the difference between the current and the previous frontier contrasts exceeds this value. default 0.2
-* **lr_grow_thresh**: include a neighbor superpixel into current cluster if the likelihood ratio P(i|model)/P(i|null) of this superpixel exceeds this value. default 0.1
-* **lr_decision_thresh**: when applying learned models, if the likelihood ratio of a superpixel P(i|model)/P(i|null) is smaller than this value, this suerpixel is classified as NULL. default 0.3
+* **lr_grow_thresh**: include a neighbor superpixel into current cluster if the likelihood ratio P(superpixel|model)/P(superpixel|null) of this superpixel exceeds this value. default 0.1
+* **lr_decision_thresh**: when applying learned models, if the likelihood ratio of a superpixel P(superpixel|model)/P(superpixel|null) is smaller than this value, this suerpixel is classified as NULL. default 0.3
  
 

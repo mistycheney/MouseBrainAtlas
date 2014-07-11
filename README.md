@@ -17,9 +17,9 @@ First log into any one of the 16 gcn computers. The hostnames of these computers
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts
 ```
-Set up PATH and PYTHONPATH for cv2 python package and `kdu_expand` executable.
+Set up PATH for relavant executable and PYTHONPATH for cv2 package.
 ```shell
-source /oasis/projects/nsf/csd181/yuncong/Brain/local_scripts/setup.sh
+source /oasis/projects/nsf/csd181/yuncong/Brain/setup.sh
 ```
 
 Run the feature extraction pipeline, for example,

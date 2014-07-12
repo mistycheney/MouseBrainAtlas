@@ -132,7 +132,7 @@ Parameter fields are allowed to be NaN, in which case the values will be replace
 * **n_sample**: number of samples to use at each iteration of Kmeans. default 10,000 
 * **n_iter**: number of iterations of Kmeans. default 10
 
-## Detector parameters ##
+#### Detector parameters ##
 * **n_models**: number of models to detect. default 10
 * **beta**: a number that controls how close the significance under new weight is to zero. defaut 1.0
 * **frontier_contrast_diff_thresh**: relative entropy region growing will stop incrementing threshold as long as the difference between the current and the previous frontier contrasts exceeds this value. default 0.2

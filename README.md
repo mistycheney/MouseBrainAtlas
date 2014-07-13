@@ -2,38 +2,44 @@
 
 Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 
-Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`.
-This currently includes two scripts: `feature_extraction_pipeline_v2.py` and `generate_dataset.py`
-It is recommended to run the code on gcn (instead of ion).
-
+Executable scripts are at `/oasis/projects/nsf/csd181/yuncong/Brain/scripts`. It is recommended to run the code on gcn (instead of ion) because the numpy in yuncong's virtualenv is compiled with MKL (Intel Math Kernel Library) which is only installed on gcn.
 
 Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects/nsf/csd181/yuncong/DavidData`
 
 Output are in `/oasis/scratch/csd181/yuncong/output`
 
 
+Todo
+-----
+1. improve background removal
+2. modify download_all script
+3. separate sigboost from feature extraction
+4. Lower priority: the image of the brain in the brain guy is clipped at the original size of the brain image, rather than at the borders of the encapsulating Qt frame. Can you fix that or guide me where to fix it? I am guessing it has to do with the set_xlim and set_ylim, but I am not sure.
+
 Example Workflow
 -----
 
-First log into one of the gcn computers: `gcn-20-[31-38]` or `gcn-20-[41-48]`
+First log into any one of the 16 gcn computers. The hostnames of these computers are`gcn-20-x.sdsc.edu` where `x` is a number between 31 and 38 and between 41 and 48.
 
 ```shell
 cd /oasis/projects/nsf/csd181/yuncong/Brain/scripts
 ```
-Set up PATH and PYTHONPATH for cv2 python package and `kdu_expand` executable.
+Set up PATH for relavant executable and PYTHONPATH for cv2 package.
 ```shell
-source /oasis/projects/nsf/csd181/yuncong/Brain/local_scripts/setup.sh
+source /oasis/projects/nsf/csd181/yuncong/Brain/setup.sh
 ```
 
-Run the feature extraction pipeline.
+Run the feature extraction pipeline, for example,
 ```shell
 # david data
-python feature_extraction_pipeline.py ../DavidData/x1.25/RS141_2_x1.25_z0.tif 10
+python feature_extraction_pipeline_v2.py ../DavidData/RS155_x5/RS155_x5_0004.tif nissl324
 # partha data
-python feature_extraction_pipeline.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif 10
+python feature_extraction_pipeline_v2.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
 ```
 
-Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
+
+
+*(needs update)* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
 ```shell
 # david data
 ./download_all2.sh /oasis/projects/nsf/csd181/yuncong/DavidData/x1.25/RS141_2_x1.25_z0.tif RS141_2_x1.25_z0_param10 output yuncong
@@ -46,16 +52,24 @@ Just type `./download_all2.sh` to see the detailed help message.
 **Note**: Currently, foreground mask detection does not work well for David's data. It is implemented in the function `foreground_mask` in `/oasis/projects/nsf/csd181/yuncong/Brain/scripts/utilities.py`.
 
 
-
 Feature Extraction
 -----
 
-Feature extraction pipeline is implemented in the script `feature_extraction_pipeline.py`.
-Run `python feature_extraction_pipeline.py -h` to see the detailed help message.
+Feature extraction pipeline is implemented in the script `feature_extraction_pipeline_v2.py`.
+Run `python feature_extraction_pipeline_v2.py -h` to see the detailed help message.
 
 
 Data
 ----
+**Data from David**: 
+
+Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
+
+Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
+
+_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
+
+
 **Data from Partha**:
 
 Data are stored at `/oasis/projects/nsf/csd181/yuncong/ParthaData`.
@@ -66,15 +80,10 @@ The other directories contains un-compressed subsets of the images at a particul
 
 To generate a new dataset, use the script `generate_dataset.py`. Just type `python generate_dataset.py -h` to see the detailed help message.
 
-**Data from David**: 
-
-Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
-
-Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
-
 Output
 -----
-A result set is the set of outputs from a particular image using a particular parameter setting. All results are stored in the output directory. Each result set is a sub-directory named `<dataset name>_<image index>_param<parameter id>`. The content of each sub-directory are .npy files or image files with different `_<suffix>`. 
+
+Outputs are stored in a sub-directory named `<image name>_param_<parameter id>`, under `/oasis/scratch/csd181/yuncong/output`.
 
 `<suffix>` is one of:
 * `features.npy`: Gabor filter responses. shape (`im_height`, `im_width`, `n_features`)
@@ -88,20 +97,22 @@ A result set is the set of outputs from a particular image using a particular pa
 * `texton_saliencymap.png`
 
 
-Running 
+Running the following command on your local machine returns a list of available results.
 ```shell
-ssh <gordon username>@ion-21-14.sdsc.edu 'ls -d Brain/output/*/'
+ssh <gordon username>@gcn-20-32.sdsc.edu 'ls -d /oasis/scratch/csd181/yuncong/output/*/'
 ``` 
-from local machine returns a list of available results.
+
+One can issue the following command to download all generated images.
+`scp <gordon username>@gcn-20-32.sdsc.edu:/oasis/scratch/csd181/yuncong/output/<image name>/*.png <image name>`.
+
 
 
 <a name="param"></a> Parameters
 -----
 
-Parameter settings are stored as JSON files under the `params` sub-directory.
+Parameter settings are stored as JSON files under the `params` sub-directory. Each JSON file specifies a particular set of parameters. They are named `param_<param id>.json`. `param id` can be any string, for example `nissl324`. The default parameter file is named `param_default.json`.
 
-
-To make editing the parameters easier, you can also modify [this google spreadsheet](https://docs.google.com/spreadsheets/d/1S189da_CxzC3GKISG3hZDG0n7mMycC0v4zTiRJraEUE/edit), and then use [this script](https://gist.github.com/mistycheney/be1f758bfcd5f852c9b5#file-sync_params_google_spreadsheet-py) to download the corresponding csv file to overwrite `params.csv`.
+Parameter fields are allowed to be NaN, in which case the values will be replaced by the corresponding values in the default setting.
 
 #### Gabor filter bank parameters ##
 * **param_id**: an integer id for this set of parameters, default parameter is id 0 (change to string)
@@ -121,7 +132,11 @@ To make editing the parameters easier, you can also modify [this google spreadsh
 * **n_sample**: number of samples to use at each iteration of Kmeans. default 10,000 
 * **n_iter**: number of iterations of Kmeans. default 10
 
-## Detector parameters ##
-* **n_models**: number of models to detect
-
+#### Detector parameters ##
+* **n_models**: number of models to detect. default 10
+* **beta**: a number that controls how close the significance under new weight is to zero. defaut 1.0
+* **frontier_contrast_diff_thresh**: relative entropy region growing will stop incrementing threshold as long as the difference between the current and the previous frontier contrasts exceeds this value. default 0.2
+* **lr_grow_thresh**: include a neighbor superpixel into current cluster if the likelihood ratio P(superpixel|model)/P(superpixel|null) of this superpixel exceeds this value. default 0.1
+* **lr_decision_thresh**: when applying learned models, if the likelihood ratio of a superpixel P(superpixel|model)/P(superpixel|null) is smaller than this value, this suerpixel is classified as NULL. default 0.3
+ 
 

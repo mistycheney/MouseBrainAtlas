@@ -64,7 +64,8 @@ import pprint
 
 class args:
     param_id = 'nissl324'
-    img_file = '../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif'
+#     img_file = '../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif'
+    img_file = '../DavidData/RS155_x5/RS155_x5_0004.tif'
     output_dir = '/oasis/scratch/csd181/yuncong/output'
     params_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/params'
 
@@ -113,8 +114,39 @@ if not os.path.exists(result_dir):
 
 # <codecell>
 
+from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
+from skimage.restoration import denoise_bilateral
+from skimage.measure import regionprops, label
+
+def foreground_mask(img, min_size=64):
+#     t_img = gaussian_filter(img, sigma=3) < 220./255.
+#     t_img = denoise_bilateral(img) < 220./255.
+    t_img = denoise_bilateral(img) < 200./255.
+
+    labels, n_labels = label(t_img, neighbors=4, return_num=True)
+    
+    reg = regionprops(labels+1)
+    all_areas = np.array([r.area for r in reg])
+    
+    a = np.concatenate([labels[0,:] ,labels[-1,:] ,labels[:,0] ,labels[:,-1]])
+    border_labels = np.unique(a)
+    
+    border_labels_large = np.extract(all_areas[border_labels] > 250, border_labels)
+
+    mask = np.ones_like(img, dtype=np.bool)
+    for i in border_labels_large:
+        if i != all_areas.argmax():
+            mask[labels==i] = 0
+
+    mask = remove_small_objects(mask, min_size=min_size, connectivity=1, in_place=False)
+            
+    return mask
+
+# <codecell>
+
 print '=== finding foreground mask ==='
-mask = utilities.foreground_mask(img, min_size=2000)
+# mask = utilities.foreground_mask(img, min_size=20000)
+mask = foreground_mask(img, min_size=20000)
 mask = mask > .5
 plt.imshow(mask, cmap=plt.cm.Greys_r);
 
@@ -308,9 +340,9 @@ bg_superpixels = np.nonzero((superpixels_fg_count/sp_areas) < 0.3)[0]
 #                           +[50,51,56,57,58,59,60,61,62,63,64,65,115,73,88,109,99,91,122,110,151,192,165,158,254,207,236,306]
 #                           )))
 
-bg_superpixels = np.array(list(set(bg_superpixels.tolist()+range(47,72)
-                          +[76,105,108,151,142,187,218,188,122,84,171,202,265,106,152,119,78,79,152,158,202,285,209,310,323,253]
-                          +[0,1,2,3,4,5,6,7,8,15,80,100,174,153,162,75])))
+# bg_superpixels = np.array(list(set(bg_superpixels.tolist()+range(47,72)
+#                           +[76,105,108,151,142,187,218,188,122,84,171,202,265,106,152,119,78,79,152,158,202,285,209,310,323,253]
+#                           +[0,1,2,3,4,5,6,7,8,15,80,100,174,153,162,75])))
 
 fg_superpixels = np.array([i for i in range(n_superpixels) if i not in bg_superpixels])
 print '%d background superpixels'%len(bg_superpixels)
@@ -722,7 +754,7 @@ save_img(labelmap_rgb, 'labelmap')
 
 # <codecell>
 
-FileLinks('output/PMD1305_region0_reduce2_0244_param_nissl324')
+FileLinks('output/')
 
 # <codecell>
 

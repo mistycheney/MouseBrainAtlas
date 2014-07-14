@@ -165,6 +165,7 @@ class PickByColorsGUI(QMainWindow):
 
         # left box = matplotlib canvas + buttons below
         left_box = QVBoxLayout()
+        #left_box.addStretch()
         left_box.addWidget(self.canvas)
 
         buttons_box=QHBoxLayout()
@@ -192,12 +193,26 @@ class PickByColorsGUI(QMainWindow):
         quit_button.clicked.connect(self.close)
 
         # overall box = left box + right box
-        all_box = QHBoxLayout()
-        all_box.addLayout(left_box)
-        all_box.addLayout(right_box)
+        top_frame = QSplitter()
+        left_frame=QFrame()
+        left_frame.setFrameShape(QFrame.StyledPanel)
+        left_frame.setLayout(left_box);
+        right_frame=QFrame()
+        right_frame.setLayout(right_box);
+        right_frame.setFrameShape(QFrame.StyledPanel)
+        top_frame.addWidget(left_frame)
+        top_frame.addWidget(right_frame)
 
-        self.main_frame.setLayout(all_box)
-        self.setCentralWidget(self.main_frame)
+        hbox = QHBoxLayout(self)
+        #self.main_frame=QFrame()
+        #self.main_frame.setWidget(top_frame)
+        #self.setCentralWidget(self.main_frame)
+
+        hbox.addWidget(top_frame)
+        self.setLayout(hbox)
+        #QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
+        
+        self.setGeometry(100,100,1000,1000)
 
         help_message = 'Usage: Ctrl + Left Click to pick a color; Left Click to assign color to a superpixel; Scroll to zoom, Left Click + drag to pan'
         self.setWindowTitle('PickByColorsGUI (%s)' % help_message)

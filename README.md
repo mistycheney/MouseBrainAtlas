@@ -9,6 +9,13 @@ Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects
 Output are in `/oasis/scratch/csd181/yuncong/output`
 
 
+Todo
+-----
+1. improve background removal
+2. modify download_all script
+3. separate sigboost from feature extraction
+4. Lower priority: the image of the brain in the brain guy is clipped at the original size of the brain image, rather than at the borders of the encapsulating Qt frame. Can you fix that or guide me where to fix it? I am guessing it has to do with the set_xlim and set_ylim, but I am not sure.
+
 Example Workflow
 -----
 
@@ -75,7 +82,8 @@ To generate a new dataset, use the script `generate_dataset.py`. Just type `pyth
 
 Output
 -----
-A result set is the set of outputs from a particular image using a particular parameter setting. All results are stored in the output directory. Each result set is a sub-directory named `<dataset name>_<image index>_param<parameter id>`. The content of each sub-directory are .npy files or image files with different `_<suffix>`. 
+
+Outputs are stored in a sub-directory named `<image name>_param_<parameter id>`, under `/oasis/scratch/csd181/yuncong/output`.
 
 `<suffix>` is one of:
 * `features.npy`: Gabor filter responses. shape (`im_height`, `im_width`, `n_features`)
@@ -89,11 +97,14 @@ A result set is the set of outputs from a particular image using a particular pa
 * `texton_saliencymap.png`
 
 
-Running 
+Running the following command on your local machine returns a list of available results.
 ```shell
-ssh <gordon username>@ion-21-14.sdsc.edu 'ls -d Brain/output/*/'
+ssh <gordon username>@gcn-20-32.sdsc.edu 'ls -d /oasis/scratch/csd181/yuncong/output/*/'
 ``` 
-from local machine returns a list of available results.
+
+One can issue the following command to download all generated images.
+`scp <gordon username>@gcn-20-32.sdsc.edu:/oasis/scratch/csd181/yuncong/output/<image name>/*.png <image name>`.
+
 
 
 <a name="param"></a> Parameters
@@ -121,7 +132,7 @@ Parameter fields are allowed to be NaN, in which case the values will be replace
 * **n_sample**: number of samples to use at each iteration of Kmeans. default 10,000 
 * **n_iter**: number of iterations of Kmeans. default 10
 
-## Detector parameters ##
+#### Detector parameters ##
 * **n_models**: number of models to detect. default 10
 * **beta**: a number that controls how close the significance under new weight is to zero. defaut 1.0
 * **frontier_contrast_diff_thresh**: relative entropy region growing will stop incrementing threshold as long as the difference between the current and the previous frontier contrasts exceeds this value. default 0.2

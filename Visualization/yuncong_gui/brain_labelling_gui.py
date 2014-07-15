@@ -109,8 +109,10 @@ class PickByColorsGUI(QMainWindow):
 
         # matplotlib region (the brain image)
         # TODO: allow it to fill the whole available frame
-        self.fig = Figure((10.0, 10.0), dpi=100)
+        self.fig = Figure((10.0, 10.0), dpi=300)
         self.fig.set_tight_layout(True)
+        #FigureCanvas.setSizePolicy(self, QSizePolicy.Expanding, QSizePolicy.Expanding)
+        #FigureCanvas.updateGeometry(self)
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setParent(self.main_frame)
         self.canvas.setFocusPolicy(Qt.StrongFocus)
@@ -130,17 +132,18 @@ class PickByColorsGUI(QMainWindow):
         # existing color button/decription region
         self.colorButtons = []    # layout container for push buttons with colors
         self.buttonGroup = QButtonGroup(self) # event handling container for same buttons. 
-
+        self.descEdits=[]
 
         for i in range(-1, self.n_labels-1):
             button=QPushButton('%d'%(i), self)
             self.colorButtons.append(button)
             self.buttonGroup.addButton(button)
+            textline=QLineEdit(QString(self.buttonTexts[i]))
+            textline.setMinimumWidth(150)
+            self.descEdits.append(textline)
 
         self.buttonGroup.buttonClicked.connect(self.handleButtonClicked)
-        
 
-        self.descEdits = [QLineEdit(QString(self.buttonTexts[i])) for i in range(self.n_labels)] # corresponding decription fields
         self.newDescEdits=[]
 
         self.NameField=QLineEdit(QString('Your Name'))

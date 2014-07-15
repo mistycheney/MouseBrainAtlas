@@ -53,12 +53,15 @@ class Interactive_Labeling:
         segmentation = np.load(self.seg_filename)
 
         # Texton histogram for each superpixel
-        self.texton_filename = self.full_name('_texton_hist_normalized.npy')
+        self.texton_filename = self.full_name('_sp_texton_hist_normalized.npy')
         texton=np.load(self.texton_filename)
         
         # Direction histogram for each superpixel
-        self.directions_filename=self.full_name('_dir_hist_normalized.npy')
-        directions=np.load(self.directions_filename)
+        try:
+            self.directions_filename=self.full_name('_dir_hist_normalized.npy')
+            directions=np.load(self.directions_filename)
+        except:
+            print 'failed to load',self.directions_filename
 
         # a list of labels indicating which model a suerpixel is associated with. 
         # Each label is an integer from -1 to n_models-1.

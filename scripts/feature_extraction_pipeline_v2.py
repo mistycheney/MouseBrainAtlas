@@ -490,7 +490,7 @@ def visualize_cluster(scores, cluster='all', title='', filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
 #     plt.show()
     plt.close();
     
@@ -504,7 +504,7 @@ def paint_cluster_on_img(cluster, title, filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
 #     plt.show()
     plt.close();
 
@@ -518,7 +518,7 @@ def paint_clusters_on_img(clusters, title, filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
 #     plt.show()
     plt.close();
 
@@ -538,7 +538,7 @@ print 'clusters computed'
 
 # <codecell>
 
-f = os.path.join(args.output_dir, 'stages')
+f = os.path.join(result_dir, 'stages')
 if not os.path.exists(f):
     os.makedirs(f)
 
@@ -607,7 +607,7 @@ for t in range(n_models):
     for i in matched:
         labels[segmentation == i] = 1
     real_image = label2rgb(labels, img)
-    save_img(real_image, 'real_image_model%d'%t)
+    save_img(real_image, os.path.join('stage', 'real_image_model%d'%t))
         
     seed_indices[t] = seed_sp
     texton_models[t] = model_texton

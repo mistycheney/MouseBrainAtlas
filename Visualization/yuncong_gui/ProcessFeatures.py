@@ -3,7 +3,6 @@ Information-Geometry based analysis of the super-pixel descriptors. Ultimately r
 """
 
 import collections
-import operator
 import numpy as np
 
 def RE(p1,p2):
@@ -34,11 +33,9 @@ class Analyzer:
         self.texton=texton
         self.directions=directions
         self.labeling=labeling
-        self.labellist=labeling['labellist']
-        self.model_no=int(max(labellist)+1)   # number of labels (other than -1=None)
 
         self.seg_shape=np.shape(self.seg)
-        self.seg_no=np.shape(self.texton)[0]  # number of segments (super-pixels)
+        self.seg_no=np.shape(self.texton)[0]
 
         # C = the number of pixels in each super-pixel
         S=list(self.seg.flatten())
@@ -48,46 +45,12 @@ class Analyzer:
 
         self.Sets=[]; self.Dists=[]; self.Sizes=[]
         self.All=set([])
-        self.Pixel_no=np.size(self.seg) # number of pixels
+        self.Pixel_no=np.size(self.seg)
 
         self.calc_Null()
         self.Distance_from_Null()
         self.calc_neighbor_graph()
-        self.Models_from_labels()
         
-    def Models_from_labels(self):
-        self.model_no=int(max(labellist)+1)
-        self.Models={}
-        for i in range(self.label_no):
-            name=labeling['names'][i+1]
-            elements=[j for j in range(len(labellist)) if labellist[j]==i] # the set of segments with this label
-            mean=np.zeros_like(self.texton[0])
-            Count=0
-            for e in elements:
-                mean=mean+self.C[e]*texton[e]
-                Count = Count + self.C[e]
-            model=mean/Count
-            self.Models[name]= {'model':model, 'Count':Count, 'elements':elements}
-
-    def Relabel(self,NullThr=0.2):
-        print 'A list of superpixels that can be classified with some confidence'
-        print 'Current label      1st score Label      2nd-score label \t null\t1st\t2nd'
-        for i in range(shape(texton)[0]):
-            T=texton[i,:]
-            NullFit=RE(T,Null) 
-            ModelFit={}
-            for name in Models.keys():
-                model=Models[name]['model']
-                ModelFit[name]=RE(T,model)
-
-            ModelFit=sorted(ModelFit.items(),key=operator.itemgetter(1))
-            if (NullFit>NullThr):
-                j=labellist[i]
-                name=labeling['names'][int(j)+1]
-                print '%3d:%s \t%15s \t%15s \t%5.3f \t%5.3f,\t%5.3f'%\
-                        (i,name,ModelFit[0][0],ModelFit[1][0],NullFit,ModelFit[0][1],ModelFit[1][1])
-
-
     def calc_Null(self):
         """
         calculate Null distribution over textons

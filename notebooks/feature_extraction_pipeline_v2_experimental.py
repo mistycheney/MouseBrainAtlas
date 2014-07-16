@@ -3,6 +3,9 @@
 
 # <codecell>
 
+%load_ext autoreload
+%autoreload 2
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -63,11 +66,13 @@ import pprint
 # args = parser.parse_args()
 
 class args:
-    param_id = 'nissl324'
+#     param_id = 'nissl324'
+    param_id = 'redNissl'
 #     img_file = '../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif'
-    img_file = '../DavidData/RS155_x5/RS155_x5_0004.tif'
+    img_file = '../DavidData/RS141_x5/RS141_x5_0000.tif'
     output_dir = '/oasis/scratch/csd181/yuncong/output'
-    params_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/params'
+#     params_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/params'
+    params_dir = '/home/yfreund/brainRegistration/params/'
 
 # <codecell>
 
@@ -114,41 +119,14 @@ if not os.path.exists(result_dir):
 
 # <codecell>
 
-from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
-from skimage.restoration import denoise_bilateral
-from skimage.measure import regionprops, label
-
-def foreground_mask(img, min_size=64):
-#     t_img = gaussian_filter(img, sigma=3) < 220./255.
-#     t_img = denoise_bilateral(img) < 220./255.
-    t_img = denoise_bilateral(img) < 200./255.
-
-    labels, n_labels = label(t_img, neighbors=4, return_num=True)
-    
-    reg = regionprops(labels+1)
-    all_areas = np.array([r.area for r in reg])
-    
-    a = np.concatenate([labels[0,:] ,labels[-1,:] ,labels[:,0] ,labels[:,-1]])
-    border_labels = np.unique(a)
-    
-    border_labels_large = np.extract(all_areas[border_labels] > 250, border_labels)
-
-    mask = np.ones_like(img, dtype=np.bool)
-    for i in border_labels_large:
-        if i != all_areas.argmax():
-            mask[labels==i] = 0
-
-    mask = remove_small_objects(mask, min_size=min_size, connectivity=1, in_place=False)
-            
-    return mask
+print '=== finding foreground mask ==='
+mask = utilities.foreground_mask(img, min_size=2500)
+mask = mask > .5
+plt.imshow(mask, cmap=plt.cm.Greys_r);
 
 # <codecell>
 
-print '=== finding foreground mask ==='
-# mask = utilities.foreground_mask(img, min_size=20000)
-mask = foreground_mask(img, min_size=20000)
-mask = mask > .5
-plt.imshow(mask, cmap=plt.cm.Greys_r);
+np.arange(0, np.pi, np.deg2rad(theta_interval))
 
 # <codecell>
 
@@ -162,8 +140,12 @@ n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 frequencies = freq_max/freq_step**np.arange(n_freq)
 
 kernels = [gabor_kernel(f, theta=t, bandwidth=bandwidth) for f in frequencies 
-          for t in np.arange(0, np.pi, np.deg2rad(theta_interval))]
+          for t in np.arange(0, n_angle)*np.deg2rad(theta_interval)]
 kernels = map(np.real, kernels)
+
+# for i, k in enumerate(kernels):
+#     np.savetxt('kernels/kernel%d.txt'%i, k)
+
 n_kernel = len(kernels)
 
 print '=== filter using Gabor filters ==='
@@ -433,7 +415,7 @@ re_thresh_min = 0.01
 re_thresh_max = 0.8
 
 def grow_cluster_relative_entropy(seed, debug=False, 
-                                  frontier_contrast_thresh = 0.1,
+                                  frontier_contrast_diff_thresh = 0.1,
                                   max_cluster_size = 100):
     
     bg_set = set(bg_superpixels.tolist())
@@ -442,7 +424,6 @@ def grow_cluster_relative_entropy(seed, debug=False,
         return [], -1
 
     prev_frontier_contrast = np.inf
-#     prev_frontier_contrast = 0
     for re_thresh in np.arange(re_thresh_min, re_thresh_max, .01):
     
         curr_cluster = set([seed])
@@ -454,27 +435,23 @@ def grow_cluster_relative_entropy(seed, debug=False,
                 if v in bg_superpixels or v in curr_cluster: 
                     continue
 
-#                 if debug:
-#                     print 'u=', u, 'v=', v, 'chi2=', chi2(p[v], p[seed])
-#                 if chi2(p[v], p[u]) < re_thresh:
                 if chi2(p[v], p[seed]) < re_thresh:
                     curr_cluster.add(v)
                     frontier.append(v)
         
         surround = set.union(*[neighbors[i] for i in curr_cluster]) - set.union(curr_cluster, bg_set)
-        assert len(surround) != 0, seed
+        if len(surround) == 0:
+            return curr_cluster, re_thresh
 
         frontier_in_cluster = set.intersection(set.union(*[neighbors[i] for i in surround]), curr_cluster)
         frontier_contrasts = [np.nanmax([chi2(p[i], p[j]) for j in neighbors[i] if j not in bg_set]) for i in frontier_in_cluster]
         frontier_contrast = np.max(frontier_contrasts)
-#         frontier_contrasts = [np.nanmin([chi2(p[i], p[j]) for j in neighbors[i] if j not in bg_set]) for i in frontier_in_cluster]
-#         frontier_contrast = np.min(frontier_contrasts)
         
         if debug:
             print 'frontier_contrast=', frontier_contrast, 'prev_frontier_contrast=', prev_frontier_contrast, 'diff=', frontier_contrast - prev_frontier_contrast
         
         if len(curr_cluster) > max_cluster_size or \
-        frontier_contrast - prev_frontier_contrast > frontier_contrast_thresh:
+        frontier_contrast - prev_frontier_contrast > frontier_contrast_diff_thresh:
             return curr_cluster, re_thresh
         
         prev_frontier_contrast = frontier_contrast
@@ -484,7 +461,7 @@ def grow_cluster_relative_entropy(seed, debug=False,
     return curr_cluster, re_thresh
     
 
-def grow_cluster_likelihood_ratio(seed, texton_model, dir_model, debug=False, grow_thresh = 0.1):
+def grow_cluster_likelihood_ratio(seed, texton_model, dir_model, debug=False, lr_grow_thresh = 0.1):
     
     if seed in bg_superpixels:
         return [], -1
@@ -505,13 +482,13 @@ def grow_cluster_likelihood_ratio(seed, texton_model, dir_model, debug=False, gr
                 print D_texton_null[v],  chi2(p[v], texton_model), \
                         D_dir_null[v], chi2(q[v], dir_model)
             
-            if ratio_v > grow_thresh:
+            if ratio_v > lr_grow_thresh:
                 curr_cluster.add(v)
                 frontier.append(v)
                                 
-    return curr_cluster, grow_thresh
+    return curr_cluster, lr_grow_thresh
 
-def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model, debug=False, grow_thresh = 0.1):
+def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model, debug=False, lr_grow_thresh = 0.1):
     
     if seed in bg_superpixels:
         return [], -1
@@ -532,11 +509,11 @@ def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model,
                 print D_texton_null[v],  D_texton_model[v], \
                         D_dir_null[v], D_dir_model[v]
             
-            if ratio_v > grow_thresh:
+            if ratio_v > lr_grow_thresh:
                 curr_cluster.add(v)
                 frontier.append(v)
                                 
-    return curr_cluster, grow_thresh
+    return curr_cluster, lr_grow_thresh
 
 
 def visualize_cluster(scores, cluster='all', title='', filename=None):
@@ -549,7 +526,7 @@ def visualize_cluster(scores, cluster='all', title='', filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
 #     plt.show()
     plt.close();
     
@@ -563,9 +540,9 @@ def paint_cluster_on_img(cluster, title, filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
-    plt.show()
-#     plt.close();
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
+#     plt.show()
+    plt.close();
 
 def paint_clusters_on_img(clusters, title, filename=None):
     cluster_map = -1*np.ones_like(segmentation)
@@ -577,20 +554,26 @@ def paint_clusters_on_img(clusters, title, filename=None):
     plt.axis('off');
     plt.title(title)
     if filename is not None:
-        plt.savefig(os.path.join(args.output_dir, 'stages', filename + '.png'), bbox_inches='tight')
-    plt.show()
-#     plt.close();
+        plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
+#     plt.show()
+    plt.close();
 
 # <codecell>
 
-seed = 831
-c, _ = grow_cluster_relative_entropy(seed, frontier_contrast_thresh=0.2, debug=True, max_cluster_size=300)
+frontier_contrast_diff_thresh = param['frontier_contrast_diff_thresh']
+lr_grow_thresh = param['lr_grow_thresh']
+beta = param['beta']
+
+# <codecell>
+
+seed = 1273
+c, _ = grow_cluster_relative_entropy(seed, frontier_contrast_diff_thresh=frontier_contrast_diff_thresh)
 # c, _ = grow_cluster_likelihood_ratio(i, p[i], q[i], debug=False)
 paint_cluster_on_img(c, title='relative entropy-growed from seed %d'%seed)
 
 # <codecell>
 
-r = Parallel(n_jobs=16)(delayed(grow_cluster_relative_entropy)(i, frontier_contrast_thresh=0.2, debug=False) 
+r = Parallel(n_jobs=16)(delayed(grow_cluster_relative_entropy)(i, frontier_contrast_diff_thresh=frontier_contrast_diff_thresh, debug=False) 
                         for i in range(n_superpixels))
 clusters = [list(c) for c, t in r]
 print 'clusters computed'
@@ -601,12 +584,13 @@ plt.show()
 
 # <codecell>
 
-f = os.path.join(args.output_dir, 'stages')
+f = os.path.join(result_dir, 'stages')
 if not os.path.exists(f):
     os.makedirs(f)
 
-n_models = 10
+n_models = param['n_models']
 
+    
 texton_models = np.zeros((n_models, n_texton))
 dir_models = np.zeros((n_models, n_angle))
 
@@ -662,7 +646,6 @@ for t in range(n_models):
 
     visualize_cluster(match_scores, matched, title='growed cluster', filename='grow%d'%t)
     
-    beta = 1.
     weights[matched] = weights[matched] * np.exp(-5*(D_texton_null[matched] - D_texton_model[matched] +\
                                                    D_dir_null[matched] - D_dir_model[matched])**beta)
     weights[bg_superpixels] = 0
@@ -683,46 +666,14 @@ for t in range(n_models):
 
 # <codecell>
 
-%%time
-
-D_texton_null = cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2)
-D_dir_null = cdist(sp_dir_hist_normalized, [overall_dir_hist_normalized], chi2)
-
 D_texton_model = -1*np.ones((n_models, n_superpixels))
 D_dir_model = -1*np.ones((n_models, n_superpixels))
-
 D_texton_model[:, fg_superpixels] = cdist(sp_texton_hist_normalized[fg_superpixels], texton_models, chi2).T
 D_dir_model[:, fg_superpixels] = cdist(sp_dir_hist_normalized[fg_superpixels], dir_models, chi2).T
 
-# for m in range(n_models):
-#     model_texton = texton_models[m]
-#     model_dir = dir_models[m]
-
-#     D_texton_model[m, fg_superpixels][:, np.newaxis] = cdist(sp_texton_hist_normalized[fg_superpixels], [model_texton], chi2)
-#     D_dir_model[m, fg_superpixels][:, np.newaxis] = cdist(sp_dir_hist_normalized[fg_superpixels], [model_dir], chi2)
-
 # <codecell>
 
-# %%time
-
-T = 0.3
-
-# model_score = np.empty((n_models, ))
-# for i in range(n_superpixels):
-#     print i
-#     if i in bg_superpixels:
-#         print -1
-#     else:
-#         for m in range(n_models):
-#             matched, _ = grow_cluster_likelihood_ratio_precomputed(i, D_texton_model[m], D_dir_model[m], 
-#                                                            debug=False, grow_thresh=0.1)
-#             matched = list(matched)
-#             model_score[m] = np.mean(D_texton_null[matched] - D_texton_model[m, matched] +\
-#                                      D_dir_null[matched] - D_dir_model[m, matched])
-
-#         best_sig = model_score.max()
-#         if best_sig > T: # sp whose sig is smaller than this is assigned null
-#           print model_score.argmax()
+lr_decision_thresh = param['lr_decision_thresh']
 
 def f(i):
     model_score = np.empty((n_models, ))
@@ -732,13 +683,13 @@ def f(i):
     else:
         for m in range(n_models):
             matched, _ = grow_cluster_likelihood_ratio_precomputed(i, D_texton_model[m], D_dir_model[m], 
-                                                           debug=False, grow_thresh=0.1)
+                                                                   lr_grow_thresh=lr_grow_thresh)
             matched = list(matched)
             model_score[m] = np.mean(D_texton_null[matched] - D_texton_model[m, matched] +\
                                      D_dir_null[matched] - D_dir_model[m, matched])
 
         best_sig = model_score.max()
-        if best_sig > T: # sp whose sig is smaller than this is assigned null
+        if best_sig > lr_decision_thresh: # sp whose sig is smaller than this is assigned null
           return model_score.argmax()    
     return -1
 
@@ -754,7 +705,7 @@ save_img(labelmap_rgb, 'labelmap')
 
 # <codecell>
 
-FileLinks('output/')
+FileLinks(result_dir)
 
 # <codecell>
 

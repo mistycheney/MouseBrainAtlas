@@ -14,9 +14,9 @@ import cv2
 import numpy as np
 import os, csv
 
-def foreground_mask(img, min_size=64):
+def foreground_mask(img, min_size=64, thresh=200):
 #     t_img = gaussian_filter(img, sigma=3) < 220./255.
-    t_img = denoise_bilateral(img) < 220./255.
+    t_img = denoise_bilateral(img) < thresh/255.
 
     labels, n_labels = label(t_img, neighbors=4, return_num=True)
     

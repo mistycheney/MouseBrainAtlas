@@ -106,7 +106,7 @@ if not os.path.exists(result_dir):
 # <codecell>
 
 print '=== finding foreground mask ==='
-mask = utilities.foreground_mask(img, min_size=2000)
+mask = utilities.foreground_mask(img, min_size=2500)
 mask = mask > .5
 # plt.imshow(mask, cmap=plt.cm.Greys_r);
 
@@ -122,8 +122,10 @@ n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 frequencies = freq_max/freq_step**np.arange(n_freq)
 
 kernels = [gabor_kernel(f, theta=t, bandwidth=bandwidth) for f in frequencies 
-          for t in np.arange(0, np.pi, np.deg2rad(theta_interval))]
+          for t in np.arange(0, n_angle)*np.deg2rad(theta_interval)]
 kernels = map(np.real, kernels)
+
+
 n_kernel = len(kernels)
 
 print '=== filter using Gabor filters ==='
@@ -405,7 +407,8 @@ def grow_cluster_relative_entropy(seed, debug=False,
                     frontier.append(v)
         
         surround = set.union(*[neighbors[i] for i in curr_cluster]) - set.union(curr_cluster, bg_set)
-        assert len(surround) != 0, seed
+        if len(surround) == 0:
+            return curr_cluster, re_thresh
 
         frontier_in_cluster = set.intersection(set.union(*[neighbors[i] for i in surround]), curr_cluster)
         frontier_contrasts = [np.nanmax([chi2(p[i], p[j]) for j in neighbors[i] if j not in bg_set]) for i in frontier_in_cluster]

@@ -52,9 +52,9 @@ while True:
 	i=i+1 #this evenly distributes the image and computer assignment
         ssh_cmd = "ssh "+computer+" "
         run_feature_cmd = "python "+feature_script+" -o "+output_dir+" -p "+param_dir+" "+img_dir+"/"+img_name+" "+param
-        
+        notify = "echo Finished processing " + img_name + " on " + computer
 	#setting up full_cmd in string format for os.system
-	full_cmd = ssh_cmd + "'" + setup_cmd + " && " + "("+run_feature_cmd + ")&> /dev/null'" + " &" #stdout and stderr is suppressed
+	full_cmd = ssh_cmd + "'" + setup_cmd + " && " + "("+run_feature_cmd + ")&> /dev/null && " +notify + "'"+ " &" #stdout and stderr is suppressed
         system(full_cmd) #currently works properly
+	#print full_cmd      #for testing purposes only
 	
-#One thing to look into adding would be a way to notify the user once all background processes related to program are finished

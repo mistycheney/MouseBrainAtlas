@@ -1,4 +1,5 @@
 from os import system
+from subprocess import check_output
 import argparse
 
 #setup argparse
@@ -53,9 +54,10 @@ while True:
         ssh_cmd = "ssh "+computer+" "
         run_feature_cmd = "python "+feature_script+" -o "+output_dir+" -p "+param_dir+" "+img_dir+"/"+img_name+" "+param
         notify = "echo Finished processing " + img_name + " on " + computer
-	log = "%s" % img_name.replace('tif','log')
+	date = check_output('date').replace(" ","",2).replace(" ","_").replace("\n","")
+	log = "%s" % img_name.replace('.tif',"_"+date+".log")
 	#setting up full_cmd in string format for os.system
-	full_cmd = ssh_cmd + "'" + setup_cmd + " && " + "("+run_feature_cmd + ")&> "+log+" && " +notify + "'"+ " &"
+	full_cmd = ssh_cmd + "'" + setup_cmd + " && " + "("+run_feature_cmd + ")&> "+output_dir+"/"+log+" && " +notify + "'"+ " &"
         system(full_cmd) #currently works properly
 	#print full_cmd      #for testing purposes only
 

@@ -9,8 +9,12 @@ from matplotlib.backends.backend_qt4agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.backends import qt4_compat
+from matplotlib.patches import Rectangle
+
 from skimage.color import label2rgb
 from random import random
+
+import time
 
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
@@ -93,10 +97,10 @@ class PickByColorsGUI(QMainWindow):
 
         # initialize GUI variables
         self.paint_label = -1        # color of pen
-        self.pick_mode  = False      # True while you hold ctrl; used to pick a color from the image
+        self.pick_mode = False      # True while you hold ctrl; used to pick a color from the image
         self.press = False           # related to pan (press and drag) vs. select (click)
         self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
-        self.moved=False             # Flag indicating whether mouse moved while button pressed
+        self.moved = False             # Flag indicating whether mouse moved while button pressed
 
         self.create_main_frame()     # construct the layout
         self.initialize_canvas()     # initialize matplotlib plot
@@ -116,7 +120,7 @@ class PickByColorsGUI(QMainWindow):
         self.canvas.setFocusPolicy(Qt.StrongFocus)
         self.canvas.setFocus()
 
-        # callbacks
+        # matplotlib canvas callbacks
         self.canvas.mpl_connect('key_press_event', self.on_key_press)
         self.canvas.mpl_connect('key_release_event', self.on_key_release)
         self.canvas.mpl_connect('scroll_event', self.zoom_fun)
@@ -206,6 +210,28 @@ class PickByColorsGUI(QMainWindow):
 
         self.show()
 
+
+    def initialize_canvas(self):
+        """
+        Initialize matplotlib canvas widget
+        """
+        self.fig.clear()
+        self.axes = self.fig.add_subplot(111)
+        self.axes.axis('off')
+
+        self.axes.imshow(self.img, cmap=plt.cm.Greys_r, aspect='equal')
+
+        self.label_layer=None  # to avoid removing layer when it is not yet there
+        
+        self.draw_colors()
+
+        self.canvas.draw()
+
+
+    ############################################
+    # QT button CALLBACKs
+    ############################################
+
     def newcolor_button_clicked(self):
         """
         callback for "add new color"
@@ -229,26 +255,13 @@ class PickByColorsGUI(QMainWindow):
         self.newcolor_box.addWidget(btn, c, 0)
         self.newcolor_box.addWidget(edt, c, 1)
 
-    def initialize_canvas(self):
-        """
-        Initialize matplotlib canvas widget
-        """
-        self.fig.clear()
-        self.axes = self.fig.add_subplot(111)
-        self.axes.axis('off')
-
-        self.axes.imshow(self.img, cmap=plt.cm.Greys_r, aspect='equal')
-
-        self.label_layer=None  # to avoid removing layer when it is not yet there
-        self.draw_colors()
-
-        self.canvas.draw()
-
-
-    # CALLBACKS 
-
     def handleButtonClicked(self, button):
         self.pick_color(int(button.text()))
+
+
+    ############################################
+    # matplotlib canvas CALLBACKs
+    ############################################
 
     def on_key_press(self, event):
         if event.key == 'control':
@@ -285,7 +298,7 @@ class PickByColorsGUI(QMainWindow):
                      xdata + right*scale_factor])
         self.axes.set_ylim([ydata - up*scale_factor,
                      ydata + down*scale_factor])
-        self.axes.figure.canvas.draw() # force re-draw
+        self.canvas.draw() # force re-draw
 
     def press_fun(self, event):
         self.press_x = event.xdata
@@ -306,7 +319,7 @@ class PickByColorsGUI(QMainWindow):
             
             self.axes.set_xlim(cur_xlim + offset_x)
             self.axes.set_ylim(cur_ylim + offset_y)
-            self.axes.figure.canvas.draw()
+            self.canvas.draw()
 
     def release_fun(self, event):
         """
@@ -314,9 +327,10 @@ class PickByColorsGUI(QMainWindow):
         """
         self.press = False
         
-        # click without moving, means selection
         if self.moved: self.moved = False
 
+        # if current position is the same as position when mouse was clicked, then this is clicking without moving, 
+        # which means selection, rather than panning
         if event.xdata == self.press_x and event.ydata == self.press_y:
             # self.axes.clear()
             try:
@@ -324,24 +338,45 @@ class PickByColorsGUI(QMainWindow):
                 selected_label = self.labelmap[int(event.ydata), int(event.xdata)]
             except:
                 return
+
             if self.pick_mode:
                 # Picking a color
                 self.pick_color(selected_label)
             else:
-                #Painting a color
-                self.statusBar().showMessage('Paint color: superpixel %d, selected label = %d' % (selected_sp, self.paint_label))
-                self.change_seg_color(selected_sp)
+                # Painting a color
+                self.statusBar().showMessage('Paint color: on superpixel %d, selected label = %d' % (selected_sp, self.paint_label))
+                self.change_superpixel_color(selected_sp)
+
             self.draw_colors()
 
-    def pick_color(self,selected_label):
+
+    ############################################
+    # other functions
+    ############################################
+
+    def pick_color(self, selected_label):
         self.paint_label = selected_label
         self.statusBar().showMessage('Choose label: selected label = %d' % self.paint_label)
 
-    def change_seg_color(self,selected_sp):
+    def change_superpixel_color(self, selected_sp):
+        '''
+        update the labelmap
+        '''
+        b = time.time()
 
         print 'self.paint_label',self.paint_label
         self.labellist[selected_sp]=self.paint_label
         self.labelmap = self.labellist[self.segmentation]
+
+        ys, xs = np.nonzero(self.segmentation == selected_sp)
+        xmin = xs.min()
+        ymin = ys.min()
+        width = ys.max() - ys.min()
+        height = xs.max() - xs.min()
+
+        if self.paint_label != -1:
+            rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[self.paint_label+1])
+            self.axes.add_patch(rect)
 
         timestamp=str(datetime.datetime.now())
         username=str(self.NameField.text())
@@ -350,25 +385,55 @@ class PickByColorsGUI(QMainWindow):
                                                'Full':False,
                                                'data':(selected_sp,self.paint_label)
                                            })
-        
+        print 'update', time.time() - b
+
+
 
     def draw_colors(self):
-        if self.label_layer!=None:
-            self.label_layer.remove()
+        '''
+        redraw canvas, using the current labelmap
+        '''
+
+        # b = time.time()
+        # if self.label_layer!=None:
+        #     self.label_layer.remove()
+        # print 'remove', time.time() - b
 
         # import collections
 
-        print 'draw_colors: values in labelmap are',set(self.labelmap.flatten())
-        self.label_layer = self.axes.imshow((self.labelmap + 1)/float(len(self.colors)), cmap=self.label_cmap, alpha=.2,
-                aspect='equal', norm=NoNorm())
+        # b = time.time()
+        # print 'draw_colors: values in labelmap are', set(self.labelmap.flat)
+        # print 'set', time.time() - b
+
+        # b = time.time()
+
+        # self.label_layer.set_animated(True)
+
+        # self.ax_background = self.canvas.copy_from_bbox(self.axes.bbox)
+
+        # if self.label_layer is None:
+
+
+
+        # self.label_layer = self.axes.imshow((self.labelmap + 1)/float(len(self.colors)), cmap=self.label_cmap, alpha=.2,
+        #         aspect='equal', norm=NoNorm())
+        # self.label_layer.set_data((self.labelmap + 1)/float(len(self.colors)))
 
         #self.axes.set_xlim(cur_xlim)
         #self.axes.set_ylim(cur_ylim)
-        self.axes.figure.canvas.draw() # force re-draw
+        # print 'imshow', time.time() - b
+
+        # self.canvas.restore_region(self.ax_background)
+
+        b = time.time()
+        self.canvas.draw() # force re-draw
+        # self.canvas.blit(self.axes.bbox)
+        print 'redraw', time.time() - b
+        
 
     def get_labels(self):
         self.labeling['labeling']=self.labeling
-        self.labeling['names']=[str(self.descEdits[i].text()) for i in range(len(self.descEdits))]
+        self.labeling['names']=[str(edt.text()) for edt in self.descEdits]
         timestamp=str(datetime.datetime.now())
         username=str(self.NameField.text())
         self.labeling['label_history'].append({'name':username,

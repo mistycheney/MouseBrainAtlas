@@ -9,12 +9,15 @@ import os
 from PIL import Image
 import numpy as np
 
-from brain_labelling_gui import PickByColorsGUI
+from brain_labelling_gui2 import PickByColorsGUI
 from ProcessFeatures import Analyzer
 
 class Interactive_Labeling:
     def recalc_handler(self,event):
         print 'recalc_handler',event
+
+
+
         print self.main_window.get_labels()
 
     def save_handler(self,event):
@@ -44,7 +47,7 @@ class Interactive_Labeling:
         data_dir = os.path.realpath(args.data_dir)
 
         # The brain image with superpixel boundaries drawn on it
-        self.img_filename = self.full_name('_segmentation.tif')
+        self.img_filename = self.full_name('_segmentation.png')
         img = np.array(Image.open(self.img_filename)).mean(axis=-1)
 
         # a matrix of labels indicating which superpixel a pixel belongs to 
@@ -54,15 +57,15 @@ class Interactive_Labeling:
         segmentation = np.load(self.seg_filename)
 
         # Texton histogram for each superpixel
-        self.texton_filename = self.full_name('_sp_texton_hist_normalized.npy')
-        texton=np.load(self.texton_filename)
+        # self.texton_filename = self.full_name('_sp_texton_hist_normalized.npy')
+        # texton=np.load(self.texton_filename)
         
         # Direction histogram for each superpixel
-        try:
-            self.directions_filename=self.full_name('_sp_dir_hist_normalized.npy')
-            directions=np.load(self.directions_filename)
-        except:
-            print 'failed to load',self.directions_filename
+        # try:
+        #     self.directions_filename=self.full_name('_sp_dir_hist_normalized.npy')
+        #     directions=np.load(self.directions_filename)
+        # except:
+        #     print 'failed to load',self.directions_filename
 
         # a list of labels indicating which model a suerpixel is associated with. 
         # Each label is an integer from -1 to n_models-1.
@@ -75,7 +78,9 @@ class Interactive_Labeling:
             self.labeling= None
 
         # Initiate modules
-        # self.analyzer=Analyzer(segmentation,texton,directions,self.labeling)
+        self.analyzer = Analyzer(segmentation, texton, directions, self.labeling)
+        
+
 
         self.main_window = PickByColorsGUI(img=img, segmentation=segmentation,\
                                       recalc_callback=self.recalc_handler,\

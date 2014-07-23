@@ -15,9 +15,6 @@ from ProcessFeatures import Analyzer
 class Interactive_Labeling:
     def recalc_handler(self,event):
         print 'recalc_handler',event
-
-
-
         print self.main_window.get_labels()
 
     def save_handler(self,event):
@@ -78,9 +75,7 @@ class Interactive_Labeling:
             self.labeling= None
 
         # Initiate modules
-        self.analyzer = Analyzer(segmentation, texton, directions, self.labeling)
-        
-
+        # self.analyzer = Analyzer(segmentation, texton, directions, self.labeling)
 
         self.main_window = PickByColorsGUI(img=img, segmentation=segmentation,\
                                       recalc_callback=self.recalc_handler,\
@@ -93,4 +88,3 @@ class Interactive_Labeling:
 if __name__ == "__main__":
     IL=Interactive_Labeling()
     IL.main()
-

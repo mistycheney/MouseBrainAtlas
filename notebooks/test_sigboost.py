@@ -6,7 +6,7 @@
 %load_ext autoreload
 %autoreload 2
 
-import sigboost
+import sigboost_class
 import numpy as np
 import argparse, os, json, pprint
 
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     class args:
         param_id = 'nissl324'
     #     img_file = '../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif'
-        img_file = '../DavidData/RS155_x5/RS155_x5_0004.tif'
+        img_file = '../DavidData/RS141_x5/RS141_x5_0000.tif'
         output_dir = '/oasis/scratch/csd181/yuncong/output'
         params_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/params'
     
@@ -60,8 +60,12 @@ if __name__ == '__main__':
     p = np.load(os.path.join(result_dir, result_name + '_sp_texton_hist_normalized.npy'))
     q = np.load(os.path.join(result_dir, result_name + '_sp_dir_hist_normalized.npy'))
         
-    detector = sigboost.ModelDetector(param, segmentation, p, q, result_dir, bg_superpixels)
-    detector.compute_all_clusters()
+#     detector = sigboost_class.sigboost(param, segmentation, p, q, result_dir, bg_superpixels)
+#     detector.compute_all_clusters()
 #     detector.sigboost()
         
+
+# <codecell>
+
+q
 

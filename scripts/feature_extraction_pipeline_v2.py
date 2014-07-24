@@ -41,6 +41,7 @@ import pprint
 
 # <codecell>
 
+# parse arguments
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
 description='Execute feature extraction pipeline',
@@ -75,6 +76,7 @@ def get_img_filename(suffix, ext='png'):
 
 # <codecell>
 
+# load parameter settings
 params_dir = os.path.realpath(args.params_dir)
 param_file = os.path.join(params_dir, 'param_%s.json'%args.param_id)
 param_default_file = os.path.join(params_dir, 'param_default.json')
@@ -88,6 +90,7 @@ for k, v in param_default.iteritems():
 
 pprint.pprint(param)
 
+# set image paths
 img_file = os.path.realpath(args.img_file)
 img_path, ext = os.path.splitext(img_file)
 img_dir, img_name = os.path.split(img_path)
@@ -96,6 +99,7 @@ print img_file
 img = cv2.imread(img_file, 0)
 im_height, im_width = img.shape[:2]
 
+# set output paths
 output_dir = os.path.realpath(args.output_dir)
 
 result_name = img_name + '_param_' + str(param['param_id'])
@@ -105,6 +109,7 @@ if not os.path.exists(result_dir):
 
 # <codecell>
 
+# find foreground mask
 print '=== finding foreground mask ==='
 mask = utilities.foreground_mask(img, min_size=2500)
 mask = mask > .5
@@ -112,6 +117,7 @@ mask = mask > .5
 
 # <codecell>
 
+# generate Gabor filter kernels
 theta_interval = param['theta_interval']
 n_angle = int(180/theta_interval)
 freq_step = param['freq_step']
@@ -138,6 +144,7 @@ print 'max kernel matrix size:', max_kern_size
 
 # <codecell>
 
+# process the image using Gabor filters
 try:
     raise IOError
     features = load_array('features')
@@ -160,7 +167,8 @@ n_feature = features.shape[-1]
 
 # <codecell>
 
-print 'crop border where filters show border effects'
+# crop image border where filters show border effects
+
 features = features[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2, :]
 img = img[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 mask = mask[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
@@ -170,6 +178,7 @@ save_img(img, 'img_cropped')
 
 # <codecell>
 
+# compute rotation-invariant texton map using K-Means
 print '=== compute rotation-invariant texton map using K-Means ==='
 
 n_texton = int(param['n_texton'])
@@ -242,6 +251,8 @@ save_img(textonmap_rgb, 'textonmap')
 
 # <codecell>
 
+# over-segment the image into superpixels using SLIC (http://ivrg.epfl.ch/research/superpixels)
+
 print '=== over-segment the image into superpixels based on color information ==='
 
 img_rgb = gray2rgb(img)
@@ -283,6 +294,8 @@ save_img(sptext, 'segmentation')
 
 # <codecell>
 
+# determine which superpixels are mostly background
+
 def foo(i):
     return np.count_nonzero(mask[segmentation==i])
 
@@ -302,6 +315,8 @@ print '%d background superpixels'%len(bg_superpixels)
 # plt.show()
 
 # <codecell>
+
+# compute neighbor lists and connectivity matrix
 
 from skimage.morphology import disk
 from skimage.filter.rank import gradient
@@ -324,6 +339,7 @@ connectivity_matrix = connectivity_matrix.transpose() * connectivity_matrix
 
 # <codecell>
 
+# compute texton histogram of every superpixel
 print '=== compute texton histogram of each superpixel ==='
 
 try:
@@ -337,12 +353,14 @@ except IOError:
     sp_texton_hist = np.array(r)
     sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis]
     save_array(sp_texton_hist_normalized, 'sp_texton_hist_normalized')
-    
+
+# compute the null texton histogram
 overall_texton_hist = np.bincount(textonmap[mask].flat)
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
 
 # <codecell>
 
+# compute directionality histogram of every superpixel
 print '=== compute directionality histogram of each superpixel ==='
 
 try:
@@ -361,7 +379,8 @@ except IOError:
     sp_dir_hist = np.vstack(r)
     sp_dir_hist_normalized = sp_dir_hist/sp_dir_hist.sum(axis=1)[:,np.newaxis]
     save_array(sp_dir_hist_normalized, 'sp_dir_hist_normalized')
-    
+
+# compute the null directionality histogram
 overall_dir_hist = sp_dir_hist_normalized[fg_superpixels].mean(axis=0)
 overall_dir_hist_normalized = overall_dir_hist.astype(np.float) / overall_dir_hist.sum()
 
@@ -371,8 +390,11 @@ def chi2(u,v):
     r = np.nansum((u-v)**2/(u+v))
     return r
 
+# compute distance between every superpixel and the null
 D_texton_null = np.squeeze(cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2))
 D_dir_null = np.squeeze(cdist(sp_dir_hist_normalized, [overall_dir_hist_normalized], chi2))
+
+
 p = sp_texton_hist_normalized
 q = sp_dir_hist_normalized
 
@@ -384,6 +406,9 @@ re_thresh_max = 0.8
 def grow_cluster_relative_entropy(seed, debug=False, 
                                   frontier_contrast_diff_thresh = 0.1,
                                   max_cluster_size = 100):
+    '''
+    find the connected cluster of superpixels that have similar texture, starting from a superpixel as seed
+    '''
     
     bg_set = set(bg_superpixels.tolist())
     
@@ -429,6 +454,10 @@ def grow_cluster_relative_entropy(seed, debug=False,
     
 
 def grow_cluster_likelihood_ratio(seed, texton_model, dir_model, debug=False, lr_grow_thresh = 0.1):
+    '''
+    find the connected cluster of superpixels that are more likely to be explained by given model than by null, 
+    starting from a superpixel as seed
+    '''
     
     if seed in bg_superpixels:
         return [], -1
@@ -456,6 +485,12 @@ def grow_cluster_likelihood_ratio(seed, texton_model, dir_model, debug=False, lr
     return curr_cluster, lr_grow_thresh
 
 def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model, debug=False, lr_grow_thresh = 0.1):
+    '''
+    find the connected cluster of superpixels that are more likely to be explained by given model than by null, 
+    starting from a superpixel as seed
+    using pre-computed distances between model and superpixels
+    '''
+    
     
     if seed in bg_superpixels:
         return [], -1
@@ -484,6 +519,10 @@ def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model,
 
 
 def visualize_cluster(scores, cluster='all', title='', filename=None):
+    '''
+    Generate black and white image with the cluster of superpixels highlighted
+    '''
+    
     vis = scores[segmentation]
     if cluster != 'all':
         cluster_selection = np.equal.outer(segmentation, cluster).any(axis=2)
@@ -499,6 +538,10 @@ def visualize_cluster(scores, cluster='all', title='', filename=None):
     
     
 def paint_cluster_on_img(cluster, title, filename=None):
+    '''
+    Highlight a cluster of superpixels on the real image
+    '''    
+
     cluster_map = -1*np.ones_like(segmentation)
     for s in cluster:
         cluster_map[segmentation==s] = 1
@@ -512,6 +555,10 @@ def paint_cluster_on_img(cluster, title, filename=None):
     plt.close();
 
 def paint_clusters_on_img(clusters, title, filename=None):
+    '''
+    Highlight multiple clusters with different colors on the real image
+    '''
+    
     cluster_map = -1*np.ones_like(segmentation)
     for i, cluster in enumerate(clusters):
         for j in cluster:
@@ -527,13 +574,17 @@ def paint_clusters_on_img(clusters, title, filename=None):
 
 # <codecell>
 
+# set up sigboost parameters
+
 n_models = param['n_models']
 frontier_contrast_diff_thresh = param['frontier_contrast_diff_thresh']
 lr_grow_thresh = param['lr_grow_thresh']
 beta = param['beta']
+lr_decision_thresh = param['lr_decision_thresh']
 
 # <codecell>
 
+# compute RE-clusters of every superpixel
 r = Parallel(n_jobs=16)(delayed(grow_cluster_relative_entropy)(i, frontier_contrast_diff_thresh=frontier_contrast_diff_thresh) 
                         for i in range(n_superpixels))
 clusters = [list(c) for c, t in r]
@@ -541,10 +592,12 @@ print 'clusters computed'
 
 # <codecell>
 
+# create output directory
 f = os.path.join(result_dir, 'stages')
 if not os.path.exists(f):
     os.makedirs(f)
 
+# initialize models
 texton_models = np.zeros((n_models, n_texton))
 dir_models = np.zeros((n_models, n_angle))
 
@@ -553,10 +606,13 @@ seed_indices = np.zeros((n_models,))
 weights = np.ones((n_superpixels, ))/n_superpixels
 weights[bg_superpixels] = 0
 
+# begin boosting loop; learn one model at each iteration
 for t in range(n_models):
     
     print 'model %d' % (t)
     
+    # Compute significance scores for every superpixel;
+    # the significance score is defined as the average log likelihood ratio in a superpixel's RE-cluster
     sig_score = np.zeros((n_superpixels, ))
     for i in fg_superpixels:
         cluster = clusters[i]
@@ -564,6 +620,7 @@ for t in range(n_models):
                                (D_texton_null[cluster] - np.array([chi2(p[j], p[i]) for j in cluster]) +\
                                D_dir_null[cluster] - np.array([chi2(q[j], q[i]) for j in cluster])))
  
+    # Pick the most significant superpixel
     seed_sp = sig_score.argsort()[-1]
     print "most significant superpixel", seed_sp
     
@@ -571,9 +628,12 @@ for t in range(n_models):
     
     curr_cluster = clusters[seed_sp]
     visualize_cluster(sig_score, curr_cluster, title='distance cluster', filename='curr_cluster%d'%t)
-    
+
+    # models are the average of the distributions in the chosen superpixel's RE-cluster
     model_texton = sp_texton_hist_normalized[curr_cluster].mean(axis=0)
     model_dir = sp_dir_hist_normalized[curr_cluster].mean(axis=0)
+    
+    # Compute log likelihood ratio of this model against the null, for every superpixel
     
     # RE(pj|pm)
     D_texton_model = np.empty((n_superpixels,))
@@ -593,12 +653,13 @@ for t in range(n_models):
 
     visualize_cluster(match_scores, 'all', title='match score', filename='grow%d'%t)
 
-    
+    # Find the cluster growed from seed based on log likelihood ratio. Refer to this cluster as the LR-cluster
     matched, _ = grow_cluster_likelihood_ratio(seed_sp, model_texton, model_dir)
     matched = list(matched)
 
     visualize_cluster(match_scores, matched, title='growed cluster', filename='grow%d'%t)
-    
+
+    # Reduce the weights of superpixels in LR-cluster
     weights[matched] = weights[matched] * np.exp(-5*(D_texton_null[matched] - D_texton_model[matched] +\
                                                    D_dir_null[matched] - D_dir_model[matched])**beta)
     weights[bg_superpixels] = 0
@@ -611,13 +672,15 @@ for t in range(n_models):
         labels[segmentation == i] = 1
     real_image = label2rgb(labels, img)
     save_img(real_image, os.path.join('stage', 'real_image_model%d'%t))
-        
+
+    # record the model found at this round
     seed_indices[t] = seed_sp
     texton_models[t] = model_texton
     dir_models[t] = model_dir
 
 # <codecell>
 
+# Compute the distances between every model and every superpixel
 D_texton_model = -1*np.ones((n_models, n_superpixels))
 D_dir_model = -1*np.ones((n_models, n_superpixels))
 D_texton_model[:, fg_superpixels] = cdist(sp_texton_hist_normalized[fg_superpixels], texton_models, chi2).T
@@ -625,9 +688,12 @@ D_dir_model[:, fg_superpixels] = cdist(sp_dir_hist_normalized[fg_superpixels], d
 
 # <codecell>
 
-lr_decision_thresh = param['lr_decision_thresh']
-
-def f(i):
+def find_best_model_per_proc(i):
+    '''
+    Worker function for finding the best models for every superpixel on the current image.
+    Best model is the one with the highest likelihood ratio against the null distribution.
+    '''
+    
     model_score = np.empty((n_models, ))
 
     if i in bg_superpixels:
@@ -645,8 +711,10 @@ def f(i):
           return model_score.argmax()    
     return -1
 
-r = Parallel(n_jobs=16)(delayed(f)(i) for i in range(n_superpixels))
-labels = np.array(r, dtype=np.int)
+
+# Compute the likelihood ratio for every model on every superpixel, and return the model with the highest ratio
+best_model = Parallel(n_jobs=16)(delayed(find_best_model_per_proc)(i) for i in range(n_superpixels))
+labels = np.array(best_model, dtype=np.int)
 save_array(labels, 'labels')
 
 labelmap = labels[segmentation]

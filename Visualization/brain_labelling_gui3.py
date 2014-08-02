@@ -407,8 +407,8 @@ class PickByColorsGUI3(QMainWindow):
         ys, xs = np.nonzero(self.segmentation == selected_sp)
         xmin = xs.min()
         ymin = ys.min()
-        width = ys.max() - ys.min()
-        height = xs.max() - xs.min()
+        height = ys.max() - ys.min()
+        width = xs.max() - xs.min()
 
         if self.paint_label != -1:
             rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[self.paint_label+1])

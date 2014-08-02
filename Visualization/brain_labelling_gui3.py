@@ -72,7 +72,7 @@ class PickByColorsGUI3(QMainWindow):
             self.labellist=-1*np.ones(self.n_superpixels)
             self.labeling['labellist']=self.labellist
             self.n_models=10
-            #I want to add a way to retrieve previous label names
+            #Retrieves previous label names
 	    try:
 		prev_label_names = self.prev_labeling['names']
 		self.labeling['names'] = prev_label_names
@@ -86,12 +86,14 @@ class PickByColorsGUI3(QMainWindow):
             self.n_models = max(10,np.max(self.labellist)+1)
 
         self.buttonTexts=self.labeling['names']
-        self.n_labels = self.n_models + 1
+	self.n_labels = len(self.labeling['names'])
         print 'n_labels',self.n_labels
 
         self.labelmap = -1*np.ones_like(self.segmentation, dtype=np.int)
-        if self.n_labels>1:
+
+        if np.max(self.labellist)>0:
             self.labelmap = self.labellist[self.segmentation]
+            print "labelmap updated"
 
         # A set of high-contrast Colors proposed by Green-Armytage 
         self.colors = [(255,255,255),
@@ -109,7 +111,6 @@ class PickByColorsGUI3(QMainWindow):
         self.press = False           # related to pan (press and drag) vs. select (click)
         self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
         self.moved = False             # Flag indicating whether mouse moved while button pressed
-        self.j = -1                    #Iterator for new color rows
         self.create_main_frame()     # construct the layout
         self.initialize_canvas()     # initialize matplotlib plot
 
@@ -162,22 +163,26 @@ class PickByColorsGUI3(QMainWindow):
         self.color_box.addWidget(self.NameField, 0, 1)
         for i, (btn, edt) in enumerate(zip(self.colorButtons, self.descEdits)):
             r, g, b, a = self.label_cmap(i)
-            btn.setStyleSheet("background-color: rgba(%d, %d, %d, 20%%)"%(
+            btn.setStyleSheet("background-color: rgb(%d, %d, %d)"%(
                 int(r*255), int(g*255), int(b*255)))
             btn.setFixedSize(20, 20)
             if i < 5:
-	        self.color_box.addWidget(btn, i+1, 0)
+                self.color_box.addWidget(btn, i+1, 0)
                 self.color_box.addWidget(edt, i+1, 1)
-            else:
-		self.color_box.addWidget(btn, i-5, 2)
+            elif i < 11:
+                self.color_box.addWidget(btn, i-5, 2)
                 self.color_box.addWidget(edt, i-5, 3)
-        # new color button/decription region
-        self.newcolor_box = QGridLayout()
+            elif i < 16:
+                self.color_box.addWidget(btn, i-11,4)
+                self.color_box.addWidget(edt, i-11,5)
+            else:
+                self.color_box.addWidget(btn, i-16,6)
+                self.color_box.addWidget(edt, i-16,7)
 
-        # bottom box = exisitng color region + new color region
-        bottom_box = QHBoxLayout()
+	#bottom box = contains color region and push buttons
+	bottom_box = QHBoxLayout()
         bottom_box.addLayout(self.color_box)
-        bottom_box.addLayout(self.newcolor_box)
+        
 
         # top box = matplotlib canvas + buttons below
         top_box = QVBoxLayout()
@@ -256,9 +261,9 @@ class PickByColorsGUI3(QMainWindow):
         self.paint_label = self.n_labels - 2
 
         btn = QPushButton('%d'%self.paint_label, self)
-        edt = QLineEdit()
+        edt = QLineEdit('Label %d'%self.paint_label)
 
-        self.newDescEdits.append(edt)
+        self.descEdits.append(edt)
 
         r, g, b, a = self.label_cmap(self.paint_label+1)
 
@@ -266,19 +271,17 @@ class PickByColorsGUI3(QMainWindow):
             int(r*255),int(g*255),int(b*255)))
         btn.setFixedSize(20, 20)
 
-        
-        if self.j<5:
-            self.j+=1
-            self.newcolor_box.addWidget(btn, self.j, 0)
-            self.newcolor_box.addWidget(edt,self.j, 1)
-        elif self.j<11:
-            self.j+=1
-            self.newcolor_box.addWidget(btn, self.j-6, 2)
-            self.newcolor_box.addWidget(edt, self.j-6, 3)
+        n_col=self.color_box.columnCount()
+
+        if self.paint_label>21:
+            return
+        elif n_col>=4 and self.paint_label<16:
+            self.color_box.addWidget(btn, self.paint_label-10,4)
+            self.color_box.addWidget(edt, self.paint_label-10,5)
         else:
-            self.j+=1
-            self.newcolor_box.addWidget(btn, self.j-12, 4)
-            self.newcolor_box.addWidget(edt, self.j-12, 5)
+            self.color_box.addWidget(btn, self.paint_label-16,6)
+            self.color_box.addWidget(edt, self.paint_label-16,7)
+
 
 		
 
@@ -335,9 +338,10 @@ class PickByColorsGUI3(QMainWindow):
         self.press_x = event.xdata
         self.press_y = event.ydata
         self.press = True
+        self.press_time = time.time()
 
     def motion_fun(self, event):
-        self.moved = True
+        	
         if self.press:
             cur_xlim = self.axes.get_xlim()
             cur_ylim = self.axes.get_ylim()
@@ -357,12 +361,13 @@ class PickByColorsGUI3(QMainWindow):
         The release-button callback is responsible for picking a color or changing a color.
         """
         self.press = False
-        
-        if self.moved: self.moved = False
+        self.release_x = event.xdata
+        self.release_y =event.ydata
+        self.release_time = time.time()
 
-        # if current position is the same as position when mouse was clicked, then this is clicking without moving, 
-        # which means selection, rather than panning
-        if event.xdata == self.press_x and event.ydata == self.press_y:
+        # Fixed panning issues by using the time difference between the press and release event
+        # Long times refer to a press and hold
+        if (self.release_time - self.press_time) < .16 and self.release_x>0 and self.release_y>0:
             # self.axes.clear()
             try:
                 selected_sp = self.segmentation[int(event.ydata), int(event.xdata)]

@@ -76,6 +76,7 @@ class PickByColorsGUI3(QMainWindow):
 	    try:
 		prev_label_names = self.prev_labeling['names']
 		self.labeling['names'] = prev_label_names
+		print 'Retrieved labele names from previous image'
             except:	
 	        self.labeling['names']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]
             
@@ -84,10 +85,10 @@ class PickByColorsGUI3(QMainWindow):
             self.labeling=labeling
             self.labellist=labeling['labellist']
             self.n_models = max(10,np.max(self.labellist)+1)
-
+	    print 'Loading saved label information'
         self.buttonTexts=self.labeling['names']
 	self.n_labels = len(self.labeling['names'])
-        print 'n_labels',self.n_labels
+        
 
         self.labelmap = -1*np.ones_like(self.segmentation, dtype=np.int)
 
@@ -113,6 +114,29 @@ class PickByColorsGUI3(QMainWindow):
         self.moved = False             # Flag indicating whether mouse moved while button pressed
         self.create_main_frame()     # construct the layout
         self.initialize_canvas()     # initialize matplotlib plot
+ 
+        ####################################################################
+	# Trying to improve how the patches work by creating a list of patches
+	# where you can remove without reinitializing. This creates a list of
+	# rectangle patches associated to specific superpixels and adds to the
+	# matplotlib canvas.
+        ####################################################################
+	self.rect_list=list(np.zeros(len(self.labellist)))
+        for i,value in enumerate(self.labellist):
+            if value==-1:
+                continue
+            else:
+                ys, xs = np.nonzero(self.segmentation == i)
+                xmin = xs.min()
+                ymin = ys.min()
+
+                height = ys.max() - ys.min()
+                width = xs.max() - xs.min()
+                rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[int(self.labellist[i])])
+                self.rect_list[i]=rect
+                self.axes.add_patch(rect)
+        self.canvas.draw()
+
 
     def create_main_frame(self):
         """
@@ -172,12 +196,12 @@ class PickByColorsGUI3(QMainWindow):
             elif i < 11:
                 self.color_box.addWidget(btn, i-5, 2)
                 self.color_box.addWidget(edt, i-5, 3)
-            elif i < 16:
+            elif i < 17:
                 self.color_box.addWidget(btn, i-11,4)
                 self.color_box.addWidget(edt, i-11,5)
             else:
-                self.color_box.addWidget(btn, i-16,6)
-                self.color_box.addWidget(edt, i-16,7)
+                self.color_box.addWidget(btn, i-17,6)
+                self.color_box.addWidget(edt, i-17,7)
 
 	#bottom box = contains color region and push buttons
 	bottom_box = QHBoxLayout()
@@ -243,7 +267,7 @@ class PickByColorsGUI3(QMainWindow):
         self.axes.imshow(self.img, cmap=plt.cm.Greys_r,aspect='equal')
         self.label_layer=None  # to avoid removing layer when it is not yet there
         
-        self.initial_draw_colors()
+        #self.initial_draw_colors() currently drawing colors only with rectangle patches
         self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1) 
         self.canvas.draw()
 
@@ -367,7 +391,7 @@ class PickByColorsGUI3(QMainWindow):
 
         # Fixed panning issues by using the time difference between the press and release event
         # Long times refer to a press and hold
-        if (self.release_time - self.press_time) < .16 and self.release_x>0 and self.release_y>0:
+        if (self.release_time - self.press_time) < .21 and self.release_x>0 and self.release_y>0:
             # self.axes.clear()
             try:
                 selected_sp = self.segmentation[int(event.ydata), int(event.xdata)]
@@ -400,20 +424,39 @@ class PickByColorsGUI3(QMainWindow):
         '''
         b = time.time()
 
-        print 'self.paint_label',self.paint_label
-        self.labellist[selected_sp]=self.paint_label
-        self.labelmap = self.labellist[self.segmentation]
+        ###This updates the labelmap, labellist, and rect_list. Allows the ability to remove rectangle patches.
+         ## Also prevents overlaying multiple or different patches over the same sp.
 
-        ys, xs = np.nonzero(self.segmentation == selected_sp)
-        xmin = xs.min()
-        ymin = ys.min()
-        height = ys.max() - ys.min()
-        width = xs.max() - xs.min()
+        #checks to see if you are removing a label or labeling trying to label twice
+        if self.paint_label != -1 and self.paint_label !=self.labellist[selected_sp]:
+            print 'self.paint_label',self.paint_label
+            self.labellist[selected_sp]=self.paint_label
+            self.labelmap = self.labellist[self.segmentation]
 
-        if self.paint_label != -1:
+            ys, xs = np.nonzero(self.segmentation == selected_sp)
+            xmin = xs.min()
+            ymin = ys.min()
+
+            height = ys.max() - ys.min()
+            width = xs.max() - xs.min()
+            ###Removes previous color to prevent a blending of two or more patches###
+            if self.rect_list[selected_sp]!=0:
+                rm_rect = self.rect_list[selected_sp]
+                rm_rect.remove()
+
             rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[self.paint_label+1])
+            self.rect_list[selected_sp]=rect
             self.axes.add_patch(rect)
-
+        elif self.paint_label ==-1:
+            print "Removing rectangle patch"
+            self.labellist[selected_sp]=self.paint_label
+            self.labelmap = self.labellist[self.segmentation]
+            rm_rect = self.rect_list[selected_sp]
+            self.rect_list[selected_sp]=0
+            rm_rect.remove()
+        else:
+            print "sp is already the seleceted paint label"
+	    
         timestamp=str(datetime.datetime.now())
         username=str(self.NameField.text())
         self.labeling['label_history'].append({'name':username,

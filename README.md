@@ -30,7 +30,6 @@ python feature_extraction_pipeline_v2.py ../ParthaData/PMD1305_region0_reduce2/P
 ```
 
 
-
 *(needs update)* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
 ```shell
 # david data

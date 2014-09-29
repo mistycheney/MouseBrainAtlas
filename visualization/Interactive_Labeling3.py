@@ -76,12 +76,15 @@ class Interactive_Labeling:
 
         #This allows the ability to load previous pickle file to get previous label names used
         oldindex = re.findall('_00.._',self.labellist_filename)[0]
-	newindex = '_'+str(int(re.findall('_00.._',self.labellist_filename)[0].replace('_',''))-1).zfill(4)+'_'
+
+        newindex = '_'+str(int(re.findall('_00.._',self.labellist_filename)[0].replace('_',''))-1).zfill(4)+'_'
+        
         prev_labellist_filename = re.sub(oldindex,newindex,self.labellist_filename)
         try:
             self.prev_labeling = pickle.load(open(prev_labellist_filename,'r'))
         except:
              self.prev_labeling = None
+             
         # Initiate modules
         # self.analyzer = Analyzer(segmentation, texton, directions, self.labeling)
 

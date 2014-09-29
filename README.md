@@ -8,14 +8,6 @@ Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects
 
 Output are in `/oasis/scratch/csd181/yuncong/output`
 
-
-Todo
------
-1. improve background removal
-2. modify download_all script
-3. separate sigboost from feature extraction
-4. Lower priority: the image of the brain in the brain guy is clipped at the original size of the brain image, rather than at the borders of the encapsulating Qt frame. Can you fix that or guide me where to fix it? I am guessing it has to do with the set_xlim and set_ylim, but I am not sure.
-
 Example Workflow
 -----
 
@@ -36,7 +28,6 @@ python feature_extraction_pipeline_v2.py ../DavidData/RS155_x5/RS155_x5_0004.tif
 # partha data
 python feature_extraction_pipeline_v2.py ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
 ```
-
 
 
 *(needs update)* Then download results by running [`download_all2.sh`](https://gist.github.com/mistycheney/d92009bbb14b2951977d) on local machine.
@@ -67,7 +58,7 @@ Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
 
 Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
 
-_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
+Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
 
 
 **Data from Partha**:

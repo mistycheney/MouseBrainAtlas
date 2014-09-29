@@ -59,7 +59,7 @@ Data are stored at `/oasis/projects/nsf/csd181/yuncong/DavidData`.
 
 Original data are 12 ndpi files. Each ndpi file contains 5 resolution levels. The script `split_all.sh` is used to split different levels of all images into seperate tif files. The tif files are stored in 5 directories corresponding to the 5 levels: `x0.078125`, `x0.3125`, `x1.25`, `x5`, `x20`. Here `x20` contains the images with the highest resolution.
 
-_(updated 7/10/14)_ Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
+Images are then manually segmented and stored in sub-directories such as `RS141_x5`. Images in each sub-directory have image index as suffix, e.g. `RS141_x5_0003.tif`.
 
 
 **Data from Partha**:

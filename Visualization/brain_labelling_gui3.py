@@ -76,7 +76,7 @@ class PickByColorsGUI3(QMainWindow):
 	    try:
 		prev_label_names = self.prev_labeling['names']
 		self.labeling['names'] = prev_label_names
-		print 'Retrieved labele names from previous image'
+		print 'Retrieved label names from previous image'
             except:	
 	        self.labeling['names']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]
             
@@ -132,7 +132,7 @@ class PickByColorsGUI3(QMainWindow):
 
                 height = ys.max() - ys.min()
                 width = xs.max() - xs.min()
-                rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[int(self.labellist[i])])
+                rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[int(self.labellist[i])+1])
                 self.rect_list[i]=rect
                 self.axes.add_patch(rect)
         self.canvas.draw()

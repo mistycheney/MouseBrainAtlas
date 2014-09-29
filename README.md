@@ -8,14 +8,6 @@ Data are in `/oasis/projects/nsf/csd181/yuncong/ParthaData` and `/oasis/projects
 
 Output are in `/oasis/scratch/csd181/yuncong/output`
 
-
-Todo
------
-1. improve background removal
-2. modify download_all script
-3. separate sigboost from feature extraction
-4. Lower priority: the image of the brain in the brain guy is clipped at the original size of the brain image, rather than at the borders of the encapsulating Qt frame. Can you fix that or guide me where to fix it? I am guessing it has to do with the set_xlim and set_ylim, but I am not sure.
-
 Example Workflow
 -----
 

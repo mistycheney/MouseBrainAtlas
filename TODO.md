@@ -14,3 +14,7 @@ Cosmetics
 * Make boundaries movable.
 * Allow rotating of the image.
 * Use all of the available space in the gui.
+
+1. improve background removal
+2. modify download_all script
+3. separate sigboost from feature extraction

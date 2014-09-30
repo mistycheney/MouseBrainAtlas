@@ -326,13 +326,12 @@ class PickByColorsGUI3(QMainWindow):
             self.pick_mode = False
         
     def zoom_fun(self, event):
-        # get the current x and y limits
-        cur_xlim = self.axes.get_xlim()
+        # get the current x and y limits and subplot position
+        cur_pos = self.axes.get_position()
+	cur_xlim = self.axes.get_xlim()
         cur_ylim = self.axes.get_ylim()
 
-        # set the range
-        cur_xrange = (cur_xlim[1] - cur_xlim[0])*.5
-        cur_yrange = (cur_ylim[1] - cur_ylim[0])*.5
+        
         xdata = event.xdata # get event x location
 	
         ydata = event.ydata # get event y location
@@ -350,12 +349,38 @@ class PickByColorsGUI3(QMainWindow):
         elif event.button == 'down':
             # deal with zoom out
             scale_factor = self.base_scale
+        
+	# This makes sure the subplot properly expands to figure window    
+       	if cur_pos.x0 <= .01 and cur_pos.y0 <=.01: 
+	    newxmin = xdata - left*scale_factor
+	    newxmax = xdata + right*scale_factor
+	    newymin = ydata - up*scale_factor
+            newymax =  ydata + down*scale_factor
+	elif cur_pos.x0 >.05 and cur_pos.y0 >.05:
+            newxmin = xdata - left
+            newxmax = xdata + right
+            newymin = ydata - up
+            newymax =  ydata + down
+	elif cur_pos.y0 <=.01:
+            newxmin = xdata - left
+            newxmax = xdata + right
+            newymin = ydata - up*scale_factor
+            newymax =  ydata + down*scale_factor
+	elif cur_pos.x0 <=.01:
+            newxmin = xdata - left*scale_factor
+            newxmax = xdata + right*scale_factor
+            newymin = ydata - up
+            newymax =  ydata + down
+	else:
+	    newxmin = xdata - left*scale_factor
+            newxmax = xdata + right*scale_factor
+            newymin = ydata - up*scale_factor
+            newymax =  ydata + down*scale_factor
+
             
-        # set new limits
-        self.axes.set_xlim([xdata - left*scale_factor,
-                     xdata + right*scale_factor])
-        self.axes.set_ylim([ydata - up*scale_factor,
-                     ydata + down*scale_factor])
+	# set new limits
+        self.axes.set_xlim([newxmin,newxmax])
+        self.axes.set_ylim([newymin,newymax])
 	self.canvas.draw() # force re-draw
 
     def press_fun(self, event):

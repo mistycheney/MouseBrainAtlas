@@ -13,7 +13,7 @@ GUI Cosmetics
 
 * Make boundaries movable.
 * Allow rotating of the image.
-* ~Use all of the available space in the gui.~
+* ~~Use all of the available space in the gui.~~
 
 Data
 ----

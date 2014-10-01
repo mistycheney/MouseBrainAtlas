@@ -33,6 +33,7 @@ from scipy.signal import fftconvolve
 from IPython.display import FileLink, Image, FileLinks
 
 import utilities
+from utilities import chi2
 
 from joblib import Parallel, delayed
 
@@ -109,7 +110,8 @@ if not os.path.exists(result_dir):
 
 # <codecell>
 
-# find foreground mask
+# Find foreground mask
+
 print '=== finding foreground mask ==='
 mask = utilities.foreground_mask(img, min_size=2500)
 mask = mask > .5
@@ -117,7 +119,8 @@ mask = mask > .5
 
 # <codecell>
 
-# generate Gabor filter kernels
+# Generate Gabor filter kernels
+
 theta_interval = param['theta_interval']
 n_angle = int(180/theta_interval)
 freq_step = param['freq_step']
@@ -131,7 +134,6 @@ kernels = [gabor_kernel(f, theta=t, bandwidth=bandwidth) for f in frequencies
           for t in np.arange(0, n_angle)*np.deg2rad(theta_interval)]
 kernels = map(np.real, kernels)
 
-
 n_kernel = len(kernels)
 
 print '=== filter using Gabor filters ==='
@@ -144,11 +146,13 @@ print 'max kernel matrix size:', max_kern_size
 
 # <codecell>
 
-# process the image using Gabor filters
+# Process the image using Gabor filters
+
 try:
     raise IOError
     features = load_array('features')
 except IOError:
+    
     def convolve_per_proc(i):
         return fftconvolve(img, kernels[i], 'same').astype(np.half)
     
@@ -167,7 +171,7 @@ n_feature = features.shape[-1]
 
 # <codecell>
 
-# crop image border where filters show border effects
+# Crop image border where filters show border effects
 
 features = features[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2, :]
 img = img[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
@@ -178,7 +182,8 @@ save_img(img, 'img_cropped')
 
 # <codecell>
 
-# compute rotation-invariant texton map using K-Means
+# Compute rotation-invariant texton map using K-Means
+
 print '=== compute rotation-invariant texton map using K-Means ==='
 
 n_texton = int(param['n_texton'])
@@ -251,7 +256,7 @@ save_img(textonmap_rgb, 'textonmap')
 
 # <codecell>
 
-# over-segment the image into superpixels using SLIC (http://ivrg.epfl.ch/research/superpixels)
+# Over-segment the image into superpixels using SLIC (http://ivrg.epfl.ch/research/superpixels)
 
 print '=== over-segment the image into superpixels based on color information ==='
 
@@ -273,10 +278,10 @@ except IOError:
     
 sp_props = regionprops(segmentation+1, intensity_image=img, cache=True)
 
-def foo2(i):
+def obtain_props_worker(i):
     return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity
 
-r = Parallel(n_jobs=16)(delayed(foo2)(i) for i in range(len(sp_props)))
+r = Parallel(n_jobs=16)(delayed(obtain_props_worker)(i) for i in range(len(sp_props)))
 sp_centroids = np.array([s[0] for s in r])
 sp_areas = np.array([s[1] for s in r])
 sp_mean_intensity = np.array([s[2] for s in r])
@@ -294,12 +299,12 @@ save_img(sptext, 'segmentation')
 
 # <codecell>
 
-# determine which superpixels are mostly background
+# Determine which superpixels are mostly background
 
-def foo(i):
+def count_fg_worker(i):
     return np.count_nonzero(mask[segmentation==i])
 
-r = Parallel(n_jobs=16)(delayed(foo)(i) for i in range(n_superpixels))
+r = Parallel(n_jobs=16)(delayed(count_fg_worker)(i) for i in range(n_superpixels))
 superpixels_fg_count = np.array(r)
 bg_superpixels = np.nonzero((superpixels_fg_count/sp_areas) < 0.3)[0]
 # bg_superpixels = np.array(list(set(bg_superpixels.tolist()
@@ -316,7 +321,7 @@ print '%d background superpixels'%len(bg_superpixels)
 
 # <codecell>
 
-# compute neighbor lists and connectivity matrix
+# Compute neighbor lists and connectivity matrix
 
 from skimage.morphology import disk
 from skimage.filter.rank import gradient
@@ -346,10 +351,10 @@ try:
     raise IOError
     sp_texton_hist_normalized = load_array('sp_texton_hist_normalized')
 except IOError:
-    def bar(i):
+    def texton_histogram_worker(i):
         return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
 
-    r = Parallel(n_jobs=16)(delayed(bar)(i) for i in range(n_superpixels))
+    r = Parallel(n_jobs=16)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
     sp_texton_hist = np.array(r)
     sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis]
     save_array(sp_texton_hist_normalized, 'sp_texton_hist_normalized')
@@ -370,11 +375,11 @@ except IOError:
     f = np.reshape(features, (features.shape[0], features.shape[1], n_freq, n_angle))
     dir_energy = np.sum(abs(f), axis=2)
 
-    def bar2(i):
+    def dir_histogram_worker(i):
         segment_dir_energies = dir_energy[segmentation == i].astype(np.float_).mean(axis=0)
         return segment_dir_energies    
 
-    r = Parallel(n_jobs=16)(delayed(bar2)(i) for i in range(n_superpixels))
+    r = Parallel(n_jobs=16)(delayed(dir_histogram_worker)(i) for i in range(n_superpixels))
     
     sp_dir_hist = np.vstack(r)
     sp_dir_hist_normalized = sp_dir_hist/sp_dir_hist.sum(axis=1)[:,np.newaxis]
@@ -386,14 +391,9 @@ overall_dir_hist_normalized = overall_dir_hist.astype(np.float) / overall_dir_hi
 
 # <codecell>
 
-def chi2(u,v):
-    r = np.nansum((u-v)**2/(u+v))
-    return r
-
 # compute distance between every superpixel and the null
 D_texton_null = np.squeeze(cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2))
 D_dir_null = np.squeeze(cdist(sp_dir_hist_normalized, [overall_dir_hist_normalized], chi2))
-
 
 p = sp_texton_hist_normalized
 q = sp_dir_hist_normalized

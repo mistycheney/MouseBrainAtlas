@@ -146,7 +146,7 @@ class sigboost(object):
                     continue
 
                 ratio_v = self.D_texton_null[v] - chi2(p[v], texton_model) +\
-                    		self.D_dir_null[v] - chi2(q[v], dir_model)
+                            self.D_dir_null[v] - chi2(q[v], dir_model)
 
                 if ratio_v > lr_grow_thresh:
                     curr_cluster.add(v)

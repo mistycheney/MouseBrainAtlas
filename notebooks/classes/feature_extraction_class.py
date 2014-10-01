@@ -6,7 +6,7 @@
 # %load_ext autoreload
 # %autoreload 2
 
-import sigboost
+# import sigboost
 import numpy as np
 import cv2
 import argparse, os, json, pprint
@@ -14,16 +14,18 @@ import random
 import itertools
 from skimage.filter import gabor_kernel
 
-# from multiprocessing import Pool
-from pathos.multiprocessing import ProcessingPool as Pool
+from multiprocessing import Pool
+# from pathos.multiprocessing import ProcessingPool as Pool
 
 from scipy.signal import fftconvolve
 from scipy.spatial.distance import pdist, squareform, euclidean, cdist
 
 
-def compute_features():
-    
+def unwrap_convolve_per_proc(args, **kwargs):
+    return FeatureExtractor.convolve_per_proc(*args, **kwargs)
 
+def unwrap_compute_dist_per_proc(args, **kwargs):
+    return FeatureExtractor.compute_dist_per_proc(*args, **kwargs)
 
 class FeatureExtractor(object):
 
@@ -55,13 +57,13 @@ class FeatureExtractor(object):
         max_kern_size = np.max([kern.shape[0] for kern in kernels])
         print 'max kernel matrix size:', max_kern_size
 
-    def compute_features(self, features):
+    def convolve_per_proc(self, i):
+        return fftconvolve(self.img, self.kernels[i], 'same').astype(np.half)
+        
+    def compute_features(self):
         self.get_kernels()
-
-        def convolve_per_proc(i):
-            return fftconvolve(self.img, self.kernels[i], 'same').astype(np.half)
-
-        filtered = Pool().map(convolve_per_proc, range(self.n_kernel))
+        
+        filtered = Pool().map(unwrap_convolve_per_proc, zip([self]*self.n_kernel, range(self.n_kernel)))
         
         self.features = np.empty((self.img.shape[0], self.img.shape[1], self.n_kernel), dtype=np.half)
         for i in range(self.n_kernel):
@@ -74,24 +76,24 @@ class FeatureExtractor(object):
         self.n_feature = self.features.shape[-1]
 
     
+    def compute_dist_per_proc(self, x):
+        X_partial, c_all_rot = x
+        D = cdist(X_partial, c_all_rot, 'sqeuclidean')
+        ci, ri = np.unravel_index(D.argmin(axis=1), (self.n_texton, self.n_angle))
+        return np.c_[ci, ri]
+    
     def compute_texton(self):
         print '=== compute rotation-invariant texton map using K-Means ==='
 
-        n_texton = int(self.param['n_texton'])
+        self.n_texton = int(self.param['n_texton'])
 
         X = self.features.reshape(-1, self.n_feature)
         n_data = X.shape[0]
         n_splits = 1000
         n_sample = int(self.param['n_sample'])
-        centroids = np.array(random.sample(X, n_texton))
+        centroids = np.array(random.sample(X, self.n_texton))
 
         n_iter = int(self.param['n_iter'])
-
-        def compute_dist_per_proc(x):
-            X_partial, c_all_rot = x
-            D = cdist(X_partial, c_all_rot, 'sqeuclidean')
-            ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, self.n_angle))
-            return np.c_[ci, ri]
 
         for iteration in range(n_iter):
 
@@ -101,8 +103,8 @@ class FeatureExtractor(object):
             centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, self.n_freq), i)) 
                                     for c,i in itertools.product(centroids, range(self.n_angle))])
 
-            r = Pool().map(compute_dist_per_proc, zip(np.array_split(data, n_splits, axis=0), 
-                                                itertools.repeat(centroid_all_rotations, n_splits)))
+            r = Pool().map(unwrap_compute_dist_per_proc, zip([self]*n_splits, zip(np.array_split(data, n_splits, axis=0), 
+                                                itertools.repeat(centroid_all_rotations, n_splits))))
             
 #             r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
 #                             for x, c in zip(np.array_split(data, n_splits, axis=0), 
@@ -112,12 +114,12 @@ class FeatureExtractor(object):
             labels = res[:,0]
             rotations = res[:,1]
 
-            centroids_new = np.zeros((n_texton, self.n_feature))
+            centroids_new = np.zeros((self.n_texton, self.n_feature))
             for d, l, r in itertools.izip(data, labels, rotations):
                 rot = np.concatenate(np.roll(np.split(d, self.n_freq), i))
                 centroids_new[l] += rot
 
-            counts = np.bincount(labels, minlength=n_texton)
+            counts = np.bincount(labels, minlength=self.n_texton)
             centroids_new /= counts[:, np.newaxis]
             centroids_new[counts==0] = centroids[counts==0]
             print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
@@ -128,8 +130,11 @@ class FeatureExtractor(object):
         centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, self.n_freq), i)) 
                                     for c,i in itertools.product(centroids, range(self.n_angle))])
 
-        r = Pool().map(compute_dist_per_proc, zip(np.array_split(X, n_splits, axis=0), 
-                                                itertools.repeat(centroid_all_rotations, n_splits)))
+        r = Pool().map(unwrap_compute_dist_per_proc, zip([self]*n_splits, zip(np.array_split(data, n_splits, axis=0), 
+                                            itertools.repeat(centroid_all_rotations, n_splits))))
+        
+#         r = Pool().map(compute_dist_per_proc, zip(np.array_split(X, n_splits, axis=0), 
+#                                                 itertools.repeat(centroid_all_rotations, n_splits)))
         
 #         r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
 #                                 for x, c in zip(np.array_split(X, n_splits, axis=0), 

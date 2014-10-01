@@ -15,6 +15,22 @@ import numpy as np
 import os, csv
 
 def foreground_mask(img, min_size=64, thresh=200):
+    """
+    Find the mask that covers exactly the foreground of the brain slice image
+    
+    Parameters
+    ----------
+    img : image
+        input image
+    min_size : float
+    thresh : float
+    
+    Return
+    ------
+    mask : 
+        foreground mask
+    """
+    
 #     t_img = gaussian_filter(img, sigma=3) < 220./255.
     t_img = denoise_bilateral(img) < thresh/255.
 
@@ -161,20 +177,60 @@ def timeit(func=None,loops=1,verbose=False):
 # <codecell>
 
 def load_array(suffix, img_name, param_id, output_dir):
+    """
+    Load the cached result.
+    
+    Parameters
+    ----------
+    suffix : str
+        name of the result
+    img_name : str
+        image name
+    param_id : str
+        parameter set name
+    output_dir : str
+        the location of results
+    
+    Returns
+    -------
+    arr : array
+        the loaded array    
+    """
+    
     result_name = img_name + '_param_' + str(param_id)
     arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
     return arr
 
-def save_array(arr, suffix, img_name, param_id, cache_dir='scratch'):
+def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=True):
+    """
+    Save array into a file
+    
+    Parameters
+    ----------
+    arr : array
+        the array to cache
+    suffix : str
+        name of the result
+    img_name : str
+        image name
+    param_id : str
+        parameter set name
+    cache_dir : str
+        output folder
+    overwrite : bool
+        if True, overwrite existing file
+    """
+    
     result_name = img_name + '_param_' + str(param_id)
     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
-#     if not os.path.exists(arr_file):
-    np.save(arr_file, arr)
-    print '%s saved to %s' % (suffix, arr_file)
-#     else:
-#         print '%s already exists' % (arr_file)
+    
+    if not os.path.exists(arr_file) or overwrite:
+        np.save(arr_file, arr)
+        print '%s saved to %s' % (suffix, arr_file)
+    else:
+        print '%s already exists' % (arr_file)
         
 def regulate_images(imgs):
     return np.array(map(regulate_img, imgs))
@@ -195,7 +251,22 @@ def regulate_img(img):
 def save_img(img, suffix, img_name, param_id, 
              cache_dir='scratch', overwrite=True):
     '''
-    img is in uint8 type or float type
+    Save image to file
+    
+    Parameters
+    ----------
+    img : uint8 or float array
+        image to save
+    suffix : str
+        name of the result
+    img_name : str
+        image name
+    param_id : str
+        parameter set name
+    cache_dir : str
+        output_folder
+    overwrite : bool
+        if True, overwrite existing file
     '''
     img = regulate_img(img)
         
@@ -220,28 +291,40 @@ def get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif'):
 
 # <codecell>
 
-def load_parameters(params_file):
+# def load_parameters(params_file):
 
-    parameters = dict([])
+#     parameters = dict([])
 
-    with open(params_file, 'r') as f:
-        param_reader = csv.DictReader(f)
-        for param in param_reader:
-            for k in param.iterkeys():
-                if param[k] != '':
-                    try:
-                        param[k] = int(param[k])
-                    except ValueError:
-                        param[k] = float(param[k])
-            if param['param_id'] == 0:
-                default_param = param
-            else:
-                for k, v in param.iteritems():
-                    if v == '':
-                        param[k] = default_param[k]
-            parameters[param['param_id']] = param
+#     with open(params_file, 'r') as f:
+#         param_reader = csv.DictReader(f)
+#         for param in param_reader:
+#             for k in param.iterkeys():
+#                 if param[k] != '':
+#                     try:
+#                         param[k] = int(param[k])
+#                     except ValueError:
+#                         param[k] = float(param[k])
+#             if param['param_id'] == 0:
+#                 default_param = param
+#             else:
+#                 for k, v in param.iteritems():
+#                     if v == '':
+#                         param[k] = default_param[k]
+#             parameters[param['param_id']] = param
             
-    return parameters
+#     return parameters
+
+
+def chi2(u,v):
+    """
+    Compute Chi^2 distance between two distributions.
+    
+    Empty bins are ignored.
+    
+    """
+    
+    r = np.nansum((u-v)**2/(u+v))
+    return r
 
 # <codecell>
 

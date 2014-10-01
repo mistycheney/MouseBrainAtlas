@@ -20,7 +20,7 @@ Data
 
 Algorithm
 ---------
-* Get data from Sean. Identify directories on gordon.
+* ~~Get data from Sean. Identify directories on gordon.~~
 * improve background removal
 
 Scripts

@@ -58,8 +58,8 @@ class PickByColorsGUI3(QMainWindow):
         # labelings that we can run through for a demo, perform undo, redo etc.
         # The fields in labeling are:
         # labellist: an array that maps segment (super-pixel) number to labels
-        # names: an array that contains the textual name associated with the label.
-        # label_history: The history of changes, together with full label-lists from time to time.
+        # names: an array that contains the anatomical name corresponding to the region label.
+        # label_history: The history of changes, together with full label-lists from time to time
         #         The fields in each elements of the list are:
         #         name - name of user
         #         time
@@ -69,30 +69,31 @@ class PickByColorsGUI3(QMainWindow):
         if labeling == None:
             print 'No labeling given'
             self.labeling={}
-            self.labellist=-1*np.ones(self.n_superpixels)
-            self.labeling['labellist']=self.labellist
-            self.n_models=10
+            self.labellist = -1*np.ones(self.n_superpixels, dtype=np.int)
+            print self.labellist
+            self.labeling['labellist'] = self.labellist
+            self.n_models = 10
             #Retrieves previous label names
-	    try:
-		prev_label_names = self.prev_labeling['names']
-		self.labeling['names'] = prev_label_names
-		print 'Retrieved label names from previous image'
+    	    try:
+        		prev_label_names = self.prev_labeling['names']
+        		self.labeling['names'] = prev_label_names
+        		print 'Retrieved label names from previous image'
             except:	
-	        self.labeling['names']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]
-            
-            self.labeling['label_history']=[]
+    	        self.labeling['names']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]    
+                self.labeling['label_history']=[]
         else:
             self.labeling=labeling
             self.labellist=labeling['labellist']
             self.n_models = max(10,np.max(self.labellist)+1)
-	    print 'Loading saved label information'
-        self.buttonTexts=self.labeling['names']
-	self.n_labels = len(self.labeling['names'])
+	    
+            print 'Loading saved label information'
+            self.buttonTexts=self.labeling['names']
+            self.n_labels = len(self.labeling['names'])
         
 
         self.labelmap = -1*np.ones_like(self.segmentation, dtype=np.int)
 
-        if np.max(self.labellist)>0:
+        if np.max(self.labellist) > 0:
             self.labelmap = self.labellist[self.segmentation]
             print "labelmap updated"
 
@@ -102,8 +103,10 @@ class PickByColorsGUI3(QMainWindow):
                        (255,204,153),(128,128,128),(148,255,181),(143,124,0),(157,204,0),(194,0,136),
                        (0,51,128),(255,164,5),(255,168,187),(66,102,0),(255,0,16),(94,241,242),(0,153,143),
                        (224,255,102),(116,10,255),(153,0,0),(255,255,128),(255,255,0),(255,80,5)]
+        
         for i in range(len(self.colors)):
             self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
+        
         self.label_cmap = ListedColormap(self.colors, name='label_cmap')
 
         # initialize GUI variables
@@ -116,14 +119,16 @@ class PickByColorsGUI3(QMainWindow):
         self.initialize_canvas()     # initialize matplotlib plot
  
         ####################################################################
-	# Trying to improve how the patches work by creating a list of patches
-	# where you can remove without reinitializing. This creates a list of
-	# rectangle patches associated to specific superpixels and adds to the
-	# matplotlib canvas.
+    	# Trying to improve how the patches work by creating a list of patches
+    	# where you can remove without reinitializing. This creates a list of
+    	# rectangle patches associated to specific superpixels and adds to the
+    	# matplotlib canvas.
         ####################################################################
-	self.rect_list=list(np.zeros(len(self.labellist)))
+    	# self.rect_list=list(np.zeros(len(self.labellist)))
+        self.rect_list = [None for _ in range(len(self.labellist))]
+
         for i,value in enumerate(self.labellist):
-            if value==-1:
+            if value == -1:
                 continue
             else:
                 ys, xs = np.nonzero(self.segmentation == i)
@@ -135,6 +140,7 @@ class PickByColorsGUI3(QMainWindow):
                 rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[int(self.labellist[i])+1])
                 self.rect_list[i]=rect
                 self.axes.add_patch(rect)
+
         self.canvas.draw()
 
 
@@ -204,15 +210,14 @@ class PickByColorsGUI3(QMainWindow):
                 self.color_box.addWidget(edt, i-17,7)
 
 	#bottom box = contains color region and push buttons
-	bottom_box = QHBoxLayout()
+	   bottom_box = QHBoxLayout()
         bottom_box.addLayout(self.color_box)
         
 
         # top box = matplotlib canvas + buttons below
         top_box = QVBoxLayout()
         
-
-	top_box.addWidget(self.canvas)
+        top_box.addWidget(self.canvas)
 
         buttons_box=QVBoxLayout()
         bottom_box.addLayout(buttons_box)
@@ -312,7 +317,6 @@ class PickByColorsGUI3(QMainWindow):
     def handleButtonClicked(self, button):
         self.pick_color(int(button.text()))
 
-
     ############################################
     # matplotlib canvas CALLBACKs
     ############################################
@@ -328,18 +332,15 @@ class PickByColorsGUI3(QMainWindow):
     def zoom_fun(self, event):
         # get the current x and y limits and subplot position
         cur_pos = self.axes.get_position()
-	cur_xlim = self.axes.get_xlim()
+        cur_xlim = self.axes.get_xlim()
         cur_ylim = self.axes.get_ylim()
-
         
         xdata = event.xdata # get event x location
 	
         ydata = event.ydata # get event y location
 
         left = xdata - cur_xlim[0]
-	
         right = cur_xlim[1] - xdata
-	
         up = ydata - cur_ylim[0]
         down = cur_ylim[1] - ydata
 
@@ -352,36 +353,36 @@ class PickByColorsGUI3(QMainWindow):
         
 	# This makes sure the subplot properly expands to figure window    
        	if cur_pos.x0 <= .01 and cur_pos.y0 <=.01: 
-	    newxmin = xdata - left*scale_factor
-	    newxmax = xdata + right*scale_factor
-	    newymin = ydata - up*scale_factor
-            newymax =  ydata + down*scale_factor
-	elif cur_pos.x0 >.05 and cur_pos.y0 >.05:
+    	    newxmin = xdata - left*scale_factor
+    	    newxmax = xdata + right*scale_factor
+    	    newymin = ydata - up*scale_factor
+            newymax = ydata + down*scale_factor
+    	elif cur_pos.x0 >.05 and cur_pos.y0 >.05:
             newxmin = xdata - left
             newxmax = xdata + right
             newymin = ydata - up
-            newymax =  ydata + down
-	elif cur_pos.y0 <=.01:
+            newymax = ydata + down
+    	elif cur_pos.y0 <=.01:
             newxmin = xdata - left
             newxmax = xdata + right
             newymin = ydata - up*scale_factor
-            newymax =  ydata + down*scale_factor
-	elif cur_pos.x0 <=.01:
+            newymax = ydata + down*scale_factor
+    	elif cur_pos.x0 <=.01:
             newxmin = xdata - left*scale_factor
             newxmax = xdata + right*scale_factor
             newymin = ydata - up
-            newymax =  ydata + down
-	else:
-	    newxmin = xdata - left*scale_factor
+            newymax = ydata + down
+    	else:
+    	    newxmin = xdata - left*scale_factor
             newxmax = xdata + right*scale_factor
             newymin = ydata - up*scale_factor
-            newymax =  ydata + down*scale_factor
+            newymax = ydata + down*scale_factor
+       
+    	# set new limits
+        self.axes.set_xlim([newxmin, newxmax])
+        self.axes.set_ylim([newymin, newymax])
 
-            
-	# set new limits
-        self.axes.set_xlim([newxmin,newxmax])
-        self.axes.set_ylim([newymin,newymax])
-	self.canvas.draw() # force re-draw
+        self.canvas.draw() # force re-draw
 
     def press_fun(self, event):
         self.press_x = event.xdata
@@ -429,7 +430,7 @@ class PickByColorsGUI3(QMainWindow):
                 self.pick_color(selected_label)
             else:
                 # Painting a color
-                self.statusBar().showMessage('Paint color: on superpixel %d, selected label = %d' % (selected_sp, self.paint_label))
+                self.statusBar().showMessage('Labeled superpixel %d as %d (%s)' % (selected_sp, self.paint_label, self.labeling['names'][self.paint_label+1]))
                 self.change_superpixel_color(selected_sp)
 
             self.draw_colors()
@@ -440,8 +441,9 @@ class PickByColorsGUI3(QMainWindow):
     ############################################
 
     def pick_color(self, selected_label):
+
         self.paint_label = selected_label
-        self.statusBar().showMessage('Choose label: selected label = %d' % self.paint_label)
+        self.statusBar().showMessage('Picked label %d (%s)' % (self.paint_label, self.labeling['names'][self.paint_label+1]))
 
     def change_superpixel_color(self, selected_sp):
         '''
@@ -449,46 +451,54 @@ class PickByColorsGUI3(QMainWindow):
         '''
         b = time.time()
 
-        ###This updates the labelmap, labellist, and rect_list. Allows the ability to remove rectangle patches.
-         ## Also prevents overlaying multiple or different patches over the same sp.
+        ## This updates the labelmap, labellist, and rect_list. Allows the ability to remove rectangle patches.
+        ## Also prevents overlaying multiple or different patches over the same sp.
 
-        #checks to see if you are removing a label or labeling trying to label twice
-        if self.paint_label != -1 and self.paint_label !=self.labellist[selected_sp]:
-            print 'self.paint_label',self.paint_label
-            self.labellist[selected_sp]=self.paint_label
+        # checks to see if you are removing a label or labeling trying to label twice
+        if self.paint_label == self.labellist[selected_sp]:
+
+            print "sp is already the selected paint label"
+
+        elif self.paint_label != -1 :
+
+            print 'Labeled sp %d as %d' % (selected_sp, self.paint_label)
+            self.labellist[selected_sp] = self.paint_label
             self.labelmap = self.labellist[self.segmentation]
 
+            ### Removes previous color to prevent a blending of two or more patches ###
+            if self.rect_list[selected_sp] is not None:
+                self.rect_list[selected_sp].remove()
+
+            # approximate the superpixel polygon with a square
             ys, xs = np.nonzero(self.segmentation == selected_sp)
             xmin = xs.min()
             ymin = ys.min()
 
             height = ys.max() - ys.min()
             width = xs.max() - xs.min()
-            ###Removes previous color to prevent a blending of two or more patches###
-            if self.rect_list[selected_sp]!=0:
-                rm_rect = self.rect_list[selected_sp]
-                rm_rect.remove()
 
             rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[self.paint_label+1])
-            self.rect_list[selected_sp]=rect
+
+            self.rect_list[selected_sp] = rect
             self.axes.add_patch(rect)
-        elif self.paint_label ==-1:
-            print "Removing rectangle patch"
-            self.labellist[selected_sp]=self.paint_label
-            self.labelmap = self.labellist[self.segmentation]
-            rm_rect = self.rect_list[selected_sp]
-            self.rect_list[selected_sp]=0
-            rm_rect.remove()
+
         else:
-            print "sp is already the seleceted paint label"
+            print "Removing label of sp %d" % selected_sp
+            self.labellist[selected_sp] = -1
+            self.labelmap = self.labellist[self.segmentation]
+
+            self.rect_list[selected_sp].remove()
+            self.rect_list[selected_sp] = None
 	    
         timestamp=str(datetime.datetime.now())
         username=str(self.NameField.text())
-        self.labeling['label_history'].append({'name':username,
-                                               'time':timestamp,
-                                               'Full':False,
-                                               'data':(selected_sp,self.paint_label)
-                                           })
+
+        change = {'name': username, 
+                'time': timestamp,
+                'data': (selected_sp, self.paint_label)}
+
+        self.labeling['history'].append(change)
+
         print 'update', time.time() - b
 
 
@@ -552,15 +562,15 @@ class PickByColorsGUI3(QMainWindow):
         
 
     def get_labels(self):
-        self.labeling['labeling']=self.labeling
-        self.labeling['names']=[str(edt.text()) for edt in self.descEdits]
-        timestamp=str(datetime.datetime.now())
-        username=str(self.NameField.text())
-        self.labeling['label_history'].append({'name':username,
-                                               'time':timestamp,
-                                               'Full':True,
-                                               'data':self.labeling
-                                           })
+        # self.labeling['labeling']=self.labeling
+        # self.labeling['names']=[str(edt.text()) for edt in self.descEdits]
+        # timestamp=str(datetime.datetime.now())
+        # username=str(self.NameField.text())
+        # self.labeling['history'].append({'name':username,
+        #                                        'time':timestamp,
+        #                                        'Full':True,
+        #                                        'data':self.labeling['labellist']
+        #                                    })
         
         return self.labeling
 

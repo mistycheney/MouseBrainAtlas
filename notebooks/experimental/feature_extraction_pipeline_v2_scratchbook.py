@@ -329,6 +329,8 @@ bg_superpixels = np.nonzero((superpixels_fg_count/sp_areas) < 0.3)[0]
 fg_superpixels = np.array([i for i in range(n_superpixels) if i not in bg_superpixels])
 print '%d background superpixels'%len(bg_superpixels)
 
+save_array(fg_superpixels, 'fg')
+
 a = np.zeros((n_superpixels,), dtype=np.bool)
 a[fg_superpixels] = True
 plt.imshow(a[segmentation], cmap=plt.cm.Greys_r)

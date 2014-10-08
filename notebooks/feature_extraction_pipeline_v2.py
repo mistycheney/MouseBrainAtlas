@@ -149,7 +149,7 @@ print 'max kernel matrix size:', max_kern_size
 # Process the image using Gabor filters
 
 try:
-    raise IOError
+#     raise IOError
     features = load_array('features')
 except IOError:
     
@@ -180,6 +180,8 @@ im_height, im_width = img.shape[:2]
 
 save_img(img, 'img_cropped')
 
+save_array(mask, 'mask')
+
 # <codecell>
 
 # Compute rotation-invariant texton map using K-Means
@@ -189,7 +191,7 @@ print '=== compute rotation-invariant texton map using K-Means ==='
 n_texton = int(param['n_texton'])
 
 try: 
-    raise IOError
+#     raise IOError
     textonmap = load_array('textonmap')
 except IOError:
     
@@ -263,7 +265,7 @@ print '=== over-segment the image into superpixels based on color information ==
 img_rgb = gray2rgb(img)
 
 try:
-    raise IOError
+#     raise IOError
     segmentation = load_array('segmentation')
     
 except IOError:
@@ -314,6 +316,9 @@ bg_superpixels = np.nonzero((superpixels_fg_count/sp_areas) < 0.3)[0]
 fg_superpixels = np.array([i for i in range(n_superpixels) if i not in bg_superpixels])
 print '%d background superpixels'%len(bg_superpixels)
 
+save_array(fg_superpixels, 'fg')
+save_array(bg_superpixels, 'bg')
+
 # a = np.zeros((n_superpixels,), dtype=np.bool)
 # a[fg_superpixels] = True
 # plt.imshow(a[segmentation], cmap=plt.cm.Greys_r)
@@ -348,7 +353,7 @@ connectivity_matrix = connectivity_matrix.transpose() * connectivity_matrix
 print '=== compute texton histogram of each superpixel ==='
 
 try:
-    raise IOError
+#     raise IOError
     sp_texton_hist_normalized = load_array('sp_texton_hist_normalized')
 except IOError:
     def texton_histogram_worker(i):
@@ -369,7 +374,7 @@ overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_
 print '=== compute directionality histogram of each superpixel ==='
 
 try:
-    raise IOError
+#     raise IOError
     sp_dir_hist_normalized = load_array('sp_dir_hist_normalized')
 except IOError:
     f = np.reshape(features, (features.shape[0], features.shape[1], n_freq, n_angle))
@@ -490,8 +495,7 @@ def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model,
     starting from a superpixel as seed
     using pre-computed distances between model and superpixels
     '''
-    
-    
+
     if seed in bg_superpixels:
         return [], -1
 

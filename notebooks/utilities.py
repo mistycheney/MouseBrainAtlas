@@ -197,7 +197,7 @@ def load_array(suffix, img_name, param_id, output_dir):
         the loaded array    
     """
     
-    result_name = img_name + '_param_' + str(param_id)
+    result_name = img_name + '_' + str(param_id)
     arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
@@ -223,7 +223,7 @@ def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=T
         if True, overwrite existing file
     """
     
-    result_name = img_name + '_param_' + str(param_id)
+    result_name = img_name + '_' + str(param_id)
     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
     
     if not os.path.exists(arr_file) or overwrite:

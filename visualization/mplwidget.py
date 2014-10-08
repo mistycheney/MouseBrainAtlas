@@ -1,7 +1,8 @@
 from PyQt4 import QtGui
 from matplotlib.backends.backend_qt4agg \
-	import FigureCanvasQTAgg as FigureCanvas
+	import FigureCanvasQTAgg as Canvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 # class MplCanvas(FigureCanvas):
 #     def __init__(self):
@@ -19,8 +20,9 @@ class MplWidget(QtGui.QWidget):
     def __init__(self, parent = None):
         QtGui.QWidget.__init__(self, parent)
 
-        self.fig = Figure((10.0, 10.0), dpi=100)
-        self.canvas = FigureCanvas(self.fig)
+        # self.fig = Figure((10.0, 10.0), dpi=100)
+        self.fig = plt.figure(figsize=(10.0, 10.0), dpi=100)
+        self.canvas = Canvas(self.fig)
 
         self.vbl = QtGui.QVBoxLayout()
         self.vbl.addWidget(self.canvas)

@@ -19,6 +19,9 @@ from random import random
 import time
 import datetime
 import cv2
+from utilities import *
+
+from pprint import pprint
 
 import cPickle as pickle
 
@@ -35,8 +38,27 @@ else:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
 
-from ui_InputSelection import Ui_InputSelectionDialog
+from ui_InputSelectionColumnView import Ui_InputSelectionDialog
 from ui_BrainLabelingGui import Ui_BrainLabelingGui
+# from ui_InputSelectionMultipleLists import Ui_InputSelectionDialog
+
+def get_local_data_structure(data_dir):
+    local_structure = get_directory_structure(data_dir)
+    
+    local_data = {}
+    for stack, stack_content in local_structure.values()[0].iteritems():
+        local_data[stack] = {}
+        for resol, resol_content in stack_content.iteritems():
+            local_data[stack][resol] = {}
+            for slice, slice_content in resol_content.iteritems():
+                local_data[stack][resol][slice] = {}
+                for param, param_content in slice_content.iteritems():
+                    if param_content is not None:
+                        labelings = ['_'.join(labeling[:-4].split('_')[-2:]) for labeling in param_content['labelings'].keys() 
+                                if labeling.endswith('.pkl')]
+                        local_data[stack][resol][slice][param] = labelings
+
+    return local_data
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def __init__(self, parent=None):
@@ -45,110 +67,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         # Load data
 
-        self.data_dir = '/home/yuncong/BrainLocal/'
+        self.data_dir = '/home/yuncong/BrainLocal/DavidData'
+        self.instance_dir = None
+        self.instance_name = None
 
-        self.stack_name = 'RS141'
-        self.slice_id = 1
-        self.resolution = 'x5'
-        self.params_name = 'redNissl'
+        self.app = QApplication(sys.argv)
+        QMainWindow.__init__(self, parent)
 
-        self.instance_name = '_'.join([self.stack_name, self.resolution, '%04d'%self.slice_id, self.params_name])
-        self.instance_dir = os.path.join([self.data_dir, self.instance_name])
-
-        self.username = 'yuncong'
-
-        self.parent_labeling_name = 'anon_141002050443'
-
-        # self.input_selection_dialog = QDialog()
-        # ui = Ui_InputSelectionDialog()
-        # ui.setupUi(self.input_selection_dialog)
-        # self.input_selection_dialog.show()
-
-        # stack_nslices = {
-        #     'RS141': 25,
-        #     'RI6': 49,
-        #     'RS155': 40,
-        #     'RS76': 36
-        # }
-
-        # Use QTreeWidget
-
-        # ui.StackSliceTree.setColumnCount(1)
-        # for stack_name, n_slices in stack_nslices.iteritems():
-        #     stack = QTreeWidgetItem(ui.StackSliceTree)
-        #     stack.setText(0, stack_name)
-        #     for s in range(n_slices):
-        #         slic = QTreeWidgetItem(stack)
-        #         slic.setText(0, str(s))
-
-        # Use QColumnView
-        
-        # stackslice_model = QStandardItemModel()
-        # for stack_name, n_slices in stack_nslices.iteritems():
-        #     stack = QStandardItem(stack_name)
-        #     for s in range(n_slices):
-        #         slic = QStandardItem(str(s))
-        #         stack.appendRow(slic)
-        #     stackslice_model.appendRow(stack)
-        # ui.StackSliceView.setModel(stackslice_model)
-
-        # Use QColumnView
-
-        # resolutions = ['x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']
-
-        # stackslice_model = QStandardItemModel()
-        # for stack_name, n_slices in stack_nslices.iteritems():
-        #     stack = QStandardItem(stack_name)
-        #     for s in range(n_slices):
-        #         slic = QStandardItem(str(s))
-        #         for r in resolutions:
-        #             resol = QStandardItem(str(r))
-        #             slic.appendRow(resol)
-        #         stack.appendRow(slic)
-        #     stackslice_model.appendRow(stack)
-        # ui.StackSliceView.setModel(stackslice_model)
+        self.initialize_input_selection_dialog()
 
 
-        # resolutions = ['x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']
-        # ui.ResolutionList.insertItems(0, resolutions)
+    def load_data(self):
 
-        # param_names = ['nissl341', 'redNissl']
-        # ui.ParamList.insertItems(0, param_names)
-
-        # labeling_names = []
-        # ui.LabelingList.insertItems(0, labeling_names)
-
-        # return
-
-        # self.image_path = str(QFileDialog.getOpenFileName(self, 'Select input image and initial labeling',
-        #                                                 os.path.realpath('/home/yuncong/BrainLocal')))
-
-        # stack_name, resolution, slice_id, param_name, obj_name = os.path.basename(self.image_path)[:-4].split('_')
-
-        # print stack_name, resolution, slice_id, param_name, obj_name
-
-        self.segmentation = np.load(self._fullname('segmentation', 'npy'))
+        self.segmentation = np.load(self._full_object_name('segmentation', 'npy'))
         self.n_superpixels = max(self.segmentation.flatten()) + 1
-        self.img = cv2.imread(self._fullname('segmentation', 'tif'), 0)
-
-        # labeling is a dict. The fields are:
-        # - username: 
-        # - labellist: an array that maps segment (super-pixel) number to labels
-        # - labelnames: list of anatomical name corresponding to the region label.
-        # - parent_labeling_name: 
-        # - history: history of changes
-        # - init_labellist:
-        # - final_labellist:
+        self.img = cv2.imread(self._full_object_name('segmentation', 'tif'), 0)
 
         try:
-            labeling = pickle.load(open(self._fullname(self.parent_labeling_name, 'pkl'), 'r'))
+
+            print self._full_labeling_name(self.parent_labeling_name, 'pkl')
+
+            labeling = pickle.load(open(self._full_labeling_name(self.parent_labeling_name, 'pkl'), 'r'))
             
             self.labellist = labeling['final_labellist']
 
             self.labeling = {
                 'username' : self.username,
                 'parent_labeling_name' : self.parent_labeling_name,
-                'login_time' : datetime.datetime.now().strftime("%y%m%d%H%M%S"),
+                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
                 'init_labellist' : self.labellist,
                 'final_labellist' : None,
                 'labelnames' : labeling['labelnames'],
@@ -168,7 +114,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.labeling = {
                 'username' : self.username,
                 'parent_labeling_name' : None,
-                'login_time' : datetime.datetime.now().strftime("%y%m%d%H%M%S"),
+                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
                 'init_labellist' : self.labellist,
                 'final_labellist' : None,
                 'labelnames' : [],
@@ -211,15 +157,123 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.moved = False           # indicates whether mouse has moved while left button is pressed
  
 
-        self.initialize_gui(parent)
+    def _full_labeling_name(self, labeling_name, ext):
+        return os.path.join(self.instance_dir, 'labelings', self.instance_name + '_' + labeling_name + '.' + ext)
 
-        ####################################################################
-    	# Trying to improve how the patches work by creating a list of patches
-    	# where you can remove without reinitializing. This creates a list of
-    	# rectangle patches associated to specific superpixels and adds to the
-    	# matplotlib canvas.
-        ####################################################################
-    	# self.rect_list=list(np.zeros(len(self.labellist)))
+    def _full_object_name(self, obj_name, ext):
+       return os.path.join(self.instance_dir, 'pipelineResults', self.instance_name + '_' + obj_name + '.' + ext)
+
+
+    def on_select_item(self, index):
+
+        # print self.ui.StackSliceView.columnWidths()
+
+        item = self.local_data_model.itemFromIndex(index)
+        
+        fullpath = []
+        while item is not None:
+            fullpath.append(str(item.text()))
+            item = item.parent()
+
+        if len(fullpath) == 5:
+            self.parent_labeling_name, self.params_name, self.slice_id, self.resolution, self.stack_name = fullpath
+
+            self.instance_name = '_'.join([self.stack_name, self.resolution, self.slice_id, self.params_name])
+            self.instance_dir = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.params_name)
+
+            self.username = self.ui.usernameEdit.text()
+
+            preview_fn = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
+            if os.path.isfile(preview_fn):
+
+                preview_img = QPixmap(self._full_labeling_name(self.parent_labeling_name + '_preview', 'png'))
+
+                self.preview_pic.setGeometry(0, 0, 500, 500)
+                self.preview_pic.setPixmap(preview_img.scaled(self.preview_pic.size(), Qt.KeepAspectRatio))
+            else:
+                self.preview_pic.clear()
+        else:
+            self.preview_pic.clear()
+
+
+    def on_inputLoadButton(self):
+
+        self.input_selection_dialog.close()
+
+        self.load_data()
+
+        self.initialize_gui()
+
+
+    def initialize_input_selection_dialog(self):
+
+        remote_data = None # load from dict file
+
+        local_data = get_local_data_structure(self.data_dir)
+
+        self.input_selection_dialog = QDialog()
+        self.ui = Ui_InputSelectionDialog()
+        self.ui.setupUi(self.input_selection_dialog)
+
+        self.local_data_model = convert_to_QStandardItemModel(local_data)
+        self.ui.StackSliceView.setModel(self.local_data_model)
+        self.ui.StackSliceView.updatePreviewWidget.connect(self.on_select_item)
+
+        self.preview_pic = QLabel(self.ui.StackSliceView)
+
+        self.ui.StackSliceView.setPreviewWidget(self.preview_pic)
+
+        self.ui.StackSliceView.setColumnWidths([10,10,10,10, 300, 600])
+
+        self.ui.inputLoadButton.clicked.connect(self.on_inputLoadButton)
+
+        self.input_selection_dialog.show()
+
+
+    def initialize_gui(self):
+
+        self.setupUi(self)
+
+        self.fig = self.canvaswidget.fig
+        self.canvas = self.canvaswidget.canvas
+
+        self.canvas.mpl_connect('scroll_event', self.zoom_fun)
+        self.canvas.mpl_connect('button_press_event', self.press_fun)
+        self.canvas.mpl_connect('button_release_event', self.release_fun)
+        self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
+        
+        self.n_labelbuttons = 0
+        
+        self.labelbuttons = []
+        self.labeldescs = []
+
+        for i in range(self.n_labels):
+            self._add_labelbutton(desc=self.labeling['labelnames'][i])
+
+        self.loadButton.clicked.connect(self.load_callback)
+        self.saveButton.clicked.connect(self.save_callback)
+        self.newLabelButton.clicked.connect(self.newlabel_callback)
+        self.quitButton.clicked.connect(self.close)
+
+        # help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
+        # self.setWindowTitle('%s' %(help_message))
+
+        self.setWindowTitle('parent_labeling = %s' %(self.parent_labeling_name))
+
+        # self.statusBar().showMessage()       
+
+        self.fig.clear()
+        self.fig.set_facecolor('white')
+
+        self.axes = self.fig.add_subplot(111)
+        self.axes.axis('off')
+
+        self.axes.imshow(self.img, cmap=plt.cm.Greys_r,aspect='equal')
+        self.label_layer=None  # to avoid removing layer when it is not yet there
+        
+        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1) 
+    
+
         self.rect_list = [None for _ in range(len(self.labellist))]
 
         for i,value in enumerate(self.labellist):
@@ -235,54 +289,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.axes.add_patch(rect)
 
         self.canvas.draw()
-
-
-    def _fullname(self, obj_name, ext):
-        return os.path.join(self.data_dir, self.instance_name, self.instance_name + '_' + obj_name + '.' + ext)
-
-    def initialize_gui(self, parent):
-
-        self.app = QApplication(sys.argv)
-        QMainWindow.__init__(self, parent)
-
-        self.setupUi(self)
-
-        self.fig = self.canvaswidget.fig
-        self.canvas = self.canvaswidget.canvas
-
-        self.canvas.mpl_connect('scroll_event', self.zoom_fun)
-        self.canvas.mpl_connect('button_press_event', self.press_fun)
-        self.canvas.mpl_connect('button_release_event', self.release_fun)
-        self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
-        
-        self.n_labelbuttons = 0
-        
-        for i in range(self.n_labels):
-            self._add_labelbutton(desc=self.labeling['labelnames'][i])
-
-        self.loadButton.clicked.connect(self.load_callback)
-        self.saveButton.clicked.connect(self.save_callback)
-        self.newLabelButton.clicked.connect(self.newlabel_callback)
-        self.quitButton.clicked.connect(self.close)
-
-        help_message = 'Usage: Ctrl + Left Click to pick a color; Left Click to assign color to a superpixel; Scroll to zoom, Left Click + drag to pan'
-        self.setWindowTitle('%s' %(help_message))
-
-        # self.statusBar().showMessage()       
-
-        self.fig.clear()
-        self.fig.set_facecolor('white')
-
-        self.axes = self.fig.add_subplot(111)
-        self.axes.axis('off')
-
-        self.axes.imshow(self.img, cmap=plt.cm.Greys_r,aspect='equal')
-        self.label_layer=None  # to avoid removing layer when it is not yet there
-        
-        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1) 
-        
-        self.canvas.draw()
-
         self.show()
 
 
@@ -300,6 +306,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         btn = QPushButton('%d' % label, self)
         edt = QLineEdit(QString(desc if desc is not None else 'Label %d' % label))
+
+        self.labelbuttons.append(btn)
+        self.labeldescs.append(edt)
 
         btn.clicked.connect(self.labelbutton_callback)
 
@@ -322,12 +331,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def save_callback(self):
         
         self.labeling['final_labellist'] = self.labellist
-        self.labeling['logout_time'] = datetime.datetime.now().strftime("%y%m%d%H%M%S")
+        self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        self.labeling['labelnames'] = [edt.text() for edt in self.labeldescs]
+
         new_labeling_name = self.username + '_' + self.labeling['logout_time']
-        new_labeling_fn = os.path.join(self.data_dir, self.instance_name, self._fullname(new_labeling_name, 'pkl'))
+        new_labeling_fn = self._full_labeling_name(new_labeling_name, 'pkl')
         pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
         print 'Labeling saved to', new_labeling_fn
 
+        new_preview_fn = self._full_labeling_name(new_labeling_name + '_preview', 'png')
+
+        plt.sca(self.axes)
+        plt.tight_layout()
+        plt.savefig(new_preview_fn, bbox_inches='tight')
+
+        print 'Preview saved to', new_preview_fn
 
     def labelbutton_callback(self):
         self.pick_color(int(self.sender().text()))
@@ -346,10 +364,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	
         ydata = event.ydata # get event y location
 
+        if xdata is None or ydata is None: # mouse position outside data region
+            return
+
         left = xdata - cur_xlim[0]
         right = cur_xlim[1] - xdata
         up = ydata - cur_ylim[0]
         down = cur_ylim[1] - ydata
+
+        # print left, right, up, down
 
         if event.button == 'up':
             # deal with zoom in
@@ -359,32 +382,32 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             scale_factor = self.base_scale
         
 	# This makes sure the subplot properly expands to figure window    
-       	if cur_pos.x0 <= .01 and cur_pos.y0 <=.01: 
-    	    newxmin = xdata - left*scale_factor
-    	    newxmax = xdata + right*scale_factor
-    	    newymin = ydata - up*scale_factor
-            newymax = ydata + down*scale_factor
-    	elif cur_pos.x0 >.05 and cur_pos.y0 >.05:
-            newxmin = xdata - left
-            newxmax = xdata + right
-            newymin = ydata - up
-            newymax = ydata + down
-    	elif cur_pos.y0 <=.01:
-            newxmin = xdata - left
-            newxmax = xdata + right
-            newymin = ydata - up*scale_factor
-            newymax = ydata + down*scale_factor
-    	elif cur_pos.x0 <=.01:
-            newxmin = xdata - left*scale_factor
-            newxmax = xdata + right*scale_factor
-            newymin = ydata - up
-            newymax = ydata + down
-    	else:
-    	    newxmin = xdata - left*scale_factor
-            newxmax = xdata + right*scale_factor
-            newymin = ydata - up*scale_factor
-            newymax = ydata + down*scale_factor
-       
+     #   	if cur_pos.x0 <= .01 and cur_pos.y0 <=.01: 
+    	#     newxmin = xdata - left*scale_factor
+    	#     newxmax = xdata + right*scale_factor
+    	#     newymin = ydata - up*scale_factor
+     #        newymax = ydata + down*scale_factor
+    	# elif cur_pos.x0 >.05 and cur_pos.y0 >.05:
+     #        newxmin = xdata - left
+     #        newxmax = xdata + right
+     #        newymin = ydata - up
+     #        newymax = ydata + down
+    	# elif cur_pos.y0 <=.01:
+     #        newxmin = xdata - left
+     #        newxmax = xdata + right
+     #        newymin = ydata - up*scale_factor
+     #        newymax = ydata + down*scale_factor
+    	# elif cur_pos.x0 <=.01:
+     #        newxmin = xdata - left*scale_factor
+     #        newxmax = xdata + right*scale_factor
+     #        newymin = ydata - up
+     #        newymax = ydata + down
+    	# else:
+        newxmin = xdata - left*scale_factor
+        newxmax = xdata + right*scale_factor
+        newymin = ydata - up*scale_factor
+        newymax = ydata + down*scale_factor
+
     	# set new limits
         self.axes.set_xlim([newxmin, newxmax])
         self.axes.set_ylim([newymin, newymax])
@@ -503,3 +526,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.labeling['history'].append((selected_sp, self.paint_label))
 
         print 'update', time.time() - b
+
+
+if __name__ == '__main__':
+    gui = BrainLabelingGUI()
+    # gui.show()
+    gui.app.exec_()

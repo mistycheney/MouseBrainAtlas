@@ -16,6 +16,8 @@ from matplotlib.patches import Rectangle
 from skimage.color import label2rgb
 from random import random
 
+import subprocess
+
 import time
 import datetime
 import cv2
@@ -172,13 +174,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             item = item.parent()
         fullpath_list = fullpath_list[::-1]
 
-        fullpath = '/'.join(fullpath_list)
-        self.status = self.labeled_vis_paths_dict[fullpath]
+        self.full_vispath = '/'.join(fullpath_list)
+        self.status = self.vispaths_status_dict[self.full_vispath]
 
         self.data_manager.statusBar().showMessage(status_text[self.status])
 
+        self.data_manager_ui.inputLoadButton.setText('None')
+        self.data_manager_ui.uploadButton.setText('None')
+
         if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
             self.data_manager_ui.inputLoadButton.setText('Load')
+            if self.status == Status.LABELING_READY_NOT_UPLOADED:
+                self.data_manager_ui.uploadButton.setText('Upload Labeling')
+
         elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED or self.status == Status.LABELING_NOT_DOWNLOADED:
             self.data_manager_ui.inputLoadButton.setText('Download')
         elif self.status == Status.INSTANCE_NOT_PROCESSED:
@@ -220,16 +228,72 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_inputLoadButton(self):
 
+        self.remote_data_dir = '/home/yuncong/DavidData/'
+
         if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+            # load brain labeling gui
 
             if self.status == Status.ACTION:
                 self.parent_labeling_name = None
 
             self.load_data()
-
-            self.data_manager.close()
-
+            # self.data_manager.close()
             self.initialize_brain_labeling_gui()
+
+        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED:
+            filepath = self.vispaths_filepaths_dict[self.full_vispath]
+            remote_dir = os.path.join(self.remote_data_dir, filepath)
+            local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+            cmd = "scp -r yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_dir, local_dir)
+            print cmd
+            subprocess.call(cmd, shell=True)
+            self.refresh_data_status()
+
+        elif self.status == Status.IMG_NOT_DOWNLOADED:
+            filepath = self.vispaths_filepaths_dict[self.full_vispath]
+            remote_fn = os.path.join(self.remote_data_dir, filepath, '_'.join(filepath.split(os.sep))+'.tif')
+            local_dir = os.path.join(self.data_dir, filepath)
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+            cmd = "scp yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_fn, local_dir)
+            print cmd
+            subprocess.call(cmd, shell=True)
+            self.refresh_data_status()
+
+        elif self.status == Status.LABELING_NOT_DOWNLOADED:
+            filepath = self.vispaths_filepaths_dict[self.full_vispath]
+            remote_fn = os.path.join(self.remote_data_dir, filepath + '.pkl')
+            local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+            cmd = "scp yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_fn, local_dir)
+            print cmd
+            subprocess.call(cmd, shell=True)
+            self.refresh_data_status()
+
+
+    def on_DataManager_getRemoteButton(self):
+        import subprocess
+        subprocess.call("ssh yuncong@gcn-20-32.sdsc.edu 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py'", shell=True)
+        subprocess.call("scp -r yuncong@gcn-20-32.sdsc.edu:/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl /home/yuncong/BrainLocal/", shell=True)
+        
+        self.refresh_data_status()
+
+
+    def on_DataManager_uploadButton(self):
+        if self.status == Status.LABELING_READY_NOT_UPLOADED:
+            import subprocess
+            labeling_fn = self.vispaths_filepaths_dict[self.full_vispath]
+            cmd = "scp %s yuncong@gcn-20-32.sdsc.edu:%s" %(self.data_dir + '/' + labeling_fn[:-4]+'*', 
+                                '/home/yuncong/DavidData/' + '/'.join(labeling_fn.split('/')[:-1]))
+            print cmd
+            subprocess.call(cmd, shell=True)
+            
+            cmd = "scp %s yuncong@gcn-20-32.sdsc.edu:%s" %(self.data_dir + '/' + '/'.join(labeling_fn.split('/')[:-1])+'/*labelnames*', \
+                            '/home/yuncong/DavidData/' + '/'.join(labeling_fn.split('/')[:-1]))
+            subprocess.call(cmd, shell=True)
 
 
     def load_data(self):
@@ -279,10 +343,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # Retrieves previous label names
 
             labelnames_fn = self._full_labeling_name('labelnames', 'json')
-            print labelnames_fn
             if os.path.isfile(labelnames_fn):
                 labelnames = json.load(open(labelnames_fn, 'r'))
-                self.labeling['labelnames'] = labelnames.values()
+                self.labeling['labelnames'] = labelnames
             else:
                 self.labeling['labelnames']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]                    
         
@@ -315,27 +378,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 
+    def refresh_data_status(self):
+        paths, vis_paths, labels = label_paths(self.data_dir)
+        
+        self.vispaths_status_dict = dict([(p, l) for p, l in zip(vis_paths, labels) if p is not None])
+        self.vispaths_filepaths_dict = dict([(vp, fp) for vp, fp in zip(vis_paths, paths) if vp is not None])
+
+        self.data_model = paths_to_QStandardModel([p for p in vis_paths if p is not None])
+        self.data_manager_ui.StackSliceView.setModel(self.data_model)
+
     def initialize_data_manager(self):
 
         self.data_manager = QMainWindow()
         self.data_manager_ui = Ui_DataManager()
         self.data_manager_ui.setupUi(self.data_manager)
 
-        paths, vis_paths, labels = label_paths(self.data_dir)
-        
-        labeled_vis_paths = [(p, l) for p, l in zip(vis_paths, labels) if p is not None]
-        self.labeled_vis_paths_dict = dict(labeled_vis_paths)
+        self.refresh_data_status()
 
-        # pprint(self.labeled_vis_paths_dict)
-
-        self.data_model = paths_to_QStandardModel([p for p in vis_paths if p is not None])
-
-        self.data_manager_ui.StackSliceView.setModel(self.data_model)
         self.data_manager_ui.StackSliceView.clicked.connect(self.on_select_item)
 
         self.data_manager_ui.StackSliceView.setColumnWidths([10,10,10,10])
 
         self.data_manager_ui.inputLoadButton.clicked.connect(self.on_inputLoadButton)
+        self.data_manager_ui.uploadButton.clicked.connect(self.on_DataManager_uploadButton)
+        self.data_manager_ui.getRemoteButton.clicked.connect(self.on_DataManager_getRemoteButton)
 
         self.data_manager.show()
 
@@ -436,7 +502,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self._add_labelbutton()
 
     def load_callback(self):
-        return
+        self.initialize_data_manager()
 
     def save_callback(self):
         

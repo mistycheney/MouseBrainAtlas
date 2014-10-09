@@ -46,6 +46,20 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="getRemoteButton">
+        <property name="text">
+         <string>GetRemote</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="uploadButton">
+        <property name="text">
+         <string>None</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="inputLoadButton">
         <property name="text">
          <string>None</string>

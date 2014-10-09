@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'DataManager.ui'
 #
-# Created: Thu Oct  9 07:30:34 2014
+# Created: Thu Oct  9 08:50:16 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -48,6 +48,12 @@ class Ui_DataManager(object):
         self.usernameEdit = QtGui.QLineEdit(self.centralwidget)
         self.usernameEdit.setObjectName(_fromUtf8("usernameEdit"))
         self.horizontalLayout.addWidget(self.usernameEdit)
+        self.getRemoteButton = QtGui.QPushButton(self.centralwidget)
+        self.getRemoteButton.setObjectName(_fromUtf8("getRemoteButton"))
+        self.horizontalLayout.addWidget(self.getRemoteButton)
+        self.uploadButton = QtGui.QPushButton(self.centralwidget)
+        self.uploadButton.setObjectName(_fromUtf8("uploadButton"))
+        self.horizontalLayout.addWidget(self.uploadButton)
         self.inputLoadButton = QtGui.QPushButton(self.centralwidget)
         self.inputLoadButton.setObjectName(_fromUtf8("inputLoadButton"))
         self.horizontalLayout.addWidget(self.inputLoadButton)
@@ -69,5 +75,7 @@ class Ui_DataManager(object):
         self.preview_pic.setText(_translate("DataManager", "preview", None))
         self.label.setText(_translate("DataManager", "Username", None))
         self.usernameEdit.setText(_translate("DataManager", "anon", None))
+        self.getRemoteButton.setText(_translate("DataManager", "GetRemote", None))
+        self.uploadButton.setText(_translate("DataManager", "None", None))
         self.inputLoadButton.setText(_translate("DataManager", "None", None))
 

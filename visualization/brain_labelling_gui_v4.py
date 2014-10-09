@@ -69,65 +69,6 @@ def get_vispaths(file_paths):
     return vis_paths
 
 
-def label_paths(data_dir):
-    remote_dir_structure = pickle.load(open('/home/yuncong/BrainLocal/remote_directory_structure.pkl', 'r')).values()[0]
-    local_dir_structure = get_directory_structure(data_dir).values()[0]
-
-    remote_paths = dict_to_paths(remote_dir_structure)
-    remote_vispaths = get_vispaths(remote_paths)
-
-    local_paths = dict_to_paths(local_dir_structure)
-    local_vispaths = get_vispaths(local_paths)
-
-    params_list = ['redNissl', 'nissl324', 'blueNissl']
-
-    complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
-    complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
-    complete_paths = list(set(complete_paths1) | set(complete_paths2))
-
-    # pprint(complete_paths)
-
-    complete_vispaths = get_vispaths(complete_paths)
-
-    labeled_complete_vispaths = dict([(p, Status.NO_LABEL) for p in complete_vispaths])
-
-    for p in complete_vispaths:
-        if p is None: continue
-        nlevel = len(p.split('/'))
-        if nlevel == 5: # labeling path
-            if p in local_vispaths:
-                labeled_complete_vispaths[p] = Status.LABELING_READY
-                if p not in remote_vispaths:
-                    labeled_complete_vispaths[p] = Status.LABELING_READY_NOT_UPLOADED
-            elif p in remote_vispaths:
-                labeled_complete_vispaths[p] = Status.LABELING_NOT_DOWNLOADED
-        if nlevel == 4: # params path
-            if p in local_vispaths:
-                labeled_complete_vispaths[p] = Status.INSTANCE_READY
-            elif p in remote_vispaths:
-                labeled_complete_vispaths[p] = Status.INSTANCE_PROCESSED_NOT_DOWNLOADED
-            else:
-                labeled_complete_vispaths[p] = Status.INSTANCE_NOT_PROCESSED
-        elif nlevel == 3: # image path
-            if p in local_vispaths:
-                labeled_complete_vispaths[p] = Status.IMG_READY
-            elif p in remote_vispaths:
-                labeled_complete_vispaths[p] = Status.IMG_NOT_DOWNLOADED
-
-    status_labels = [labeled_complete_vispaths[p] for p in complete_vispaths]                
-
-    for p in complete_vispaths[:]:
-        if p is None: continue
-        nlevel = len(p.split('/'))
-        if nlevel == 4:
-            if labeled_complete_vispaths[p] == Status.INSTANCE_READY:
-                complete_vispaths.append(p + '/' + 'empty_labeling')
-                complete_paths.append(None)
-                status_labels.append(Status.ACTION)
-
-    return complete_paths, complete_vispaths, status_labels
-
-
 class Status(object):
     NO_LABEL, INSTANCE_NOT_PROCESSED, INSTANCE_PROCESSED_NOT_DOWNLOADED, INSTANCE_READY, \
     IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED, ACTION = range(10)
@@ -148,6 +89,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.remote_data_dir = '/home/yuncong/DavidData/'
         self.gordon_username = 'yuncong'
         self.gordon_hostname = 'gcn-20-32.sdsc.edu'
+        self.temp_dir = '/home/yuncong/BrainLocal'
+        self.remote_repo_dir = '/home/yuncong/Brain'
 
         self.image_name = None
         self.instance_dir = None
@@ -157,6 +100,68 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         QMainWindow.__init__(self, parent)
 
         self.initialize_data_manager()
+
+
+    def label_paths(self):
+
+        self._download_remote_directory_structure()
+
+        remote_dir_structure = pickle.load(open('%s/remote_directory_structure.pkl'%self.temp_dir, 'r')).values()[0]
+        local_dir_structure = get_directory_structure(self.data_dir).values()[0]
+
+        remote_paths = dict_to_paths(remote_dir_structure)
+        remote_vispaths = get_vispaths(remote_paths)
+
+        local_paths = dict_to_paths(local_dir_structure)
+        local_vispaths = get_vispaths(local_paths)
+
+        params_list = ['redNissl', 'nissl324', 'blueNissl']
+
+        complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
+        complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
+        complete_paths = list(set(complete_paths1) | set(complete_paths2))
+
+        # pprint(complete_paths)
+
+        complete_vispaths = get_vispaths(complete_paths)
+
+        labeled_complete_vispaths = dict([(p, Status.NO_LABEL) for p in complete_vispaths])
+
+        for p in complete_vispaths:
+            if p is None: continue
+            nlevel = len(p.split('/'))
+            if nlevel == 5: # labeling path
+                if p in local_vispaths:
+                    labeled_complete_vispaths[p] = Status.LABELING_READY
+                    if p not in remote_vispaths:
+                        labeled_complete_vispaths[p] = Status.LABELING_READY_NOT_UPLOADED
+                elif p in remote_vispaths:
+                    labeled_complete_vispaths[p] = Status.LABELING_NOT_DOWNLOADED
+            if nlevel == 4: # params path
+                if p in local_vispaths:
+                    labeled_complete_vispaths[p] = Status.INSTANCE_READY
+                elif p in remote_vispaths:
+                    labeled_complete_vispaths[p] = Status.INSTANCE_PROCESSED_NOT_DOWNLOADED
+                else:
+                    labeled_complete_vispaths[p] = Status.INSTANCE_NOT_PROCESSED
+            elif nlevel == 3: # image path
+                if p in local_vispaths:
+                    labeled_complete_vispaths[p] = Status.IMG_READY
+                elif p in remote_vispaths:
+                    labeled_complete_vispaths[p] = Status.IMG_NOT_DOWNLOADED
+
+        status_labels = [labeled_complete_vispaths[p] for p in complete_vispaths]                
+
+        for p in complete_vispaths[:]:
+            if p is None: continue
+            nlevel = len(p.split('/'))
+            if nlevel == 4:
+                if labeled_complete_vispaths[p] == Status.INSTANCE_READY:
+                    complete_vispaths.append(p + '/' + 'empty_labeling')
+                    complete_paths.append(None)
+                    status_labels.append(Status.ACTION)
+
+        return complete_paths, complete_vispaths, status_labels
 
 
     def _full_labeling_name(self, labeling_name, ext):
@@ -275,13 +280,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.refresh_data_status()
 
 
-    def on_DataManager_getRemoteButton(self):
-        cmd = "ssh %s@%s 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_data_dir)
+    def _download_remote_directory_structure(self):
+        cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir)
+        print cmd
         subprocess.call(cmd, shell=True)
 
-        cmd = "scp -r %s@%s:/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl /home/yuncong/BrainLocal/"%(self.gordon_username, self.gordon_hostname)
+        cmd = "scp -r %s@%s:%s/utility_scripts/remote_directory_structure.pkl %s"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.temp_dir)
+        print cmd
         subprocess.call(cmd, shell=True)
-        
+
+
+    def on_DataManager_getRemoteButton(self):
+        self._download_remote_directory_structure()
         self.refresh_data_status()
 
 
@@ -387,7 +397,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def refresh_data_status(self):
-        paths, vis_paths, labels = label_paths(self.data_dir)
+        paths, vis_paths, labels = self.label_paths()
         
         self.vispaths_status_dict = dict([(p, l) for p, l in zip(vis_paths, labels) if p is not None])
         self.vispaths_filepaths_dict = dict([(vp, fp) for vp, fp in zip(vis_paths, paths) if vp is not None])

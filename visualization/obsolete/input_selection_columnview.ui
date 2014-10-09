@@ -15,7 +15,18 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QColumnView" name="StackSliceView"/>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QColumnView" name="StackSliceView"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="preview_pic">
+       <property name="text">
+        <string>preview</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
@@ -27,22 +38,22 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="usernameEdit"/>
+      <widget class="QLineEdit" name="usernameEdit">
+       <property name="text">
+        <string>anon</string>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="inputLoadButton">
        <property name="text">
-        <string>Load</string>
+        <string>None</string>
        </property>
       </widget>
      </item>
     </layout>
    </item>
   </layout>
-  <zorder>StackSliceView</zorder>
-  <zorder>usernameEdit</zorder>
-  <zorder>label</zorder>
-  <zorder>usernameEdit</zorder>
  </widget>
  <resources/>
  <connections/>

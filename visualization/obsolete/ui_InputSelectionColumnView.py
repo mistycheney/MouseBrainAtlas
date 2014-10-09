@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'input_selection_columnview.ui'
 #
-# Created: Wed Oct  8 12:26:36 2014
+# Created: Thu Oct  9 06:14:37 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -29,9 +29,15 @@ class Ui_InputSelectionDialog(object):
         InputSelectionDialog.resize(924, 561)
         self.verticalLayout = QtGui.QVBoxLayout(InputSelectionDialog)
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
         self.StackSliceView = QtGui.QColumnView(InputSelectionDialog)
         self.StackSliceView.setObjectName(_fromUtf8("StackSliceView"))
-        self.verticalLayout.addWidget(self.StackSliceView)
+        self.horizontalLayout_2.addWidget(self.StackSliceView)
+        self.preview_pic = QtGui.QLabel(InputSelectionDialog)
+        self.preview_pic.setObjectName(_fromUtf8("preview_pic"))
+        self.horizontalLayout_2.addWidget(self.preview_pic)
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.label = QtGui.QLabel(InputSelectionDialog)
@@ -50,6 +56,8 @@ class Ui_InputSelectionDialog(object):
 
     def retranslateUi(self, InputSelectionDialog):
         InputSelectionDialog.setWindowTitle(_translate("InputSelectionDialog", "Dialog", None))
+        self.preview_pic.setText(_translate("InputSelectionDialog", "preview", None))
         self.label.setText(_translate("InputSelectionDialog", "Username", None))
-        self.inputLoadButton.setText(_translate("InputSelectionDialog", "Load", None))
+        self.usernameEdit.setText(_translate("InputSelectionDialog", "anon", None))
+        self.inputLoadButton.setText(_translate("InputSelectionDialog", "None", None))
 

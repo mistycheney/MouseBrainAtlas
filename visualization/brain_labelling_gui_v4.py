@@ -38,27 +38,90 @@ else:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
 
-from ui_InputSelectionColumnView import Ui_InputSelectionDialog
+from ui_DataManager import Ui_DataManager
 from ui_BrainLabelingGui import Ui_BrainLabelingGui
 # from ui_InputSelectionMultipleLists import Ui_InputSelectionDialog
 
-def get_local_data_structure(data_dir):
-    local_structure = get_directory_structure(data_dir)
-    
-    local_data = {}
-    for stack, stack_content in local_structure.values()[0].iteritems():
-        local_data[stack] = {}
-        for resol, resol_content in stack_content.iteritems():
-            local_data[stack][resol] = {}
-            for slice, slice_content in resol_content.iteritems():
-                local_data[stack][resol][slice] = {}
-                for param, param_content in slice_content.iteritems():
-                    if param_content is not None:
-                        labelings = ['_'.join(labeling[:-4].split('_')[-2:]) for labeling in param_content['labelings'].keys() 
-                                if labeling.endswith('.pkl')]
-                        local_data[stack][resol][slice][param] = labelings
+def get_vispaths(file_paths):
+    """
+    Return the paths for visualization purposes
+    """
 
-    return local_data
+    vis_paths = file_paths[:]
+    for i in range(len(file_paths)):
+        p = file_paths[i]
+        if 'stages' in p or 'pipelineResults' in p or p.endswith('.tif'):
+            vis_paths[i] = None
+        elif 'labeling' in p:
+            elements = p.split('/')
+            n_elem = len(elements)
+            if n_elem == 5:
+                vis_paths[i] = None
+            elif n_elem == 6:
+                if elements[5].endswith('.pkl'):
+                    labeling_name = '_'.join(elements[5][:-4].split('_')[-2:])
+                    vis_paths[i] = '/'.join(elements[:4] + [labeling_name])
+                else:
+                    vis_paths[i] = None
+    return vis_paths
+
+
+def label_paths(data_dir):
+    remote_dir_structure = pickle.load(open('/home/yuncong/BrainLocal/remote_directory_structure.pkl', 'r')).values()[0]
+    local_dir_structure = get_directory_structure(data_dir).values()[0]
+
+    remote_paths = dict_to_paths(remote_dir_structure)
+    remote_vispaths = get_vispaths(remote_paths)
+
+    local_paths = dict_to_paths(local_dir_structure)
+    local_vispaths = get_vispaths(local_paths)
+
+    params_list = ['redNissl', 'nissl324', 'blueNissl']
+
+    complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
+    complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
+    complete_paths = list(set(complete_paths1) | set(complete_paths2))
+
+    pprint(complete_paths)
+
+    complete_vispaths = get_vispaths(complete_paths)
+
+    labeled_complete_vispaths = dict([(p, Status.NO_LABEL) for p in complete_vispaths])
+
+    for p in labeled_complete_vispaths:
+        if p is None: continue
+        nlevel = len(p.split('/'))
+        if nlevel == 5: # labeling path
+            if p in local_vispaths:
+                labeled_complete_vispaths[p] = Status.LABELING_READY
+                if p not in remote_vispaths:
+                    labeled_complete_vispaths[p] = Status.LABELING_READY_NOT_UPLOADED
+            elif p in remote_vispaths:
+                labeled_complete_vispaths[p] = Status.LABELING_NOT_DOWNLOADED
+        if nlevel == 4: # params path
+            if p in local_vispaths:
+                labeled_complete_vispaths[p] = Status.INSTANCE_READY
+            elif p in remote_vispaths:
+                labeled_complete_vispaths[p] = Status.INSTANCE_PROCESSED_NOT_DOWNLOADED
+            else:
+                labeled_complete_vispaths[p] = Status.INSTANCE_NOT_PROCESSED
+        elif nlevel == 3: # image path
+            if p in local_vispaths:
+                labeled_complete_vispaths[p] = Status.IMG_READY
+            elif p in remote_vispaths:
+                labeled_complete_vispaths[p] = Status.IMG_NOT_DOWNLOADED
+
+    return complete_paths, complete_vispaths, [labeled_complete_vispaths[p] for p in complete_vispaths]
+
+
+class Status(object):
+    NO_LABEL, INSTANCE_NOT_PROCESSED, INSTANCE_PROCESSED_NOT_DOWNLOADED, INSTANCE_READY, \
+    IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED = range(9)
+
+status_text = ['NO_LABEL', 'INSTANCE_NOT_PROCESSED', 'INSTANCE_PROCESSED_NOT_DOWNLOADED', \
+'INSTANCE_READY', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_READY', 'LABELING_NOT_DOWNLOADED', \
+'LABELING_READY_NOT_UPLOADED']
+
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def __init__(self, parent=None):
@@ -68,13 +131,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Load data
 
         self.data_dir = '/home/yuncong/BrainLocal/DavidData'
+        
+        self.image_name = None
         self.instance_dir = None
         self.instance_name = None
 
         self.app = QApplication(sys.argv)
         QMainWindow.__init__(self, parent)
 
-        self.initialize_input_selection_dialog()
+        self.initialize_data_manager()
 
 
     def load_data(self):
@@ -166,68 +231,95 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_select_item(self, index):
 
-        # print self.ui.StackSliceView.columnWidths()
 
-        item = self.local_data_model.itemFromIndex(index)
+        item = self.data_model.itemFromIndex(index)
         
-        fullpath = []
+        fullpath_list = []
         while item is not None:
-            fullpath.append(str(item.text()))
+            fullpath_list.append(str(item.text()))
             item = item.parent()
+        fullpath_list = fullpath_list[::-1]
 
-        if len(fullpath) == 5:
-            self.parent_labeling_name, self.params_name, self.slice_id, self.resolution, self.stack_name = fullpath
+        fullpath = '/'.join(fullpath_list)
+        self.status = self.labeled_vis_paths_dict[fullpath]
 
-            self.instance_name = '_'.join([self.stack_name, self.resolution, self.slice_id, self.params_name])
+        self.data_manager.statusBar().showMessage(status_text[self.status])
+
+        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED:
+            self.data_manager_ui.inputLoadButton.setText('Load')
+        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED:
+            self.data_manager_ui.inputLoadButton.setText('Download')
+        elif self.status == Status.INSTANCE_NOT_PROCESSED:
+            self.data_manager_ui.inputLoadButton.setText('Process')
+
+        if len(fullpath_list) == 3: # select slice number
+                self.stack_name, self.resolution, self.slice_id = fullpath_list
+
+                self.image_name = '_'.join([self.stack_name, self.resolution, self.slice_id])
+                self.instance_dir = None
+                self.instance_name = None
+
+                preview_img = QPixmap(os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '.tif'))
+
+                self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
+                self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
+
+        elif len(fullpath_list) == 5:
+            self.stack_name, self.resolution, self.slice_id, self.params_name, self.parent_labeling_name = fullpath_list
+
+            self.image_name = '_'.join([self.stack_name, self.resolution, self.slice_id])
+            self.instance_name = self.image_name + '_' + self.params_name
             self.instance_dir = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.params_name)
 
-            self.username = self.ui.usernameEdit.text()
+            self.username = str(self.data_manager_ui.usernameEdit.text())
 
             preview_fn = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
             if os.path.isfile(preview_fn):
 
                 preview_img = QPixmap(self._full_labeling_name(self.parent_labeling_name + '_preview', 'png'))
 
-                self.preview_pic.setGeometry(0, 0, 500, 500)
-                self.preview_pic.setPixmap(preview_img.scaled(self.preview_pic.size(), Qt.KeepAspectRatio))
+                self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
+                self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
             else:
-                self.preview_pic.clear()
+                self.data_manager_ui.preview_pic.clear()
         else:
-            self.preview_pic.clear()
+            self.data_manager_ui.preview_pic.clear()
 
 
     def on_inputLoadButton(self):
 
-        self.input_selection_dialog.close()
+        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED:
 
-        self.load_data()
+            self.load_data()
 
-        self.initialize_gui()
+            self.data_manager.close()
+
+            self.initialize_gui()
 
 
-    def initialize_input_selection_dialog(self):
+    def initialize_data_manager(self):
 
-        remote_data = None # load from dict file
+        self.data_manager = QMainWindow()
+        self.data_manager_ui = Ui_DataManager()
+        self.data_manager_ui.setupUi(self.data_manager)
 
-        local_data = get_local_data_structure(self.data_dir)
+        paths, vis_paths, labels = label_paths(self.data_dir)
+        
+        labeled_vis_paths = [(p, l) for p, l in zip(vis_paths, labels) if p is not None]
+        self.labeled_vis_paths_dict = dict(labeled_vis_paths)
 
-        self.input_selection_dialog = QDialog()
-        self.ui = Ui_InputSelectionDialog()
-        self.ui.setupUi(self.input_selection_dialog)
+        # pprint(self.labeled_vis_paths_dict)
 
-        self.local_data_model = convert_to_QStandardItemModel(local_data)
-        self.ui.StackSliceView.setModel(self.local_data_model)
-        self.ui.StackSliceView.updatePreviewWidget.connect(self.on_select_item)
+        self.data_model = paths_to_QStandardModel([p for p in vis_paths if p is not None])
 
-        self.preview_pic = QLabel(self.ui.StackSliceView)
+        self.data_manager_ui.StackSliceView.setModel(self.data_model)
+        self.data_manager_ui.StackSliceView.clicked.connect(self.on_select_item)
 
-        self.ui.StackSliceView.setPreviewWidget(self.preview_pic)
+        self.data_manager_ui.StackSliceView.setColumnWidths([10,10,10,10])
 
-        self.ui.StackSliceView.setColumnWidths([10,10,10,10, 300, 600])
+        self.data_manager_ui.inputLoadButton.clicked.connect(self.on_inputLoadButton)
 
-        self.ui.inputLoadButton.clicked.connect(self.on_inputLoadButton)
-
-        self.input_selection_dialog.show()
+        self.data_manager.show()
 
 
     def initialize_gui(self):
@@ -258,7 +350,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
         # self.setWindowTitle('%s' %(help_message))
 
-        self.setWindowTitle('parent_labeling = %s' %(self.parent_labeling_name))
+        self.setWindowTitle(self.windowTitle() + ', parent_labeling = %s' %(self.parent_labeling_name))
 
         # self.statusBar().showMessage()       
 
@@ -422,7 +514,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def motion_fun(self, event):
         	
-        if self.press:
+        if self.press and time.time() - self.press_time > .5:
             cur_xlim = self.axes.get_xlim()
             cur_ylim = self.axes.get_ylim()
             
@@ -532,3 +624,4 @@ if __name__ == '__main__':
     gui = BrainLabelingGUI()
     # gui.show()
     gui.app.exec_()
+

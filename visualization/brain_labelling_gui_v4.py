@@ -145,7 +145,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Load data
 
         self.data_dir = '/home/yuncong/BrainLocal/DavidData'
-        
+        self.remote_data_dir = '/home/yuncong/DavidData/'
+        self.gordon_username = 'yuncong'
+        self.gordon_hostname = 'gcn-20-32.sdsc.edu'
+
         self.image_name = None
         self.instance_dir = None
         self.instance_name = None
@@ -228,8 +231,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_inputLoadButton(self):
 
-        self.remote_data_dir = '/home/yuncong/DavidData/'
-
         if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
             # load brain labeling gui
 
@@ -246,7 +247,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
             if not os.path.exists(local_dir):
                 os.makedirs(local_dir)
-            cmd = "scp -r yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_dir, local_dir)
+            cmd = "scp -r %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_dir, local_dir)
             print cmd
             subprocess.call(cmd, shell=True)
             self.refresh_data_status()
@@ -257,7 +258,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             local_dir = os.path.join(self.data_dir, filepath)
             if not os.path.exists(local_dir):
                 os.makedirs(local_dir)
-            cmd = "scp yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_fn, local_dir)
+            cmd = "scp %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_fn, local_dir)
             print cmd
             subprocess.call(cmd, shell=True)
             self.refresh_data_status()
@@ -268,31 +269,38 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
             if not os.path.exists(local_dir):
                 os.makedirs(local_dir)
-            cmd = "scp yuncong@gcn-20-32.sdsc.edu:%s %s" % (remote_fn, local_dir)
+            cmd = "scp %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_fn, local_dir)
             print cmd
             subprocess.call(cmd, shell=True)
             self.refresh_data_status()
 
 
     def on_DataManager_getRemoteButton(self):
-        import subprocess
-        subprocess.call("ssh yuncong@gcn-20-32.sdsc.edu 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py'", shell=True)
-        subprocess.call("scp -r yuncong@gcn-20-32.sdsc.edu:/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl /home/yuncong/BrainLocal/", shell=True)
+        cmd = "ssh %s@%s 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py'"%(self.gordon_username, self.gordon_hostname)
+        subprocess.call(cmd, shell=True)
+
+        cmd = "scp -r %s@%s:/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl /home/yuncong/BrainLocal/"%(self.gordon_username, self.gordon_hostname)
+        subprocess.call(cmd, shell=True)
         
         self.refresh_data_status()
 
 
     def on_DataManager_uploadButton(self):
         if self.status == Status.LABELING_READY_NOT_UPLOADED:
-            import subprocess
-            labeling_fn = self.vispaths_filepaths_dict[self.full_vispath]
-            cmd = "scp %s yuncong@gcn-20-32.sdsc.edu:%s" %(self.data_dir + '/' + labeling_fn[:-4]+'*', 
-                                '/home/yuncong/DavidData/' + '/'.join(labeling_fn.split('/')[:-1]))
+
+            labeling_filepath = self.vispaths_filepaths_dict[self.full_vispath]
+            remote_dir = os.path.join(self.remote_data_dir, os.path.dirname(labeling_filepath))
+            
+            labeling_wildcard = os.path.join(self.data_dir, labeling_filepath+'*')
+
+            cmd = "scp %s %s@%s:%s" %(labeling_wildcard, self.gordon_username, self.gordon_hostname, remote_dir)
             print cmd
             subprocess.call(cmd, shell=True)
+
+            labelnames_fn = os.path.join(self.data_dir, os.path.dirname(labeling_filepath), '*labelnames*')
             
-            cmd = "scp %s yuncong@gcn-20-32.sdsc.edu:%s" %(self.data_dir + '/' + '/'.join(labeling_fn.split('/')[:-1])+'/*labelnames*', \
-                            '/home/yuncong/DavidData/' + '/'.join(labeling_fn.split('/')[:-1]))
+            cmd = "scp %s %s@%s:%s" %(labelnames_fn, self.gordon_username, self.gordon_hostname, remote_dir)
+            print cmd
             subprocess.call(cmd, shell=True)
 
 

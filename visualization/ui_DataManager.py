@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'DataManager.ui'
 #
-# Created: Thu Oct  9 06:55:25 2014
+# Created: Thu Oct  9 07:30:34 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -65,7 +65,7 @@ class Ui_DataManager(object):
         QtCore.QMetaObject.connectSlotsByName(DataManager)
 
     def retranslateUi(self, DataManager):
-        DataManager.setWindowTitle(_translate("DataManager", "MainWindow", None))
+        DataManager.setWindowTitle(_translate("DataManager", "Data Manager", None))
         self.preview_pic.setText(_translate("DataManager", "preview", None))
         self.label.setText(_translate("DataManager", "Username", None))
         self.usernameEdit.setText(_translate("DataManager", "anon", None))

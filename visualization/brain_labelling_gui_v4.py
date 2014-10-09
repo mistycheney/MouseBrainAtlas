@@ -20,6 +20,7 @@ import time
 import datetime
 import cv2
 from utilities import *
+import json
 
 from pprint import pprint
 
@@ -82,13 +83,13 @@ def label_paths(data_dir):
     complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
     complete_paths = list(set(complete_paths1) | set(complete_paths2))
 
-    pprint(complete_paths)
+    # pprint(complete_paths)
 
     complete_vispaths = get_vispaths(complete_paths)
 
     labeled_complete_vispaths = dict([(p, Status.NO_LABEL) for p in complete_vispaths])
 
-    for p in labeled_complete_vispaths:
+    for p in complete_vispaths:
         if p is None: continue
         nlevel = len(p.split('/'))
         if nlevel == 5: # labeling path
@@ -111,16 +112,27 @@ def label_paths(data_dir):
             elif p in remote_vispaths:
                 labeled_complete_vispaths[p] = Status.IMG_NOT_DOWNLOADED
 
-    return complete_paths, complete_vispaths, [labeled_complete_vispaths[p] for p in complete_vispaths]
+    status_labels = [labeled_complete_vispaths[p] for p in complete_vispaths]                
+
+    for p in complete_vispaths[:]:
+        if p is None: continue
+        nlevel = len(p.split('/'))
+        if nlevel == 4:
+            if labeled_complete_vispaths[p] == Status.INSTANCE_READY:
+                complete_vispaths.append(p + '/' + 'empty_labeling')
+                complete_paths.append(None)
+                status_labels.append(Status.ACTION)
+
+    return complete_paths, complete_vispaths, status_labels
 
 
 class Status(object):
     NO_LABEL, INSTANCE_NOT_PROCESSED, INSTANCE_PROCESSED_NOT_DOWNLOADED, INSTANCE_READY, \
-    IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED = range(9)
+    IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED, ACTION = range(10)
 
 status_text = ['NO_LABEL', 'INSTANCE_NOT_PROCESSED', 'INSTANCE_PROCESSED_NOT_DOWNLOADED', \
 'INSTANCE_READY', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_READY', 'LABELING_NOT_DOWNLOADED', \
-'LABELING_READY_NOT_UPLOADED']
+'LABELING_READY_NOT_UPLOADED', 'ACTION']
 
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
@@ -141,86 +153,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.initialize_data_manager()
 
-
-    def load_data(self):
-
-        self.segmentation = np.load(self._full_object_name('segmentation', 'npy'))
-        self.n_superpixels = max(self.segmentation.flatten()) + 1
-        self.img = cv2.imread(self._full_object_name('segmentation', 'tif'), 0)
-
-        try:
-
-            print self._full_labeling_name(self.parent_labeling_name, 'pkl')
-
-            labeling = pickle.load(open(self._full_labeling_name(self.parent_labeling_name, 'pkl'), 'r'))
-            
-            self.labellist = labeling['final_labellist']
-
-            self.labeling = {
-                'username' : self.username,
-                'parent_labeling_name' : self.parent_labeling_name,
-                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_labellist' : self.labellist,
-                'final_labellist' : None,
-                'labelnames' : labeling['labelnames'],
-                'history' : []
-            }
-            
-            self.n_models = max(10,np.max(self.labellist)+1)
-        
-            print 'Loading saved labeling'
-            self.n_labels = len(self.labeling['labelnames'])
-
-        except:
-
-            print 'No labeling is given. Initialize labeling.'
-
-            self.labellist = -1 * np.ones(self.n_superpixels, dtype=np.int)
-            self.labeling = {
-                'username' : self.username,
-                'parent_labeling_name' : None,
-                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_labellist' : self.labellist,
-                'final_labellist' : None,
-                'labelnames' : [],
-                'history' : []
-            }
-
-            self.n_models = 10
-
-            # # Retrieves previous label names
-            # try:
-            #     labelnames = json.load(open(self._fullname('labelnames', 'json'), 'r'))
-            #     self.labeling['names'] = labelnames.values()
-            # except:
-            #     self.labeling['names']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]                    
-        
-
-        self.labelmap = -1 * np.ones_like(self.segmentation, dtype=np.int)
-
-        if np.max(self.labellist) > 0:
-            self.labelmap = self.labellist[self.segmentation]
-            print "labelmap updated"
-
-        # A set of high-contrast colors proposed by Green-Armytage
-        self.colors = [(255,255,255),
-                       (240,163,255),(0,117,220),(153,63,0),(76,0,92),(25,25,25),(0,92,49),(43,206,72),
-                       (255,204,153),(128,128,128),(148,255,181),(143,124,0),(157,204,0),(194,0,136),
-                       (0,51,128),(255,164,5),(255,168,187),(66,102,0),(255,0,16),(94,241,242),(0,153,143),
-                       (224,255,102),(116,10,255),(153,0,0),(255,255,128),(255,255,0),(255,80,5)]
-        
-        for i in range(len(self.colors)):
-            self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
-        
-        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
-
-        # initialize GUI variables
-        self.paint_label = -1        # color of pen
-        self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
-        self.press = False           # related to pan (press and drag) vs. select (click)
-        self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
-        self.moved = False           # indicates whether mouse has moved while left button is pressed
- 
 
     def _full_labeling_name(self, labeling_name, ext):
         return os.path.join(self.instance_dir, 'labelings', self.instance_name + '_' + labeling_name + '.' + ext)
@@ -245,9 +177,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.data_manager.statusBar().showMessage(status_text[self.status])
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED:
+        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
             self.data_manager_ui.inputLoadButton.setText('Load')
-        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED:
+        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED or self.status == Status.LABELING_NOT_DOWNLOADED:
             self.data_manager_ui.inputLoadButton.setText('Download')
         elif self.status == Status.INSTANCE_NOT_PROCESSED:
             self.data_manager_ui.inputLoadButton.setText('Process')
@@ -288,13 +220,99 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_inputLoadButton(self):
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED:
+        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+
+            if self.status == Status.ACTION:
+                self.parent_labeling_name = None
 
             self.load_data()
 
             self.data_manager.close()
 
-            self.initialize_gui()
+            self.initialize_brain_labeling_gui()
+
+
+    def load_data(self):
+
+        self.segmentation = np.load(self._full_object_name('segmentation', 'npy'))
+        self.n_superpixels = max(self.segmentation.flatten()) + 1
+        self.img = cv2.imread(self._full_object_name('segmentation', 'tif'), 0)
+
+        try:
+
+            labeling = pickle.load(open(self._full_labeling_name(self.parent_labeling_name, 'pkl'), 'r'))
+            
+            self.labellist = labeling['final_labellist']
+
+            self.labeling = {
+                'username' : self.username,
+                'parent_labeling_name' : self.parent_labeling_name,
+                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+                'init_labellist' : self.labellist,
+                'final_labellist' : None,
+                'labelnames' : labeling['labelnames'],
+                'history' : []
+            }
+            
+            self.n_models = max(10,np.max(self.labellist)+1)
+        
+            print 'Loading saved labeling'
+            self.n_labels = len(self.labeling['labelnames'])
+
+        except:
+
+            print 'No labeling is given. Initialize labeling.'
+
+            self.labellist = -1 * np.ones(self.n_superpixels, dtype=np.int)
+            self.labeling = {
+                'username' : self.username,
+                'parent_labeling_name' : None,
+                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+                'init_labellist' : self.labellist,
+                'final_labellist' : None,
+                'labelnames' : [],
+                'history' : []
+            }
+
+            self.n_models = 10
+
+            # Retrieves previous label names
+
+            labelnames_fn = self._full_labeling_name('labelnames', 'json')
+            print labelnames_fn
+            if os.path.isfile(labelnames_fn):
+                labelnames = json.load(open(labelnames_fn, 'r'))
+                self.labeling['labelnames'] = labelnames.values()
+            else:
+                self.labeling['labelnames']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]                    
+        
+            self.n_labels = len(self.labeling['labelnames'])
+
+        self.labelmap = -1 * np.ones_like(self.segmentation, dtype=np.int)
+
+        if np.max(self.labellist) > 0:
+            self.labelmap = self.labellist[self.segmentation]
+            print "labelmap updated"
+
+        # A set of high-contrast colors proposed by Green-Armytage
+        self.colors = [(255,255,255),
+                       (240,163,255),(0,117,220),(153,63,0),(76,0,92),(25,25,25),(0,92,49),(43,206,72),
+                       (255,204,153),(128,128,128),(148,255,181),(143,124,0),(157,204,0),(194,0,136),
+                       (0,51,128),(255,164,5),(255,168,187),(66,102,0),(255,0,16),(94,241,242),(0,153,143),
+                       (224,255,102),(116,10,255),(153,0,0),(255,255,128),(255,255,0),(255,80,5)]
+        
+        for i in range(len(self.colors)):
+            self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
+        
+        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
+
+        # initialize GUI variables
+        self.paint_label = -1        # color of pen
+        self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
+        self.press = False           # related to pan (press and drag) vs. select (click)
+        self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
+        self.moved = False           # indicates whether mouse has moved while left button is pressed
+
 
 
     def initialize_data_manager(self):
@@ -322,7 +340,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.data_manager.show()
 
 
-    def initialize_gui(self):
+    def initialize_brain_labeling_gui(self):
 
         self.setupUi(self)
 
@@ -424,7 +442,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         
         self.labeling['final_labellist'] = self.labellist
         self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-        self.labeling['labelnames'] = [edt.text() for edt in self.labeldescs]
+        self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
+
+        json.dump(self.labeling['labelnames'], open(self._full_labeling_name('labelnames','json'), 'w'))
 
         new_labeling_name = self.username + '_' + self.labeling['logout_time']
         new_labeling_fn = self._full_labeling_name(new_labeling_name, 'pkl')

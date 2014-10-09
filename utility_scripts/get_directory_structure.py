@@ -35,6 +35,5 @@ def get_local_data_structure(data_dir):
 
 import sys
 import cPickle as pickle
-# dir_dict = get_local_data_structure(sys.argv[1])
 dir_dict = get_directory_structure(sys.argv[1])
-pickle.dump(dir_dict, open('remote_directory_structure.pkl', 'w'))
+pickle.dump(dir_dict, open('/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl', 'w'))

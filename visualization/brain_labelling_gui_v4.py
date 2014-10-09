@@ -276,7 +276,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def on_DataManager_getRemoteButton(self):
-        cmd = "ssh %s@%s 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py'"%(self.gordon_username, self.gordon_hostname)
+        cmd = "ssh %s@%s 'python /home/yuncong/Brain/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_data_dir)
         subprocess.call(cmd, shell=True)
 
         cmd = "scp -r %s@%s:/home/yuncong/Brain/utility_scripts/remote_directory_structure.pkl /home/yuncong/BrainLocal/"%(self.gordon_username, self.gordon_hostname)

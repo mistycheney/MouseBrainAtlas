@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui.ui'
 #
-# Created: Thu Oct  2 03:47:58 2014
+# Created: Thu Oct  9 10:23:05 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_BrainLabelingGui(object):
     def setupUi(self, BrainLabelingGui):
         BrainLabelingGui.setObjectName(_fromUtf8("BrainLabelingGui"))
-        BrainLabelingGui.resize(965, 751)
+        BrainLabelingGui.resize(965, 749)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -70,19 +70,22 @@ class Ui_BrainLabelingGui(object):
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
+        self.sigboostButton = QtGui.QPushButton(self.centralwidget)
+        self.sigboostButton.setObjectName(_fromUtf8("sigboostButton"))
+        self.buttonsLayout.addWidget(self.sigboostButton)
         self.quitButton = QtGui.QPushButton(self.centralwidget)
         self.quitButton.setObjectName(_fromUtf8("quitButton"))
         self.buttonsLayout.addWidget(self.quitButton)
         self.horizontalLayout.addLayout(self.buttonsLayout)
         self.verticalLayout.addLayout(self.horizontalLayout)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
+        self.statusbar = QtGui.QStatusBar(BrainLabelingGui)
+        self.statusbar.setObjectName(_fromUtf8("statusbar"))
+        BrainLabelingGui.setStatusBar(self.statusbar)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 965, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         BrainLabelingGui.setMenuBar(self.menubar)
-        self.statusbar = QtGui.QStatusBar(BrainLabelingGui)
-        self.statusbar.setObjectName(_fromUtf8("statusbar"))
-        BrainLabelingGui.setStatusBar(self.statusbar)
 
         self.retranslateUi(BrainLabelingGui)
         QtCore.QMetaObject.connectSlotsByName(BrainLabelingGui)
@@ -92,6 +95,7 @@ class Ui_BrainLabelingGui(object):
         self.loadButton.setText(_translate("BrainLabelingGui", "Load", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add Label", None))
+        self.sigboostButton.setText(_translate("BrainLabelingGui", "SigBoost", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
 
 from mplwidget import MplWidget

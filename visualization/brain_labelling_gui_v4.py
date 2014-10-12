@@ -91,6 +91,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gordon_hostname = 'gcn-20-32.sdsc.edu'
         self.temp_dir = '/home/yuncong/BrainLocal'
         self.remote_repo_dir = '/home/yuncong/Brain'
+        self.params_dir = '../params'
 
         self.image_name = None
         self.instance_dir = None
@@ -115,7 +116,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         local_paths = dict_to_paths(local_dir_structure)
         local_vispaths = get_vispaths(local_paths)
 
-        params_list = ['redNissl', 'nissl324', 'blueNissl']
+        params_list = [fn[6:-5] for fn in os.listdir(self.params_dir)]
 
         complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
         complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
@@ -447,6 +448,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.loadButton.clicked.connect(self.load_callback)
         self.saveButton.clicked.connect(self.save_callback)
         self.newLabelButton.clicked.connect(self.newlabel_callback)
+        self.newLabelButton.clicked.connect(self.sigboost_callback)
         self.quitButton.clicked.connect(self.close)
 
         # help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
@@ -519,11 +521,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.n_labels += 1
         self._add_labelbutton()
 
+
+    def sigboost_callback(self):
+        self._save_labeling()
+        # TODO: 
+        # - upload this labeling
+        # - run sigboost with this labeling
+        # - download resulting labeling
+        # - load the resulting labeling
+
+
     def load_callback(self):
         self.initialize_data_manager()
 
-    def save_callback(self):
-        
+    def _save_labeling(self):
         self.labeling['final_labellist'] = self.labellist
         self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
         self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
@@ -542,6 +553,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         plt.savefig(new_preview_fn, bbox_inches='tight')
 
         print 'Preview saved to', new_preview_fn
+
+
+    def save_callback(self):
+        self._save_labeling()
+
 
     def labelbutton_callback(self):
         self.pick_color(int(self.sender().text()))

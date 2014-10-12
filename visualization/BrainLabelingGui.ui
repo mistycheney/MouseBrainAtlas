@@ -83,7 +83,7 @@
         <item>
          <widget class="QPushButton" name="sigboostButton">
           <property name="text">
-           <string>SigBoost</string>
+           <string>Save and SigBoost</string>
           </property>
          </widget>
         </item>

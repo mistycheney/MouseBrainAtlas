@@ -176,7 +176,7 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
-def load_array(suffix, img_name, param_id, output_dir):
+def load_array(suffix, instance_name, results_dir):
     """
     Load the cached result.
     
@@ -184,11 +184,9 @@ def load_array(suffix, img_name, param_id, output_dir):
     ----------
     suffix : str
         name of the result
-    img_name : str
-        image name
-    param_id : str
-        parameter set name
-    output_dir : str
+    instance_name : str
+        instance name
+    results_dir : str
         the location of results
     
     Returns
@@ -197,15 +195,14 @@ def load_array(suffix, img_name, param_id, output_dir):
         the loaded array    
     """
     
-    result_name = img_name + '_' + str(param_id)
-    arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
+    arr_file = os.path.join(results_dir, '%s_%s.npy'%(instance_name, suffix))
     arr = np.load(arr_file)
     print 'load %s' % (arr_file)
     return arr
 
-def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=True):
+def save_array(arr, suffix, instance_name, results_dir, overwrite=True):
     """
-    Save array into a file
+    Save array
     
     Parameters
     ----------
@@ -213,29 +210,92 @@ def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=T
         the array to cache
     suffix : str
         name of the result
-    img_name : str
-        image name
-    param_id : str
-        parameter set name
-    cache_dir : str
-        output folder
+    instance_name : str
+        instance name
+    results_dir : str
+        results directory
     overwrite : bool
         if True, overwrite existing file
     """
     
-    result_name = img_name + '_' + str(param_id)
-    arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
-    
+    arr_file = os.path.join(results_dir, '%s_%s.npy'%(instance_name, suffix))
     if not os.path.exists(arr_file) or overwrite:
         np.save(arr_file, arr)
         print '%s saved to %s' % (suffix, arr_file)
     else:
         print '%s already exists' % (arr_file)
+
+# <codecell>
+
+
+
+# def load_array(suffix, img_name, param_id, output_dir):
+#     """
+#     Load the cached result.
+    
+#     Parameters
+#     ----------
+#     suffix : str
+#         name of the result
+#     img_name : str
+#         image name
+#     param_id : str
+#         parameter set name
+#     output_dir : str
+#         the location of results
+    
+#     Returns
+#     -------
+#     arr : array
+#         the loaded array    
+#     """
+    
+#     result_name = img_name + '_' + str(param_id)
+#     arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
+#     arr = np.load(arr_file)
+#     print 'load %s' % (arr_file)
+#     return arr
+
+
+
+
+# def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=True):
+#     """
+#     Save array into a file
+    
+#     Parameters
+#     ----------
+#     arr : array
+#         the array to cache
+#     suffix : str
+#         name of the result
+#     img_name : str
+#         image name
+#     param_id : str
+#         parameter set name
+#     cache_dir : str
+#         output folder
+#     overwrite : bool
+#         if True, overwrite existing file
+#     """
+    
+#     result_name = img_name + '_' + str(param_id)
+#     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
+    
+#     if not os.path.exists(arr_file) or overwrite:
+#         np.save(arr_file, arr)
+#         print '%s saved to %s' % (suffix, arr_file)
+#     else:
+#         print '%s already exists' % (arr_file)
         
 def regulate_images(imgs):
     return np.array(map(regulate_img, imgs))
         
 def regulate_img(img):
+    '''
+    Make all images be RGB uint8.
+    '''
+    
     if not np.issubsctype(img, np.uint8):
         try:
             img = img_as_ubyte(img)
@@ -248,8 +308,8 @@ def regulate_img(img):
     
     return img
         
-def save_img(img, suffix, img_name, param_id, 
-             cache_dir='scratch', overwrite=True):
+    
+def save_img(img, suffix, instance_name, results_dir, overwrite=True):
     '''
     Save image to file
     
@@ -259,35 +319,75 @@ def save_img(img, suffix, img_name, param_id,
         image to save
     suffix : str
         name of the result
-    img_name : str
-        image name
+    instance_name : str
+        instance name
     param_id : str
         parameter set name
-    cache_dir : str
-        output_folder
+    results_dir : str
+        results directory
     overwrite : bool
         if True, overwrite existing file
     '''
+    
     img = regulate_img(img)
         
-    img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
+    img_fn = os.path.join(results_dir, '%s_%s.tif'%(instance_name, suffix))        
+#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
     if not os.path.exists(img_fn) or overwrite:
         cv2.imwrite(img_fn, img)
         print '%s saved to %s' % (suffix, img_fn)
     else:
         print '%s already exists' % (img_fn)
         
-    img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
+    img_fn = os.path.join(results_dir, '%s_%s.png'%(instance_name, suffix))
+#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
     if not os.path.exists(img_fn) or overwrite:
         cv2.imwrite(img_fn, img)
         print '%s saved to %s' % (suffix, img_fn)
     else:
         print '%s already exists' % (img_fn)
 
-def get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif'):
-    result_name = img_name + '_param_' + str(param_id)
-    img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
-    return img_fn
+    
+# def save_img(img, suffix, img_name, param_id, 
+#              cache_dir='scratch', overwrite=True):
+#     '''
+#     Save image to file
+    
+#     Parameters
+#     ----------
+#     img : uint8 or float array
+#         image to save
+#     suffix : str
+#         name of the result
+#     img_name : str
+#         image name
+#     param_id : str
+#         parameter set name
+#     cache_dir : str
+#         output_folder
+#     overwrite : bool
+#         if True, overwrite existing file
+#     '''
+#     img = regulate_img(img)
+        
+#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
+#     if not os.path.exists(img_fn) or overwrite:
+#         cv2.imwrite(img_fn, img)
+#         print '%s saved to %s' % (suffix, img_fn)
+#     else:
+#         print '%s already exists' % (img_fn)
+        
+#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
+#     if not os.path.exists(img_fn) or overwrite:
+#         cv2.imwrite(img_fn, img)
+#         print '%s saved to %s' % (suffix, img_fn)
+#     else:
+#         print '%s already exists' % (img_fn)
+
+# def get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif'):
+#     result_name = img_name + '_param_' + str(param_id)
+#     img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
+#     return img_fn
 
 # <codecell>
 

@@ -178,7 +178,7 @@ img = img[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 mask = mask[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 im_height, im_width = img.shape[:2]
 
-save_img(img, 'img_cropped')
+save_img(img, 'cropImg')
 
 save_array(mask, 'mask')
 
@@ -354,7 +354,7 @@ print '=== compute texton histogram of each superpixel ==='
 
 try:
 #     raise IOError
-    sp_texton_hist_normalized = load_array('sp_texton_hist_normalized')
+    sp_texton_hist_normalized = load_array('texHist')
 except IOError:
     def texton_histogram_worker(i):
         return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
@@ -362,7 +362,7 @@ except IOError:
     r = Parallel(n_jobs=16)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
     sp_texton_hist = np.array(r)
     sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis]
-    save_array(sp_texton_hist_normalized, 'sp_texton_hist_normalized')
+    save_array(sp_texton_hist_normalized, 'texHist')
 
 # compute the null texton histogram
 overall_texton_hist = np.bincount(textonmap[mask].flat)
@@ -375,7 +375,7 @@ print '=== compute directionality histogram of each superpixel ==='
 
 try:
 #     raise IOError
-    sp_dir_hist_normalized = load_array('sp_dir_hist_normalized')
+    sp_dir_hist_normalized = load_array('dirHist')
 except IOError:
     f = np.reshape(features, (features.shape[0], features.shape[1], n_freq, n_angle))
     dir_energy = np.sum(abs(f), axis=2)
@@ -388,7 +388,7 @@ except IOError:
     
     sp_dir_hist = np.vstack(r)
     sp_dir_hist_normalized = sp_dir_hist/sp_dir_hist.sum(axis=1)[:,np.newaxis]
-    save_array(sp_dir_hist_normalized, 'sp_dir_hist_normalized')
+    save_array(sp_dir_hist_normalized, 'dirHist')
 
 # compute the null directionality histogram
 overall_dir_hist = sp_dir_hist_normalized[fg_superpixels].mean(axis=0)

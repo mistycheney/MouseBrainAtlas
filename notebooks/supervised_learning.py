@@ -37,10 +37,19 @@ from utilities import chi2
 
 from joblib import Parallel, delayed
 
-import glob, re, os, sys, subprocess, argparse
+import glob
+import re
+import os
+import sys
+import subprocess
+import argparse
 import pprint
 
 import cPickle as pickle
+
+
+data_dir = '/home/yuncong/BrainLocal/DavidData'
+repo_dir = '/home/yuncong/Brain'
 
 # <codecell>
 
@@ -56,23 +65,22 @@ import cPickle as pickle
 # parser.add_argument("-o", "--output_dir", type=str, help="output directory (default: %(default)s)", default='/oasis/scratch/csd181/yuncong/output')
 # args = parser.parse_args()
 
-class args(object):
-    labeling_fn = 'output/RS141_x5_0001_redNissl/RS141_x5_0001_redNissl_yuncong_141002050817.pkl'
-    output_dir = '/oasis/scratch/csd181/yuncong/output'
-    params_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/params'
+class args(object):    
+    labeling_fn = '/home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/labelings/RS141_x5_0001_redNissl_yuncong_10072014180733.pkl'
 
 # <codecell>
 
 stack_name, resolution, slice_id, params_name, username, logout_time = os.path.basename(args.labeling_fn)[:-4].split('_')
+
 labeling = pickle.load(open(args.labeling_fn, 'r'))
 
 instance_name = '_'.join([stack_name, resolution, slice_id, params_name])
 parent_labeling_name = username + '_' + logout_time
 
-def fullname(obj_name, ext):
-    return os.path.join(args.output_dir, instance_name, instance_name + '_' + obj_name + '.' + ext)
+def full_object_name(obj_name, ext):
+    return os.path.join(args.output_dir, instance_name, 'pipelineResults', instance_name + '_' + obj_name + '.' + ext)
 
-segmentation = np.load(fullname('segmentation', 'npy'))
+segmentation = np.load(full_object_name('segmentation', 'npy'))
 
 n_superpixels = len(segmentation)
 

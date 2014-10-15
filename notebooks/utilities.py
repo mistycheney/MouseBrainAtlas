@@ -4,7 +4,7 @@
 # <codecell>
 
 from skimage.filter import threshold_otsu, threshold_adaptive, gaussian_filter
-from skimage.color import color_dict, gray2rgb
+from skimage.color import color_dict, gray2rgb, label2rgb
 from skimage.segmentation import clear_border
 from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
 from skimage.measure import regionprops, label
@@ -305,11 +305,11 @@ def regulate_img(img):
             
     if img.ndim == 2:
         img = gray2rgb(img)
-    
+        
     return img
         
     
-def save_img(img, suffix, instance_name, results_dir, overwrite=True):
+def save_image(img, suffix, instance_name, results_dir, ext='tif', overwrite=True):
     '''
     Save image to file
     
@@ -321,8 +321,6 @@ def save_img(img, suffix, instance_name, results_dir, overwrite=True):
         name of the result
     instance_name : str
         instance name
-    param_id : str
-        parameter set name
     results_dir : str
         results directory
     overwrite : bool
@@ -331,7 +329,7 @@ def save_img(img, suffix, instance_name, results_dir, overwrite=True):
     
     img = regulate_img(img)
         
-    img_fn = os.path.join(results_dir, '%s_%s.tif'%(instance_name, suffix))        
+    img_fn = os.path.join(results_dir, '%s_%s.%s'%(instance_name, suffix, ext))
 #     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
     if not os.path.exists(img_fn) or overwrite:
         cv2.imwrite(img_fn, img)
@@ -339,14 +337,39 @@ def save_img(img, suffix, instance_name, results_dir, overwrite=True):
     else:
         print '%s already exists' % (img_fn)
         
-    img_fn = os.path.join(results_dir, '%s_%s.png'%(instance_name, suffix))
-#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
-    if not os.path.exists(img_fn) or overwrite:
-        cv2.imwrite(img_fn, img)
-        print '%s saved to %s' % (suffix, img_fn)
-    else:
-        print '%s already exists' % (img_fn)
+#     img_fn = os.path.join(results_dir, '%s_%s.png'%(instance_name, suffix))
+# #     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
+#     if not os.path.exists(img_fn) or overwrite:
+#         cv2.imwrite(img_fn, img)
+#         print '%s saved to %s' % (suffix, img_fn)
+#     else:
+#         print '%s already exists' % (img_fn)
 
+        
+def load_image(suffix, instance_name, results_dir):
+    '''
+    Load image
+    
+    Parameters
+    ----------
+    suffix : str
+        name of the result
+    instance_name : str
+        instance name
+    results_dir : str
+        results directory
+        
+    Returns
+    -------
+    img : uint8 RGB
+        image
+    '''
+    
+    img_fn = os.path.join(results_dir, '%s_%s.tif'%(instance_name, suffix))
+    img = cv2.imread(img_fn)
+    reg_img = regulate_img(img)
+    return reg_img
+    
     
 # def save_img(img, suffix, img_name, param_id, 
 #              cache_dir='scratch', overwrite=True):
@@ -388,6 +411,50 @@ def save_img(img, suffix, instance_name, results_dir, overwrite=True):
 #     result_name = img_name + '_param_' + str(param_id)
 #     img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
 #     return img_fn
+
+# <codecell>
+
+# def visualize_cluster(scores, cluster='all', title='', filename=None):
+#     '''
+#     Generate black and white image with the cluster of superpixels highlighted
+#     '''
+    
+#     vis = scores[segmentation]
+#     if cluster != 'all':
+#         cluster_selection = np.equal.outer(segmentation, cluster).any(axis=2)
+#         vis[~cluster_selection] = 0
+    
+#     plt.matshow(vis, cmap=plt.cm.Greys_r);
+#     plt.axis('off');
+#     plt.title(title)
+#     if filename is not None:
+#         plt.savefig(os.path.join(result_dir, 'stages', filename + '.png'), bbox_inches='tight')
+# #     plt.show()
+#     plt.close();
+    
+
+def paint_superpixels_on_image(superpixels, segmentation, img):
+    '''
+    Highlight a cluster of superpixels on the real image
+    '''    
+
+    cluster_map = -1*np.ones_like(segmentation)
+    for s in superpixels:
+        cluster_map[segmentation==s] = 1
+    vis = label2rgb(cluster_map, image=img)
+    return vis
+    
+def paint_superpixel_groups_on_image(sp_groups, segmentation, img, colors):
+    '''
+    Highlight multiple superpixel groups with different colors on the real image
+    '''
+    
+    cluster_map = -1*np.ones_like(segmentation)
+    for i, sp_group in enumerate(sp_groups):
+        for j in sp_group:
+            cluster_map[segmentation==j] = i
+    vis = label2rgb(cluster_map, image=img, colors=colors)
+    return vis
 
 # <codecell>
 

@@ -3,12 +3,11 @@
 
 # <codecell>
 
+%load_ext autoreload
+%autoreload 2
+
 import numpy as np
 import cv2
-
-import matplotlib
-# Force matplotlib to not use any Xwindows backend.
-matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 
@@ -16,10 +15,10 @@ import random, itertools, sys, os
 from multiprocessing import Pool
 import json
 
-# from skimage.segmentation import slic, mark_boundaries
+from skimage.segmentation import slic, mark_boundaries
 # from skimage.measure import regionprops
 # from skimage.util import img_as_ubyte
-# from skimage.color import hsv2rgb, label2rgb, gray2rgb
+from skimage.color import hsv2rgb, label2rgb, gray2rgb
 # from skimage.morphology import disk
 # from skimage.filter.rank import gradient
 # from skimage.filter import gabor_kernel
@@ -66,27 +65,36 @@ params_dir = os.path.join(repo_dir, 'params')
 # parser.add_argument("-o", "--output_dir", type=str, help="output directory (default: %(default)s)", default='/oasis/scratch/csd181/yuncong/output')
 # args = parser.parse_args()
 
-class args(object):    
-    labeling_fn = '/home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/labelings/RS141_x5_0001_redNissl_yuncong_10072014180733.pkl'
+class args(object):
+    models_fn = '/home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/labelings/RS141_x5_0001_redNissl_models.pkl'
+#     labeling_fn = '/home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/labelings/RS141_x5_0001_redNissl_anon_10132014165928.pkl'
 
 # <codecell>
 
 def save_array(arr, suffix):
     utilities.save_array(arr, suffix, instance_name=instance_name, results_dir=results_dir)
         
-def save_img(img, suffix):
-    utilities.save_img(img, suffix, instance_name=instance_name, results_dir=results_dir, overwrite=True)
+def save_image(img, suffix):
+    utilities.save_image(img, suffix, instance_name=instance_name, results_dir=results_dir, overwrite=True)
+
+def load_image(suffix):
+    return utilities.load_image(suffix, instance_name=instance_name, results_dir=results_dir)
 
 # <codecell>
 
-stack_name, resolution, slice_id, params_name, username, logout_time = os.path.basename(args.labeling_fn)[:-4].split('_')
+# stack_name, resolution, slice_id, params_name, username, logout_time = os.path.basename(args.labeling_fn)[:-4].split('_')
+
+stack_name = 'RS141'
+resolution = 'x5'
+slice_id = '0002'
+params_name = 'redNissl'
 
 results_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'pipelineResults')
-
-labeling = pickle.load(open(args.labeling_fn, 'r'))
+labelings_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'labelings')
 
 instance_name = '_'.join([stack_name, resolution, slice_id, params_name])
-parent_labeling_name = username + '_' + logout_time
+# parent_labeling_name = username + '_' + logout_time
+parent_labeling_name = None
 
 def full_object_name(obj_name, ext):
     return os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'pipelineResults', instance_name + '_' + obj_name + '.' + ext)
@@ -115,19 +123,18 @@ sp_dir_hist_normalized = np.load(full_object_name('dirHist', 'npy'))
 
 # <codecell>
 
-labellist = labeling['final_labellist']
+# labellist = labeling['final_labellist']
 
-texton_models = []
-dir_models = []
-for i in range(np.max(labellist)+1):
-    sps = np.where(labellist == i)[0]
-    if len(sps) > 0:
-        texton_model = sp_texton_hist_normalized[sps, :].mean(axis=0)
-        texton_models.append(texton_model)
-        dir_model = sp_dir_hist_normalized[sps, :].mean(axis=0)
-        dir_models.append(dir_model)
-        
-n_models = len(texton_models)
+models = pickle.load(open(args.models_fn, 'r'))
+n_models = len(models)
+
+texton_models = [model['texton_hist'] for model in models]
+dir_models = [model['dir_hist'] for model in models]
+
+# <codecell>
+
+# plt.bar(range(100), texton_models[0])
+# plt.show()
 
 # <codecell>
 
@@ -145,9 +152,13 @@ D_dir_model[:, fg_superpixels] = cdist(sp_dir_hist_normalized[fg_superpixels], d
 
 textonmap = np.load(full_object_name('texMap', 'npy'))
 overall_texton_hist = np.bincount(textonmap[mask].flat)
+
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
+
 overall_dir_hist = sp_dir_hist_normalized[fg_superpixels].mean(axis=0)
+
 overall_dir_hist_normalized = overall_dir_hist.astype(np.float) / overall_dir_hist.sum()
+
 D_texton_null = np.squeeze(cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2))
 D_dir_null = np.squeeze(cdist(sp_dir_hist_normalized, [overall_dir_hist_normalized], chi2))
 
@@ -187,8 +198,13 @@ def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model,
 
 # <codecell>
 
-lr_decision_thresh = param['lr_decision_thresh']
+img = load_image('cropImg')
+
+# lr_decision_thresh = param['lr_decision_thresh']
+lr_decision_thresh = .2
 lr_grow_thresh = param['lr_grow_thresh']
+
+print lr_decision_thresh, lr_grow_thresh
 
 def f(i):
     model_score = np.empty((n_models, ))
@@ -198,7 +214,7 @@ def f(i):
     else:
         for m in range(n_models):
             matched, _ = grow_cluster_likelihood_ratio_precomputed(i, D_texton_model[m], D_dir_model[m], 
-                                                                   lr_grow_thresh=lr_grow_thresh)
+                                                                   lr_grow_thresh=lr_grow_thresh)         
             matched = list(matched)
             model_score[m] = np.mean(D_texton_null[matched] - D_texton_model[m, matched] +\
                                      D_dir_null[matched] - D_dir_model[m, matched])
@@ -211,24 +227,74 @@ def f(i):
 r = Parallel(n_jobs=16)(delayed(f)(i) for i in range(n_superpixels))
 labels = np.array(r, dtype=np.int)
 
+# <codecell>
+
+img = load_image('cropImg')
+
+# lr_decision_thresh = param['lr_decision_thresh']
+lr_decision_thresh = .2
+lr_grow_thresh = param['lr_grow_thresh']
+
+print lr_decision_thresh, lr_grow_thresh
+
+def f(i):
+    model_score = np.empty((n_models, ))
+
+    if i in bg_superpixels:
+        return -1
+    else:
+        for m in range(n_models):
+            print 'model', m
+            matched, _ = grow_cluster_likelihood_ratio_precomputed(i, D_texton_model[m], D_dir_model[m], 
+                                                                   lr_grow_thresh=lr_grow_thresh)
+            
+            a = utilities.paint_superpixels_on_image(matched, segmentation, img=img)
+            plt.imshow(a)
+            plt.show()
+            
+            matched = list(matched)
+            model_score[m] = np.mean(D_texton_null[matched] - D_texton_model[m, matched] +\
+                                     D_dir_null[matched] - D_dir_model[m, matched])
+            print model_score[m]
+
+        best_sig = model_score.max()
+        if best_sig > lr_decision_thresh: # sp whose sig is smaller than this is assigned null
+          return model_score.argmax()    
+    return -1
+
+
+# f(1382) #0001
+f(811) # axon bundles on 0002
 
 # <codecell>
 
 labelmap = labels[segmentation]
-save_array(labelmap, 'labelmap')
 
-labelmap_rgb = label2rgb(labelmap.astype(np.int), image=img)
-save_img(labelmap_rgb, 'labelmap')
+hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt', skiprows=1)
 
+img = load_image('cropImg')
+
+labelmap_rgb = label2rgb(labelmap.astype(np.int), image=img, colors=hc_colors[1:]/255., alpha=0.1, 
+                         image_alpha=1, bg_color=hc_colors[0]/255.)
+
+import datetime
 dt = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
 new_labeling = {
 'username': 'sigboost',
-'parent_labeling_name': parent_labeling_name,
+'parent_labeling_name': None,
+'login_time': dt,
 'logout_time': dt,
-'init_labellist': labellist,
+'init_labellist': None,
 'final_labellist': labels,
 'labelnames': None,
-'history': history
+'history': None
 }
+
+labelmap_rgb = utilities.regulate_img(labelmap_rgb)
+new_preview_fn = os.path.join(labelings_dir, instance_name + '_sigboost_' + dt + '_preview.tif')
+cv2.imwrite(new_preview_fn, labelmap_rgb)
+
+new_labeling_fn = os.path.join(labelings_dir, instance_name + '_sigboost_' + dt + '.pkl')
+pickle.dump(new_labeling, open(new_labeling_fn, 'w'))
 

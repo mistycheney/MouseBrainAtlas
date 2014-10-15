@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 
 objs = ['cropImg.tif', 
@@ -11,9 +12,28 @@ objs = ['cropImg.tif',
 'fg.npy',
 'bg.npy',
 'neighbors.npy',
-'segmentation.tif']
+'centroids.npy',
+'segmentation.tif',
+'texMap.tif']
+
+stack, resol, slice, params = sys.argv[1:]
+d = {'obj': None, 'stack':stack, 'resol':resol, 'slice':slice, 'params':params}
+
+local_dir = '/home/yuncong/BrainLocal/DavidData/%(stack)s/%(resol)s/%(slice)s/%(params)s/pipelineResults/'%d
+
+if not os.path.exists(local_dir):
+	os.makedirs(local_dir)
 
 for obj in objs:
-	cmd = 'scp gcn-20-32.sdsc.edu:/home/yuncong/DavidData/RS141/x5/0001/redNissl/pipelineResults/*%s /home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/pipelineResults/' %obj
-	# print cmd
+	
+	# if any([f.endswith(obj) for f in os.listdir(local_dir)]):
+	# 	print obj, 'exists'
+	# 	continue
+
+	d['obj'] = obj
+	
+	remote_file = '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice)s/%(params)s/pipelineResults/*%(obj)s'%d
+
+	cmd = 'scp gcn-20-32.sdsc.edu:%s %s'%(remote_file, local_dir)
+	print cmd
 	subprocess.call(cmd, shell=True)

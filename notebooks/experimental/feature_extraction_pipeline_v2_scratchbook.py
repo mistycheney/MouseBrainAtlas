@@ -740,7 +740,3 @@ else:
     if best_sig > T: # sp whose sig is smaller than this is assigned null
       print model_score.argmax()
 
-# <codecell>
-
-
-

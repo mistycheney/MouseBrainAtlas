@@ -21,7 +21,10 @@ import subprocess
 import time
 import datetime
 import cv2
-from utilities import *
+from visualization_utilities import *
+
+sys.path.append(os.path.realpath('../notebooks'))
+import utilities
 import json
 
 from pprint import pprint
@@ -255,8 +258,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 os.makedirs(local_dir)
             cmd = "scp -r %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_dir, local_dir)
             print cmd
-            subprocess.call(cmd, shell=True)
-            self.refresh_data_status()
+            # subprocess.call(cmd, shell=True)
+            # self.refresh_data_status()
 
         elif self.status == Status.IMG_NOT_DOWNLOADED:
             filepath = self.vispaths_filepaths_dict[self.full_vispath]
@@ -377,11 +380,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             print "labelmap updated"
 
         # A set of high-contrast colors proposed by Green-Armytage
-        self.colors = [(255,255,255),
-                       (240,163,255),(0,117,220),(153,63,0),(76,0,92),(25,25,25),(0,92,49),(43,206,72),
-                       (255,204,153),(128,128,128),(148,255,181),(143,124,0),(157,204,0),(194,0,136),
-                       (0,51,128),(255,164,5),(255,168,187),(66,102,0),(255,0,16),(94,241,242),(0,153,143),
-                       (224,255,102),(116,10,255),(153,0,0),(255,255,128),(255,255,0),(255,80,5)]
+        self.colors = np.loadtxt('high_contrast_colors.txt', skiprows=1)
         
         for i in range(len(self.colors)):
             self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
@@ -394,7 +393,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.press = False           # related to pan (press and drag) vs. select (click)
         self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
         self.moved = False           # indicates whether mouse has moved while left button is pressed
-
 
 
     def refresh_data_status(self):
@@ -548,9 +546,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         new_preview_fn = self._full_labeling_name(new_labeling_name + '_preview', 'png')
 
-        plt.sca(self.axes)
-        plt.tight_layout()
-        plt.savefig(new_preview_fn, bbox_inches='tight')
+        # plt.sca(self.axes)
+        # plt.tight_layout()
+        # plt.savefig(new_preview_fn, bbox_inches='tight')
+
+        img = utilities.load_image('cropImg', instance_name=self.instance_name, results_dir=os.path.join(self.instance_dir, 'pipelineResults'))
+
+        labelmap_rgb = label2rgb(self.labelmap.astype(np.int), image=img, colors=self.colors[1:], alpha=.3, 
+                         image_alpha=.8, bg_color=self.colors[0])
+        labelmap_rgb = utilities.regulate_img(labelmap_rgb)
+        cv2.imwrite(new_preview_fn, labelmap_rgb)
 
         print 'Preview saved to', new_preview_fn
 

@@ -37,6 +37,8 @@ from utilities import chi2
 
 from joblib import Parallel, delayed
 
+import cPickle as pickle
+
 import glob, re, os, sys, subprocess, argparse
 import pprint
 
@@ -61,29 +63,24 @@ import pprint
 # # parser.add_argument("-p", "--params_dir", type=str, help="directory containing csv parameter files %(default)s)", default='/oasis/projects/nsf/csd181/yuncong/Brain/params')
 # args = parser.parse_args()
 
-# parser = argparse.ArgumentParser(
-# formatter_class=argparse.RawDescriptionHelpFormatter,
-# description='Execute feature extraction pipeline',
-# epilog="""
-# The following command processes image PMD1305_region0_reduce2_0244.tif using the parameter id nissl324.
-# python %s ../ParthaData/PMD1305_region0_reduce2/PMD1305_region0_reduce2_0244.tif nissl324
+parser = argparse.ArgumentParser(
+formatter_class=argparse.RawDescriptionHelpFormatter,
+description='Execute feature processing pipeline',
+epilog="""%s
+"""%(os.path.basename(sys.argv[0]), ))
 
-# This script loads the parameters in params_dir. 
-# Results are stored in a sub-directory named <result name>_param_<parameter id>, under output_dir.
-# Details are in the GitHub README (https://github.com/mistycheney/BrainSaliencyDetection/blob/master/README.md)
-# """%(os.path.basename(sys.argv[0]), ))
-
-# parser.add_argument("img_file", type=str, help="path to image file")
-# parser.add_argument("param_id", type=str, help="parameter identification name")
-# args = parser.parse_args()
+parser.add_argument("img_file", type=str, help="path to image file")
+parser.add_argument("param_id", type=str, help="parameter identification name")
+parser.add_argument("textons_file", type=str, help="pre-computed textons")
+args = parser.parse_args()
 
 data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v2'
 repo_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/'
 params_dir = os.path.join(repo_dir, 'params')
 
-class args:
-    img_file = os.path.join(data_dir, 'RS141', 'x5', '0001', 'RS141_x5_0001.tif')
-    param_id = 'redNissl'
+# class args:
+#     img_file = os.path.join(data_dir, 'RS141', 'x5', '0001', 'RS141_x5_0001.tif')
+#     param_id = 'redNissl'
 
 # <codecell>
 
@@ -110,6 +107,7 @@ img_dir, img_name = os.path.split(img_path)
 stack, resol, slice = img_name.split('_')
 
 img = cv2.imread(img_file, 0)
+print img_file
 im_height, im_width = img.shape[:2]
 
 # set output paths
@@ -120,6 +118,8 @@ instance_name = img_name + '_' + str(param['param_id'])
 results_dir = os.path.join(data_dir, stack, resol, slice, args.param_id, 'pipelineResults')
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
+    
+textons_file = os.path.realpath(args.textons_file)
 
 # <codecell>
 
@@ -144,6 +144,10 @@ def save_array(arr, suffix):
 def save_img(img, suffix):
     utilities.save_img(img, suffix, instance_name=instance_name, results_dir=results_dir, overwrite=True)
 
+def load_img(suffix):
+    return utilities.load_array(suffix, instance_name=instance_name, results_dir=results_dir)
+
+    
 # def get_img_filename(suffix, ext='png'):
 #     return utilities.get_img_filename(suffix, img_name, param['param_id'], args.output_dir, ext=ext)
 
@@ -237,6 +241,11 @@ print '=== compute rotation-invariant texton map using K-Means ==='
 
 n_texton = int(param['n_texton'])
 
+def compute_dist_per_proc(X_partial, c_all_rot):
+    D = cdist(X_partial, c_all_rot, 'sqeuclidean')
+    ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
+    return np.c_[ci, ri]
+
 try: 
 #     raise IOError
     textonmap = load_array('texMap')
@@ -246,43 +255,49 @@ except IOError:
     n_data = X.shape[0]
     n_splits = 1000
     n_sample = int(param['n_sample'])
-    centroids = np.array(random.sample(X, n_texton))
     
-    n_iter = int(param['n_iter'])
-
-    def compute_dist_per_proc(X_partial, c_all_rot):
-        D = cdist(X_partial, c_all_rot, 'sqeuclidean')
-        ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
-        return np.c_[ci, ri]
-
-    for iteration in range(n_iter):
+    try:
+#         centroids = load_array('centroids')
+        centroids = np.load(textons_file)
+        print 'loading textons from', textons_file
+    
+    except IOError:
         
-        data = random.sample(X, n_sample)
-        
-        print 'iteration', iteration
-        centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
-                                for c,i in itertools.product(centroids, range(n_angle))])
+        centroids = np.array(random.sample(X, n_texton))
 
-        r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
-                        for x, c in zip(np.array_split(data, n_splits, axis=0), 
-                                        itertools.repeat(centroid_all_rotations, n_splits)))
-        res = np.vstack(r)        
+        n_iter = int(param['n_iter'])
 
-        labels = res[:,0]
-        rotations = res[:,1]
+        for iteration in range(n_iter):
 
-        centroids_new = np.zeros((n_texton, n_feature))
-        for d, l, r in itertools.izip(data, labels, rotations):
-            rot = np.concatenate(np.roll(np.split(d, n_freq), i))
-            centroids_new[l] += rot
+            data = random.sample(X, n_sample)
 
-        counts = np.bincount(labels, minlength=n_texton)
-        centroids_new /= counts[:, np.newaxis] # denominator might be zero
-        centroids_new[counts==0] = centroids[counts==0]
-        print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
+            print 'iteration', iteration
+            centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
+                                    for c,i in itertools.product(centroids, range(n_angle))])
 
-        centroids = centroids_new
+            r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
+                            for x, c in zip(np.array_split(data, n_splits, axis=0), 
+                                            itertools.repeat(centroid_all_rotations, n_splits)))
+            res = np.vstack(r)        
 
+            labels = res[:,0]
+            rotations = res[:,1]
+
+            centroids_new = np.zeros((n_texton, n_feature))
+            for d, l, r in itertools.izip(data, labels, rotations):
+                rot = np.concatenate(np.roll(np.split(d, n_freq), i))
+                centroids_new[l] += rot
+
+            counts = np.bincount(labels, minlength=n_texton)
+            centroids_new /= counts[:, np.newaxis] # denominator might be zero
+            centroids_new[counts==0] = centroids[counts==0]
+            print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
+
+            centroids = centroids_new
+
+        print centroids.shape
+        save_array(centroids, 'centroids')
+    
     print 'kmeans completes'
     centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
                                 for c,i in itertools.product(centroids, range(n_angle))])
@@ -298,7 +313,8 @@ except IOError:
     textonmap = labels.reshape(features.shape[:2])
     textonmap[~mask] = -1
     
-    save_array(textonmap, 'texMap')
+#     save_array(textonmap, 'texMap')
+    save_array(textonmap.astype(np.int16), 'texMap')
     
 textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
 save_img(textonmap_rgb, 'texMap')
@@ -323,7 +339,7 @@ except IOError:
                         enforce_connectivity=True)
     print 'segmentation computed'
     
-    save_array(segmentation, 'segmentation')
+    save_array(segmentation.astype(np.int16), 'segmentation')
     
 sp_props = regionprops(segmentation+1, intensity_image=img, cache=True)
 

@@ -211,7 +211,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.instance_dir = None
                 self.instance_name = None
 
-                preview_img = QPixmap(os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '.tif'))
+                img_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '.tif')
+                print 'preview image path', img_path
+                preview_img = QPixmap(img_path)
 
                 self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
                 self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
@@ -225,11 +227,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             self.username = str(self.data_manager_ui.usernameEdit.text())
 
-            preview_fn = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
-            if os.path.isfile(preview_fn):
+            preview_fn_png = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
+            preview_fn_tif = self._full_labeling_name(self.parent_labeling_name + '_preview', 'tif')
 
-                preview_img = QPixmap(self._full_labeling_name(self.parent_labeling_name + '_preview', 'png'))
+            if os.path.isfile(preview_fn_png):
+                preview_img = QPixmap(preview_fn_png)
+                self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
+                self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
 
+            elif os.path.isfile(preview_fn_tif):
+                preview_img = QPixmap(preview_fn_tif)
                 self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
                 self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
             else:

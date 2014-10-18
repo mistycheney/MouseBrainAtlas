@@ -35,6 +35,108 @@ from joblib import Parallel, delayed
 
 import glob, re, os, sys, subprocess, argparse
 import pprint
+<<<<<<< HEAD
+=======
+import cPickle as pickle
+
+# <codecell>
+
+# parser = argparse.ArgumentParser(
+# formatter_class=argparse.RawDescriptionHelpFormatter,
+# description='Semi-supervised Sigboost',
+# epilog="""%s
+# """%(os.path.basename(sys.argv[0]), ))
+
+# parser.add_argument("stack_name", type=str, help="stack name")
+# parser.add_argument("resolution", type=str, help="resolution string")
+# parser.add_argument("slice_num", type=str, help="slice number, zero-padded to 4 digits")
+# parser.add_argument("param_id", type=str, help="parameter identification name")
+# args = parser.parse_args()
+
+class args:
+    stack_name = 'RS141'
+    resolution = 'x5'
+    slice_num = '0002'
+    params_name = 'redNissl'
+    models_fn = '/home/yuncong/BrainLocal/DavidData/RS141/x5/0001/redNissl/labelings/RS141_x5_0001_redNissl_models.pkl'
+
+data_dir = '/home/yuncong/BrainLocal/DavidData'
+repo_dir = '/home/yuncong/BrainSaliencyDetection'
+params_dir = os.path.join(repo_dir, 'params')
+
+# <codecell>
+
+# stack_name, resolution, slice_id, params_name, username, logout_time = os.path.basename(args.labeling_fn)[:-4].split('_')
+
+stack_name = args.stack_name
+resolution = args.resolution
+slice_id = args.slice_num
+params_name = args.params_name
+
+results_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'pipelineResults')
+labelings_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'labelings')
+
+instance_name = '_'.join([stack_name, resolution, slice_id, params_name])
+# parent_labeling_name = username + '_' + logout_time
+parent_labeling_name = None
+
+def full_object_name(obj_name, ext):
+    return os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'pipelineResults', instance_name + '_' + obj_name + '.' + ext)
+
+segmentation = np.load(full_object_name('segmentation', 'npy'))
+n_superpixels = np.max(segmentation) + 1
+
+# load parameter settings
+params_dir = os.path.realpath(params_dir)
+param_file = os.path.join(params_dir, 'param_%s.json'%params_name)
+param_default_file = os.path.join(params_dir, 'param_default.json')
+param = json.load(open(param_file, 'r'))
+param_default = json.load(open(param_default_file, 'r'))
+
+for k, v in param_default.iteritems():
+    if not isinstance(param[k], basestring):
+        if np.isnan(param[k]):
+            param[k] = v
+
+pprint.pprint(param)
+
+# <codecell>
+
+sp_texton_hist_normalized = np.load(full_object_name('texHist', 'npy'))
+sp_dir_hist_normalized = np.load(full_object_name('dirHist', 'npy'))
+p = sp_texton_hist_normalized
+q = sp_dir_hist_normalized
+
+# labellist = labeling['final_labellist']
+
+models = pickle.load(open(args.models_fn, 'r'))
+n_models = len(models)
+
+texton_models = [model['texton_hist'] for model in models]
+dir_models = [model['dir_hist'] for model in models]
+
+mask = np.load(full_object_name('cropMask','npy'))
+fg_superpixels = np.load(full_object_name('fg','npy'))
+bg_superpixels = np.load(full_object_name('bg','npy'))
+neighbors = np.load(full_object_name('neighbors','npy'))
+
+D_texton_model = -1*np.ones((n_models, n_superpixels))
+D_dir_model = -1*np.ones((n_models, n_superpixels))
+D_texton_model[:, fg_superpixels] = cdist(sp_texton_hist_normalized[fg_superpixels], texton_models, chi2).T
+D_dir_model[:, fg_superpixels] = cdist(sp_dir_hist_normalized[fg_superpixels], dir_models, chi2).T
+
+textonmap = np.load(full_object_name('texMap', 'npy'))
+overall_texton_hist = np.bincount(textonmap[mask].flat)
+
+overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
+
+overall_dir_hist = sp_dir_hist_normalized[fg_superpixels].mean(axis=0)
+
+overall_dir_hist_normalized = overall_dir_hist.astype(np.float) / overall_dir_hist.sum()
+
+D_texton_null = np.squeeze(cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2))
+D_dir_null = np.squeeze(cdist(sp_dir_hist_normalized, [overall_dir_hist_normalized], chi2))
+>>>>>>> 85dbf6df2435887b87258b522847c3fe9e35c5df
 
 # <codecell>
 
@@ -158,7 +260,12 @@ def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, D_dir_model,
 
 # set up sigboost parameters
 
+<<<<<<< HEAD
 n_models = param['n_models']
+=======
+# n_models = param['n_models']
+n_models = None
+>>>>>>> 85dbf6df2435887b87258b522847c3fe9e35c5df
 frontier_contrast_diff_thresh = param['frontier_contrast_diff_thresh']
 lr_grow_thresh = param['lr_grow_thresh']
 beta = param['beta']
@@ -175,9 +282,15 @@ print 'clusters computed'
 # <codecell>
 
 # create output directory
+<<<<<<< HEAD
 f = os.path.join(result_dir, 'stages')
 if not os.path.exists(f):
     os.makedirs(f)
+=======
+stages_dir = os.path.join(results_dir, 'stages')
+if not os.path.exists(stages_dir):
+    os.makedirs(stages_dir)
+>>>>>>> 85dbf6df2435887b87258b522847c3fe9e35c5df
 
 # initialize models
 texton_models = np.zeros((n_models, n_texton))
@@ -188,12 +301,23 @@ seed_indices = np.zeros((n_models,))
 weights = np.ones((n_superpixels, ))/n_superpixels
 weights[bg_superpixels] = 0
 
+<<<<<<< HEAD
+=======
+# <codecell>
+
+
+
+>>>>>>> 85dbf6df2435887b87258b522847c3fe9e35c5df
 # begin boosting loop; learn one model at each iteration
 for t in range(n_models):
     
     print 'model %d' % (t)
     
     # Compute significance scores for every superpixel;
+<<<<<<< HEAD
+=======
+    # i.e. the significance of using the appearance of superpixel i as model
+>>>>>>> 85dbf6df2435887b87258b522847c3fe9e35c5df
     # the significance score is defined as the average log likelihood ratio in a superpixel's RE-cluster
     sig_score = np.zeros((n_superpixels, ))
     for i in fg_superpixels:

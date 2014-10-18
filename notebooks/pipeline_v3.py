@@ -141,10 +141,10 @@ def load_array(suffix):
 def save_array(arr, suffix):
     utilities.save_array(arr, suffix, instance_name=instance_name, results_dir=results_dir)
         
-def save_img(img, suffix):
-    utilities.save_img(img, suffix, instance_name=instance_name, results_dir=results_dir, overwrite=True)
+def save_image(img, suffix):
+    utilities.save_image(img, suffix, instance_name=instance_name, results_dir=results_dir, overwrite=True)
 
-def load_img(suffix):
+def load_image(suffix):
     return utilities.load_array(suffix, instance_name=instance_name, results_dir=results_dir)
 
     
@@ -229,7 +229,7 @@ img = img[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 mask = mask[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
 im_height, im_width = img.shape[:2]
 
-save_img(img, 'cropImg')
+save_image(img, 'cropImg')
 
 save_array(mask, 'cropMask')
 
@@ -317,7 +317,7 @@ except IOError:
     save_array(textonmap.astype(np.int16), 'texMap')
     
 textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
-save_img(textonmap_rgb, 'texMap')
+save_image(textonmap_rgb, 'texMap')
 
 # <codecell>
 
@@ -360,7 +360,7 @@ for s in range(n_superpixels):
                       tuple(np.floor(sp_centroids[s][::-1]).astype(np.int)), 
                       cv2.FONT_HERSHEY_COMPLEX_SMALL,
                       .5, ((255,0,255)), 1)
-save_img(sptext, 'segmentation')
+save_image(sptext, 'segmentation')
 
 # <codecell>
 

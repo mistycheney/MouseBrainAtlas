@@ -6,8 +6,14 @@ import numpy as np
 import datetime
 import shutil
 
-old_data_dir = '/home/yuncong/BrainLocal/DavidData_v2'
-new_data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
+# old_data_dir = '/home/yuncong/BrainLocal/DavidData_v2'
+# new_data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
+
+# old_data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v2'
+# new_data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v3'
+
+old_data_dir = sys.argv[1]
+new_data_dir = sys.argv[2]
 
 if not os.path.exists(new_data_dir):
 	os.makedirs(new_data_dir)
@@ -34,7 +40,7 @@ for path, folders, files in os.walk(old_data_dir):
 			# os.makedirs(new_path+'/'+paramSet+'_pipelineResults')
 			shutil.copytree(path+'/'+paramSet+'/pipelineResults', new_path+'/'+paramSet+'_pipelineResults')
 			print 'cp', path+'/'+paramSet+'/pipelineResults', new_path+'/'+paramSet+'_pipelineResults'
-			
+
 			for f in os.listdir(path+'/'+paramSet+'/labelings'):
 				new_labeling_name = '_'.join([x for x in f.split('_') if x != paramSet])
 				print 'cp', path+'/'+paramSet+'/labelings/'+f, new_path+'/labelings/'+new_labeling_name

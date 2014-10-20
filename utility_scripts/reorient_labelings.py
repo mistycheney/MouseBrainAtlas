@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
-
-# <codecell>
-
 """
 Modify Sean's labelings on vertical RS141 slices, so that they are consistent 
 with the new convention that all RS141 slices are horizontal.
@@ -12,14 +7,19 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from skimage.color import label2rgb, rgb2gray
-import utilities
+
+import sys
+import os
+
 from joblib import Parallel, delayed
 import cPickle as pickle
-import os
-import sys
 import subprocess
 import pprint
-    
+
+sys.path.append(os.path.realpath('../notebooks'))
+import utilities
+
+
 data_dir = '/home/yuncong/BrainLocal/DavidData'
 repo_dir = '/home/yuncong/BrainSaliencyDetection'
 
@@ -27,11 +27,19 @@ stack_name = 'RS141'
 resolution = 'x5'
 params_name = 'redNissl'
 
-for i in range(25):
-    slice_id = '0001'
+def exists_remote(host, path):
+    return subprocess.call(['ssh', host, 'test -e ' + pipes.quote(path)]) == 0
+
+
+for sli in range(25):
+    slice_id = '%04d'%sli
 
     results_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'pipelineResults')
     labelings_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name, 'labelings')
+
+    if not os.path.exists(labelings_dir):
+        os.makedirs(labelings_dir)
+
 
     instance_name = '_'.join([stack_name, resolution, slice_id, params_name])
 
@@ -47,14 +55,12 @@ for i in range(25):
     def load_image(suffix):
         return utilities.load_image(suffix, instance_name=instance_name, results_dir=results_dir)
 
-# <codecell>
-
     img_rgb_horizontal = load_image('cropImg')
     img_rgb_vertical = np.transpose(img_rgb_horizontal, (1,0,2))[:,::-1,:]
 
     img_vertical = rgb2gray(img_rgb_vertical)
 
-    sean_pipelineResults_dir_local ='/home/yuncong/BrainLocal/RS141_x5_%s_redNissl_pipelineResults/'%slice_id
+    sean_pipelineResults_dir_local ='/home/yuncong/BrainLocal/sean_pipelineResults/RS141_x5_%s_redNissl_pipelineResults/'%slice_id
 
     if not os.path.exists(sean_pipelineResults_dir_local):
         os.makedirs(sean_pipelineResults_dir_local)
@@ -66,15 +72,14 @@ for i in range(25):
 
     if not os.path.exists(os.path.join(sean_pipelineResults_dir_local, segmentation_fn)):
         cmd = 'scp gcn:%s %s' %(results_file2, sean_pipelineResults_dir_local)
+        print cmd
         subprocess.call(cmd, shell=True)
 
     segmentation_vertical = np.load(os.path.join(sean_pipelineResults_dir_local, segmentation_fn))
 
-# <codecell>
-
-    import cPickle as pickle
-
     sean_labeling_fn = '/home/yuncong/BrainLocal/sean_labelings/RS141_x5_%s_param_redNissl_labeling.pkl'%slice_id
+    if not os.path.exists(sean_labeling_fn):
+        continue
 
     labeling = pickle.load(open(sean_labeling_fn, 'r'))
     print labeling.keys()
@@ -98,7 +103,6 @@ for i in range(25):
         if dominant_label != -1:
             labellist_horizontal[sp] = dominant_label
 
-# <codecell>
 
     new_labelmap_horizontal = labellist_horizontal[segmentation_horizontal]
 

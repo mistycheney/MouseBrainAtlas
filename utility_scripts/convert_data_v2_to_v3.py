@@ -15,12 +15,14 @@ import shutil
 old_data_dir = sys.argv[1]
 new_data_dir = sys.argv[2]
 
+external_nlevel = len(old_data_dir.split('/'))
+
 if not os.path.exists(new_data_dir):
 	os.makedirs(new_data_dir)
 
 for path, folders, files in os.walk(old_data_dir):
 	all_segments = path.split('/')
-	nlevel = len(all_segments) - 5
+	nlevel = len(all_segments) - external_nlevel - 1
 	internal_segments = '/'.join(all_segments[-3:])
 	image_name = '_'.join(all_segments[-3:])
 	new_path = new_data_dir + '/' + internal_segments

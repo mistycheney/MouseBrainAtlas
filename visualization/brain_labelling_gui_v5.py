@@ -56,29 +56,27 @@ def get_vispaths(file_paths):
     vis_paths = file_paths[:]
     for i in range(len(file_paths)):
         p = file_paths[i]
-        if 'stages' in p or 'pipelineResults' in p or p.endswith('.tif'):
+        if 'pipelineResults' in p or p.endswith('.tif'):
             vis_paths[i] = None
         elif 'labeling' in p:
             elements = p.split('/')
             n_elem = len(elements)
             if n_elem == 5:
-                vis_paths[i] = None
-            elif n_elem == 6:
-                if elements[5].endswith('.pkl'):
-                    labeling_name = '_'.join(elements[5][:-4].split('_')[-2:])
-                    vis_paths[i] = '/'.join(elements[:4] + [labeling_name])
+                if elements[-1].endswith('.pkl'):
+                    labeling_name = '_'.join(elements[-1][:-4].split('_')[-2:])
+                    vis_paths[i] = '/'.join(elements[:3] + [labeling_name])
                 else:
                     vis_paths[i] = None
     return vis_paths
 
+# print get_vispaths(['RS141/x5/0001/RS141_x5_0001.tif', 'RS141/x5/0001/labelings/dummy.pkl', 'RS141/x5/0001/redNissl_pipelineResults/dummy2.pkl'])
+# sys.exit(1)
+
+
+status_text = ['NO_LABEL', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_SYNCED', 'LABELING_NOT_DOWNLOADED', 'LABELING_NOT_UPLOADED', 'ACTION']
 
 class Status(object):
-    NO_LABEL, INSTANCE_NOT_PROCESSED, INSTANCE_PROCESSED_NOT_DOWNLOADED, INSTANCE_READY, \
-    IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED, ACTION = range(10)
-
-status_text = ['NO_LABEL', 'INSTANCE_NOT_PROCESSED', 'INSTANCE_PROCESSED_NOT_DOWNLOADED', \
-'INSTANCE_READY', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_READY', 'LABELING_NOT_DOWNLOADED', \
-'LABELING_READY_NOT_UPLOADED', 'ACTION']
+    NO_LABEL, IMG_NOT_DOWNLOADED, IMG_READY, LABELING_SYNCED, LABELING_NOT_DOWNLOADED, LABELING_NOT_UPLOADED, ACTION = range(len(status_text))
 
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
@@ -88,7 +86,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         # Load data
 
-        self.data_dir = '/home/yuncong/BrainLocal/DavidData'
+        self.data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
         self.remote_data_dir = '/home/yuncong/DavidData/'
         self.gordon_username = 'yuncong'
         self.gordon_hostname = 'gcn-20-32.sdsc.edu'
@@ -137,20 +135,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for p in complete_vispaths:
             if p is None: continue
             nlevel = len(p.split('/'))
-            if nlevel == 5: # labeling path
+            if nlevel == 4: # labeling path
                 if p in local_vispaths:
-                    labeled_complete_vispaths[p] = Status.LABELING_READY
+                    labeled_complete_vispaths[p] = Status.LABELING_SYNCED
                     if p not in remote_vispaths:
-                        labeled_complete_vispaths[p] = Status.LABELING_READY_NOT_UPLOADED
+                        labeled_complete_vispaths[p] = Status.LABELING_NOT_UPLOADED
                 elif p in remote_vispaths:
                     labeled_complete_vispaths[p] = Status.LABELING_NOT_DOWNLOADED
-            if nlevel == 4: # params path
-                if p in local_vispaths:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_READY
-                elif p in remote_vispaths:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_PROCESSED_NOT_DOWNLOADED
-                else:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_NOT_PROCESSED
             elif nlevel == 3: # image path
                 if p in local_vispaths:
                     labeled_complete_vispaths[p] = Status.IMG_READY
@@ -163,10 +154,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             if p is None: continue
             nlevel = len(p.split('/'))
             if nlevel == 4:
-                if labeled_complete_vispaths[p] == Status.INSTANCE_READY:
-                    complete_vispaths.append(p + '/' + 'empty_labeling')
-                    complete_paths.append(None)
-                    status_labels.append(Status.ACTION)
+                complete_vispaths.append(p + '/' + 'empty_labeling')
+                complete_paths.append(None)
+                status_labels.append(Status.ACTION)
 
         return complete_paths, complete_vispaths, status_labels
 

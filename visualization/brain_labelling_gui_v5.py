@@ -266,7 +266,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def _download_remote_directory_structure(self):
 
-        cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir)
+        cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir, self.remote_repo_dir)
         print cmd
         subprocess.call(cmd, shell=True)
 

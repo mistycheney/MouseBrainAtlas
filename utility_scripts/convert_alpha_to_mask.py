@@ -1,9 +1,14 @@
 import os
 import sys
 import subprocess
+import argparse
 
-img_dir = sys.argv[1]
-os.chdir(img_dir)
+parser = argparse.ArgumentParser(description="Generate masks from the alpha channels of tif files")
+parser.add_argument("img_dir", help="directory containing the tif images")
+args = parser.parse_args()
+
+# img_dir = sys.argv[1]
+os.chdir(args.img_dir)
 
 for img in os.listdir('.'):
 

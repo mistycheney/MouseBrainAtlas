@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui.ui'
 #
-# Created: Thu Oct  9 10:23:05 2014
+# Created: Mon Oct 20 01:16:21 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -67,6 +67,23 @@ class Ui_BrainLabelingGui(object):
         self.saveButton = QtGui.QPushButton(self.centralwidget)
         self.saveButton.setObjectName(_fromUtf8("saveButton"))
         self.buttonsLayout.addWidget(self.saveButton)
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.label = QtGui.QLabel(self.centralwidget)
+        self.label.setObjectName(_fromUtf8("label"))
+        self.horizontalLayout_2.addWidget(self.label)
+        self.brushRadiusSlider = QtGui.QSlider(self.centralwidget)
+        self.brushRadiusSlider.setMaximum(50)
+        self.brushRadiusSlider.setProperty("value", 10)
+        self.brushRadiusSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.brushRadiusSlider.setInvertedControls(False)
+        self.brushRadiusSlider.setTickPosition(QtGui.QSlider.NoTicks)
+        self.brushRadiusSlider.setObjectName(_fromUtf8("brushRadiusSlider"))
+        self.horizontalLayout_2.addWidget(self.brushRadiusSlider)
+        self.label_2 = QtGui.QLabel(self.centralwidget)
+        self.label_2.setObjectName(_fromUtf8("label_2"))
+        self.horizontalLayout_2.addWidget(self.label_2)
+        self.buttonsLayout.addLayout(self.horizontalLayout_2)
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
@@ -94,8 +111,10 @@ class Ui_BrainLabelingGui(object):
         BrainLabelingGui.setWindowTitle(_translate("BrainLabelingGui", "BrainLabelingGui", None))
         self.loadButton.setText(_translate("BrainLabelingGui", "Load", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
+        self.label.setText(_translate("BrainLabelingGui", "brush size", None))
+        self.label_2.setText(_translate("BrainLabelingGui", "None", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add Label", None))
-        self.sigboostButton.setText(_translate("BrainLabelingGui", "SigBoost", None))
+        self.sigboostButton.setText(_translate("BrainLabelingGui", "Save and SigBoost", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
 
 from mplwidget import MplWidget

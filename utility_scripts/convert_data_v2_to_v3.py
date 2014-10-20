@@ -15,6 +15,9 @@ import shutil
 old_data_dir = sys.argv[1]
 new_data_dir = sys.argv[2]
 
+# start fresh
+shutil.rmtree(new_data_dir)
+
 external_nlevel = len(old_data_dir.split('/'))
 
 if not os.path.exists(new_data_dir):

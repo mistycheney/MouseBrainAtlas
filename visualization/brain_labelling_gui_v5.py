@@ -58,15 +58,20 @@ def get_vispaths(file_paths):
         p = file_paths[i]
         if 'pipelineResults' in p or p.endswith('.tif'):
             vis_paths[i] = None
-        elif 'labeling' in p:
+        elif 'labelings' in p:
             elements = p.split('/')
             n_elem = len(elements)
+            
+            if n_elem == 4:
+                vis_paths[i] = None
+
             if n_elem == 5:
                 if elements[-1].endswith('.pkl'):
                     labeling_name = '_'.join(elements[-1][:-4].split('_')[-2:])
                     vis_paths[i] = '/'.join(elements[:3] + [labeling_name])
                 else:
                     vis_paths[i] = None
+
     return vis_paths
 
 # print get_vispaths(['RS141/x5/0001/RS141_x5_0001.tif', 'RS141/x5/0001/labelings/dummy.pkl', 'RS141/x5/0001/redNissl_pipelineResults/dummy2.pkl'])
@@ -120,13 +125,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         local_paths = dict_to_paths(local_dir_structure)
         local_vispaths = get_vispaths(local_paths)
 
-        params_list = [fn[6:-5] for fn in os.listdir(self.params_dir)]
-
-        complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
-        complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
-        complete_paths = list(set(complete_paths1) | set(complete_paths2))
-
-        # pprint(complete_paths)
+        complete_paths = list(set(remote_paths) | set(local_paths))
 
         complete_vispaths = get_vispaths(complete_paths)
 
@@ -153,7 +152,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for p in complete_vispaths[:]:
             if p is None: continue
             nlevel = len(p.split('/'))
-            if nlevel == 4:
+            if nlevel == 3:
                 complete_vispaths.append(p + '/' + 'empty_labeling')
                 complete_paths.append(None)
                 status_labels.append(Status.ACTION)
@@ -186,15 +185,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.data_manager_ui.inputLoadButton.setText('None')
         self.data_manager_ui.uploadButton.setText('None')
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+        if self.status == Status.LABELING_SYNCED or self.status == Status.LABELING_NOT_UPLOADED or self.status == Status.ACTION:
             self.data_manager_ui.inputLoadButton.setText('Load')
-            if self.status == Status.LABELING_READY_NOT_UPLOADED:
+            if self.status == Status.LABELING_NOT_UPLOADED:
                 self.data_manager_ui.uploadButton.setText('Upload Labeling')
-
-        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED or self.status == Status.LABELING_NOT_DOWNLOADED:
-            self.data_manager_ui.inputLoadButton.setText('Download')
-        elif self.status == Status.INSTANCE_NOT_PROCESSED:
-            self.data_manager_ui.inputLoadButton.setText('Process')
 
         if len(fullpath_list) == 3: # select slice number
                 self.stack_name, self.resolution, self.slice_id = fullpath_list
@@ -210,17 +204,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
                 self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
 
-        elif len(fullpath_list) == 5:
-            self.stack_name, self.resolution, self.slice_id, self.params_name, self.parent_labeling_name = fullpath_list
+        elif len(fullpath_list) == 4:
+            self.stack_name, self.resolution, self.slice_id, self.parent_labeling_name = fullpath_list
 
             self.image_name = '_'.join([self.stack_name, self.resolution, self.slice_id])
-            self.instance_name = self.image_name + '_' + self.params_name
-            self.instance_dir = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.params_name)
 
             self.username = str(self.data_manager_ui.usernameEdit.text())
 
-            preview_fn_png = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
-            preview_fn_tif = self._full_labeling_name(self.parent_labeling_name + '_preview', 'tif')
+            preview_fn_png = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '_preview.png')
+            preview_fn_tif = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '_preview.tif')
 
             if os.path.isfile(preview_fn_png):
                 preview_img = QPixmap(preview_fn_png)
@@ -239,7 +231,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_inputLoadButton(self):
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+        if self.status == Status.LABELING_SYNCED or self.status == Status.LABELING_NOT_UPLOADED or self.status == Status.ACTION:
             # load brain labeling gui
 
             if self.status == Status.ACTION:
@@ -248,17 +240,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.load_data()
             # self.data_manager.close()
             self.initialize_brain_labeling_gui()
-
-        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED:
-            filepath = self.vispaths_filepaths_dict[self.full_vispath]
-            remote_dir = os.path.join(self.remote_data_dir, filepath)
-            local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
-            cmd = "scp -r %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_dir, local_dir)
-            print cmd
-            # subprocess.call(cmd, shell=True)
-            # self.refresh_data_status()
 
         elif self.status == Status.IMG_NOT_DOWNLOADED:
             filepath = self.vispaths_filepaths_dict[self.full_vispath]
@@ -284,11 +265,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def _download_remote_directory_structure(self):
+
         cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir)
         print cmd
         subprocess.call(cmd, shell=True)
 
-        cmd = "scp -r %s@%s:%s/utility_scripts/remote_directory_structure.pkl %s"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.temp_dir)
+        cmd = "scp -r %s@%s:%s/remote_directory_structure.pkl %s"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.temp_dir)
         print cmd
         subprocess.call(cmd, shell=True)
 
@@ -322,11 +304,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # img = cv2.imread(self._full_object_name('img', 'tif'), 0)
         # self.mask = np.load(self._full_object_name('cropMask', 'npy'))
         
-        img = cv2.imread(self._full_object_name('img', 'tif'), 0)
-        self.mask = np.load('mask', 'npy')
+        img = cv2.imread(os.path.join(self.stack_name, self.resolution, self.slice_id, self.image_name+'.tif'), 0)
+        # self.mask = np.load('mask', 'npy')
+        self.mask = np.ones_like(img, dtype=np.bool)
 
         self.img = img * self.mask
-
 
         try:
 

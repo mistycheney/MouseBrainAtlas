@@ -33,7 +33,6 @@ for path, folders, files in os.walk(old_data_dir):
 
 		for paramSet in folders: # paramSets
 
-
 			# print internal_segments
 			# print path, new_path, folders
 			# print paramSet
@@ -45,7 +44,8 @@ for path, folders, files in os.walk(old_data_dir):
 			shutil.copytree(path+'/'+paramSet+'/pipelineResults', new_path+'/'+paramSet+'_pipelineResults')
 			
 
-			for f in os.listdir(path+'/'+paramSet+'/labelings'):
-				new_labeling_name = '_'.join([x for x in f.split('_') if x != paramSet])
-				print 'cp', path+'/'+paramSet+'/labelings/'+f, new_path+'/labelings/'+new_labeling_name
-				shutil.copyfile(path+'/'+paramSet+'/labelings/'+f, new_path+'/labelings/'+new_labeling_name)
+			if os.path.exists(path+'/'+paramSet+'/labelings'):
+				for f in os.listdir(path+'/'+paramSet+'/labelings'):
+					new_labeling_name = '_'.join([x for x in f.split('_') if x != paramSet])
+					print 'cp', path+'/'+paramSet+'/labelings/'+f, new_path+'/labelings/'+new_labeling_name
+					shutil.copyfile(path+'/'+paramSet+'/labelings/'+f, new_path+'/labelings/'+new_labeling_name)

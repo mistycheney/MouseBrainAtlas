@@ -114,7 +114,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Generate the list of 3-tuples.
         """
 
-        self._download_remote_directory_structure()
+        # self._download_remote_directory_structure()
 
         remote_dir_structure = pickle.load(open('%s/remote_directory_structure.pkl'%self.temp_dir, 'r')).values()[0]
         local_dir_structure = get_directory_structure(self.data_dir).values()[0]
@@ -288,7 +288,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def on_DataManager_getRemoteButton(self):
-        self._download_remote_directory_structure()
+        # self._download_remote_directory_structure()
         self.refresh_data_status()
 
 
@@ -318,10 +318,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         
         img_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name+'.tif')
         mask_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '_mask.png')
-        mask = cv2.imread(mask_path, 0) > 0
+        self.mask = cv2.imread(mask_path, 0) > 0
         # self.mask = np.ones_like(img, dtype=np.bool)
         self.img = cv2.imread(img_path, 0)
-        self.img[~mask] = 0
+        self.img[~self.mask] = 0
 
         try:
             labeling_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '.pkl')
@@ -356,7 +356,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 'labelnames' : [],
             }
 
-            labelnames_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_labelnames.json')
+            labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
             if os.path.isfile(labelnames_fn):
                 labelnames = json.load(open(labelnames_fn, 'r'))
                 self.labeling['labelnames'] = labelnames
@@ -390,6 +390,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.data_manager_ui = Ui_DataManager()
         self.data_manager_ui.setupUi(self.data_manager)
 
+        self._download_remote_directory_structure()
         self.refresh_data_status()
 
         self.data_manager_ui.StackSliceView.clicked.connect(self.on_select_item)
@@ -455,11 +456,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.axes.imshow(labelmap_vis)
 
         self.circle_list = [plt.Circle((x,y), radius=r, color=self.colors[l+1], alpha=.3) for x,y,r,l in self.labeling['init_label_circles']]
-        self.generate_labelmap()
+        self.labelmap = self.generate_labelmap(self.circle_list)
+
+        np.save('/tmp/labelmap.npy', self.labelmap)
 
         for c in self.circle_list:
             self.axes.add_patch(c)
-
 
         self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 
@@ -515,25 +517,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def _save_labeling(self):
 
-        self.generate_labelmap()
+        # self.axes.imshow(labelmap_vis)
+        # for c in self.circle_list:
+        #     c.remove()
+
+        # self.circle_list = []
+
+        # self.canvas.draw()
 
         self.labeling['final_label_circles'] = self.circle_list_to_labeling_field(self.circle_list)
-
-        for c in self.circle_list:
-            c.remove()
-
-        self.circle_list = []
-
-        # labelmap_vis = self.colors[self.labelmap]
-        labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors, alpha=0.3, image_alpha=1)
-
-        self.axes.imshow(labelmap_vis)
-        self.canvas.draw()
-
         self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
         self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
 
-        labelnames_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_labelnames.json')
+        labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
 
         json.dump(self.labeling['labelnames'], open(labelnames_fn, 'w'))
 
@@ -545,12 +541,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         new_preview_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name + '_preview.png')
 
+        self.labelmap = self.generate_labelmap(self.circle_list)
+        # labelmap_vis = self.colors[self.labelmap]
+
+        labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors[1:], bg_label=-1, bg_color=self.colors[0], alpha=0.3, image_alpha=1.)
         labelmap_rgb = utilities.regulate_img(labelmap_vis)
-        cv2.imwrite(new_preview_fn, labelmap_rgb)
+        cv2.imwrite(new_preview_fn, labelmap_rgb[:,:,::-1])
 
         print 'Preview saved to', new_preview_fn
 
-        self.statusBar().showMessage('Labeling saved to %s' new_labeling_fn )
+        self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
 
 
     def save_callback(self):
@@ -563,14 +563,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     ############################################
     # matplotlib canvas CALLBACKs
     ############################################
-
-    def circle_list_to_labeling_field(self ,circle_list):
-        label_circles = []
-        for c in circle_list:
-            label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0]
-            label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
-        return label_circles
-
 
     def zoom_fun(self, event):
         # get the current x and y limits and subplot position
@@ -704,28 +696,38 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def erase_circles_near(self, x, y):
         to_remove = []
         for c in self.circle_list:
-            if abs(c.center[0] - x) < 10 and abs(c.center[1] - y) < 10:
+            if abs(c.center[0] - x) < 30 and abs(c.center[1] - y) < 30:
                 to_remove.append(c)
 
         for c in to_remove:
             self.circle_list.remove(c)
             c.remove()
 
+    def circle_list_to_labeling_field(self, circle_list):
+        label_circles = []
+        for c in circle_list:
+            label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
+            label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
+        return label_circles
 
-    def generate_labelmap(self):
+
+    def generate_labelmap(self, circle_list):
         """
         Generate labelmap from the list of circles
         """
 
-        self.labelmap = -1*np.ones_like(self.img, dtype=np.int8)
+        labelmap = -1*np.ones_like(self.img, dtype=np.int)
 
-        for c in self.circle_list:
+        for c in circle_list:
             cx, cy = c.center
             for x in np.arange(cx-c.radius, cx+c.radius):
                 for y in np.arange(cy-c.radius, cy+c.radius):
                     if (cx-x)**2+(cy-y)**2 <= c.radius**2:
-                        label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0]
-                        self.labelmap[int(y),int(x)] = label
+                        label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
+                        labelmap[int(y),int(x)] = label
+
+        return labelmap
+
 
 if __name__ == '__main__':
     gui = BrainLabelingGUI()

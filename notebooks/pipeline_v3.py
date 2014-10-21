@@ -115,7 +115,7 @@ im_height, im_width = img.shape[:2]
 
 instance_name = img_name + '_' + str(param['param_id'])
 
-results_dir = os.path.join(data_dir, stack, resol, slice, args.param_id, 'pipelineResults')
+results_dir = os.path.join(data_dir, stack, resol, slice, args.param_id+'_pipelineResults')
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
     
@@ -158,7 +158,12 @@ def load_image(suffix):
 print '=== finding foreground mask ==='
 
 try:
-    mask = load_array('uncropMask')
+    
+    mask_fn = os.path.join(img_dir, '_'.join([stack, resol, slice, '_mask.png']))
+    mask = cv2.imread(mask_fn, 0) > 0
+    print 'loaded mask from', mask_fn
+    
+#     mask = load_array('uncropMask')
 
 except:
 

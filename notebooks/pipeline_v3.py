@@ -119,7 +119,8 @@ results_dir = os.path.join(data_dir, stack, resol, slice, args.param_id+'_pipeli
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
     
-textons_file = os.path.realpath(args.textons_file)
+if args.textons_file is not None:
+    textons_file = os.path.realpath(args.textons_file)
 
 # <codecell>
 
@@ -164,7 +165,7 @@ try:
     print 'loaded mask from', mask_fn
     
 #     mask = load_array('uncropMask')
-
+s
 except:
 
     mask = utilities.foreground_mask(img, min_size=2500)

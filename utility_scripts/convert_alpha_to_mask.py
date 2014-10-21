@@ -16,6 +16,10 @@ for img in os.listdir('.'):
 
 	name, ext = img.split('.')
 
-	cmd = 'convert  %s -channel Alpha -separate %s_mask.png ' % (img, name)
+	cmd = 'convert  %s -channel Alpha -black-threshold 100%% -separate %s_mask.png ' % (img, name)
+	print cmd
+	subprocess.call(cmd, shell=True)
+
+	cmd = 'convert  %s_mask.png -black-threshold 100%% %s_mask.png ' % (name, name)
 	print cmd
 	subprocess.call(cmd, shell=True)

@@ -278,7 +278,7 @@ except IOError:
             r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
                             for x, c in zip(np.array_split(data, n_splits, axis=0), 
                                             itertools.repeat(centroid_all_rotations, n_splits)))
-            res = np.vstack(r)        
+            res = np.vstack(r)
 
             labels = res[:,0]
             rotations = res[:,1]

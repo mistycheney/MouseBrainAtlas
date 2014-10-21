@@ -56,29 +56,32 @@ def get_vispaths(file_paths):
     vis_paths = file_paths[:]
     for i in range(len(file_paths)):
         p = file_paths[i]
-        if 'stages' in p or 'pipelineResults' in p or p.endswith('.tif'):
+        if 'pipelineResults' in p or 'model' in p  or p.endswith('.tif') or p.endswith('.png'):
             vis_paths[i] = None
-        elif 'labeling' in p:
+        elif 'labelings' in p:
             elements = p.split('/')
             n_elem = len(elements)
-            if n_elem == 5:
+            
+            if n_elem == 4:
                 vis_paths[i] = None
-            elif n_elem == 6:
-                if elements[5].endswith('.pkl'):
-                    labeling_name = '_'.join(elements[5][:-4].split('_')[-2:])
-                    vis_paths[i] = '/'.join(elements[:4] + [labeling_name])
+
+            if n_elem == 5:
+                if elements[-1].endswith('.pkl'):
+                    labeling_name = '_'.join(elements[-1][:-4].split('_')[-2:])
+                    vis_paths[i] = '/'.join(elements[:3] + [labeling_name])
                 else:
                     vis_paths[i] = None
+
     return vis_paths
 
+# print get_vispaths(['RS141/x5/0001/RS141_x5_0001.tif', 'RS141/x5/0001/labelings/dummy.pkl', 'RS141/x5/0001/redNissl_pipelineResults/dummy2.pkl'])
+# sys.exit(1)
+
+
+status_text = ['NO_LABEL', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_SYNCED', 'LABELING_NOT_DOWNLOADED', 'LABELING_NOT_UPLOADED', 'ACTION']
 
 class Status(object):
-    NO_LABEL, INSTANCE_NOT_PROCESSED, INSTANCE_PROCESSED_NOT_DOWNLOADED, INSTANCE_READY, \
-    IMG_NOT_DOWNLOADED, IMG_READY, LABELING_READY, LABELING_NOT_DOWNLOADED, LABELING_READY_NOT_UPLOADED, ACTION = range(10)
-
-status_text = ['NO_LABEL', 'INSTANCE_NOT_PROCESSED', 'INSTANCE_PROCESSED_NOT_DOWNLOADED', \
-'INSTANCE_READY', 'IMG_NOT_DOWNLOADED', 'IMG_READY', 'LABELING_READY', 'LABELING_NOT_DOWNLOADED', \
-'LABELING_READY_NOT_UPLOADED', 'ACTION']
+    NO_LABEL, IMG_NOT_DOWNLOADED, IMG_READY, LABELING_SYNCED, LABELING_NOT_DOWNLOADED, LABELING_NOT_UPLOADED, ACTION = range(len(status_text))
 
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
@@ -88,7 +91,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         # Load data
 
-        self.data_dir = '/home/yuncong/BrainLocal/DavidData'
+        self.data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
         self.remote_data_dir = '/home/yuncong/DavidData/'
         self.gordon_username = 'yuncong'
         self.gordon_hostname = 'gcn-20-32.sdsc.edu'
@@ -107,6 +110,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def label_paths(self):
+        """
+        Generate the list of 3-tuples.
+        """
 
         self._download_remote_directory_structure()
 
@@ -119,13 +125,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         local_paths = dict_to_paths(local_dir_structure)
         local_vispaths = get_vispaths(local_paths)
 
-        params_list = [fn[6:-5] for fn in os.listdir(self.params_dir)]
-
-        complete_paths1 = pad_paths(remote_paths, level=3, key_list=params_list)
-        complete_paths2 = pad_paths(local_paths, level=3, key_list=params_list)
-        complete_paths = list(set(complete_paths1) | set(complete_paths2))
-
-        # pprint(complete_paths)
+        complete_paths = list(set(remote_paths) | set(local_paths))
 
         complete_vispaths = get_vispaths(complete_paths)
 
@@ -134,20 +134,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for p in complete_vispaths:
             if p is None: continue
             nlevel = len(p.split('/'))
-            if nlevel == 5: # labeling path
+            if nlevel == 4: # labeling path
                 if p in local_vispaths:
-                    labeled_complete_vispaths[p] = Status.LABELING_READY
+                    labeled_complete_vispaths[p] = Status.LABELING_SYNCED
                     if p not in remote_vispaths:
-                        labeled_complete_vispaths[p] = Status.LABELING_READY_NOT_UPLOADED
+                        labeled_complete_vispaths[p] = Status.LABELING_NOT_UPLOADED
                 elif p in remote_vispaths:
                     labeled_complete_vispaths[p] = Status.LABELING_NOT_DOWNLOADED
-            if nlevel == 4: # params path
-                if p in local_vispaths:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_READY
-                elif p in remote_vispaths:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_PROCESSED_NOT_DOWNLOADED
-                else:
-                    labeled_complete_vispaths[p] = Status.INSTANCE_NOT_PROCESSED
             elif nlevel == 3: # image path
                 if p in local_vispaths:
                     labeled_complete_vispaths[p] = Status.IMG_READY
@@ -159,21 +152,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for p in complete_vispaths[:]:
             if p is None: continue
             nlevel = len(p.split('/'))
-            if nlevel == 4:
-                if labeled_complete_vispaths[p] == Status.INSTANCE_READY:
-                    complete_vispaths.append(p + '/' + 'empty_labeling')
-                    complete_paths.append(None)
-                    status_labels.append(Status.ACTION)
+            if nlevel == 3:
+                complete_vispaths.append(p + '/' + 'empty_labeling')
+                complete_paths.append(None)
+                status_labels.append(Status.ACTION)
 
         return complete_paths, complete_vispaths, status_labels
 
 
-    def _full_labeling_name(self, labeling_name, ext):
-        return os.path.join(self.instance_dir, 'labelings', self.instance_name + '_' + labeling_name + '.' + ext)
+    # def _full_labeling_name(self, labeling_name, ext):
+    #     return os.path.join(self.instance_dir, 'labelings', self.instance_name + '_' + labeling_name + '.' + ext)
 
-    def _full_object_name(self, obj_name, ext):
-       return os.path.join(self.instance_dir, 'pipelineResults', self.instance_name + '_' + obj_name + '.' + ext)
-
+    # def _full_object_name(self, obj_name, ext):
+    #    return os.path.join(self.instance_dir, 'pipelineResults', self.instance_name + '_' + obj_name + '.' + ext)
 
     def on_select_item(self, index):
 
@@ -194,15 +185,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.data_manager_ui.inputLoadButton.setText('None')
         self.data_manager_ui.uploadButton.setText('None')
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+        if self.status == Status.LABELING_SYNCED or self.status == Status.LABELING_NOT_UPLOADED or self.status == Status.ACTION:
             self.data_manager_ui.inputLoadButton.setText('Load')
-            if self.status == Status.LABELING_READY_NOT_UPLOADED:
+            if self.status == Status.LABELING_NOT_UPLOADED:
                 self.data_manager_ui.uploadButton.setText('Upload Labeling')
-
-        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED or self.status == Status.IMG_NOT_DOWNLOADED or self.status == Status.LABELING_NOT_DOWNLOADED:
-            self.data_manager_ui.inputLoadButton.setText('Download')
-        elif self.status == Status.INSTANCE_NOT_PROCESSED:
-            self.data_manager_ui.inputLoadButton.setText('Process')
 
         if len(fullpath_list) == 3: # select slice number
                 self.stack_name, self.resolution, self.slice_id = fullpath_list
@@ -212,23 +198,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.instance_name = None
 
                 img_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '.tif')
+
+                mask_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '_mask.png')
+                mask = cv2.imread(mask_path, 0) > 0
+                img = cv2.imread(img_path)
+                img[~mask] = [0,0,0]
+
+                b = (255 << 24 | img[:,:,0] << 16 | img[:,:,1] << 8 | img[:,:,2]).flatten() # pack RGB values
+                # b = (img[:,:,0] << 16 | img[:,:,1] << 8 | img[:,:,2]).flatten() # pack RGB values
+                b = b.astype(np.uint32)
+
+                im = QImage(b, img.shape[1], img.shape[0], QImage.Format_ARGB32_Premultiplied)
+
                 print 'preview image path', img_path
-                preview_img = QPixmap(img_path)
+                preview_img = QPixmap.fromImage(im)
 
                 self.data_manager_ui.preview_pic.setGeometry(0, 0, 500, 500)
                 self.data_manager_ui.preview_pic.setPixmap(preview_img.scaled(self.data_manager_ui.preview_pic.size(), Qt.KeepAspectRatio))
 
-        elif len(fullpath_list) == 5:
-            self.stack_name, self.resolution, self.slice_id, self.params_name, self.parent_labeling_name = fullpath_list
+        elif len(fullpath_list) == 4: # labeling item
+            self.stack_name, self.resolution, self.slice_id, self.parent_labeling_name = fullpath_list
 
             self.image_name = '_'.join([self.stack_name, self.resolution, self.slice_id])
-            self.instance_name = self.image_name + '_' + self.params_name
-            self.instance_dir = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.params_name)
 
             self.username = str(self.data_manager_ui.usernameEdit.text())
 
-            preview_fn_png = self._full_labeling_name(self.parent_labeling_name + '_preview', 'png')
-            preview_fn_tif = self._full_labeling_name(self.parent_labeling_name + '_preview', 'tif')
+            preview_fn_png = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '_preview.png')
+            preview_fn_tif = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '_preview.tif')
 
             if os.path.isfile(preview_fn_png):
                 preview_img = QPixmap(preview_fn_png)
@@ -247,7 +243,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def on_inputLoadButton(self):
 
-        if self.status == Status.LABELING_READY or self.status == Status.LABELING_READY_NOT_UPLOADED or self.status == Status.ACTION:
+        if self.status == Status.LABELING_SYNCED or self.status == Status.LABELING_NOT_UPLOADED or self.status == Status.ACTION:
             # load brain labeling gui
 
             if self.status == Status.ACTION:
@@ -256,17 +252,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.load_data()
             # self.data_manager.close()
             self.initialize_brain_labeling_gui()
-
-        elif self.status == Status.INSTANCE_PROCESSED_NOT_DOWNLOADED:
-            filepath = self.vispaths_filepaths_dict[self.full_vispath]
-            remote_dir = os.path.join(self.remote_data_dir, filepath)
-            local_dir = os.path.dirname(os.path.join(self.data_dir, filepath))
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
-            cmd = "scp -r %s@%s:%s %s" % (self.gordon_username, self.gordon_hostname, remote_dir, local_dir)
-            print cmd
-            # subprocess.call(cmd, shell=True)
-            # self.refresh_data_status()
 
         elif self.status == Status.IMG_NOT_DOWNLOADED:
             filepath = self.vispaths_filepaths_dict[self.full_vispath]
@@ -292,11 +277,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def _download_remote_directory_structure(self):
-        cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir)
+
+        cmd = "ssh %s@%s 'python %s/utility_scripts/get_directory_structure.py %s %s'"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.remote_data_dir, self.remote_repo_dir)
         print cmd
         subprocess.call(cmd, shell=True)
 
-        cmd = "scp -r %s@%s:%s/utility_scripts/remote_directory_structure.pkl %s"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.temp_dir)
+        cmd = "scp -r %s@%s:%s/remote_directory_structure.pkl %s"%(self.gordon_username, self.gordon_hostname, self.remote_repo_dir, self.temp_dir)
         print cmd
         subprocess.call(cmd, shell=True)
 
@@ -327,78 +313,65 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def load_data(self):
 
-        self.segmentation = np.load(self._full_object_name('segmentation', 'npy'))
-        self.n_superpixels = max(self.segmentation.flatten()) + 1
-        self.img = cv2.imread(self._full_object_name('segmentation', 'tif'), 0)
+        # img = cv2.imread(self._full_object_name('img', 'tif'), 0)
+        # self.mask = np.load(self._full_object_name('cropMask', 'npy'))
+        
+        img_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name+'.tif')
+        mask_path = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, self.image_name + '_mask.png')
+        mask = cv2.imread(mask_path, 0) > 0
+        # self.mask = np.ones_like(img, dtype=np.bool)
+        self.img = cv2.imread(img_path, 0)
+        self.img[~mask] = 0
 
         try:
+            labeling_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_' + self.parent_labeling_name + '.pkl')
 
-            labeling = pickle.load(open(self._full_labeling_name(self.parent_labeling_name, 'pkl'), 'r'))
+            parent_labeling = pickle.load(open(labeling_fn, 'r'))
+
+            print 'Load saved labeling'
             
-            self.labellist = labeling['final_labellist']
+            label_circles = parent_labeling['final_label_circles']
 
             self.labeling = {
                 'username' : self.username,
                 'parent_labeling_name' : self.parent_labeling_name,
                 'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_labellist' : self.labellist,
-                'final_labellist' : None,
-                'labelnames' : labeling['labelnames'],
-                'history' : []
+                'init_label_circles' : label_circles,
+                'final_label_circles' : None,
+                'labelnames' : parent_labeling['labelnames'],
             }
-            
-            self.n_models = max(10,np.max(self.labellist)+1)
-        
-            print 'Loading saved labeling'
-            self.n_labels = len(self.labeling['labelnames'])
 
-        except:
+
+        except Exception as e:
+            print 'error', e
 
             print 'No labeling is given. Initialize labeling.'
 
-            self.labellist = -1 * np.ones(self.n_superpixels, dtype=np.int)
             self.labeling = {
                 'username' : self.username,
                 'parent_labeling_name' : None,
                 'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_labellist' : self.labellist,
-                'final_labellist' : None,
+                'init_label_circles' : [],
+                'final_label_circles' : None,
                 'labelnames' : [],
-                'history' : []
             }
 
-            self.n_models = 10
-
-            # Retrieves previous label names
-
-            labelnames_fn = self._full_labeling_name('labelnames', 'json')
+            labelnames_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_labelnames.json')
             if os.path.isfile(labelnames_fn):
                 labelnames = json.load(open(labelnames_fn, 'r'))
                 self.labeling['labelnames'] = labelnames
             else:
-                self.labeling['labelnames']=['No Label']+['Label %2d'%i for i in range(self.n_models+1)]                    
+                n_models = 10
+                self.labeling['labelnames']=['No Label']+['Label %2d'%i for i in range(n_models+1)]                    
         
-            self.n_labels = len(self.labeling['labelnames'])
-
-        self.labelmap = -1 * np.ones_like(self.segmentation, dtype=np.int)
-
-        if np.max(self.labellist) > 0:
-            self.labelmap = self.labellist[self.segmentation]
-            print "labelmap updated"
-
-        # A set of high-contrast colors proposed by Green-Armytage
-        self.colors = np.loadtxt('high_contrast_colors.txt', skiprows=1)
         
-        for i in range(len(self.colors)):
-            self.colors[i]=tuple([float(c)/255.0 for c in self.colors[i]])
-        
-        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
+        self.n_labels = len(self.labeling['labelnames'])
 
         # initialize GUI variables
         self.paint_label = -1        # color of pen
         self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
         self.press = False           # related to pan (press and drag) vs. select (click)
-        self.base_scale = 1.05       # multiplication factor for zoom using scroll wheel
+        self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
         self.moved = False           # indicates whether mouse has moved while left button is pressed
 
 
@@ -432,16 +405,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def initialize_brain_labeling_gui(self):
 
+        # A set of high-contrast colors proposed by Green-Armytage
+        self.colors = np.loadtxt('high_contrast_colors.txt', skiprows=1)/255.
+        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
+
+
+        self.curr_label = -1
+
         self.setupUi(self)
 
         self.fig = self.canvaswidget.fig
         self.canvas = self.canvaswidget.canvas
 
         self.canvas.mpl_connect('scroll_event', self.zoom_fun)
-        self.canvas.mpl_connect('button_press_event', self.press_fun)
-        self.canvas.mpl_connect('button_release_event', self.release_fun)
+        self.bpe_id = self.canvas.mpl_connect('button_press_event', self.press_fun)
+        self.bre_id = self.canvas.mpl_connect('button_release_event', self.release_fun)
         self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
-        
+
         self.n_labelbuttons = 0
         
         self.labelbuttons = []
@@ -470,24 +450,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.axes.axis('off')
 
         self.axes.imshow(self.img, cmap=plt.cm.Greys_r,aspect='equal')
-        self.label_layer=None  # to avoid removing layer when it is not yet there
         
-        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1) 
-    
+        # labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors, alpha=0.3, image_alpha=1)
+        # self.axes.imshow(labelmap_vis)
 
-        self.rect_list = [None for _ in range(len(self.labellist))]
+        self.circle_list = [plt.Circle((x,y), radius=r, color=self.colors[l+1], alpha=.3) for x,y,r,l in self.labeling['init_label_circles']]
+        self.generate_labelmap()
 
-        for i,value in enumerate(self.labellist):
-            if value != -1:
-                ys, xs = np.nonzero(self.segmentation == i)
-                xmin = xs.min()
-                ymin = ys.min()
+        for c in self.circle_list:
+            self.axes.add_patch(c)
 
-                height = ys.max() - ys.min()
-                width = xs.max() - xs.min()
-                rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[int(self.labellist[i])+1])
-                self.rect_list[i] = rect
-                self.axes.add_patch(rect)
+
+        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 
         self.canvas.draw()
         self.show()
@@ -540,31 +514,43 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.initialize_data_manager()
 
     def _save_labeling(self):
-        self.labeling['final_labellist'] = self.labellist
+
+        self.generate_labelmap()
+
+        self.labeling['final_label_circles'] = self.circle_list_to_labeling_field(self.circle_list)
+
+        for c in self.circle_list:
+            c.remove()
+
+        self.circle_list = []
+
+        # labelmap_vis = self.colors[self.labelmap]
+        labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors, alpha=0.3, image_alpha=1)
+
+        self.axes.imshow(labelmap_vis)
+        self.canvas.draw()
+
         self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
         self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
 
-        json.dump(self.labeling['labelnames'], open(self._full_labeling_name('labelnames','json'), 'w'))
+        labelnames_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_labelnames.json')
+
+        json.dump(self.labeling['labelnames'], open(labelnames_fn, 'w'))
 
         new_labeling_name = self.username + '_' + self.labeling['logout_time']
-        new_labeling_fn = self._full_labeling_name(new_labeling_name, 'pkl')
+
+        new_labeling_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name+'.pkl')
         pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
         print 'Labeling saved to', new_labeling_fn
 
-        new_preview_fn = self._full_labeling_name(new_labeling_name + '_preview', 'png')
+        new_preview_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name + '_preview.png')
 
-        # plt.sca(self.axes)
-        # plt.tight_layout()
-        # plt.savefig(new_preview_fn, bbox_inches='tight')
-
-        img = utilities.load_image('cropImg', instance_name=self.instance_name, results_dir=os.path.join(self.instance_dir, 'pipelineResults'))
-
-        labelmap_rgb = label2rgb(self.labelmap.astype(np.int), image=img, colors=self.colors[1:], alpha=.3, 
-                         image_alpha=.8, bg_color=self.colors[0])
-        labelmap_rgb = utilities.regulate_img(labelmap_rgb)
+        labelmap_rgb = utilities.regulate_img(labelmap_vis)
         cv2.imwrite(new_preview_fn, labelmap_rgb)
 
         print 'Preview saved to', new_preview_fn
+
+        self.statusBar().showMessage('Labeling saved to %s' new_labeling_fn )
 
 
     def save_callback(self):
@@ -577,6 +563,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     ############################################
     # matplotlib canvas CALLBACKs
     ############################################
+
+    def circle_list_to_labeling_field(self ,circle_list):
+        label_circles = []
+        for c in circle_list:
+            label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0]
+            label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
+        return label_circles
+
 
     def zoom_fun(self, event):
         # get the current x and y limits and subplot position
@@ -647,11 +641,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def motion_fun(self, event):
         	
         if self.press and time.time() - self.press_time > .5:
+            # this is drag and move
             cur_xlim = self.axes.get_xlim()
             cur_ylim = self.axes.get_ylim()
             
             if (event.xdata==None) | (event.ydata==None):
-                #print 'one of event.xdata or event.ydata is None'
+                #print 'either event.xdata or event.ydata is None'
                 return
 
             offset_x = self.press_x - event.xdata
@@ -665,6 +660,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         The release-button callback is responsible for picking a color or changing a color.
         """
+
         self.press = False
         self.release_x = event.xdata
         self.release_y = event.ydata
@@ -673,22 +669,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Fixed panning issues by using the time difference between the press and release event
         # Long times refer to a press and hold
         if (self.release_time - self.press_time) < .21 and self.release_x > 0 and self.release_y > 0:
-            # self.axes.clear()
-            try:
-                selected_sp = self.segmentation[int(event.ydata), int(event.xdata)]
-                selected_label = self.labelmap[int(event.ydata), int(event.xdata)]
-            except:
-                return
 
-            if event.button == 3: # right click
-                # Picking a color
-                self.pick_color(selected_label)
-            elif event.button == 1: # left click
-                # Painting a color
-                self.statusBar().showMessage('Labeled superpixel %d as %d (%s)' % (selected_sp, 
-                                            self.paint_label, self.labeling['labelnames'][self.paint_label+1]))
-                self.change_superpixel_color(selected_sp)
+            if event.button == 1: # left click: draw
+                if self.curr_label is None:
+                    self.statusBar().showMessage('No label is selected')
+                else:
+                    self.statusBar().showMessage('Labeling using %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
+                    self.paint_circle(event.xdata, event.ydata)
+            elif event.button == 3: # right click: erase
+                self.statusBar().showMessage('Erase %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
+                self.erase_circles_near(event.xdata, event.ydata)
 
+            
         self.canvas.draw() # force re-draw
 
     ############################################
@@ -697,60 +689,43 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def pick_color(self, selected_label):
 
-        self.paint_label = selected_label
-        self.statusBar().showMessage('Picked label %d (%s)' % (self.paint_label, self.labeling['labelnames'][self.paint_label+1]))
+        self.curr_label = selected_label
+        self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
 
-    def change_superpixel_color(self, selected_sp):
-        '''
-        update the labelmap
-        '''
-        b = time.time()
-
-        ## This updates the labelmap, labellist, and rect_list. Allows the ability to remove rectangle patches.
-        ## Also prevents overlaying multiple or different patches over the same sp.
-
-        # checks to see if you are removing a label or labeling trying to label twice
-        if self.paint_label == self.labellist[selected_sp]:
-
-            print "sp is already the selected paint label"
-
-        elif self.paint_label != -1 :
-
-            print 'Labeled sp %d as %d' % (selected_sp, self.paint_label)
-            self.labellist[selected_sp] = self.paint_label
-            self.labelmap = self.labellist[self.segmentation]
-
-            ### Removes previous color to prevent a blending of two or more patches ###
-            if self.rect_list[selected_sp] is not None:
-                self.rect_list[selected_sp].remove()
-
-            # approximate the superpixel polygon with a square
-            ys, xs = np.nonzero(self.segmentation == selected_sp)
-            xmin = xs.min()
-            ymin = ys.min()
-
-            height = ys.max() - ys.min()
-            width = xs.max() - xs.min()
-
-            rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.2, color=self.colors[self.paint_label+1])
-
-            self.rect_list[selected_sp] = rect
-            self.axes.add_patch(rect)
-
-            self.labeling['history'].append((selected_sp, self.paint_label))
-
+    def paint_circle(self, x, y):
+        if self.curr_label is None:
+            self.statusBar().showMessage('No label is selected')
         else:
-            print "Removing label of sp %d" % selected_sp
-            self.labellist[selected_sp] = -1
-            self.labelmap = self.labellist[self.segmentation]
+            brush_radius = self.brushRadiusSlider.value()
+            circ = plt.Circle((x, y), radius=brush_radius, color=self.colors[self.curr_label + 1], alpha=.3)
+            self.axes.add_patch(circ)
+            self.circle_list.append(circ)
 
-            self.rect_list[selected_sp].remove()
-            self.rect_list[selected_sp] = None
-	    
-            self.labeling['history'].append((selected_sp, self.paint_label))
+    def erase_circles_near(self, x, y):
+        to_remove = []
+        for c in self.circle_list:
+            if abs(c.center[0] - x) < 10 and abs(c.center[1] - y) < 10:
+                to_remove.append(c)
 
-        print 'update', time.time() - b
+        for c in to_remove:
+            self.circle_list.remove(c)
+            c.remove()
 
+
+    def generate_labelmap(self):
+        """
+        Generate labelmap from the list of circles
+        """
+
+        self.labelmap = -1*np.ones_like(self.img, dtype=np.int8)
+
+        for c in self.circle_list:
+            cx, cy = c.center
+            for x in np.arange(cx-c.radius, cx+c.radius):
+                for y in np.arange(cy-c.radius, cy+c.radius):
+                    if (cx-x)**2+(cy-y)**2 <= c.radius**2:
+                        label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0]
+                        self.labelmap[int(y),int(x)] = label
 
 if __name__ == '__main__':
     gui = BrainLabelingGUI()

@@ -71,7 +71,7 @@ epilog="""%s
 
 parser.add_argument("img_file", type=str, help="path to image file")
 parser.add_argument("param_id", type=str, help="parameter identification name")
-parser.add_argument("textons_file", type=str, help="pre-computed textons", default=None)
+parser.add_argument("-t", "--textons_file", type=str, help="pre-computed textons", default=None)
 args = parser.parse_args()
 
 data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v2'

@@ -16,7 +16,10 @@ import os, csv
 
 def foreground_mask(img, min_size=64, thresh=200):
     """
-    Find the mask that covers exactly the foreground of the brain slice image
+    Find the mask that covers exactly the foreground of the brain slice image.
+    This depends heavily on the manually chosen threshold, and thus is very fragile.
+    It works reasonably well on bright backgrounds, such as blue nissl images; 
+    but without tuning the threshold, it does not work on images with dark background, such as fluorescent images.
     
     Parameters
     ----------
@@ -70,75 +73,6 @@ def crop_image(img, smooth=20):
 
 # <codecell>
 
-# from copy_reg import pickle
-# from types import MethodType
-
-# def _pickle_method(method):
-#     """
-#     Pickle methods properly, including class methods.
-#     """
-#     func_name = method.im_func.__name__
-#     obj = method.im_self
-#     cls = method.im_class
-#     if isinstance(cls, type):
-#         # handle classmethods differently
-#         cls = obj
-#         obj = None
-#     if func_name.startswith('__') and not func_name.endswith('__'):
-#         #deal with mangled names
-#         cls_name = cls.__name__.lstrip('_')
-#         func_name = '_%s%s' % (cls_name, func_name)
-
-#     return _unpickle_method, (func_name, obj, cls)
-
-# def _unpickle_method(func_name, obj, cls):
-#     """
-#     Unpickle methods properly, including class methods.
-#     """
-#     if obj is None:
-#         return cls.__dict__[func_name].__get__(obj, cls)
-#     for cls in cls.__mro__:
-#         try:
-#             func = cls.__dict__[func_name]
-#         except KeyError:
-#             pass
-#         else:
-#             break
-#     return func.__get__(obj, cls)
-
-# pickle(MethodType, _pickle_method, _unpickle_method)
-
-# <codecell>
-
-# import copy_reg
-# import types
-
-# def _pickle_method(method):
-#     func_name = method.im_func.__name__
-#     obj = method.im_self
-#     cls = method.im_class
-#     if func_name.startswith('__') and not func_name.endswith('__'):
-#         #deal with mangled names
-#         cls_name = cls.__name__.lstrip('_')
-#         func_name = '_%s%s' % (cls_name, func_name)
-#     return _unpickle_method, (func_name, obj, cls)
-
-# def _unpickle_method(func_name, obj, cls):
-#     if obj and func_name in obj.__dict__:
-#         cls, obj = obj, None # if func_name is classmethod
-#     for cls in cls.__mro__:
-#         try:
-#             func = cls.__dict__[func_name]
-#         except KeyError:
-#             pass
-#         else:
-#             break
-#     return func.__get__(obj, cls)
-
-# copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
-
-# <codecell>
-
 import time
  
 def timeit(func=None,loops=1,verbose=False):
@@ -176,125 +110,267 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
-def load_array(suffix, instance_name, results_dir):
-    """
-    Load the cached result.
+class ParameterSet(object):
     
-    Parameters
-    ----------
-    suffix : str
-        name of the result
-    instance_name : str
-        instance name
-    results_dir : str
-        the location of results
+    def __init__(self, gabor_params_id=None, vq_params_id=None, segm_params_id=None):
+        self.gabor_params = None
+        self.vq_params = None
+        self.segm_params = None
     
-    Returns
-    -------
-    arr : array
-        the loaded array    
-    """
+    def set_gabor_params(self, gabor_params_id):
+        pass
     
-    arr_file = os.path.join(results_dir, '%s_%s.npy'%(instance_name, suffix))
-    arr = np.load(arr_file)
-    print 'load %s' % (arr_file)
-    return arr
-
-def save_array(arr, suffix, instance_name, results_dir, overwrite=True):
-    """
-    Save array
-    
-    Parameters
-    ----------
-    arr : array
-        the array to cache
-    suffix : str
-        name of the result
-    instance_name : str
-        instance name
-    results_dir : str
-        results directory
-    overwrite : bool
-        if True, overwrite existing file
-    """
-    
-    arr_file = os.path.join(results_dir, '%s_%s.npy'%(instance_name, suffix))
-    if not os.path.exists(arr_file) or overwrite:
-        np.save(arr_file, arr)
-        print '%s saved to %s' % (suffix, arr_file)
-    else:
-        print '%s already exists' % (arr_file)
+    def set_vq_params(self, vq_params_id):
+        pass
+        
+    def set_segm_params(self, segm_params_id):
+        pass
+        
+        
+        
 
 # <codecell>
 
-
-
-# def load_array(suffix, img_name, param_id, output_dir):
-#     """
-#     Load the cached result.
-    
-#     Parameters
-#     ----------
-#     suffix : str
-#         name of the result
-#     img_name : str
-#         image name
-#     param_id : str
-#         parameter set name
-#     output_dir : str
-#         the location of results
-    
-#     Returns
-#     -------
-#     arr : array
-#         the loaded array    
-#     """
-    
-#     result_name = img_name + '_' + str(param_id)
-#     arr_file = os.path.join(output_dir, result_name, '%s_%s.npy'%(result_name, suffix))
-#     arr = np.load(arr_file)
-#     print 'load %s' % (arr_file)
-#     return arr
-
-
-
-
-# def save_array(arr, suffix, img_name, param_id, cache_dir='scratch', overwrite=True):
-#     """
-#     Save array into a file
-    
-#     Parameters
-#     ----------
-#     arr : array
-#         the array to cache
-#     suffix : str
-#         name of the result
-#     img_name : str
-#         image name
-#     param_id : str
-#         parameter set name
-#     cache_dir : str
-#         output folder
-#     overwrite : bool
-#         if True, overwrite existing file
-#     """
-    
-#     result_name = img_name + '_' + str(param_id)
-#     arr_file = os.path.join(cache_dir, result_name, '%s_%s.npy'%(result_name, suffix))
-    
-#     if not os.path.exists(arr_file) or overwrite:
-#         np.save(arr_file, arr)
-#         print '%s saved to %s' % (suffix, arr_file)
-#     else:
-#         print '%s already exists' % (arr_file)
+# class DataManager(object):
+#     def __init__(self):
+#         generate_local_tree()
         
+        
+#     def generate_local_tree(self):
+        
+
+#     def generate_remote_tree(self):
+        
+        
+        
+#     def label_elements(self):
+        
+        
+#     def generate_gui_paths(self):
+        
+        
+        
+
+# <codecell>
+
+import json
+from pprint import pprint
+
+DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
+REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+# PARAMS_DIR = os.path.join(REPO_DIR, 'params')
+
+class Instance(object):
+    """
+    A class for holding various properties of data instances
+    """
+#     def __init__(self, stack, resol, slice=None, paramset=None):
+    def __init__(self, stack, resol, slice=None):
+        """
+        Construct a processing instance.
+        
+        Parameters
+        ----------
+        stack : str
+            stack name, e.g. RS141
+        resol : str
+            resolution string, e.g. x5
+        slice : int
+            slice number
+        paramset : dict
+            parameter set. A dict with keys "gabor_params_id", "vq_params_id", "segm_params_id".
+            
+        """
+        
+        self.stack = stack
+        self.resol = resol        
+        self.image = None
+        self.slice = None
+#         self.paramset = None
+
+        if slice is not None:
+            self.set_slice(slice)
+
+#         if paramset is not None:
+#             self.set_paramset(paramset)
+            
+    def set_slice(self, slice_num):
+        
+        self.slice = slice_num
+        self.image_dir = os.path.join(DATA_DIR, self.stack, self.resol, '%04d' % self.slice)
+        self.image_name = '_'.join([self.stack, self.resol, '%04d' % self.slice])
+        self.instance_name = self.image_name
+        
+#         if self.paramset_name is not None:
+#             self.results_dir = os.path.join(self.image_dir, self.paramset_name + '_pipelineResults')
+#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, self.paramset_name])
+        
+#     def set_paramset(self, paramset_name):
+
+#         self.paramset_name = paramset_name
+        
+#         if self.slice is not None:
+#             self.results_dir = os.path.join(self.image_dir, paramset_name + '_pipelineResults')
+#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, paramset_name])
+
+#         self.paramset = load_paramset(paramset_name)
+    
+    def load_image(self):
+        
+        if self.image is None:
+            
+            image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
+            assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+
+            im = cv2.imread(image_filename, 0)
+            self.image = regulate_image(im)
+        
+        return self.image
+
+    def load_pipeline_result(self, result_name, ext):
+        
+        result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+
+        if ext == 'npy':
+            assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
+            res = np.load(result_filename)
+        elif ext == 'tif' or ext == 'png':
+            res = cv2.imread(filename, 0)
+            res = regulate_image(res)
+            
+        print 'loaded %s' % result_filename
+
+        return res
+
+    def save_pipeline_result(self, data, result_name, ext):
+
+        result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+
+        if ext == 'npy':
+            res = np.save(result_filename, data)
+        elif ext == 'tif' or ext == 'png':
+            res = regulate_image(res)
+            res = cv2.imwrite(result_filename, res)
+            
+        print 'saved %s' % result_filename
+    
+
+# <codecell>
+
+# import json
+# from pprint import pprint
+
+# DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
+# REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+# PARAMS_DIR = os.path.join(REPO_DIR, 'params')
+
+# class Instance(object):
+#     """
+#     A class for holding various properties of data instances
+#     """
+#     def __init__(self, stack, resol, slice=None, paramset=None):
+#         self.stack = stack
+#         self.resol = resol        
+#         self.image = None
+#         self.slice = None
+#         self.paramset_name = None
+
+#         if slice is not None:
+#             self.set_slice(slice)
+
+#         if paramset is not None:
+#             self.set_paramset(paramset)
+            
+#     def set_slice(self, slice_num):
+        
+#         self.slice = slice_num
+#         self.image_dir = os.path.join(DATA_DIR, self.stack, self.resol, '%04d' % self.slice)
+#         self.image_name = '_'.join([self.stack, self.resol, '%04d' % self.slice])
+        
+#         if self.paramset_name is not None:
+#             self.results_dir = os.path.join(self.image_dir, self.paramset_name + '_pipelineResults')
+#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, self.paramset_name])
+        
+#     def set_paramset(self, paramset_name):
+
+#         self.paramset_name = paramset_name
+        
+#         if self.slice is not None:
+#             self.results_dir = os.path.join(self.image_dir, paramset_name + '_pipelineResults')
+#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, paramset_name])
+
+#         self.paramset = load_paramset(paramset_name)
+    
+#     def load_image(self):
+        
+#         if self.image is None:
+            
+#             image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
+#             assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+
+#             im = cv2.imread(image_filename, 0)
+#             self.image = regulate_image(im)
+        
+#         return self.image
+
+#     def load_pipeline_result(self, result_name, ext):
+        
+#         result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+
+#         if ext == 'npy':
+#             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
+#             res = np.load(result_filename)
+#         elif ext == 'tif' or ext == 'png':
+#             res = cv2.imread(filename, 0)
+#             res = regulate_image(res)
+            
+#         print 'loaded %s' % result_filename
+
+#         return res
+
+#     def save_pipeline_result(self, data, result_name, ext):
+
+#         result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+
+#         if ext == 'npy':
+#             res = np.save(result_filename, data)
+#         elif ext == 'tif' or ext == 'png':
+#             res = regulate_image(res)
+#             res = cv2.imwrite(result_filename, res)
+            
+#         print 'saved %s' % result_filename
+    
+
+# <codecell>
+
+def load_paramset(paramset_name):
+
+    params_dir = os.path.realpath(PARAMS_DIR)
+    param_file = os.path.join(params_dir, 'param_%s.json' % paramset_name)
+    param_default_file = os.path.join(params_dir, 'param_default.json')
+    param = json.load(open(param_file, 'r'))
+    param_default = json.load(open(param_default_file, 'r'))
+
+    for k, v in param_default.iteritems():
+        if not isinstance(param[k], basestring):
+            if np.isnan(param[k]):
+                param[k] = v
+                
+    return param
+    
+
 def regulate_images(imgs):
-    return np.array(map(regulate_img, imgs))
+    """
+    Ensure all images are of type RGB uint8.
+    """
+    
+    return np.array(map(regulate_image, imgs))
         
-def regulate_img(img):
-    '''
-    Make all images be RGB uint8.
-    '''
+    
+def regulate_image(img):
+    """
+    Ensure the image is of type RGB uint8.
+    """
     
     if not np.issubsctype(img, np.uint8):
         try:
@@ -307,110 +383,6 @@ def regulate_img(img):
         img = gray2rgb(img)
         
     return img
-        
-    
-def save_image(img, suffix, instance_name, results_dir, ext='tif', overwrite=True):
-    '''
-    Save image to file
-    
-    Parameters
-    ----------
-    img : uint8 or float array
-        image to save
-    suffix : str
-        name of the result
-    instance_name : str
-        instance name
-    results_dir : str
-        results directory
-    overwrite : bool
-        if True, overwrite existing file
-    '''
-    
-    img = regulate_img(img)
-        
-    img_fn = os.path.join(results_dir, '%s_%s.%s'%(instance_name, suffix, ext))
-#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
-    if not os.path.exists(img_fn) or overwrite:
-        cv2.imwrite(img_fn, img)
-        print '%s saved to %s' % (suffix, img_fn)
-    else:
-        print '%s already exists' % (img_fn)
-        
-#     img_fn = os.path.join(results_dir, '%s_%s.png'%(instance_name, suffix))
-# #     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
-#     if not os.path.exists(img_fn) or overwrite:
-#         cv2.imwrite(img_fn, img)
-#         print '%s saved to %s' % (suffix, img_fn)
-#     else:
-#         print '%s already exists' % (img_fn)
-
-        
-def load_image(suffix, instance_name, results_dir):
-    '''
-    Load image
-    
-    Parameters
-    ----------
-    suffix : str
-        name of the result
-    instance_name : str
-        instance name
-    results_dir : str
-        results directory
-        
-    Returns
-    -------
-    img : uint8 RGB
-        image
-    '''
-    
-    img_fn = os.path.join(results_dir, '%s_%s.tif'%(instance_name, suffix))
-    img = cv2.imread(img_fn)
-    reg_img = regulate_img(img)
-    return reg_img
-    
-    
-# def save_img(img, suffix, img_name, param_id, 
-#              cache_dir='scratch', overwrite=True):
-#     '''
-#     Save image to file
-    
-#     Parameters
-#     ----------
-#     img : uint8 or float array
-#         image to save
-#     suffix : str
-#         name of the result
-#     img_name : str
-#         image name
-#     param_id : str
-#         parameter set name
-#     cache_dir : str
-#         output_folder
-#     overwrite : bool
-#         if True, overwrite existing file
-#     '''
-#     img = regulate_img(img)
-        
-#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif')
-#     if not os.path.exists(img_fn) or overwrite:
-#         cv2.imwrite(img_fn, img)
-#         print '%s saved to %s' % (suffix, img_fn)
-#     else:
-#         print '%s already exists' % (img_fn)
-        
-#     img_fn = get_img_filename(suffix, img_name, param_id, cache_dir, ext='png')
-#     if not os.path.exists(img_fn) or overwrite:
-#         cv2.imwrite(img_fn, img)
-#         print '%s saved to %s' % (suffix, img_fn)
-#     else:
-#         print '%s already exists' % (img_fn)
-
-# def get_img_filename(suffix, img_name, param_id, cache_dir, ext='tif'):
-#     result_name = img_name + '_param_' + str(param_id)
-#     img_fn = os.path.join(cache_dir, result_name, '%s_%s.%s'%(result_name, suffix, ext))
-#     return img_fn
 
 # <codecell>
 
@@ -457,30 +429,6 @@ def paint_superpixel_groups_on_image(sp_groups, segmentation, img, colors):
     return vis
 
 # <codecell>
-
-# def load_parameters(params_file):
-
-#     parameters = dict([])
-
-#     with open(params_file, 'r') as f:
-#         param_reader = csv.DictReader(f)
-#         for param in param_reader:
-#             for k in param.iterkeys():
-#                 if param[k] != '':
-#                     try:
-#                         param[k] = int(param[k])
-#                     except ValueError:
-#                         param[k] = float(param[k])
-#             if param['param_id'] == 0:
-#                 default_param = param
-#             else:
-#                 for k, v in param.iteritems():
-#                     if v == '':
-#                         param[k] = default_param[k]
-#             parameters[param['param_id']] = param
-            
-#     return parameters
-
 
 def chi2(u,v):
     """

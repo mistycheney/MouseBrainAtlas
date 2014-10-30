@@ -1,0 +1,6 @@
+{
+ "param_id": "default", 
+ "n_superpixels": 200.0, 
+ "slic_compactness": 5.0, 
+ "slic_sigma": 10.0
+}

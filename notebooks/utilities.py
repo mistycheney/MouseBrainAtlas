@@ -4,7 +4,7 @@
 # <codecell>
 
 from skimage.filter import threshold_otsu, threshold_adaptive, gaussian_filter
-from skimage.color import color_dict, gray2rgb, label2rgb
+from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
 from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
 from skimage.measure import regionprops, label
@@ -14,6 +14,25 @@ import cv2
 import numpy as np
 import os, csv
 
+
+def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
+    # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
+
+    # draw arrow tail
+    cv2.line(image, p, q, color, thickness, line_type, shift)
+    # calc angle of the arrow 
+    angle = np.arctan2(p[1]-q[1], p[0]-q[0])
+    # starting point of first line of arrow head 
+    p = (int(q[0] + arrow_magnitude * np.cos(angle + np.pi/4)),
+    int(q[1] + arrow_magnitude * np.sin(angle + np.pi/4)))
+    # draw first half of arrow head
+    cv2.line(image, p, q, color, thickness, line_type, shift)
+    # starting point of second line of arrow head 
+    p = (int(q[0] + arrow_magnitude * np.cos(angle - np.pi/4)),
+    int(q[1] + arrow_magnitude * np.sin(angle - np.pi/4)))
+    # draw second half of arrow head
+    cv2.line(image, p, q, color, thickness, line_type, shift)
+    
 def foreground_mask(img, min_size=64, thresh=200):
     """
     Find the mask that covers exactly the foreground of the brain slice image.
@@ -110,27 +129,6 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
-class ParameterSet(object):
-    
-    def __init__(self, gabor_params_id=None, vq_params_id=None, segm_params_id=None):
-        self.gabor_params = None
-        self.vq_params = None
-        self.segm_params = None
-    
-    def set_gabor_params(self, gabor_params_id):
-        pass
-    
-    def set_vq_params(self, vq_params_id):
-        pass
-        
-    def set_segm_params(self, segm_params_id):
-        pass
-        
-        
-        
-
-# <codecell>
-
 # class DataManager(object):
 #     def __init__(self):
 #         generate_local_tree()
@@ -153,236 +151,199 @@ class ParameterSet(object):
 
 # <codecell>
 
+# REGENERATE_ALL_RESULTS = True
+REGENERATE_ALL_RESULTS = False
+
 import json
-from pprint import pprint
+import cPickle as pickle
 
-DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
-REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
-# PARAMS_DIR = os.path.join(REPO_DIR, 'params')
+class DataManager(object):
+    def __init__(self, data_dir, repo_dir):
+        self.data_dir = data_dir
+        self.repo_dir = repo_dir
+        self.params_dir = os.path.join(repo_dir, 'params')
 
-class Instance(object):
-    """
-    A class for holding various properties of data instances
-    """
-#     def __init__(self, stack, resol, slice=None, paramset=None):
-    def __init__(self, stack, resol, slice=None):
-        """
-        Construct a processing instance.
+        self.image_name = None
         
-        Parameters
-        ----------
-        stack : str
-            stack name, e.g. RS141
-        resol : str
-            resolution string, e.g. x5
-        slice : int
-            slice number
-        paramset : dict
-            parameter set. A dict with keys "gabor_params_id", "vq_params_id", "segm_params_id".
-            
-        """
-        
+    def set_stack(self, stack, resol):
         self.stack = stack
-        self.resol = resol        
-        self.image = None
-        self.slice = None
-#         self.paramset = None
+        self.resol = resol
+        self.resol_dir = os.path.join(self.data_dir, self.stack, self.resol)
+        
+    def set_slice(self, slice_ind):
+        assert self.stack is not None and self.resol is not None, 'Stack is not specified'
+        self.slice_ind = slice_ind
+        self.slice_str = '%04d' % slice_ind
+        self.image_dir = os.path.join(self.data_dir, self.stack, self.resol, self.slice_str)
+        self.image_name = '_'.join([self.stack, self.resol, self.slice_str])
 
-        if slice is not None:
-            self.set_slice(slice)
-
-#         if paramset is not None:
-#             self.set_paramset(paramset)
+        self.filterResults_dir = os.path.join(self.image_dir, 'filterResults')
+        if not os.path.exists(self.filterResults_dir):
+            os.mkdir(self.filterResults_dir)
+        
+        self.segmResults_dir = os.path.join(self.image_dir, 'segmResults')
+        if not os.path.exists(self.segmResults_dir):
+            os.mkdir(self.segmResults_dir)
             
-    def set_slice(self, slice_num):
-        
-        self.slice = slice_num
-        self.image_dir = os.path.join(DATA_DIR, self.stack, self.resol, '%04d' % self.slice)
-        self.image_name = '_'.join([self.stack, self.resol, '%04d' % self.slice])
-        self.instance_name = self.image_name
-        
-#         if self.paramset_name is not None:
-#             self.results_dir = os.path.join(self.image_dir, self.paramset_name + '_pipelineResults')
-#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, self.paramset_name])
-        
-#     def set_paramset(self, paramset_name):
+        self.vqResults_dir = os.path.join(self.image_dir, 'vqResults')
+        if not os.path.exists(self.vqResults_dir):
+            os.mkdir(self.vqResults_dir)
+            
+        self.histResults_dir = os.path.join(self.image_dir, 'histResults')
+        if not os.path.exists(self.histResults_dir):
+            os.mkdir(self.histResults_dir)
 
-#         self.paramset_name = paramset_name
         
-#         if self.slice is not None:
-#             self.results_dir = os.path.join(self.image_dir, paramset_name + '_pipelineResults')
-#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, paramset_name])
-
-#         self.paramset = load_paramset(paramset_name)
-    
-    def load_image(self):
+    def set_image(self, stack, resol, slice_ind):
+        self.set_stack(stack, resol)
+        self.set_slice(slice_ind)
+        self._load_image()
         
-        if self.image is None:
+    def _load_image(self):
+        
+            assert self.image_name is not None, 'Image is not specified'
             
             image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
             assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
 
-            im = cv2.imread(image_filename, 0)
-            self.image = regulate_image(im)
+            self.image = cv2.imread(image_filename, 0)
+            self.image_height, self.image_width = self.image.shape[:2]
+            
+            mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
+            self.mask = cv2.imread(mask_filename, 0) > 0
         
-        return self.image
-
-    def load_pipeline_result(self, result_name, ext):
+    def set_gabor_params(self, gabor_params_id):
         
-        result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+        self.gabor_params_id = gabor_params_id
+        self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
+        
+        
+    def set_segmentation_params(self, segm_params_id):
+        
+        self.segm_params_id = segm_params_id
+        self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
 
+    def set_vq_params(self, vq_params_id):
+        
+        self.vq_params_id = vq_params_id
+        self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
+        
+            
+    def _get_result_filename(self, result_name, ext):
+        
+        if result_name == 'features' or result_name == 'cropFeatures' \
+                or result_name == 'cropImg' or result_name == 'cropMask'\
+                or result_name == 'kernels':
+            results_dir = self.filterResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'gabor-' + self.gabor_params_id])
+
+        elif result_name == 'segmentation':
+            results_dir = self.segmResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'segm-' + self.segm_params_id])
+            
+        elif result_name == 'cropSegmentation':
+            results_dir = self.segmResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
+            
+        elif result_name == 'cropSpProps':
+            results_dir = self.segmResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
+            
+            
+        elif result_name == 'neighbors':
+            results_dir = self.segmResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
+
+        elif result_name == 'textons':
+            results_dir = self.resol_dir
+            instance_name = '_'.join([self.stack, self.resol, 
+                                      'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
+
+        elif result_name == 'texMap':
+            results_dir = self.vqResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
+
+        elif result_name == 'texHist':
+            results_dir = self.histResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
+            
+        elif result_name == 'dirHist' or result_name == 'dirMap' :
+            results_dir = self.histResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
+
+        elif result_name == 'tmp':
+            results_dir = '/tmp'
+            instance_name = 'test'
+                        
+        else:
+            print 'result name %s unknown' % result_name
+            raise
+            
+            
+        result_filename = os.path.join(results_dir, instance_name + '_' + result_name + '.' + ext)
+        
+        return result_filename
+            
+    def load_pipeline_result(self, result_name, ext, is_rgb=None):
+        
+        if REGENERATE_ALL_RESULTS:
+            raise
+        
+        result_filename = self._get_result_filename(result_name, ext)
+        
         if ext == 'npy':
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
-            res = np.load(result_filename)
+            data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png':
-            res = cv2.imread(filename, 0)
-            res = regulate_image(res)
-            
+            data = cv2.imread(result_filename, 0)
+            data = self._regulate_image(data, is_rgb)
+        elif ext == 'pkl':
+            data = pickle.load(open(result_filename, 'r'))
+
         print 'loaded %s' % result_filename
 
-        return res
-
-    def save_pipeline_result(self, data, result_name, ext):
-
-        result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
+        return data
+        
+    def save_pipeline_result(self, data, result_name, ext, is_rgb=None):
+            
+        result_filename = self._get_result_filename(result_name, ext)
 
         if ext == 'npy':
-            res = np.save(result_filename, data)
+            np.save(result_filename, data)
         elif ext == 'tif' or ext == 'png':
-            res = regulate_image(res)
-            res = cv2.imwrite(result_filename, res)
+            data = self._regulate_image(data, is_rgb)
+            cv2.imwrite(result_filename, data)
+        elif ext == 'pkl':
+            pickle.dump(data, open(result_filename, 'w'))
             
         print 'saved %s' % result_filename
-    
-
-# <codecell>
-
-# import json
-# from pprint import pprint
-
-# DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
-# REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
-# PARAMS_DIR = os.path.join(REPO_DIR, 'params')
-
-# class Instance(object):
-#     """
-#     A class for holding various properties of data instances
-#     """
-#     def __init__(self, stack, resol, slice=None, paramset=None):
-#         self.stack = stack
-#         self.resol = resol        
-#         self.image = None
-#         self.slice = None
-#         self.paramset_name = None
-
-#         if slice is not None:
-#             self.set_slice(slice)
-
-#         if paramset is not None:
-#             self.set_paramset(paramset)
-            
-#     def set_slice(self, slice_num):
         
-#         self.slice = slice_num
-#         self.image_dir = os.path.join(DATA_DIR, self.stack, self.resol, '%04d' % self.slice)
-#         self.image_name = '_'.join([self.stack, self.resol, '%04d' % self.slice])
-        
-#         if self.paramset_name is not None:
-#             self.results_dir = os.path.join(self.image_dir, self.paramset_name + '_pipelineResults')
-#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, self.paramset_name])
-        
-#     def set_paramset(self, paramset_name):
+    def _regulate_image(self, img, is_rgb=None):
+        """
+        Ensure the image is of type uint8.
+        """
 
-#         self.paramset_name = paramset_name
-        
-#         if self.slice is not None:
-#             self.results_dir = os.path.join(self.image_dir, paramset_name + '_pipelineResults')
-#             self.instance_name = '_'.join([self.stack, self.resol, '%04d' % self.slice, paramset_name])
+        if not np.issubsctype(img, np.uint8):
+            try:
+                img = img_as_ubyte(img)
+            except:
+                img_norm = (img-img.min()).astype(np.float)/(img.max() - img.min())    
+                img = img_as_ubyte(img_norm)
 
-#         self.paramset = load_paramset(paramset_name)
-    
-#     def load_image(self):
-        
-#         if self.image is None:
-            
-#             image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
-#             assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+        if is_rgb is not None:
+            if img.ndim == 2 and is_rgb:
+                img = gray2rgb(img)
+            elif img.ndim == 3 and not is_rgb:
+                img = rgb2gray(img)
 
-#             im = cv2.imread(image_filename, 0)
-#             self.image = regulate_image(im)
-        
-#         return self.image
-
-#     def load_pipeline_result(self, result_name, ext):
-        
-#         result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
-
-#         if ext == 'npy':
-#             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
-#             res = np.load(result_filename)
-#         elif ext == 'tif' or ext == 'png':
-#             res = cv2.imread(filename, 0)
-#             res = regulate_image(res)
-            
-#         print 'loaded %s' % result_filename
-
-#         return res
-
-#     def save_pipeline_result(self, data, result_name, ext):
-
-#         result_filename = os.path.join(self.results_dir, self.instance_name + '_' + result_name + '.' + ext)
-
-#         if ext == 'npy':
-#             res = np.save(result_filename, data)
-#         elif ext == 'tif' or ext == 'png':
-#             res = regulate_image(res)
-#             res = cv2.imwrite(result_filename, res)
-            
-#         print 'saved %s' % result_filename
-    
-
-# <codecell>
-
-def load_paramset(paramset_name):
-
-    params_dir = os.path.realpath(PARAMS_DIR)
-    param_file = os.path.join(params_dir, 'param_%s.json' % paramset_name)
-    param_default_file = os.path.join(params_dir, 'param_default.json')
-    param = json.load(open(param_file, 'r'))
-    param_default = json.load(open(param_default_file, 'r'))
-
-    for k, v in param_default.iteritems():
-        if not isinstance(param[k], basestring):
-            if np.isnan(param[k]):
-                param[k] = v
-                
-    return param
-    
-
-def regulate_images(imgs):
-    """
-    Ensure all images are of type RGB uint8.
-    """
-    
-    return np.array(map(regulate_image, imgs))
-        
-    
-def regulate_image(img):
-    """
-    Ensure the image is of type RGB uint8.
-    """
-    
-    if not np.issubsctype(img, np.uint8):
-        try:
-            img = img_as_ubyte(img)
-        except:
-            img_norm = (img-img.min()).astype(np.float)/(img.max() - img.min())    
-            img = img_as_ubyte(img_norm)
-            
-    if img.ndim == 2:
-        img = gray2rgb(img)
-        
-    return img
+        return img
+#         
 
 # <codecell>
 

@@ -1,0 +1,6 @@
+{
+ "param_id": "blueNissl", 
+ "n_superpixels": 3000, 
+ "slic_compactness": 20.0, 
+ "slic_sigma": 5.0
+}

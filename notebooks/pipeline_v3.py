@@ -74,7 +74,7 @@ parser.add_argument("param_id", type=str, help="parameter identification name")
 parser.add_argument("-t", "--textons_file", type=str, help="pre-computed textons", default=None)
 args = parser.parse_args()
 
-data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v2'
+data_dir = '/oasis/projects/nsf/csd181/yuncong/DavidData2014v3'
 repo_dir = '/oasis/projects/nsf/csd181/yuncong/Brain/'
 params_dir = os.path.join(repo_dir, 'params')
 
@@ -118,9 +118,6 @@ instance_name = img_name + '_' + str(param['param_id'])
 results_dir = os.path.join(data_dir, stack, resol, slice, args.param_id+'_pipelineResults')
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
-    
-if args.textons_file is not None:
-    textons_file = os.path.realpath(args.textons_file)
 
 # <codecell>
 
@@ -158,21 +155,24 @@ def load_image(suffix):
 
 print '=== finding foreground mask ==='
 
-try:
+# try:
     
-    mask_fn = os.path.join(img_dir, '_'.join([stack, resol, slice, '_mask.png']))
-    mask = cv2.imread(mask_fn, 0) > 0
-    print 'loaded mask from', mask_fn
+mask_fn = os.path.join(img_dir, '_'.join([stack, resol, slice, 'mask.png']))
+mask255 = cv2.imread(mask_fn, 0)
+assert mask255 is not None
+mask = mask255 > 0
+print 'loaded mask from', mask_fn
     
-#     mask = load_array('uncropMask')
-s
-except:
+# #     mask = load_array('uncropMask')
 
-    mask = utilities.foreground_mask(img, min_size=2500)
-    mask = mask > .5
-    # plt.imshow(mask, cmap=plt.cm.Greys_r);
+# except:
+#     raise IOError
+        
+#     mask = utilities.foreground_mask(img, min_size=2500)
+#     mask = mask > .5
+#     # plt.imshow(mask, cmap=plt.cm.Greys_r);
 
-    save_array(mask, 'uncropMask')
+#     save_array(mask, 'uncropMask')
 
 # <codecell>
 
@@ -265,12 +265,13 @@ except IOError:
     try:
 #         centroids = load_array('centroids')
 
-        if textons_file is None:
+        if args.textons_file is not None:
+            textons_file = os.path.realpath(args.textons_file)
+            centroids = np.load(textons_file)
+            print 'loading textons from', textons_file
+        else:
             raise IOError
-
-        centroids = np.load(textons_file)
-        print 'loading textons from', textons_file
-    
+        
     except IOError:
         
         centroids = np.array(random.sample(X, n_texton))

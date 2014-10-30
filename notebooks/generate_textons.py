@@ -8,139 +8,123 @@
 
 # <codecell>
 
-import numpy as np
-import cv2
-
-import matplotlib.pyplot as plt
-
-import random, itertools, sys, os
-from multiprocessing import Pool
-import json
-
 from utilities import *
-from joblib import Parallel, delayed
 
-import glob, re, os, sys, subprocess, argparse
-import pprint
-import cPickle as pickle
+if 'SSH_CONNECTION' in os.environ:
+    DATA_DIR = '/home/yuncong/DavidData'
+    REPO_DIR = '/home/yuncong/Brain'
+else:
+    DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
+    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
 
-from skimage.color import hsv2rgb, label2rgb, gray2rgb
-
-# <codecell>
-
-# parser = argparse.ArgumentParser(
-# formatter_class=argparse.RawDescriptionHelpFormatter,
-# description='Generate textons from a set of filtered images',
-# epilog="""%s
-# """%(os.path.basename(sys.argv[0]), ))
-
-# parser.add_argument("stack_name", type=str, help="stack name")
-# parser.add_argument("resolution", type=str, help="resolution string")
-# parser.add_argument("begin_slice", type=str, help="slice number to begin, zero-padding to 4 digits")
-# parser.add_argument("end_slice", type=str, help="slice number to end, zero-padding to 4 digits")
-# parser.add_argument("param_id", type=str, help="parameter identification name")
-# args = parser.parse_args()
-
+dm = DataManager(DATA_DIR, REPO_DIR)
 
 class args:
     stack_name = 'RS141'
     resolution = 'x5'
-    begin_slice = 1
-    end_slice = 5
-    param_id = 'redNissl'
-
-    
-instance = Instance(args.stack_name, args.resolution, paramset=args.param_id)
+#     slice_indices = range(23)
+    slice_indices = [1]
 
 # <codecell>
+
+dm.set_stack(args.stack_name, args.resolution)
+dm.set_gabor_params(gabor_params_id='blueNisslWide')
+dm.set_segmentation_params(segm_params_id='blueNissl')
+dm.set_vq_params(vq_params_id='blueNissl')
+
+# <codecell>
+
+import random
 
 features_fullstack = []
 
-for slice in range(args.begin_slice, args.end_slice + 1):
-    instance.set_slice(slice)
+sample_per_slice = 1000000/len(args.slice_indices)
+
+for slice_ind in args.slice_indices:
+    print slice_ind
+    dm.set_slice(slice_ind)
     
-    features = instance.load_pipeline_result('features', 'npy')
-    features_fullstack.append(features)
+    cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')    
+    cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
+    n_pixels = cropped_features.shape[0]*cropped_features.shape[1]
+    features_fullstack.append(random.sample(cropped_features[cropped_mask], min(sample_per_slice, n_pixels)))
     
-    n_feature = features.shape[-1]
-    print n_feature
-    
-compute_textons(features_fullstack)
+features_fullstack_all = np.vstack(features_fullstack)
+
+n_feature = features_fullstack_all.shape[-1]
+print n_feature
 
 # <codecell>
 
-def compute_textons(features):
-    """
-    Compute rotation-invariant texton map using K-Means
-    """
+# def compute_textons(features):
+#     """
+#     Compute rotation-invariant texton map using K-Means
+#     """
 
-    print '=== compute rotation-invariant texton map using K-Means ==='
+import random
+import itertools
+from joblib import Parallel, delayed
+from scipy.spatial.distance import cdist
 
-    n_texton = int(param['n_texton'])
+print '=== compute rotation-invariant texton map using K-Means ==='
 
-    def compute_dist_per_proc(X_partial, c_all_rot):
-        D = cdist(X_partial, c_all_rot, 'sqeuclidean')
-        ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
-        return np.c_[ci, ri]
+n_texton = int(dm.vq_params['n_texton'])
 
-    X = features.reshape(-1, n_feature)
-    n_data = X.shape[0]
-    n_splits = 1000
-    n_sample = int(param['n_sample'])
+theta_interval = dm.gabor_params['theta_interval']
+n_angle = int(180/theta_interval)
+freq_step = dm.gabor_params['freq_step']
+freq_max = 1./dm.gabor_params['min_wavelen']
+freq_min = 1./dm.gabor_params['max_wavelen']
+n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 
-    centroids = np.array(random.sample(X, n_texton))
+def compute_dist_per_proc(X_partial, c_all_rot):
+    D = cdist(X_partial, c_all_rot, 'sqeuclidean')
+    ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
+    return np.c_[ci, ri]
 
-    n_iter = int(param['n_iter'])
+n_data = features_fullstack_all.shape[0]
+n_splits = 1000
+n_sample = min(int(dm.vq_params['n_sample']), n_data)
 
-    for iteration in range(n_iter):
+centroids = np.array(random.sample(features_fullstack_all, n_texton))
 
-        data = random.sample(X, n_sample)
+n_iter = int(dm.vq_params['n_iter'])
 
-        print 'iteration', iteration
-        centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
-                                for c,i in itertools.product(centroids, range(n_angle))])
+for iteration in range(n_iter):
 
-        r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
-                        for x, c in zip(np.array_split(data, n_splits, axis=0), 
-                                        itertools.repeat(centroid_all_rotations, n_splits)))
-        res = np.vstack(r)
+    data = random.sample(features_fullstack_all, n_sample)
 
-        labels = res[:,0]
-        rotations = res[:,1]
-
-        centroids_new = np.zeros((n_texton, n_feature))
-        for d, l, r in itertools.izip(data, labels, rotations):
-            rot = np.concatenate(np.roll(np.split(d, n_freq), i))
-            centroids_new[l] += rot
-
-        counts = np.bincount(labels, minlength=n_texton)
-        centroids_new /= counts[:, np.newaxis] # denominator might be zero
-        centroids_new[counts==0] = centroids[counts==0]
-        print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
-
-        centroids = centroids_new
-
-    print centroids.shape
-#     save_array(centroids, 'centroids')
-
-    print 'kmeans completes'
+    print 'iteration', iteration
     centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
-                                for c,i in itertools.product(centroids, range(n_angle))])
+                            for c,i in itertools.product(centroids, range(n_angle))])
 
     r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
-                            for x, c in zip(np.array_split(X, n_splits, axis=0), 
-                                            itertools.repeat(centroid_all_rotations, n_splits)))
+                    for x, c in zip(np.array_split(data, n_splits, axis=0), 
+                                    itertools.repeat(centroid_all_rotations, n_splits)))
     res = np.vstack(r)
 
     labels = res[:,0]
     rotations = res[:,1]
 
-    textonmap = labels.reshape(features.shape[:2])
-    textonmap[~mask] = -1
+    centroids_new = np.zeros((n_texton, n_feature))
+    for d, l, r in itertools.izip(data, labels, rotations):
+        rot = np.concatenate(np.roll(np.split(d, n_freq), i))
+        centroids_new[l] += rot
 
-# #     save_array(textonmap, 'texMap')
-#     save_array(textonmap.astype(np.int16), 'texMap')
+    counts = np.bincount(labels, minlength=n_texton)
+    centroids_new /= counts[:, np.newaxis] # denominator might be zero
+    centroids_new[counts==0] = centroids[counts==0]
+    print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
 
-    textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
-    save_image(textonmap_rgb, 'texMap')
+    centroids = centroids_new
+
+    
+print centroids.shape
+dm.save_pipeline_result(centroids, 'textons', 'npy')
+
+
+print 'kmeans completes'
+
+# <codecell>
+
 

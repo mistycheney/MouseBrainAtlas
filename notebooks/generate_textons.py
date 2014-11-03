@@ -15,15 +15,15 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v3'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
 class args:
     stack_name = 'RS141'
     resolution = 'x5'
-#     slice_indices = range(23)
-    slice_indices = [1]
+    slice_indices = range(0, 23, 5)
+#     slice_indices = [1]
 
 # <codecell>
 
@@ -46,6 +46,7 @@ for slice_ind in args.slice_indices:
     
     cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')    
     cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
+    
     n_pixels = cropped_features.shape[0]*cropped_features.shape[1]
     features_fullstack.append(random.sample(cropped_features[cropped_mask], min(sample_per_slice, n_pixels)))
     
@@ -55,11 +56,6 @@ n_feature = features_fullstack_all.shape[-1]
 print n_feature
 
 # <codecell>
-
-# def compute_textons(features):
-#     """
-#     Compute rotation-invariant texton map using K-Means
-#     """
 
 import random
 import itertools

@@ -3,596 +3,174 @@
 
 # <codecell>
 
-import numpy as np
-import cv2
-
-import matplotlib.pyplot as plt
-
-import random, itertools, sys, os
-from multiprocessing import Pool
-import json
-
-from skimage.segmentation import slic, mark_boundaries
-from skimage.measure import regionprops
-from skimage.util import img_as_ubyte
-from skimage.color import hsv2rgb, label2rgb, gray2rgb
-from skimage.morphology import disk
-from skimage.filter.rank import gradient
-from skimage.filter import gabor_kernel
-from skimage.transform import rescale, resize
-
-from scipy.ndimage import gaussian_filter, measurements
-from scipy.sparse import coo_matrix
-from scipy.spatial.distance import pdist, squareform, euclidean, cdist
-from scipy.signal import fftconvolve
-
-from IPython.display import FileLink, Image, FileLinks
-
-import utilities
-from utilities import chi2
-
-from joblib import Parallel, delayed
-
-import glob, re, os, sys, subprocess, argparse
-import pprint
-import cPickle as pickle
+%load_ext autoreload
+%autoreload 2
 
 # <codecell>
 
-# parser = argparse.ArgumentParser(
-# formatter_class=argparse.RawDescriptionHelpFormatter,
-# description='Semi-supervised Sigboost',
-# epilog="""%s
-# """%(os.path.basename(sys.argv[0]), ))
+from utilities import *
 
-# parser.add_argument("stack_name", type=str, help="stack name")
-# parser.add_argument("resolution", type=str, help="resolution string")
-# parser.add_argument("slice_num", type=str, help="slice number, zero-padded to 4 digits")
-# parser.add_argument("param_id", type=str, help="parameter identification name")
-# args = parser.parse_args()
+if 'SSH_CONNECTION' in os.environ:
+    DATA_DIR = '/home/yuncong/DavidData'
+    REPO_DIR = '/home/yuncong/Brain'
+else:
+    DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
+    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+
+dm = DataManager(DATA_DIR, REPO_DIR)
 
 class args:
     stack_name = 'RS141'
     resolution = 'x5'
-    slice_num = '0014'
-    params_name = 'redNissl'
-    models_fn = '/home/yuncong/BrainLocal/DavidData_v3/RS141/x5/RS141_x5_models.pkl'
-    labeling_fn = '/home/yuncong/BrainLocal/DavidData_v3/RS141/x5/0000/labelings/RS141_x5_0000_anon_10202014204123.pkl'
+    slice_ind = 2
+    gabor_params_id = 'blueNisslWide'
+    segm_params_id = 'blueNissl'
+    vq_params_id = 'blueNissl'
 
-data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
-repo_dir = '/home/yuncong/BrainSaliencyDetection'
-params_dir = os.path.join(repo_dir, 'params')
+dm.set_image(args.stack_name, args.resolution, args.slice_ind)
+dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
+dm.set_segmentation_params(segm_params_id=args.segm_params_id)
+dm.set_vq_params(vq_params_id=args.vq_params_id)
 
-# <codecell>
+from joblib import Parallel, delayed
 
-stack_name = args.stack_name
-resolution = args.resolution
-slice_id = args.slice_num
-params_name = args.params_name
+n_texton = int(dm.vq_params['n_texton'])
 
-results_dir = os.path.join(data_dir, stack_name, resolution, slice_id, params_name+'_pipelineResults')
-labelings_dir = os.path.join(data_dir, stack_name, resolution, slice_id, 'labelings')
+texton_hists = dm.load_pipeline_result('texHist', 'npy')
 
-image_name = '_'.join([stack_name, resolution, slice_id])
-instance_name = '_'.join([stack_name, resolution, slice_id, params_name])
+cropped_segmentation = dm.load_pipeline_result('cropSegmentation', 'npy')
+n_superpixels = len(unique(cropped_segmentation)) - 1
+cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
 
-_, _, _, username, logout_time = os.path.basename(args.labeling_fn)[:-4].split('_')
-parent_labeling_name = username + '_' + logout_time
-# parent_labeling_name = None
+textonmap = dm.load_pipeline_result('texMap', 'npy')
+neighbors = dm.load_pipeline_result('neighbors', 'npy')
 
-def full_object_name(obj_name, ext):
-    return os.path.join(data_dir, stack_name, resolution, slice_id, params_name+'_pipelineResults', instance_name + '_' + obj_name + '.' + ext)
-
-
-# load parameter settings
-params_dir = os.path.realpath(params_dir)
-param_file = os.path.join(params_dir, 'param_%s.json'%params_name)
-param_default_file = os.path.join(params_dir, 'param_default.json')
-param = json.load(open(param_file, 'r'))
-param_default = json.load(open(param_default_file, 'r'))
-
-for k, v in param_default.iteritems():
-    if not isinstance(param[k], basestring):
-        if np.isnan(param[k]):
-            param[k] = v
-
-pprint.pprint(param)
+cropped_image = dm.load_pipeline_result('cropImg', 'tif')
 
 # <codecell>
 
-# # def circle_list_to_labeling_field(self, circle_list):
-# #     label_circles = []
-# #     for c in circle_list:
-# #         label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
-# #         label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
-# #     return label_circles
-
-
-# def labeling_field_to_labelmap(labeling_field, size):
-    
-#     labelmap = -1*np.ones(size, dtype=np.int)
-
-#     for cx,cy,cradius,label in labeling_field:
-#         for x in np.arange(cx-cradius, cx+cradius):
-#             for y in np.arange(cy-cradius, cy+cradius):
-#                 if (cx-x)**2+(cy-y)**2 <= cradius**2:
-#                     labelmap[int(y),int(x)] = label
-#     return labelmap
-
-    
-# def count_unique(keys):
-#     uniq_keys = np.unique(keys)
-#     bins = uniq_keys.searchsorted(keys)
-#     return uniq_keys, np.bincount(bins)
-
-
-# def label_superpixels(labelmap, segmentation):
-#     n_superpixels = len(np.unique(segmentation))
-#     labellist = -1*np.ones((n_superpixels,), dtype=np.int)
-#     for sp in range(n_superpixels):
-#         in_sp_labels = labelmap[segmentation==sp]
-#         labels, counts = count_unique(in_sp_labels)
-#         dominant_label = int(labels[counts.argmax()])
-#         if dominant_label != -1:
-#             labellist[sp] = dominant_label
-#     return labellist
-        
-        
-# def generate_models(labellist, sp_texton_hist_normalized):
-    
-#     models = []
-#     for i in range(np.max(labellist)+1):
-#         sps = np.where(labellist == i)[0]
-#         print i, sps
-#         model = {}
-#         if len(sps) > 0:
-#             texton_model = sp_texton_hist_normalized[sps, :].mean(axis=0)
-#             model['texton_hist'] = texton_model
-# #             dir_model = sp_dir_hist_normalized[sps, :].mean(axis=0)
-# #             model['dir_hist'] = dir_model
-#             models.append(model)
-
-#     n_models = len(models)
-#     print n_models, 'models'
-    
-#     return models
-
-# #     labelmap = labellist[segmentation]
-
-# #     for l in range(n_models):
-# #         matched_rows, matched_cols = np.where(labelmap == l)
-# #         ymin = matched_rows.min()
-# #         ymax = matched_rows.max()
-# #         xmin = matched_cols.min()
-# #         xmax = matched_cols.max()
-# #         models[l]['bounding_box'] = (xmin, ymin, xmax-xmin+1, ymax-ymin+1)    
+from grow_regions import grow_cluster
 
 # <codecell>
 
-# def get_max_kernel_size(param):
+from scipy.spatial.distance import cdist
 
-#     theta_interval = param['theta_interval']
-#     n_angle = int(180/theta_interval)
-#     freq_step = param['freq_step']
-#     freq_max = 1./param['min_wavelen']
-#     freq_min = 1./param['max_wavelen']
-#     bandwidth = param['bandwidth']
-#     n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
-#     frequencies = freq_max/freq_step**np.arange(n_freq)
-
-#     kernels = [gabor_kernel(f, theta=t, bandwidth=bandwidth) for f in frequencies 
-#               for t in np.arange(0, n_angle)*np.deg2rad(theta_interval)]
-#     kernels = map(np.real, kernels)
-
-#     n_kernel = len(kernels)
-
-#     print '=== filter using Gabor filters ==='
-#     print 'num. of kernels: %d' % (n_kernel)
-#     print 'frequencies:', frequencies
-#     print 'wavelength (pixels):', 1/frequencies
-
-#     max_kern_size = np.max([kern.shape[0] for kern in kernels])
-#     print max_kern_size
-#     return max_kern_size
-
-# def models_from_labeling(labeling_fn):
-#     stack, resol, slice, username, logout_time = os.path.basename(labeling_fn)[:-4].split('_')
-#     img_fn = os.path.join(data_dir, stack, resol, slice, '_'.join([stack, resol, slice])+'.tif')
-#     img = cv2.imread(img_fn, 0)
-    
-#     cropImg_fn = os.path.join(data_dir, stack, resol, slice, params_name+'_pipelineResults', 
-#                  '_'.join([stack, resol, slice, params_name]) + '_cropImg.tif')
-#     cropImg = cv2.imread(cropImg_fn, 0)
-    
-#     labeling = pickle.load(open(labeling_fn, 'r'))
-#     labelmap = labeling_field_to_labelmap(labeling['final_label_circles'], size=img.shape)
-    
-#     max_kern_size = get_max_kernel_size(param)
-    
-#     cropped_labelmap = labelmap[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
-
-# #     show_labelmap(labelmap, img)
-
-    
-#     segmentation_fn = os.path.join(data_dir, stack, resol, slice, params_name+'_pipelineResults', 
-#                  '_'.join([stack, resol, slice, params_name]) + '_segmentation.npy')
-#     print segmentation_fn
-#     segmentation = np.load(segmentation_fn)
-
-#     labellist = label_superpixels(cropped_labelmap, segmentation)
-
-
-#     segmentation_vis_fn = os.path.join(data_dir, stack, resol, slice, params_name+'_pipelineResults', 
-#                  '_'.join([stack, resol, slice, params_name]) + '_segmentation.tif')
-#     segvis = cv2.imread(segmentation_vis_fn, 0)
-
-    
-# #     show_labelmap(labellist[segmentation], segvis)
-    
-#     f = os.path.join(data_dir, stack, resol, slice, params_name+'_pipelineResults', 
-#                  '_'.join([stack, resol, slice, params_name]) + '_texHist.npy')
-#     print f
-    
-#     tex_hists = np.load(f)
-    
-#     models = generate_models(labellist, tex_hists)
-    
-#     return models
-
-# <codecell>
-
-# def show_labelmap(lm, im):
-    
-#     hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt', skiprows=1)
-
-#     labelmap_rgb = label2rgb(lm.astype(np.int), image=im, colors=hc_colors[1:]/255., alpha=0.1, 
-#                              image_alpha=1, bg_color=hc_colors[0]/255.)
-
-#     labelmap_rgb = utilities.regulate_img(labelmap_rgb)
-#     plt.imshow(labelmap_rgb)
-#     plt.show()    
-
-# <codecell>
-
-# models = models_from_labeling(args.labeling_fn)
-# pickle.dump(models, open('/tmp/models.pkl', 'w'))
-
-models = pickle.load(open('/tmp/models.pkl', 'r'))
-
-# <codecell>
-
-img = cv2.imread(os.path.join(data_dir, stack_name, resolution, slice_id, image_name + '.tif'), 0)
-cropImg = cv2.imread(full_object_name('cropImg', 'tif'), 0)
-
-# <codecell>
-
-# models = pickle.load(open(args.models_fn, 'r'))
-n_models = len(models)
-
-texton_models = [model['texton_hist'] for model in models]
-
-mask = np.load(full_object_name('cropMask','npy'))
-fg_superpixels = np.load(full_object_name('fg','npy'))
-bg_superpixels = np.load(full_object_name('bg','npy'))
-neighbors = np.load(full_object_name('neighbors','npy'))
-
-sp_texton_hist_normalized = np.load(full_object_name('texHist', 'npy'))
-
-segmentation = np.load
-
-segmentation = np.load(full_object_name('segmentation', 'npy'))
-n_superpixels = len(np.unique(segmentation))
-
-D_texton_model = -1*np.ones((n_models, n_superpixels))
-D_texton_model[:, fg_superpixels] = cdist(sp_texton_hist_normalized[fg_superpixels], texton_models, chi2).T
-
-textonmap = np.load(full_object_name('texMap', 'npy'))
-overall_texton_hist = np.bincount(textonmap[mask].flat)
-
+overall_texton_hist = np.bincount(textonmap[cropped_mask].flat)
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
-
-D_texton_null = np.squeeze(cdist(sp_texton_hist_normalized, [overall_texton_hist_normalized], chi2))
+D_sp_null = np.squeeze(cdist(texton_hists, [overall_texton_hist_normalized], chi2))
 
 # <codecell>
 
-re_thresh_min = 0.01
-re_thresh_max = 0.8
+# def circle_list_to_labeling_field(self, circle_list):
+#     label_circles = []
+#     for c in circle_list:
+#         label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
+#         label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
+#     return label_circles
 
-def grow_cluster_relative_entropy(seed, debug=False, 
-                                  frontier_contrast_diff_thresh = 0.1,
-                                  max_cluster_size = 100):
-    '''
-    find the connected cluster of superpixels that have similar texture, starting from a superpixel as seed
-    '''
+def labeling_field_to_labelmap(labeling_field, size):
     
-    bg_set = set(bg_superpixels.tolist())
-    
-    if seed in bg_set:
-        return [], -1
+    labelmap = -1*np.ones(size, dtype=np.int)
 
-    prev_frontier_contrast = np.inf
-    for re_thresh in np.arange(re_thresh_min, re_thresh_max, .01):
-    
-        curr_cluster = set([seed])
-        frontier = [seed]
+    for cx,cy,cradius,label in labeling_field:
+        for x in np.arange(cx-cradius, cx+cradius):
+            for y in np.arange(cy-cradius, cy+cradius):
+                if (cx-x)**2+(cy-y)**2 <= cradius**2:
+                    labelmap[int(y),int(x)] = label
+    return labelmap
 
-        while len(frontier) > 0:
-            u = frontier.pop(-1)
-            for v in neighbors[u]:
-                if v in bg_superpixels or v in curr_cluster: 
-                    continue
-
-                if chi2(p[v], p[seed]) < re_thresh:
-                    curr_cluster.add(v)
-                    frontier.append(v)
+@timeit
+def label_superpixels(labelmap, segmentation):
+    labellist = -1*np.ones((n_superpixels,), dtype=np.int)
+    for sp in range(n_superpixels):
+        in_sp_labels = labelmap[segmentation==sp]
         
-        surround = set.union(*[neighbors[i] for i in curr_cluster]) - set.union(curr_cluster, bg_set)
-        if len(surround) == 0:
-            return curr_cluster, re_thresh
-
-        frontier_in_cluster = set.intersection(set.union(*[neighbors[i] for i in surround]), curr_cluster)
-        frontier_contrasts = [np.nanmax([chi2(p[i], p[j]) for j in neighbors[i] if j not in bg_set]) for i in frontier_in_cluster]
-        frontier_contrast = np.max(frontier_contrasts)
+        counts = np.bincount(in_sp_labels+1)
+        dominant_label = counts.argmax() - 1
+        if dominant_label != -1:
+            labellist[sp] = dominant_label
+    return labellist
         
-        if debug:
-            print 'frontier_contrast=', frontier_contrast, 'prev_frontier_contrast=', prev_frontier_contrast, 'diff=', frontier_contrast - prev_frontier_contrast
-        
-        if len(curr_cluster) > max_cluster_size or \
-        frontier_contrast - prev_frontier_contrast > frontier_contrast_diff_thresh:
-            return curr_cluster, re_thresh
-        
-        prev_frontier_contrast = frontier_contrast
-        prev_cluster = curr_cluster
-        prev_re_thresh = re_thresh
-                                
-    return curr_cluster, re_thresh
+
+@timeit
+def generate_models(labellist, sp_texton_hist_normalized):
     
+    models = []
+    for i in range(np.max(labellist)+1):
+        sps = np.where(labellist == i)[0]
+        print i, sps
+        model = {}
+        if len(sps) > 0:
+            texton_model = sp_texton_hist_normalized[sps, :].mean(axis=0)
+            model['texton_hist'] = texton_model
+            models.append(model)
 
-def grow_cluster_likelihood_ratio(seed, texton_model, debug=False, lr_grow_thresh = 0.1):
-    '''
-    find the connected cluster of superpixels that are more likely to be explained by given model than by null, 
-    starting from a superpixel as seed
-    '''
+    n_models = len(models)
+    print n_models, 'models'
     
-    if seed in bg_superpixels:
-        return [], -1
+    return models
 
-    curr_cluster = set([seed])
-    frontier = [seed]
-        
-    while len(frontier) > 0:
-        u = frontier.pop(-1)
-        for v in neighbors[u]:
-            if v in bg_superpixels or v in curr_cluster: 
-                continue
-            
-            ratio_v = D_texton_null[v] - chi2(p[v], texton_model)
-            if debug:  
-                print 'u=', u, 'v=',v, 'ratio_v = ', ratio_v
-                print D_texton_null[v],  chi2(p[v], texton_model)
-            
-            if ratio_v > lr_grow_thresh:
-                curr_cluster.add(v)
-                frontier.append(v)
-                                
-    return curr_cluster, lr_grow_thresh
 
-def grow_cluster_likelihood_ratio_precomputed(seed, D_texton_model, debug=False, lr_grow_thresh = 0.1):
-    '''
-    find the connected cluster of superpixels that are more likely to be explained by given model than by null, 
-    starting from a superpixel as seed
-    using pre-computed distances between model and superpixels
-    '''
-
-    if seed in bg_superpixels:
-        return [], -1
-
-    curr_cluster = set([seed])
-    frontier = [seed]
-        
-    while len(frontier) > 0:
-        u = frontier.pop(-1)
-        for v in neighbors[u]:
-            if v in bg_superpixels or v in curr_cluster: 
-                continue
-            
-            ratio_v = D_texton_null[v] - D_texton_model[v]
-            if debug:  
-                print 'u=', u, 'v=',v, 'ratio_v = ', ratio_v
-                print D_texton_null[v],  D_texton_model[v], \
-            
-            if ratio_v > lr_grow_thresh:
-                curr_cluster.add(v)
-                frontier.append(v)
-                                
-    return curr_cluster, lr_grow_thresh
+def models_from_labeling(labeling):
+    
+    labelmap = labeling_field_to_labelmap(labeling['final_label_circles'], size=dm.image.shape)
+    
+    kernels = dm.load_pipeline_result('kernels', 'pkl')
+    max_kern_size = max([k.shape[0] for k in kernels])    
+    
+    cropped_labelmap = labelmap[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
+    
+    labellist = label_superpixels(cropped_labelmap, cropped_segmentation)
+    models = generate_models(labellist, texton_hists)
+    
+    return models
 
 # <codecell>
 
-# lr_decision_thresh = param['lr_decision_thresh']
-# lr_grow_thresh = param['lr_grow_thresh']
+try:
+    models = dm.load_pipeline_result('models', 'pkl')
+except:
+    labeling = dm.load_labeling('anon_11032014025541')
+    models = models_from_labeling(labeling)
+    dm.save_pipeline_result(models, 'models', 'pkl')
 
-lr_grow_thresh = .01
-lr_decision_thresh = .04
+# <codecell>
 
-def find_best_model(i):
-    model_score = np.empty((n_models, ))
+weights = np.ones((n_superpixels, ))/n_superpixels
 
-    if i in bg_superpixels:
-        return -1
-    else:
-        for m in range(n_models):
-            matched, _ = grow_cluster_likelihood_ratio_precomputed(i, D_texton_model[m], lr_grow_thresh=lr_grow_thresh)         
-            matched = list(matched)
-            model_score[m] = np.mean(D_texton_null[matched] - D_texton_model[m, matched])
+# <codecell>
 
-#             print matched, model_score[m]
-            
-        best_sig = model_score.max()
-        if best_sig > lr_decision_thresh: # sp whose sig is smaller than this is assigned null
-          return model_score.argmax()    
-    return -1
+cluster_sp = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists, D_sp_null) for s in range(n_superpixels))
+model_sp = [texton_hists[c].mean(axis=0) for c in clusters]
+# clusters = [grow_cluster(s, neighbors, texton_hists, D_sp_null) for s in range(n_superpixels)]
 
+# <codecell>
 
-def assign_models():
-
-    print lr_decision_thresh, lr_grow_thresh
-
-    r = Parallel(n_jobs=16)(delayed(find_best_model)(i) for i in range(n_superpixels))
-    labels = np.array(r, dtype=np.int)
+for t in range(n_models):
     
-    return labels
-    
-    
-# find_best_model(801)
-# find_best_model(1360)
-# find_best_model(1181)
-find_best_model(1435)
-
-# <codecell>
-
-assigned_models = assign_models()
-
-# <codecell>
-
-
-labelmap = assigned_models[segmentation]
-
-hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt', skiprows=1)
-
-labelmap_rgb = label2rgb(labelmap.astype(np.int), image=cropImg, colors=hc_colors[1:]/255., alpha=0.1, 
-                         image_alpha=1, bg_color=hc_colors[0]/255.)
-
-# import datetime
-# dt = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-
-# new_labeling = {
-# 'username': 'sigboost',
-# 'parent_labeling_name': None,
-# 'login_time': dt,
-# 'logout_time': dt,
-# 'init_labellist': None,
-# 'final_labellist': labels,
-# 'labelnames': None,
-# 'history': None
-# }
-
-labelmap_rgb = utilities.regulate_img(labelmap_rgb)
-# plt.imshow(labelmap_rgb)
-# plt.show()
-
-new_preview_fn = os.path.join('/home/yuncong/BrainLocal/sigboost_outputs', image_name + '_sigboost.tif')
-cv2.imwrite(new_preview_fn, labelmap_rgb[:,:,::-1])
-
-# <codecell>
-
-# # set up sigboost parameters
-
-# # n_models = param['n_models']
-# n_models = None
-# frontier_contrast_diff_thresh = param['frontier_contrast_diff_thresh']
-# lr_grow_thresh = param['lr_grow_thresh']
-# beta = param['beta']
-# lr_decision_thresh = param['lr_decision_thresh']
-
-# <codecell>
-
-# # compute RE-clusters of every superpixel
-# r = Parallel(n_jobs=16)(delayed(grow_cluster_relative_entropy)(i, frontier_contrast_diff_thresh=frontier_contrast_diff_thresh) 
-#                         for i in range(n_superpixels))
-# clusters = [list(c) for c, t in r]
-# print 'clusters computed'
-
-# <codecell>
-
-# # create output directory
-# stages_dir = os.path.join(results_dir, 'stages')
-# if not os.path.exists(stages_dir):
-#     os.makedirs(stages_dir)
-
-# # initialize models
-# texton_models = np.zeros((n_models, n_texton))
-# dir_models = np.zeros((n_models, n_angle))
-
-# seed_indices = np.zeros((n_models,))
-
-# weights = np.ones((n_superpixels, ))/n_superpixels
-# weights[bg_superpixels] = 0
-
-# <codecell>
-
-
-
-# # begin boosting loop; learn one model at each iteration
-# for t in range(n_models):
-    
-#     print 'model %d' % (t)
-    
-#     # Compute significance scores for every superpixel;
-#     # i.e. the significance of using the appearance of superpixel i as model
-#     # the significance score is defined as the average log likelihood ratio in a superpixel's RE-cluster
-#     sig_score = np.zeros((n_superpixels, ))
-#     for i in fg_superpixels:
-#         cluster = clusters[i]
-#         sig_score[i] = np.mean(weights[cluster] * \
-#                                (D_texton_null[cluster] - np.array([chi2(p[j], p[i]) for j in cluster]) +\
-#                                D_dir_null[cluster] - np.array([chi2(q[j], q[i]) for j in cluster])))
+    print 'model %d' % (t)
  
-#     # Pick the most significant superpixel
-#     seed_sp = sig_score.argsort()[-1]
-#     print "most significant superpixel", seed_sp
-    
-#     visualize_cluster(sig_score, 'all', title='significance score for each superpixel', filename='sigscore%d'%t)
-    
-#     curr_cluster = clusters[seed_sp]
-#     visualize_cluster(sig_score, curr_cluster, title='distance cluster', filename='curr_cluster%d'%t)
+    sig_score = np.zeros((n_superpixels, ))
+    for i in range(n_superpixels):
+        cluster = cluster_sp[i]
+        model = model_sp[i]
+        D_diff_cluster = D_sp_null[cluster] - np.squeeze(cdist([model], texton_hists[cluster], chi2))
+        sig_score[i] = np.mean(weights[cluster] * D_diff_cluster)
+ 
+    # Pick the most significant superpixel
+    most_sig_sp = sig_score.argsort()[-1]
+    print "most significant superpixel", most_sig_sp
 
-#     # models are the average of the distributions in the chosen superpixel's RE-cluster
-#     model_texton = sp_texton_hist_normalized[curr_cluster].mean(axis=0)
-#     model_dir = sp_dir_hist_normalized[curr_cluster].mean(axis=0)
+    # models are the average of the distributions in the chosen superpixel's RE-cluster
+    curr_cluster =  cluster_sp[most_sig_sp]
+    D_sp_model = np.squeeze(cdist(model_sp[most_sig_sp], texton_hists, chi2))
+    D_sp_diff = D_sp_null - D_sp_model
     
-#     # Compute log likelihood ratio of this model against the null, for every superpixel
-    
-#     # RE(pj|pm)
-#     D_texton_model = np.empty((n_superpixels,))
-#     D_texton_model[fg_superpixels] = np.array([chi2(sp_texton_hist_normalized[i], model_texton) for i in fg_superpixels])
-#     D_texton_model[bg_superpixels] = np.nan
-    
-#     # RE(qj|qm)
-#     D_dir_model = np.empty((n_superpixels,)) 
-#     D_dir_model[fg_superpixels] = np.array([chi2(sp_dir_hist_normalized[i], model_dir) for i in fg_superpixels])
-#     D_dir_model[bg_superpixels] = np.nan
-    
-#     # RE(pj|p0)-RE(pj|pm) + RE(qj|q0)-RE(qj|qm)
-#     match_scores = np.empty((n_superpixels,))
-#     match_scores[fg_superpixels] = D_texton_null[fg_superpixels] - D_texton_model[fg_superpixels] +\
-#                                     D_dir_model[fg_superpixels] - D_dir_model[fg_superpixels]
-#     match_scores[bg_superpixels] = 0
-
-#     visualize_cluster(match_scores, 'all', title='match score', filename='grow%d'%t)
-
-#     # Find the cluster growed from seed based on log likelihood ratio. Refer to this cluster as the LR-cluster
 #     matched, _ = grow_cluster_likelihood_ratio(seed_sp, model_texton, model_dir)
 #     matched = list(matched)
 
-#     visualize_cluster(match_scores, matched, title='growed cluster', filename='grow%d'%t)
-
-#     # Reduce the weights of superpixels in LR-cluster
-#     weights[matched] = weights[matched] * np.exp(-5*(D_texton_null[matched] - D_texton_model[matched] +\
-#                                                    D_dir_null[matched] - D_dir_model[matched])**beta)
-#     weights[bg_superpixels] = 0
-#     weights = weights/weights.sum()
-#     visualize_cluster((weights - weights.min())/(weights.max()-weights.min()), 'all', 
-#                       title='updated superpixel weights', filename='weight%d'%t)
+    # Reduce the weights of superpixels in LR-cluster
+    weights[curr_cluster] = weights[curr_cluster] * np.exp(-5*(D_sp_null[curr_cluster] - D_sp_model[curr_cluster])**beta)
     
-#     labels = -1*np.ones_like(segmentation)
-#     for i in matched:
-#         labels[segmentation == i] = 1
-#     real_image = label2rgb(labels, img)
-#     save_img(real_image, os.path.join('stage', 'real_image_model%d'%t))
-
-#     # record the model found at this round
-#     seed_indices[t] = seed_sp
-#     texton_models[t] = model_texton
-#     dir_models[t] = model_dir
+    weights = weights/weights.sum()
 

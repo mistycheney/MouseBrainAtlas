@@ -179,6 +179,8 @@ class DataManager(object):
         self.image_dir = os.path.join(self.data_dir, self.stack, self.resol, self.slice_str)
         self.image_name = '_'.join([self.stack, self.resol, self.slice_str])
 
+        self.labelings_dir = os.path.join(self.image_dir, 'labelings')
+        
         self.filterResults_dir = os.path.join(self.image_dir, 'filterResults')
         if not os.path.exists(self.filterResults_dir):
             os.mkdir(self.filterResults_dir)
@@ -282,7 +284,13 @@ class DataManager(object):
         elif result_name == 'tmp':
             results_dir = '/tmp'
             instance_name = 'test'
-                        
+        
+        elif result_name == 'models':
+            results_dir = self.resol_dir
+            instance_name = '_'.join([self.stack, self.resol,
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + \
+                                      '-vq-' + self.vq_params_id])
+        
         else:
             print 'result name %s unknown' % result_name
             raise
@@ -345,7 +353,13 @@ class DataManager(object):
                 img = rgb2gray(img)
 
         return img
-#         
+    
+    
+    def load_labeling(self, labeling_name):
+        labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + labeling_name + '.pkl')
+        labeling = pickle.load(open(labeling_fn, 'r'))
+        return labeling
+            
 
 # <codecell>
 

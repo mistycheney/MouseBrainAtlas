@@ -3,11 +3,6 @@
 
 # <codecell>
 
-%load_ext autoreload
-%autoreload 2
-
-# <codecell>
-
 from utilities import *
 
 if 'SSH_CONNECTION' in os.environ:
@@ -19,30 +14,23 @@ else:
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
-# import argparse
-# import sys
+import argparse
+import sys
 
-# parser = argparse.ArgumentParser(
-# formatter_class=argparse.RawDescriptionHelpFormatter,
-# description='Execute feature extraction pipeline',
-# epilog="""
-# The following command processes image RS141_x5_0001.tif using blueNissl for both gabor parameters and segmentation parameters.
-# python %s RS141 x5 1 -g blueNissl -s blueNissl
-# """%(os.path.basename(sys.argv[0]), ))
+parser = argparse.ArgumentParser(
+formatter_class=argparse.RawDescriptionHelpFormatter,
+description='Execute feature extraction pipeline',
+epilog="""
+The following command processes image RS141_x5_0001.tif using blueNissl for both gabor parameters and segmentation parameters.
+python %s RS141 x5 1 -g blueNissl -s blueNissl
+"""%(os.path.basename(sys.argv[0]), ))
 
-# parser.add_argument("stack_name", type=str, help="stack name")
-# parser.add_argument("resolution", type=str, help="resolution string")
-# parser.add_argument("slice_ind", type=int, help="slice index")
-# parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNissl')
-# parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNissl')
-# args = parser.parse_args()
-
-class args:
-    stack_name = 'RS141'
-    resolution = 'x5'
-    slice_ind = 2
-    gabor_params_id = 'blueNisslWide'
-    segm_params_id = 'blueNissl'
+parser.add_argument("stack_name", type=str, help="stack name")
+parser.add_argument("resolution", type=str, help="resolution string")
+parser.add_argument("slice_ind", type=int, help="slice index")
+parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNissl')
+args = parser.parse_args()
 
 # <codecell>
 
@@ -51,12 +39,6 @@ dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
 dm.set_segmentation_params(segm_params_id=args.segm_params_id)
 
 # <codecell>
-
-# @timeit
-# def build_gabor_kernels(gabor_params):
-#     """
-#     Generate the Gabor kernels
-#     """
 
 from skimage.filter import gabor_kernel
 
@@ -91,17 +73,6 @@ kernels = [k/k.sum()*mean_bias for k in kernels]
 dm.save_pipeline_result(kernels, 'kernels', 'pkl')
 
 # <codecell>
-
-# compensate the biases of kernels
-
-for i, k in enumerate(kernels):
-    plt.matshow(k)
-    plt.title('kernel %d'%i)
-    plt.show()
-
-# <codecell>
-
-# def gabor_filter():
 
 from joblib import Parallel, delayed
 from scipy.signal import fftconvolve
@@ -155,42 +126,6 @@ except:
 
 cropped_height, cropped_width = cropped_img.shape[:2]
 print cropped_height, cropped_width
-
-# <codecell>
-
-mins = np.empty((n_kernel, ))
-maxs = np.empty((n_kernel, ))
-means = np.empty((n_kernel, ))
-for i in range(n_kernel):
-    a = cropped_features[:,:,i].astype(np.float32)
-    mins[i] = a.min()
-    maxs[i] = a.max()
-    means[i] = a.mean()
-    
-# plt.bar(range(n_kernel), mins, color='r')
-# plt.bar(range(n_kernel), maxs, color='b')
-# plt.bar(range(n_kernel), means, color='g')
-
-plt.errorbar(range(n_kernel), means, yerr=[abs(mins-means), maxs-means], fmt='--o')
-
-# <codecell>
-
-plt.matshow(cropped_features[366,3295,:].reshape(n_freq, n_angle))
-
-plt.xticks(range(n_angle))
-xlabels = ['%d'%np.rad2deg(a) for a in angles]
-plt.gca().set_xticklabels(xlabels)
-plt.xlabel('angle (degrees)')
-# 0 degree corresponds to vertical strips
-
-plt.yticks(range(n_freq))
-ylabels = ['%.1f'%a for a in 1./frequencies]
-plt.gca().set_yticklabels(ylabels)
-plt.ylabel('wavelength (pixels)')
-
-plt.colorbar()
-
-plt.show()
 
 # <codecell>
 
@@ -283,7 +218,4 @@ except:
         neighbors[i] -= set([i])
 
     dm.save_pipeline_result(neighbors, 'neighbors', 'npy')
-
-# <codecell>
-
 

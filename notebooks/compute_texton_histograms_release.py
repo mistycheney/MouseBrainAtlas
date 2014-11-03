@@ -3,11 +3,6 @@
 
 # <codecell>
 
-%load_ext autoreload
-%autoreload 2
-
-# <codecell>
-
 from utilities import *
 
 if 'SSH_CONNECTION' in os.environ:
@@ -19,32 +14,24 @@ else:
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
-# import argparse
-# import sys
+import argparse
+import sys
 
-# parser = argparse.ArgumentParser(
-# formatter_class=argparse.RawDescriptionHelpFormatter,
-# description='Execute feature extraction pipeline',
-# epilog="""
-# The following command processes image RS141_x5_0001.tif using blueNissl for both gabor parameters and segmentation parameters.
-# python %s RS141 x5 1 -g blueNissl -s blueNissl -v blueNissl
-# """%(os.path.basename(sys.argv[0]), ))
+parser = argparse.ArgumentParser(
+formatter_class=argparse.RawDescriptionHelpFormatter,
+description='Execute feature extraction pipeline',
+epilog="""
+For example, one can run
+python %s RS141 x5 1 -g blueNissl -s blueNissl -v blueNissl
+"""%(os.path.basename(sys.argv[0]), ))
 
-# parser.add_argument("stack_name", type=str, help="stack name")
-# parser.add_argument("resolution", type=str, help="resolution string")
-# parser.add_argument("slice_ind", type=int, help="slice index")
-# parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNissl')
-# parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNissl')
-# parser.add_argument("-v", "--vq_params_id", type=str, help="vq parameters id (default: %(default)s)", default='blueNissl')
-# args = parser.parse_args()
-
-class args:
-    stack_name = 'RS141'
-    resolution = 'x5'
-    slice_ind = 1
-    gabor_params_id = 'blueNisslWide'
-    segm_params_id = 'blueNissl'
-    vq_params_id = 'blueNissl'
+parser.add_argument("stack_name", type=str, help="stack name")
+parser.add_argument("resolution", type=str, help="resolution string")
+parser.add_argument("slice_ind", type=int, help="slice index")
+parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-v", "--vq_params_id", type=str, help="vq parameters id (default: %(default)s)", default='blueNissl')
+args = parser.parse_args()
 
 # <codecell>
 
@@ -88,7 +75,4 @@ except:
 # compute the null texton histogram
 overall_texton_hist = np.bincount(textonmap[cropped_mask].flat)
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
-
-# <codecell>
-
 

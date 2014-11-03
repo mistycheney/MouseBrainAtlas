@@ -129,9 +129,12 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
-# class DataManager(object):
+# class DataSynchronizer(object):
+    
 #     def __init__(self):
-#         generate_local_tree()
+#         get_local_tree()
+#         get_remote_tree()
+        
         
         
 #     def generate_local_tree(self):
@@ -145,7 +148,6 @@ def timeit(func=None,loops=1,verbose=False):
         
         
 #     def generate_gui_paths(self):
-        
         
         
 

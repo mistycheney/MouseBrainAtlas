@@ -92,7 +92,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Load data
 
         self.data_dir = '/home/yuncong/BrainLocal/DavidData_v3'
-        self.remote_data_dir = '/home/yuncong/DavidData/'
+        self.remote_data_dir = '/home/yuncong/project/DavidData2014v3'
         self.gordon_username = 'yuncong'
         self.gordon_hostname = 'gcn-20-32.sdsc.edu'
         self.temp_dir = '/home/yuncong/BrainLocal'

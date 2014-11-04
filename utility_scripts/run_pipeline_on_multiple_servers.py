@@ -3,17 +3,12 @@ import argparse
 parser = argparse.ArgumentParser(description="Run pipeline for different instances on different servers")
 parser.add_argument("stack", help="stack name, e.g. RS141")
 parser.add_argument("resol", help="resolution, e.g. x5")
-parser.add_argument("params", help="parameter set name, e.g. redNissl")
 parser.add_argument("start_slice", type=int, help="beginning slice in the stack")
 parser.add_argument("end_slice", type=int, help="ending slice in the stack")
+parser.add_argument("-g", "--gabor_params", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-s", "--segm_params", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-v", "--vq_params", type=str, help="vq parameters id (default: %(default)s)", default='blueNissl')
 args = parser.parse_args()
-
-
-# def exists_remote(host, path):
-#     proc = subprocess.Popen(
-#         ['ssh', host, 'test -f %s' % pipes.quote(path)])
-#     proc.wait()
-#     return proc.returncode == 0
 
 
 import subprocess
@@ -25,15 +20,50 @@ def exists_remote(host, path):
 hostids = range(31,39) + range(41,49)
 n_hosts = len(hostids)
 
-d = {'stack': args.stack, 'resol': args.resol, 'params': args.params}
+d = {'stack': args.stack, 'resol': args.resol, 'gabor_params': args.gabor_params, 'segm_params': args.segm_params, 'vq_params': args.vq_params, }
 
+########## Gabor filtering, generate features and segmentation ##########
 with open('argfile', 'w') as f:
 	for slice_num in range(args.start_slice, args.end_slice + 1):
 		d['slice_num'] = slice_num
-		if not exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)s/%(params)s/pipelineResults'%d):
-			f.write('gcn-20-%d.sdsc.edu %04d\n'%(hostids[slice_num%n_hosts], slice_num))
+		result_exists = exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/segmResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d)
+		if not result_exists:
+			# print '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/filterResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d
+			f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[slice_num%n_hosts], slice_num))
 
-cmd = "parallel --colsep ' ' ssh {1} python /home/yuncong/Brain/notebooks/pipeline_v3.py /home/yuncong/DavidData/%(stack)s/%(resol)s/{2}/%(stack)s_%(resol)s_{2}.tif \
-%(params)s -t /home/yuncong/DavidData/RS141/x5/0000/redNissl_pipelineResults/RS141_x5_0000_redNissl_centroids.npy :::: argfile" % d
+cmd = "parallel --colsep ' ' ssh {1} 'python /home/yuncong/Brain/notebooks/gabor_filter_release.py %(stack)s %(resol)s {2} -g %(gabor_params)s -s %(segm_params)s' :::: argfile" % d
+print cmd
+subprocess.call(cmd, shell=True)
 
+########## generate textons ###########
+
+d['start_slice'] = args.start_slice
+d['end_slice'] = args.end_slice
+d['slice_interval'] = args.slice_interval
+cmd = "ssh yuncong@gcn-20-32.sdsc.edu 'python /home/yuncong/Brain/notebooks/generate_textons_release.py %(stack)s %(resolution)s %(start_slice)s %(end_slice)s %(slice_interval)s -g %(gabor_params)s -v %(vq_params)s'" %d
+
+########## assign textons, generate texton map ##########
+with open('argfile', 'w') as f:
+	for slice_num in range(args.start_slice, args.end_slice + 1):
+		d['slice_num'] = slice_num
+		result_exists = exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/vqResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-vq-%(vq_params)s_texMap.npy'%d)
+		if not result_exists:
+			# print '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/filterResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d
+			f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[slice_num%n_hosts], slice_num))
+
+cmd = "parallel --colsep ' ' ssh {1} 'python /home/yuncong/Brain/notebooks/assign_textons_release.py %(stack)s %(resol)s {2} -g %(gabor_params)s -v %(vq_params)s' :::: argfile" % d
+print cmd
+subprocess.call(cmd, shell=True)
+
+
+########## compute texton histograms ##########
+with open('argfile', 'w') as f:
+	for slice_num in range(args.start_slice, args.end_slice + 1):
+		d['slice_num'] = slice_num
+		result_exists = exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/histResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s-vq-%(vq_params)s_texHist.npy'%d)
+		if not result_exists:
+			f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[slice_num%n_hosts], slice_num))
+
+cmd = "parallel --colsep ' ' ssh {1} 'python /home/yuncong/Brain/notebooks/compute_texton_histograms_release.py %(stack)s %(resol)s {2} -g %(gabor_params)s -s %(segm_params)s -v %(vq_params)s' :::: argfile" % d
+print cmd
 subprocess.call(cmd, shell=True)

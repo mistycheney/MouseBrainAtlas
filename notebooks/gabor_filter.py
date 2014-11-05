@@ -40,7 +40,7 @@ dm = DataManager(DATA_DIR, REPO_DIR)
 class args:
     stack_name = 'RS141'
     resolution = 'x5'
-    slice_ind = 2
+    slice_ind = 1
     gabor_params_id = 'blueNisslWide'
     segm_params_id = 'blueNissl'
 
@@ -89,15 +89,6 @@ mean_bias = biases.mean()
 kernels = [k/k.sum()*mean_bias for k in kernels]
 
 dm.save_pipeline_result(kernels, 'kernels', 'pkl')
-
-# <codecell>
-
-# compensate the biases of kernels
-
-for i, k in enumerate(kernels):
-    plt.matshow(k)
-    plt.title('kernel %d'%i)
-    plt.show()
 
 # <codecell>
 
@@ -158,42 +149,6 @@ print cropped_height, cropped_width
 
 # <codecell>
 
-mins = np.empty((n_kernel, ))
-maxs = np.empty((n_kernel, ))
-means = np.empty((n_kernel, ))
-for i in range(n_kernel):
-    a = cropped_features[:,:,i].astype(np.float32)
-    mins[i] = a.min()
-    maxs[i] = a.max()
-    means[i] = a.mean()
-    
-# plt.bar(range(n_kernel), mins, color='r')
-# plt.bar(range(n_kernel), maxs, color='b')
-# plt.bar(range(n_kernel), means, color='g')
-
-plt.errorbar(range(n_kernel), means, yerr=[abs(mins-means), maxs-means], fmt='--o')
-
-# <codecell>
-
-plt.matshow(cropped_features[366,3295,:].reshape(n_freq, n_angle))
-
-plt.xticks(range(n_angle))
-xlabels = ['%d'%np.rad2deg(a) for a in angles]
-plt.gca().set_xticklabels(xlabels)
-plt.xlabel('angle (degrees)')
-# 0 degree corresponds to vertical strips
-
-plt.yticks(range(n_freq))
-ylabels = ['%.1f'%a for a in 1./frequencies]
-plt.gca().set_yticklabels(ylabels)
-plt.ylabel('wavelength (pixels)')
-
-plt.colorbar()
-
-plt.show()
-
-# <codecell>
-
 # Over-segment the image into superpixels using SLIC (http://ivrg.epfl.ch/research/superpixels)
 
 from skimage.segmentation import slic, mark_boundaries
@@ -236,13 +191,15 @@ except:
 sp_props = regionprops(cropped_segmentation_relabeled + 1, intensity_image=cropped_img, cache=True)
 
 def obtain_props_worker(i):
-    return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity
+    return sp_props[i].centroid, sp_props[i].area, sp_props[i].mean_intensity, sp_props[i].bbox
 
 r = Parallel(n_jobs=16)(delayed(obtain_props_worker)(i) for i in range(len(sp_props)))
 sp_centroids = np.array([s[0] for s in r])
 sp_areas = np.array([s[1] for s in r])
 sp_mean_intensity = np.array([s[2] for s in r])
-sp_properties = np.hstack([sp_centroids[0], sp_centroids[1], sp_areas, sp_mean_intensity])
+sp_bbox = np.array([s[3] for s in r])
+
+sp_properties = np.column_stack([sp_centroids, sp_areas, sp_mean_intensity, sp_bbox])
 
 dm.save_pipeline_result(sp_properties, 'cropSpProps', 'npy')
 

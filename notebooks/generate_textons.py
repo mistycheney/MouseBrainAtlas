@@ -57,6 +57,17 @@ print n_feature
 
 # <codecell>
 
+n_components = 5
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=n_components)
+pca.fit(features_fullstack_all)
+print(pca.explained_variance_ratio_)
+
+features_pca = pca.transform(features_fullstack_all)
+
+# <codecell>
+
 import random
 import itertools
 from joblib import Parallel, delayed
@@ -64,7 +75,8 @@ from scipy.spatial.distance import cdist
 
 print '=== compute rotation-invariant texton map using K-Means ==='
 
-n_texton = int(dm.vq_params['n_texton'])
+# n_texton = int(dm.vq_params['n_texton'])
+
 
 theta_interval = dm.gabor_params['theta_interval']
 n_angle = int(180/theta_interval)
@@ -75,20 +87,20 @@ n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 
 def compute_dist_per_proc(X_partial, c_all_rot):
     D = cdist(X_partial, c_all_rot, 'sqeuclidean')
-    ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
+    ci, ri = np.unravel_index(D.argmin(axis=1), (n_components, n_angle))
     return np.c_[ci, ri]
 
-n_data = features_fullstack_all.shape[0]
+n_data = features_pca.shape[0]
 n_splits = 1000
 n_sample = min(int(dm.vq_params['n_sample']), n_data)
 
-centroids = np.array(random.sample(features_fullstack_all, n_texton))
+centroids = np.array(random.sample(features_pca, n_components))
 
 n_iter = int(dm.vq_params['n_iter'])
 
 for iteration in range(n_iter):
 
-    data = random.sample(features_fullstack_all, n_sample)
+    data = random.sample(features_pca, n_sample)
 
     print 'iteration', iteration
     centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
@@ -102,12 +114,12 @@ for iteration in range(n_iter):
     labels = res[:,0]
     rotations = res[:,1]
 
-    centroids_new = np.zeros((n_texton, n_feature))
+    centroids_new = np.zeros((n_components, n_feature))
     for d, l, r in itertools.izip(data, labels, rotations):
         rot = np.concatenate(np.roll(np.split(d, n_freq), i))
         centroids_new[l] += rot
 
-    counts = np.bincount(labels, minlength=n_texton)
+    counts = np.bincount(labels, minlength=n_components)
     centroids_new /= counts[:, np.newaxis] # denominator might be zero
     centroids_new[counts==0] = centroids[counts==0]
     print np.sqrt(np.sum((centroids - centroids_new)**2, axis=1)).mean()
@@ -116,7 +128,7 @@ for iteration in range(n_iter):
 
     
 print centroids.shape
-dm.save_pipeline_result(centroids, 'textons', 'npy')
+# dm.save_pipeline_result(centroids, 'textons', 'npy')
 
 
 print 'kmeans completes'

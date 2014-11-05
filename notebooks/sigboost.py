@@ -6,6 +6,8 @@
 %load_ext autoreload
 %autoreload 2
 
+%autosave 10
+
 # <codecell>
 
 from utilities import *
@@ -22,7 +24,7 @@ dm = DataManager(DATA_DIR, REPO_DIR)
 class args:
     stack_name = 'RS141'
     resolution = 'x5'
-    slice_ind = 2
+    slice_ind = 1
     gabor_params_id = 'blueNisslWide'
     segm_params_id = 'blueNissl'
     vq_params_id = 'blueNissl'
@@ -49,128 +51,145 @@ cropped_image = dm.load_pipeline_result('cropImg', 'tif')
 
 # <codecell>
 
-from grow_regions import grow_cluster
+sp_properties = dm.load_pipeline_result('cropSpProps', 'npy')
 
 # <codecell>
 
 from scipy.spatial.distance import cdist
 
-overall_texton_hist = np.bincount(textonmap[cropped_mask].flat)
+overall_texton_hist = np.bincount(textonmap[cropped_mask].flat, minlength=n_texton)
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
 D_sp_null = np.squeeze(cdist(texton_hists, [overall_texton_hist_normalized], chi2))
 
 # <codecell>
 
-# def circle_list_to_labeling_field(self, circle_list):
-#     label_circles = []
-#     for c in circle_list:
-#         label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
-#         label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
-#     return label_circles
+cluster_sp = dm.load_pipeline_result('clusters', 'pkl')
+model_sp = [texton_hists[c].mean(axis=0) for c in cluster_sp]
 
-def labeling_field_to_labelmap(labeling_field, size):
+# <codecell>
+
+n_new_models = 5
+new_models = find_new_models(n_new_models)
+
+# <codecell>
+
+def find_new_models(n_new_models):
+
+    weights = np.ones((n_superpixels, ))/n_superpixels
+
+    new_models = []
     
-    labelmap = -1*np.ones(size, dtype=np.int)
+    for t in range(n_new_models):
 
-    for cx,cy,cradius,label in labeling_field:
-        for x in np.arange(cx-cradius, cx+cradius):
-            for y in np.arange(cy-cradius, cy+cradius):
-                if (cx-x)**2+(cy-y)**2 <= cradius**2:
-                    labelmap[int(y),int(x)] = label
-    return labelmap
+        print 'model %d' % (t)
 
-@timeit
-def label_superpixels(labelmap, segmentation):
-    labellist = -1*np.ones((n_superpixels,), dtype=np.int)
-    for sp in range(n_superpixels):
-        in_sp_labels = labelmap[segmentation==sp]
+        sig_score = np.zeros((n_superpixels, ))
+        for i in range(n_superpixels):
+            cluster = cluster_sp[i]
+            model = model_sp[i]
+            D_diff_cluster = D_sp_null[cluster] - np.squeeze(cdist(model[np.newaxis, :], texton_hists[cluster], chi2))
+            sig_score[i] = np.mean(weights[cluster] * D_diff_cluster)
+
+        # Pick the most significant superpixel
+        q = -1
+        most_sig_sp = sig_score.argsort()[q]
+        curr_cluster =  cluster_sp[most_sig_sp]
+        while len(curr_cluster) < 5:
+            q -= 1
+            most_sig_sp = sig_score.argsort()[q]
+            curr_cluster =  cluster_sp[most_sig_sp]
+
+        print "most significant superpixel", most_sig_sp
+        print 'curr_cluster', curr_cluster
+
+        new_models.append(model_sp[i])
         
-        counts = np.bincount(in_sp_labels+1)
-        dominant_label = counts.argmax() - 1
-        if dominant_label != -1:
-            labellist[sp] = dominant_label
-    return labellist
+        D_sp_model = np.squeeze(cdist(model_sp[most_sig_sp][np.newaxis,:], texton_hists, chi2))
+        D_sp_diff = D_sp_null - D_sp_model
+
+        # Reduce the weights of superpixels in LR-cluster
+        beta = 1.
+    #     weights[curr_cluster] = weights[curr_cluster] * np.exp(-5*(D_sp_null[curr_cluster] - D_sp_model[curr_cluster])**beta)
+        weights[curr_cluster] = 0
+
+    #     weights = weights/weights.sum()
+
+        weight_vis = weights[cropped_segmentation].copy()
+        weight_vis[~cropped_mask] = 0
+
+#         plt.matshow(weight_vis, cmap=plt.cm.Greys_r)
+#         plt.colorbar()
+#         plt.show()
+        
+    return new_models
         
 
-@timeit
-def generate_models(labellist, sp_texton_hist_normalized):
-    
-    models = []
-    for i in range(np.max(labellist)+1):
-        sps = np.where(labellist == i)[0]
-        print i, sps
-        model = {}
-        if len(sps) > 0:
-            texton_model = sp_texton_hist_normalized[sps, :].mean(axis=0)
-            model['texton_hist'] = texton_model
-            models.append(model)
+# <codecell>
 
-    n_models = len(models)
-    print n_models, 'models'
-    
-    return models
-
-
-def models_from_labeling(labeling):
-    
-    labelmap = labeling_field_to_labelmap(labeling['final_label_circles'], size=dm.image.shape)
-    
-    kernels = dm.load_pipeline_result('kernels', 'pkl')
-    max_kern_size = max([k.shape[0] for k in kernels])    
-    
-    cropped_labelmap = labelmap[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2]
-    
-    labellist = label_superpixels(cropped_labelmap, cropped_segmentation)
-    models = generate_models(labellist, texton_hists)
-    
-    return models
+existing_models = dm.load_pipeline_result('models', 'pkl')
 
 # <codecell>
 
-try:
-    models = dm.load_pipeline_result('models', 'pkl')
-except:
-    labeling = dm.load_labeling('anon_11032014025541')
-    models = models_from_labeling(labeling)
-    dm.save_pipeline_result(models, 'models', 'pkl')
+existing_model_hists = np.array([m['texton_hist'] for m in existing_models])
+D_sp_existing_model = np.squeeze(cdist(existing_model_hists, texton_hists, chi2))
+
+# lr_decision_thresh = 0.1
+
+def find_best_model(i):
+    
+    curr_cluster = cluster_sp[i]    
+    model_score = np.mean(D_sp_null[curr_cluster][np.newaxis,:] - D_sp_existing_model[:, curr_cluster], axis=1)
+
+    row_min, col_min, row_max, col_max = sp_properties[i, 4:]
+    
+    for mid, m in enumerate(existing_models):
+        x, y, w, h = m['bbox']
+        if not (row_min > y - 200 and col_min > x - 200 \
+                and row_max < y + h + 200 and col_max < x + w + 200):
+            model_score[mid] = -np.inf
+
+    best_sig = model_score.max()
+    
+    if best_sig > lr_decision_thresh: # sp whose sig is smaller than this is assigned null
+        return existing_models[model_score.argmax()]['label'], model_score
+    else:        
+        return -1, model_score
+
+
+def assign_existing_models():
+    
+    res = Parallel(n_jobs=16)(delayed(find_best_model)(i) for i in range(n_superpixels))
+    labels, model_scores = map(np.array, zip(*res))
+    
+    
+    return labels, model_scores
+    
 
 # <codecell>
 
-weights = np.ones((n_superpixels, ))/n_superpixels
+assigned_models, model_scores = assign_existing_models()
 
 # <codecell>
 
-cluster_sp = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists, D_sp_null) for s in range(n_superpixels))
-model_sp = [texton_hists[c].mean(axis=0) for c in clusters]
-# clusters = [grow_cluster(s, neighbors, texton_hists, D_sp_null) for s in range(n_superpixels)]
+hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt', skiprows=1)/255.
+
+ass_map = assigned_models[cropped_segmentation].copy()
+ass_map[~cropped_mask] = -1
 
 # <codecell>
 
-for t in range(n_models):
-    
-    print 'model %d' % (t)
- 
-    sig_score = np.zeros((n_superpixels, ))
-    for i in range(n_superpixels):
-        cluster = cluster_sp[i]
-        model = model_sp[i]
-        D_diff_cluster = D_sp_null[cluster] - np.squeeze(cdist([model], texton_hists[cluster], chi2))
-        sig_score[i] = np.mean(weights[cluster] * D_diff_cluster)
- 
-    # Pick the most significant superpixel
-    most_sig_sp = sig_score.argsort()[-1]
-    print "most significant superpixel", most_sig_sp
+ass_vis = label2rgb(ass_map, image=cropped_image, bg_label=-1, colors=hc_colors[1:])
+ass_vis[~cropped_mask] = 0
+plt.imshow(ass_vis)
 
-    # models are the average of the distributions in the chosen superpixel's RE-cluster
-    curr_cluster =  cluster_sp[most_sig_sp]
-    D_sp_model = np.squeeze(cdist(model_sp[most_sig_sp], texton_hists, chi2))
-    D_sp_diff = D_sp_null - D_sp_model
-    
-#     matched, _ = grow_cluster_likelihood_ratio(seed_sp, model_texton, model_dir)
-#     matched = list(matched)
+# <codecell>
 
-    # Reduce the weights of superpixels in LR-cluster
-    weights[curr_cluster] = weights[curr_cluster] * np.exp(-5*(D_sp_null[curr_cluster] - D_sp_model[curr_cluster])**beta)
-    
-    weights = weights/weights.sum()
+dm.save_pipeline_result(ass_vis, 'tmp', 'tif')
+
+# <codecell>
+
+# plt.bar(np.arange(n_texton), existing_model_hists[0], width=.8, color='k', alpha=.5)
+plt.bar(np.arange(n_texton), existing_model_hists[1], width=.8, color='g', alpha=.5)
+plt.bar(np.arange(n_texton), existing_model_hists[2], width=.8, color='r', alpha=.5)
+plt.bar(np.arange(n_texton), existing_model_hists[3], width=.8, color='b', alpha=.5)
 

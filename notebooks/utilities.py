@@ -197,6 +197,10 @@ class DataManager(object):
         if not os.path.exists(self.histResults_dir):
             os.mkdir(self.histResults_dir)
 
+        self.sigboostResults_dir = os.path.join(self.image_dir, 'sigboostResults')
+        if not os.path.exists(self.sigboostResults_dir):
+            os.mkdir(self.sigboostResults_dir)
+
         
     def set_image(self, stack, resol, slice_ind):
         self.set_stack(stack, resol)
@@ -281,6 +285,11 @@ class DataManager(object):
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
 
+        elif result_name == 'clusters':
+            results_dir = self.sigboostResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
+            
         elif result_name == 'tmp':
             results_dir = '/tmp'
             instance_name = 'test'
@@ -311,7 +320,7 @@ class DataManager(object):
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png':
-            data = cv2.imread(result_filename, 0)
+            data = cv2.imread(result_filename, 0) # this should not have argument 0
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
@@ -328,7 +337,10 @@ class DataManager(object):
             np.save(result_filename, data)
         elif ext == 'tif' or ext == 'png':
             data = self._regulate_image(data, is_rgb)
-            cv2.imwrite(result_filename, data)
+            if data.ndim == 3:
+                cv2.imwrite(result_filename, data[..., ::-1])
+            else:
+                cv2.imwrite(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
             

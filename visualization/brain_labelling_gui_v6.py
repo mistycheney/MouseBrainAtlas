@@ -545,8 +545,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # labelmap_vis = self.colors[self.labelmap]
 
         labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors[1:], bg_label=-1, bg_color=self.colors[0], alpha=0.3, image_alpha=1.)
-        labelmap_rgb = utilities.regulate_img(labelmap_vis)
-        cv2.imwrite(new_preview_fn, labelmap_rgb[:,:,::-1])
+        
+        from skimage import img_as_ubyte
+        cv2.imwrite(new_preview_fn, img_as_ubyte(labelmap_vis[:,:,::-1]))
 
         print 'Preview saved to', new_preview_fn
 

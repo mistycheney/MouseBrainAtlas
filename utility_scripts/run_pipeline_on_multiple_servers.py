@@ -28,6 +28,7 @@ with open('argfile', 'w') as f:
 		d['slice_num'] = slice_num
 		result_exists = exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/segmResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d)
 		if not result_exists:
+			# print '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/filterResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d
 			f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[slice_num%n_hosts], slice_num))
 
 cmd = "parallel --colsep ' ' ssh {1} 'python /home/yuncong/Brain/notebooks/gabor_filter_release.py %(stack)s %(resol)s {2} -g %(gabor_params)s -s %(segm_params)s' :::: argfile" % d
@@ -47,6 +48,7 @@ with open('argfile', 'w') as f:
 		d['slice_num'] = slice_num
 		result_exists = exists_remote('yuncong@gcn-20-32.sdsc.edu', '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/vqResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-vq-%(vq_params)s_texMap.npy'%d)
 		if not result_exists:
+			# print '/home/yuncong/DavidData/%(stack)s/%(resol)s/%(slice_num)04d/filterResults/%(stack)s_%(resol)s_%(slice_num)04d_gabor-%(gabor_params)s-segm-%(segm_params)s_neighbors.npy'%d
 			f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[slice_num%n_hosts], slice_num))
 
 cmd = "parallel --colsep ' ' ssh {1} 'python /home/yuncong/Brain/notebooks/assign_textons_release.py %(stack)s %(resol)s {2} -g %(gabor_params)s -v %(vq_params)s' :::: argfile" % d

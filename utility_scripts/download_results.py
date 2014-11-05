@@ -12,16 +12,15 @@ parser.add_argument("start_slice", type=int, help="beginning slice in the stack"
 parser.add_argument("end_slice", type=int, help="ending slice in the stack")
 args = parser.parse_args()
 
-
-objs = ['cropImg.tif', 
-'cropMask.npy',
-# 'dirHist.npy',
-'segmentation.npy',
+objs = ['filterResults/cropImg.tif', 
+'filterResults/cropMask.npy',
+'filterResults/cropFeatures.npy',
+'filterResults/kernels.npy',
+'segmResults/cropSegmentation.npy',
+'segmResults/cropSpProps.npy',
+'segmResults/neighbors.npy',
 'texHist.npy',
 'texMap.npy',
-'fg.npy',
-'bg.npy',
-'neighbors.npy',
 'centroids.npy',
 'segmentation.tif',
 'texMap.tif']

@@ -6,7 +6,7 @@
 %load_ext autoreload
 %autoreload 2
 
-%autosave 60
+%autosave 0
 
 # <codecell>
 
@@ -264,8 +264,8 @@ for i in range(0, 100, 5):
     synthesized_rods[:, i:i+2] = 1
     
     
-# from skimage.transform import rotate
-# synthesized_rods = rotate(synthesized_rods, 45)
+from skimage.transform import rotate
+synthesized_rods = rotate(synthesized_rods, 45)
     
 plt.imshow(synthesized_rods, cmap=plt.cm.Greys_r)
 

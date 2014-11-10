@@ -198,12 +198,16 @@ def grow_cluster(seed):
 # seed = 1705
 # seed = 1951
 # seed = 905
-seed = 1789
+seed = 1812
     
 curr_cluster = set([seed])
 frontier = [seed]
 
+c = 0
 while len(frontier) > 0:
+    
+    if c > 10: break
+    
     u = frontier.pop(-1)
     for v in neighbors[u]:
         if v == -1 or v in curr_cluster: 
@@ -212,10 +216,11 @@ while len(frontier) > 0:
         score_new, null_sum_new, model_sum_new = compute_cluster_score(curr_cluster | set([v]))
         score_old, null_sum_old, model_sum_old = compute_cluster_score(curr_cluster)
         
-        if score_new > score_old and model_sum_new - model_sum_old < 0.5 :
-            curr_cluster.add(v)
-            print curr_cluster
-            frontier.append(v)
+#         if score_new > score_old and model_sum_new - model_sum_old < 0.5 :
+        curr_cluster.add(v)
+        print curr_cluster
+        frontier.append(v)
+        c += 1
             
 cluster = curr_cluster
 

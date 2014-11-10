@@ -6,7 +6,7 @@
 %load_ext autoreload
 %autoreload 2
 
-%autosave 10
+%autosave 0
 
 # <codecell>
 
@@ -17,7 +17,7 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
@@ -68,12 +68,17 @@ n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 frequencies = freq_max/freq_step**np.arange(n_freq)
 angles = np.arange(0, n_angle)*np.deg2rad(theta_interval)
 
+kernels = dm.load_pipeline_result('kernels', 'pkl')
+n_kernel = len(kernels)
+
+max_kern_size = max([k.shape[0] for k in kernels])
+
 # <codecell>
 
 cropped_segmentation = dm.load_pipeline_result('cropSegmentation', 'npy')
-n_superpixels = len(unique(cropped_segmentation)) - 1
+n_superpixels = len(np.unique(cropped_segmentation)) - 1
 
-cropped_features = dm.load_pipeline_result('cropFeatures', 'npy').astype(np.float)
+cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')
 cropped_height, cropped_width = cropped_features.shape[:2]
 cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
 

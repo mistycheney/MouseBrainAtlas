@@ -50,17 +50,23 @@ save_numpy_compressed()
 
 # <codecell>
 
+a = np.load('/tmp/test.npz')
+b = a['arr_0']
+print b.shape
+
+# <codecell>
+
 import tables
 
 @timeit
 def save_pytables(complevel):
     filters = tables.Filters(complevel=complevel, complib='blosc')
     f = tables.open_file('/tmp/test', 'w')
+
     f.create_carray(f.root, 'features', obj=cropped_features, filters=filters)
     print os.path.getsize('/tmp/test'), 'bytes'
 #     os.remove('/tmp/test')
     f.close()
-    
     
 save_pytables(1)
 

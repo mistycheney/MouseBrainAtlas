@@ -71,8 +71,11 @@ angles = np.arange(0, n_angle)*np.deg2rad(theta_interval)
 kernels = dm.load_pipeline_result('kernels', 'pkl')
 n_kernel = len(kernels)
 
+<<<<<<< HEAD
 max_kern_size = max([k.shape[0] for k in kernels])
 
+=======
+>>>>>>> 46dae4b02fb647665ea33385eb857bb8bc176f35
 # <codecell>
 
 cropped_segmentation = dm.load_pipeline_result('cropSegmentation', 'npy')
@@ -90,21 +93,44 @@ cropped_features_tabular = np.reshape(cropped_features, (cropped_height, cropped
 
 # <codecell>
 
-plt.matshow(max_responses, cmap=plt.cm.RdBu_r)
-plt.colorbar()
+# x = 885
+# y = 1437
+# w = 960
+# h = 435
 
-# <codecell>
+# x = 348
+# y = 1404
+# w = 399
+# h = 210
 
-x = 3855
-y = 1005
-h = 531
-w = 1245
+# x = 3591
+# y = 419
+# w = 327
+# h = 150
+
+# x = 3834
+# y = 896
+# w = 1357
+# h = 382
+
+# x = 4900
+# y = 1025
+# w = 474
+# h = 391
+
+x = 4685
+y = 965
+w = 706
+h = 518
+
 image_patch = cropped_image[y:y+h, x:x+w]
 cropped_features_patch = cropped_features[y:y+h, x:x+w]
 
+plt.imshow(image_patch, cmap=plt.cm.Greys_r)
+
 # <codecell>
 
-plt.imshow(image_patch, cmap=plt.cm.Greys_r)
+unravel_index(cropped_features_patch[:,:,59].argmax(), cropped_features_patch.shape[:2])
 
 # <codecell>
 
@@ -121,11 +147,18 @@ tight_layout()
 
 # <codecell>
 
-max_responses = np.reshape([cropped_features_patch[:,:,i].max() for i in range(n_kernel)], (n_freq, n_angle))
+fig, axes = plt.subplots(n_freq, n_angle, figsize=(100, 100))
+
+for i in range(n_freq):
+    for j in range(n_angle):
+        axes[i,j].hist(cropped_features_patch[:,:,i*n_angle+j].flat, bins=np.linspace(20,40,100))
+
+plt.show()
 
 # <codecell>
 
-max_responses = np.reshape([f.max() for f in cropped_features_patch], (n_freq, n_angle))
+# max_responses = np.reshape([np.sort(cropped_features_patch[:,:,i].flat)[:20].mean() for i in range(n_kernel)], (n_freq, n_angle))
+max_responses = np.reshape([cropped_features_patch[:,:,i].max() for i in range(n_kernel)], (n_freq, n_angle))
 
 plt.matshow(max_responses)
 
@@ -144,6 +177,46 @@ plt.title('max responses of all filters')
 
 plt.colorbar()
 plt.show()
+
+# <codecell>
+
+from scipy.ndimage.filters import maximum_filter
+from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
+
+def detect_peaks(image):
+    """
+    Takes an image and detect the peaks usingthe local maximum filter.
+    Returns a boolean mask of the peaks (i.e. 1 when
+    the pixel's value is the neighborhood maximum, 0 otherwise)
+    """
+
+    # define an 8-connected neighborhood
+    neighborhood = generate_binary_structure(2,2)
+
+    #apply the local maximum filter; all pixel of maximal value 
+    #in their neighborhood are set to 1
+    local_max = maximum_filter(image, footprint=neighborhood)==image
+    #local_max is a mask that contains the peaks we are 
+    #looking for, but also the background.
+    #In order to isolate the peaks we must remove the background from the mask.
+
+    #we create the mask of the background
+    background = (image==0)
+
+    #a little technicality: we must erode the background in order to 
+    #successfully subtract it form local_max, otherwise a line will 
+    #appear along the background border (artifact of the local maximum filter)
+    eroded_background = binary_erosion(background, structure=neighborhood, border_value=1)
+
+    #we obtain the final mask, containing only peaks, 
+    #by removing the background from the local_max mask
+    detected_peaks = local_max - eroded_background
+
+    return detected_peaks
+
+peaks = np.where(detect_peaks(max_responses))
+print peaks
+max_responses[peaks]
 
 # <codecell>
 
@@ -175,9 +248,6 @@ max_dir_sp, max_freq_sp, max_response_sp, dominant_ratio_sp = map(np.array, zip(
 
 # <codecell>
 
-
-# <codecell>
-
 cropped_segmentation_vis = dm.load_pipeline_result('cropSegmentation', 'tif')
 cropped_segmentation_vis2 = cropped_segmentation_vis.copy()
 cropped_segmentation_vis2[~cropped_mask] = 0
@@ -188,10 +258,7 @@ hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt', skiprows=1)/
 
 # <codecell>
 
-from skimage.color import hsv2rgb
-
-# <codecell>
-
+# from skimage.color import hsv2rgb
 # [hsv2rgb((i/n_freq, )) for i in range(n_freq) for j in range(n_angle)]
 
 # <codecell>

@@ -153,6 +153,35 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
+import tables
+
+class DataManager(object):
+
+    
+    def __init__(self):
+        complevel = 5
+        filters = tables.Filters(complevel=complevel, complib='blosc')
+        # h5file = tables.open_file("gabor_files.h5", mode = "w")
+        self.h5file = tables.open_file("results.h5", mode = "a", title = "Pipeline Results", filters=filters)
+    
+        self.stack_name = 'RS141'
+        self.resolution = 'x5'
+        self.slice_num = 1
+        
+        class Result(tables.IsDescription):
+            name = StringCol()
+            
+        
+        self.stack_group = self.h5file.create_group('/', 'RS141', 'RS141')
+        self.resol_group = self.h5file.create_group(self.stack_group, 'x5', 'x5')
+        self.slice_group = self.h5file.create_group(self.resol_group, 'slice001', 'slice001')
+
+    def save_result(self, data, name):
+        
+        self.h5file.create_carray(self.slice_group, name, obj=data)
+
+# <codecell>
+
 # REGENERATE_ALL_RESULTS = True
 REGENERATE_ALL_RESULTS = False
 

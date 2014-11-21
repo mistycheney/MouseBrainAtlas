@@ -92,39 +92,6 @@ kernels = [k/k.sum()*mean_bias for k in kernels]
 
 # <codecell>
 
-# def gabor_filter():
-
-from joblib import Parallel, delayed
-from scipy.signal import fftconvolve
-
-try:
-    features = dm.load_pipeline_result('features', 'npy')
-    
-except Exception as e:
-
-    b = time.time()
-
-    def convolve_per_proc(i):
-        return fftconvolve(dm.image, kernels[i], 'same').astype(np.half)
-
-    filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
-                            for i in range(n_kernel))
-
-    features = np.empty((dm.image_height, dm.image_width, n_kernel), dtype=np.half)
-    for i in range(n_kernel):
-        features[...,i] = filtered[i]
-
-    del filtered
-
-    print time.time() - b
-
-
-    dm.save_pipeline_result(features_rotated, 'features', 'npy')
-
-n_feature = features.shape[-1]
-
-# <codecell>
-
 def crop_borders(data):
     cropped_data = data[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2, ...].copy()
     return cropped_data
@@ -152,6 +119,95 @@ except:
 
 cropped_height, cropped_width = cropped_img.shape[:2]
 print cropped_height, cropped_width
+
+# <codecell>
+
+valid_features = cropped_features[cropped_mask]
+n_valid = len(valid_features)
+
+# del cropped_features
+
+# <codecell>
+
+def rotate_features(fs):
+    features_tabular = fs.reshape((fs.shape[0], n_freq, n_angle))
+    max_angle_indices = features_tabular.max(axis=1).argmax(axis=-1)
+    features_rotated = np.reshape([np.roll(features_tabular[i], -ai, axis=-1) 
+                               for i, ai in enumerate(max_angle_indices)], (fs.shape[0], n_freq * n_angle))
+    
+    return features_rotated
+
+from joblib import Parallel, delayed
+
+n_splits = 1000
+features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
+features_rotated = np.vstack(features_rotated_list)
+
+# <codecell>
+
+del valid_features
+
+# <codecell>
+
+b = time.time()
+
+n_components = 5
+
+from sklearn.decomposition import RandomizedPCA 
+pca = RandomizedPCA(n_components=n_components)
+pca.fit(features_rotated)
+print(pca.explained_variance_ratio_)
+
+features_rotated_pca = pca.transform(features_rotated)
+
+print time.time() - b
+
+# <codecell>
+
+b = time.time()
+
+n_components = 5
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=n_components)
+pca.fit(features_rotated)
+print(pca.explained_variance_ratio_)
+
+features_rotated_pca = pca.transform(features_rotated)
+
+print time.time() - b
+
+# <codecell>
+
+n_texton = 50
+
+from sklearn.cluster import MiniBatchKMeans
+kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=100)
+kmeans.fit(features_rotated_pca)
+centroids = kmeans.cluster_centers_
+labels = kmeans.labels_
+
+# <codecell>
+
+plt.hist(textonmap.flat)
+plt.show()
+
+# <codecell>
+
+hc_colors = np.loadtxt('hc_colors.txt', delimiter=',')/ 255.
+
+# <codecell>
+
+textonmap = -1 * np.ones_like(cropped_img, dtype=np.int)
+textonmap[cropped_mask] = labels
+# vis = label2rgb(textonmap, image=cropped_img)
+vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
+
+# <codecell>
+
+cv2.imwrite('textonmap2.png', img_as_ubyte(vis)[..., ::-1])
+from IPython.display import FileLink
+FileLink('textonmap2.png')
 
 # <codecell>
 

@@ -17,7 +17,7 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_4'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 

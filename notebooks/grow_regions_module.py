@@ -21,27 +21,60 @@ def compute_cluster_score(cluster, texton_hists, D_sp_null):
 
 # <codecell>
 
-def grow_cluster(seed, neighbors, texton_hists, D_sp_null, model_fit_reduce_limit=.5):
+# def grow_cluster(seed, neighbors, texton_hists, D_sp_null, model_fit_reduce_limit=.5):
     
+#     curr_cluster = set([seed])
+#     frontier = [seed]
+    
+#     curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+    
+#     while len(frontier) > 0:
+#         u = frontier.pop(-1)
+#         for v in neighbors[u]:
+#             if v == -1 or v in curr_cluster: 
+#                 continue
+
+#             score_new, _, model_sum_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, D_sp_null)
+            
+#             if score_new > curr_cluster_score and model_sum_new - curr_model_score < model_fit_reduce_limit :
+#                 curr_cluster.add(v)
+#                 frontier.append(v)
+#                 curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+            
+#             if len(curr_cluster) > 50:
+#                 return curr_cluster
+            
+#     return curr_cluster
+
+# <codecell>
+
+def grow_cluster(seed, neighbors, texton_hists, D_sp_null, model_fit_reduce_limit=.5, score_drop_tolerance=0.):
+        
     curr_cluster = set([seed])
     frontier = [seed]
     
-    curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+    curr_cluster_score, curr_null_score, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
     
     while len(frontier) > 0:
         u = frontier.pop(-1)
-        for v in neighbors[u]:
+            
+        ns = np.array(list(neighbors[u]))
+        
+        ds = np.squeeze(cdist(texton_hists[u][np.newaxis, :], texton_hists[ns]))
+        
+        for v in ns[ds.argsort()]:
             if v == -1 or v in curr_cluster: 
                 continue
 
-            score_new, _, model_sum_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, D_sp_null)
+            score_new, null_sum_new, model_sum_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, D_sp_null)
             
-            if score_new > curr_cluster_score and model_sum_new - curr_model_score < model_fit_reduce_limit :
+#             if score_new > curr_cluster_score and model_sum_new - curr_model_score < model_fit_reduce_limit:
+            if score_new > curr_cluster_score - score_drop_tolerance and model_sum_new - curr_model_score < model_fit_reduce_limit:
                 curr_cluster.add(v)
                 frontier.append(v)
-                curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
-            
-            if len(curr_cluster) > 50:
+                curr_cluster_score, curr_null_score, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+                
+            if len(curr_cluster) > 100:
                 return curr_cluster
             
     return curr_cluster

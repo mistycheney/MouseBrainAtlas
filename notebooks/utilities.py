@@ -170,7 +170,6 @@ class DataManager(object):
         
         class Result(tables.IsDescription):
             name = StringCol()
-            
         
         self.stack_group = self.h5file.create_group('/', 'RS141', 'RS141')
         self.resol_group = self.h5file.create_group(self.stack_group, 'x5', 'x5')

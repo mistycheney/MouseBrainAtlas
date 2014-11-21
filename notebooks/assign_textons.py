@@ -106,4 +106,5 @@ dm.save_pipeline_result(textonmap_rgb, 'texMap', 'tif')
 
 # <codecell>
 
+dm.load
 

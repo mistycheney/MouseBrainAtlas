@@ -121,5 +121,9 @@ except:
 
 # <codecell>
 
+<<<<<<< HEAD
 plt.imshow(textonmap)
+=======
+dm.load
+>>>>>>> 424e8430a62dcba6b8c79393b80c13a8e4072161
 

@@ -147,6 +147,32 @@ cropped_features_tabular = np.reshape(cropped_features, (cropped_height, cropped
 
 # <codecell>
 
+x0 = 4500
+y0 = 2000
+w = 20
+h = 20
+
+fig, axes = plt.subplots(h, w, figsize=(20,20), facecolor='white')
+
+patch_min = cropped_features[y0:y0+h, x0:x0+w].min()
+patch_max = cropped_features[y0:y0+h, x0:x0+w].max()
+
+for i in range(h):
+    for j in range(w):
+        axes[i, j].matshow(cropped_features[i+y0, j+x0].reshape(n_freq, n_angle), vmin=patch_min, vmax=patch_max)
+        axes[i, j].set_xticks([])
+        axes[i, j].set_yticks([])
+        
+plt.tight_layout()
+
+# cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+# fig.colorbar(im, cax=cax)
+# plt.savefig('patch_features.png', bbox_inches='tight')
+
+plt.show()
+
+# <codecell>
+
 max_freqs, max_angles = np.unravel_index(cropped_features.argmax(axis=2), (n_freq, n_angle))
 max_responses = cropped_features.max(axis=2)
 max_mean_ratio = max_responses/cropped_features.mean(axis=2)

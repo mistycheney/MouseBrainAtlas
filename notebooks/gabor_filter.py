@@ -15,7 +15,7 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
@@ -88,7 +88,7 @@ biases = np.array([k.sum() for k in kernels])
 mean_bias = biases.mean()
 kernels = [k/k.sum()*mean_bias for k in kernels]
 
-dm.save_pipeline_result(kernels, 'kernels', 'pkl')
+# dm.save_pipeline_result(kernels, 'kernels', 'pkl')
 
 # <codecell>
 
@@ -102,22 +102,28 @@ try:
     
 except Exception as e:
 
+    b = time.time()
+
     def convolve_per_proc(i):
         return fftconvolve(dm.image, kernels[i], 'same').astype(np.half)
 
     filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
                             for i in range(n_kernel))
 
-    
     features = np.empty((dm.image_height, dm.image_width, n_kernel), dtype=np.half)
     for i in range(n_kernel):
         features[...,i] = filtered[i]
 
     del filtered
 
-    dm.save_pipeline_result(features, 'features', 'npy')
+    print time.time() - b
+
+
+    dm.save_pipeline_result(features_rotated, 'features', 'npy')
 
 n_feature = features.shape[-1]
+
+# <codecell>
 
 def crop_borders(data):
     cropped_data = data[max_kern_size/2:-max_kern_size/2, max_kern_size/2:-max_kern_size/2, ...].copy()
@@ -146,6 +152,10 @@ except:
 
 cropped_height, cropped_width = cropped_img.shape[:2]
 print cropped_height, cropped_width
+
+# <codecell>
+
+plt.matshow(cropped_features[..., 88], cmap=plt.cm.Greys_r)
 
 # <codecell>
 

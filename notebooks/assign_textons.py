@@ -15,7 +15,7 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
@@ -62,48 +62,64 @@ n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
 
 # <codecell>
 
+centroids = dm.load_pipeline_result('textons', 'npy')
+
+# <codecell>
+
+fig, axes = plt.subplots(10, 10, figsize=(20,20), facecolor='white')
+
+for i in range(10):
+    for j in range(10):
+        axes[i,j].matshow(centroids[i*10+j].reshape((n_freq, n_angle)))
+tight_layout()
+
+plt.show()
+
+# <codecell>
+
 import itertools
 from joblib import Parallel, delayed
 from scipy.spatial.distance import cdist
 
-# try:
-#     textonmap = dm.load_pipeline_result('texMap', 'npy')
-# except:
+try:
+    textonmap = dm.load_pipeline_result('texMap', 'npy')
+except:
     
-centroids = dm.load_pipeline_result('textons', 'npy')
+    centroids = dm.load_pipeline_result('textons', 'npy')
 
-def compute_dist_per_proc(X_partial, c_all_rot):
-    D = cdist(X_partial, c_all_rot, 'sqeuclidean')
-    ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
-    return np.c_[ci, ri]
+    def compute_dist_per_proc(X_partial, c_all_rot):
+        D = cdist(X_partial, c_all_rot, 'sqeuclidean')
+        ci, ri = np.unravel_index(D.argmin(axis=1), (n_texton, n_angle))
+        return np.c_[ci, ri]
 
-cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')
-cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
+    cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')
+    cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
 
-n_pixels = cropped_features.shape[0]*cropped_features.shape[1]
-n_splits = 1000
-n_sample = min(int(dm.vq_params['n_sample']), n_pixels)
+    n_pixels = cropped_features.shape[0]*cropped_features.shape[1]
+    n_splits = 1000
+    n_sample = min(int(dm.vq_params['n_sample']), n_pixels)
 
-centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
-                        for c,i in itertools.product(centroids, range(n_angle))])
+    centroid_all_rotations = np.vstack([np.concatenate(np.roll(np.split(c, n_freq), i)) 
+                            for c,i in itertools.product(centroids, range(n_angle))])
 
-X = cropped_features.reshape(-1, cropped_features.shape[-1])
-r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
-                        for x, c in zip(np.array_split(X, n_splits, axis=0), 
-                                        itertools.repeat(centroid_all_rotations, n_splits)))
-res = np.vstack(r)
+    X = cropped_features.reshape(-1, cropped_features.shape[-1])
+    r = Parallel(n_jobs=16)(delayed(compute_dist_per_proc)(x,c) 
+                            for x, c in zip(np.array_split(X, n_splits, axis=0), 
+                                            itertools.repeat(centroid_all_rotations, n_splits)))
+    res = np.vstack(r)
 
-labels = res[:,0]
-#     matched_rotations = res[:,1]
+    labels = res[:,0]
+    #     matched_rotations = res[:,1]
 
-textonmap = labels.reshape(cropped_features.shape[:2])
-textonmap[~cropped_mask] = -1
+    textonmap = labels.reshape(cropped_features.shape[:2])
+    textonmap[~cropped_mask] = -1
 
-dm.save_pipeline_result(textonmap, 'texMap', 'npy')
+    dm.save_pipeline_result(textonmap, 'texMap', 'npy')
 
-textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
-dm.save_pipeline_result(textonmap_rgb, 'texMap', 'tif')
+    textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
+    dm.save_pipeline_result(textonmap_rgb, 'texMap', 'tif')
 
 # <codecell>
 
+plt.imshow(textonmap)
 

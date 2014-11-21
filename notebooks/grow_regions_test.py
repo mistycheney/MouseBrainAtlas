@@ -3,6 +3,10 @@
 
 # <codecell>
 
+from IPython.external import mathjax; mathjax.install_mathjax()
+
+# <codecell>
+
 %load_ext autoreload
 %autoreload 2
 
@@ -15,7 +19,7 @@ if 'SSH_CONNECTION' in os.environ:
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
-    REPO_DIR = '/home/yuncong/BrainSaliencyDetection'
+    REPO_DIR = '/home/yuncong/Brain'
 
 dm = DataManager(DATA_DIR, REPO_DIR)
 
@@ -39,7 +43,7 @@ n_texton = int(dm.vq_params['n_texton'])
 texton_hists = dm.load_pipeline_result('texHist', 'npy')
 
 cropped_segmentation = dm.load_pipeline_result('cropSegmentation', 'npy')
-n_superpixels = len(unique(cropped_segmentation)) - 1
+n_superpixels = len(np.unique(cropped_segmentation)) - 1
 cropped_mask = dm.load_pipeline_result('cropMask', 'npy')
 
 textonmap = dm.load_pipeline_result('texMap', 'npy')
@@ -53,91 +57,6 @@ sp_props = dm.load_pipeline_result('cropSpProps', 'npy')
 
 # <codecell>
 
-# def grow_cluster_relative_entropy(seed, frontier_contrast_diff_thresh = 0.1, max_cluster_size = 100):
-#     '''
-#     find the connected cluster of superpixels that have similar texture, starting from a superpixel as seed
-#     '''
-    
-#     re_thresh_min = 0.1
-#     re_thresh_max = 0.5
-    
-#     prev_frontier_contrast = np.inf
-#     for re_thresh in np.arange(re_thresh_min, re_thresh_max, .01):
-    
-# #         print 're_thresh=', re_thresh
-    
-#         curr_cluster = set([seed])
-#         frontier = [seed]
-
-#         while len(frontier) > 0:
-#             u = frontier.pop(-1)
-#             for v in neighbors[u]:
-#                 if v == -1 or v in curr_cluster: 
-#                     continue
-
-# #                 if chi2(texton_hists[v], texton_hists[seed]) < re_thresh:    
-
-#                 edge_v = chi2(texton_hists[v], texton_hists[list(curr_cluster)].mean(axis=0))
-# #                 print 'u=', u, 'v=',v, 'edge_v = ', edge_v
-                
-#                 if edge_v < re_thresh:
-#                     curr_cluster.add(v)
-# #                     print 'added, curr_cluster=', curr_cluster
-
-#                     frontier.append(v)
-        
-#         surround = set.union(*[neighbors[i] for i in curr_cluster])
-#         if len(surround) == 0:
-#             return curr_cluster, re_thresh
-
-#         frontier_in_cluster = set.intersection(set.union(*[neighbors[i] for i in surround]), curr_cluster)
-#         frontier_contrasts = [np.nanmax([chi2(texton_hists[i], texton_hists[j]) for j in neighbors[i] if j != -1]) 
-#                               for i in frontier_in_cluster]
-#         frontier_contrast = np.max(frontier_contrasts)
-        
-# #         print 'frontier_contrast=', frontier_contrast, 'prev_frontier_contrast=', prev_frontier_contrast, 'diff=', frontier_contrast - prev_frontier_contrast
-        
-#         if len(curr_cluster) > max_cluster_size or \
-#         frontier_contrast - prev_frontier_contrast > frontier_contrast_diff_thresh:
-#             return curr_cluster, re_thresh
-        
-#         prev_frontier_contrast = frontier_contrast
-#         prev_cluster = curr_cluster
-#         prev_re_thresh = re_thresh
-                                
-#     return curr_cluster, re_thresh
-
-# def grow_cluster_likelihood_ratio(seed, lr_grow_thresh = 5):
-#     '''
-#     find the connected cluster of superpixels that are more likely to be explained by given model than by null, 
-#     starting from a superpixel as seed
-#     '''
-    
-#     curr_cluster = set([seed])    
-#     frontier = [seed]
-        
-#     while len(frontier) > 0:
-#         u = frontier.pop(-1)
-#         for v in neighbors[u]:
-#             if v == -1 or v in curr_cluster or np.count_nonzero(cropped_segmentation==v) < 10:
-#                 continue
-            
-#             texton_model = texton_hists[list(curr_cluster)].mean(axis=0)
-            
-#             d = chi2(texton_hists[v], texton_model)
-#             edge_v = len(curr_cluster)*(D_texton_null[v] - d)
-#             print 'u=', u, 'v=',v, 'edge_v = ', edge_v
-#             print 'd_null=', D_texton_null[v], 'd_model=', d
-#             print 'curr_cluster=', curr_cluster
-            
-#             if edge_v > lr_grow_thresh:
-#                 curr_cluster.add(v)
-#                 frontier.append(v)
-                                
-#     return curr_cluster, texton_model
-
-# <codecell>
-
 from scipy.spatial.distance import cdist
 
 overall_texton_hist = np.bincount(textonmap[cropped_mask].flat)
@@ -145,47 +64,66 @@ overall_texton_hist = np.bincount(textonmap[cropped_mask].flat)
 overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
 
 D_sp_null = np.squeeze(cdist(texton_hists, [overall_texton_hist_normalized], chi2))
-distance2null_map = D_sp_null[cropped_segmentation].copy()
-distance2null_map[~cropped_mask] = 0
-plt.matshow(distance2null_map)
-plt.colorbar()
+
+# distance2null_map = D_sp_null[cropped_segmentation].copy()
+# distance2null_map[~cropped_mask] = 0
+# plt.matshow(distance2null_map)
+# plt.colorbar()
 
 # <codecell>
 
-def compute_cluster_score(cluster):
-    model = texton_hists[list(cluster)].mean(axis=0)
-    D_sp_model = np.squeeze(cdist([model], texton_hists[list(cluster)], chi2))
-    model_sum = np.sum(D_sp_model)
-    null_sum = np.sum(D_sp_null[list(cluster)])
-
-    # can be made weighted by superpixel size
+def compute_cluster_score(cluster, surround, texton_hists, D_sp_null):
     
-    score = null_sum - model_sum
-#     score = np.mean(D_sp_null[list(cluster)] - D_sp_model)
-    return score, null_sum, model_sum
+    avg = texton_hists[list(cluster)].mean(axis=0)
+    avg_sp_distances = np.squeeze(cdist([model], texton_hists[list(cluster)], chi2))
+    avg_sp_total_distance = np.sum(D_model_sp)
+    
+    null_sp_total_distance = np.sum(D_null_sp[list(cluster)])
+    
+    avg_surround_distances = np.squeeze(cdist([avg], texton_hists[list(surround)], chi2))
+    avg_surround_distance = avg_surround_distances.mean()
+    
+    print avg_sp_total_distance, null_sp_total_distance, avg_surround_distance
+    
 
 # <codecell>
 
-def grow_cluster(seed):
+# def compute_cluster_score(cluster, texton_hists, D_sp_null):
+#     model = texton_hists[list(cluster)].mean(axis=0)
+#     D_sp_model = np.squeeze(cdist([model], texton_hists[list(cluster)], chi2))
+#     model_sum = np.sum(D_sp_model)
+#     null_sum = np.sum(D_sp_null[list(cluster)])
+#     # can be made weighted by superpixel size
     
-    curr_cluster = set([seed])
-    frontier = [seed]
+#     score = null_sum - model_sum
+#     return score, null_sum, model_sum
 
-    while len(frontier) > 0:
-        u = froncurr_clusterpop(-1)
-        for v in neighbors[u]:
-            if v == -1 or v in curr_cluster: 
-                continue
+# <codecell>
 
-            score_new, null_sum_new, model_sum_new = compute_cluster_score(curr_cluster | set([v]))
-            score_old, null_sum_old, model_sum_old = compute_cluster_score(curr_cluster)
+# def grow_cluster(seed, neighbors, texton_hists, D_sp_null, model_fit_reduce_limit=.5):
+    
+#     curr_cluster = set([seed])
+#     frontier = [seed]
+    
+#     curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+    
+#     while len(frontier) > 0:
+#         u = frontier.pop(-1)
+#         for v in neighbors[u]:
+#             if v == -1 or v in curr_cluster: 
+#                 continue
 
-            if score_new > score_old and model_sum_new - model_sum_old < 0.5 :
-                curr_cluster.add(v)
-                print curr_cluster
-                frontier.append(v)
-                
-    return curr_cluster
+#             score_new, _, model_sum_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, D_sp_null)
+            
+#             if score_new > curr_cluster_score and model_sum_new - curr_model_score < model_fit_reduce_limit :
+#                 curr_cluster.add(v)
+#                 frontier.append(v)
+#                 curr_cluster_score, _, curr_model_score = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+            
+#             if len(curr_cluster) > 50:
+#                 return curr_cluster
+            
+#     return curr_cluster
 
 # <codecell>
 
@@ -198,31 +136,109 @@ def grow_cluster(seed):
 # seed = 1705
 # seed = 1951
 # seed = 905
-seed = 1812
+seed = 399
     
 curr_cluster = set([seed])
 frontier = [seed]
+surrounds = set([])
+curr_frontier = set([])
 
-c = 0
-while len(frontier) > 0:
-    
-    if c > 10: break
-    
-    u = frontier.pop(-1)
-    for v in neighbors[u]:
-        if v == -1 or v in curr_cluster: 
-            continue
-            
-        score_new, null_sum_new, model_sum_new = compute_cluster_score(curr_cluster | set([v]))
-        score_old, null_sum_old, model_sum_old = compute_cluster_score(curr_cluster)
+model_fit_reduce_limit = .5
+
+scores = []
+model_distances = []
+null_distances = []
+
+interior = set([])
+
+# curr_cluster_score, curr_null_distance, curr_model_distance = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+
+
+from numpy import random
+
+# while len(frontier) > 0:
         
-#         if score_new > score_old and model_sum_new - model_sum_old < 0.5 :
-        curr_cluster.add(v)
-        print curr_cluster
-        frontier.append(v)
-        c += 1
+
+
+#     print new_frontier
+    
+    
+c = 0
+
+to_test = set([seed])
+
+while len(to_test) > 0:
+
+#     for u in curr_cluster:
+#         if neighbors[u] <= curr_cluster:
+#             interior.add(u)
+
+#     frontier = curr_cluster - interior
+    
+    print 'curr_cluster', curr_cluster
+
+#     print 'frontier', frontier
+
+    to_test = set.union(*[neighbors[v] for v in curr_cluster]) - curr_cluster
+
+    print 'to_test', to_test
+    
+    u = list(to_test)[random.randint(len(to_test))]
+    
+    if
+        curr_cluster.add(u)
+        
+        compute_cluster_score(cluster, to_test, texton_hists, D_sp_null)
+    
+    c += 1
+    
+    if c > 60:
+        break
+        
+
+#     while len(frontier) > 0
+        
+#         if v == -1 or v in curr_cluster: 
+#             continue
             
-cluster = curr_cluster
+#         score_new, _, model_sum_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, D_sp_null)
+
+# #         if score_new > curr_cluster_score and model_sum_new - curr_model_score < model_fit_reduce_limit :
+#         if len(curr_cluster) < 20:
+#             curr_cluster.add(v)
+#             frontier.append(v)
+#             curr_cluster_score, curr_null_distance, curr_model_distance = compute_cluster_score(curr_cluster, texton_hists, D_sp_null)
+            
+#             scores.append(curr_cluster_score)
+#             null_distances.append(curr_null_distance)
+#             model_distances.append(curr_model_distance)
+                    
+#             print curr_cluster
+
+# <codecell>
+
+a = -1*np.ones_like(cropped_segmentation)
+
+for c in curr_cluster:
+    a[cropped_segmentation == c] = 0
+
+# for c in frontier:
+#     a[cropped_segmentation == c] = 1
+
+for c in to_test:
+    a[cropped_segmentation == c] = 2
+    
+plt.imshow(label2rgb(a))
+
+# <codecell>
+
+import matplotlib.pyplot as plt
+
+plt.plot(scores, color='g', label='score (distance diff)')
+plt.plot(model_distances, color='r', label='model distance')
+plt.plot(null_distances, color='b', label='null distance')
+plt.legend()
+plt.show()
 
 # <codecell>
 

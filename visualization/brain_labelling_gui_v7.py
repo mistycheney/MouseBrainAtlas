@@ -168,8 +168,36 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         action = self.menu.exec_(pos)
         
         if action == self.growRegion_Action:
-            sp_ind = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
-            self.grow_region(sp_ind)
+
+            seed_sp = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
+                    
+            from grow_regions_module import grow_cluster
+            self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
+
+            self.curr_label = self.sp_labellist[seed_sp]
+
+            import time
+
+            b = time.time()
+
+            self.model_fit_reduce_limit = self.growThreshSlider.value()/100.
+            curr_cluster = grow_cluster(seed_sp, self.neighbors, self.texton_hists, self.D_sp_null, model_fit_reduce_limit=self.model_fit_reduce_limit)
+
+            for sp in curr_cluster:
+                self.paint_superpixel(sp)
+
+            print time.time() - b
+
+            b = time.time()
+            
+            self.model_fit_reduce_limit = self.growThreshSlider.value()/100.
+            print self.model_fit_reduce_limit
+            curr_cluster = grow_cluster(seed_sp, self.neighbors, self.texton_hists, self.D_sp_null, model_fit_reduce_limit=self.model_fit_reduce_limit)
+
+            for sp in curr_cluster:
+                self.paint_superpixel(sp)
+
+            print time.time() - b
 
     def initialize_brain_labeling_gui(self):
 
@@ -271,21 +299,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def brushSizeSlider_valueChanged(self, new_val):
         self.brushSizeEdit.setText('%d' % new_val)
 
-    def grow_region(self, seed_sp):
-        from grow_regions_module import grow_cluster
-        self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
-
-        self.curr_label = self.sp_labellist[seed_sp]
-
-        self.model_fit_reduce_limit = self.growThreshSlider.value()/100.
-        curr_cluster = grow_cluster(seed_sp, self.neighbors, self.texton_hists, self.D_sp_null, model_fit_reduce_limit=self.model_fit_reduce_limit)
-
-        for sp in curr_cluster:
-            self.paint_superpixel(sp)
-
-        print curr_cluster
-
-
     def load_segmentation(self):
 
         self.segmentation = np.load('/home/yuncong/BrainLocal/DavidData_v4/RS141/x5/0001/segmResults/RS141_x5_0001_gabor-blueNisslWide-segm-blueNissl_cropSegmentation.npy')
@@ -328,7 +341,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             elif self.sender() == self.textonmap_radioButton:
                 self.textonmap_vis = cv2.imread('/home/yuncong/BrainLocal/DavidData_v4/RS141/x5/0001/vqResults/RS141_x5_0001_gabor-blueNisslWide-vq-blueNissl_texMap.tif')[:,:,::-1]
                 self.textonmap_vis[~self.mask] = 0
-                
+
                 self.axes.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
                 self.seg_enabled = False
 

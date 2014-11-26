@@ -1,4 +1,3 @@
-# A set of high-contrast colors proposed by Green-Armytage
 255 255 255 
 240 163 255 
 0 117 220 

@@ -143,11 +143,17 @@ n_splits = 1000
 features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
 features_rotated = np.vstack(features_rotated_list)
 
+<<<<<<< HEAD
 del valid_features
 
 # <codecell>
 
 dm.save_pipeline_result(features_rotated, 'features_rotated', 'npy')
+=======
+# <codecell>
+
+del valid_features
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -156,8 +162,12 @@ b = time.time()
 n_components = 5
 
 from sklearn.decomposition import RandomizedPCA 
+<<<<<<< HEAD
 pca = RandomizedPCA(n_components=n_components, whiten=True)
 # pca = PCA(n_components=n_components, whiten=True)
+=======
+pca = RandomizedPCA(n_components=n_components)
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 pca.fit(features_rotated)
 print(pca.explained_variance_ratio_)
 
@@ -167,6 +177,7 @@ print time.time() - b
 
 # <codecell>
 
+<<<<<<< HEAD
 dm.save_pipeline_result(features_rotated_pca, 'features_rotated_pca', 'npy')
 
 # <codecell>
@@ -295,6 +306,39 @@ plt.tight_layout()
 # a = np.random.choice(features_rotated.shape[0], 10000)
 # plt.scatter(features_rotated[a, 0], features_rotated[a, 1], c='r', s=.1)
 # plt.scatter(centroids[:, 0], centroids[:, 1])
+=======
+b = time.time()
+
+n_components = 5
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=n_components)
+pca.fit(features_rotated)
+print(pca.explained_variance_ratio_)
+
+features_rotated_pca = pca.transform(features_rotated)
+
+print time.time() - b
+
+# <codecell>
+
+n_texton = 50
+
+from sklearn.cluster import MiniBatchKMeans
+kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=100)
+kmeans.fit(features_rotated_pca)
+centroids = kmeans.cluster_centers_
+labels = kmeans.labels_
+
+# <codecell>
+
+plt.hist(textonmap.flat)
+plt.show()
+
+# <codecell>
+
+hc_colors = np.loadtxt('hc_colors.txt', delimiter=',')/ 255.
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -305,18 +349,22 @@ vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
 
 # <codecell>
 
+<<<<<<< HEAD
 plt.hist(textonmap.flat, bins=np.arange(n_texton+1))
 plt.xlabel('texton')
 plt.show()
 
 # <codecell>
 
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 cv2.imwrite('textonmap2.png', img_as_ubyte(vis)[..., ::-1])
 from IPython.display import FileLink
 FileLink('textonmap2.png')
 
 # <codecell>
 
+<<<<<<< HEAD
 for s in range(n_texton):
     print s
     overlayed = overlay_labels(cropped_img, textonmap, [s])
@@ -351,6 +399,9 @@ plt.tight_layout()
 
 # plt.savefig('textons2.png', bbox_inches='tight')
 # plt.close(fig)
+=======
+plt.matshow(cropped_features[..., 88], cmap=plt.cm.Greys_r)
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 

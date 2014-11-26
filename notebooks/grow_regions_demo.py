@@ -92,8 +92,12 @@ import heapq
 # def grow_cluster(seed, neighbors, texton_hists, D_sp_null, score_drop_tolerance=0.):
 
 # def grow_cluster(seed, neighbors, texton_hists, score_drop_tolerance=0.):
+<<<<<<< HEAD
 
 def grow_cluster(seed, neighbors, texton_hists, score_drop_tolerance=0, model_fit_reduce_limit=.2):
+=======
+def grow_cluster(seed, neighbors, texton_hists, score_drop_tolerance=0., model_fit_reduce_limit=.2):
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
     
     scores = []
     null_dists = []
@@ -111,9 +115,14 @@ def grow_cluster(seed, neighbors, texton_hists, score_drop_tolerance=0, model_fi
 #         print 'testing %d' % v
                 
         score_new, null_dist_new, model_dist_new = compute_cluster_score(curr_cluster | set([v]), texton_hists, neighbors)
+<<<<<<< HEAD
           
         if (v == seed) or ((v != seed) and (score_new > curr_cluster_score - score_drop_tolerance) 
                            and (model_dist_new < curr_model_dist + model_fit_reduce_limit)):
+=======
+    
+        if v == seed or (score_new > curr_cluster_score - score_drop_tolerance and model_dist_new < curr_model_dist + model_fit_reduce_limit):
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 #         if v == seed or score_new > curr_cluster_score - score_drop_tolerance:
 
             curr_cluster.add(v)
@@ -259,10 +268,20 @@ import time
 
 b = time.time()
 
+<<<<<<< HEAD
 clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists) for s in range(n_superpixels))
 
 print time.time() - b
 
+=======
+clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists, D_sp_null)
+                                 for s in range(n_superpixels))
+
+print time.time() - b
+
+# <codecell>
+
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 dm.save_pipeline_result(clusters, 'clusters', 'pkl')
 
 # <codecell>
@@ -273,11 +292,17 @@ clusters = dm.load_pipeline_result('clusters', 'pkl')
 
 cluster_sps, scores_sps, nulls_sps, models_sps, added_sps = zip(*clusters)
 
+<<<<<<< HEAD
 cluster_size_sps = np.array([len(c) for c in cluster_sps])
 
 # <codecell>
 
 sig_sps = np.array([scores[-1]/len(scores) for scores in scores_sps])
+=======
+# <codecell>
+
+cluster_size_sps = np.array([len(c) for c in cluster_sps])
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -286,6 +311,13 @@ plt.show()
 
 # <codecell>
 
+<<<<<<< HEAD
+=======
+sig_sps = np.array([scores[-1]/len(scores) for scores in scores_sps])
+
+# <codecell>
+
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 thresh = sorted(sig_sps)[int(n_superpixels*.5)]
 
 # <codecell>
@@ -303,7 +335,10 @@ sigmap[~cropped_mask] = 0
 
 plt.matshow(sigmap)
 plt.colorbar()
+<<<<<<< HEAD
 plt.show()
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -312,6 +347,7 @@ n_highlights = len(highlighted_sps)
 
 # <codecell>
 
+<<<<<<< HEAD
 votes = np.zeros((n_highlights,), dtype=np.int)
 for i in range(n_highlights):
     voting_member = highlighted_sps[overlap_matrix[i]]
@@ -327,13 +363,19 @@ from scipy.spatial.distance import pdist, squareform
 
 # <codecell>
 
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 overlap_matrix = np.zeros((n_highlights, n_highlights), dtype=np.bool)
 for i in range(n_highlights):
     for j in range(n_highlights):
         if i != j:
             c1 = cluster_sps[highlighted_sps[i]]
             c2 = cluster_sps[highlighted_sps[j]]
+<<<<<<< HEAD
             overlap_matrix[i, j] = (len(c1 & c2) > .6 * len(c1 | c2))
+=======
+            overlap_matrix[i, j] = (len(c1 & c2) > min(len(c1), len(c2))* .8)
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -342,6 +384,7 @@ plt.show()
 
 # <codecell>
 
+<<<<<<< HEAD
 from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single, dendrogram
 
 lk = complete(1-squareform(overlap_matrix).astype(np.int))
@@ -361,6 +404,8 @@ for clique_id in range(n_cliques):
 
 # <codecell>
 
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 import networkx as nx
 from networkx.algorithms.components import connected_components, strongly_connected_components
 from networkx.algorithms import find_cliques, cliques_containing_node
@@ -370,12 +415,17 @@ from networkx.algorithms import find_cliques, cliques_containing_node
 G = nx.Graph(overlap_matrix)
 # components = [c for c in connected_components(G) if len(c) > 10]
 # components = [c for c in list(find_cliques(G)) if len(c) > 3 and len(c) < 50]
+<<<<<<< HEAD
 # components = [[highlighted_sps[i] for i in c] for c in list(find_cliques(G)) if len(c) > 3 and len(c) < 50]
+=======
+components = [[highlighted_sps[i] for i in c] for c in list(find_cliques(G)) if len(c) > 3 and len(c) < 50]
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 print len(components)
 
 # <codecell>
 
+<<<<<<< HEAD
 from sklearn.cluster import AgglomerativeClustering
 clustering = AgglomerativeClustering(linkage='average', n_clusters=10)
 clustering.fit(X_red)
@@ -384,6 +434,9 @@ plot_clustering(X_red, X, clustering.labels_, "%s linkage" % linkage)
 # <codecell>
 
 components_ranked = sorted(components, key=lambda c: compute_cluster_score(c, texton_hists, neighbors)[0], reverse=True)
+=======
+components_ranked = sorted(components, key=lambda c: compute_cluster_score(c, texton_hists, D_sp_null)[0], reverse=True)
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 
 # <codecell>
 
@@ -412,12 +465,15 @@ vis = visualize_cluster(cliques_containing_node(G, 1751)[0], cropped_segmentatio
 
 # <codecell>
 
+<<<<<<< HEAD
 vis = visualize_cluster(components_ranked[0], cropped_segmentation, cropped_segmentation_vis)
 plt.imshow(vis)
 plt.show()
 
 # <codecell>
 
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 for i, c in enumerate(components_ranked[:5]):
     vis = visualize_cluster(c, cropped_segmentation, cropped_segmentation_vis)
     cv2.imwrite('tmp%d.jpg'%i, vis)
@@ -427,16 +483,26 @@ for i, c in enumerate(components_ranked[:5]):
 
 # <codecell>
 
+<<<<<<< HEAD
 vis = visualize_multiple_clusters(components_ranked[:10], cropped_segmentation, cropped_segmentation_vis)
 
 # <codecell>
 
+=======
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 vis = visualize_multiple_clusters(components, cropped_segmentation, cropped_segmentation_vis)
 
 # <codecell>
 
+<<<<<<< HEAD
 cv2.imwrite('sig_clusters.png', vis)
 
 from IPython.display import FileLink
 FileLink('sig_clusters.png')
+=======
+cv2.imwrite('tmp2.jpg', vis)
+
+from IPython.display import FileLink
+FileLink('tmp2.jpg')
+>>>>>>> f8912cf4dc09a4e962a3631c724b7324db943a86
 

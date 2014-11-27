@@ -317,6 +317,18 @@ class DataManager(object):
             results_dir = self.sigboostResults_dir
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
+
+        elif result_name == 'features_rotated_pca':
+            results_dir = self.filterResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id])
+
+            
+        elif result_name == 'features_rotated':
+            results_dir = self.filterResults_dir
+            instance_name = '_'.join([self.stack, self.resol, self.slice_str,
+                                      'gabor-' + self.gabor_params_id])
+
             
         elif result_name == 'tmp':
             results_dir = '/tmp'

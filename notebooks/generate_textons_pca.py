@@ -143,9 +143,11 @@ n_splits = 1000
 features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
 features_rotated = np.vstack(features_rotated_list)
 
+del valid_features
+
 # <codecell>
 
-del valid_features
+dm.save_pipeline_result(features_rotated, 'features_rotated', 'npy')
 
 # <codecell>
 
@@ -154,7 +156,8 @@ b = time.time()
 n_components = 5
 
 from sklearn.decomposition import RandomizedPCA 
-pca = RandomizedPCA(n_components=n_components)
+pca = RandomizedPCA(n_components=n_components, whiten=True)
+# pca = PCA(n_components=n_components, whiten=True)
 pca.fit(features_rotated)
 print(pca.explained_variance_ratio_)
 
@@ -164,37 +167,134 @@ print time.time() - b
 
 # <codecell>
 
-b = time.time()
-
-n_components = 5
-
-from sklearn.decomposition import PCA
-pca = PCA(n_components=n_components)
-pca.fit(features_rotated)
-print(pca.explained_variance_ratio_)
-
-features_rotated_pca = pca.transform(features_rotated)
-
-print time.time() - b
+dm.save_pipeline_result(features_rotated_pca, 'features_rotated_pca', 'npy')
 
 # <codecell>
 
-n_texton = 50
+# n_texton = 100
+n_texton = 10
 
 from sklearn.cluster import MiniBatchKMeans
-kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=100)
+kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
 kmeans.fit(features_rotated_pca)
+# kmeans.fit(features_rotated)
 centroids = kmeans.cluster_centers_
 labels = kmeans.labels_
 
 # <codecell>
 
-plt.hist(textonmap.flat)
-plt.show()
+a = np.random.choice(features_rotated_pca.shape[0], 1000)
+
+plt.scatter(features_rotated_pca[a, 0], features_rotated_pca[a, 1], c='r')
+
+plt.scatter(centroids[:, 0], centroids[:, 1])
 
 # <codecell>
 
-hc_colors = np.loadtxt('hc_colors.txt', delimiter=',')/ 255.
+# from scipy.spatial.distance import pdist, squareform
+
+# D = squareform(pdist(centroids))
+# Dmin = D[D > 0].min()
+# Dmax = D.max()
+# plt.matshow(D, vmin=Dmin, vmax=Dmax)
+
+# <codecell>
+
+# hc_colors = np.loadtxt('hc_colors.txt', delimiter=',')/ 255.
+# hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt')/ 255.
+
+hc_colors = np.loadtxt('../visualization/100colors.txt')
+
+# hc_colors = np.random.random((n_texton, 3))
+# np.savetxt('../visualization/100colors.txt', hc_colors)
+
+# <codecell>
+
+# Visualize textons and color codes (in original space)
+
+n_cols = 10
+n_rows = int(np.ceil(n_texton/n_cols))
+
+fig, axes = plt.subplots(2*n_rows, n_cols, figsize=(20,5), facecolor='white')
+axes = np.atleast_2d(axes)
+
+vmin = centroids.min()
+vmax = centroids.max()
+
+for i in range(n_rows):
+    for j in range(n_cols):
+        axes[2*i, j].set_title('texton %d'%(i*10+j))
+        axes[2*i, j].matshow(centroids[i*10+j].reshape(n_freq, n_angle), vmin=vmin, vmax=vmax)
+        axes[2*i, j].set_xticks([])
+        axes[2*i, j].set_yticks([])
+        
+        cbox = np.ones((3,10,3))
+        cbox[:,:,:] = hc_colors[i*10+j]
+        axes[2*i+1, j].imshow(cbox)
+        axes[2*i+1, j].set_xticks([])
+        axes[2*i+1, j].set_yticks([])
+        
+# plt.tight_layout()
+
+plt.subplots_adjust(left=0, right=1., top=1, bottom=0., wspace=0.1, hspace=0)
+
+# plt.savefig('textons2.png', bbox_inches='tight')
+# plt.close(fig)
+
+# <codecell>
+
+# Visualize textons (in original space)
+
+n_cols = 10
+n_rows = int(np.ceil(n_texton/n_cols))
+
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(20,20), facecolor='white')
+axes = np.atleast_2d(axes)
+
+vmin = centroids.min()
+vmax = centroids.max()
+
+for i in range(n_rows):
+    for j in range(n_cols):
+        axes[i, j].set_title('texton %d'%(i*10+j))
+        axes[i, j].matshow(centroids[i*10+j].reshape(n_freq, n_angle), vmin=vmin, vmax=vmax)
+        axes[i, j].set_xticks([])
+        axes[i, j].set_yticks([])
+        
+plt.tight_layout()
+
+# plt.savefig('textons2.png', bbox_inches='tight')
+# plt.close(fig)
+
+# <codecell>
+
+# Visualize color codes (in original space)
+
+n_cols = 10
+n_rows = int(np.ceil(n_texton/n_cols))
+
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(20,20), facecolor='white')
+axes = np.atleast_2d(axes)
+
+for i in range(n_rows):
+    for j in range(n_cols):
+        axes[i, j].set_title('texton %d'%(i*10+j))
+        cbox = np.ones((10,10,3))
+        cbox[:,:,:] = hc_colors[i*10+j]
+        axes[i, j].imshow(cbox)
+        axes[i, j].set_xticks([])
+        axes[i, j].set_yticks([])
+        
+plt.tight_layout()
+
+# plt.savefig('textons2.png', bbox_inches='tight')
+# plt.close(fig)
+
+# <codecell>
+
+# a = np.random.choice(features_rotated.shape[0], 10000)
+# plt.scatter(features_rotated[a, 0], features_rotated[a, 1], c='r', s=.1)
+# plt.scatter(centroids[:, 0], centroids[:, 1])
 
 # <codecell>
 
@@ -205,13 +305,52 @@ vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
 
 # <codecell>
 
+plt.hist(textonmap.flat, bins=np.arange(n_texton+1))
+plt.xlabel('texton')
+plt.show()
+
+# <codecell>
+
 cv2.imwrite('textonmap2.png', img_as_ubyte(vis)[..., ::-1])
 from IPython.display import FileLink
 FileLink('textonmap2.png')
 
 # <codecell>
 
-plt.matshow(cropped_features[..., 88], cmap=plt.cm.Greys_r)
+for s in range(n_texton):
+    print s
+    overlayed = overlay_labels(cropped_img, textonmap, [s])
+    cv2.imwrite('overlayed_pca_texton%d.png'%s, img_as_ubyte(overlayed)[..., ::-1])
+#     from IPython.display import FileLink
+#     FileLink('overlayed.png')
+
+# <codecell>
+
+def overlay_labels(image, lbp, labels):
+    mask = np.logical_or.reduce([lbp == each for each in labels])
+    return label2rgb(mask, image=image, bg_label=0, alpha=0.5)
+
+# <codecell>
+
+# Visualize textons
+
+n_cols = 10
+n_rows = int(np.ceil(n_texton/n_cols))
+
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(20,5), facecolor='white', sharey=True)
+axes = np.atleast_2d(axes)
+
+for i in range(n_rows):
+    for j in range(n_cols):
+        axes[i, j].set_title('texton %d'%(i*10+j))
+        axes[i, j].bar(np.arange(n_components), centroids[i*10+j])
+        axes[i, j].set_xticks([])
+        axes[i, j].set_yticks([])
+        
+plt.tight_layout()
+
+# plt.savefig('textons2.png', bbox_inches='tight')
+# plt.close(fig)
 
 # <codecell>
 

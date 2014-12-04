@@ -65,7 +65,7 @@ print n_reduced_texton
 
 # from sklearn.cluster import MiniBatchKMeans
 # kmeans = MiniBatchKMeans(n_clusters=n_reduced_texton, batch_size=1000, init=reduced_centroids)
-# kmeans.fit(features_rotated_pca)
+# # kmeans.fit(features_rotated_pca)
 # kmeans.fit(features_rotated)
 # final_centroids = kmeans.cluster_centers_
 # labels = kmeans.labels_
@@ -141,5 +141,4 @@ visualize_features(centroids, n_freq, n_angle, colors=hc_colors)
 # <codecell>
 
 visualize_features(reduced_centroids, n_freq, n_angle, colors=hc_colors)
-# visualize_features(final_centroids, n_freq, n_angle, colors=hc_colors) # same as reduced_centroids
 

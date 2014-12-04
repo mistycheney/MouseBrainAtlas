@@ -238,12 +238,13 @@ class DataManager(object):
             param_dependencies = ['gabor', 'segm']
             
         elif result_name == 'textons':
+            results_dir = self.image_dir
             param_dependencies = ['gabor', 'vq']
             
         elif result_name == 'texMap':
             param_dependencies = ['gabor', 'vq']
 
-        elif result_name in ['texHist', 'clusters']:
+        elif result_name in ['texHist', 'clusters', 'groups']:
             param_dependencies = ['gabor', 'segm', 'vq']
             
         # elif result_name == 'tmp':

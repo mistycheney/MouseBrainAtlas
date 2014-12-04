@@ -15,7 +15,6 @@ from joblib import Parallel, delayed
 from scipy.spatial.distance import cdist
     
 centroids = dm.load_pipeline_result('textons', 'npy')
-
 features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
 
 # <codecell>

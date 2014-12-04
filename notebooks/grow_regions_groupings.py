@@ -81,20 +81,20 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
 
     score = surround_dist - avg_dist
     
-    print 'cluster', cluster_list
-    print 'surrounds', surrounds_list
-    print 'argmin', np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
-    print 'min', np.min(np.atleast_2d(surround_dists), axis=0)
-    print 'model', avg_dists
-    print 'adv', np.min(np.atleast_2d(surround_dists), axis=0) - avg_dists
-    print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
-    print 
+#     print 'cluster', cluster_list
+#     print 'surrounds', surrounds_list
+#     print 'argmin', np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
+#     print 'min', np.min(np.atleast_2d(surround_dists), axis=0)
+#     print 'model', avg_dists
+#     print 'adv', np.min(np.atleast_2d(surround_dists), axis=0) - avg_dists
+#     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
+#     print 
     
     return score, surround_dist, avg_dist
 
 # <codecell>
 
-# def compute_cluster_score(cluster, texton_hists, neighbors):
+# def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors):
     
 #     cluster_list = list(cluster)
 #     hists_cluster = texton_hists[cluster_list]
@@ -116,10 +116,14 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
     
 #     score = surround_dist - avg_dist
     
-# #     print 'cluster', cluster_list
-# #     print 'surrounds', surrounds_list
-# #     print 'argmin', np.array(surrounds_list)[np.argmin(np.atleast_2d(r[:-1, :]), axis=0)]    
-# #     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
+#     print 'cluster', cluster_list
+#     print 'surrounds', surrounds_list
+#     print 'argmin', np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
+#     print 'min', np.min(np.atleast_2d(surround_dists), axis=0)
+#     print 'model', avg_dists
+#     print 'adv', np.min(np.atleast_2d(surround_dists), axis=0) - avg_dists
+#     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
+#     print 
     
 #     return score, surround_dist, avg_dist
 
@@ -139,7 +143,7 @@ def grow_cluster(seed, neighbors, texton_hists):
                     
     to_visit = [(0, seed)]
         
-    c = 0
+#     c = 0
         
     while len(to_visit) > 0:
         
@@ -148,8 +152,8 @@ def grow_cluster(seed, neighbors, texton_hists):
         if v in curr_cluster:
             continue
         
-        print c
-        c += 1
+#         print c
+#         c += 1
         
         curr_cluster_score, curr_null_dist, curr_model_dist = compute_cluster_score(curr_cluster | set([v]), texton_hists, neighbors)
                 
@@ -232,13 +236,7 @@ def visualize_multiple_clusters(clusters, segmentation=segmentation, segmentatio
 
 # <codecell>
 
-# seed = 905
-# seed = 998
-# seed = 1061
-# seed = 2097
-# seed = 311
-# seed = 153
-seed = 892
+seed = 821
 
 curr_cluster, curr_cluster_score, scores, avg_surround_distances, sp_avg_distances, added_sp = grow_cluster(seed, neighbors, texton_hists)
 
@@ -272,7 +270,7 @@ display(vis)
 
 import matplotlib.pyplot as plt
 
-e = 20
+e = 30
 
 n = len(scores[:e])
 
@@ -325,14 +323,6 @@ cluster_score_sps = np.array(curr_cluster_score_sps)
 
 # <codecell>
 
-# thresh = sorted(cluster_score_sps)[int(n_superpixels*.5)]
-
-# <codecell>
-
-cluster_score_sps[905]
-
-# <codecell>
-
 sigmap = cluster_score_sps[segmentation] * 5 + 1
 sigmap[~dm.mask] = 0
 
@@ -371,7 +361,7 @@ from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single
 
 lk = average(squareform(distance_matrix))
 # T = fcluster(lk, 1.15, criterion='inconsistent')
-T = fcluster(lk, .5, criterion='distance')
+T = fcluster(lk, .3, criterion='distance')
 
 n_groups = len(set(T))
 print n_groups
@@ -384,39 +374,18 @@ for group_id in range(n_groups):
 
 filtered_groups = [set.union(*[set(cluster_sps[i]) for i in g]) for g in groups if len(g) > 2]
 filtered_group_scores = [compute_cluster_score(g, texton_hists, neighbors)[0] for g in filtered_groups]
-# filtered_group_sizes = [len(g) for g in filtered_groups]
-
-# arg_score_sorted = np.argsort([sc for g,sc,sz in filtered_groups_props])[::-1]
-# arg_size_sorted = np.argsort([sz for g,sc,sz in filtered_groups_props])[::-1]
 
 arg_score_sorted = np.argsort(filtered_group_scores)[::-1]
 
-# filtered_groups_score_sorted = [filtered_groups[i] for i in arg_score_sorted]
-# filtered_groups_size_sorted = [filtered_groups[i] for i in arg_size_sorted]
+res = zip(filtered_groups, filtered_group_scores)
+filtered_groups_res = [res[i] for i in arg_score_sorted]
 
-# filtered_groups_score_sorted = [filtered_groups[i] for i in np.argsort(filtered_group_scores)[::-1]]
-# filtered_groups_size_sorted = [filtered_groups[i] for i in np.argsort(filtered_group_sizes)[::-1]]
-
-# <codecell>
-
-for i in arg_score_sorted:
-    print filtered_groups[i], filtered_group_scores[i]
+dm.save_pipeline_result(filtered_groups_res, 'groups', 'pkl')
 
 # <codecell>
 
-compute_cluster_score([2069, 2090, 1982, 2047])
-
-# <codecell>
-
-compute_cluster_score([2090, 1982, 2047])
-
-# <codecell>
-
-vis = visualize_cluster(set([768, 773, 774, 782, 784, 786, 1071, 1052, 730, 1057, 1061, 1062, 1063, 812, 815, 816, 862, 991, 835, 838, 847, 1107, 1108, 1118, 741, 866, 1123, 1124, 870, 1131, 879, 880, 1145, 895, 640, 900, 905, 906, 917, 923, 1186, 934, 1191, 796, 952, 954, 1219, 972, 975, 976, 982, 986, 735, 1249, 1190, 998, 999, 1000, 1001, 852]))
-
-# <codecell>
-
-display(vis)
+for g, s in filtered_groups_res:
+    print g,s
 
 # <codecell>
 

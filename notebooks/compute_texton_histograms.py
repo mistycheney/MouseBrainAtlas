@@ -35,6 +35,3 @@ dm.save_pipeline_result(sp_texton_hist_normalized, 'texHist', 'npy')
 # overall_texton_hist = np.bincount(textonmap[dm.mask].flat)
 # overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
 
-# <codecell>
-
-

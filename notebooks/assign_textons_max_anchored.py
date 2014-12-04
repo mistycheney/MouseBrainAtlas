@@ -43,6 +43,10 @@ dm.save_pipeline_result(textonmap, 'texMap', 'npy')
 
 # <codecell>
 
+textonmap = dm.load_pipeline_result('texMap', 'npy')
+
+# <codecell>
+
 hc_colors = np.loadtxt('../visualization/100colors.txt')
 
 vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)

@@ -288,6 +288,8 @@ class DataManager(object):
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = cv2.imread(result_filename)
+            if data.ndim == 3:
+                data = data[...,::-1]
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))

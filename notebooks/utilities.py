@@ -129,55 +129,31 @@ def timeit(func=None,loops=1,verbose=False):
 
 # <codecell>
 
-# class DataSynchronizer(object):
+# import tables
+
+# class DataManager(object):
+
     
 #     def __init__(self):
-#         get_local_tree()
-#         get_remote_tree()
-        
-        
-        
-#     def generate_local_tree(self):
-        
-
-#     def generate_remote_tree(self):
-        
-        
-        
-#     def label_elements(self):
-        
-        
-#     def generate_gui_paths(self):
-        
-        
-
-# <codecell>
-
-import tables
-
-class DataManager(object):
-
+#         complevel = 5
+#         filters = tables.Filters(complevel=complevel, complib='blosc')
+#         # h5file = tables.open_file("gabor_files.h5", mode = "w")
+#         self.h5file = tables.open_file("results.h5", mode = "a", title = "Pipeline Results", filters=filters)
     
-    def __init__(self):
-        complevel = 5
-        filters = tables.Filters(complevel=complevel, complib='blosc')
-        # h5file = tables.open_file("gabor_files.h5", mode = "w")
-        self.h5file = tables.open_file("results.h5", mode = "a", title = "Pipeline Results", filters=filters)
-    
-        self.stack_name = 'RS141'
-        self.resolution = 'x5'
-        self.slice_num = 1
+#         self.stack_name = 'RS141'
+#         self.resolution = 'x5'
+#         self.slice_num = 1
         
-        class Result(tables.IsDescription):
-            name = StringCol()
+#         class Result(tables.IsDescription):
+#             name = StringCol()
         
-        self.stack_group = self.h5file.create_group('/', 'RS141', 'RS141')
-        self.resol_group = self.h5file.create_group(self.stack_group, 'x5', 'x5')
-        self.slice_group = self.h5file.create_group(self.resol_group, 'slice001', 'slice001')
+#         self.stack_group = self.h5file.create_group('/', 'RS141', 'RS141')
+#         self.resol_group = self.h5file.create_group(self.stack_group, 'x5', 'x5')
+#         self.slice_group = self.h5file.create_group(self.resol_group, 'slice001', 'slice001')
 
-    def save_result(self, data, name):
+#     def save_result(self, data, name):
         
-        self.h5file.create_carray(self.slice_group, name, obj=data)
+#         self.h5file.create_carray(self.slice_group, name, obj=data)
 
 # <codecell>
 
@@ -221,16 +197,16 @@ class DataManager(object):
         
     def _load_image(self):
         
-            assert self.image_name is not None, 'Image is not specified'
-            
-            image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
-            assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+        assert self.image_name is not None, 'Image is not specified'
 
-            self.image = cv2.imread(image_filename, 0)
-            self.image_height, self.image_width = self.image.shape[:2]
-            
-            mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
-            self.mask = cv2.imread(mask_filename, 0) > 0
+        image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
+        assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+
+        self.image = cv2.imread(image_filename, 0)
+        self.image_height, self.image_width = self.image.shape[:2]
+
+        mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
+        self.mask = cv2.imread(mask_filename, 0) > 0
         
     def set_gabor_params(self, gabor_params_id):
         
@@ -361,248 +337,6 @@ class DataManager(object):
         labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + labeling_name + '.pkl')
         labeling = pickle.load(open(labeling_fn, 'r'))
         return labeling
-
-
-# class DataManager(object):
-#     def __init__(self, data_dir, repo_dir):
-#         self.data_dir = data_dir
-#         self.repo_dir = repo_dir
-#         self.params_dir = os.path.join(repo_dir, 'params')
-
-#         self.image_name = None
-        
-#     def set_stack(self, stack, resol):
-#         self.stack = stack
-#         self.resol = resol
-#         self.resol_dir = os.path.join(self.data_dir, self.stack, self.resol)
-        
-#     def set_slice(self, slice_ind):
-#         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
-#         self.slice_ind = slice_ind
-#         self.slice_str = '%04d' % slice_ind
-#         self.image_dir = os.path.join(self.data_dir, self.stack, self.resol, self.slice_str)
-#         self.image_name = '_'.join([self.stack, self.resol, self.slice_str])
-
-#         self.labelings_dir = os.path.join(self.image_dir, 'labelings')
-        
-#         self.filterResults_dir = os.path.join(self.image_dir, 'filterResults')
-#         if not os.path.exists(self.filterResults_dir):
-#             os.mkdir(self.filterResults_dir)
-        
-#         self.segmResults_dir = os.path.join(self.image_dir, 'segmResults')
-#         if not os.path.exists(self.segmResults_dir):
-#             os.mkdir(self.segmResults_dir)
-            
-#         self.vqResults_dir = os.path.join(self.image_dir, 'vqResults')
-#         if not os.path.exists(self.vqResults_dir):
-#             os.mkdir(self.vqResults_dir)
-            
-#         self.histResults_dir = os.path.join(self.image_dir, 'histResults')
-#         if not os.path.exists(self.histResults_dir):
-#             os.mkdir(self.histResults_dir)
-
-#         self.sigboostResults_dir = os.path.join(self.image_dir, 'sigboostResults')
-#         if not os.path.exists(self.sigboostResults_dir):
-#             os.mkdir(self.sigboostResults_dir)
-
-        
-#     def set_image(self, stack, resol, slice_ind):
-#         self.set_stack(stack, resol)
-#         self.set_slice(slice_ind)
-#         self._load_image()
-        
-#     def _load_image(self):
-        
-#             assert self.image_name is not None, 'Image is not specified'
-            
-#             image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
-#             assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-
-#             self.image = cv2.imread(image_filename, 0)
-#             self.image_height, self.image_width = self.image.shape[:2]
-            
-#             mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
-#             self.mask = cv2.imread(mask_filename, 0) > 0
-        
-#     def set_gabor_params(self, gabor_params_id):
-        
-#         self.gabor_params_id = gabor_params_id
-#         self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
-        
-        
-#     def set_segmentation_params(self, segm_params_id):
-        
-#         self.segm_params_id = segm_params_id
-#         self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
-
-#     def set_vq_params(self, vq_params_id):
-        
-#         self.vq_params_id = vq_params_id
-#         self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
-        
-            
-#     def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
-        
-#         if result_name == 'features' or result_name == 'kernels':
-#             results_dir = self.filterResults_dir
-#             param_dependencies = ['gabor']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'gabor-' + self.gabor_params_id])
-
-#         elif result_name == 'segmentation' or result_name == 'segmentationWithText':
-#             results_dir = self.segmResults_dir
-#             param_dependencies = ['segm']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'segm-' + self.segm_params_id])
-            
-#         elif result_name == 'spProps':
-#             results_dir = self.segmResults_dir
-#             param_dependencies = ['gabor', 'segm']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
-            
-            
-#         elif result_name == 'neighbors':
-#             results_dir = self.segmResults_dir
-#             param_dependencies = ['gabor', 'segm']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
-
-#         elif result_name == 'textons':
-#             results_dir = self.resol_dir
-#             param_dependencies = ['gabor', 'vq']
-            
-#             instance_name = '_'.join([self.stack, self.resol, 
-#                                       'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
-
-#         elif result_name == 'texMap':
-#             results_dir = self.vqResults_dir
-#             param_dependencies = ['gabor', 'vq']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
-
-#         elif result_name == 'texHist':
-#             results_dir = self.histResults_dir
-#             param_dependencies = ['gabor', 'segm', 'vq']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
-            
-#         elif result_name == 'dirHist' or result_name == 'dirMap' :
-#             results_dir = self.histResults_dir
-#             param_dependencies = ['gabor', 'segm']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
-
-#         elif result_name == 'clusters':
-#             results_dir = self.sigboostResults_dir
-#             param_dependencies = ['gabor', 'segm', 'vq']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
-
-#         elif result_name == 'features_rotated_pca':
-#             results_dir = self.filterResults_dir
-#             param_dependencies = ['gabor']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id])
-
-            
-#         elif result_name == 'features_rotated':
-#             results_dir = self.filterResults_dir
-#             param_dependencies = ['gabor']
-            
-#             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
-#                                       'gabor-' + self.gabor_params_id])
-
-            
-#         elif result_name == 'tmp':
-#             results_dir = '/tmp'
-#             instance_name = 'test'
-        
-#         elif result_name == 'models':
-#             results_dir = self.resol_dir
-#             instance_name = '_'.join([self.stack, self.resol,
-#                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + \
-#                                       '-vq-' + self.vq_params_id])
-        
-#         else:
-#             print 'result name %s unknown' % result_name
-#             raise
-            
-            
-#         result_filename = os.path.join(results_dir, instance_name + '_' + result_name + '.' + ext)
-        
-#         return result_filename
-            
-#     def load_pipeline_result(self, result_name, ext, is_rgb=None):
-        
-#         if REGENERATE_ALL_RESULTS:
-#             raise
-        
-#         result_filename = self._get_result_filename(result_name, ext)
-        
-#         if ext == 'npy':
-#             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
-#             data = np.load(result_filename)
-#         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
-#             data = cv2.imread(result_filename)
-#             data = self._regulate_image(data, is_rgb)
-#         elif ext == 'pkl':
-#             data = pickle.load(open(result_filename, 'r'))
-
-#         print 'loaded %s' % result_filename
-
-#         return data
-        
-#     def save_pipeline_result(self, data, result_name, ext, is_rgb=None):
-            
-#         result_filename = self._get_result_filename(result_name, ext)
-
-#         if ext == 'npy':
-#             np.save(result_filename, data)
-#         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
-#             data = self._regulate_image(data, is_rgb)
-#             if data.ndim == 3:
-#                 cv2.imwrite(result_filename, data[..., ::-1])
-#             else:
-#                 cv2.imwrite(result_filename, data)
-#         elif ext == 'pkl':
-#             pickle.dump(data, open(result_filename, 'w'))
-            
-#         print 'saved %s' % result_filename
-        
-#     def _regulate_image(self, img, is_rgb=None):
-#         """
-#         Ensure the image is of type uint8.
-#         """
-
-#         if not np.issubsctype(img, np.uint8):
-#             try:
-#                 img = img_as_ubyte(img)
-#             except:
-#                 img_norm = (img-img.min()).astype(np.float)/(img.max() - img.min())    
-#                 img = img_as_ubyte(img_norm)
-
-#         if is_rgb is not None:
-#             if img.ndim == 2 and is_rgb:
-#                 img = gray2rgb(img)
-#             elif img.ndim == 3 and not is_rgb:
-#                 img = rgb2gray(img)
-
-#         return img
-    
-    
-#     def load_labeling(self, labeling_name):
-#         labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + labeling_name + '.pkl')
-#         labeling = pickle.load(open(labeling_fn, 'r'))
-#         return labeling
-            
 
 # <codecell>
 

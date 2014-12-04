@@ -1,4 +1,3 @@
-
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import sys
@@ -9,11 +8,9 @@ import json
 import param_settings_v2
 import string
 
-
-
 class MainDialog(QDialog,param_settings_v2.Ui_form):
 
-    def __init__(self,parent=None):
+    def __init__(self,parent=None,params_dir=None):
 	"""
 	Initialization of parameter settings
 	"""
@@ -32,7 +29,11 @@ class MainDialog(QDialog,param_settings_v2.Ui_form):
 	self.list_vq.itemClicked.connect(self.select_vq)
 
         ### Populate list ###
-	self.path_main ="/home/s4myers/brain_registration/param_settings/" #Needs to be changed to directory which holds parameters
+	if params_dir is not None:
+		self.path_main = params_dir
+	else:
+		raise "path to parameter sets is not specified."
+
 	self.path_gabor = os.path.join(self.path_main,"gabor")
 	self.path_segm = os.path.join(self.path_main,"segm")
 	self.path_vq = os.path.join(self.path_main,"vq")
@@ -285,7 +286,9 @@ class MainDialog(QDialog,param_settings_v2.Ui_form):
 	
 	
 
+params_dir = "/home/yuncong/Brain/params"
+# params_dir = "/home/s4myers/brain_registration/param_settings/" #Needs to be changed to directory which holds parameters
 app = QApplication(sys.argv)
-form = MainDialog()
+form = MainDialog(params_dir=params_dir)
 form.show()
 app.exec_()

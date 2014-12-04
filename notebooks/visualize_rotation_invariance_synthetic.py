@@ -91,12 +91,12 @@ from joblib import Parallel, delayed
 from scipy.signal import fftconvolve
 
 def convolve_per_proc(i):
-    return fftconvolve(canvas, kernels[i], 'same').astype(np.half)
+    return fftconvolve(pattern, kernels[i], 'same').astype(np.half)
 
 filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
                         for i in range(n_kernel))
 
-features = np.empty((canvas.shape[0], canvas.shape[1], n_kernel), dtype=np.half)
+features = np.empty((pattern.shape[0], pattern.shape[1], n_kernel), dtype=np.half)
 for i in range(n_kernel):
     features[...,i] = filtered[i]
 
@@ -118,7 +118,7 @@ features_rotated = np.reshape([np.roll(features_tabular[i], -ai, axis=-1)
 x = 6
 y = 3
 plt.matshow(features[y, x].reshape(n_freq, n_angle))
-print 'max angle index is', max_angle_indices[y * canvas.shape[0] + x]
+print 'max angle index is', max_angle_indices[y * pattern.shape[0] + x]
 plt.matshow(features_rotated[y, x].reshape(n_freq, n_angle))
 
 # <codecell>

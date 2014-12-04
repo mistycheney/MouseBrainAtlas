@@ -265,67 +265,82 @@ class DataManager(object):
         self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
         
             
-    def _get_result_filename(self, result_name, ext):
+    def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
         
-        if result_name == 'features' or result_name == 'cropFeatures' \
-                or result_name == 'cropImg' or result_name == 'cropMask'\
-                or result_name == 'kernels':
+        if result_name == 'features' or result_name == 'kernels':
             results_dir = self.filterResults_dir
+            param_dependencies = ['gabor']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'gabor-' + self.gabor_params_id])
 
-        elif result_name == 'segmentation':
+        elif result_name == 'segmentation' or result_name == 'segmentationWithText':
             results_dir = self.segmResults_dir
+            param_dependencies = ['segm']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 'segm-' + self.segm_params_id])
             
-        elif result_name == 'cropSegmentation':
+        elif result_name == 'spProps':
             results_dir = self.segmResults_dir
-            instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
-                                      'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
+            param_dependencies = ['gabor', 'segm']
             
-        elif result_name == 'cropSpProps':
-            results_dir = self.segmResults_dir
             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
             
             
         elif result_name == 'neighbors':
             results_dir = self.segmResults_dir
+            param_dependencies = ['gabor', 'segm']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str, 
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
 
         elif result_name == 'textons':
             results_dir = self.resol_dir
+            param_dependencies = ['gabor', 'vq']
+            
             instance_name = '_'.join([self.stack, self.resol, 
                                       'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
 
         elif result_name == 'texMap':
             results_dir = self.vqResults_dir
+            param_dependencies = ['gabor', 'vq']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-vq-' + self.vq_params_id])
 
         elif result_name == 'texHist':
             results_dir = self.histResults_dir
+            param_dependencies = ['gabor', 'segm', 'vq']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
             
         elif result_name == 'dirHist' or result_name == 'dirMap' :
             results_dir = self.histResults_dir
+            param_dependencies = ['gabor', 'segm']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id])
 
         elif result_name == 'clusters':
             results_dir = self.sigboostResults_dir
+            param_dependencies = ['gabor', 'segm', 'vq']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + '-vq-' + self.vq_params_id])
 
         elif result_name == 'features_rotated_pca':
             results_dir = self.filterResults_dir
+            param_dependencies = ['gabor']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id])
 
             
         elif result_name == 'features_rotated':
             results_dir = self.filterResults_dir
+            param_dependencies = ['gabor']
+            
             instance_name = '_'.join([self.stack, self.resol, self.slice_str,
                                       'gabor-' + self.gabor_params_id])
 
@@ -359,8 +374,8 @@ class DataManager(object):
         if ext == 'npy':
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
             data = np.load(result_filename)
-        elif ext == 'tif' or ext == 'png':
-            data = cv2.imread(result_filename, 0) # this should not have argument 0
+        elif ext == 'tif' or ext == 'png' or ext == 'jpg':
+            data = cv2.imread(result_filename)
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
@@ -375,7 +390,7 @@ class DataManager(object):
 
         if ext == 'npy':
             np.save(result_filename, data)
-        elif ext == 'tif' or ext == 'png':
+        elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = self._regulate_image(data, is_rgb)
             if data.ndim == 3:
                 cv2.imwrite(result_filename, data[..., ::-1])
@@ -412,6 +427,23 @@ class DataManager(object):
         labeling = pickle.load(open(labeling_fn, 'r'))
         return labeling
             
+
+# <codecell>
+
+def display(vis, filename='tmp.jpg'):
+    
+    if vis.dtype != np.uint8:
+        if vis.ndim == 3:
+            cv2.imwrite(filename, img_as_ubyte(vis)[..., ::-1])
+        else:
+            cv2.imwrite(filename, img_as_ubyte(vis))
+    else:
+        if vis.ndim == 3:
+            cv2.imwrite(filename, vis[..., ::-1])
+        else:
+            cv2.imwrite(filename, vis)
+    from IPython.display import FileLink
+    return FileLink(filename)
 
 # <codecell>
 

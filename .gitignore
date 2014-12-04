@@ -1,9 +1,9 @@
-collection/
 .ipynb_checkpoints/
 *.h5
 *.png
 *.tif
 *.jpg
+.metadata/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -6,7 +6,7 @@ from scipy import ndimage
 import warnings
 
 from skimage.util import img_as_float, regular_grid
-from _slic import _slic_cython, _enforce_label_connectivity_cython
+from _slic_texture import _slic_cython, _enforce_label_connectivity_cython
 from skimage.color import rgb2lab
 
 
@@ -15,8 +15,18 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
          enforce_connectivity=False, min_size_factor=0.5, max_size_factor=3):
 
     image = img_as_float(image)
-    image = image[np.newaxis, ..., np.newaxis]
-    is_2d = True
+    is_2d = False
+    if image.ndim == 2:
+        # 2D grayscale image
+        image = image[np.newaxis, ..., np.newaxis]
+        is_2d = True
+    elif image.ndim == 3 and multichannel:
+        # Make 2D multichannel image 3D with depth = 1
+        image = image[np.newaxis, ...]
+        is_2d = True
+    elif image.ndim == 3 and not multichannel:
+        # Add channel as single last dimension
+        image = image[..., np.newaxis]
 
     if spacing is None:
         spacing = np.ones(3)

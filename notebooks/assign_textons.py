@@ -104,7 +104,3 @@ dm.save_pipeline_result(textonmap, 'texMap', 'npy')
 textonmap_rgb = label2rgb(textonmap, image=None, colors=None, alpha=0.3, image_alpha=1)
 dm.save_pipeline_result(textonmap_rgb, 'texMap', 'tif')
 
-# <codecell>
-
-dm.load
-

@@ -23,10 +23,12 @@ class args:
     slice_ind = 1
     gabor_params_id = 'blueNisslWide'
     segm_params_id = 'blueNissl'
+    vq_params_id = 'blueNissl'
     
 dm.set_image(args.stack_name, args.resolution, args.slice_ind)
 dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
 dm.set_segmentation_params(segm_params_id=args.segm_params_id)
+dm.set_vq_params(vq_params_id=args.vq_params_id)
 
 from skimage.filter import gabor_kernel
 
@@ -85,4 +87,50 @@ except:
 
 cropped_height, cropped_width = cropped_img.shape[:2]
 print cropped_height, cropped_width
+
+# <codecell>
+
+patch = cropped_img[1000:2000, 1000:2000]
+patch_rgb = gray2rgb(patch)
+plt.imshow(patch_rgb, cmap=cm.Greys_r)
+plt.show()
+
+patch_textonmap = textonmap[1000:2000, 1000:2000]
+
+# <codecell>
+
+from slic_superpixels_texture import slic
+
+# <codecell>
+
+from skimage.segmentation import mark_boundaries
+
+# <codecell>
+
+textonmap = dm.load_pipeline_result('texMap', 'npy')
+
+# <codecell>
+
+from IPython.display import FileLink
+
+def display(vis):
+    cv2.imwrite('tmp.png', img_as_ubyte(vis)[..., ::-1])
+    return FileLink('tmp.png')
+
+# <codecell>
+
+vis = label2rgb(patch_textonmap)
+
+display(vis)
+
+# plt.imshow(vis)
+
+# <codecell>
+
+from skimage.color import gray2rgb
+seg = slic(patch_rgb, n_segments=200, enforce_connectivity=True, compactness=5, sigma=3)
+# vis = label2rgb(seg, image=patch, alpha=.5)
+vis = mark_boundaries(patch_rgb, seg)
+
+display(vis)
 

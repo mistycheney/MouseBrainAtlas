@@ -80,7 +80,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                 for y in range(y_min, y_max):
                     dy = (sy * (cy - y)) ** 2   # sq distance from segment center in y axis
                     for x in range(x_min, x_max):
-                        dx = sx * (cx - x)) ** 2    # sq distance from segment center in x axis
+                        dx = sx * (cx - x) ** 2    # sq distance from segment center in x axis
                         dist_center = (dz + dy + dx) * spatial_weight   # sq distance from segment center
                         
                         dist_color = 0

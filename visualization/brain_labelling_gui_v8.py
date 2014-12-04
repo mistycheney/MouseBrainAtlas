@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_qt4agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar)
+	FigureCanvasQTAgg as FigureCanvas,
+	NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.backends import qt4_compat
 from matplotlib.patches import Rectangle
 
@@ -36,618 +36,639 @@ from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
 
 if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+	#print 'Using PySide'
+	from PySide.QtCore import *
+	from PySide.QtGui import *
 else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+	#print 'Using PyQt4'
+	from PyQt4.QtCore import *
+	from PyQt4.QtGui import *
 
 from ui_DataManager import Ui_DataManager
-from ui_BrainLabelingGui_v7 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v8 import Ui_BrainLabelingGui
 # from ui_InputSelectionMultipleLists import Ui_InputSelectionDialog
 
+IGNORE_EXISTING_LABELNAMES = True
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
-    def __init__(self, parent=None, dm=None):
-        """
-        Initialization of BrainLabelingGUI.
-        """
-        # Load data
+	def __init__(self, parent=None, dm=None):
+		"""
+		Initialization of BrainLabelingGUI.
+		"""
+		# Load data
 
-        self.data_dir = '/home/yuncong/BrainLocal/DavidData_v4'
-        self.remote_data_dir = '/home/yuncong/project/DavidData2014v4'
-        self.gordon_username = 'yuncong'
-        self.gordon_hostname = 'gcn-20-32.sdsc.edu'
-        self.temp_dir = '/home/yuncong/BrainLocal'
-        self.remote_repo_dir = '/home/yuncong/Brain'
-        self.params_dir = '../params'
+		self.data_dir = '/home/yuncong/BrainLocal/DavidData_v4'
+		self.remote_data_dir = '/home/yuncong/project/DavidData2014v4'
+		self.gordon_username = 'yuncong'
+		self.gordon_hostname = 'gcn-20-32.sdsc.edu'
+		self.temp_dir = '/home/yuncong/BrainLocal'
+		self.remote_repo_dir = '/home/yuncong/Brain'
+		self.params_dir = '../params'
 
-        # self.image_name = None
-        # self.instance_dir = None
-        # self.instance_name = None
+		# self.image_name = None
+		# self.instance_dir = None
+		# self.instance_name = None
 
-        self.app = QApplication(sys.argv)
-        QMainWindow.__init__(self, parent)
+		self.app = QApplication(sys.argv)
+		QMainWindow.__init__(self, parent)
 
-        self.parent_labeling_name = None
+		self.parent_labeling_name = None
 
-        self.dm = dm
+		self.dm = dm
 
-        self.username = 'yuncong'
+		self.username = 'yuncong'
 
-        self.load_labeling()
+		self.load_labeling()
 
 
-        # self.data_manager.close()
-        self.initialize_brain_labeling_gui()
+		# self.data_manager.close()
+		self.initialize_brain_labeling_gui()
 
 
-    def load_labeling(self):
+	def load_labeling(self):
 
-        self.masked_img = self.dm.image.copy()
-        self.masked_img[~self.dm.mask] = 0
+		self.masked_img = self.dm.image.copy()
+		self.masked_img[~self.dm.mask] = 0
 
-        try:
-            labeling_fn = os.path.join(self.dm.labelings_dir, self.dm.image_name + '_' + self.parent_labeling_name + '.pkl')
+		try:
+			labeling_fn = os.path.join(self.dm.labelings_dir, self.dm.image_name + '_' + self.parent_labeling_name + '.pkl')
 
-            parent_labeling = pickle.load(open(labeling_fn, 'r'))
+			parent_labeling = pickle.load(open(labeling_fn, 'r'))
 
-            print 'Load saved labeling'
-            
-            label_circles = parent_labeling['final_label_circles']
+			print 'Load saved labeling'
+			
+			label_circles = parent_labeling['final_label_circles']
 
-            self.labeling = {
-                'username' : self.username,
-                'parent_labeling_name' : self.parent_labeling_name,
-                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_label_circles' : label_circles,
-                'final_label_circles' : None,
-                'labelnames' : parent_labeling['labelnames'],
-            }
+			self.labeling = {
+				'username' : self.username,
+				'parent_labeling_name' : self.parent_labeling_name,
+				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+				'init_label_circles' : label_circles,
+				'final_label_circles' : None,
+				'labelnames' : parent_labeling['labelnames'],
+			}
 
 
-        except Exception as e:
-            print 'error', e
+		except Exception as e:
+			print 'error', e
 
-            print 'No labeling is given. Initialize labeling.'
+			print 'No labeling is given. Initialize labeling.'
 
-            self.labeling = {
-                'username' : self.username,
-                'parent_labeling_name' : None,
-                'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-                'init_label_circles' : [],
-                'final_label_circles' : None,
-                'labelnames' : [],
-            }
+			self.labeling = {
+				'username' : self.username,
+				'parent_labeling_name' : None,
+				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+				'init_label_circles' : [],
+				'final_label_circles' : None,
+				'labelnames' : [],
+			}
 
-            labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
-            if os.path.isfile(labelnames_fn):
-                labelnames = json.load(open(labelnames_fn, 'r'))
-                self.labeling['labelnames'] = labelnames
-            else:
-                n_models = 10
-                self.labeling['labelnames']=['No Label']+['Label %2d'%i for i in range(n_models+1)]                    
-        
-        
-        self.n_labels = len(self.labeling['labelnames'])
+			# labelnames not including -1 ("no label")
+			labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
+			if os.path.isfile(labelnames_fn) and not IGNORE_EXISTING_LABELNAMES:
+				labelnames = json.load(open(labelnames_fn, 'r'))
+				self.labeling['labelnames'] = labelnames
+			# else:
+			# 	# n_models = 10
+			# 	n_models = 0
+		
+		self.n_labels = len(self.labeling['labelnames'])
 
-        # initialize GUI variables
-        self.paint_label = -1        # color of pen
-        self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
-        self.press = False           # related to pan (press and drag) vs. select (click)
-        self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
-        self.moved = False           # indicates whether mouse has moved while left button is pressed
+		# initialize GUI variables
+		self.paint_label = -1        # color of pen
+		self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
+		self.press = False           # related to pan (press and drag) vs. select (click)
+		self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
+		self.moved = False           # indicates whether mouse has moved while left button is pressed
 
 
-    def openMenu(self, canvas_pos):
+	def openMenu(self, canvas_pos):
 
-        if self.seg_enabled:
-            self.growRegion_Action.setEnabled(True)
-        else:
-            self.growRegion_Action.setEnabled(False)
+		if self.seg_enabled:
+			self.growRegion_Action.setEnabled(True)
+		else:
+			self.growRegion_Action.setEnabled(False)
 
-        pos = self.cursor().pos()
+		pos = self.cursor().pos()
 
-        action = self.menu.exec_(pos)
-        
-        if action == self.growRegion_Action:
+		action = self.menu.exec_(pos)
 
-            seed_sp = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
-                    
-            from grow_regions_module import grow_cluster
-            self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
+		seed_sp = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
+		
+		if action == self.growRegion_Action:
+					
+			self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
 
-            self.curr_label = self.sp_labellist[seed_sp]
+			self.curr_label = self.sp_labellist[seed_sp]
 
-            import time
+			for sp in self.cluster_sps[seed_sp]:
+				self.paint_superpixel(sp)
 
-            b = time.time()
+		elif action == self.pickColor_Action:
 
-            self.model_fit_reduce_limit = self.growThreshSlider.value()/100.
-            curr_cluster = grow_cluster(seed_sp, self.neighbors, self.texton_hists, self.D_sp_null, model_fit_reduce_limit=self.model_fit_reduce_limit)
+			self.pick_color(self.sp_labellist[seed_sp])
 
-            for sp in curr_cluster:
-                self.paint_superpixel(sp)
+		elif action == self.eraseColor_Action:
 
-            print time.time() - b
+			self.pick_color(-1)
+			self.paint_superpixel(seed_sp)
 
-            b = time.time()
-            
-            self.model_fit_reduce_limit = self.growThreshSlider.value()/100.
-            print self.model_fit_reduce_limit
-            curr_cluster = grow_cluster(seed_sp, self.neighbors, self.texton_hists, self.D_sp_null, model_fit_reduce_limit=self.model_fit_reduce_limit)
 
-            for sp in curr_cluster:
-                self.paint_superpixel(sp)
+	def initialize_brain_labeling_gui(self):
 
-            print time.time() - b
+		self.menu = QMenu()
+		self.growRegion_Action = self.menu.addAction("Grow region")
+		self.pickColor_Action = self.menu.addAction("Pick this label")
+		self.eraseColor_Action = self.menu.addAction("Remove this label")
 
-    def initialize_brain_labeling_gui(self):
+		# A set of high-contrast colors proposed by Green-Armytage
+		self.colors = np.loadtxt('100colors.txt', skiprows=1)
+		self.label_cmap = ListedColormap(self.colors, name='label_cmap')
 
+		self.curr_label = -1
 
-        self.menu = QMenu()
-        self.growRegion_Action = self.menu.addAction("Grow region")
+		self.setupUi(self)
 
-        # A set of high-contrast colors proposed by Green-Armytage
-        self.colors = np.loadtxt('high_contrast_colors.txt', skiprows=1)/255.
-        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
+		self.fig = self.canvaswidget.fig
+		self.canvas = self.canvaswidget.canvas
 
-        self.curr_label = -1
+		self.canvas.mpl_connect('scroll_event', self.zoom_fun)
+		self.bpe_id = self.canvas.mpl_connect('button_press_event', self.press_fun)
+		self.bre_id = self.canvas.mpl_connect('button_release_event', self.release_fun)
+		self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
 
-        self.setupUi(self)
+		# self.canvas.customContextMenuRequested.connect(self.openMenu)
 
-        self.fig = self.canvaswidget.fig
-        self.canvas = self.canvaswidget.canvas
+		self.display_buttons = [self.img_radioButton, self.imgSeg_radioButton, self.textonmap_radioButton, self.dirmap_radioButton, self.labeling_radioButton]
+		self.img_radioButton.setChecked(True)
+		self.seg_enabled = False
+		self.seg_loaded = False
+		self.groups_loaded = False
 
-        self.canvas.mpl_connect('scroll_event', self.zoom_fun)
-        self.bpe_id = self.canvas.mpl_connect('button_press_event', self.press_fun)
-        self.bre_id = self.canvas.mpl_connect('button_release_event', self.release_fun)
-        self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
+		for b in self.display_buttons:
+			b.toggled.connect(self.display_option_changed)
 
-        # self.canvas.customContextMenuRequested.connect(self.openMenu)
+		self.n_labelbuttons = 0
+		
+		self.labelbuttons = []
+		self.labeldescs = []
 
-        self.display_buttons = [self.img_radioButton, self.imgSeg_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
-        self.img_radioButton.setChecked(True)
-        self.seg_enabled = False
+		self._add_labelbutton(desc='no label')
 
-        for b in self.display_buttons:
-            b.toggled.connect(self.display_option_changed)
+		# for i in range(self.n_labels):
+		#     self._add_labelbutton(desc=self.labeling['labelnames'][i])
 
-        self.n_labelbuttons = 0
-        
-        self.labelbuttons = []
-        self.labeldescs = []
+		self.loadButton.clicked.connect(self.load_callback)
+		self.saveButton.clicked.connect(self.save_callback)
+		self.newLabelButton.clicked.connect(self.newlabel_callback)
+		# self.newLabelButton.clicked.connect(self.sigboost_callback)
+		self.quitButton.clicked.connect(self.close)
 
-        for i in range(self.n_labels):
-            self._add_labelbutton(desc=self.labeling['labelnames'][i])
+		self.brushSizeSlider.valueChanged.connect(self.brushSizeSlider_valueChanged)
+		self.brushSizeEdit.setText('%d' % self.brushSizeSlider.value())
 
-        self.loadButton.clicked.connect(self.load_callback)
-        self.saveButton.clicked.connect(self.save_callback)
-        # self.newLabelButton.clicked.connect(self.newlabel_callback)
-        # self.newLabelButton.clicked.connect(self.sigboost_callback)
-        self.quitButton.clicked.connect(self.close)
+		# help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
+		# self.setWindowTitle('%s' %(help_message))
 
-        self.brushSizeSlider.valueChanged.connect(self.brushSizeSlider_valueChanged)
-        self.brushSizeEdit.setText('%d' % self.brushSizeSlider.value())
+		self.setWindowTitle(self.windowTitle() + ', parent_labeling = %s' %(self.parent_labeling_name))
 
-        self.growThreshSlider.valueChanged.connect(self.growThreshSlider_valueChanged)
-        self.growThreshEdit.setText('%.2f' % (self.growThreshSlider.value()/100.))
+		# self.statusBar().showMessage()       
 
+		self.fig.clear()
+		self.fig.set_facecolor('white')
 
-        # help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
-        # self.setWindowTitle('%s' %(help_message))
+		self.axes = self.fig.add_subplot(111)
+		self.axes.axis('off')
 
-        self.setWindowTitle(self.windowTitle() + ', parent_labeling = %s' %(self.parent_labeling_name))
+		self.axes.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
+		
+		# labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors, alpha=0.3, image_alpha=1)
+		# self.axes.imshow(labelmap_vis)
 
-        # self.statusBar().showMessage()       
+		self.circle_list = [plt.Circle((x,y), radius=r, color=self.colors[l+1], alpha=.3) for x,y,r,l in self.labeling['init_label_circles']]
+		self.labelmap = self.generate_labelmap(self.circle_list)
 
-        self.fig.clear()
-        self.fig.set_facecolor('white')
+		np.save('/tmp/labelmap.npy', self.labelmap)
 
-        self.axes = self.fig.add_subplot(111)
-        self.axes.axis('off')
+		for c in self.circle_list:
+			self.axes.add_patch(c)
 
-        self.axes.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
-        
-        # labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors, alpha=0.3, image_alpha=1)
-        # self.axes.imshow(labelmap_vis)
+		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 
-        self.circle_list = [plt.Circle((x,y), radius=r, color=self.colors[l+1], alpha=.3) for x,y,r,l in self.labeling['init_label_circles']]
-        self.labelmap = self.generate_labelmap(self.circle_list)
 
-        np.save('/tmp/labelmap.npy', self.labelmap)
+		self.newxmin, self.newxmax = self.axes.get_xlim()
+		self.newymin, self.newymax = self.axes.get_ylim()
 
-        for c in self.circle_list:
-            self.axes.add_patch(c)
 
-        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+		self.canvas.draw()
+		self.show()
 
 
-        self.newxmin, self.newxmax = self.axes.get_xlim()
-        self.newymin, self.newymax = self.axes.get_ylim()
+	############################################
+	# QT button CALLBACKs
+	############################################
 
+	# def growThreshSlider_valueChanged(self):
+	# 	self.growThreshEdit.setText('%.2f' % (self.growThreshSlider.value()/100.))
 
-        self.canvas.draw()
-        self.show()
+	def brushSizeSlider_valueChanged(self, new_val):
+		self.brushSizeEdit.setText('%d' % new_val)
 
+	def load_groups(self):
 
-    ############################################
-    # QT button CALLBACKs
-    ############################################
+		self.groups = self.dm.load_pipeline_result('groups', 'pkl')
 
+		self.groups_ranked, self.group_scores_ranked = zip(*self.groups)
+		
+		for i, g in enumerate(self.groups_ranked[:30]):
+			self._add_labelbutton()
+			self.pick_color(i)
+			for sp in g:
+				self.paint_superpixel(sp)
 
-    def growThreshSlider_valueChanged(self):
-        self.growThreshEdit.setText('%.2f' % (self.growThreshSlider.value()/100.))
+		self.groups_loaded = True
 
-    def brushSizeSlider_valueChanged(self, new_val):
-        self.brushSizeEdit.setText('%d' % new_val)
+	def load_segmentation(self):
 
-    def load_segmentation(self):
+		self.segmentation = self.dm.load_pipeline_result('segmentation', 'npy')
+		self.n_superpixels = len(np.unique(self.segmentation)) - 1
+		
+		self.sp_labellist = -1*np.ones((self.n_superpixels, ), dtype=np.int)
+		self.sp_rectlist = [None for _ in range(self.n_superpixels)]
 
-        self.segmentation = self.dm.load_pipeline_result('segmentation', 'npy')
-        self.n_superpixels = len(np.unique(self.segmentation)) - 1
-        
-        self.sp_labellist = -1*np.ones((self.n_superpixels, ), dtype=np.int)
-        self.sp_rectlist = [None for _ in range(self.n_superpixels)]
+		# self.neighbors = self.dm.load_pipeline_result('neighbors', 'npy')
+		# self.texton_hists = self.dm.load_pipeline_result('texHist', 'npy')
+		# self.textonmap = self.dm.load_pipeline_result('texMap', 'npy')
 
-        self.neighbors = self.dm.load_pipeline_result('neighbors', 'npy')
-        self.texton_hists = self.dm.load_pipeline_result('texHist', 'npy')
-        # self.textonmap = self.dm.load_pipeline_result('texMap', 'npy')
+		self.clusters = self.dm.load_pipeline_result('clusters', 'pkl')
+		self.cluster_sps, curr_cluster_score_sps, scores_sps, nulls_sps, models_sps, added_sps = zip(*self.clusters)
 
-        from scipy.spatial.distance import cdist
+		# self.n_texton = 100
 
-        self.n_texton = 100
-        # overall_texton_hist = np.bincount(self.textonmap[self.mask].flat, minlength=self.n_texton)
-        # self.overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
-        # self.D_sp_null = np.squeeze(cdist(self.texton_hists, [self.overall_texton_hist_normalized], chi2))
+		# from scipy.spatial.distance import cdist
+		# overall_texton_hist = np.bincount(self.textonmap[self.mask].flat, minlength=self.n_texton)
+		# self.overall_texton_hist_normalized = overall_texton_hist.astype(np.float) / overall_texton_hist.sum()
+		# self.D_sp_null = np.squeeze(cdist(self.texton_hists, [self.overall_texton_hist_normalized], chi2))
 
-        self.seg_enabled = True
+		self.seg_loaded = True
 
-    def display_option_changed(self, checked):
-        if checked:
+	def display_option_changed(self, checked):
 
-            self.axes.clear()
-            self.axes.axis('off')
+		if checked:
 
-            if self.sender() == self.img_radioButton:
+			self.axes.clear()
+			self.axes.axis('off')
 
-                self.axes.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-                self.seg_enabled = False
+			if self.sender() == self.img_radioButton:
 
-            elif self.sender() == self.imgSeg_radioButton:
+				self.axes.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+				self.seg_enabled = False
 
-                self.seg_vis = self.dm.load_pipeline_result('segmentationWithText', 'jpg')
-                self.seg_vis[~self.dm.mask] = 0
+			elif self.sender() == self.imgSeg_radioButton:
 
-                self.axes.imshow(self.seg_vis, aspect='equal')
+				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText', 'jpg')
+				self.seg_vis[~self.dm.mask] = 0
 
-                self.load_segmentation()
+				self.axes.imshow(self.seg_vis, aspect='equal')
 
-            elif self.sender() == self.textonmap_radioButton:
+				if not self.seg_loaded:
+					self.load_segmentation()
 
-                self.textonmap_vis = self.dm.load_pipeline_result('texMap', 'png')
+				self.seg_enabled = True
 
-                self.axes.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-                self.seg_enabled = False
+			elif self.sender() == self.textonmap_radioButton:
 
-            elif self.sender() == self.dirmap_radioButton:
+				self.textonmap_vis = self.dm.load_pipeline_result('texMap', 'png')
 
-                dirmap_vis = cv2.imread('/home/yuncong/BrainLocal/DavidData_v4/RS141/x5/0001/segmResults/RS141_x5_0001_gabor-blueNisslWide-segm-blueNissl_dirMap.tif')[:,:,::-1]
+				self.axes.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+				self.seg_enabled = False
 
-                dirmap_vis[~self.mask] = 0
+			elif self.sender() == self.dirmap_radioButton:
 
-                # from skimage import color, img_as_float
+				dirmap_vis = cv2.imread('/home/yuncong/BrainLocal/DavidData_v4/RS141/x5/0001/segmResults/RS141_x5_0001_gabor-blueNisslWide-segm-blueNissl_dirMap.tif')[:,:,::-1]
 
-                # alpha = 0.6
+				dirmap_vis[~self.mask] = 0
 
-                # img = img_as_float(self.img)
-                # dirmap_vis = img_as_float(dirmap_vis)
+				self.axes.imshow(dirmap_vis, aspect='equal')
 
-                # img_hsv = color.rgb2hsv(img)
-                # color_mask_hsv = color.rgb2hsv(dirmap_vis)
-                # img_hsv[..., 0] = color_mask_hsv[..., 0]
-                # img_hsv[..., 1] = color_mask_hsv[..., 1] * alpha
-                
-                # img_masked = color.hsv2rgb(img_hsv)
+				if not self.seg_loaded:
+					self.load_segmentation()
 
-                self.axes.imshow(dirmap_vis, aspect='equal')
+			elif self.sender() == self.labeling_radioButton:
 
-                self.load_segmentation()
+				if not self.seg_loaded:
+					self.load_segmentation()
 
-            self.axes.set_xlim([self.newxmin, self.newxmax])
-            self.axes.set_ylim([self.newymin, self.newymax])
+				if not self.groups_loaded:
+					self.load_groups()
+				else:
+					for rect in self.sp_rectlist:
+						if rect is not None:
+							self.axes.add_patch(rect)
 
-            self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
-            self.canvas.draw()
+				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText', 'jpg')
+				self.seg_vis[~self.dm.mask] = 0
+				self.axes.imshow(self.seg_vis, aspect='equal')
 
 
-    def _add_labelbutton(self, desc=None):
-        self.n_labelbuttons += 1
+				self.seg_enabled = True
 
-        label = self.n_labelbuttons - 2
+			self.axes.set_xlim([self.newxmin, self.newxmax])
+			self.axes.set_ylim([self.newymin, self.newymax])
 
-        row = (label + 1) % 5
-        col = (label + 1) / 5
+			self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+			self.canvas.draw()
 
-        btn = QPushButton('%d' % label, self)
-        edt = QLineEdit(QString(desc if desc is not None else 'Label %d' % label))
 
-        self.labelbuttons.append(btn)
-        self.labeldescs.append(edt)
+	def _add_labelbutton(self, desc=None):
+		self.n_labelbuttons += 1
 
-        btn.clicked.connect(self.labelbutton_callback)
+		index = self.n_labelbuttons - 2
 
-        r, g, b, a = self.label_cmap(label + 1)
+		labelname = desc if desc is not None else 'label %d'%index
 
-        btn.setStyleSheet("background-color: rgb(%d, %d, %d)"%(int(r*255),int(g*255),int(b*255)))
-        btn.setFixedSize(20, 20)
+		self.labeling['labelnames'].append(labelname)
 
-        self.labelsLayout.addWidget(btn, row, 2*col)
-        self.labelsLayout.addWidget(edt, row, 2*col+1)
+		row = (index + 1) % 5
+		col = (index + 1) / 5
 
-    def newlabel_callback(self):
-        self.n_labels += 1
-        self._add_labelbutton()
+		btn = QPushButton('%d' % index, self)
+		edt = QLineEdit(QString(desc if desc is not None else labelname))
 
-    def sigboost_callback(self):
-        self._save_labeling()
+		self.labelbuttons.append(btn)
+		self.labeldescs.append(edt)
 
+		btn.clicked.connect(self.labelbutton_callback)
 
-    def load_callback(self):
-        self.initialize_data_manager()
+		r, g, b, a = self.label_cmap(index + 1)
 
-    def _save_labeling(self):
+		btn.setStyleSheet("background-color: rgb(%d, %d, %d)"%(int(r*255),int(g*255),int(b*255)))
+		btn.setFixedSize(20, 20)
 
-        # self.axes.imshow(labelmap_vis)
-        # for c in self.circle_list:
-        #     c.remove()
+		self.labelsLayout.addWidget(btn, row, 2*col)
+		self.labelsLayout.addWidget(edt, row, 2*col+1)
 
-        # self.circle_list = []
+	def newlabel_callback(self):
+		self.n_labels += 1
+		self._add_labelbutton()
 
-        # self.canvas.draw()
+	def sigboost_callback(self):
+		self._save_labeling()
 
-        self.labeling['final_label_circles'] = self.circle_list_to_labeling_field(self.circle_list)
-        self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-        self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
 
-        labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
+	def load_callback(self):
+		self.initialize_data_manager()
 
-        json.dump(self.labeling['labelnames'], open(labelnames_fn, 'w'))
+	def _save_labeling(self):
 
-        new_labeling_name = self.username + '_' + self.labeling['logout_time']
+		# self.axes.imshow(labelmap_vis)
+		# for c in self.circle_list:
+		#     c.remove()
 
-        new_labeling_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name+'.pkl')
-        pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
-        print 'Labeling saved to', new_labeling_fn
+		# self.circle_list = []
 
-        new_preview_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name + '_preview.png')
+		# self.canvas.draw()
 
-        self.labelmap = self.generate_labelmap(self.circle_list)
-        # labelmap_vis = self.colors[self.labelmap]
+		self.labeling['final_label_circles'] = self.circle_list_to_labeling_field(self.circle_list)
+		self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+		self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs]
 
-        labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors[1:], bg_label=-1, bg_color=self.colors[0], alpha=0.3, image_alpha=1.)
-        
-        from skimage import img_as_ubyte
-        cv2.imwrite(new_preview_fn, img_as_ubyte(labelmap_vis[:,:,::-1]))
+		labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
 
-        print 'Preview saved to', new_preview_fn
+		json.dump(self.labeling['labelnames'], open(labelnames_fn, 'w'))
 
-        self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
+		new_labeling_name = self.username + '_' + self.labeling['logout_time']
 
+		new_labeling_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name+'.pkl')
+		pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
+		print 'Labeling saved to', new_labeling_fn
 
-    def save_callback(self):
-        self._save_labeling()
+		new_preview_fn = os.path.join(self.data_dir, self.stack_name, self.resolution, self.slice_id, 'labelings', self.image_name + '_'+new_labeling_name + '_preview.png')
 
+		self.labelmap = self.generate_labelmap(self.circle_list)
+		# labelmap_vis = self.colors[self.labelmap]
 
-    def labelbutton_callback(self):
-        self.pick_color(int(self.sender().text()))
+		labelmap_vis = label2rgb(self.labelmap, image=self.img, colors=self.colors[1:], bg_label=-1, bg_color=self.colors[0], alpha=0.3, image_alpha=1.)
+		
+		from skimage import img_as_ubyte
+		cv2.imwrite(new_preview_fn, img_as_ubyte(labelmap_vis[:,:,::-1]))
 
-    ############################################
-    # matplotlib canvas CALLBACKs
-    ############################################
+		print 'Preview saved to', new_preview_fn
 
-    def zoom_fun(self, event):
-        # get the current x and y limits and subplot position
-        cur_pos = self.axes.get_position()
-        cur_xlim = self.axes.get_xlim()
-        cur_ylim = self.axes.get_ylim()
-        
-        xdata = event.xdata # get event x location
+		self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
+
+
+	def save_callback(self):
+		self._save_labeling()
+
+
+	def labelbutton_callback(self):
+		self.pick_color(int(self.sender().text()))
+
+	############################################
+	# matplotlib canvas CALLBACKs
+	############################################
+
+	def zoom_fun(self, event):
+		# get the current x and y limits and subplot position
+		cur_pos = self.axes.get_position()
+		cur_xlim = self.axes.get_xlim()
+		cur_ylim = self.axes.get_ylim()
+		
+		xdata = event.xdata # get event x location
 	
-        ydata = event.ydata # get event y location
+		ydata = event.ydata # get event y location
 
-        if xdata is None or ydata is None: # mouse position outside data region
-            return
+		if xdata is None or ydata is None: # mouse position outside data region
+			return
 
-        left = xdata - cur_xlim[0]
-        right = cur_xlim[1] - xdata
-        up = ydata - cur_ylim[0]
-        down = cur_ylim[1] - ydata
+		left = xdata - cur_xlim[0]
+		right = cur_xlim[1] - xdata
+		up = ydata - cur_ylim[0]
+		down = cur_ylim[1] - ydata
 
-        # print left, right, up, down
+		# print left, right, up, down
 
-        if event.button == 'up':
-            # deal with zoom in
-            scale_factor = 1/self.base_scale
-        elif event.button == 'down':
-            # deal with zoom out
-            scale_factor = self.base_scale
-        
-        self.newxmin = xdata - left*scale_factor
-        self.newxmax = xdata + right*scale_factor
-        self.newymin = ydata - up*scale_factor
-        self.newymax = ydata + down*scale_factor
+		if event.button == 'up':
+			# deal with zoom in
+			scale_factor = 1/self.base_scale
+		elif event.button == 'down':
+			# deal with zoom out
+			scale_factor = self.base_scale
+		
+		self.newxmin = xdata - left*scale_factor
+		self.newxmax = xdata + right*scale_factor
+		self.newymin = ydata - up*scale_factor
+		self.newymax = ydata + down*scale_factor
 
-    	# set new limits
+		# set new limits
 
-    	# inv = self.axes.transData.inverted()
-    	# lb_disp = inv.transform([self.newxmin, self.newymin])
-    	# rt_disp = inv.transform([self.newxmax, self.newymax])
-    	# print lb_disp, rt_disp
+		# inv = self.axes.transData.inverted()
+		# lb_disp = inv.transform([self.newxmin, self.newymin])
+		# rt_disp = inv.transform([self.newxmax, self.newymax])
+		# print lb_disp, rt_disp
 
-        self.axes.set_xlim([self.newxmin, self.newxmax])
-        self.axes.set_ylim([self.newymin, self.newymax])
+		self.axes.set_xlim([self.newxmin, self.newxmax])
+		self.axes.set_ylim([self.newymin, self.newymax])
 
-        self.canvas.draw() # force re-draw
+		self.canvas.draw() # force re-draw
 
-    def press_fun(self, event):
-        self.press_x = event.xdata
-        self.press_y = event.ydata
-        self.press = True
-        self.press_time = time.time()
+	def press_fun(self, event):
+		self.press_x = event.xdata
+		self.press_y = event.ydata
+		self.press = True
+		self.press_time = time.time()
 
-    def motion_fun(self, event):
-        	
-        if self.press and time.time() - self.press_time > .5:
-            # this is drag and move
-            cur_xlim = self.axes.get_xlim()
-            cur_ylim = self.axes.get_ylim()
-            
-            if (event.xdata==None) | (event.ydata==None):
-                #print 'either event.xdata or event.ydata is None'
-                return
+	def motion_fun(self, event):
+			
+		if self.press and time.time() - self.press_time > .5:
+			# this is drag and move
+			cur_xlim = self.axes.get_xlim()
+			cur_ylim = self.axes.get_ylim()
+			
+			if (event.xdata==None) | (event.ydata==None):
+				#print 'either event.xdata or event.ydata is None'
+				return
 
-            offset_x = self.press_x - event.xdata
-            offset_y = self.press_y - event.ydata
-            
-            self.axes.set_xlim(cur_xlim + offset_x)
-            self.axes.set_ylim(cur_ylim + offset_y)
-            self.canvas.draw()
+			offset_x = self.press_x - event.xdata
+			offset_y = self.press_y - event.ydata
+			
+			self.axes.set_xlim(cur_xlim + offset_x)
+			self.axes.set_ylim(cur_ylim + offset_y)
+			self.canvas.draw()
 
-    def release_fun(self, event):
-        """
-        The release-button callback is responsible for picking a color or changing a color.
-        """
+	def release_fun(self, event):
+		"""
+		The release-button callback is responsible for picking a color or changing a color.
+		"""
 
-        self.press = False
-        self.release_x = event.xdata
-        self.release_y = event.ydata
-        self.release_time = time.time()
+		self.press = False
+		self.release_x = event.xdata
+		self.release_y = event.ydata
+		self.release_time = time.time()
 
-        # Fixed panning issues by using the time difference between the press and release event
-        # Long times refer to a press and hold
-        if (self.release_time - self.press_time) < .21 and self.release_x > 0 and self.release_y > 0:
+		# Fixed panning issues by using the time difference between the press and release event
+		# Long times refer to a press and hold
+		if (self.release_time - self.press_time) < .21 and self.release_x > 0 and self.release_y > 0:
 
-            if event.button == 1: # left click: draw
-                if self.curr_label is None:
-                    self.statusBar().showMessage('No label is selected')
-                else:
-                    
-                    if self.seg_enabled:
+			if event.button == 1: # left click: draw
+				if self.curr_label is None:
+					self.statusBar().showMessage('No label is selected')
+				else:
+					
+					if self.seg_enabled:
 
-                        sp_ind = self.segmentation[int(event.ydata), int(event.xdata)]
+						sp_ind = self.segmentation[int(event.ydata), int(event.xdata)]
 
-                        if sp_ind == -1:
-                            self.statusBar().showMessage('This is the background')
-                        else:
-                            self.statusBar().showMessage('Labeling superpixel %d using %d (%s)' % (sp_ind, self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))                        
-                            self.paint_superpixel(sp_ind)
+						if sp_ind == -1:
+							self.statusBar().showMessage('This is the background')
+						else:
+							self.statusBar().showMessage('Labeling superpixel %d using %d (%s)' % (sp_ind, self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))                        
+							self.paint_superpixel(sp_ind)
 
-                    else:
-                        self.paint_circle(event.xdata, event.ydata)
-                        self.statusBar().showMessage('Labeling using %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
+					else:
+						self.paint_circle(event.xdata, event.ydata)
+						self.statusBar().showMessage('Labeling using %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
 
-            elif event.button == 3: # right click: erase
-                canvas_pos = (event.xdata, event.ydata)
-                self.openMenu(canvas_pos)
-
-
-            #     self.statusBar().showMessage('Erase %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
-            #     self.erase_circles_near(event.xdata, event.ydata)
-
-            
-        self.canvas.draw() # force re-draw
-
-    ############################################
-    # other functions
-    ############################################
-
-    def pick_color(self, selected_label):
-
-        self.curr_label = selected_label
-        self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
-
-    def paint_circle(self, x, y):
-        if self.curr_label is None:
-            self.statusBar().showMessage('No label is selected')
-        else:
-            brush_radius = self.brushSizeSlider.value()
-            circ = plt.Circle((x, y), radius=brush_radius, color=self.colors[self.curr_label + 1], alpha=.3)
-            self.axes.add_patch(circ)
-            self.circle_list.append(circ)
-
-    def erase_circles_near(self, x, y):
-        to_remove = []
-        for c in self.circle_list:
-            if abs(c.center[0] - x) < 30 and abs(c.center[1] - y) < 30:
-                to_remove.append(c)
-
-        for c in to_remove:
-            self.circle_list.remove(c)
-            c.remove()
-
-    def circle_list_to_labeling_field(self, circle_list):
-        label_circles = []
-        for c in circle_list:
-            label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
-            label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
-        return label_circles
+			elif event.button == 3: # right click: erase
+				canvas_pos = (event.xdata, event.ydata)
+				self.openMenu(canvas_pos)
 
 
-    def paint_superpixel(self, sp_ind):
+			#     self.statusBar().showMessage('Erase %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
+			#     self.erase_circles_near(event.xdata, event.ydata)
 
-        if self.curr_label == self.sp_labellist[sp_ind]:
+			
+		self.canvas.draw() # force re-draw
 
-            self.statusBar().showMessage('Superpixel already has the selected label')
+	############################################
+	# other functions
+	############################################
 
-        elif self.curr_label != -1:
+	def pick_color(self, selected_label):
 
-            self.sp_labellist[sp_ind] = self.curr_label
-            # self.labelmap = self.sp_labellist[self.segmentation]
+		self.curr_label = selected_label
+		self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.labeling['labelnames'][self.curr_label + 1]))
 
-            ### Removes previous color to prevent a blending of two or more patches ###
-            if self.sp_rectlist[sp_ind] is not None:
-                self.sp_rectlist[sp_ind].remove()
+	def paint_circle(self, x, y):
+		if self.curr_label is None:
+			self.statusBar().showMessage('No label is selected')
+		else:
+			brush_radius = self.brushSizeSlider.value()
+			circ = plt.Circle((x, y), radius=brush_radius, color=self.colors[self.curr_label + 1], alpha=.3)
+			self.axes.add_patch(circ)
+			self.circle_list.append(circ)
 
-            # approximate the superpixel polygon with a square
-            ys, xs = np.nonzero(self.segmentation == sp_ind)
-            xmin = xs.min()
-            ymin = ys.min()
+	def erase_circles_near(self, x, y):
+		to_remove = []
+		for c in self.circle_list:
+			if abs(c.center[0] - x) < 30 and abs(c.center[1] - y) < 30:
+				to_remove.append(c)
 
-            height = ys.max() - ys.min()
-            width = xs.max() - xs.min()
+		for c in to_remove:
+			self.circle_list.remove(c)
+			c.remove()
 
-            rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.3, color=self.colors[self.curr_label + 1])
-
-            self.sp_rectlist[sp_ind] = rect
-            self.axes.add_patch(rect)
-
-        else:
-            self.statusBar().showMessage("Remove label of superpixel %d" % sp_ind)
-            self.sp_labellist[sp_ind] = -1
-
-            self.sp_rectlist[sp_ind].remove()
-            self.sp_rectlist[sp_ind] = None
+	def circle_list_to_labeling_field(self, circle_list):
+		label_circles = []
+		for c in circle_list:
+			label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
+			label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
+		return label_circles
 
 
-    def generate_labelmap(self, circle_list):
-        """
-        Generate labelmap from the list of circles
-        """
+	def paint_superpixel(self, sp_ind):
 
-        labelmap = -1*np.ones((self.dm.image_height, self.dm.image_width), dtype=np.int)
+		if self.curr_label == self.sp_labellist[sp_ind]:
 
-        for c in circle_list:
-            cx, cy = c.center
-            for x in np.arange(cx-c.radius, cx+c.radius):
-                for y in np.arange(cy-c.radius, cy+c.radius):
-                    if (cx-x)**2+(cy-y)**2 <= c.radius**2:
-                        label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
-                        labelmap[int(y),int(x)] = label
+			self.statusBar().showMessage('Superpixel already has the selected label')
 
-        return labelmap
+		elif self.curr_label != -1:
+
+			self.sp_labellist[sp_ind] = self.curr_label
+			# self.labelmap = self.sp_labellist[self.segmentation]
+
+			### Removes previous color to prevent a blending of two or more patches ###
+			if self.sp_rectlist[sp_ind] is not None:
+				self.sp_rectlist[sp_ind].remove()
+
+			# approximate the superpixel polygon with a square
+			ys, xs = np.nonzero(self.segmentation == sp_ind)
+			xmin = xs.min()
+			ymin = ys.min()
+
+			height = ys.max() - ys.min()
+			width = xs.max() - xs.min()
+
+			rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.3, color=self.colors[self.curr_label + 1])
+
+			self.sp_rectlist[sp_ind] = rect
+			self.axes.add_patch(rect)
+
+		else:
+			self.statusBar().showMessage("Remove label of superpixel %d" % sp_ind)
+			self.sp_labellist[sp_ind] = -1
+
+			self.sp_rectlist[sp_ind].remove()
+			self.sp_rectlist[sp_ind] = None
+
+
+	def generate_labelmap(self, circle_list):
+		"""
+		Generate labelmap from the list of circles
+		"""
+
+		labelmap = -1*np.ones((self.dm.image_height, self.dm.image_width), dtype=np.int)
+
+		for c in circle_list:
+			cx, cy = c.center
+			for x in np.arange(cx-c.radius, cx+c.radius):
+				for y in np.arange(cy-c.radius, cy+c.radius):
+					if (cx-x)**2+(cy-y)**2 <= c.radius**2:
+						label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
+						labelmap[int(y),int(x)] = label
+
+		return labelmap
 
 
 if __name__ == '__main__':
@@ -659,22 +680,22 @@ if __name__ == '__main__':
 	from joblib import Parallel, delayed
 
 	if 'SSH_CONNECTION' in os.environ:
-	    DATA_DIR = '/home/yuncong/DavidData'
-	    REPO_DIR = '/home/yuncong/Brain'
+		DATA_DIR = '/home/yuncong/DavidData'
+		REPO_DIR = '/home/yuncong/Brain'
 	else:
-	    DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
-	    REPO_DIR = '/home/yuncong/Brain'
+		DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
+		REPO_DIR = '/home/yuncong/Brain'
 
 	dm = DataManager(DATA_DIR, REPO_DIR)
 
 	class args:
-	    stack_name = 'RS141'
-	    resolution = 'x5'
-	    slice_ind = 1
-	    gabor_params_id = 'blueNisslWide'
-	    segm_params_id = 'blueNissl'
-	    vq_params_id = 'blueNissl'
-	    
+		stack_name = 'RS141'
+		resolution = 'x5'
+		slice_ind = 1
+		gabor_params_id = 'blueNisslWide'
+		segm_params_id = 'blueNissl'
+		vq_params_id = 'blueNissl'
+		
 	dm.set_image(args.stack_name, args.resolution, args.slice_ind)
 	dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
 	dm.set_segmentation_params(segm_params_id=args.segm_params_id)
@@ -682,4 +703,4 @@ if __name__ == '__main__':
 	
 	gui = BrainLabelingGUI(dm=dm)
  #    # gui.show()
- 	gui.app.exec_()
+	gui.app.exec_()

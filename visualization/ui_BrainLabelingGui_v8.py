@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'BrainLabelingGui_v7.ui'
+# Form implementation generated from reading ui file 'BrainLabelingGui_v8.ui'
 #
-# Created: Thu Dec  4 05:23:59 2014
+# Created: Thu Dec  4 06:16:02 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -72,26 +72,12 @@ class Ui_BrainLabelingGui(object):
         self.dirmap_radioButton = QtGui.QRadioButton(self.display_groupBox)
         self.dirmap_radioButton.setObjectName(_fromUtf8("dirmap_radioButton"))
         self.verticalLayout_2.addWidget(self.dirmap_radioButton)
+        self.labeling_radioButton = QtGui.QRadioButton(self.display_groupBox)
+        self.labeling_radioButton.setObjectName(_fromUtf8("labeling_radioButton"))
+        self.verticalLayout_2.addWidget(self.labeling_radioButton)
         self.horizontalLayout.addWidget(self.display_groupBox)
         self.buttonsLayout = QtGui.QVBoxLayout()
         self.buttonsLayout.setObjectName(_fromUtf8("buttonsLayout"))
-        self.horizontalLayout_3 = QtGui.QHBoxLayout()
-        self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
-        self.label_3 = QtGui.QLabel(self.centralwidget)
-        self.label_3.setObjectName(_fromUtf8("label_3"))
-        self.horizontalLayout_3.addWidget(self.label_3)
-        self.growThreshSlider = QtGui.QSlider(self.centralwidget)
-        self.growThreshSlider.setMaximum(100)
-        self.growThreshSlider.setSingleStep(1)
-        self.growThreshSlider.setProperty("value", 50)
-        self.growThreshSlider.setOrientation(QtCore.Qt.Horizontal)
-        self.growThreshSlider.setObjectName(_fromUtf8("growThreshSlider"))
-        self.horizontalLayout_3.addWidget(self.growThreshSlider)
-        self.growThreshEdit = QtGui.QLineEdit(self.centralwidget)
-        self.growThreshEdit.setText(_fromUtf8(""))
-        self.growThreshEdit.setObjectName(_fromUtf8("growThreshEdit"))
-        self.horizontalLayout_3.addWidget(self.growThreshEdit)
-        self.buttonsLayout.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_2 = QtGui.QHBoxLayout()
         self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
         self.label = QtGui.QLabel(self.centralwidget)
@@ -151,7 +137,7 @@ class Ui_BrainLabelingGui(object):
         self.imgSeg_radioButton.setText(_translate("BrainLabelingGui", "image + segmentation", None))
         self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap", None))
         self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality", None))
-        self.label_3.setText(_translate("BrainLabelingGui", "grow_thresh", None))
+        self.labeling_radioButton.setText(_translate("BrainLabelingGui", "labeling", None))
         self.label.setText(_translate("BrainLabelingGui", "brush size", None))
         self.loadButton.setText(_translate("BrainLabelingGui", "Load", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))

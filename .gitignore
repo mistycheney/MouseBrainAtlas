@@ -1,4 +1,5 @@
 .ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
 *.h5
 *.png
 *.tif

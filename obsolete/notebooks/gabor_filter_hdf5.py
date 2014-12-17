@@ -3,11 +3,19 @@
 
 # <codecell>
 
+from preamble import *
+
+# <codecell>
+
+features = dm.load_pipeline_result('features','npy')
+
+# <codecell>
+
 import tables
 complevel = 5
 filters = tables.Filters(complevel=complevel, complib='blosc')
 # h5file = tables.open_file("gabor_files.h5", mode = "w")
-h5file = tables.open_file("gabor_files.h5", mode = "a", title = "Gabor Results", filters=filters)
+h5file = tables.open_file("test_files9.h5", mode = "a", title = "Gabor Results", filters=filters)
 
 # <codecell>
 

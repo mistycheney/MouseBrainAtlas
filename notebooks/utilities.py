@@ -212,6 +212,40 @@ class DataManager(object):
         
         self.gabor_params_id = gabor_params_id
         self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
+        self._generate_kernels(self.gabor_params)
+    
+    
+    def _generate_kernels(self, gabor_params):
+        
+        from skimage.filter import gabor_kernel
+    
+        theta_interval = gabor_params['theta_interval']
+        self.n_angle = int(180/theta_interval)
+        freq_step = gabor_params['freq_step']
+        freq_max = 1./gabor_params['min_wavelen']
+        freq_min = 1./gabor_params['max_wavelen']
+        bandwidth = gabor_params['bandwidth']
+        self.n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
+        self.frequencies = freq_max/freq_step**np.arange(self.n_freq)
+        self.angles = np.arange(0, self.n_angle)*np.deg2rad(theta_interval)
+
+        kernels = [gabor_kernel(f, theta=t, bandwidth=bandwidth) for f in self.frequencies for t in self.angles]
+        kernels = map(np.real, kernels)
+
+        biases = np.array([k.sum() for k in kernels])
+        mean_bias = biases.mean()
+        self.kernels = [k/k.sum()*mean_bias for k in kernels] # this enforces all kernel sums to be identical, but non-zero
+
+        # kernels = [k - k.sum()/k.size for k in kernels] # this enforces all kernel sum to be zero
+
+        self.n_kernel = len(kernels)
+
+        print 'num. of kernels: %d' % (self.n_kernel)
+        print 'frequencies:', self.frequencies
+        print 'wavelength (pixels):', 1/self.frequencies
+
+        self.max_kern_size = np.max([kern.shape[0] for kern in self.kernels])
+        print 'max kernel matrix size:', self.max_kern_size
         
     def set_segmentation_params(self, segm_params_id):
         
@@ -237,11 +271,11 @@ class DataManager(object):
         elif result_name in ['dirMap', 'dirHist']:
             param_dependencies = ['gabor', 'segm']
             
-        elif result_name == 'textons':
-            results_dir = self.image_dir
+        elif result_name in ['textons']:
+            results_dir = self.resol_dir
             param_dependencies = ['gabor', 'vq']
             
-        elif result_name == 'texMap':
+        elif result_name in ['texMap', 'original_centroids']:
             param_dependencies = ['gabor', 'vq']
 
         elif result_name in ['texHist', 'clusters', 'groups']:
@@ -270,8 +304,11 @@ class DataManager(object):
         if 'vq' in param_dependencies:
             param_strs.append('vq-' + self.vq_params_id)
             # raise Exception("parameter dependency string not recognized")
-
-        result_filename = os.path.join(results_dir, self.image_name + '_' + '-'.join(param_strs) + '_' + result_name + '.' + ext)
+        
+        if result_name in ['textons']:
+            result_filename = os.path.join(results_dir, self.stack + '_' +self.resol + '_' + '-'.join(param_strs) + '_' + result_name + '.' + ext)
+        else:
+            result_filename = os.path.join(results_dir, self.image_name + '_' + '-'.join(param_strs) + '_' + result_name + '.' + ext)
         
         return result_filename
             
@@ -443,6 +480,17 @@ def paint_superpixel_groups_on_image(sp_groups, segmentation, img, colors):
 
 # <codecell>
 
+def kl(a,b):
+    m = (a!=0) & (b!=0)
+    return np.sum(a[m]*np.log(a[m]/b[m]))
+
+def js(u,v):
+    m = .5 * (u + v)
+    r = .5 * (kl(u,m) + kl(v,m))
+    return r
+
+# <codecell>
+
 def chi2(u,v):
     """
     Compute Chi^2 distance between two distributions.
@@ -450,6 +498,10 @@ def chi2(u,v):
     Empty bins are ignored.
     
     """
+    
+#     m = (u != 0) & (v != 0)
+#     q = (u-v)**2/(u+v)
+#     r = np.sum(q[m])
     
     r = np.nansum((u-v)**2/(u+v))
     return r

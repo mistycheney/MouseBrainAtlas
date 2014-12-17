@@ -30,7 +30,7 @@ segmentation = slic(gray2rgb(masked_image), n_segments=int(dm.segm_params['n_sup
 
 # <codecell>
 
-display(mark_boundaries(masked_image, segmentation))
+# display(mark_boundaries(masked_image, segmentation))
 
 # <codecell>
 
@@ -48,24 +48,26 @@ for i in np.where(q)[0]:
 
 # <codecell>
 
-display(mark_boundaries(masked_image, masked_segmentation))
+# display(mark_boundaries(masked_image, masked_segmentation))
 
 # <codecell>
 
 from skimage.segmentation import relabel_sequential
 
-try:
-    masked_segmentation_relabeled = dm.load_pipeline_result('segmentation', 'npy')
+# try:
+#     masked_segmentation_relabeled = dm.load_pipeline_result('segmentation', 'npy')
 
-except:
+# except:
 
     # segmentation starts from 0
-    masked_segmentation_relabeled, fw, inv = relabel_sequential(masked_segmentation + 1)
+masked_segmentation_relabeled, fw, inv = relabel_sequential(masked_segmentation + 1)
 
-    # make background label -1
-    masked_segmentation_relabeled -= 1
+# make background label -1
+masked_segmentation_relabeled -= 1
 
-    dm.save_pipeline_result(masked_segmentation_relabeled, 'segmentation', 'npy')
+# <codecell>
+
+dm.save_pipeline_result(masked_segmentation_relabeled, 'segmentation', 'npy')
 
 # <codecell>
 
@@ -96,15 +98,15 @@ img_superpixelized_with_text = img_as_ubyte(img_superpixelized)
 
 for s in range(n_superpixels):
     img_superpixelized_with_text = cv2.putText(img_superpixelized_with_text, str(s), 
-                                               tuple(np.floor(sp_centroids[s][::-1]).astype(np.int)), 
-                                               cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                               tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
+                                               cv2.FONT_HERSHEY_DUPLEX,
                                                .5, ((255,0,255)), 1)
 
 dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithText', 'jpg')
 
 # <codecell>
 
-display(img_superpixelized_with_text)
+# display(img_superpixelized_with_text)
 
 # <codecell>
 
@@ -113,19 +115,24 @@ display(img_superpixelized_with_text)
 from skimage.morphology import disk
 from skimage.filter.rank import gradient
 
-try:
-    neighbors = dm.load_pipeline_result('neighbors', 'npy')
+# try:
+#     neighbors = dm.load_pipeline_result('neighbors', 'npy')
 
-except:
+# except:
 
-    edge_map = gradient(masked_segmentation_relabeled.astype(np.uint8), disk(3))
-    neighbors = [set() for i in range(n_superpixels)]
+edge_map = gradient(masked_segmentation_relabeled.astype(np.uint8), disk(3))
+neighbors = [set() for i in range(n_superpixels)]
 
-    for y,x in zip(*np.nonzero(edge_map)):
-        neighbors[masked_segmentation_relabeled[y,x]] |= set(masked_segmentation_relabeled[y-2:y+2,x-2:x+2].ravel())
+for y,x in zip(*np.nonzero(edge_map)):
+    if masked_segmentation_relabeled[y,x] != -1:
+        neighbors[masked_segmentation_relabeled[y,x]] |= set(masked_segmentation_relabeled[max(0, y-2):min(dm.image_height, y+2),
+                                                                                       max(0, x-2):min(dm.image_width, x+2)].ravel())
+        
+for i in range(n_superpixels):
+    neighbors[i] -= set([i])
 
-    for i in range(n_superpixels):
-        neighbors[i] -= set([i])
+dm.save_pipeline_result(neighbors, 'neighbors', 'npy')
 
-    dm.save_pipeline_result(neighbors, 'neighbors', 'npy')
+# <codecell>
+
 

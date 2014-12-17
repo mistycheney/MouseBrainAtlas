@@ -36,7 +36,8 @@ k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
 
 neighbor_dists = np.empty((n_superpixels, k))
 for i in range(n_superpixels):
-    neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
+#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
+    neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
     
 sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
 for i in range(n_superpixels):
@@ -44,53 +45,66 @@ for i in range(n_superpixels):
 
 # <codecell>
 
-def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors):
-    
-    cluster_list = list(cluster)
-    hists_cluster = texton_hists[cluster_list]
+x = np.arange(100)
+y = (1 + .1*np.log(10*x + 1))
+# y = 1 + .01 * x
+plt.plot(x,y)
+y[6] - y[4]
 
-    cluster_avg = hists_cluster.mean(axis=0)
-    
-    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster])
-    
-    surrounds_list = list(surrounds)
-    hists_surround = texton_hists[surrounds_list]
+# <codecell>
 
-    avg_dists = np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, chi2))
+# def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors):
+    
+#     cluster_list = list(cluster)
+#     hists_cluster = texton_hists[cluster_list]
+
+#     cluster_avg = hists_cluster.mean(axis=0)
+    
+#     surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+    
+#     surrounds_list = list(surrounds)
+    
+#     hists_surround = texton_hists[surrounds_list]
+
+#     avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, chi2)))
             
-    surround_dists = np.array([sp_sp_dists[i, cluster_list] for i in surrounds_list])
+#     surround_dists = np.array([sp_sp_dists[i, cluster_list] for i in surrounds_list])
         
-    uncomputed_sr, uncomputed_cl = np.where(np.isnan(surround_dists))
+#     uncomputed_sr, uncomputed_cl = np.where(np.isnan(surround_dists))
     
-    for sr, cl in zip(uncomputed_sr, uncomputed_cl):
+#     for sr, cl in zip(uncomputed_sr, uncomputed_cl):
         
-        i = surrounds_list[sr]
-        j = cluster_list[cl]
-        d = chi2(texton_hists[i], texton_hists[j])
+#         i = surrounds_list[sr]
+#         j = cluster_list[cl]
+#         d = chi2(texton_hists[i], texton_hists[j])
             
-        surround_dists[sr, cl] = d
+#         surround_dists[sr, cl] = d
         
-        sp_sp_dists[i, j] = d
-        sp_sp_dists[j, i] = d
+#         sp_sp_dists[i, j] = d
+#         sp_sp_dists[j, i] = d
     
-    assert not np.isnan(surround_dists).any(), 'some distances are not computed'
+#     assert not np.isnan(surround_dists).any(), 'some distances are not computed'
     
-    avg_dist = np.mean(avg_dists)
-    surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).mean()
+#     avg_dist = np.mean(avg_dists)
+# #     avg_dist = np.max(avg_dists)
+# #     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).mean()
 #     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).min()
 
-    score = surround_dist - avg_dist
+#     score = surround_dist - .01 * avg_dist
     
 #     print 'cluster', cluster_list
-#     print 'surrounds', surrounds_list
-#     print 'argmin', np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
-#     print 'min', np.min(np.atleast_2d(surround_dists), axis=0)
-#     print 'model', avg_dists
-#     print 'adv', np.min(np.atleast_2d(surround_dists), axis=0) - avg_dists
+# #     print 'surrounds_list', surrounds_list
+#     argmins = np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
+#     mins = np.min(np.atleast_2d(surround_dists), axis=0)
+#     adv = mins - avg_dists
+#     print 'surrounds'
+#     for t in zip(cluster_list, argmins, mins, avg_dists, adv):
+#         print t
+    
 #     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
 #     print 
     
-    return score, surround_dist, avg_dist
+#     return score, surround_dist, avg_dist
 
 # <codecell>
 
@@ -129,9 +143,70 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
 
 # <codecell>
 
+def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors):
+    
+    cluster_list = list(cluster)
+    hists_cluster = texton_hists[cluster_list]
+
+    cluster_avg = hists_cluster.mean(axis=0)
+    
+    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+    
+    surrounds_list = list(surrounds)
+    
+    hists_surround = texton_hists[surrounds_list]
+
+#     avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, chi2)))
+    
+    avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, js)))
+            
+    surround_dists = np.empty((len(cluster_list), ))
+    closest_neighboring_surround_sps = np.empty((len(cluster_list), ), dtype=np.int)
+    for ind, i in enumerate(cluster_list):
+        neighboring_surround_sps = list(neighbors[i] & surrounds)
+        if len(neighboring_surround_sps) > 0:
+            ds = sp_sp_dists[i, neighboring_surround_sps]
+            surround_dists[ind] = np.min(ds)
+            closest_neighboring_surround_sps[ind] = neighboring_surround_sps[np.argmin(ds)]
+        else:
+            surround_dists[ind] = np.nan
+            closest_neighboring_surround_sps[ind] = -1
+        
+#     surround_dists = np.array([sp_sp_dists[i, cluster_list] for i in surrounds_list])
+    
+    avg_dist = np.mean(avg_dists) / np.sqrt(len(cluster_list))
+#     avg_dist = np.max(avg_dists)
+#     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).mean()
+#     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).min()
+    surround_dist = np.nanmin(surround_dists)
+#     surround_dist = np.nanmean(surround_dists)
+
+    score = surround_dist - 2. * avg_dist
+#     score = (1 + np.log(len(cluster_list) + 1)) * (surround_dist - .01 * avg_dist)
+#     score = (1 + .01 * len(cluster_list)) * (surround_dist - .01 * avg_dist)
+#     score = (1 + .03 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .15 * avg_dist)
+#     score = (1 + .01 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .8 * avg_dist)
+
+    
+#     print 'cluster', cluster_list
+# #     print 'surrounds_list', surrounds_list
+# #     argmins = np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
+#     mins = np.min(np.atleast_2d(surround_dists), axis=0)
+#     adv = mins - avg_dists
+#     print 'surrounds'
+#     for t in zip(cluster_list, closest_neighboring_surround_sps, mins, avg_dists, adv):
+#         print t
+    
+#     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
+#     print 
+    
+    return score, surround_dist, avg_dist
+
+# <codecell>
+
 import heapq
 
-def grow_cluster(seed, neighbors, texton_hists):
+def grow_cluster(seed, neighbors=neighbors, texton_hists=texton_hists):
     
     scores = []
     null_dists = []
@@ -143,7 +218,7 @@ def grow_cluster(seed, neighbors, texton_hists):
                     
     to_visit = [(0, seed)]
         
-#     c = 0
+    c = 0
         
     while len(to_visit) > 0:
         
@@ -153,10 +228,12 @@ def grow_cluster(seed, neighbors, texton_hists):
             continue
         
 #         print c
-#         c += 1
+        c += 1
+        
+#         print 'add', v
         
         curr_cluster_score, curr_null_dist, curr_model_dist = compute_cluster_score(curr_cluster | set([v]), texton_hists, neighbors)
-                
+        
         curr_cluster.add(v)
 
         scores.append(curr_cluster_score)
@@ -164,17 +241,47 @@ def grow_cluster(seed, neighbors, texton_hists):
         model_dists.append(curr_model_dist)
         added_sp.append(v)
         
-        ns = np.array(list(neighbors[v] | (visited - curr_cluster)))
- 
         curr_avg = texton_hists[list(curr_cluster)].mean(axis=0)
-        ds = np.atleast_1d(np.squeeze(cdist(curr_avg[np.newaxis, :], texton_hists[ns])))
 
-        items = zip((ds*10000).astype(np.int), ns)
+        q = set([s for d,s in to_visit]) | (neighbors[v] - set([-1])) | (visited - curr_cluster)
+        to_visit_sps = list(q - curr_cluster)
+        assert len(to_visit_sps) == len(set(to_visit_sps)) and -1 not in to_visit_sps
+                
+            
+        curr_cluster_list = list(curr_cluster)
 
-        for dist, sp in items:
-            if sp != -1 and (dist, sp) not in to_visit and sp not in visited:
-                heapq.heappush(to_visit, (dist, sp))
+#         to_visit_dists = np.empty((len(to_visit_sps), ))
+#         to_visit_farthest_sp = np.empty((len(to_visit_sps), ), dtype=np.int)
+#         for ind, i in enumerate(to_visit_sps):
+#             neighboring_interior_sps = list(neighbors[i] & curr_cluster)
+#             if len(neighboring_interior_sps) > 0:
+#                 ds = sp_sp_dists[i, neighboring_interior_sps]
+# #                 to_visit_dists[ind] = np.max(ds)
+# #                 to_visit_farthest_sp[ind] = neighboring_interior_sps[np.argmax(ds)]
+#                 to_visit_dists[ind] = np.min(ds)
+#                 to_visit_farthest_sp[ind] = neighboring_interior_sps[np.argmin(ds)]
+#             else:
+#                 to_visit_dists[ind] = np.nan
+#                 to_visit_farthest_sp[ind] = -1
 
+        ds = np.atleast_2d(np.squeeze(cdist(texton_hists[curr_cluster_list], texton_hists[to_visit_sps], js)))
+        to_visit_dists = np.max(ds, axis=0) # for each to_visit sp, the most dissimilar in-cluster sp        
+        to_visit_farthest_sp = np.array(curr_cluster_list, dtype=np.int)[np.argmax(ds, axis=0)]
+#         to_visit_dists = np.mean(ds, axis=0)
+#         to_visit_dists = np.median(ds, axis=0)
+        
+#         to_visit_dists = np.atleast_1d(np.squeeze(cdist(curr_avg[np.newaxis, :], texton_hists[to_visit_sps], js)))
+
+        to_visit = zip((to_visit_dists*10000).astype(np.int), to_visit_sps)
+        heapq.heapify(to_visit)
+        
+#         print 'to_visit_sps', to_visit_sps
+#         print 'first three to_visit', [(sp, to_visit_farthest_sp[to_visit_sps==sp][0], sc/10000.) 
+#                                        for sc, sp in heapq.nsmallest(20, to_visit)]
+#         print 'first three to_visit', [(sp, sc/10000.) 
+#                                        for sc, sp in heapq.nsmallest(20, to_visit)]
+#         print 
+        
         visited.add(v)
         
 #         print curr_cluster
@@ -183,10 +290,10 @@ def grow_cluster(seed, neighbors, texton_hists):
 #         plt.imshow(vis)
 #         plt.show()
         
-        if len(visited) > int(n_superpixels * 0.08):
+        if len(visited) > int(n_superpixels * 0.03):
             break
     
-    sp_max = np.argmax(scores)
+    sp_max = np.argmax(scores[1:]) + 1  # ignore the first score (the case with only one sp)
     curr_cluster = added_sp[:sp_max+1]
     curr_cluster_score = scores[sp_max]
         
@@ -236,9 +343,20 @@ def visualize_multiple_clusters(clusters, segmentation=segmentation, segmentatio
 
 # <codecell>
 
-seed = 821
+a = 3856
+b = 3807
 
-curr_cluster, curr_cluster_score, scores, avg_surround_distances, sp_avg_distances, added_sp = grow_cluster(seed, neighbors, texton_hists)
+js(texton_hists[a], texton_hists[b])
+
+plt.bar(np.arange(n_texton), texton_hists[a], width=.3, color='g')
+plt.bar(np.arange(n_texton)+.3, texton_hists[b], width=.3, color='b')
+plt.show()
+
+# <codecell>
+
+seed = 3650
+
+curr_cluster, curr_cluster_score, scores, avg_surround_distances, sp_avg_distances, added_sp = grow_cluster(seed)
 
 print 'curr_cluster', curr_cluster
 print len(curr_cluster), 'superpixels'
@@ -258,19 +376,19 @@ display(vis)
 
 # <codecell>
 
-# all_distances = np.atleast_1d(np.squeeze(cdist(texton_hists[seed][np.newaxis, :], texton_hists)))
-# vis = all_distances[cropped_segmentation] * 10 + 1
-# vis[~cropped_mask] = 0
+all_distances = np.atleast_1d(np.squeeze(cdist(texton_hists[seed][np.newaxis, :], texton_hists, js)))
+vis = all_distances[segmentation] * 10 + 1
+vis[~dm.mask] = 0
 
-# plt.matshow(vis)
-# plt.colorbar()
-# plt.show()
+plt.matshow(vis)
+plt.colorbar()
+plt.show()
 
 # <codecell>
 
 import matplotlib.pyplot as plt
 
-e = 30
+e = -1
 
 n = len(scores[:e])
 
@@ -300,7 +418,7 @@ plt.show()
 import time
 b = time.time()
 
-clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists) for s in range(n_superpixels))
+clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s) for s in range(n_superpixels))
 # clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s, neighbors, texton_hists) for s in range(100))
 
 print time.time() - b

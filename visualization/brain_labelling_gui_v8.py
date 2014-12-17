@@ -173,13 +173,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.pick_color(-1)
 			self.paint_superpixel(seed_sp)
 
+		elif action == self.eraseAllSpsCurrColor_Action:
+
+			self.pick_color(-1)
+			for sp in self.cluster_sps[seed_sp]:
+				self.paint_superpixel(sp)
+
 
 	def initialize_brain_labeling_gui(self):
 
 		self.menu = QMenu()
-		self.growRegion_Action = self.menu.addAction("Grow region")
+		self.growRegion_Action = self.menu.addAction("Label similar neighbors")
 		self.pickColor_Action = self.menu.addAction("Pick this label")
-		self.eraseColor_Action = self.menu.addAction("Remove this label")
+		self.eraseColor_Action = self.menu.addAction("Remove label of this superpixel")
+		self.eraseAllSpsCurrColor_Action = self.menu.addAction("Clear similar neighbors")
 
 		# A set of high-contrast colors proposed by Green-Armytage
 		self.colors = np.loadtxt('100colors.txt', skiprows=1)
@@ -280,7 +287,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.groups_ranked, self.group_scores_ranked = zip(*self.groups)
 		
-		for i, g in enumerate(self.groups_ranked[:30]):
+		for i, g in enumerate(self.groups_ranked[:50]):
 			self._add_labelbutton()
 			self.pick_color(i)
 			for sp in g:
@@ -301,7 +308,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.textonmap = self.dm.load_pipeline_result('texMap', 'npy')
 
 		self.clusters = self.dm.load_pipeline_result('clusters', 'pkl')
-		self.cluster_sps, curr_cluster_score_sps, scores_sps, nulls_sps, models_sps, added_sps = zip(*self.clusters)
+		# self.cluster_sps, curr_cluster_score_sps, scores_sps, nulls_sps, models_sps, added_sps = zip(*self.clusters)
+		self.cluster_sps, curr_cluster_score_sps = zip(*self.clusters)
 
 		# self.n_texton = 100
 
@@ -345,14 +353,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			elif self.sender() == self.dirmap_radioButton:
 
-				dirmap_vis = cv2.imread('/home/yuncong/BrainLocal/DavidData_v4/RS141/x5/0001/segmResults/RS141_x5_0001_gabor-blueNisslWide-segm-blueNissl_dirMap.tif')[:,:,::-1]
+				self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
 
-				dirmap_vis[~self.mask] = 0
+				self.dirmap_vis[~self.dm.mask] = 0
 
-				self.axes.imshow(dirmap_vis, aspect='equal')
+				self.axes.imshow(self.dirmap_vis, aspect='equal')
 
 				if not self.seg_loaded:
 					self.load_segmentation()
+
+				self.seg_enabled = False
+
 
 			elif self.sender() == self.labeling_radioButton:
 
@@ -691,9 +702,9 @@ if __name__ == '__main__':
 	class args:
 		stack_name = 'RS141'
 		resolution = 'x5'
-		slice_ind = 1
+		slice_ind = int(sys.argv[1])
 		gabor_params_id = 'blueNisslWide'
-		segm_params_id = 'blueNissl'
+		segm_params_id = 'blueNissl2'
 		vq_params_id = 'blueNissl'
 		
 	dm.set_image(args.stack_name, args.resolution, args.slice_ind)

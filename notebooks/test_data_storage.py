@@ -36,7 +36,7 @@ dm.set_vq_params(vq_params_id=args.vq_params_id)
 
 # <codecell>
 
-cropped_features = dm.load_pipeline_result('cropFeatures', 'npy')
+features = dm.load_pipeline_result('features', 'npy')
 
 # <codecell>
 
@@ -63,7 +63,7 @@ def save_pytables(complevel):
     filters = tables.Filters(complevel=complevel, complib='blosc')
     f = tables.open_file('/tmp/test', 'w')
 
-    f.create_carray(f.root, 'features', obj=cropped_features, filters=filters)
+    f.create_carray(f.root, 'features', obj=features, filters=filters)
     print os.path.getsize('/tmp/test'), 'bytes'
 #     os.remove('/tmp/test')
     f.close()

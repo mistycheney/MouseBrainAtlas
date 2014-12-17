@@ -19,7 +19,7 @@ masked_image = dm.image.copy()
 masked_image[~dm.mask] = approx_bg_intensity
 
 # padded_image = pad(masked_image, max_kern_size, 'constant', constant_values=approx_bg_intensity)
-padded_image = pad(masked_image, max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
+padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
 
 plt.imshow(padded_image, cm.Greys_r)
 plt.show()
@@ -37,19 +37,19 @@ from scipy.signal import fftconvolve
 # except Exception as e:
 
 def convolve_per_proc(i):
-    return fftconvolve(padded_image, kernels[i], 'same').astype(np.half)
+    return fftconvolve(padded_image, dm.kernels[i], 'same').astype(np.half)
 
 padded_filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
-                        for i in range(n_kernel))
+                        for i in range(dm.n_kernel))
 
-filtered = [f[max_kern_size:-max_kern_size, max_kern_size:-max_kern_size] for f in padded_filtered]
+filtered = [f[dm.max_kern_size:-dm.max_kern_size, dm.max_kern_size:-dm.max_kern_size] for f in padded_filtered]
 
 #     features = np.empty((dm.image_height, dm.image_width, n_kernel), dtype=np.half)
 #     for i in range(n_kernel):
 #         features[...,i] = filtered[i]
 
-features = np.empty((n_kernel, dm.image_height, dm.image_width), dtype=np.half)
-for i in range(n_kernel):
+features = np.empty((dm.n_kernel, dm.image_height, dm.image_width), dtype=np.half)
+for i in range(dm.n_kernel):
     features[i, ...] = filtered[i]
 
 del filtered
@@ -58,17 +58,17 @@ dm.save_pipeline_result(features, 'features', 'npy')
 
 # <codecell>
 
-# visualize a slice of feature responses
+# # visualize a slice of feature responses
 
-cropped_response = features[-1]
-plt.matshow(cropped_response, cmap=cm.coolwarm)
-plt.colorbar()
-plt.show()
+# cropped_response = features[-1]
+# plt.matshow(cropped_response, cmap=cm.coolwarm)
+# plt.colorbar()
+# plt.show()
 
 # <codecell>
 
-from skimage.exposure import rescale_intensity
-cropped_response_vis = rescale_intensity(cropped_response, out_range=(0, 255))
-cropped_response_vis[~dm.mask] = 127
-display(cropped_response_vis.astype(np.uint8))
+# from skimage.exposure import rescale_intensity
+# cropped_response_vis = rescale_intensity(cropped_response, out_range=(0, 255))
+# cropped_response_vis[~dm.mask] = 127
+# display(cropped_response_vis.astype(np.uint8))
 

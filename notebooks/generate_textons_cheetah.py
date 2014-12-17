@@ -12,25 +12,7 @@ from preamble import *
 
 # <codecell>
 
-from skimage.transform import rotate
-
-w = 10
-h = 10
-
-im_stripes = np.zeros((h, w))
-
-stripe_spacing = 4
-stripe_width = 2
-
-for row in range(0, h, stripe_spacing):
-    im_stripes[row:row+stripe_width] = 1
-
-thetas = np.random.randint(0, 6, 8)*30
-ims = [rotate(im_stripes, -theta) > 0.5 for theta in thetas]
-    
-pattern = np.vstack([np.hstack(ims[:3]), np.hstack([ims[3], np.zeros((h, w)), ims[4]]), np.hstack(ims[5:])])
-
-plt.imshow(pattern)
+pattern = cv2.imread('/home/yuncong/cheetah.png', 0)
 
 # <codecell>
 
@@ -51,25 +33,29 @@ del filtered
 
 # <codecell>
 
-valid_features = features.reshape((pattern.shape[0] * pattern.shape[1], -1))
+# valid_features = features.reshape((pattern.shape[0] * pattern.shape[1], -1))
 
 # <codecell>
 
-def rotate_features(fs):
-    features_tabular = fs.reshape((fs.shape[0], dm.n_freq, dm.n_angle))
-    max_angle_indices = features_tabular.max(axis=1).argmax(axis=-1)
-    features_rotated = np.reshape([np.roll(features_tabular[i], -ai, axis=-1) 
-                               for i, ai in enumerate(max_angle_indices)], (fs.shape[0], dm.n_freq * dm.n_angle))
+# def rotate_features(fs):
+#     features_tabular = fs.reshape((fs.shape[0], dm.n_freq, dm.n_angle))
+#     max_angle_indices = features_tabular.max(axis=1).argmax(axis=-1)
+#     features_rotated = np.reshape([np.roll(features_tabular[i], -ai, axis=-1) 
+#                                for i, ai in enumerate(max_angle_indices)], (fs.shape[0], dm.n_freq * dm.n_angle))
     
-    return features_rotated
+#     return features_rotated
 
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
 
-n_splits = 1000
-features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
-features_rotated = np.vstack(features_rotated_list)
+# n_splits = 1000
+# features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
+# features_rotated = np.vstack(features_rotated_list)
 
-del valid_features
+# del valid_features
+
+# <codecell>
+
+features.reshape((-1, 99)).shape
 
 # <codecell>
 
@@ -79,13 +65,14 @@ n_texton = 100
 from sklearn.cluster import MiniBatchKMeans
 kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
 # kmeans.fit(features_rotated_pca)
-kmeans.fit(features_rotated)
+# kmeans.fit(features_rotated)
+kmeans.fit(features.reshape((-1, 99)))
 centroids = kmeans.cluster_centers_
 # labels = kmeans.labels_
 
 from scipy.cluster.hierarchy import fclusterdata
-# cluster_assignments = fclusterdata(centroids, 1.15, method="complete")
-cluster_assignments = fclusterdata(centroids, .8, method="complete", criterion="distance")
+cluster_assignments = fclusterdata(centroids, 1.15, method="complete")
+# cluster_assignments = fclusterdata(centroids, .8, method="complete", criterion="distance")
 
 
 #########  NOTE that multiple runs of kmeans gives different reduced cluster assignments !!! ########3
@@ -104,7 +91,9 @@ print n_reduced_texton
 from sklearn.cluster import MiniBatchKMeans
 kmeans = MiniBatchKMeans(n_clusters=n_reduced_texton, batch_size=1000, init=reduced_centroids)
 # kmeans.fit(features_rotated_pca)
-kmeans.fit(features_rotated)
+# kmeans.fit(features_rotated)
+kmeans.fit(features.reshape((-1, 99)))
+
 final_centroids = kmeans.cluster_centers_
 labels = kmeans.labels_
 
@@ -205,8 +194,8 @@ for f in final_centroids:
 
     c = b.reshape((dm.max_kern_size,dm.max_kern_size))
 
-    plt.imshow(c[dm.max_kern_size/2-5:dm.max_kern_size/2+5,
-                 dm.max_kern_size/2-5:dm.max_kern_size/2+5], cmap=plt.cm.Greys_r)
+    plt.imshow(c[dm.max_kern_size/2-30:dm.max_kern_size/2+30,
+                 dm.max_kern_size/2-30:dm.max_kern_size/2+30], cmap=plt.cm.Greys_r)
     
     plt.show()
 

@@ -9,4 +9,3 @@ export GORDON_DATA_DIR=$CSD181/DavidData2014
 export LOCAL_DATA_DIR=/home/yuncong/BrainLocal/DavidData_v4
 export GORDON_REPO_DIR=$HOME/Brain
 export LOCAL_REPO_DIR=$HOME/Brain
-

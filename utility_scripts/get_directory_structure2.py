@@ -25,11 +25,13 @@ def generate_json(data_dir):
             if 'pipelineResults' in sec_content.keys():
                 sec_info['available_results'] = sec_content['pipelineResults'].keys()
             sec_infos.append(sec_info)
+        sec_infos = sorted(sec_infos, key=lambda x: x['index'])
 
         sec_infos = sorted(sec_infos, key=lambda x: x['index'])
         stack_info['sections'] = sec_infos
 
         q.append(stack_info)
+
     return q
 
 

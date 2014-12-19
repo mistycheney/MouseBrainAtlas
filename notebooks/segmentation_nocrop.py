@@ -83,7 +83,9 @@ r = Parallel(n_jobs=16)(delayed(obtain_props_worker)(i) for i in range(len(sp_pr
 sp_centroids = np.array([s[0] for s in r])
 sp_areas = np.array([s[1] for s in r])
 sp_mean_intensity = np.array([s[2] for s in r])
-sp_bbox = np.array([s[3] for s in r])
+sp_bbox = np.array([s[3] for s in r]) 
+
+# n_superpixel x 8: (cx, cy, area, mean_intensity, ymin, xmin, ymax, xmax)
 
 sp_properties = np.column_stack([sp_centroids, sp_areas, sp_mean_intensity, sp_bbox])
 

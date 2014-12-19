@@ -11,7 +11,7 @@ def generate_json(data_dir):
     q = []
     for stack_name, stack_content in d.values()[0].items():
         if stack_content is None or len(stack_content) == 0: continue
-        sec_items = stack_content.values()[0].items()
+        sec_items = stack_content['x5'].items()
         stack_info = {'name': stack_name,
                     'available_res': stack_content.keys()
                     }
@@ -22,15 +22,17 @@ def generate_json(data_dir):
             # stack_info['available_sections'].append(int(sec_ind))
             sec_info = {'index': int(sec_ind)}
             if 'labelings' in sec_content.keys():
-                sec_info['labelings'] = sec_content['labelings'].keys()
+                sec_info['labelings'] = [k for k in sec_content['labelings'].keys() if k.endswith('pkl')]
             if 'pipelineResults' in sec_content.keys():
                 sec_info['available_results'] = sec_content['pipelineResults'].keys()
             sec_infos.append(sec_info)
 
+        sec_infos = sorted(sec_infos, key=lambda x: x['index'])
         stack_info['sections'] = sec_infos
 
         q.append(stack_info)
     return q
+
 
 
 def get_directory_structure(rootdir):

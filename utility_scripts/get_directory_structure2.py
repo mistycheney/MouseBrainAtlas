@@ -48,6 +48,6 @@ def get_directory_structure(rootdir):
 
 if __name__ == '__main__':
     
-    dir_dict = get_directory_structure(sys.argv[1])
+    dir_dict = generate_json(sys.argv[1])
     repo_dir = sys.argv[2]
     pickle.dump(dir_dict, open(repo_dir+'/remote_directory_structure.pkl', 'w'))

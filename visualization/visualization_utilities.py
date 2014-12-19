@@ -2,8 +2,36 @@ import os
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-
 # QFileSystemModel might be useful http://qt-project.org/doc/qt-4.8/qfilesystemmodel.html
+
+def generate_json(data_dir):
+
+    d = get_directory_structure(data_dir)
+
+    q = []
+    for stack_name, stack_content in d.values()[0].items():
+        if stack_content is None or len(stack_content) == 0: continue
+        sec_items = stack_content.values()[0].items()
+        stack_info = {'name': stack_name,
+                    'available_res': stack_content.keys()
+                    }
+
+        sec_infos = []
+        for sec_ind, sec_content in sec_items:
+            if sec_content is None: continue
+            # stack_info['available_sections'].append(int(sec_ind))
+            sec_info = {'index': int(sec_ind)}
+            if 'labelings' in sec_content.keys():
+                sec_info['labelings'] = sec_content['labelings'].keys()
+            if 'pipelineResults' in sec_content.keys():
+                sec_info['available_results'] = sec_content['pipelineResults'].keys()
+            sec_infos.append(sec_info)
+
+        stack_info['sections'] = sec_infos
+
+        q.append(stack_info)
+    return q
+
 
 def get_directory_structure(rootdir):
     """

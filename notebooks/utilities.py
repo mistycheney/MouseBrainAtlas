@@ -356,7 +356,7 @@ class DataManager(object):
     def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
         
         new_labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
-        pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
+        pickle.dump(labeling, open(new_labeling_fn, 'w'))
         print 'Labeling saved to', new_labeling_fn
 
         new_preview_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')

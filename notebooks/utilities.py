@@ -325,8 +325,6 @@ class DataManager(object):
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = cv2.imread(result_filename)
-            if data is None:
-                raise Exception('%s does not exist'% result_filename)
             if data.ndim == 3:
                 data = data[...,::-1]
             data = self._regulate_image(data, is_rgb)
@@ -353,6 +351,22 @@ class DataManager(object):
             pickle.dump(data, open(result_filename, 'w'))
             
         print 'saved %s' % result_filename
+        
+        
+    def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
+        
+        new_labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
+        pickle.dump(self.labeling, open(new_labeling_fn, 'w'))
+        print 'Labeling saved to', new_labeling_fn
+
+        new_preview_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
+        
+        data = self._regulate_image(labelmap_vis, is_rgb=True)
+        if data.ndim == 3:
+            cv2.imwrite(new_preview_fn, data[..., ::-1])
+        else:
+            cv2.imwrite(new_preview_fn, data)
+        print 'Preview saved to', new_preview_fn
         
     def _regulate_image(self, img, is_rgb=None):
         """

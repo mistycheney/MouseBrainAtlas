@@ -3,7 +3,7 @@
 
 # <codecell>
 
-%load_ext autoreload
+%reload_ext autoreload
 %autoreload 2
 
 from preamble import *

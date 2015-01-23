@@ -45,7 +45,7 @@ for i in range(n_superpixels):
 
 # <codecell>
 
-def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors):
+def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors, output=False):
     
     cluster_list = list(cluster)
     hists_cluster = texton_hists[cluster_list]
@@ -57,8 +57,6 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
     surrounds_list = list(surrounds)
     
     hists_surround = texton_hists[surrounds_list]
-
-#     avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, chi2)))
     
     avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, js)))
             
@@ -93,18 +91,18 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
 #     score = (1 + .03 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .15 * avg_dist)
 #     score = (1 + .01 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .8 * avg_dist)
 
-    
-#     print 'cluster', cluster_list
-# #     print 'surrounds_list', surrounds_list
-# #     argmins = np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
-#     mins = np.min(np.atleast_2d(surround_dists), axis=0)
-#     adv = mins - avg_dists
-#     print 'surrounds'
-#     for t in zip(cluster_list, closest_neighboring_surround_sps, mins, avg_dists, adv):
-#         print t
-    
-#     print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
-#     print 
+    if output:
+        print 'cluster', cluster_list
+        #     print 'surrounds_list', surrounds_list
+        #     argmins = np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
+        mins = np.min(np.atleast_2d(surround_dists), axis=0)
+        adv = mins - avg_dists
+        print 'surrounds'
+        for t in zip(cluster_list, closest_neighboring_surround_sps, mins, avg_dists, adv):
+            print t
+
+        print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
+        print 
     
     return score, surround_dist, avg_dist
 
@@ -160,18 +158,6 @@ def visualize_multiple_clusters(clusters, segmentation=segmentation, segmentatio
 
 # <codecell>
 
-# def compare_two_sps(a,b):
-
-#     print sp_sp_dists[a,b]
-    
-#     js(texton_hists[a], texton_hists[b])
-
-#     plt.bar(np.arange(n_texton), texton_hists[a], width=.3, color='g')
-#     plt.bar(np.arange(n_texton)+.3, texton_hists[b], width=.3, color='b')
-#     plt.show()
-
-# <codecell>
-
 import networkx
 from networkx.algorithms import node_connected_component
 
@@ -220,29 +206,6 @@ def grow_cluster(seed, output=False):
 
 # <codecell>
 
-cluster, s = grow_cluster(3628)
-print 'cluster', cluster
-vis = visualize_cluster(cluster)
-display(vis)
-
-# <codecell>
-
-# plt.plot(range(len(ss)), ss);
-
-# <codecell>
-
-# seed = 3395
-
-# all_distances = np.atleast_1d(np.squeeze(cdist(texton_hists[seed][np.newaxis, :], texton_hists, js)))
-# vis = all_distances[segmentation] < 0.02
-# vis[~dm.mask] = 0
-
-# plt.matshow(vis)
-# plt.colorbar()
-# plt.show()
-
-# <codecell>
-
 # try:
 #     clusters = dm.load_pipeline_result('clusters', 'pkl')
     
@@ -263,7 +226,7 @@ dm.save_pipeline_result(clusters, 'clusters', 'pkl')
 
 # <codecell>
 
-# clusters = dm.load_pipeline_result('clusters', 'pkl')
+clusters = dm.load_pipeline_result('clusters', 'pkl')
 
 # <codecell>
 
@@ -271,19 +234,6 @@ cluster_sps, cluster_score_sps = zip(*clusters)
 cluster_size_sps = np.array([len(c) for c in cluster_sps])
 cluster_score_sps = np.array(cluster_score_sps)
 # cluster_bounding_boxes = Parallel(n_jobs=16)(delayed(compute_bounding_box)(c) for c in cluster_sps)
-
-# <codecell>
-
-# sigmap = cluster_score_sps[segmentation] * 5 + 1
-# sigmap[~dm.mask] = 0
-
-# plt.matshow(sigmap)
-# plt.colorbar()
-# plt.show()
-
-# <codecell>
-
-plt.hist(cluster_size_sps);
 
 # <codecell>
 
@@ -337,94 +287,11 @@ highlighted_groups = group_clusters(highlighted_clusters)
 
 # <codecell>
 
-def view_overlapping_seeds(seed):
-    h = where(highlighted_sps==seed)[0]
-    q = where(distance_matrix[h] <= 0.1)[1]
-    vis = visualize_cluster(highlighted_sps[q])
-    display(vis)
-
-# <codecell>
-
-def compute_cluster_score2(cluster, texton_hists=texton_hists, neighbors=neighbors):
-    
-    cluster_list = list(cluster)
-    hists_cluster = texton_hists[cluster_list]
-
-    cluster_avg = hists_cluster.mean(axis=0)
-    
-    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
-    
-    surrounds_list = list(surrounds)
-    
-#     interior_holes = set([s for s in surrounds_list if neighbors[s] <= set(cluster)])
-    
-    hists_surround = texton_hists[surrounds_list]
-
-#     avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, chi2)))
-    
-    avg_dists = np.atleast_1d(np.squeeze(cdist(np.atleast_2d(cluster_avg), hists_cluster, js)))
-            
-    surround_dists = np.empty((len(cluster_list), ))
-    closest_neighboring_surround_sps = np.empty((len(cluster_list), ), dtype=np.int)
-    for ind, i in enumerate(cluster_list):
-#         neighboring_surround_sps = list((neighbors[i] & surrounds) - interior_holes)      
-        neighboring_surround_sps = list(neighbors[i] & surrounds)
-        if (len(neighboring_surround_sps) > 0):
-            ds = sp_sp_dists[i, neighboring_surround_sps]
-            surround_dists[ind] = np.min(ds)
-            closest_neighboring_surround_sps[ind] = neighboring_surround_sps[np.argmin(ds)]
-        else:
-            surround_dists[ind] = np.nan
-            closest_neighboring_surround_sps[ind] = -1
-        
-#     surround_dists = np.array([sp_sp_dists[i, cluster_list] for i in surrounds_list])
-    
-    avg_dist = np.mean(avg_dists) / np.sqrt(len(cluster_list))
-#     avg_dist = np.max(avg_dists)
-#     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).mean()
-#     surround_dist = np.min(np.atleast_2d(surround_dists), axis=0).min()
-
-    surround_dist = np.nanmin(surround_dists)
-
-    score = surround_dist
-#     if len(cluster_list) == 1:
-#         score = 0
-#     score = (1 + np.log(len(cluster_list) + 1)) * (surround_dist - .01 * avg_dist)
-#     score = (1 + .01 * len(cluster_list)) * (surround_dist - .01 * avg_dist)
-#     score = (1 + .03 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .15 * avg_dist)
-#     score = (1 + .01 * np.log(10 * len(cluster_list) + 1)) * (surround_dist - .8 * avg_dist)
-    
-    print 'cluster', cluster_list
-#     print 'surrounds_list', surrounds_list
-#     argmins = np.array(surrounds_list)[np.argmin(np.atleast_2d(surround_dists), axis=0)]
-    mins = np.min(np.atleast_2d(surround_dists), axis=0)
-    adv = mins - avg_dists
-    print 'surrounds'
-    for t in zip(cluster_list, closest_neighboring_surround_sps, mins, avg_dists, adv):
-        print t
-    
-    print 'sig:', score, ', surround:', surround_dist, ', model:', avg_dist
-    print 
-    
-    return score, surround_dist, avg_dist
-
-# <codecell>
-
-grow_cluster(3518, True)
-
-# <codecell>
-
 sp_groups = [ [highlighted_sps[i] for i in group] for group in highlighted_groups if len(group) > 1]
 union_clusters = [cluster_sps[g[np.argmax(cluster_score_sps[g])]] for g in sp_groups]
 
-# <codecell>
-
 union_cluster_groups = group_clusters(union_clusters, dist_thresh=0.5)
 union_cluster_groups = [u for u in union_cluster_groups if len(u) > 0]
-
-# <codecell>
-
-union_cluster_groups[2]
 
 # <codecell>
 
@@ -432,18 +299,6 @@ union_cluster_groups[2]
 # union_cluster_union_clusters = [set.intersection(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
 union_cluster_union_clusters = [union_clusters[g[np.argmax([compute_cluster_score(union_clusters[i])[0] for i in g])]] 
                                 for g in union_cluster_groups]
-
-# <codecell>
-
-where([3395 in g for g in sp_groups])
-
-# <codecell>
-
-union_cluster_union_clusters[87]
-
-# <codecell>
-
-where([2085 in g for g in union_cluster_union_clusters])
 
 # <codecell>
 
@@ -458,25 +313,7 @@ print len(union_cluster_union_clusters_sorted)
 
 # <codecell>
 
-seeds = where([2085 in g for g in union_clusters])[0]
-for seed in seeds:
-    print seed, groups[seed], union_clusters[seed]
-
-# <codecell>
-
-orig_index = where(highlighted_sps==2085)[0][0]
-close_highlighted_indices = where(distance_matrix[orig_index] < 1)[0]
-print highlighted_sps[close_highlighted_indices]
-print distance_matrix[orig_index, close_highlighted_indices]
-
-# <codecell>
-
 dm.save_pipeline_result(filtered_groups_res, 'groups', 'pkl')
-
-# <codecell>
-
-for i in where([3395 in g for g in highlighted_clusters])[0]:
-    print i, highlighted_sps[i], highlighted_clusters[i]
 
 # <codecell>
 

@@ -186,7 +186,9 @@ class DataManager(object):
 
         self.labelings_dir = os.path.join(self.image_dir, 'labelings')
         
-        self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
+#         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
+        self.results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack, self.slice_str)
+        
         if not os.path.exists(self.results_dir):
             os.mkdir(self.results_dir)
 
@@ -272,7 +274,8 @@ class DataManager(object):
             param_dependencies = ['gabor', 'segm']
             
         elif result_name in ['textons']:
-            results_dir = self.resol_dir
+            results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack)
+#             results_dir = self.resol_dir
             param_dependencies = ['gabor', 'vq']
             
         elif result_name in ['texMap', 'original_centroids']:

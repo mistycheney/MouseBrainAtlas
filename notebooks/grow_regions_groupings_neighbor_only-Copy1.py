@@ -220,7 +220,7 @@ def grow_cluster(seed, output=False):
 
 # <codecell>
 
-cluster, s = grow_cluster(3628)
+cluster, s = grow_cluster(3640)
 print 'cluster', cluster
 vis = visualize_cluster(cluster)
 display(vis)
@@ -410,7 +410,7 @@ def compute_cluster_score2(cluster, texton_hists=texton_hists, neighbors=neighbo
 
 # <codecell>
 
-grow_cluster(3518, True)
+grow_cluster(3518)
 
 # <codecell>
 

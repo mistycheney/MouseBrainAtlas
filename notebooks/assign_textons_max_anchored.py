@@ -19,6 +19,8 @@ features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
 
 # <codecell>
 
+# reconstruct textons
+
 # from skimage.util import pad
 # padded_kernels = [None] * dm.n_kernel
 # for i, kern in enumerate(dm.kernels):

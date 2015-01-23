@@ -31,17 +31,21 @@ from scipy.spatial.distance import cdist, pdist, squareform
 center_dists = pdist(sp_properties[:, :2])
 center_dist_matrix = squareform(center_dists)
 
-k = 200
-k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
+# k = 200
+# k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
 
-neighbor_dists = np.empty((n_superpixels, k))
-for i in range(n_superpixels):
-#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
-    neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
+# neighbor_dists = np.empty((n_superpixels, k))
+# for i in range(n_superpixels):
+# #     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
+#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
     
-sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
-for i in range(n_superpixels):
-    sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
+# sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
+# for i in range(n_superpixels):
+#     sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
+
+# <codecell>
+
+sp_sp_dists = squareform(pdist(texton_hists, js))
 
 # <codecell>
 
@@ -180,7 +184,7 @@ neighbor_graph = networkx.from_dict_of_lists(neighbors_dict)
 
 # <codecell>
 
-def grow_cluster(seed, output=False):
+def grow_cluster(seed):
 
 #     seed = 3767
     # null_seed = 3066
@@ -210,8 +214,7 @@ def grow_cluster(seed, output=False):
         s, _, _ = compute_cluster_score(curr_cluster)
         ss.append(s)
         
-        if output:
-            print i, curr_cluster, s
+#         print i, curr_cluster, s
 
     curr_cluster = cc[np.argmax(ss)]
     score = np.max(ss)
@@ -220,10 +223,98 @@ def grow_cluster(seed, output=False):
 
 # <codecell>
 
-cluster, s = grow_cluster(3628)
+def show_salmap(v, mask=dm.mask):
+    sal_map = v[segmentation]
+    sal_map[~mask] = sal_map.min()
+    plt.matshow(sal_map)
+    plt.colorbar()
+    plt.show()
+
+# <codecell>
+
+def equilibrium_dist(A, initial_v):
+    
+    v = initial_v
+    for i in range(50):
+        v_new = np.dot(v, A)
+        if np.linalg.norm(v_new - v) < 1e-5:
+            break
+        v = v_new
+
+    return v
+
+# <codecell>
+
+sigma = 0.1
+affinity_matrix = np.exp(-sp_sp_dists**2/sigma**2)
+affinity_matrix = affinity_matrix/affinity_matrix.sum(axis=1)[:, np.newaxis]
+v = equilibrium_dist(affinity_matrix, 1./n_superpixels * np.ones((n_superpixels, )))
+W = np.tile(v, (n_superpixels, 1))
+Z = np.linalg.inv(np.eye(n_superpixels) - affinity_matrix + W)
+
+Eii = 1/v
+Eij = Eii[j] * (Z)
+
+# <codecell>
+
+def GBVS(D, F):
+    """
+    D is fully connected, feature distance matrix; F is spatial distance matrix
+    """
+    
+    W = D*F
+    A = W/W.sum(axis=1)[:, np.newaxis]
+    
+    n = D.shape[0]
+    
+    initial_v = 1./n * np.ones((n,))
+    
+    v = equilibrium_dist(A, initial_v)
+    show_salmap(v)
+    
+    W2 = v[np.newaxis, :] * F
+    
+    A2 = W2/W2.sum(axis=1)[:, np.newaxis]
+    
+    v2 = equilibrium_dist(A2, initial_v)
+    show_salmap(v2)
+    
+    return v2
+
+# <codecell>
+
+sigma = 100
+F = np.exp(-center_dist_matrix**2/(2*sigma**2))
+
+sal_val = GBVS(sp_sp_dists, F)
+
+# <codecell>
+
+sal_map = sal_val[segmentation]
+sal_map[~dm.mask] = sal_map.min()
+sal_map_normalized = (sal_map/sal_map.max()*255).astype(np.uint8)
+display(sal_map_normalized)
+
+# <codecell>
+
+c = grow_cluster(3937)[0]
+vis = visualize_cluster(c)
+display(vis)
+
+# <codecell>
+
+cluster, s = grow_cluster(3640)
 print 'cluster', cluster
 vis = visualize_cluster(cluster)
 display(vis)
+
+# <codecell>
+
+def compute_bounding_box(cluster):
+    q = np.array([sp_properties[c, 4:] for c in cluster])
+    ymin, xmin = q[:, :2].min(axis=0)
+    ymax, xmax = q[:, 2:].max(axis=0)
+    return ymin, xmin, ymax, xmax
 
 # <codecell>
 
@@ -328,7 +419,10 @@ def group_clusters(clusters, dist_thresh = 0.1):
     for group_id in range(n_groups):
         groups[group_id] = where(T == group_id)[0]
     
-        
+    
+    sp_groups = [ [highlighted_sps[i] for i in group] for group in highlighted_groups if len(group) > 1]
+    union_clusters = [cluster_sps[g[np.argmax(cluster_score_sps[g])]] for g in sp_groups]
+    
     return groups
 
 # <codecell>
@@ -337,11 +431,10 @@ highlighted_groups = group_clusters(highlighted_clusters)
 
 # <codecell>
 
-def view_overlapping_seeds(seed):
-    h = where(highlighted_sps==seed)[0]
-    q = where(distance_matrix[h] <= 0.1)[1]
-    vis = visualize_cluster(highlighted_sps[q])
-    display(vis)
+h = where(highlighted_sps==3508)[0]
+q = where(distance_matrix[h] <= 0.1)[1]
+vis = visualize_cluster(highlighted_sps[q])
+display(vis)
 
 # <codecell>
 
@@ -410,10 +503,6 @@ def compute_cluster_score2(cluster, texton_hists=texton_hists, neighbors=neighbo
 
 # <codecell>
 
-grow_cluster(3518, True)
-
-# <codecell>
-
 sp_groups = [ [highlighted_sps[i] for i in group] for group in highlighted_groups if len(group) > 1]
 union_clusters = [cluster_sps[g[np.argmax(cluster_score_sps[g])]] for g in sp_groups]
 
@@ -432,10 +521,6 @@ union_cluster_groups[2]
 # union_cluster_union_clusters = [set.intersection(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
 union_cluster_union_clusters = [union_clusters[g[np.argmax([compute_cluster_score(union_clusters[i])[0] for i in g])]] 
                                 for g in union_cluster_groups]
-
-# <codecell>
-
-where([3395 in g for g in sp_groups])
 
 # <codecell>
 
@@ -458,6 +543,17 @@ print len(union_cluster_union_clusters_sorted)
 
 # <codecell>
 
+c1 = set([2224, 2084, 2085, 2188, 2397, 2288, 2398, 1982, 2308, 2394, 2298, 2206])
+c2 = set([2084, 2085, 2398, 2188, 2288, 2292, 1982, 2308, 2206])
+ci = c1 & c2
+cu = c1 | c2
+print ci
+print cu
+# print float(len(ci))/len(cu)
+print float(len(ci))/min(len(ci),len(cu))
+
+# <codecell>
+
 seeds = where([2085 in g for g in union_clusters])[0]
 for seed in seeds:
     print seed, groups[seed], union_clusters[seed]
@@ -475,8 +571,8 @@ dm.save_pipeline_result(filtered_groups_res, 'groups', 'pkl')
 
 # <codecell>
 
-for i in where([3395 in g for g in highlighted_clusters])[0]:
-    print i, highlighted_sps[i], highlighted_clusters[i]
+for i in where([4 in g for g in highlighted_clusters])[0]:
+    print i, highlighted_clusters[i]
 
 # <codecell>
 

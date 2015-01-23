@@ -7,7 +7,7 @@ from utilities import *
 from joblib import Parallel, delayed
 
 if 'SSH_CONNECTION' in os.environ:
-    DATA_DIR = '/home/yuncong/DavidData'
+    DATA_DIR = '/home/yuncong/project/DavidData2014tif/'
     REPO_DIR = '/home/yuncong/Brain'
 else:
     DATA_DIR = '/home/yuncong/BrainLocal/DavidData_v4'
@@ -39,7 +39,7 @@ class args:
     slice_ind = 5
     gabor_params_id = 'blueNisslWide'
 #     gabor_params_id = 'blueNissl'
-    segm_params_id = 'blueNissl2'
+    segm_params_id = 'blueNisslRegular'
     vq_params_id = 'blueNissl'
     
 dm.set_image(args.stack_name, args.resolution, args.slice_ind)

@@ -220,7 +220,7 @@ def grow_cluster(seed, output=False):
 
 # <codecell>
 
-cluster, s = grow_cluster(3628)
+cluster, s = grow_cluster(3640)
 print 'cluster', cluster
 vis = visualize_cluster(cluster)
 display(vis)

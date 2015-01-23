@@ -3,7 +3,7 @@
 
 # <codecell>
 
-%load_ext autoreload
+%reload_ext autoreload
 %autoreload 2
 
 from preamble import *
@@ -72,7 +72,7 @@ cluster_assignments = fclusterdata(centroids, 80., method="complete", criterion=
 reduced_centroids = np.array([centroids[cluster_assignments == i].mean(axis=0) for i in set(cluster_assignments)])
 
 n_reduced_texton = len(reduced_centroids)
-print n_reduced_texton
+print n_reduced_texton, 'reduced textons'
 
 from sklearn.cluster import MiniBatchKMeans
 kmeans = MiniBatchKMeans(n_clusters=n_reduced_texton, batch_size=1000, init=reduced_centroids)
@@ -83,7 +83,7 @@ final_centroids = kmeans.cluster_centers_
 
 # <codecell>
 
-# dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
+dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
 
 # <codecell>
 

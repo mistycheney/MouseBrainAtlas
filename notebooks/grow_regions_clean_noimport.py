@@ -3,15 +3,6 @@
 
 # <codecell>
 
-%reload_ext autoreload
-%autoreload 2
-
-# <codecell>
-
-from preamble import *
-
-# <codecell>
-
 texton_hists = dm.load_pipeline_result('texHist', 'npy')
 
 segmentation = dm.load_pipeline_result('segmentation', 'npy')
@@ -30,35 +21,20 @@ segmentation_vis = dm.load_pipeline_result('segmentationWithText', 'jpg')
 
 from scipy.spatial.distance import cdist, pdist, squareform
 
-def f(a):
-    sp_dists = cdist(a, texton_hists, metric=js)
-    return sp_dists
-
-sp_dists = Parallel(n_jobs=16)(delayed(f)(s) for s in np.array_split(texton_hists, 16))
-sp_sp_dists = np.vstack(sp_dists)
-
-# <codecell>
-
-dm.save_pipeline_result(sp_sp_dists, 'texHistPairwiseDist', 'npy')
-
-# <codecell>
-
-from scipy.spatial.distance import cdist, pdist, squareform
-
 center_dists = pdist(sp_properties[:, :2])
 center_dist_matrix = squareform(center_dists)
 
-# k = 200
-# k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
+k = 200
+k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
 
-# neighbor_dists = np.empty((n_superpixels, k))
-# for i in range(n_superpixels):
-# #     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
-#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
+neighbor_dists = np.empty((n_superpixels, k))
+for i in range(n_superpixels):
+#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
+    neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
     
-# sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
-# for i in range(n_superpixels):
-#     sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
+sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
+for i in range(n_superpixels):
+    sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
 
 # <codecell>
 

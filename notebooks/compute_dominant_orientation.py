@@ -48,6 +48,11 @@ max_dir_sp, max_freq_sp, max_response_sp, dominant_ratio_sp = map(np.array, zip(
 
 # <codecell>
 
+dm.save_pipeline_result(max_dir_sp, 'spMaxDirInd', 'npy')
+dm.save_pipeline_result(dm.angles[max_dir_sp], 'spMaxDirAngle', 'npy')
+
+# <codecell>
+
 segmentation_vis = dm.load_pipeline_result('segmentationWithText', 'jpg')
 segmentation_vis2 = segmentation_vis.copy()
 segmentation_vis2[~dm.mask] = 0
@@ -98,8 +103,4 @@ for s in range(n_superpixels - 1):
 # <codecell>
 
 dm.save_pipeline_result(dirmap_vis2, 'dirMap', 'jpg')
-
-# <codecell>
-
-# plt.imshow(dirmap_vis2, cmap=plt.cm.Greys_r)
 

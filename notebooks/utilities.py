@@ -190,7 +190,7 @@ class DataManager(object):
         self.results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack, self.slice_str)
         
         if not os.path.exists(self.results_dir):
-            os.mkdir(self.results_dir)
+            os.makedirs(self.results_dir)
 
     def set_image(self, stack, resol, slice_ind):
         self.set_stack(stack, resol)
@@ -264,13 +264,13 @@ class DataManager(object):
 
         results_dir = self.results_dir
         
-        if result_name in ['features', 'kernels', 'features_rotated', 'features_rotated_pca']:
+        if result_name in ['features', 'kernels', 'features_rotated', 'features_rotated_pca', 'max_angle_indices']:
             param_dependencies = ['gabor']
 
         elif result_name in['segmentation', 'segmentationWithText', 'spProps', 'neighbors']:
             param_dependencies = ['segm']
                         
-        elif result_name in ['dirMap', 'dirHist']:
+        elif result_name in ['dirMap', 'dirHist', 'spMaxDirInd', 'spMaxDirAngle']:
             param_dependencies = ['gabor', 'segm']
             
         elif result_name in ['textons']:
@@ -281,7 +281,7 @@ class DataManager(object):
         elif result_name in ['texMap', 'original_centroids']:
             param_dependencies = ['gabor', 'vq']
 
-        elif result_name in ['texHist', 'clusters', 'groups']:
+        elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop30Vis', 'texHistPairwiseDist']:
             param_dependencies = ['gabor', 'segm', 'vq']
             
         # elif result_name == 'tmp':

@@ -3,13 +3,6 @@
 
 # <codecell>
 
-%load_ext autoreload
-%autoreload 2
-
-from preamble import *
-
-# <codecell>
-
 from skimage.util import pad
 
 approx_bg_intensity = dm.image[10:20, 10:20].mean()
@@ -21,8 +14,8 @@ masked_image[~dm.mask] = approx_bg_intensity
 # padded_image = pad(masked_image, max_kern_size, 'constant', constant_values=approx_bg_intensity)
 padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
 
-plt.imshow(padded_image, cm.Greys_r)
-plt.show()
+# plt.imshow(padded_image, cm.Greys_r)
+# plt.show()
 
 # display(padded_image)
 

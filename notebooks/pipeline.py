@@ -36,7 +36,7 @@ dm = DataManager(DATA_DIR, REPO_DIR)
 class args:
     stack_name = 'RS140'
     resolution = 'x5'
-    slice_ind = 0
+    slice_ind = 4
     gabor_params_id = 'blueNisslWide'
 #     gabor_params_id = 'blueNissl'
     segm_params_id = 'blueNisslRegular'
@@ -46,4 +46,16 @@ dm.set_image(args.stack_name, args.resolution, args.slice_ind)
 dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
 dm.set_segmentation_params(segm_params_id=args.segm_params_id)
 dm.set_vq_params(vq_params_id=args.vq_params_id)
+
+# <codecell>
+
+%run gabor_filter_nocrop_noimport.ipynb
+%run segmentation_nocrop_noimport.ipynb
+%run rotate_features_noimport.ipynb
+%run assign_textons_max_anchored_noimport.ipynb
+%run compute_texton_histograms_noimport.ipynb
+%run grow_regions_clean_noimport.ipynb
+
+# <codecell>
+
 

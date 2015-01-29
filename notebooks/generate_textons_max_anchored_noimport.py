@@ -3,13 +3,6 @@
 
 # <codecell>
 
-%load_ext autoreload
-%autoreload 2
-
-from preamble import *
-
-# <codecell>
-
 n_texton = 100
 # n_texton = 10
 

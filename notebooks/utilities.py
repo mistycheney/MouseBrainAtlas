@@ -10,13 +10,15 @@ from skimage.morphology import binary_dilation, binary_erosion, watershed, remov
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte
-import cv2
+from skimage.io import imread, imsave
 import numpy as np
 import os, csv
 
 
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
+
+    import cv2
 
     # draw arrow tail
     cv2.line(image, p, q, color, thickness, line_type, shift)
@@ -204,11 +206,11 @@ class DataManager(object):
         image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
 
-        self.image = cv2.imread(image_filename, 0)
+        self.image = imread(image_filename, as_grey=True)
         self.image_height, self.image_width = self.image.shape[:2]
 
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
-        self.mask = cv2.imread(mask_filename, 0) > 0
+        self.mask = imread(mask_filename, as_grey=True) > 0
         
     def set_gabor_params(self, gabor_params_id):
         
@@ -327,7 +329,7 @@ class DataManager(object):
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
-            data = cv2.imread(result_filename)
+            data = imread(result_filename, as_grey=False)
             if data.ndim == 3:
                 data = data[...,::-1]
             data = self._regulate_image(data, is_rgb)
@@ -347,9 +349,9 @@ class DataManager(object):
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = self._regulate_image(data, is_rgb)
             if data.ndim == 3:
-                cv2.imwrite(result_filename, data[..., ::-1])
+                imsave(result_filename, data[..., ::-1])
             else:
-                cv2.imwrite(result_filename, data)
+                imsave(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
             
@@ -366,9 +368,9 @@ class DataManager(object):
         
         data = self._regulate_image(labelmap_vis, is_rgb=True)
         if data.ndim == 3:
-            cv2.imwrite(new_preview_fn, data[..., ::-1])
+            imsave(new_preview_fn, data[..., ::-1])
         else:
-            cv2.imwrite(new_preview_fn, data)
+            imsave(new_preview_fn, data)
         print 'Preview saved to', new_preview_fn
         
     def _regulate_image(self, img, is_rgb=None):
@@ -403,14 +405,15 @@ def display(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
         if vis.ndim == 3:
-            cv2.imwrite(filename, img_as_ubyte(vis)[..., ::-1])
+            imwrite(filename, img_as_ubyte(vis)[..., ::-1])
         else:
-            cv2.imwrite(filename, img_as_ubyte(vis))
+            imwrite(filename, img_as_ubyte(vis))
     else:
         if vis.ndim == 3:
-            cv2.imwrite(filename, vis[..., ::-1])
+            imwrite(filename, vis[..., ::-1])
         else:
-            cv2.imwrite(filename, vis)
+            imwrite(filename, vis)
+            
     from IPython.display import FileLink
     return FileLink(filename)
 

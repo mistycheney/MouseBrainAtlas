@@ -3,34 +3,31 @@ from PyQt4.Qt import *
 from PyQt4.QtCore import QSize, QDir
 from PyQt4.QtGui import QTableWidget, QHeaderView, QTableWidgetItem, QPixmap, \
     QIcon, QMainWindow, QWidget, QHBoxLayout, QApplication
-# from Tkdnd import Icon
-import os
-import cPickle as pickle
-# from visualization_utilities import *
+
+import sip
 
 from brain_labelling_gui_v9 import BrainLabelingGUI
 from ui_param_settings_v2 import Ui_ParameterSettingsWindow
+from ui_DataManager_v3 import Ui_DataManager
+
+import os
+import sys
+import cPickle as pickle
 from operator import itemgetter
 
-import sys
 sys.path.append(os.path.realpath('../notebooks'))
-from utilities import *
+from utilities import DataManager
+
+class ParamSettingsForm(QtGui.QWidget, Ui_ParameterSettingsWindow):
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.setupUi(self)
+
 
 SPACING = 7
 FIXED_WIDTH = 1600
 FIXED_HEIGHT = 970
 THUMB_WIDTH = 300
-
-data_dir = os.environ['LOCAL_DATA_DIR']
-
-import sip
-
-class ParamSettingsForm(QtGui.QWidget):
-    def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        self.ui = Ui_ParameterSettingsWindow()
-        self.ui.setupUi(self)
-
 
 class PreviewerWidget(QWidget):
     def __init__(self, parent=None):
@@ -103,9 +100,6 @@ class PreviewerWidget(QWidget):
 
         self.selected_image = None
 
-    # def set_toplevel(self, g):
-    #     self.top = g
-
     # Folder chosen event
     def image_clicked(self):
         thumbnail_clicked = self.sender()
@@ -116,79 +110,36 @@ class PreviewerWidget(QWidget):
         self.callback(index_clicked)
 
 
-class MainWindow(QMainWindow):
+class DataManagerGui(QMainWindow, Ui_DataManager):
     
     def __init__(self, parent=None, **kwargs):
+        # self.app = QApplication(sys.argv)
         QMainWindow.__init__(self, parent, **kwargs)
+
+        self.setupUi(self)
         
         self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
             repo_dir=os.environ['LOCAL_REPO_DIR'],
             result_dir=os.environ['LOCAL_RESULT_DIR'], 
             labeling_dir=os.environ['LOCAL_LABELING_DIR'])
-
-        # Create set of widgets in the central widget window
-        self.cWidget = QWidget()
-        self.vLayout = QVBoxLayout(self.cWidget)
-        self.leftListLayout = QVBoxLayout()
-        self.topLayout = QHBoxLayout()
-        self.bottomLayout = QHBoxLayout()
         
-        # remote_ds = pickle.load(open('remote_directory_structure.pkl', 'r'))
-
         self.stack_model = QStandardItemModel()
-        
         self.labeling_model = QStandardItemModel()
 
         for stack_info in self.dm.local_ds['stacks']:
             item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
             self.stack_model.appendRow(item)
 
-        self.stack_list = QtGui.QListView()
         self.stack_list.setModel(self.stack_model)
         self.stack_list.clicked.connect(self.on_stacklist_clicked)
-                
-        # self.section_list = QtGui.QListView()
-
-        # self.section_model = QStandardItemModel(self.section_list)
-
-        # self.section_list.setModel(self.section_model)
-        # self.section_list.clicked.connect(self.on_sectionlist_clicked)
-
-        # self.labeling_list = QtGui.QListView()
-        # self.labeling_list.setModel(self.labeling_model)
-        # self.labeling_list.clicked.connect(self.on_labelinglist_clicked)
-
         self.previewer = PreviewerWidget()
         # self.previewer.set_toplevel(self)
 
-        self.leftListLayout.addWidget(self.stack_list)
-        # self.leftListLayout.addWidget(self.section_list)
-        # self.leftListLayout.addWidget(self.labeling_list)
-
-        # Add both widgets to gadget
-        self.topLayout.addLayout(self.leftListLayout)
         self.topLayout.addWidget(self.previewer)
-
-        # Bottom buttons
-        self.bottomLayout.addStretch();
-        self.buttonS = QPushButton("Parameter Settings", self)
-        # self.buttonR = QPushButton("Refresh", self)
-        self.buttonQ = QPushButton("Quit", self)
         
-        # Bind buttons presses
-        # self.buttonS.clicked.connect(self.pref_clicked)
+        self.buttonParams.clicked.connect(self.paramSettings_clicked)
         # self.buttonR.clicked.connect(self.refresh_clicked)
-        self.buttonQ.clicked.connect(self.exit_clicked)
-
-        # Add buttons to widget
-        self.bottomLayout.addWidget(self.buttonS);
-        # self.bottomLayout.addWidget(self.buttonR);
-        self.bottomLayout.addWidget(self.buttonQ);
-
-        # Set topLayout of widget as horizontal
-        #cWidget.setLayout(self.topLayout)
-        self.vLayout.addLayout(self.topLayout)
-        self.vLayout.addLayout(self.bottomLayout)
+        self.buttonQuit.clicked.connect(self.exit_clicked)
 
         self.setCentralWidget(self.cWidget)
 
@@ -215,9 +166,6 @@ class MainWindow(QMainWindow):
             else:
                 caption = self.dm.slice_str + ' (0 labelings)'
             
-            # sectionList_item = QStandardItem(caption)
-            # self.section_model.appendRow(sectionList_item)
-
             imgs_path_caption.append((self.dm.image_path, caption))
 
         self.previewer.set_images(imgs=imgs_path_caption, callback=self.process_section_selected)
@@ -241,38 +189,42 @@ class MainWindow(QMainWindow):
         # add human labelings if there is any
         if 'labelings' in self.dm.section_info:
             self.labeling_names += self.dm.section_info['labelings']
-            for labeling_name in self.labeling_names:
+        
+            for labeling_name in self.dm.section_info['labelings']:
                 item = QStandardItem(labeling_name)
                 self.labeling_model.appendRow(item)
 
-                preview_path = self.load_labeling_preview(labeling_name[:-4])
+                stack, section, user, timestamp = labeling_name[:-4].split('_')
+
+                preview_path = self.dm._load_labeling_preview_path('_'.join([user, timestamp]))
                 previews_path_caption.append((preview_path, labeling_name))
 
+        print previews_path_caption
         self.previewer.set_images(imgs=previews_path_caption, callback=self.process_labeling_selected)
-
-
-    # def on_sectionlist_clicked(self, list_index):
-    #     item_index = list_index.row()
-    #     # self.section_name = str(index.data().toString())
-    #     self.process_section_selected(item_index)
 
 
     def process_labeling_selected(self, labeling_index):
 
         self.labeling_name = self.labeling_names[labeling_index]
 
-        print labeling_index, self.labeling_name
+        self.dm.set_resol('x5')
+        self.dm._load_image()
+
+        if self.labeling_name != 'new labeling':
+            stack, section, user, timestamp = self.labeling_name[:-4].split('_')
+            self.labeling_gui = BrainLabelingGUI(dm=self.dm, parent_labeling_name='_'.join([user, timestamp]))
+        else:
+            self.labeling_gui = BrainLabelingGUI(dm=self.dm)
+
+    def paramSettings_clicked(self):
+        self.paramsForm = ParamSettingsForm()
+        self.paramsForm.show()
 
         self.dm.set_gabor_params(gabor_params_id='blueNisslWide')
         self.dm.set_segmentation_params(segm_params_id='blueNisslRegular')
         self.dm.set_vq_params(vq_params_id='blueNissl')
-        self.dm.set_resol('x5')
-
-        self.dm._load_image()
 
 
-        self.labeling_gui = BrainLabelingGUI(dm=self.dm)
-            
     def exit_clicked(self): 
         exit()
 
@@ -281,7 +233,7 @@ if __name__ == "__main__":
     from sys import argv, exit
 
     a = QApplication(argv)
-    m = MainWindow()
+    m = DataManagerGui()
     m.setWindowTitle("Data Manager")
     m.showMaximized()
     m.raise_()

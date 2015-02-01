@@ -6,7 +6,7 @@ from PyQt4.QtGui import QTableWidget, QHeaderView, QTableWidgetItem, QPixmap, \
 
 from brain_labelling_gui_v9 import BrainLabelingGUI
 from ui_param_settings_v2 import Ui_ParameterSettingsWindow
-from ui_DataManager_v3 import Ui_DataManager
+from ui_DataManager_v4 import Ui_DataManager
 from preview_widget import PreviewerWidget
 
 import os
@@ -16,6 +16,10 @@ from operator import itemgetter
 
 sys.path.append(os.path.realpath('../notebooks'))
 from utilities import DataManager
+
+from operator import itemgetter
+from collections import defaultdict
+import itertools
 
 class ParamSettingsForm(QtGui.QWidget, Ui_ParameterSettingsWindow):
     def __init__(self, parent=None):
@@ -34,20 +38,15 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
             repo_dir=os.environ['LOCAL_REPO_DIR'],
             result_dir=os.environ['LOCAL_RESULT_DIR'], 
             labeling_dir=os.environ['LOCAL_LABELING_DIR'])
-
-        self.gabor_params_id='blueNisslWide'
-        self.segm_params_id='blueNisslRegular'
-        self.vq_params_id='blueNissl'
         
         self.stack_model = QStandardItemModel()
-        self.labeling_model = QStandardItemModel()
 
         for stack_info in self.dm.local_ds['stacks']:
             item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
             self.stack_model.appendRow(item)
 
         self.stack_list.setModel(self.stack_model)
-        self.stack_list.clicked.connect(self.on_stacklist_clicked)
+        self.stack_list.clicked.connect(self.on_stacklist_clicked_images)
         self.previewer = PreviewerWidget()
 
         self.topLayout.addWidget(self.previewer)
@@ -60,7 +59,60 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         self.labeling_guis = []
 
-    def on_stacklist_clicked(self, list_index):
+        self.actionLabeling.triggered.connect(self.switch_to_labeling)
+
+    def switch_to_labeling(self, event):
+        self.stack_list.clicked.connect(self.on_stacklist_clicked_labelings)
+
+        self.section_model = QStandardItemModel()
+        self.section_list.setModel(self.section_model)
+        self.section_list.clicked.connect(self.on_sectionlist_clicked_labelings)
+
+        self.label_toshow = 3
+
+        self.statusBar().showMessage('Only showing labelings with label %d (%s)' % (self.label_toshow,
+                                                    self.dm.labelnames[self.label_toshow]))
+
+        self.preview_caption_tuples = [(labeling['previewpath'], labeling['filename']) 
+                                for labeling in self.dm.inv_labeing_index[self.label_toshow]]
+
+        labeling_tuples = [labeling_filename[:-4].split('_') 
+                            for labeling_path, labeling_filename in self.preview_caption_tuples]
+
+        self.d = defaultdict(lambda: defaultdict(list))
+        for i, (stack, section_str, user, timestamp) in enumerate(labeling_tuples):
+            self.d[stack][int(section_str)].append(i)
+
+        self.stack_model.clear()
+        for stack_name in self.d:
+            item = QStandardItem(stack_name)
+            self.stack_model.appendRow(item)
+
+        self.previewer.set_images(imgs=self.preview_caption_tuples, callback=self.process_labeling_selected)
+
+    def on_stacklist_clicked_labelings(self, list_index):
+        self.selected_stack_name = str(list_index.data().toString()).split()[0]
+        self.sections = self.d[self.selected_stack_name].keys()
+
+        self.dm.set_stack(self.selected_stack_name)
+
+        self.section_model.clear()
+        for section_ind in self.sections:
+            item = QStandardItem('%04d'%section_ind)
+            self.section_model.appendRow(item)
+
+        indices_toshow = list(itertools.chain.from_iterable(self.d[self.selected_stack_name].values()))
+        tuples_toshow = [self.preview_caption_tuples[i] for i in indices_toshow]
+        self.previewer.set_images(imgs=tuples_toshow, callback=self.process_labeling_selected)
+
+    def on_sectionlist_clicked_labelings(self, list_index):
+        self.selected_section = int(str(list_index.data().toString()))
+        indices_toshow = self.d[self.selected_stack_name][self.selected_section]
+        tuples_toshow = [self.preview_caption_tuples[i] for i in indices_toshow]
+        self.previewer.set_images(imgs=tuples_toshow, callback=self.process_labeling_selected)
+
+
+    def on_stacklist_clicked_images(self, list_index):
         # selected_stack_index = list_index.row()
         self.stack_name = str(list_index.data().toString()).split()[0]
         # self.stack_name = self.dm.local_ds['available_stack_names'][selected_stack_index]
@@ -94,26 +146,18 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
     def process_section_selected(self, item_index):
         self.dm.set_slice(item_index)
 
-        self.labeling_model.clear()
-
         # list of (file path, caption) tuples
         previews_path_caption = []
 
         # add default "new labeling"
         newLabeling_name = 'new labeling'
-        newLabeling_item = QStandardItem(newLabeling_name)
-        self.labeling_model.appendRow(newLabeling_item)
-        previews_path_caption.append((self.dm.image_path, newLabeling_name))
-        self.labeling_names = [newLabeling_name]
 
+        previews_path_caption.append((self.dm.image_path, newLabeling_name))
         # add human labelings if there is any
         if 'labelings' in self.dm.section_info:
         
             for labeling in self.dm.section_info['labelings']:
                 labeling_name = labeling['filename']
-                self.labeling_names.append(labeling_name)
-                item = QStandardItem(labeling_name)
-                self.labeling_model.appendRow(item)
 
                 stack, section, user, timestamp = labeling_name[:-4].split('_')
 
@@ -123,24 +167,14 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
         print previews_path_caption
         self.previewer.set_images(imgs=previews_path_caption, callback=self.process_labeling_selected)
 
-
     def process_labeling_selected(self, labeling_index):
 
-        self.labeling_name = self.labeling_names[labeling_index]
-
-        self.dm.set_resol('x5')
-        self.dm._load_image()
-
-        self.dm.set_gabor_params(gabor_params_id=self.gabor_params_id)
-        self.dm.set_segmentation_params(segm_params_id=self.segm_params_id)
-        self.dm.set_vq_params(vq_params_id=self.vq_params_id)
-
+        self.labeling_name = self.previewer.captions[labeling_index]
 
         if self.labeling_name != 'new labeling':
-            stack, section, user, timestamp = self.labeling_name[:-4].split('_')
-            labeling_gui = BrainLabelingGUI(dm=self.dm, parent_labeling_name='_'.join([user, timestamp]))
+            labeling_gui = BrainLabelingGUI(parent_labeling_name=self.labeling_name)
         else:
-            labeling_gui = BrainLabelingGUI(dm=self.dm)
+            labeling_gui = BrainLabelingGUI(stack=self.dm.stack, section=self.dm.slice_ind)
 
         self.labeling_guis.append(labeling_gui)
 
@@ -149,11 +183,6 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
     def paramSettings_clicked(self):
         self.paramsForm = ParamSettingsForm()
         self.paramsForm.show()
-
-        self.gabor_params_id='blueNisslWide'
-        self.segm_params_id='blueNisslRegular'
-        self.vq_params_id='blueNissl'
-
 
     def exit_clicked(self): 
         exit()

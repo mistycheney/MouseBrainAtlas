@@ -43,14 +43,12 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-# from ui_DataManager import Ui_DataManager
 from ui_BrainLabelingGui_v8 import Ui_BrainLabelingGui
-# from ui_InputSelectionMultipleLists import Ui_InputSelectionDialog
 
 IGNORE_EXISTING_LABELNAMES = False
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
-	def __init__(self, parent=None, dm=None, parent_labeling_name=None):
+	def __init__(self, parent=None, parent_labeling_name=None, stack=None, section=None):
 		"""
 		Initialization of BrainLabelingGUI.
 		"""
@@ -66,12 +64,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.instance_dir = None
 		# self.instance_name = None
 
-		self.app = QApplication(sys.argv)
+		# self.app = QApplication(sys.argv)
 		QMainWindow.__init__(self, parent)
 
 		self.parent_labeling_name = parent_labeling_name
 
-		self.dm = dm
+		self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+			repo_dir=os.environ['LOCAL_REPO_DIR'], 
+			result_dir=os.environ['LOCAL_RESULT_DIR'], labeling_dir=os.environ['LOCAL_LABELING_DIR'])
+
+		self.gabor_params_id='blueNisslWide'
+		self.segm_params_id='blueNisslRegular'
+		self.vq_params_id='blueNissl'
+
+		self.dm.set_gabor_params(gabor_params_id=self.gabor_params_id)
+		self.dm.set_segmentation_params(segm_params_id=self.segm_params_id)
+		self.dm.set_vq_params(vq_params_id=self.vq_params_id)
+
+		if stack is None or section is None:
+			stack, section_str, user, timestamp = self.parent_labeling_name[:-4].split('_')
+			section = int(section_str)
+
+		self.dm.set_image(stack, 'x5', section)
 
 		self.labelnames = self.dm.labelnames
 
@@ -87,13 +101,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.textonmap_vis = None
 		self.dirmap_vis = None
 
-		self.username = 'yuncong'
-
 		self.load_labeling()
 
 		# self.data_manager.close()
 		self.initialize_brain_labeling_gui()
 
+	def paramSettings_clicked(self):
+		pass
+        # self.paramsForm = ParamSettingsForm()
+        # self.paramsForm.show()
+
+        # self.gabor_params_id='blueNisslWide'
+        # self.segm_params_id='blueNisslRegular'
+        # self.vq_params_id='blueNissl'
 
 	def load_labeling(self):
 
@@ -101,14 +121,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.masked_img[~self.dm.mask, :] = 0
 
 		try:
-			parent_labeling = self.dm.load_labeling(self.parent_labeling_name)
+			parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
 
 			print 'Load saved labeling'
 			
 			# label_circles = parent_labeling['final_label_circles']
 
 			self.labeling = {
-				'username' : self.username,
+				'username' : None,
 				'parent_labeling_name' : self.parent_labeling_name,
 				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
 				'initial_polygons': parent_labeling['final_polygons'],
@@ -124,7 +144,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'No labeling is given. Initialize labeling.'
 
 			self.labeling = {
-				'username' : self.username,
+				'username' : None,
 				'parent_labeling_name' : None,
 				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
 				'initial_polygons': None,
@@ -173,9 +193,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if action == self.growRegion_Action:
 					
 			self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
-
 			self.curr_label = self.sp_labellist[seed_sp]
-
 			for sp in self.cluster_sps[seed_sp]:
 				self.paint_superpixel(sp)
 
@@ -221,6 +239,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			del self.polygon_labels[polygon_index]
 			self.remove_highlight_polygon()
 
+		elif action == self.crossReference_Action:
+			pass
+
+			# self.crossRefGallery = CrossReferenceGui()
+
+			# reference_labeling_preview_path_captions = []
+
+			# for labeling in self.dm.inv_labeing_index[self.curr_label]:				
+			# 	reference_labeling_preview_path_captions.append((labeling['previewpath'],
+			# 	 												labeling['filename']))
+
+			# self.crossRefGallery.set_images(reference_labeling_preview_path_captions,
+			# 								callback=self.cross_ref_gallery_callback)
+
+
+	# def cross_ref_gallery_callback(self):
+
+
 	def initialize_brain_labeling_gui(self):
 
 		self.menu = QMenu()
@@ -230,6 +266,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.eraseAllSpsCurrColor_Action = self.menu.addAction("Clear similar neighbors")
 		self.endDraw_Action = self.menu.addAction("End drawing region")
 		self.deletePolygon_Action = self.menu.addAction("Delete polygon")
+		self.crossReference_Action = self.menu.addAction("Cross reference")
 
 		# A set of high-contrast colors proposed by Green-Armytage
 		self.colors = np.loadtxt('100colors.txt', skiprows=1)
@@ -276,6 +313,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.newLabelButton.clicked.connect(self.newlabel_callback)
 		# self.newLabelButton.clicked.connect(self.sigboost_callback)
 		self.quitButton.clicked.connect(self.close)
+		self.buttonParams.clicked.connect(self.paramSettings_clicked)
+
 
 		self.brushSizeSlider.valueChanged.connect(self.brushSizeSlider_valueChanged)
 		self.brushSizeEdit.setText('%d' % self.brushSizeSlider.value())
@@ -318,7 +357,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw()
 		self.show()
-
 
 	############################################
 	# QT button CALLBACKs
@@ -535,6 +573,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.initialize_data_manager()
 
 	def _save_labeling(self, ):
+
+		username, ok = QInputDialog.getText(self, "Username", 
+							"Please enter your username:", QLineEdit.Normal, 'anon')
+		if not ok: return
+
+		self.username = str(username)
 
 		# self.axes.imshow(labelmap_vis)
 		# for c in self.circle_list:
@@ -854,33 +898,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# 	return labelmap
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-	import sys
-	import os
-	sys.path.append('../notebooks')
+# 	import sys
+# 	import os
+# 	sys.path.append('../notebooks')
 
-	from utilities import *
+# 	from utilities import *
 
-	dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
-	    repo_dir=os.environ['LOCAL_REPO_DIR'],
-	    result_dir=os.environ['LOCAL_RESULT_DIR'], 
-	    labeling_dir=os.environ['LOCAL_LABELING_DIR'])
+# 	dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+# 	    repo_dir=os.environ['LOCAL_REPO_DIR'],
+# 	    result_dir=os.environ['LOCAL_RESULT_DIR'], 
+# 	    labeling_dir=os.environ['LOCAL_LABELING_DIR'])
 
-	class args:
-		stack_name = 'RS140'
-		resolution = 'x5'
-		# slice_ind = int(sys.argv[1])
-		slice_ind = 0
-		gabor_params_id = 'blueNisslWide'
-		segm_params_id = 'blueNisslRegular'
-		vq_params_id = 'blueNissl'
+# 	class args:
+# 		stack_name = 'RS140'
+# 		resolution = 'x5'
+# 		# slice_ind = int(sys.argv[1])
+# 		slice_ind = 0
+# 		gabor_params_id = 'blueNisslWide'
+# 		segm_params_id = 'blueNisslRegular'
+# 		vq_params_id = 'blueNissl'
 		
-	dm.set_image(args.stack_name, args.resolution, args.slice_ind)
-	dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
-	dm.set_segmentation_params(segm_params_id=args.segm_params_id)
-	dm.set_vq_params(vq_params_id=args.vq_params_id)
+# 	dm.set_image(args.stack_name, args.resolution, args.slice_ind)
+# 	dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
+# 	dm.set_segmentation_params(segm_params_id=args.segm_params_id)
+# 	dm.set_vq_params(vq_params_id=args.vq_params_id)
 	
-	gui = BrainLabelingGUI(dm=dm)
- #    # gui.show()
-	gui.app.exec_()
+# 	gui = BrainLabelingGUI(dm=dm)
+#  #    # gui.show()
+# 	gui.app.exec_()

@@ -41,7 +41,6 @@
       <property name="contextMenuPolicy">
        <enum>Qt::CustomContextMenu</enum>
       </property>
-      <zorder></zorder>
      </widget>
     </item>
     <item>
@@ -275,6 +274,13 @@ padding:0px;
          <widget class="QPushButton" name="newLabelButton">
           <property name="text">
            <string>Add New Label</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="buttonParams">
+          <property name="text">
+           <string>Change Parameters</string>
           </property>
          </widget>
         </item>

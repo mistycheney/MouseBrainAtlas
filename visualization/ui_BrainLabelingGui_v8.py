@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v8.ui'
 #
-# Created: Fri Jan 30 16:07:12 2015
+# Created: Sun Feb  1 02:33:02 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -198,6 +198,9 @@ class Ui_BrainLabelingGui(object):
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
+        self.buttonParams = QtGui.QPushButton(self.centralwidget)
+        self.buttonParams.setObjectName(_fromUtf8("buttonParams"))
+        self.buttonsLayout.addWidget(self.buttonParams)
         self.quitButton = QtGui.QPushButton(self.centralwidget)
         self.quitButton.setObjectName(_fromUtf8("quitButton"))
         self.buttonsLayout.addWidget(self.quitButton)
@@ -231,6 +234,7 @@ class Ui_BrainLabelingGui(object):
         self.loadButton.setText(_translate("BrainLabelingGui", "Load", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add New Label", None))
+        self.buttonParams.setText(_translate("BrainLabelingGui", "Change Parameters", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 

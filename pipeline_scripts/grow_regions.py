@@ -3,6 +3,7 @@ from utilities import *
 import os
 import argparse
 import sys
+from joblib import Parallel, delayed
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -27,12 +28,15 @@ dm.set_gabor_params(gabor_params_id='blueNisslWide')
 dm.set_segmentation_params(segm_params_id='blueNisslRegular')
 dm.set_vq_params(vq_params_id='blueNissl')
 
+dm.set_image(args.stack_name, 'x5', args.slice_ind)
+
 #============================================================
+import cv2
 
 texton_hists = dm.load_pipeline_result('texHist', 'npy')
 
 segmentation = dm.load_pipeline_result('segmentation', 'npy')
-n_superpixels = len(unique(segmentation)) - 1
+n_superpixels = len(np.unique(segmentation)) - 1
 
 textonmap = dm.load_pipeline_result('texMap', 'npy')
 n_texton = len(np.unique(textonmap)) - 1

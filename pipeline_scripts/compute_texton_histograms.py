@@ -3,6 +3,8 @@ from utilities import *
 import os
 import argparse
 import sys
+from joblib import Parallel, delayed
+
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -27,21 +29,28 @@ dm.set_gabor_params(gabor_params_id='blueNisslWide')
 dm.set_segmentation_params(segm_params_id='blueNisslRegular')
 dm.set_vq_params(vq_params_id='blueNissl')
 
+dm.set_image(args.stack_name, 'x5', args.slice_ind)
+
 #============================================================
 
-segmentation = dm.load_pipeline_result('segmentation', 'npy')
-n_superpixels = len(np.unique(segmentation)) - 1
+if dm.check_pipeline_result('texHist', 'npy'):
+	print "texHist.npy already exists, skip"
 
-textonmap = dm.load_pipeline_result('texMap', 'npy')
+else:
+	
+	segmentation = dm.load_pipeline_result('segmentation', 'npy')
+	n_superpixels = len(np.unique(segmentation)) - 1
 
-n_texton = len(np.unique(textonmap)) - 1
+	textonmap = dm.load_pipeline_result('texMap', 'npy')
+
+	n_texton = len(np.unique(textonmap)) - 1
 
 
-def texton_histogram_worker(i):
-    return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
+	def texton_histogram_worker(i):
+	    return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
 
-r = Parallel(n_jobs=16)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
-sp_texton_hist = np.array(r)
-sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis] # denom might be invalid
+	r = Parallel(n_jobs=16)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
+	sp_texton_hist = np.array(r)
+	sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis] # denom might be invalid
 
-dm.save_pipeline_result(sp_texton_hist_normalized, 'texHist', 'npy')
+	dm.save_pipeline_result(sp_texton_hist_normalized, 'texHist', 'npy')

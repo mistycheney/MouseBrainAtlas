@@ -12,11 +12,12 @@ from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte
 from skimage.io import imread, imsave
 import numpy as np
-import os, csv
+import os
+import csv
+import sys
 from operator import itemgetter
 import json
 import cPickle as pickle
-
 
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
@@ -422,12 +423,12 @@ class DataManager(object):
         # kernels = [k - k.sum()/k.size for k in kernels] # this enforces all kernel sum to be zero
 
         self.n_kernel = len(kernels)
+        self.max_kern_size = np.max([kern.shape[0] for kern in self.kernels])
 
+    def print_gabor_info(self):
         print 'num. of kernels: %d' % (self.n_kernel)
         print 'frequencies:', self.frequencies
         print 'wavelength (pixels):', 1/self.frequencies
-
-        self.max_kern_size = np.max([kern.shape[0] for kern in self.kernels])
         print 'max kernel matrix size:', self.max_kern_size
         
     def set_segmentation_params(self, segm_params_id):
@@ -497,13 +498,20 @@ class DataManager(object):
         
         return result_filename
             
+
+    def check_pipeline_result(self, result_name, ext):
+        if REGENERATE_ALL_RESULTS:
+            return False
+
+        result_filename = self._get_result_filename(result_name, ext)
+        return os.path.exists(result_filename)
+
     def load_pipeline_result(self, result_name, ext, is_rgb=None):
         
         if REGENERATE_ALL_RESULTS:
             raise
         
         result_filename = self._get_result_filename(result_name, ext)
-        print result_filename
 
         if ext == 'npy':
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
@@ -611,8 +619,6 @@ class DataManager(object):
 def display(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
-        imwrite(filename, img_as_ubyte(vis))
-    else:
         imwrite(filename, img_as_ubyte(vis))
     else:
         imwrite(filename, vis)

@@ -1,14 +1,15 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
 
-# <codecell>
+# coding: utf-8
 
-%load_ext autoreload
-%autoreload 2
+# In[ ]:
+
+get_ipython().magic(u'load_ext autoreload')
+get_ipython().magic(u'autoreload 2')
 
 from preamble import *
 
-# <codecell>
+
+# In[3]:
 
 n_texton = 100
 # n_texton = 10
@@ -31,7 +32,8 @@ except:
 
     dm.save_pipeline_result(centroids, 'original_centroids', 'npy')
 
-# <codecell>
+
+# In[4]:
 
 from scipy.cluster.hierarchy import fclusterdata
 # cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")
@@ -49,11 +51,13 @@ kmeans.fit(features_rotated)
 final_centroids = kmeans.cluster_centers_
 # labels = kmeans.labels_
 
-# <codecell>
+
+# In[5]:
 
 dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
 
-# <codecell>
+
+# In[15]:
 
 # def visualize_features(centroids, n_freq, n_angle, colors=None):
 #     """
@@ -103,7 +107,8 @@ dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
 
 #     plt.show()
 
-# <codecell>
+
+# In[16]:
 
 # hc_colors = np.loadtxt('hc_colors.txt', delimiter=',')/ 255.
 # hc_colors = np.loadtxt('../visualization/high_contrast_colors.txt')/ 255.
@@ -113,11 +118,13 @@ dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
 # hc_colors = np.random.random((n_texton, 3))
 # np.savetxt('../visualization/100colors.txt', hc_colors)
 
-# <codecell>
+
+# In[17]:
 
 # visualize_features(centroids, dm.n_freq, dm.n_angle, colors=hc_colors)
 
-# <codecell>
+
+# In[18]:
 
 # visualize_features(reduced_centroids, dm.n_freq, dm.n_angle, colors=hc_colors)
 

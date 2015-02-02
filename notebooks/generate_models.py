@@ -1,12 +1,13 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
 
-# <codecell>
+# coding: utf-8
 
-%load_ext autoreload
-%autoreload 2
+# In[3]:
 
-# <codecell>
+get_ipython().magic(u'load_ext autoreload')
+get_ipython().magic(u'autoreload 2')
+
+
+# In[4]:
 
 from utilities import *
 
@@ -45,14 +46,16 @@ class args:
     segm_params_id = 'blueNissl'
     vq_params_id = 'blueNissl'
 
-# <codecell>
+
+# In[5]:
 
 dm.set_image(args.stack_name, args.resolution, args.slice_ind)
 dm.set_gabor_params(gabor_params_id=args.gabor_params_id)
 dm.set_segmentation_params(segm_params_id=args.segm_params_id)
 dm.set_vq_params(vq_params_id=args.vq_params_id)
 
-# <codecell>
+
+# In[6]:
 
 n_texton = int(dm.vq_params['n_texton'])
 
@@ -69,7 +72,8 @@ cropped_image = dm.load_pipeline_result('cropImg', 'tif')
 
 sp_properties = dm.load_pipeline_result('cropSpProps', 'npy')
 
-# <codecell>
+
+# In[17]:
 
 # def circle_list_to_labeling_field(self, circle_list):
 #     label_circles = []
@@ -165,7 +169,8 @@ def models_from_labeling(labeling, segmentation):
     
     return models
 
-# <codecell>
+
+# In[18]:
 
 # try:
 #     existing_models = dm.load_pipeline_result('models', 'pkl')

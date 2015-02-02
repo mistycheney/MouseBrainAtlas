@@ -36,7 +36,7 @@ dm = DataManager(DATA_DIR, REPO_DIR)
 class args:
     stack_name = 'RS140'
     resolution = 'x5'
-    slice_ind = 0
+    slice_ind = 1
     gabor_params_id = 'blueNisslWide'
 #     gabor_params_id = 'blueNissl'
     segm_params_id = 'blueNisslRegular'

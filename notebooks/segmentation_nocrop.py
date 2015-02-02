@@ -6,6 +6,8 @@
 %reload_ext autoreload
 %autoreload 2
 
+# <codecell>
+
 from preamble import *
 
 # <codecell>
@@ -71,6 +73,10 @@ dm.save_pipeline_result(masked_segmentation_relabeled, 'segmentation', 'npy')
 
 # <codecell>
 
+# masked_segmentation_relabeled = dm.load_pipeline_result('segmentation', 'npy')
+
+# <codecell>
+
 from joblib import Parallel, delayed
 
 sp_props = regionprops(masked_segmentation_relabeled + 1, intensity_image=dm.image, cache=True)
@@ -98,13 +104,25 @@ n_superpixels = len(np.unique(masked_segmentation_relabeled)) - 1
 img_superpixelized = mark_boundaries(dm.image, masked_segmentation_relabeled)
 img_superpixelized_with_text = img_as_ubyte(img_superpixelized)
 
-for s in range(n_superpixels):
-    img_superpixelized_with_text = cv2.putText(img_superpixelized_with_text, str(s), 
-                                               tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
-                                               cv2.FONT_HERSHEY_DUPLEX,
-                                               .5, ((255,0,255)), 1)
+dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithoutText', 'jpg')
 
-dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithText', 'jpg')
+# for s in range(n_superpixels):
+#     img_superpixelized_with_text = cv2.putText(img_superpixelized_with_text, str(s), 
+#                                                tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
+#                                                cv2.FONT_HERSHEY_DUPLEX,
+#                                                .5, ((255,0,255)), 1)
+
+# dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithText', 'jpg')
+
+# <codecell>
+
+emptycanvas_superpixelized = mark_boundaries(np.ones_like(dm.image), masked_segmentation_relabeled, 
+                                             color=(0,0,0), outline_color=None)
+# emptycanvas_superpixelized = img_as_ubyte(emptycanvas_superpixelized)
+alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
+a = np.dstack([emptycanvas_superpixelized, alpha_channel])
+
+dm.save_pipeline_result(a, 'segmentationTransparent', 'png', is_rgb=True)
 
 # <codecell>
 

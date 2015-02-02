@@ -10,21 +10,18 @@ import matplotlib.pyplot as plt
 
 # <codecell>
 
-g = GMM(n_components=200, covariance_type='full', 
-        random_state=None, thresh=0.01, 
-        min_covar=0.001, n_iter=100, 
-        n_init=1, params='wmc', init_params='wmc')
-
-# <codecell>
-
 data = loadmat('/home/yuncong/data_train.mat')
 data_train_T = data['data_train'].T
 
 # <codecell>
 
+n_cluster = 200
+
+# <codecell>
+
 from sklearn.cluster import KMeans, MiniBatchKMeans
 
-kmeans = MiniBatchKMeans(n_clusters=200, init='random', compute_labels=True,
+kmeans = MiniBatchKMeans(n_clusters=n_cluster, init='random', compute_labels=True,
        n_init=10, max_iter=300, tol=0.0001, verbose=0, random_state=None, batch_size=10000)
 
 # kmeans = KMeans(n_clusters=10, init='k-means++', n_init=10, 
@@ -48,9 +45,9 @@ for i, ax in zip(where(kmeans.labels_==111)[0][:20], axes.flat):
 
 # <codecell>
 
-valid = np.unique(kmeans.labels_)
-counts = np.bincount(kmeans.labels_)
-valid2 = [valid[i] for i in range(len(valid)) if counts[i] > 1000]
+# valid = np.unique(kmeans.labels_)
+# counts = np.bincount(kmeans.labels_)
+# valid2 = [valid[i] for i in range(len(valid)) if counts[i] > 1000]
 
 # plt.bar(np.arange(len(counts)), counts);
 # plt.show()
@@ -58,10 +55,26 @@ valid2 = [valid[i] for i in range(len(valid)) if counts[i] > 1000]
 
 # <codecell>
 
-fig, axes = plt.subplots(nrows=len(valid)/10, ncols=10, figsize=(20,20))
-for i, (im, ax) in enumerate(zip(kmeans.cluster_centers_[valid], axes.flat)):
+fig, axes = plt.subplots(nrows=n_cluster/10, ncols=10, figsize=(20,20))
+for i, (im, ax) in enumerate(zip(kmeans.cluster_centers_, axes.flat)):
     patch = im.reshape((8,8))
     ax.imshow(patch, cmap=plt.cm.Greys_r)
     ax.set_title(str(i))
     ax.axis('off')
+
+# <codecell>
+
+gmm = GMM(n_components=n_cluster, covariance_type='full', 
+        random_state=None, thresh=0.01, 
+        min_covar=0.001, n_iter=100, 
+        n_init=1, params='wmc', init_params='wc')
+
+gmm.means_ = kmeans.cluster_centers_
+gmm.fit(data_train_T)
+
+# <codecell>
+
+print gmm.means_
+print gmm.covars_
+print gmm.weights_
 

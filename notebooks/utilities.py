@@ -205,9 +205,11 @@ class DataManager(object):
 
         image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-
+        
         self.image = imread(image_filename, as_grey=True)
         self.image_height, self.image_width = self.image.shape[:2]
+        
+        self.image_rgb = imread(image_filename, as_grey=False)
 
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
         self.mask = imread(mask_filename, as_grey=True) > 0
@@ -269,7 +271,8 @@ class DataManager(object):
         if result_name in ['features', 'kernels', 'features_rotated', 'features_rotated_pca', 'max_angle_indices']:
             param_dependencies = ['gabor']
 
-        elif result_name in['segmentation', 'segmentationWithText', 'spProps', 'neighbors']:
+        elif result_name in['segmentation', 'segmentationWithText', 'segmentationWithoutText',
+                            'segmentationTransparent', 'spProps', 'neighbors']:
             param_dependencies = ['segm']
                         
         elif result_name in ['dirMap', 'dirHist', 'spMaxDirInd', 'spMaxDirAngle']:
@@ -330,8 +333,8 @@ class DataManager(object):
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = imread(result_filename, as_grey=False)
-            if data.ndim == 3:
-                data = data[...,::-1]
+#             if data.ndim == 3:
+#                 data = data[...,::-1]
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
@@ -348,10 +351,10 @@ class DataManager(object):
             np.save(result_filename, data)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = self._regulate_image(data, is_rgb)
-            if data.ndim == 3:
-                imsave(result_filename, data[..., ::-1])
-            else:
-                imsave(result_filename, data)
+#             if data.ndim == 3:
+#                 imsave(result_filename, data[..., ::-1])
+#             else:
+            imsave(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
             
@@ -367,10 +370,10 @@ class DataManager(object):
         new_preview_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
         
         data = self._regulate_image(labelmap_vis, is_rgb=True)
-        if data.ndim == 3:
-            imsave(new_preview_fn, data[..., ::-1])
-        else:
-            imsave(new_preview_fn, data)
+#         if data.ndim == 3:
+#             imsave(new_preview_fn, data[..., ::-1])
+#         else:
+        imsave(new_preview_fn, data)
         print 'Preview saved to', new_preview_fn
         
     def _regulate_image(self, img, is_rgb=None):
@@ -404,15 +407,15 @@ class DataManager(object):
 def display(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
-        if vis.ndim == 3:
-            imwrite(filename, img_as_ubyte(vis)[..., ::-1])
-        else:
-            imwrite(filename, img_as_ubyte(vis))
+#         if vis.ndim == 3:
+#             imwrite(filename, img_as_ubyte(vis)[..., ::-1])
+#         else:
+        imwrite(filename, img_as_ubyte(vis))
     else:
-        if vis.ndim == 3:
-            imwrite(filename, vis[..., ::-1])
-        else:
-            imwrite(filename, vis)
+#         if vis.ndim == 3:
+#             imwrite(filename, vis[..., ::-1])
+#         else:
+        imwrite(filename, vis)
             
     from IPython.display import FileLink
     return FileLink(filename)

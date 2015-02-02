@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# <nbformat>3.0</nbformat>
+
+# <codecell>
+
 from skimage.filter import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -7,8 +12,12 @@ from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte
 from skimage.io import imread, imsave
 import numpy as np
-import os, csv
-
+import os
+import csv
+import sys
+from operator import itemgetter
+import json
+import cPickle as pickle
 
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
@@ -90,7 +99,7 @@ def crop_image(img, smooth=20):
 # <codecell>
 
 import time
- 
+
 def timeit(func=None,loops=1,verbose=False):
     if func != None:
         def inner(*args,**kwargs):
@@ -157,23 +166,176 @@ def timeit(func=None,loops=1,verbose=False):
 # REGENERATE_ALL_RESULTS = True
 REGENERATE_ALL_RESULTS = False
 
-import json
-import cPickle as pickle
+def get_directory_structure(rootdir):
+    """
+    Creates a nested dictionary that represents the folder structure of rootdir
+    """
+    dir = {}
+    rootdir = rootdir.rstrip(os.sep)
+    start = rootdir.rfind(os.sep) + 1
+    for path, dirs, files in os.walk(rootdir):
+        folders = path[start:].split(os.sep)
+        subdir = dict.fromkeys(files)
+        parent = reduce(dict.get, folders[:-1], dir)
+        parent[folders[-1]] = subdir
+    return dir
+
+def generate_json(data_dir, res_dir, labeling_dir):
+    """
+    Return a JSON file that represents the hierarchy of input directory with semantics of our application
+    """
+
+    data_hierarchy = get_directory_structure(data_dir).values()[0]
+    result_hierarchy = get_directory_structure(res_dir).values()[0]
+    labeling_hierarchy = get_directory_structure(labeling_dir).values()[0]
+
+    dataset = {'available_stack_names': [],
+        'stacks': []
+        }
+
+    for stack_name, stack_content in data_hierarchy.items():
+        if stack_content is None or len(stack_content) == 0: continue
+        
+        stack_info = {'name': stack_name,
+                    'available_resolution': stack_content.keys(),
+                    'section_num': None
+                    }
+
+        sec_infos = []
+
+        if len(stack_info['available_resolution']) > 0:
+            sec_items = stack_content[stack_info['available_resolution'][0]].items()
+
+        for sec_str, sec_content in sec_items:
+
+            if sec_content is None: 
+                continue
+            
+            # stack_info['available_sections'].append(int(sec_ind))
+            sec_info = {'index': int(sec_str)}
+
+            for resolution in stack_info['available_resolution']:
+                sec_info[resolution + '_imagepath'] = os.path.join(data_dir, stack_name, resolution, sec_str, 
+                                                        '_'.join([stack_name, resolution, sec_str])+'.tif')
+                sec_info[resolution + '_maskpath'] = os.path.join(data_dir, stack_name, resolution, sec_str, 
+                                                        '_'.join([stack_name, resolution, sec_str])+'_mask.png')
+
+            if stack_name in labeling_hierarchy:
+                if sec_str in labeling_hierarchy[stack_name]:
+                    labeling_list = labeling_hierarchy[stack_name][sec_str]
+                    sec_info['labeling_num'] = len(labeling_list)
+                    if len(labeling_list) > 0:
+                        sec_info['labelings'] = [{'filename':k} for k in labeling_list.keys() if k.endswith('pkl')]
+                        for i, l in enumerate(sec_info['labelings']):
+                            labeling_path = os.path.join(labeling_dir, stack_name, sec_str, l['filename'])
+                            l['filepath'] = labeling_path
+                            l['previewpath'] = os.path.join(labeling_dir, stack_name, sec_str, l['filename'][:-4]+'.jpg')
+                            labeling_dict = pickle.load(open(labeling_path, 'r'))
+                            # print i, labeling_dict['final_polygons']
+                            # print itemgetter(0)(labeling_dict['final_polygons'])
+                            l['used_labels'] = np.unique(map(itemgetter(0), labeling_dict['final_polygons']))
+
+
+            # if 'labelings' in sec_content.keys():
+            #     sec_info['labelings'] = [k for k in sec_content['labelings'].keys() if k.endswith('pkl')]
+            
+            if stack_name in result_hierarchy:
+                if sec_str in result_hierarchy[stack_name]:
+                    results_list = result_hierarchy[stack_name][sec_str]
+                    if len(results_list) > 0:
+                        sec_info['available_results'] = [ r for r in results_list.keys() if resolution in r]
+
+            # if 'pipelineResults' in sec_content.keys():
+            #     sec_info['available_results'] = sec_content['pipelineResults'].keys()
+            sec_infos.append(sec_info)
+
+        sec_infos = sorted(sec_infos, key=lambda x: x['index'])
+
+        stack_info['sections'] = sec_infos
+        if stack_info['section_num'] is None:
+            stack_info['section_num'] = len(sec_infos)
+
+        dataset['stacks'].append(stack_info)
+        dataset['available_stack_names'].append(stack_name)
+
+    return dataset
+
+
+# def build_labeling_index(dataset_json):
+#     labeling_database = {}
+#     for stack in dataset_json['stacks']:
+#         for section in stack['sections']:
+#             if 'labelings' in section:
+#                 for labeling in section['labelings']:
+#                     labeling_database.update({labeling['filename']: labeling['used_labels']})
+
+#     return labeling_database
+
+
+def build_inverse_labeing_index(dataset_json):
+    from collections import defaultdict
+    inv_labeling_database = defaultdict(list)
+
+    for stack in dataset_json['stacks']:
+        for section in stack['sections']:
+            if 'labelings' in section:
+                for labeling in section['labelings']:
+                    for l in labeling['used_labels']:
+                        inv_labeling_database[l].append(labeling)
+
+    return inv_labeling_database
+
 
 class DataManager(object):
 
-    def __init__(self, data_dir, repo_dir):
+    def __init__(self, data_dir, repo_dir, result_dir, labeling_dir):
         self.data_dir = data_dir
         self.repo_dir = repo_dir
         self.params_dir = os.path.join(repo_dir, 'params')
 
+        self.root_labelings_dir = labeling_dir
+        self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
+    
+        if os.path.isfile(self.labelnames_path):
+            with open(self.labelnames_path, 'r') as f:
+                self.labelnames = f.readlines()
+        else:
+            self.labelnames = []
+
+        self.root_results_dir = result_dir
+
+        self.local_ds = generate_json(data_dir=data_dir, res_dir=result_dir, labeling_dir=labeling_dir)
+        # print self.local_ds
+
+        self.inv_labeing_index = build_inverse_labeing_index(self.local_ds)
+        print self.inv_labeing_index
+
+        self.slice_ind = None
         self.image_name = None
+
+        self.gabor_params_id='blueNisslWide'
+        self.segm_params_id='blueNisslRegular'
+        self.vq_params_id='blueNissl'
         
-    def set_stack(self, stack, resol):
+    def set_stack(self, stack):
         self.stack = stack
+        self.stack_path = os.path.join(self.data_dir, self.stack)
+        self.stack_info = self.local_ds['stacks'][self.local_ds['available_stack_names'].index(stack)]
+
+        self.slice_ind = None
+
+    def set_resol(self, resol):
+        if resol not in self.stack_info['available_resolution']:
+            raise Exception('images of resolution %s do not exist' % resol)
+
         self.resol = resol
-        self.resol_dir = os.path.join(self.data_dir, self.stack, self.resol)
-        
+        self.resol_dir = os.path.join(self.stack_path, self.resol)
+
+        self.sections_info = self.stack_info['sections']
+
+        if self.slice_ind is not None:
+            self.set_slice(self.slice_ind)
+
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
@@ -181,29 +343,50 @@ class DataManager(object):
         self.image_dir = os.path.join(self.data_dir, self.stack, self.resol, self.slice_str)
         self.image_name = '_'.join([self.stack, self.resol, self.slice_str])
 
-        self.labelings_dir = os.path.join(self.image_dir, 'labelings')
+        self.image_path = os.path.join(self.image_dir, self.image_name + '.tif')
+
+        # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
+        self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
         
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
-        self.results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack, self.slice_str)
+        self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
         
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
 
+        self.section_info = self.sections_info[map(itemgetter('index'), self.sections_info).index(self.slice_ind)]
+
     def set_image(self, stack, resol, slice_ind):
-        self.set_stack(stack, resol)
+        self.set_stack(stack)
+        self.set_resol(resol)
         self.set_slice(slice_ind)
         self._load_image()
+
+    def _get_image_filepath(self, stack=None, resol=None, section=None):
+        if stack is None:
+            stack = self.stack
+        if resol is None:
+            resol = self.resol
+        if section is None:
+            section = self.slice_ind
+
+        image_dir = os.path.join(self.data_dir, stack, resol, '%04d'%section)
+        image_name = '_'.join([stack, resol, '%04d'%section])
+        image_filename = os.path.join(image_dir, image_name + '.tif')
+        return image_filename
         
     def _load_image(self):
         
         assert self.image_name is not None, 'Image is not specified'
 
-        image_filename = os.path.join(self.image_dir, self.image_name + '.tif')
+        image_filename = self._get_image_filepath()
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
         
         self.image = imread(image_filename, as_grey=True)
         self.image_height, self.image_width = self.image.shape[:2]
         
+        self.image_rgb = imread(image_filename, as_grey=False)
+
         self.image_rgb = imread(image_filename, as_grey=False)
 
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
@@ -240,12 +423,12 @@ class DataManager(object):
         # kernels = [k - k.sum()/k.size for k in kernels] # this enforces all kernel sum to be zero
 
         self.n_kernel = len(kernels)
+        self.max_kern_size = np.max([kern.shape[0] for kern in self.kernels])
 
+    def print_gabor_info(self):
         print 'num. of kernels: %d' % (self.n_kernel)
         print 'frequencies:', self.frequencies
         print 'wavelength (pixels):', 1/self.frequencies
-
-        self.max_kern_size = np.max([kern.shape[0] for kern in self.kernels])
         print 'max kernel matrix size:', self.max_kern_size
         
     def set_segmentation_params(self, segm_params_id):
@@ -315,21 +498,26 @@ class DataManager(object):
         
         return result_filename
             
+
+    def check_pipeline_result(self, result_name, ext):
+        if REGENERATE_ALL_RESULTS:
+            return False
+
+        result_filename = self._get_result_filename(result_name, ext)
+        return os.path.exists(result_filename)
+
     def load_pipeline_result(self, result_name, ext, is_rgb=None):
         
         if REGENERATE_ALL_RESULTS:
             raise
         
         result_filename = self._get_result_filename(result_name, ext)
-        print result_filename
 
         if ext == 'npy':
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = imread(result_filename, as_grey=False)
-#             if data.ndim == 3:
-#                 data = data[...,::-1]
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
@@ -346,30 +534,64 @@ class DataManager(object):
             np.save(result_filename, data)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = self._regulate_image(data, is_rgb)
-#             if data.ndim == 3:
-#                 imsave(result_filename, data[..., ::-1])
-#             else:
             imsave(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
             
         print 'saved %s' % result_filename
         
+
+    def load_labeling(self, stack=None, section=None, labeling_name=None):
+        labeling_fn = self._load_labeling_path(stack, section, labeling_name)
+        labeling = pickle.load(open(labeling_fn, 'r'))
+        return labeling
+
+    def _load_labeling_preview_path(self, stack=None, section=None, labeling_name=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
+
+        if labeling_name.endswith('pkl'): # full filename
+            return os.path.join(self.labelings_dir, labeling_name[:-4]+'.jpg')
+        else:
+            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.jpg')
+        
+    def _load_labeling_path(self, stack=None, section=None, labeling_name=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
+
+        if labeling_name.endswith('pkl'): # full filename
+            return os.path.join(self.labelings_dir, labeling_name)
+        else:
+            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.pkl')
+        
+
+    def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
+        return imread(self._load_labeling_preview_path(stack, section, labeling_name))
         
     def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
         
-        new_labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
+        try:
+            os.makedirs(self.labelings_dir)
+        except:
+            pass
+
+        new_labeling_fn = self._load_labeling_path(labeling_name=new_labeling_name)
+        # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
         pickle.dump(labeling, open(new_labeling_fn, 'w'))
         print 'Labeling saved to', new_labeling_fn
 
-        new_preview_fn = os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
-        
+        new_preview_fn = self._load_labeling_preview_path(labeling_name=new_labeling_name)
+
+        # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
         data = self._regulate_image(labelmap_vis, is_rgb=True)
-#         if data.ndim == 3:
-#             imsave(new_preview_fn, data[..., ::-1])
-#         else:
         imsave(new_preview_fn, data)
         print 'Preview saved to', new_preview_fn
+
+        return new_labeling_fn
         
     def _regulate_image(self, img, is_rgb=None):
         """
@@ -392,24 +614,13 @@ class DataManager(object):
         return img
     
     
-    def load_labeling(self, labeling_name):
-        labeling_fn = os.path.join(self.labelings_dir, self.image_name + '_' + labeling_name + '.pkl')
-        labeling = pickle.load(open(labeling_fn, 'r'))
-        return labeling
-
 # <codecell>
 
 def display(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
-#         if vis.ndim == 3:
-#             imwrite(filename, img_as_ubyte(vis)[..., ::-1])
-#         else:
         imwrite(filename, img_as_ubyte(vis))
     else:
-#         if vis.ndim == 3:
-#             imwrite(filename, vis[..., ::-1])
-#         else:
         imwrite(filename, vis)
             
     from IPython.display import FileLink

@@ -5,6 +5,7 @@ import argparse
 import sys
 from joblib import Parallel, delayed
 
+
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
 description='Execute feature extraction pipeline',
@@ -32,34 +33,45 @@ dm.set_image(args.stack_name, 'x5', args.slice_ind)
 
 #============================================================
 
-import itertools
-from joblib import Parallel, delayed
-from scipy.spatial.distance import cdist
 
-
-if dm.check_pipeline_result('texMap', 'npy'):
-	print "texMap.npy already exists, skip"
+if dm.check_pipeline_result('textons', 'npy'):
+	print "textons.npy already exists, skip"
 
 else:
-	centroids = dm.load_pipeline_result('textons', 'npy')
+	
+	n_texton = 100
+	# n_texton = 10
+
 	features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
 
-	n_texton = len(centroids)
+	try:
+	    centroids = dm.load_pipeline_result('original_centroids', 'npy')
+
+	except:
+	    
+	    from sklearn.cluster import MiniBatchKMeans
+	    kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
+	    # kmeans.fit(features_rotated_pca)
+	    kmeans.fit(features_rotated)
+	    centroids = kmeans.cluster_centers_
+	    # labels = kmeans.labels_
+
+	    dm.save_pipeline_result(centroids, 'original_centroids', 'npy')
+
+	from scipy.cluster.hierarchy import fclusterdata
+	cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")
+	# cluster_assignments = fclusterdata(centroids, 80., method="complete", criterion="distance")
+
+	reduced_centroids = np.array([centroids[cluster_assignments == i].mean(axis=0) for i in set(cluster_assignments)])
+
+	n_reduced_texton = len(reduced_centroids)
+	print n_reduced_texton, 'reduced textons'
 
 	from sklearn.cluster import MiniBatchKMeans
-
-	kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000, init=centroids)
+	kmeans = MiniBatchKMeans(n_clusters=n_reduced_texton, batch_size=1000, init=reduced_centroids)
+	# kmeans.fit(features_rotated_pca)
 	kmeans.fit(features_rotated)
 	final_centroids = kmeans.cluster_centers_
-	labels = kmeans.labels_
+	# labels = kmeans.labels_
 
-	    
-	textonmap = -1 * np.ones_like(dm.image, dtype=np.int)
-	textonmap[dm.mask] = labels
-
-	dm.save_pipeline_result(textonmap, 'texMap', 'npy')
-
-
-	hc_colors = np.loadtxt('../visualization/100colors.txt')
-	vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
-	dm.save_pipeline_result(vis, 'texMap', 'png')
+	dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')

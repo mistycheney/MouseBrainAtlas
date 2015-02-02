@@ -17,6 +17,8 @@ n_texton = 100
 # from sklearn.cluster import KMeans
 # kmeans = KMeans(n_clusters=n_texton)
 
+features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
+
 try:
     centroids = dm.load_pipeline_result('original_centroids', 'npy')
 
@@ -34,13 +36,15 @@ except:
 # <codecell>
 
 from scipy.cluster.hierarchy import fclusterdata
-# cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")
-cluster_assignments = fclusterdata(centroids, 80., method="complete", criterion="distance")
+cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")
+# cluster_assignments = fclusterdata(centroids, 80., method="complete", criterion="distance")
 
 reduced_centroids = np.array([centroids[cluster_assignments == i].mean(axis=0) for i in set(cluster_assignments)])
 
 n_reduced_texton = len(reduced_centroids)
 print n_reduced_texton, 'reduced textons'
+
+# <codecell>
 
 from sklearn.cluster import MiniBatchKMeans
 kmeans = MiniBatchKMeans(n_clusters=n_reduced_texton, batch_size=1000, init=reduced_centroids)

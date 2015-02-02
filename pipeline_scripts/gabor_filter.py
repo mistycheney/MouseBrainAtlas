@@ -3,6 +3,7 @@ from utilities import *
 import os
 import argparse
 import sys
+from joblib import Parallel, delayed
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -27,33 +28,41 @@ dm.set_gabor_params(gabor_params_id='blueNisslWide')
 dm.set_segmentation_params(segm_params_id='blueNisslRegular')
 dm.set_vq_params(vq_params_id='blueNissl')
 
+dm.set_image(args.stack_name, 'x5', args.slice_ind)
+
 #============================================================
 
-from skimage.util import pad
+try:
+	features = dm.load_pipeline_result('features', 'npy')
+	print "features.npy already exists, skip"
 
-approx_bg_intensity = dm.image[10:20, 10:20].mean()
+except Exception as e:
 
-masked_image = dm.image.copy()
-masked_image[~dm.mask] = approx_bg_intensity
+	from skimage.util import pad
 
-padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
+	approx_bg_intensity = dm.image[10:20, 10:20].mean()
+
+	masked_image = dm.image.copy()
+	masked_image[~dm.mask] = approx_bg_intensity
+
+	padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
 
 
-from joblib import Parallel, delayed
-from scipy.signal import fftconvolve
+	from joblib import Parallel, delayed
+	from scipy.signal import fftconvolve
 
-def convolve_per_proc(i):
-    return fftconvolve(padded_image, dm.kernels[i], 'same').astype(np.half)
+	def convolve_per_proc(i):
+	    return fftconvolve(padded_image, dm.kernels[i], 'same').astype(np.half)
 
-padded_filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
-                        for i in range(dm.n_kernel))
+	padded_filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
+	                        for i in range(dm.n_kernel))
 
-filtered = [f[dm.max_kern_size:-dm.max_kern_size, dm.max_kern_size:-dm.max_kern_size] for f in padded_filtered]
+	filtered = [f[dm.max_kern_size:-dm.max_kern_size, dm.max_kern_size:-dm.max_kern_size] for f in padded_filtered]
 
-features = np.empty((dm.n_kernel, dm.image_height, dm.image_width), dtype=np.half)
-for i in range(dm.n_kernel):
-    features[i, ...] = filtered[i]
+	features = np.empty((dm.n_kernel, dm.image_height, dm.image_width), dtype=np.half)
+	for i in range(dm.n_kernel):
+	    features[i, ...] = filtered[i]
 
-del filtered
+	del filtered
 
-dm.save_pipeline_result(features, 'features', 'npy')
+	dm.save_pipeline_result(features, 'features', 'npy')

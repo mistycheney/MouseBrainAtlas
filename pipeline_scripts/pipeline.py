@@ -28,11 +28,27 @@ def execute_command(cmd):
 	        print >>sys.stderr, "Child returned", retcode
 	except OSError as e:
 	    print >>sys.stderr, "Execution failed:", e
+	    raise e
 
 execute_command('source ../setup.sh')
+
+print '======== gabor filtering ======='
 execute_command('python gabor_filter.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== segmentation ======='
 execute_command('python segmentation.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== rotate features ======='
 execute_command('python rotate_features.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== generate textons ======='
+execute_command('python generate_textons.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== assign textons ======='
 execute_command('python assign_textons.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== compute_texton_histograms ======='
 execute_command('python compute_texton_histograms.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))
+
+print '======== grow_regions ======='
 execute_command('python grow_regions.py %s %d -g %s -s %s -v %s' % (args.stack_name, args.slice_ind, args.gabor_params_id, args.segm_params_id, args.vq_params_id))

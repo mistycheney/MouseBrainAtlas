@@ -299,7 +299,7 @@ def group_clusters(clusters, dist_thresh = 0.1):
     groups = [None] * n_groups
 
     for group_id in range(n_groups):
-        groups[group_id] = where(T == group_id)[0]
+        groups[group_id] = np.where(T == group_id)[0]
     
         
     return groups

@@ -15,7 +15,7 @@ python %s RS141 1 -g blueNisslWide -s blueNisslRegular -v blueNissl
 """%(os.path.basename(sys.argv[0]), ))
 
 parser.add_argument("stack_name", type=str, help="stack name")
-parser.add_argument("slice_ind", type=int, help="slice index")
+parser.add_argument("interval", type=int, help="use every interval'th images to learn textons (default: %(default)s)", default=5)
 parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
 parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
 parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
@@ -29,20 +29,27 @@ dm.set_gabor_params(gabor_params_id='blueNisslWide')
 dm.set_segmentation_params(segm_params_id='blueNisslRegular')
 dm.set_vq_params(vq_params_id='blueNissl')
 
-dm.set_image(args.stack_name, 'x5', args.slice_ind)
-
 #============================================================
-
 
 if dm.check_pipeline_result('textons', 'npy'):
 	print "textons.npy already exists, skip"
 
 else:
+
+	features_rotated_list = []
 	
+	for i in range(0, dm.local_ds[args.stack_name]['section_num'], args.interval):
+
+		dm.set_image(args.stack_name, 'x5', args.slice_ind)
+		features_rotated_one_image = dm.load_pipeline_result('features_rotated', 'npy')
+		features_rotated_list.append(features_rotated_one_image)
+	
+	features_rotated = np.vstack(features_rotated_list)
+
+	del features_rotated_list
+
 	n_texton = 100
 	# n_texton = 10
-
-	features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
 
 	try:
 	    centroids = dm.load_pipeline_result('original_centroids', 'npy')

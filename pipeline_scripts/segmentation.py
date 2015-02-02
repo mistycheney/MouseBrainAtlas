@@ -53,7 +53,6 @@ except Exception as e:
 											sigma=float(dm.segm_params['slic_sigma']), 
 											enforce_connectivity=True)
 
-
 	n = len(np.unique(segmentation))
 
 	def f(i):
@@ -125,7 +124,6 @@ alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
 a = np.dstack([emptycanvas_superpixelized, alpha_channel])
 
 dm.save_pipeline_result(a, 'segmentationTransparent', 'png', is_rgb=True)
-
 
 # Compute neighbor lists and connectivity matrix
 

@@ -6,7 +6,15 @@ from PyQt4.QtGui import QTableWidget, QHeaderView, QTableWidgetItem, QPixmap, \
 # from Tkdnd import Icon
 import os
 import cPickle as pickle
-from visualization_utilities import *
+# from visualization_utilities import *
+
+from brain_labelling_gui_v9 import BrainLabelingGUI
+from ui_param_settings_v2 import Ui_ParameterSettingsWindow
+from operator import itemgetter
+
+import sys
+sys.path.append(os.path.realpath('../notebooks'))
+from utilities import *
 
 SPACING = 7
 FIXED_WIDTH = 1600
@@ -16,6 +24,13 @@ THUMB_WIDTH = 300
 data_dir = os.environ['LOCAL_DATA_DIR']
 
 import sip
+
+class ParamSettingsForm(QtGui.QWidget):
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.ui = Ui_ParameterSettingsWindow()
+        self.ui.setupUi(self)
+
 
 class PreviewerWidget(QWidget):
     def __init__(self, parent=None):
@@ -29,13 +44,21 @@ class PreviewerWidget(QWidget):
 
         self.client = None
 
-    def set_imgs(self, imgs=[]):
+    def set_images(self, imgs=[], callback=None):
+        """
+        callback takes an integer index as argument
+        """
+
+        self.callback = callback
 
         if self.client is not None:
+            assert len(self.actions) > 0
+            assert len(self.thumbnail_buttons) > 0
+
             for a in self.actions:
                 sip.delete(a)
 
-            for w in self.buttons:
+            for w in self.thumbnail_buttons:
                 self.layout.removeWidget(w)
                 sip.delete(w)
 
@@ -49,7 +72,7 @@ class PreviewerWidget(QWidget):
         img_per_row = (FIXED_WIDTH + SPACING) / THUMB_WIDTH
  
         self.actions = []
-        self.buttons = []
+        self.thumbnail_buttons = []
 
         for count, (img_filename, img_text) in enumerate(imgs):
                                 
@@ -67,7 +90,7 @@ class PreviewerWidget(QWidget):
             
             button.clicked.connect(self.image_clicked)
 
-            self.buttons.append(button)
+            self.thumbnail_buttons.append(button)
             self.actions.append(actionLoad)
 
             i = count / img_per_row
@@ -79,23 +102,30 @@ class PreviewerWidget(QWidget):
         self.scroll.setWidget(self.client)
 
         self.selected_image = None
-        
+
+    # def set_toplevel(self, g):
+    #     self.top = g
+
     # Folder chosen event
     def image_clicked(self):
-        image = self.sender()
+        thumbnail_clicked = self.sender()
+        thumbnail_clicked.setDown(True)
+
+        index_clicked = self.thumbnail_buttons.index(thumbnail_clicked)
         
-        if self.selected_image is not None:
-            self.selected_image.setDown(False)
-        
-        image.setDown(True)
-        self.selected_image = image
-                
+        self.callback(index_clicked)
+
 
 class MainWindow(QMainWindow):
     
     def __init__(self, parent=None, **kwargs):
         QMainWindow.__init__(self, parent, **kwargs)
         
+        self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+            repo_dir=os.environ['LOCAL_REPO_DIR'],
+            result_dir=os.environ['LOCAL_RESULT_DIR'], 
+            labeling_dir=os.environ['LOCAL_LABELING_DIR'])
+
         # Create set of widgets in the central widget window
         self.cWidget = QWidget()
         self.vLayout = QVBoxLayout(self.cWidget)
@@ -105,37 +135,34 @@ class MainWindow(QMainWindow):
         
         # remote_ds = pickle.load(open('remote_directory_structure.pkl', 'r'))
 
-        self.local_ds = generate_json(data_dir)
-
         self.stack_model = QStandardItemModel()
         
         self.labeling_model = QStandardItemModel()
 
-        self.stack_names = []
-        for stack_info in self.local_ds:
-            item = QStandardItem(stack_info['name'] + ' (%d sections)' % len(stack_info['sections']))
+        for stack_info in self.dm.local_ds['stacks']:
+            item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
             self.stack_model.appendRow(item)
-            self.stack_names.append(stack_info['name'])
 
         self.stack_list = QtGui.QListView()
         self.stack_list.setModel(self.stack_model)
         self.stack_list.clicked.connect(self.on_stacklist_clicked)
                 
-        self.section_list = QtGui.QListView()
+        # self.section_list = QtGui.QListView()
 
-        self.section_model = QStandardItemModel(self.section_list)
+        # self.section_model = QStandardItemModel(self.section_list)
 
-        self.section_list.setModel(self.section_model)
-        self.section_list.clicked.connect(self.on_sectionlist_clicked)
+        # self.section_list.setModel(self.section_model)
+        # self.section_list.clicked.connect(self.on_sectionlist_clicked)
 
         # self.labeling_list = QtGui.QListView()
         # self.labeling_list.setModel(self.labeling_model)
         # self.labeling_list.clicked.connect(self.on_labelinglist_clicked)
 
         self.previewer = PreviewerWidget()
+        # self.previewer.set_toplevel(self)
 
         self.leftListLayout.addWidget(self.stack_list)
-        self.leftListLayout.addWidget(self.section_list)
+        # self.leftListLayout.addWidget(self.section_list)
         # self.leftListLayout.addWidget(self.labeling_list)
 
         # Add both widgets to gadget
@@ -149,7 +176,7 @@ class MainWindow(QMainWindow):
         self.buttonQ = QPushButton("Quit", self)
         
         # Bind buttons presses
-        self.buttonS.clicked.connect(self.pref_clicked)
+        # self.buttonS.clicked.connect(self.pref_clicked)
         # self.buttonR.clicked.connect(self.refresh_clicked)
         self.buttonQ.clicked.connect(self.exit_clicked)
 
@@ -166,86 +193,93 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.cWidget)
 
 
-    def on_stacklist_clicked(self, index):
-        row = index.row()
-        # self.stack_name = str(index.data().toString())
-        self.stack_name = self.stack_names[row]
-        stack_path = os.path.join(data_dir, self.stack_name)
+    def on_stacklist_clicked(self, list_index):
+        # selected_stack_index = list_index.row()
+        self.stack_name = str(list_index.data().toString()).split()[0]
+        # self.stack_name = self.dm.local_ds['available_stack_names'][selected_stack_index]
+        self.dm.set_stack(self.stack_name, 'x1.25')
 
-        # self.stack_info = [s for s in self.local_ds if s['name'] == self.stack_name][0]
-        self.stack_info = self.local_ds[row]
+        # self.section_model.clear()
 
-        self.section_model.clear()
+        imgs_path_caption = []
+        # self.section_names = []
 
-        imgs_path_text = []
-        self.section_names = []
-        for section_info in self.stack_info['sections']:
-            section_str = '%04d'%section_info['index']
-            self.section_names.append(section_str)
+        for section_info in self.dm.sections_info:
+
+            self.dm.set_slice(section_info['index'])
+
+            # self.section_names.append(self.dm.slice_str)
+
             if 'labelings' in section_info:
-                item = QStandardItem(section_str + ' (%d labelings)' % len(section_info['labelings']))
+                caption = self.dm.slice_str + ' (%d labelings)' % len(section_info['labelings'])
             else:
-                item = QStandardItem(section_str + ' (0 labelings)')
-            self.section_model.appendRow(item)
+                caption = self.dm.slice_str + ' (0 labelings)'
+            
+            # sectionList_item = QStandardItem(caption)
+            # self.section_model.appendRow(sectionList_item)
 
-            img_filename = os.path.join(stack_path, 'x5', section_str, '_'.join([self.stack_name, 'x5', section_str]) + '.tif')
-            imgs_path_text.append((img_filename, section_str))
+            imgs_path_caption.append((self.dm.image_path, caption))
 
-        self.previewer.set_imgs(imgs=imgs_path_text)
+        self.previewer.set_images(imgs=imgs_path_caption, callback=self.process_section_selected)
 
-    def on_sectionlist_clicked(self, index):
-        row = index.row()
-        # self.section_name = str(index.data().toString())
-        self.section_name = self.section_names[row]
-        section_path = os.path.join(data_dir, self.stack_name, 'x5', self.section_name)
-        
-        self.section_info = self.stack_info['sections'][row]
+
+    def process_section_selected(self, item_index):
+        self.dm.set_slice(item_index)
 
         self.labeling_model.clear()
 
-        previews_path_text = []
-        if 'labelings' in self.section_info:
-            for labeling_name in self.section_info['labelings']:
+        # list of (file path, caption) tuples
+        previews_path_caption = []
+
+        # add default "new labeling"
+        newLabeling_name = 'new labeling'
+        newLabeling_item = QStandardItem(newLabeling_name)
+        self.labeling_model.appendRow(newLabeling_item)
+        previews_path_caption.append((self.dm.image_path, newLabeling_name))
+        self.labeling_names = [newLabeling_name]
+
+        # add human labelings if there is any
+        if 'labelings' in self.dm.section_info:
+            self.labeling_names += self.dm.section_info['labelings']
+            for labeling_name in self.labeling_names:
                 item = QStandardItem(labeling_name)
                 self.labeling_model.appendRow(item)
 
-                preview_filename = os.path.join(section_path, 'labelings', labeling_name[:-4] + '.tif')
-                previews_path_text.append((preview_filename, labeling_name))
+                preview_path = self.load_labeling_preview(labeling_name[:-4])
+                previews_path_caption.append((preview_path, labeling_name))
 
-        self.previewer.set_imgs(imgs=previews_path_text)
-
-    # def on_labelinglist_clicked(self, index):
-    #     self.labeling_name = str(index.data().toString())
-    #     labeling_path = os.path.join(data_dir, self.stack_name, self.section_name, 'labelings', self.labeling_name)
-    #     labeling_preview_path = os.path.join(data_dir, self.stack_name, self.section_name, 'labelings', self.labeling_name)
+        self.previewer.set_images(imgs=previews_path_caption, callback=self.process_labeling_selected)
 
 
+    # def on_sectionlist_clicked(self, list_index):
+    #     item_index = list_index.row()
+    #     # self.section_name = str(index.data().toString())
+    #     self.process_section_selected(item_index)
 
 
+    def process_labeling_selected(self, labeling_index):
+
+        self.labeling_name = self.labeling_names[labeling_index]
+
+        print labeling_index, self.labeling_name
+
+        self.dm.set_gabor_params(gabor_params_id='blueNisslWide')
+        self.dm.set_segmentation_params(segm_params_id='blueNisslRegular')
+        self.dm.set_vq_params(vq_params_id='blueNissl')
+        self.dm.set_resol('x5')
+
+        self.dm._load_image()
 
 
-    # WIP 
-    def pref_clicked(self):
-        self.error = QErrorMessage()
-        self.error.setWindowTitle("Attention")
-        if (self.previewer.selectedFolder == {}):
-            self.error.showMessage("Please check a data folder first.")
-        else:
-            self.error.showMessage("WIP") 
-        self.error.show()
-        
-    
-    # # Refresh button kills-creates new preview
-    # def refresh_clicked(self):
-    #     self.refresh_preview(self.fview.model().rootPath())
-        
+        self.labeling_gui = BrainLabelingGUI(dm=self.dm)
+            
     def exit_clicked(self): 
         exit()
 
                
 if __name__ == "__main__":
     from sys import argv, exit
- 
+
     a = QApplication(argv)
     m = MainWindow()
     m.setWindowTitle("Data Manager")

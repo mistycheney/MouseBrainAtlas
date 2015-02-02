@@ -49,48 +49,161 @@
        <layout class="QGridLayout" name="labelsLayout"/>
       </item>
       <item>
-       <widget class="QGroupBox" name="display_groupBox">
-        <property name="title">
-         <string>Display</string>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout_2">
-         <item>
-          <widget class="QRadioButton" name="img_radioButton">
-           <property name="text">
-            <string>image</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="imgSeg_radioButton">
-           <property name="text">
-            <string>image + segmentation</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="textonmap_radioButton">
-           <property name="text">
-            <string>textonmap</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="dirmap_radioButton">
-           <property name="text">
-            <string>directionality</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="labeling_radioButton">
-           <property name="text">
-            <string>labeling</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QGroupBox" name="display_groupBox">
+          <property name="title">
+           <string>Display</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <widget class="QRadioButton" name="img_radioButton">
+             <property name="text">
+              <string>image</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="textonmap_radioButton">
+             <property name="text">
+              <string>textonmap (gabor, vq)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="dirmap_radioButton">
+             <property name="text">
+              <string>directionality (gabor, segm)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="labeling_radioButton">
+             <property name="text">
+              <string>labeling</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QLabel" name="label_2">
+               <property name="text">
+                <string>superpixels (segm)</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSlider" name="spOnOffSlider">
+               <property name="styleSheet">
+                <string notr="true">QSlider {
+min-width:80px;
+min-height:27px;
+max-width:80px;
+max-height:27px;
+}
+QSlider::groove:horizontal {
+background-image: url(images/slider_bg.png);
+background-repeat: no-repeat;
+background-position:center;
+margin:0px;
+border:0px;
+padding:0px;
+}
+
+QSlider::sub-page:horizontal {
+background-image: url(images/slider_on.png);
+background-repeat: no-repeat;
+background-position:left;
+background-origin:content;
+margin:0px;
+border:0px;
+padding-left:0px;
+}
+
+QSlider::add-page:horizontal {
+background-image: url(images/slider_off.png);
+background-repeat: no-repeat;
+background-position:right;
+background-origin:content;
+margin:0px;
+border:0px;
+padding-right:0px;
+}
+
+QSlider::handle:horizontal {
+background-image: url(images/slider_handle.png);
+width:39px;
+height:27px;
+margin:0px;
+border:0px;
+padding:0px;
+}
+
+QSlider::sub-page:horizontal:disabled {
+background-image: url(images/slider_on_disabled.png);
+background-repeat: no-repeat;
+background-position:left;
+background-origin:content;
+margin:0px;
+border:0px;
+padding-left:0px;
+}
+
+QSlider::add-page:horizontal:disabled {
+background-image: url(images/slider_off_disabled.png);
+background-repeat: no-repeat;
+background-position:right;
+background-origin:content;
+margin:0px;
+border:0px;
+padding-right:0px;
+}
+
+QSlider::handle:horizontal:disabled {
+background-image: url(images/slider_handle.png);
+width:39px;
+height:27px;
+margin:0px;
+border:0px;
+padding:0px;
+}
+
+</string>
+               </property>
+               <property name="maximum">
+                <number>1</number>
+               </property>
+               <property name="singleStep">
+                <number>1</number>
+               </property>
+               <property name="tracking">
+                <bool>false</bool>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
        <layout class="QVBoxLayout" name="buttonsLayout">
@@ -161,6 +274,13 @@
          <widget class="QPushButton" name="newLabelButton">
           <property name="text">
            <string>Add New Label</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="buttonParams">
+          <property name="text">
+           <string>Change Parameters</string>
           </property>
          </widget>
         </item>

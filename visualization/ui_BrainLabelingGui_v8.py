@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v8.ui'
 #
-# Created: Thu Dec  4 06:16:02 2014
+# Created: Sun Feb  1 02:33:02 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -56,6 +56,8 @@ class Ui_BrainLabelingGui(object):
         self.labelsLayout = QtGui.QGridLayout()
         self.labelsLayout.setObjectName(_fromUtf8("labelsLayout"))
         self.horizontalLayout.addLayout(self.labelsLayout)
+        self.verticalLayout_3 = QtGui.QVBoxLayout()
+        self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
         self.display_groupBox = QtGui.QGroupBox(self.centralwidget)
         self.display_groupBox.setObjectName(_fromUtf8("display_groupBox"))
         self.verticalLayout_2 = QtGui.QVBoxLayout(self.display_groupBox)
@@ -63,9 +65,6 @@ class Ui_BrainLabelingGui(object):
         self.img_radioButton = QtGui.QRadioButton(self.display_groupBox)
         self.img_radioButton.setObjectName(_fromUtf8("img_radioButton"))
         self.verticalLayout_2.addWidget(self.img_radioButton)
-        self.imgSeg_radioButton = QtGui.QRadioButton(self.display_groupBox)
-        self.imgSeg_radioButton.setObjectName(_fromUtf8("imgSeg_radioButton"))
-        self.verticalLayout_2.addWidget(self.imgSeg_radioButton)
         self.textonmap_radioButton = QtGui.QRadioButton(self.display_groupBox)
         self.textonmap_radioButton.setObjectName(_fromUtf8("textonmap_radioButton"))
         self.verticalLayout_2.addWidget(self.textonmap_radioButton)
@@ -75,7 +74,97 @@ class Ui_BrainLabelingGui(object):
         self.labeling_radioButton = QtGui.QRadioButton(self.display_groupBox)
         self.labeling_radioButton.setObjectName(_fromUtf8("labeling_radioButton"))
         self.verticalLayout_2.addWidget(self.labeling_radioButton)
-        self.horizontalLayout.addWidget(self.display_groupBox)
+        self.horizontalLayout_3 = QtGui.QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
+        self.label_2 = QtGui.QLabel(self.display_groupBox)
+        self.label_2.setObjectName(_fromUtf8("label_2"))
+        self.horizontalLayout_3.addWidget(self.label_2)
+        self.spOnOffSlider = QtGui.QSlider(self.display_groupBox)
+        self.spOnOffSlider.setStyleSheet(_fromUtf8("QSlider {\n"
+"min-width:80px;\n"
+"min-height:27px;\n"
+"max-width:80px;\n"
+"max-height:27px;\n"
+"}\n"
+"QSlider::groove:horizontal {\n"
+"background-image: url(images/slider_bg.png);\n"
+"background-repeat: no-repeat;\n"
+"background-position:center;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding:0px;\n"
+"}\n"
+"\n"
+"QSlider::sub-page:horizontal {\n"
+"background-image: url(images/slider_on.png);\n"
+"background-repeat: no-repeat;\n"
+"background-position:left;\n"
+"background-origin:content;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding-left:0px;\n"
+"}\n"
+"\n"
+"QSlider::add-page:horizontal {\n"
+"background-image: url(images/slider_off.png);\n"
+"background-repeat: no-repeat;\n"
+"background-position:right;\n"
+"background-origin:content;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding-right:0px;\n"
+"}\n"
+"\n"
+"QSlider::handle:horizontal {\n"
+"background-image: url(images/slider_handle.png);\n"
+"width:39px;\n"
+"height:27px;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding:0px;\n"
+"}\n"
+"\n"
+"QSlider::sub-page:horizontal:disabled {\n"
+"background-image: url(images/slider_on_disabled.png);\n"
+"background-repeat: no-repeat;\n"
+"background-position:left;\n"
+"background-origin:content;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding-left:0px;\n"
+"}\n"
+"\n"
+"QSlider::add-page:horizontal:disabled {\n"
+"background-image: url(images/slider_off_disabled.png);\n"
+"background-repeat: no-repeat;\n"
+"background-position:right;\n"
+"background-origin:content;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding-right:0px;\n"
+"}\n"
+"\n"
+"QSlider::handle:horizontal:disabled {\n"
+"background-image: url(images/slider_handle.png);\n"
+"width:39px;\n"
+"height:27px;\n"
+"margin:0px;\n"
+"border:0px;\n"
+"padding:0px;\n"
+"}\n"
+"\n"
+""))
+        self.spOnOffSlider.setMaximum(1)
+        self.spOnOffSlider.setSingleStep(1)
+        self.spOnOffSlider.setTracking(False)
+        self.spOnOffSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.spOnOffSlider.setObjectName(_fromUtf8("spOnOffSlider"))
+        self.horizontalLayout_3.addWidget(self.spOnOffSlider)
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout_3.addItem(spacerItem)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_3)
+        self.verticalLayout_3.addWidget(self.display_groupBox)
+        self.horizontalLayout.addLayout(self.verticalLayout_3)
         self.buttonsLayout = QtGui.QVBoxLayout()
         self.buttonsLayout.setObjectName(_fromUtf8("buttonsLayout"))
         self.horizontalLayout_2 = QtGui.QHBoxLayout()
@@ -109,6 +198,9 @@ class Ui_BrainLabelingGui(object):
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
+        self.buttonParams = QtGui.QPushButton(self.centralwidget)
+        self.buttonParams.setObjectName(_fromUtf8("buttonParams"))
+        self.buttonsLayout.addWidget(self.buttonParams)
         self.quitButton = QtGui.QPushButton(self.centralwidget)
         self.quitButton.setObjectName(_fromUtf8("quitButton"))
         self.buttonsLayout.addWidget(self.quitButton)
@@ -134,15 +226,26 @@ class Ui_BrainLabelingGui(object):
         BrainLabelingGui.setWindowTitle(_translate("BrainLabelingGui", "BrainLabelingGui", None))
         self.display_groupBox.setTitle(_translate("BrainLabelingGui", "Display", None))
         self.img_radioButton.setText(_translate("BrainLabelingGui", "image", None))
-        self.imgSeg_radioButton.setText(_translate("BrainLabelingGui", "image + segmentation", None))
-        self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap", None))
-        self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality", None))
+        self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap (gabor, vq)", None))
+        self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality (gabor, segm)", None))
         self.labeling_radioButton.setText(_translate("BrainLabelingGui", "labeling", None))
+        self.label_2.setText(_translate("BrainLabelingGui", "superpixels (segm)", None))
         self.label.setText(_translate("BrainLabelingGui", "brush size", None))
         self.loadButton.setText(_translate("BrainLabelingGui", "Load", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add New Label", None))
+        self.buttonParams.setText(_translate("BrainLabelingGui", "Change Parameters", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 
 from mplwidget import MplWidget
+
+if __name__ == "__main__":
+    import sys
+    app = QtGui.QApplication(sys.argv)
+    BrainLabelingGui = QtGui.QMainWindow()
+    ui = Ui_BrainLabelingGui()
+    ui.setupUi(BrainLabelingGui)
+    BrainLabelingGui.show()
+    sys.exit(app.exec_())
+

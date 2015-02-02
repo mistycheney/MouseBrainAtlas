@@ -37,10 +37,11 @@ from joblib import Parallel, delayed
 from scipy.spatial.distance import cdist
 
 
-if dm.check_pipeline_result('texMap', 'npy'):
+try:
+	textonmap = dm.load_pipeline_result('texMap', 'npy')
 	print "texMap.npy already exists, skip"
 
-else:
+except Exception as e:
 	centroids = dm.load_pipeline_result('textons', 'npy')
 	features_rotated = dm.load_pipeline_result('features_rotated', 'npy')
 
@@ -59,7 +60,6 @@ else:
 
 	dm.save_pipeline_result(textonmap, 'texMap', 'npy')
 
-
-	hc_colors = np.loadtxt('../visualization/100colors.txt')
-	vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
-	dm.save_pipeline_result(vis, 'texMap', 'png')
+hc_colors = np.loadtxt(dm.repo_dir + '/visualization/100colors.txt')
+vis = label2rgb(textonmap, colors=hc_colors, alpha=1.)
+dm.save_pipeline_result(vis, 'texMap', 'png')

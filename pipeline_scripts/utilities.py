@@ -442,43 +442,45 @@ class DataManager(object):
         self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq', 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
         
             
-    def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
+    # def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
+    def _get_result_filename(self, result_name, ext, param_dependencies=None):
 
-        results_dir = self.results_dir
-        
-        if result_name in ['features', 'kernels', 'features_rotated', 'features_rotated_pca', 'max_angle_indices']:
-            param_dependencies = ['gabor']
-
-        elif result_name in['segmentation', 'segmentationWithText', 'segmentationWithoutText',
-                            'segmentationTransparent', 'spProps', 'neighbors']:
-            param_dependencies = ['segm']
-                        
-        elif result_name in ['dirMap', 'dirHist', 'spMaxDirInd', 'spMaxDirAngle']:
-            param_dependencies = ['gabor', 'segm']
-            
-        elif result_name in ['textons']:
+        if result_name in ['textons']:
             results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack)
-#             results_dir = self.resol_dir
-            param_dependencies = ['gabor', 'vq']
-            
-        elif result_name in ['texMap', 'original_centroids']:
             param_dependencies = ['gabor', 'vq']
 
-        elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop30Vis', 'texHistPairwiseDist']:
-            param_dependencies = ['gabor', 'segm', 'vq']
-            
-        # elif result_name == 'tmp':
-        #     results_dir = '/tmp'
-        #     instance_name = 'test'
-        
-        # elif result_name == 'models':
-        #     results_dir = self.resol_dir
-        #     instance_name = '_'.join([self.stack, self.resol,
-        #                               'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + \
-        #                               '-vq-' + self.vq_params_id])
-        
         else:
-            raise Exception('result name %s unknown' % result_name)
+            results_dir = self.results_dir
+        
+            if result_name in ['features', 'kernels', 'features_rotated', 'features_rotated_pca', 'max_angle_indices']:
+                param_dependencies = ['gabor']
+
+            elif result_name in['segmentation', 'segmentationWithText', 'segmentationWithoutText',
+                                'segmentationTransparent', 'spProps', 'neighbors']:
+                param_dependencies = ['segm']
+                            
+            elif result_name in ['dirMap', 'dirHist', 'spMaxDirInd', 'spMaxDirAngle']:
+                param_dependencies = ['gabor', 'segm']
+                
+                
+            elif result_name in ['texMap', 'original_centroids']:
+                param_dependencies = ['gabor', 'vq']
+
+            elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop30Vis', 'texHistPairwiseDist']:
+                param_dependencies = ['gabor', 'segm', 'vq']
+                
+            # elif result_name == 'tmp':
+            #     results_dir = '/tmp'
+            #     instance_name = 'test'
+            
+            # elif result_name == 'models':
+            #     results_dir = self.resol_dir
+            #     instance_name = '_'.join([self.stack, self.resol,
+            #                               'gabor-' + self.gabor_params_id + '-segm-' + self.segm_params_id + \
+            #                               '-vq-' + self.vq_params_id])
+            
+            else:
+                raise Exception('result name %s unknown' % result_name)
 
         # instance_name = self.image_name
 

@@ -29,6 +29,9 @@ dm.set_gabor_params(gabor_params_id='blueNisslWide')
 dm.set_segmentation_params(segm_params_id='blueNisslRegular')
 dm.set_vq_params(vq_params_id='blueNissl')
 
+dm.set_stack(args.stack_name)
+dm.set_resol('x5')
+
 #============================================================
 
 if dm.check_pipeline_result('textons', 'npy'):
@@ -36,34 +39,40 @@ if dm.check_pipeline_result('textons', 'npy'):
 
 else:
 
-	features_rotated_list = []
-	
-	for i in range(0, dm.local_ds[args.stack_name]['section_num'], args.interval):
+	import random
 
-		dm.set_image(args.stack_name, 'x5', args.slice_ind)
+	features_rotated_list = []
+
+	stack_ind = dm.local_ds['available_stack_names'].index(args.stack_name)
+	section_num = dm.local_ds['stacks'][stack_ind]['section_num']
+
+	for i in range(0, section_num, args.interval):
+
+		dm.set_slice(i)
+		dm._load_image()
+
 		features_rotated_one_image = dm.load_pipeline_result('features_rotated', 'npy')
-		features_rotated_list.append(features_rotated_one_image)
+		features_rotated_list.append(features_rotated_one_image[np.random.randint(features_rotated_one_image.shape[0], size=1000000), :])
 	
 	features_rotated = np.vstack(features_rotated_list)
 
 	del features_rotated_list
 
 	n_texton = 100
-	# n_texton = 10
 
-	try:
-	    centroids = dm.load_pipeline_result('original_centroids', 'npy')
+	# try:
+	#     centroids = dm.load_pipeline_result('original_centroids', 'npy')
 
-	except:
-	    
-	    from sklearn.cluster import MiniBatchKMeans
-	    kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
-	    # kmeans.fit(features_rotated_pca)
-	    kmeans.fit(features_rotated)
-	    centroids = kmeans.cluster_centers_
-	    # labels = kmeans.labels_
+	# except:
 
-	    dm.save_pipeline_result(centroids, 'original_centroids', 'npy')
+	from sklearn.cluster import MiniBatchKMeans
+	kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
+	# kmeans.fit(features_rotated_pca)
+	kmeans.fit(features_rotated)
+	centroids = kmeans.cluster_centers_
+    # labels = kmeans.labels_
+
+    # dm.save_pipeline_result(centroids, 'original_centroids', 'npy')
 
 	from scipy.cluster.hierarchy import fclusterdata
 	cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")

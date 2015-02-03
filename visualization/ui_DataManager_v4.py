@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'DataManager_v4.ui'
 #
-# Created: Tue Feb  3 02:25:22 2015
+# Created: Tue Feb  3 02:54:58 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -54,12 +54,8 @@ class Ui_DataManager(object):
         self.vLayout.addLayout(self.topLayout)
         self.bottomLayout = QtGui.QHBoxLayout()
         self.bottomLayout.setObjectName(_fromUtf8("bottomLayout"))
-        self.label = QtGui.QLabel(self.cWidget)
-        self.label.setObjectName(_fromUtf8("label"))
-        self.bottomLayout.addWidget(self.label)
-        self.usernameEdit = QtGui.QLineEdit(self.cWidget)
-        self.usernameEdit.setObjectName(_fromUtf8("usernameEdit"))
-        self.bottomLayout.addWidget(self.usernameEdit)
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.bottomLayout.addItem(spacerItem)
         self.label_4 = QtGui.QLabel(self.cWidget)
         self.label_4.setObjectName(_fromUtf8("label_4"))
         self.bottomLayout.addWidget(self.label_4)
@@ -104,9 +100,7 @@ class Ui_DataManager(object):
         DataManager.setWindowTitle(_translate("DataManager", "Data Manager", None))
         self.label_2.setText(_translate("DataManager", "Stack", None))
         self.label_3.setText(_translate("DataManager", "Section", None))
-        self.label.setText(_translate("DataManager", "Username", None))
-        self.usernameEdit.setText(_translate("DataManager", "anon", None))
-        self.label_4.setText(_translate("DataManager", "Filter by Label Name", None))
+        self.label_4.setText(_translate("DataManager", "Filter by Label Name:", None))
         self.buttonParams.setText(_translate("DataManager", "Manage Parameters", None))
         self.buttonQuit.setText(_translate("DataManager", "Quit", None))
         self.menuView.setTitle(_translate("DataManager", "View", None))

@@ -43,7 +43,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v8 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v9 import Ui_BrainLabelingGui
 
 IGNORE_EXISTING_LABELNAMES = False
 
@@ -240,25 +240,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.remove_highlight_polygon()
 
 		elif action == self.crossReference_Action:
+			self.parent().comboBoxBrowseMode.setCurrentIndex(self.curr_label + 1)
 			self.parent().set_labelnameFilter(self.curr_label)
-			self.parent().switch_to_labeling(None)
-
-			# pass
-
-			# self.crossRefGallery = CrossReferenceGui()
-
-			# reference_labeling_preview_path_captions = []
-
-			# for labeling in self.dm.inv_labeing_index[self.curr_label]:				
-			# 	reference_labeling_preview_path_captions.append((labeling['previewpath'],
-			# 	 												labeling['filename']))
-
-			# self.crossRefGallery.set_images(reference_labeling_preview_path_captions,
-			# 								callback=self.cross_ref_gallery_callback)
-
-
-	# def cross_ref_gallery_callback(self):
-
+			self.parent().switch_to_labeling()
 
 	def initialize_brain_labeling_gui(self):
 

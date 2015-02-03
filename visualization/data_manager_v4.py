@@ -5,7 +5,7 @@ from PyQt4.QtGui import QTableWidget, QHeaderView, QTableWidgetItem, QPixmap, \
     QIcon, QMainWindow, QWidget, QHBoxLayout, QApplication
 
 from brain_labelling_gui_v9 import BrainLabelingGUI
-from ui_param_settings_v2 import Ui_ParameterSettingsWindow
+from ui_ParamSettings_v3 import Ui_ParameterSettingsWindow
 from ui_DataManager_v4 import Ui_DataManager
 from preview_widget import PreviewerWidget
 
@@ -79,6 +79,17 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
     def switch_to_regular_mode(self):
         self.stack_list.clicked.connect(self.on_stacklist_clicked_images)
+
+        self.stack_model.clear()
+
+        for stack_info in self.dm.local_ds['stacks']:
+            item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
+            self.stack_model.appendRow(item)
+
+        self.section_model.clear()
+
+        self.previewer.set_images(imgs=[], callback=self.process_labeling_selected)
+
 
     # def switch_to_labeling(self, event):
     def switch_to_labeling(self):

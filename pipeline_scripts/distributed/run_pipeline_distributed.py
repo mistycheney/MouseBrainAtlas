@@ -42,6 +42,6 @@ def run_distributed(script_name):
 # print cmd
 # subprocess.call(cmd, shell=True)
 
-run_distributed('assign_textons.py')
+# run_distributed('assign_textons.py')
 # run_distributed('compute_texton_histograms.py')
-# run_distributed('grow_regions.py')
+run_distributed('grow_regions.py')

@@ -49,7 +49,7 @@ def foreground_mask(img, min_size=64, thresh=200):
     Parameters
     ----------
     img : image
-        input image
+        input grey image
     min_size : float
     thresh : float
     
@@ -298,7 +298,7 @@ class DataManager(object):
     
         if os.path.isfile(self.labelnames_path):
             with open(self.labelnames_path, 'r') as f:
-                self.labelnames = f.readlines()
+                self.labelnames = [n.strip() for n in f.readlines()]
         else:
             self.labelnames = []
 
@@ -466,7 +466,7 @@ class DataManager(object):
             elif result_name in ['texMap', 'original_centroids']:
                 param_dependencies = ['gabor', 'vq']
 
-            elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop30Vis', 'texHistPairwiseDist']:
+            elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop10Vis', 'groupsTop20to30Vis', 'groupsTop10to20Vis', 'texHistPairwiseDist']:
                 param_dependencies = ['gabor', 'segm', 'vq']
                 
             # elif result_name == 'tmp':
@@ -621,9 +621,9 @@ class DataManager(object):
 def display(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
-        imwrite(filename, img_as_ubyte(vis))
+        imsave(filename, img_as_ubyte(vis))
     else:
-        imwrite(filename, vis)
+        imsave(filename, vis)
             
     from IPython.display import FileLink
     return FileLink(filename)

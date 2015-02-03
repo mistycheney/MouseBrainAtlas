@@ -14,7 +14,7 @@ import sys
 import cPickle as pickle
 from operator import itemgetter
 
-sys.path.append(os.path.realpath('../notebooks'))
+sys.path.append(os.path.realpath('../pipeline_scripts'))
 from utilities import DataManager
 
 from operator import itemgetter
@@ -59,16 +59,34 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         self.labeling_guis = []
 
-        self.actionLabeling.triggered.connect(self.switch_to_labeling)
+        # self.actionLabeling.triggered.connect(self.switch_to_labeling)
 
-    def switch_to_labeling(self, event):
+        self.comboBoxBrowseMode.addItem('All')
+        for lname in self.dm.labelnames:
+            self.comboBoxBrowseMode.addItem(lname)
+        self.comboBoxBrowseMode.activated[int].connect(self.onBrowseModeChanged)
+
+    def onBrowseModeChanged(self, combo_ind):
+        if combo_ind == 0:
+            self.label_toshow = None
+            self.switch_to_regular_mode()
+        else:
+            self.label_toshow = combo_ind - 1
+            self.switch_to_labeling()
+
+        # self.lbl.setText(text)
+        # self.lbl.adjustSize() 
+
+    def switch_to_regular_mode(self):
+        self.stack_list.clicked.connect(self.on_stacklist_clicked_images)
+
+    # def switch_to_labeling(self, event):
+    def switch_to_labeling(self):
         self.stack_list.clicked.connect(self.on_stacklist_clicked_labelings)
 
         self.section_model = QStandardItemModel()
         self.section_list.setModel(self.section_model)
         self.section_list.clicked.connect(self.on_sectionlist_clicked_labelings)
-
-        self.label_toshow = 3
 
         self.statusBar().showMessage('Only showing labelings with label %d (%s)' % (self.label_toshow,
                                                     self.dm.labelnames[self.label_toshow]))
@@ -89,6 +107,9 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
             self.stack_model.appendRow(item)
 
         self.previewer.set_images(imgs=self.preview_caption_tuples, callback=self.process_labeling_selected)
+
+    def set_labelnameFilter(self, label_id):
+        self.label_toshow = label_id
 
     def on_stacklist_clicked_labelings(self, list_index):
         self.selected_stack_name = str(list_index.data().toString()).split()[0]
@@ -172,9 +193,9 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
         self.labeling_name = self.previewer.captions[labeling_index]
 
         if self.labeling_name != 'new labeling':
-            labeling_gui = BrainLabelingGUI(parent_labeling_name=self.labeling_name)
+            labeling_gui = BrainLabelingGUI(parent=self, parent_labeling_name=self.labeling_name)
         else:
-            labeling_gui = BrainLabelingGUI(stack=self.dm.stack, section=self.dm.slice_ind)
+            labeling_gui = BrainLabelingGUI(parent=self, stack=self.dm.stack, section=self.dm.slice_ind)
 
         self.labeling_guis.append(labeling_gui)
 

@@ -49,24 +49,55 @@ segmentation_vis = dm.load_pipeline_result('segmentationWithText', 'jpg')
 
 # <codecell>
 
-from scipy.spatial.distance import cdist, pdist, squareform
 
-center_dists = pdist(sp_properties[:, :2])
-center_dist_matrix = squareform(center_dists)
+def visualize_cluster(cluster, segmentation=segmentation, segmentation_vis=segmentation_vis):
 
-k = 200
-k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
-
-neighbor_dists = np.empty((n_superpixels, k))
-for i in range(n_superpixels):
-#     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
-    neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
+    a = -1*np.ones_like(segmentation)
     
-sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
-for i in range(n_superpixels):
-    sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
+    for c in cluster:
+        a[segmentation == c] = 0
+        
+    vis = label2rgb(a, image=segmentation_vis)
 
-# <codecell>
+    vis = img_as_ubyte(vis[...,::-1])
+
+    for i, sp in enumerate(cluster):
+        vis = cv2.putText(vis, str(i), 
+                          tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
+                          cv2.FONT_HERSHEY_DUPLEX,
+                          1., ((0,255,255)), 1)
+
+    return vis.copy()
+
+def visualize_multiple_clusters(clusters, segmentation=segmentation, segmentation_vis=segmentation_vis):
+
+    n = len(clusters)
+    m = -1*np.ones((n_superpixels,), dtype=np.int)
+    
+    for ci, c in enumerate(clusters):
+        m[list(c)] = ci
+        
+    a = m[segmentation]
+    a[~dm.mask] = -1
+    
+#     a = -1*np.ones_like(segmentation)
+#     for ci, c in enumerate(clusters):
+#         for i in c:
+#             a[segmentation == i] = ci
+
+    vis = label2rgb(a, image=segmentation_vis)
+
+    vis = img_as_ubyte(vis[...,::-1])
+
+    for ci, c in enumerate(clusters):
+        for i, sp in enumerate(c):
+            vis = cv2.putText(vis, str(i), 
+                              tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
+                              cv2.FONT_HERSHEY_DUPLEX,
+                              1., ((0,255,255)), 1)
+    
+    return vis.copy()
+
 
 def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbors, output=False):
     
@@ -129,65 +160,7 @@ def compute_cluster_score(cluster, texton_hists=texton_hists, neighbors=neighbor
     
     return score, surround_dist, avg_dist
 
-# <codecell>
 
-def visualize_cluster(cluster, segmentation=segmentation, segmentation_vis=segmentation_vis):
-
-    a = -1*np.ones_like(segmentation)
-    
-    for c in cluster:
-        a[segmentation == c] = 0
-        
-    vis = label2rgb(a, image=segmentation_vis)
-
-    vis = img_as_ubyte(vis[...,::-1])
-
-    for i, sp in enumerate(cluster):
-        vis = cv2.putText(vis, str(i), 
-                          tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
-                          cv2.FONT_HERSHEY_DUPLEX,
-                          1., ((0,255,255)), 1)
-
-    return vis.copy()
-
-def visualize_multiple_clusters(clusters, segmentation=segmentation, segmentation_vis=segmentation_vis):
-
-    n = len(clusters)
-    m = -1*np.ones((n_superpixels,), dtype=np.int)
-    
-    for ci, c in enumerate(clusters):
-        m[list(c)] = ci
-        
-    a = m[segmentation]
-    a[~dm.mask] = -1
-    
-#     a = -1*np.ones_like(segmentation)
-#     for ci, c in enumerate(clusters):
-#         for i in c:
-#             a[segmentation == i] = ci
-
-    vis = label2rgb(a, image=segmentation_vis)
-
-    vis = img_as_ubyte(vis[...,::-1])
-
-    for ci, c in enumerate(clusters):
-        for i, sp in enumerate(c):
-            vis = cv2.putText(vis, str(i), 
-                              tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
-                              cv2.FONT_HERSHEY_DUPLEX,
-                              1., ((0,255,255)), 1)
-    
-    return vis.copy()
-
-# <codecell>
-
-import networkx
-from networkx.algorithms import node_connected_component
-
-neighbors_dict = dict(zip(np.arange(n_superpixels), [list(i) for i in neighbors]))
-neighbor_graph = networkx.from_dict_of_lists(neighbors_dict)
-
-# <codecell>
 
 def grow_cluster(seed, output=False):
 
@@ -227,126 +200,153 @@ def grow_cluster(seed, output=False):
     
     return curr_cluster, score
 
-# <codecell>
+#################################################################################################
 
-# try:
-#     clusters = dm.load_pipeline_result('clusters', 'pkl')
-    
-# except Exception as e:
+try:
+    union_cluster_union_clusters_sorted = dm.load_pipeline_result('groups', 'pkl')
 
-import time
-b = time.time()
+except:
 
-clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s) for s in range(n_superpixels))
+    from scipy.spatial.distance import cdist, pdist, squareform
 
-print time.time() - b
+    center_dists = pdist(sp_properties[:, :2])
+    center_dist_matrix = squareform(center_dists)
 
-# dm.save_pipeline_result(clusters, 'clusters', 'pkl')
+    k = 200
+    k_neighbors = np.argsort(center_dist_matrix, axis=1)[:, 1:k+1]
 
-# <codecell>
-
-dm.save_pipeline_result(clusters, 'clusters', 'pkl')
-
-# <codecell>
-
-# clusters = dm.load_pipeline_result('clusters', 'pkl')
-
-# <codecell>
-
-cluster_sps, cluster_score_sps = zip(*clusters)
-cluster_size_sps = np.array([len(c) for c in cluster_sps])
-cluster_score_sps = np.array(cluster_score_sps)
-# cluster_bounding_boxes = Parallel(n_jobs=16)(delayed(compute_bounding_box)(c) for c in cluster_sps)
-
-# <codecell>
-
-highlighted_sps = np.where((cluster_size_sps < 200) & (cluster_size_sps > 4))[0]
-n_highlights = len(highlighted_sps)
-print n_highlights
-highlighted_clusters = [cluster_sps[s] for s in highlighted_sps]
-highlighted_scores = [cluster_score_sps[s] for s in highlighted_sps]
-
-# <codecell>
-
-from scipy.spatial.distance import pdist, squareform
-from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single, dendrogram
-
-def group_clusters(clusters, dist_thresh = 0.1):
-
-    n_clusters = len(clusters)
-    
-    overlap_matrix = np.zeros((n_clusters, n_clusters))
-    
-    for i in range(n_clusters):
-        for j in range(n_clusters):
-            if i == j:
-                overlap_matrix[i, j] = 1
-            else:
-                c1 = set(clusters[i])
-                c2 = set(clusters[j])
-                overlap_matrix[i, j] = float(len(c1 & c2))/min(len(c1),len(c2))
-
-    distance_matrix = 1 - overlap_matrix
-    
-    lk = average(squareform(distance_matrix))
-
-    # T = fcluster(lk, 1.15, criterion='inconsistent')
-    T = fcluster(lk, dist_thresh, criterion='distance')
-
-    n_groups = len(set(T))
-    print n_groups, 'groups'
-    
-    groups = [None] * n_groups
-
-    for group_id in range(n_groups):
-        groups[group_id] = np.where(T == group_id)[0]
-    
+    neighbor_dists = np.empty((n_superpixels, k))
+    for i in range(n_superpixels):
+    #     neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], chi2))
+        neighbor_dists[i] = np.squeeze(cdist(texton_hists[i][np.newaxis,:], texton_hists[k_neighbors[i]], js))
         
-    return groups
+    sp_sp_dists = np.nan * np.ones((n_superpixels, n_superpixels))
+    for i in range(n_superpixels):
+        sp_sp_dists[i, k_neighbors[i]] = neighbor_dists[i]
 
-# <codecell>
 
-highlighted_groups = group_clusters(highlighted_clusters)
+    import networkx
+    from networkx.algorithms import node_connected_component
 
-# <codecell>
+    neighbors_dict = dict(zip(np.arange(n_superpixels), [list(i) for i in neighbors]))
+    neighbor_graph = networkx.from_dict_of_lists(neighbors_dict)
 
-sp_groups = [ [highlighted_sps[i] for i in group] for group in highlighted_groups if len(group) > 1]
-union_clusters = [cluster_sps[g[np.argmax(cluster_score_sps[g])]] for g in sp_groups]
+    try:
+        clusters = dm.load_pipeline_result('clusters', 'pkl')
+        
+    except Exception as e:
 
-union_cluster_groups = group_clusters(union_clusters, dist_thresh=0.5)
-union_cluster_groups = [u for u in union_cluster_groups if len(u) > 0]
+        import time
+        b = time.time()
 
-# <codecell>
+        clusters = Parallel(n_jobs=16)(delayed(grow_cluster)(s) for s in range(n_superpixels))
 
-# union_cluster_union_clusters = [set.union(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
-# union_cluster_union_clusters = [set.intersection(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
-union_cluster_union_clusters = [union_clusters[g[np.argmax([compute_cluster_score(union_clusters[i])[0] for i in g])]] 
-                                for g in union_cluster_groups]
+        print time.time() - b
 
-# <codecell>
+        dm.save_pipeline_result(clusters, 'clusters', 'pkl')
 
-filtered_group_scores = np.array([compute_cluster_score(g)[0] for g in union_cluster_union_clusters])
-# filtered_group_scores = [cluster_score_sps[list(g)].max() for g in filtered_groups]
 
-arg_score_sorted = np.argsort(filtered_group_scores)[::-1]
+    cluster_sps, cluster_score_sps = zip(*clusters)
+    cluster_size_sps = np.array([len(c) for c in cluster_sps])
+    cluster_score_sps = np.array(cluster_score_sps)
+    # cluster_bounding_boxes = Parallel(n_jobs=16)(delayed(compute_bounding_box)(c) for c in cluster_sps)
 
-union_cluster_union_clusters_sorted = [union_cluster_union_clusters[i] for i in arg_score_sorted]
+    # <codecell>
 
-print len(union_cluster_union_clusters_sorted)
+    highlighted_sps = np.where((cluster_size_sps < 200) & (cluster_size_sps > 4))[0]
+    n_highlights = len(highlighted_sps)
+    print n_highlights
+    highlighted_clusters = [cluster_sps[s] for s in highlighted_sps]
+    highlighted_scores = [cluster_score_sps[s] for s in highlighted_sps]
 
-# <codecell>
+    # <codecell>
 
-dm.save_pipeline_result(union_cluster_union_clusters_sorted, 'groups', 'pkl')
+    from scipy.spatial.distance import pdist, squareform
+    from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single, dendrogram
 
-# <codecell>
+    def group_clusters(clusters, dist_thresh = 0.1):
 
-# for i, (g, s) in enumerate(zip(union_cluster_union_clusters_sorted, filtered_group_scores[arg_score_sorted])):
-#     print i, g, s
+        n_clusters = len(clusters)
+        
+        overlap_matrix = np.zeros((n_clusters, n_clusters))
+        
+        for i in range(n_clusters):
+            for j in range(n_clusters):
+                if i == j:
+                    overlap_matrix[i, j] = 1
+                else:
+                    c1 = set(clusters[i])
+                    c2 = set(clusters[j])
+                    overlap_matrix[i, j] = float(len(c1 & c2))/min(len(c1),len(c2))
 
-# <codecell>
+        distance_matrix = 1 - overlap_matrix
+        
+        lk = average(squareform(distance_matrix))
 
-vis = visualize_multiple_clusters(union_cluster_union_clusters_sorted[:30])
+        # T = fcluster(lk, 1.15, criterion='inconsistent')
+        T = fcluster(lk, dist_thresh, criterion='distance')
+
+        n_groups = len(set(T))
+        print n_groups, 'groups'
+        
+        groups = [None] * n_groups
+
+        for group_id in range(n_groups):
+            groups[group_id] = np.where(T == group_id)[0]
+        
+            
+        return groups
+
+    # <codecell>
+
+    highlighted_groups = group_clusters(highlighted_clusters)
+
+    # <codecell>
+
+    sp_groups = [ [highlighted_sps[i] for i in group] for group in highlighted_groups if len(group) > 1]
+    union_clusters = [cluster_sps[g[np.argmax(cluster_score_sps[g])]] for g in sp_groups]
+
+    union_cluster_groups = group_clusters(union_clusters, dist_thresh=0.5)
+    union_cluster_groups = [u for u in union_cluster_groups if len(u) > 0]
+
+    # <codecell>
+
+    # union_cluster_union_clusters = [set.union(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
+    # union_cluster_union_clusters = [set.intersection(*[set(union_clusters[i]) for i in g]) for g in union_cluster_groups]
+    union_cluster_union_clusters = [union_clusters[g[np.argmax([compute_cluster_score(union_clusters[i])[0] for i in g])]] 
+                                    for g in union_cluster_groups]
+
+    # <codecell>
+
+    filtered_group_scores = np.array([compute_cluster_score(g)[0] for g in union_cluster_union_clusters])
+    # filtered_group_scores = [cluster_score_sps[list(g)].max() for g in filtered_groups]
+
+    arg_score_sorted = np.argsort(filtered_group_scores)[::-1]
+
+    union_cluster_union_clusters_sorted = [union_cluster_union_clusters[i] for i in arg_score_sorted]
+
+    print len(union_cluster_union_clusters_sorted)
+
+    # <codecell>
+
+    dm.save_pipeline_result(union_cluster_union_clusters_sorted, 'groups', 'pkl')
+
+    # <codecell>
+
+    # for i, (g, s) in enumerate(zip(union_cluster_union_clusters_sorted, filtered_group_scores[arg_score_sorted])):
+    #     print i, g, s
+
+    # <codecell>
+
+vis = visualize_multiple_clusters(union_cluster_union_clusters_sorted[:10])
 # display(vis)
-dm.save_pipeline_result(vis, 'groupsTop30Vis', 'jpg', is_rgb=True)
+dm.save_pipeline_result(vis, 'groupsTop10Vis', 'jpg', is_rgb=True)
 
+vis = visualize_multiple_clusters(union_cluster_union_clusters_sorted[10:20])
+# display(vis)
+dm.save_pipeline_result(vis, 'groupsTop10to20Vis', 'jpg', is_rgb=True)
+
+vis = visualize_multiple_clusters(union_cluster_union_clusters_sorted[20:30])
+# display(vis)
+dm.save_pipeline_result(vis, 'groupsTop20to30Vis', 'jpg', is_rgb=True)
 

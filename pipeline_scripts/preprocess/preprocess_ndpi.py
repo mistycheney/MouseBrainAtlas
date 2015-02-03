@@ -17,6 +17,14 @@ import shutil
 import glob
 import argparse
 
+sys.path.append('/home/yuncong/morphsnakes')
+import morphsnakes
+
+import numpy as np
+from matplotlib import pyplot as plt
+from skimage.color import rgb2gray
+from skimage.io import imread, imsave
+
 ndpi_dir = os.environ['GORDON_NDPI_DIR']
 temp_dir = os.environ['GORDON_TEMP_DIR']
 data_dir = os.environ['GORDON_DATA_DIR']
@@ -25,6 +33,24 @@ result_dir = os.environ['GORDON_RESULT_DIR']
 labeling_dir = os.environ['GORDON_LABELING_DIR']
 
 ndpisplit = '/oasis/projects/nsf/csd181/yuncong/ndpisplit'
+
+def foreground_mask_morphsnakes(img):
+
+	gI = morphsnakes.gborders(img, alpha=20000, sigma=1)
+
+	mgac = morphsnakes.MorphGAC(gI, smoothing=2, threshold=0.3, balloon=-3)
+
+	mgac.levelset = np.ones_like(img)
+	mgac.levelset[:10,:] = 0
+	mgac.levelset[-10:,:] = 0
+	mgac.levelset[:,:10] = 0
+	mgac.levelset[:, -10:] = 0
+
+	num_iters = 400
+	for i in xrange(num_iters):
+	    msnake.step()
+
+	return msnake.levelset
 
 if __name__ == '__main__':
 
@@ -108,3 +134,11 @@ if __name__ == '__main__':
 		            execute_command(cmd3)
 
 		        print "Processed %s" % section_im_filename
+
+		        section_im = imread(section_im_path)
+		        mask = foreground_mask_morphsnakes(section_im)
+				
+				mask_filename = '_'.join([stack, resol, '%04d' % section_ind]) +'_mask.png'
+				mask_path = os.path.join(res_data_dir, mask_filename)
+				
+				imsave(mask_path, mask)

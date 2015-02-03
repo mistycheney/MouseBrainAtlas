@@ -22,7 +22,7 @@ import time
 import datetime
 from visualization_utilities import *
 
-sys.path.append(os.path.realpath('../notebooks'))
+sys.path.append(os.path.realpath('../pipeline_scripts'))
 from utilities import *
 import json
 
@@ -240,7 +240,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.remove_highlight_polygon()
 
 		elif action == self.crossReference_Action:
-			pass
+			self.parent().set_labelnameFilter(self.curr_label)
+			self.parent().switch_to_labeling(None)
+
+			# pass
 
 			# self.crossRefGallery = CrossReferenceGui()
 
@@ -398,7 +401,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.clusters = self.dm.load_pipeline_result('clusters', 'pkl')
 		# self.cluster_sps, curr_cluster_score_sps, scores_sps, nulls_sps, models_sps, added_sps = zip(*self.clusters)
-		self.cluster_sps, curr_cluster_score_sps = zip(*self.clusters)
+		self.cluster_sps, self.curr_cluster_score_sps = zip(*self.clusters)
 
 		# self.n_texton = 100
 
@@ -758,7 +761,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 							self.statusBar().showMessage('This is the background')
 						else:
 							self.statusBar().showMessage('Labeled superpixel %d using label %d (%s)' % (sp_ind, self.curr_label, self.labeling['labelnames'][self.curr_label]))
-							self.paint_superpixel(sp_ind)
+							# self.paint_superpixel(sp_ind)
+							self.show_region(sp_ind)
 
 					else:
 						if self.is_placing_vertices:
@@ -819,6 +823,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# 		label = np.where(np.all(self.colors == c.get_facecolor()[:3], axis=1))[0][0] - 1
 	# 		label_circles.append((int(c.center[0]), int(c.center[1]), c.radius, label))
 	# 	return label_circles
+
+
+	def show_region(self, sp_ind):
+
+		for i, r in enumerate(self.sp_rectlist):
+			if r is not None:
+				r.remove()
+				self.sp_rectlist[i] = None
+
+		for i in self.cluster_sps[sp_ind]:
+
+			ymin, xmin, ymax, xmax = self.sp_props[i, 4:]
+			width = xmax - xmin
+			height = ymax - ymin
+
+			rect = Rectangle((xmin, ymin), width, height, 
+				ec="none", alpha=.3, color=self.colors[self.curr_label + 1])
+
+			self.sp_rectlist[i] = rect
+			self.axes.add_patch(rect)
+
+		self.statusBar().showMessage('Cluster score %.4f' % self.curr_cluster_score_sps[sp_ind])
 
 
 	def paint_superpixel(self, sp_ind):

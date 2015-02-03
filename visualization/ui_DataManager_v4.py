@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'DataManager_v4.ui'
 #
-# Created: Sun Feb  1 02:32:41 2015
+# Created: Tue Feb  3 02:25:22 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -34,6 +34,9 @@ class Ui_DataManager(object):
         self.vLayout = QtGui.QVBoxLayout()
         self.vLayout.setSizeConstraint(QtGui.QLayout.SetDefaultConstraint)
         self.vLayout.setObjectName(_fromUtf8("vLayout"))
+        self.label_2 = QtGui.QLabel(self.cWidget)
+        self.label_2.setObjectName(_fromUtf8("label_2"))
+        self.vLayout.addWidget(self.label_2)
         self.topLayout = QtGui.QHBoxLayout()
         self.topLayout.setObjectName(_fromUtf8("topLayout"))
         self.leftListLayout = QtGui.QVBoxLayout()
@@ -41,6 +44,9 @@ class Ui_DataManager(object):
         self.stack_list = QtGui.QListView(self.cWidget)
         self.stack_list.setObjectName(_fromUtf8("stack_list"))
         self.leftListLayout.addWidget(self.stack_list)
+        self.label_3 = QtGui.QLabel(self.cWidget)
+        self.label_3.setObjectName(_fromUtf8("label_3"))
+        self.leftListLayout.addWidget(self.label_3)
         self.section_list = QtGui.QListView(self.cWidget)
         self.section_list.setObjectName(_fromUtf8("section_list"))
         self.leftListLayout.addWidget(self.section_list)
@@ -54,6 +60,18 @@ class Ui_DataManager(object):
         self.usernameEdit = QtGui.QLineEdit(self.cWidget)
         self.usernameEdit.setObjectName(_fromUtf8("usernameEdit"))
         self.bottomLayout.addWidget(self.usernameEdit)
+        self.label_4 = QtGui.QLabel(self.cWidget)
+        self.label_4.setObjectName(_fromUtf8("label_4"))
+        self.bottomLayout.addWidget(self.label_4)
+        self.comboBoxBrowseMode = QtGui.QComboBox(self.cWidget)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.comboBoxBrowseMode.sizePolicy().hasHeightForWidth())
+        self.comboBoxBrowseMode.setSizePolicy(sizePolicy)
+        self.comboBoxBrowseMode.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
+        self.comboBoxBrowseMode.setObjectName(_fromUtf8("comboBoxBrowseMode"))
+        self.bottomLayout.addWidget(self.comboBoxBrowseMode)
         self.buttonParams = QtGui.QPushButton(self.cWidget)
         self.buttonParams.setObjectName(_fromUtf8("buttonParams"))
         self.bottomLayout.addWidget(self.buttonParams)
@@ -84,8 +102,11 @@ class Ui_DataManager(object):
 
     def retranslateUi(self, DataManager):
         DataManager.setWindowTitle(_translate("DataManager", "Data Manager", None))
+        self.label_2.setText(_translate("DataManager", "Stack", None))
+        self.label_3.setText(_translate("DataManager", "Section", None))
         self.label.setText(_translate("DataManager", "Username", None))
         self.usernameEdit.setText(_translate("DataManager", "anon", None))
+        self.label_4.setText(_translate("DataManager", "Filter by Label Name", None))
         self.buttonParams.setText(_translate("DataManager", "Manage Parameters", None))
         self.buttonQuit.setText(_translate("DataManager", "Quit", None))
         self.menuView.setTitle(_translate("DataManager", "View", None))

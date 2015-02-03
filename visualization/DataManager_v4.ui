@@ -21,11 +21,25 @@
        <enum>QLayout::SetDefaultConstraint</enum>
       </property>
       <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Stack</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="topLayout">
         <item>
          <layout class="QVBoxLayout" name="leftListLayout">
           <item>
            <widget class="QListView" name="stack_list"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Section</string>
+            </property>
+           </widget>
           </item>
           <item>
            <widget class="QListView" name="section_list"/>
@@ -47,6 +61,26 @@
          <widget class="QLineEdit" name="usernameEdit">
           <property name="text">
            <string>anon</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Filter by Label Name:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBoxBrowseMode">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="sizeAdjustPolicy">
+           <enum>QComboBox::AdjustToContents</enum>
           </property>
          </widget>
         </item>

@@ -9,6 +9,9 @@ export GORDON_DATA_DIR=$CSD181/DavidData2014tif
 export GORDON_REPO_DIR=$HOME/Brain
 export GORDON_RESULT_DIR=$CSD181/DavidData2014results
 export GORDON_LABELING_DIR=$CSD181/DavidData2014labelings
+export GORDON_TEMPDATA_DIR=$CSD181/DavidData2014temp
+export GORDON_NDPI_DIR=$CSD181/DavidData2014ndpi
+
 
 export LOCAL_DATA_DIR=$HOME/DavidData2014tif/
 export LOCAL_REPO_DIR=$HOME/BrainSaliencyDetection

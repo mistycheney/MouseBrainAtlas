@@ -43,7 +43,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v9 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
 IGNORE_EXISTING_LABELNAMES = False
 
@@ -52,12 +52,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		"""
 		Initialization of BrainLabelingGUI.
 		"""
-		# Load data
 
-		self.gordon_username = 'yuncong'
-		self.gordon_hostname = 'gcn-20-32.sdsc.edu'
-		self.temp_dir = '/home/yuncong/BrainLocal'
-		self.remote_repo_dir = '/home/yuncong/Brain'
 		self.params_dir = '../params'
 
 		# self.image_name = None
@@ -87,8 +82,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.dm.set_image(stack, 'x5', section)
 
-		self.labelnames = self.dm.labelnames
-
 		self.is_placing_vertices = False
 		self.curr_polygon_vertices = []
 		self.polygon_list = []
@@ -100,6 +93,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.under_img = None
 		self.textonmap_vis = None
 		self.dirmap_vis = None
+
+		self.debug_mode = False
 
 		self.load_labeling()
 
@@ -121,7 +116,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.masked_img[~self.dm.mask, :] = 0
 
 		try:
-			parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
+			self.parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
 
 			print 'Load saved labeling'
 			
@@ -131,17 +126,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				'username' : None,
 				'parent_labeling_name' : self.parent_labeling_name,
 				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-				'initial_polygons': parent_labeling['final_polygons'],
+				'initial_polygons': self.parent_labeling['final_polygons'],
 				'final_polygons': None,
 				# 'init_label_circles' : label_circles,
 				# 'final_label_circles' : None,
-				'labelnames' : parent_labeling['labelnames'],
+				'labelnames' : [],  # will be filled by _add_buttons()
 			}
 
 		except Exception as e:
 
 			print 'error', e
 			print 'No labeling is given. Initialize labeling.'
+
+			self.parent_labeling = None
 
 			self.labeling = {
 				'username' : None,
@@ -151,7 +148,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				'final_polygons': None,
 				# 'init_label_circles' : [],
 				# 'final_label_circles' : None,
-				'labelnames' : self.labelnames,
+				# 'labelnames' : self.dm.labelnames,
+				'labelnames' : [],  # will be filled by _add_buttons()
 			}
 
 			# labelnames not including -1 ("no label")
@@ -165,7 +163,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# 	# n_models = 10
 			# 	n_models = 0
 		
-		self.n_labels = len(self.labeling['labelnames'])
+		# self.n_labels = len(self.labeling['labelnames'])
 
 		# initialize GUI variables
 		self.paint_label = -1        # color of pen
@@ -177,11 +175,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def openMenu(self, canvas_pos):
 
-		if self.seg_enabled:
-			self.growRegion_Action.setEnabled(True)
-			seed_sp = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
-		else:
-			self.growRegion_Action.setEnabled(False)
+		# if self.seg_enabled:
+		# 	self.growRegion_Action.setEnabled(True)
+		# 	seed_sp = self.segmentation[int(canvas_pos[1]), int(canvas_pos[0])]
+		# else:
+		# 	self.growRegion_Action.setEnabled(False)
 
 		self.endDraw_Action.setVisible(self.is_placing_vertices)
 		self.deletePolygon_Action.setVisible(not self.is_placing_vertices)
@@ -190,29 +188,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		action = self.menu.exec_(pos)
 		
-		if action == self.growRegion_Action:
+		# if action == self.growRegion_Action:
 					
-			self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
-			self.curr_label = self.sp_labellist[seed_sp]
-			for sp in self.cluster_sps[seed_sp]:
-				self.paint_superpixel(sp)
+		# 	self.statusBar().showMessage('Grow region from superpixel %d' % seed_sp )
+		# 	self.curr_label = self.sp_labellist[seed_sp]
+		# 	for sp in self.cluster_sps[seed_sp]:
+		# 		self.paint_superpixel(sp)
 
-		elif action == self.pickColor_Action:
+		# elif action == self.pickColor_Action:
 
-			self.pick_color(self.sp_labellist[seed_sp])
+		# 	self.pick_color(self.sp_labellist[seed_sp])
 
-		elif action == self.eraseColor_Action:
+		# elif action == self.eraseColor_Action:
 
-			self.pick_color(-1)
-			self.paint_superpixel(seed_sp)
+		# 	self.pick_color(-1)
+		# 	self.paint_superpixel(seed_sp)
 
-		elif action == self.eraseAllSpsCurrColor_Action:
+		# elif action == self.eraseAllSpsCurrColor_Action:
 
-			self.pick_color(-1)
-			for sp in self.cluster_sps[seed_sp]:
-				self.paint_superpixel(sp)
+		# 	self.pick_color(-1)
+		# 	for sp in self.cluster_sps[seed_sp]:
+		# 		self.paint_superpixel(sp)
 
-		elif action == self.endDraw_Action:
+		# elif action == self.endDraw_Action:
+		if action == self.endDraw_Action:
 
 			self.is_placing_vertices = False
 
@@ -229,7 +228,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.vertex_list = []
 
 			self.statusBar().showMessage('Done labeling region using label %d (%s)' % (self.curr_label,
-				self.labelnames[self.curr_label]))
+											self.labeling['labelnames'][self.curr_label]))
 
 		elif action == self.deletePolygon_Action:
 
@@ -240,6 +239,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.remove_highlight_polygon()
 
 		elif action == self.crossReference_Action:
+			self.parent().refresh_data()
 			self.parent().comboBoxBrowseMode.setCurrentIndex(self.curr_label + 1)
 			self.parent().set_labelnameFilter(self.curr_label)
 			self.parent().switch_to_labeling()
@@ -247,10 +247,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def initialize_brain_labeling_gui(self):
 
 		self.menu = QMenu()
-		self.growRegion_Action = self.menu.addAction("Label similar neighbors")
-		self.pickColor_Action = self.menu.addAction("Pick this label")
-		self.eraseColor_Action = self.menu.addAction("Remove label of this superpixel")
-		self.eraseAllSpsCurrColor_Action = self.menu.addAction("Clear similar neighbors")
+		# self.growRegion_Action = self.menu.addAction("Label similar neighbors")
+		# self.pickColor_Action = self.menu.addAction("Pick this label")
+		# self.eraseColor_Action = self.menu.addAction("Remove label of this superpixel")
+		# self.eraseAllSpsCurrColor_Action = self.menu.addAction("Clear similar neighbors")
 		self.endDraw_Action = self.menu.addAction("End drawing region")
 		self.deletePolygon_Action = self.menu.addAction("Delete polygon")
 		self.crossReference_Action = self.menu.addAction("Cross reference")
@@ -285,26 +285,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.spOnOffSlider.valueChanged.connect(self.display_option_changed)
 
+		self.set_debug_mode()
+
+		########## Label buttons #############
+
 		self.n_labelbuttons = 0
 		
 		self.labelbuttons = []
-		self.labeldescs = []
+		self.labeledits = []
 
-		self._add_labelbutton(desc='no label')
+		if self.parent_labeling is not None:
+			for n in self.parent_labeling['labelnames']:
+				self._add_labelbutton(desc=n)
+		else:
+			for n in self.dm.labelnames:
+				self._add_labelbutton(desc=n)
 
-		for i in range(self.n_labels):
-		    self._add_labelbutton(desc=self.labeling['labelnames'][i])
-
-		self.loadButton.clicked.connect(self.load_callback)
+		# self.loadButton.clicked.connect(self.load_callback)
 		self.saveButton.clicked.connect(self.save_callback)
 		self.newLabelButton.clicked.connect(self.newlabel_callback)
 		# self.newLabelButton.clicked.connect(self.sigboost_callback)
 		self.quitButton.clicked.connect(self.close)
 		self.buttonParams.clicked.connect(self.paramSettings_clicked)
+		self.buttonDebugMode.clicked.connect(self.debugMode_toggled)
 
 
-		self.brushSizeSlider.valueChanged.connect(self.brushSizeSlider_valueChanged)
-		self.brushSizeEdit.setText('%d' % self.brushSizeSlider.value())
+		# self.brushSizeSlider.valueChanged.connect(self.brushSizeSlider_valueChanged)
+		# self.brushSizeEdit.setText('%d' % self.brushSizeSlider.value())
 
 		# help_message = 'Usage: right click to pick a color; left click to assign color to a superpixel; scroll to zoom, drag to move'
 		# self.setWindowTitle('%s' %(help_message))
@@ -352,8 +359,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# def growThreshSlider_valueChanged(self):
 	# 	self.growThreshEdit.setText('%.2f' % (self.growThreshSlider.value()/100.))
 
-	def brushSizeSlider_valueChanged(self, new_val):
-		self.brushSizeEdit.setText('%d' % new_val)
+	# def brushSizeSlider_valueChanged(self, new_val):
+	# 	self.brushSizeEdit.setText('%d' % new_val)
+
+	def set_debug_mode(self):
+		if self.debug_mode:
+			self.display_groupBox.show()
+			self.buttonParams.show()
+		else:
+			self.display_groupBox.hide()
+			self.buttonParams.hide()
+
+
+	def debugMode_toggled(self):
+		self.debug_mode = ~self.debug_mode
+		self.set_debug_mode()
 
 	def load_groups(self):
 
@@ -526,22 +546,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def _add_labelbutton(self, desc=None):
 		self.n_labelbuttons += 1
 
-		index = self.n_labelbuttons - 2
+		index = self.n_labelbuttons - 1
 
-		labelname = desc if desc is not None else 'label %d'%index
-
-		self.labeling['labelnames'].append(labelname)
-
-		row = (index + 1) % 5
-		col = (index + 1) / 5
+		row = (index) % 5
+		col = (index) / 5
 
 		btn = QPushButton('%d' % index, self)
-		edt = QLineEdit(QString(desc if desc is not None else labelname))
+
+		if desc is None:
+			labelname = 'label %d'%index			
+		else:
+			labelname = desc
+
+		edt = QLineEdit(QString(labelname))
+		self.labeling['labelnames'].append(labelname)
 
 		self.labelbuttons.append(btn)
-		self.labeldescs.append(edt)
+		self.labeledits.append(edt)
 
 		btn.clicked.connect(self.labelbutton_callback)
+		edt.editingFinished.connect(self.labelNameChanged)
 
 		r, g, b, a = self.label_cmap(index + 1)
 
@@ -552,15 +576,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.labelsLayout.addWidget(edt, row, 2*col+1)
 
 	def newlabel_callback(self):
-		self.n_labels += 1
+		# self.n_labels += 1
 		self._add_labelbutton()
 
-	def sigboost_callback(self):
-		self._save_labeling()
+	# def sigboost_callback(self):
+	# 	self._save_labeling()
 
+	# def load_callback(self):
+	# 	self.initialize_data_manager()
 
-	def load_callback(self):
-		self.initialize_data_manager()
+	def labelNameChanged(self):
+		edt = self.sender()
+		ind_onscreen = self.labeledits.index(edt) # the first one is "no label"
+		self.labeling['labelnames'][ind_onscreen] = str(edt.text())
+
 
 	def _save_labeling(self, ):
 
@@ -581,7 +610,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.labeling['final_label_circles'] = self.circle_list_to_labeling_field(self.circle_list)
 		self.labeling['final_polygons'] = [(l, p.get_xy()/np.array([self.dm.image_width, self.dm.image_height])[np.newaxis, :]) for l,p in zip(self.polygon_labels, self.polygon_list)]
 		self.labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-		self.labeling['labelnames'] = [str(edt.text()) for edt in self.labeldescs[1:]]
+		# self.labeling['labelnames'] = [str(edt.text()).strip() for edt in self.labeledits[1:]]
 
 		# labelnames_fn = os.path.join(self.data_dir, 'labelnames.json')
 
@@ -602,6 +631,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 						bg_label=-1, bg_color=(1,1,1), alpha=0.3, image_alpha=1.)
 
 		new_labeling_fn = self.dm.save_labeling(self.labeling, new_labeling_name, labelmap_vis)
+
+
+		print 'Curr labelnames', self.labeling['labelnames']
+
+		new_labelnames = []
+		q = [n.lower() for n in self.dm.labelnames]
+		for n in self.labeling['labelnames']:
+			if n.lower() not in q:
+				new_labelnames.append(n)
+
+		print 'Global Labelnames', self.dm.labelnames + new_labelnames
+
+		self.dm.set_labelnames(self.dm.labelnames + new_labelnames)
 		
 		self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
 
@@ -709,7 +751,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.selected_polygon = selected_polygon
 				self.seletced_polygon_label = selected_polygon_label
 				self.statusBar().showMessage('Polygon (%s) is selected' %
-					self.labelnames[self.seletced_polygon_label])
+					self.labeling['labelnames'][self.seletced_polygon_label])
 				
 				self.highlight_polygon = Polygon(selected_polygon.get_xy())
 				self.highlight_polygon.update_from(selected_polygon)

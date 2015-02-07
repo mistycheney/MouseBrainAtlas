@@ -299,6 +299,7 @@ class DataManager(object):
         if os.path.isfile(self.labelnames_path):
             with open(self.labelnames_path, 'r') as f:
                 self.labelnames = [n.strip() for n in f.readlines()]
+                self.labelnames = [n for n in self.labelnames if len(n) > 0]
         else:
             self.labelnames = []
 
@@ -316,7 +317,14 @@ class DataManager(object):
         self.gabor_params_id='blueNisslWide'
         self.segm_params_id='blueNisslRegular'
         self.vq_params_id='blueNissl'
-        
+
+    def set_labelnames(self, labelnames):
+        self.labelnames = labelnames
+
+        with open(self.labelnames_path, 'w') as f:
+            for n in labelnames:
+                f.write('%s\n' % n)
+
     def set_stack(self, stack):
         self.stack = stack
         self.stack_path = os.path.join(self.data_dir, self.stack)

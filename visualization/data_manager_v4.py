@@ -4,7 +4,7 @@ from PyQt4.QtCore import QSize, QDir
 from PyQt4.QtGui import QTableWidget, QHeaderView, QTableWidgetItem, QPixmap, \
     QIcon, QMainWindow, QWidget, QHBoxLayout, QApplication
 
-from brain_labelling_gui_v9 import BrainLabelingGUI
+from brain_labelling_gui_v10 import BrainLabelingGUI
 from ui_ParamSettings_v3 import Ui_ParameterSettingsWindow
 from ui_DataManager_v4 import Ui_DataManager
 from preview_widget import PreviewerWidget
@@ -34,17 +34,7 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         self.setupUi(self)
         
-        self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
-            repo_dir=os.environ['LOCAL_REPO_DIR'],
-            result_dir=os.environ['LOCAL_RESULT_DIR'], 
-            labeling_dir=os.environ['LOCAL_LABELING_DIR'])
-        
         self.stack_model = QStandardItemModel()
-
-        for stack_info in self.dm.local_ds['stacks']:
-            item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
-            self.stack_model.appendRow(item)
-
         self.stack_list.setModel(self.stack_model)
         self.stack_list.clicked.connect(self.on_stacklist_clicked_images)
         self.previewer = PreviewerWidget()
@@ -59,12 +49,29 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         self.labeling_guis = []
 
+        self.refresh_data()
+
         # self.actionLabeling.triggered.connect(self.switch_to_labeling)
+
+    def refresh_data(self):
+        self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+            repo_dir=os.environ['LOCAL_REPO_DIR'],
+            result_dir=os.environ['LOCAL_RESULT_DIR'], 
+            labeling_dir=os.environ['LOCAL_LABELING_DIR'])
+
+        self.stack_model.clear()
+        for stack_info in self.dm.local_ds['stacks']:
+            item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
+            self.stack_model.appendRow(item)
+
+        
+        self.comboBoxBrowseMode.clear()
 
         self.comboBoxBrowseMode.addItem('All')
         for lname in self.dm.labelnames:
             self.comboBoxBrowseMode.addItem(lname)
         self.comboBoxBrowseMode.activated[int].connect(self.onBrowseModeChanged)
+
 
     def onBrowseModeChanged(self, combo_ind):
         if combo_ind == 0:

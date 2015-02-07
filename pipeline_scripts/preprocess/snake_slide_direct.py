@@ -11,13 +11,17 @@ from skimage.morphology import disk, remove_small_objects
 from skimage.measure import regionprops, label
 
 from matplotlib import pyplot as plt
-import Image
+from PIL import Image
 
 from collections import defaultdict
 import json
 
+from itertools import chain
+import cPickle as pickle
 
-def foreground_mask_morphsnakes_slide(img, num_iters=1000):
+def foreground_mask_morphsnakes_slide(img, num_iters=1000, num_section_per_slide=5):
+
+	# ls = pickle.load(open('/tmp/levelset.pkl', 'rb'))
 
 	gI = morphsnakes.gborders(img, alpha=20000, sigma=1)
 
@@ -30,91 +34,144 @@ def foreground_mask_morphsnakes_slide(img, num_iters=1000):
 	msnake.levelset[:,-3:] = 0
 
 	for i in xrange(num_iters):
+		# print i
 		msnake.step()
-
 		if i > 0:
-			if i > 1:
-				previous_diff = diff
-			diff = np.count_nonzero(msnake.levelset - previous_levelset)
+			diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
 			# print i, diff
-			if i > 1:
-				if diff == previous_diff and diff < 40 and i > 300: # oscillate
-					break
+			if diff < 40 and i > 300: # oscillate
+				break
 
 		previous_levelset = msnake.levelset
 
 	# plt.figure()
 	# morphsnakes.evolve_visual(msnake, num_iters=num_iters, background=img)
-
+	
 	blob_labels, n_labels = label(msnake.levelset, neighbors=4, return_num=True, background=0)
 
+	# pickle.dump(msnake.levelset, open('/tmp/levelset.pkl', 'wb'))
+
+	# blob_labels, n_labels = label(ls, neighbors=4, return_num=True, background=0)
+
 	blob_props = regionprops(blob_labels + 1)
-	all_areas = [p.area for p in blob_props]
+	all_areas = np.array([p.area for p in blob_props])
+	all_centers = np.array([p.centroid for p in blob_props])
+	all_bboxes = np.array([p.bbox for p in blob_props])
 
 	indices = np.argsort(all_areas)[::-1]
-	largest = indices[0]
+	largest_area = all_areas[indices[:2]].mean()
 
-	largest_area = all_areas[largest]
+	valid = np.where(all_areas > largest_area * .45)[0]
 
-	valid = np.where(all_areas > largest_area * .6)[0]
+	valid = valid[np.argsort(all_centers[valid, 1])]
+	centers_x = all_centers[valid, 1]
+	centers_y = all_centers[valid, 0]
 
-	blob_props_good = [blob_props[i] for i in valid]
+	print 'valid', valid
 
-	bboxes = [p.bbox for p in blob_props_good]
+	height, width = img.shape[:2]
 
+
+	if len(valid) > num_section_per_slide:
+
+		indices_close = np.where(np.diff(centers_x) < width * .1)[0]
+		print indices_close
+
+		ups = []
+		downs = []
+
+		if len(indices_close) > 0:
+			for i in range(len(valid)):
+				if i-1 in indices_close:
+					continue
+				elif i in indices_close:
+					if centers_y[i] > height * .5:
+						ups.append(valid[i+1])
+						downs.append(valid[i])
+					else:
+						ups.append(valid[i])
+						downs.append(valid[i+1])
+				else:
+					if centers_y[i] > height * .5:
+						ups.append(-1)
+						downs.append(valid[i])
+					else:
+						ups.append(valid[i])
+						downs.append(-1)
+
+		print ups, downs
+		arrangement = np.r_[ups, downs]
+
+	elif len(valid) < num_section_per_slide:
+		snap_to_columns = (np.round((centers_x / width + 0.1) * num_section_per_slide) - 1).astype(np.int)
+		print 'snap_to_columns', snap_to_columns
+
+		arrangement = -1 * np.ones((num_section_per_slide,), dtype=np.int)
+		arrangement[snap_to_columns] = valid
+	else:
+		arrangement = valid
+
+	print 'arrangement', arrangement
+
+	bboxes = []
 	masks = []
 
-	for i, (minr, minc, maxr, maxc) in enumerate(bboxes):
+	for i, j in enumerate(arrangement):
+		if j == -1: continue
+
+		minr, minc, maxr, maxc = all_bboxes[j]
+		bboxes.append(all_bboxes[j])
+
 		mask = np.zeros_like(img, dtype=np.bool)
-		mask[blob_labels == i] = 1
+		mask[blob_labels == j] = 1
 		
 		section_mask = mask[minr:maxr+1, minc:maxc+1]
 		
 		masks.append(section_mask)
 
-	return masks, bboxes
+	return masks, bboxes, arrangement > -1
 
 stack = 'CC35'
 bboxes_json = defaultdict(list)
 
 use_hsv = True	# set to True for Nissl stains, False for Fluorescent stains
 
-for slide_ind in range(4, 55):
+# for slide_ind in range(24, 55):
 
-	print 'slide', slide_ind
+	# print 'slide', slide_ind
 
-	# slide_ind = 23
-	imgcolor = Image.open("/home/yuncong/DavidData2015tifFlat/x0.3125_slide/CC35_%02d_x0.3125_z0.tif" % slide_ind)
-	imgcolor = imgcolor.convert('RGB')
-	imgcolor = np.array(imgcolor)
-	img_gray = rgb2gray(imgcolor)
-	slide_height, slide_width = img_gray.shape[:2]
+slide_ind = 54
+imgcolor = Image.open("/home/yuncong/DavidData2015tifFlat/x0.3125_slide/CC35_%02d_x0.3125_z0.tif" % slide_ind)
+imgcolor = imgcolor.convert('RGB')
+imgcolor = np.array(imgcolor)
+img_gray = rgb2gray(imgcolor)
+slide_height, slide_width = img_gray.shape[:2]
 
-	if use_hsv:
-		imghsv = rgb2hsv(imgcolor)
-		img = imghsv[...,1]
-	else:
-		img = img_gray
+if use_hsv:
+	imghsv = rgb2hsv(imgcolor)
+	img = imghsv[...,1]
+else:
+	img = img_gray
 
-	# plt.imshow(imghsv[...,0], cmap=plt.cm.gray)
-	# plt.show()
-	# plt.imshow(imghsv[...,1], cmap=plt.cm.gray)
-	# plt.show()
-	# plt.imshow(imghsv[...,2], cmap=plt.cm.gray)
-	# plt.show()
+# plt.imshow(imghsv[...,0], cmap=plt.cm.gray)
+# plt.show()
+# plt.imshow(imghsv[...,1], cmap=plt.cm.gray)
+# plt.show()
+# plt.imshow(imghsv[...,2], cmap=plt.cm.gray)
+# plt.show()
 
-	section_masks, bboxes = foreground_mask_morphsnakes_slide(img, num_iters=400)
-	
-	section_images = []
-	for i, ((minr, minc, maxr, maxc), mask) in enumerate(zip(bboxes, section_masks)):
-		img = imgcolor[minr:maxr+1, minc:maxc+1].copy()
-		img[~mask] = 0
-		section_images.append(img)
+num_section_per_slide = 5
+section_masks, bboxes, exists = foreground_mask_morphsnakes_slide(img, num_iters=1000, num_section_per_slide=5)
+print 'exists', exists
 
-	for im in section_images:
-		plt.imshow(im)
-		plt.show()
+section_images = []
+for (minr, minc, maxr, maxc), mask in zip(bboxes, section_masks):
+	img = imgcolor[minr:maxr+1, minc:maxc+1].copy()
+	img[~mask] = 0
+	section_images.append(img)
 
- # 	bbox_dir = os.path.join(os.environ['LOCAL_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'bbox')
-	# bbox_filepath = os.path.join(bbox_dir, stack + '_bbox.json')
-	# json.dump(bboxes_json, open(bbox_filepath, 'w'))
+ids = np.arange(2*num_section_per_slide)[exists]
+for im, i in zip(section_images, ids):
+	plt.imshow(im)
+	plt.title('section %d' % i)
+	plt.show()

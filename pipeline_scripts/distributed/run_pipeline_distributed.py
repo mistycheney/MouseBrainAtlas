@@ -31,7 +31,7 @@ with open('/tmp/argfile', 'w') as f:
 def run_distributed(script_name):
 	cmd = "parallel --colsep ' ' ssh yuncong@{1} 'python %s/pipeline_scripts/" % d['gordon_repo_dir'] + script_name + " %(stack)s {2} -g %(gabor_params)s -s %(segm_params)s -v %(vq_params)s' :::: /tmp/argfile" % d
 	print cmd
-	subprocess.call(cmd, shell=True)	
+	subprocess.call(cmd, shell=True)
 
 # run_distributed('gabor_filter.py')
 # run_distributed('segmentation.py')

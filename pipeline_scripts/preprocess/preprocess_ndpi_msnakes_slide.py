@@ -1,160 +1,189 @@
 #!/usr/bin/python
 
+from subprocess import call
+
 def execute_command(cmd):
 	try:
-	    retcode = call(cmd, shell=True)
-	    if retcode < 0:
-	        print >>sys.stderr, "Child was terminated by signal", -retcode
-	    else:
-	        print >>sys.stderr, "Child returned", retcode
+		retcode = call(cmd, shell=True)
+		if retcode < 0:
+			print >>sys.stderr, "Child was terminated by signal", -retcode
+		else:
+			print >>sys.stderr, "Child returned", retcode
 	except OSError as e:
-	    print >>sys.stderr, "Execution failed:", e
-	    raise e
+		print >>sys.stderr, "Execution failed:", e
+		raise e
 
 import os
 import sys
 import shutil
 import glob
 import argparse
+import time
 
 sys.path.append(os.environ['MSNAKES_PATH'])
 import morphsnakes
 
 import numpy as np
 from matplotlib import pyplot as plt
-from skimage.color import rgb2gray
+from skimage.color import rgb2gray, rgb2hsv
 from skimage.io import imread, imsave
-from skimage.morphology import remove_small_objects
+from skimage.morphology import disk, remove_small_objects
 from skimage.measure import regionprops, label
+from skimage.restoration import denoise_bilateral
+from skimage.filter.rank import median
 
 from joblib import Parallel, delayed
 
+from PIL import Image
+
 ndpisplit = os.environ['GORDON_NDPISPLIT_PROGRAM']
 
-def foreground_mask_morphsnakes_slide(img, max_iters=1000, num_section_per_slide=5, min_iter=300):
+def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_section_per_slide=5, min_iters=300):
 
-    gI = morphsnakes.gborders(img, alpha=20000, sigma=1)
+	img = denoise_bilateral(img, win_size=7, sigma_range=1, sigma_spatial=7, bins=10000, mode='constant', cval=0)
 
-    msnake = morphsnakes.MorphGAC(gI, smoothing=2, threshold=0.3, balloon=-3)
+	gI = morphsnakes.gborders(img, alpha=15000, sigma=1)
 
-    msnake.levelset = np.ones_like(img)
-    msnake.levelset[:3,:] = 0
-    msnake.levelset[-3:,:] = 0
-    msnake.levelset[:,:3] = 0
-    msnake.levelset[:,-3:] = 0
+	msnake = morphsnakes.MorphGAC(gI, smoothing=2, threshold=0.3, balloon=-3)
 
-    for i in xrange(max_iters):
-        msnake.step()
-        if i > 0:
-            diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
-            if diff < 40 and i > min_iter: # oscillate
-                break
+	if levelset is None:
+		msnake.levelset = np.ones_like(img)
+		msnake.levelset[:2,:] = 0
+		msnake.levelset[-2:,:] = 0
+		msnake.levelset[:,:2] = 0
+		msnake.levelset[:,-2:] = 0
+	else:
+		msnake.levelset = levelset
 
-        previous_levelset = msnake.levelset
+	for i in xrange(max_iters):
+		msnake.step()
+		if i > 0:
+			diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
+			if diff < 40 and i > min_iters: # oscillate
+				break
 
-    blob_labels, n_labels = label(msnake.levelset, neighbors=4, return_num=True, background=0)
+		previous_levelset = msnake.levelset
 
-    blob_props = regionprops(blob_labels + 1)
-    all_areas = np.array([p.area for p in blob_props])
-    all_centers = np.array([p.centroid for p in blob_props])
-    all_bboxes = np.array([p.bbox for p in blob_props])
+	blob_labels, n_labels = label(msnake.levelset, neighbors=4, return_num=True, background=0)
 
-    indices = np.argsort(all_areas)[::-1]
-    largest_area = all_areas[indices[:2]].mean()
+	blob_props = regionprops(blob_labels + 1)
+	all_areas = np.array([p.area for p in blob_props])
+	all_centers = np.array([p.centroid for p in blob_props])
+	all_bboxes = np.array([p.bbox for p in blob_props])
 
-    valid = np.where(all_areas > largest_area * .45)[0]
+	indices = np.argsort(all_areas)[::-1]
+	largest_area = all_areas[indices[:2]].mean()
 
-    valid = valid[np.argsort(all_centers[valid, 1])]
-    centers_x = all_centers[valid, 1]
-    centers_y = all_centers[valid, 0]
+	valid = np.where(all_areas > largest_area * .45)[0]
 
-    height, width = img.shape[:2]
+	valid = valid[np.argsort(all_centers[valid, 1])]
+	centers_x = all_centers[valid, 1]
+	centers_y = all_centers[valid, 0]
+
+	height, width = img.shape[:2]
 
 
-    if len(valid) > num_section_per_slide:
-        indices_close = np.where(np.diff(centers_x) < width * .1)[0]
+	if len(valid) > num_section_per_slide:
+		indices_close = np.where(np.diff(centers_x) < width * .1)[0]
 
-        ups = []
-        downs = []
+		ups = []
+		downs = []
 
-        if len(indices_close) > 0:
+		if len(indices_close) > 0:
 
-            for i in range(len(valid)):
-                if i-1 in indices_close:
-                    continue
-                elif i in indices_close:
-                    if centers_y[i] > height * .5:
-                        ups.append(valid[i+1])
-                        downs.append(valid[i])
-                    else:
-                        ups.append(valid[i])
-                        downs.append(valid[i+1])
-                else:
-                    if centers_y[i] > height * .5:
-                        ups.append(-1)
-                        downs.append(valid[i])
-                    else:
-                        ups.append(valid[i])
-                        downs.append(-1)
+			for i in range(len(valid)):
+				if i-1 in indices_close:
+					continue
+				elif i in indices_close:
+					if centers_y[i] > height * .5:
+						ups.append(valid[i+1])
+						downs.append(valid[i])
+					else:
+						ups.append(valid[i])
+						downs.append(valid[i+1])
+				else:
+					if centers_y[i] > height * .5:
+						ups.append(-1)
+						downs.append(valid[i])
+					else:
+						ups.append(valid[i])
+						downs.append(-1)
 
-        arrangement = np.r_[ups, downs]
+		arrangement = np.r_[ups, downs]
 
-    elif len(valid) < num_section_per_slide:
-        snap_to_columns = (np.round((centers_x / width + 0.1) * num_section_per_slide) - 1).astype(np.int)
+	elif len(valid) < num_section_per_slide:
+		snap_to_columns = (np.round((centers_x / width + 0.1) * num_section_per_slide) - 1).astype(np.int)
 
-        arrangement = -1 * np.ones((num_section_per_slide,), dtype=np.int)
-        arrangement[snap_to_columns] = valid
-    else:
-        arrangement = valid
+		arrangement = -1 * np.ones((num_section_per_slide,), dtype=np.int)
+		arrangement[snap_to_columns] = valid
+	else:
+		arrangement = valid
 
-    bboxes = []
-    masks = []
+	bboxes = []
+	masks = []
 
-    for i, j in enumerate(arrangement):
-        if j == -1: continue
+	for i, j in enumerate(arrangement):
+		if j == -1: continue
 
-        minr, minc, maxr, maxc = all_bboxes[j]
-        bboxes.append(all_bboxes[j])
+		minr, minc, maxr, maxc = all_bboxes[j]
+		bboxes.append(all_bboxes[j])
 
-        mask = np.zeros_like(img, dtype=np.bool)
-        mask[blob_labels == j] = 1
+		mask = np.zeros_like(img, dtype=np.bool)
+		mask[blob_labels == j] = 1
 
-        section_mask = mask[minr:maxr+1, minc:maxc+1]
+		section_mask = mask[minr:maxr+1, minc:maxc+1]
 
-        masks.append(section_mask)
+		masks.append(section_mask)
 
-    return masks, bboxes, arrangement > -1
+	return masks, bboxes, arrangement > -1
 
-def gen_mask(in_dir=None, slide_ind=None, stack=None, use_hsv=True, out_dir=None, num_section_per_slide=5, mirror=None, rotate=None):
+def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, out_dir=None, num_section_per_slide=5, mirror=None, rotate=None):
 
-    imgcolor = Image.open(ps.path.join(in_dir, '%s_%02d_x0.3125_z0.tif'%(stack, slide_ind)))
-    imgcolor = imgcolor.convert('RGB')
-    imgcolor = np.array(imgcolor)
-    img_gray = rgb2gray(imgcolor)
-    slide_height, slide_width = img_gray.shape[:2]
+	imgcolor = Image.open(os.path.join(in_dir, '%s_%02d_x0.3125_z0.tif'%(stack, slide_ind)))
+	imgcolor = imgcolor.convert('RGB')
+	imgcolor = np.array(imgcolor)
+	img_gray = rgb2gray(imgcolor)
+	# slide_height, slide_width = img_gray.shape[:2]
 
-    if use_hsv:
-        imghsv = rgb2hsv(imgcolor)
-        img = imghsv[...,1]
-    else:
-        img = img_gray
+	if use_hsv:
+		imghsv = rgb2hsv(imgcolor)
+		img = imghsv[...,1]
+	else:
+		img = img_gray
 
-    section_masks, bboxes = foreground_mask_morphsnakes_slide(img, num_section_per_slide=num_section_per_slide)
-        
-#     section_images = []
-    for i, ((minr, minc, maxr, maxc), mask) in enumerate(zip(bboxes, section_masks)):
-        img = imgcolor[minr:maxr+1, minc:maxc+1].copy()
-        img[~mask] = 0
-#         section_images.append(img)
-        
-        image_filepath = os.path.join(out_dir, '%s_x0.3125_%02d_%d.tif'%(stack, slide_ind, i))
-        imsave(image_filepath, img)
+# utilize bounding box selected during scanning process
+	a = img_gray < 0.98
 
-        plt.imshow(img)
-        plt.axis('off')
-        plt.show()
-        
-    return section_masks, bboxes
+	a = median(a.astype(np.float), disk(3))
+	a = remove_small_objects(a.astype(np.bool), min_size=50, connectivity=2, in_place=False)
+	column_labels, n_columns = label(a, neighbors=8, return_num=True, background=0)
+	column_props = regionprops(column_labels+1)
+	column_bboxes = np.array([p.bbox for p in column_props])
+	indices = np.argsort(column_bboxes[:,1])
+
+	mask = np.zeros_like(img_gray, dtype=np.bool)
+	col_margin = 2
+	row_margin = 2
+	for i, b in enumerate(column_bboxes[indices, :]):
+		minr, minc, maxr, maxc = b
+		mask[minr+row_margin:maxr-row_margin, minc+col_margin:maxc-col_margin] = 1
+
+	section_masks, bboxes, exists = foreground_mask_morphsnakes_slide(img, levelset=mask, 
+				num_section_per_slide=num_section_per_slide, min_iters=400)
+
+	ids = np.where(exists)[0]
+	#     section_images = []
+	for _, ((minr, minc, maxr, maxc), mask, section_id) in enumerate(zip(bboxes, section_masks, ids)):
+		img = imgcolor[minr:maxr+1, minc:maxc+1].copy()
+		img[~mask] = 0
+		#         section_images.append(img)
+
+		image_filepath = os.path.join(out_dir, '%s_x0.3125_%02d_%d.tif'%(stack, slide_ind, section_id))
+		imsave(image_filepath, img)
+
+	# bboxes_percent = np.array(bboxes, dtype=np.float)/np.r_[img_gray.shape[:2], img_gray.shape[:2]][np.newaxis, :]
+
+	return bboxes
 
 def create_if_not_exists(path):
 	if not os.path.exists(path):
@@ -167,106 +196,78 @@ if __name__ == '__main__':
 	parser.add_argument("stack", type=str, help="choose what stack of images to crop and resolution, ex: RS141")
 
 	args = parser.parse_args()
+	
+	args_dict = {}
 
 	stack = args.stack
 	args_dict['stack'] = stack
 
-	slide_dir_stack = create_if_not_exists(os.path.join(os.environ['GORDON_TEMP_DIR'], stack))	# DavidData2015temp/CC35
+	slide_dir_stack = create_if_not_exists(os.path.join(os.environ['GORDON_SLIDEDATA_DIR'], stack))	# DavidData2015slides/CC35
 
-	######################## Split ndpi files ########################
+	######################## Split ndpi files ######################## 1 min 42 sec for CC35
 
-	for ndpi_file in os.listdir(os.path.join(os.environ['GORDON_NDPI_DIR'], stack)):
-		if not ndpi_file.endswith('ndpi'): continue
-		execute_command(ndpisplit + ' ' + ndpi_file)
+	# split_t = time.time()
 
-		for level in ['macro', 'x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']:
-			slide_dir_resol = os.path.join(slide_dir_stack, level)			# DavidData2015temp/CC35/x0.3125
-			os.mkdir(slide_dir_resol)
-			for f in glob.glob('*_%s_z0.tif'%level):
-				shutil.move(f, slide_dir_resol)
+	# ndpi_stack_dir = os.path.join(os.environ['GORDON_NDPI_DIR'], stack)
+	# os.chdir(ndpi_stack_dir)
 
-		map_dir = os.mkdir(os.path.join(slide_dir_stack, 'map'))			# DavidData2015temp/CC35/map
-		for f in glob.glob('*map*'%level):
-			shutil.move(f, map_dir)
+	# def split_one_slide(ndpi_file):
 
-    ####################### Section bounding box and mask generation ##########################
+	# 	execute_command(ndpisplit + ' ' + os.path.join(ndpi_stack_dir, ndpi_file))
 
-   	masked_dir = create_if_not_exists(os.path.join(slide_dir_stack, 'masked_x0.3125'))
+	# 	for level in ['macro', 'x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']:
+	# 		slide_dir_resol = create_if_not_exists(os.path.join(slide_dir_stack, level))			# DavidData2015slides/CC35/x0.3125
+	# 		for f in glob.glob('*_%s_z0.tif'%level):
+	# 			try:
+	# 				shutil.move(f, slide_dir_resol)
+	# 			except Exception as e:
+	# 				print e
+	# 				pass
 
-	# n_slides = len([f for f in os.listdir(masked_dir) if f.endswith('.tif')])
-	n_slides = 3
+	# 	for level in ['macro', 'map']:
+	# 		map_dir = create_if_not_exists(os.path.join(slide_dir_stack, level))			# DavidData2015slides/CC35/map
+	# 		for f in glob.glob('*'+level+'*'):
+	# 			try:
+	# 				shutil.move(f, map_dir)
+	# 			except Exception as e:
+	# 				print e
+	# 				pass
 
-	options = [{'use_hsv':True, 'in_dir', 'out_dir':masked_dir, 'num_section_per_slide': 5} for _ in range(n_slides)] # set to True for Nissl stains, False for Fluorescent stains
+	# ndpi_files = [ndpi_file for ndpi_file in os.listdir('.') if ndpi_file.endswith('ndpi')]
 
-	result = Parallel(n_jobs=16)(delayed(gen_mask)(**kwargs) 
-									for (i, kwargs) in zip(range(0, n_slides), options))
-
-	masked_sections, bboxes_percent = *zip(result)
-
-    bbox_dir = create_if_not_exists(os.environ['GORDON_BBOX_DIR'])
-
-	for slide_ind, bboxes_slide in enumerate(bboxes_percent, masked):
-		bbox_filepath = os.path.join(bbox_dir, 'bbox_%s_%d.txt'%(stack, slide_ind))
-		np.savetxt(bbox_filepath, bboxes_slide)
-
-    ####################### Manually inspect masked sections and bounding boxes; Modify (using Gimp) if necessary ##########################
-
-    ####################### Generate masks and  move cropped images to Data dir ##########################
-
- #    n_section = 0
-
- #    os.chdir(bbox_dir)
-	# for bbox_file in os.listdir('.'):
-	# 	bboxes_slide = np.loadtxt(bbox_file)
-	# 	n_section += len(bboxes_slide)
+	# Parallel(n_jobs=16)(delayed(split_one_slide)(ndpi_file) for ndpi_file in ndpi_files)
 
 
+	# print time.time() - split_t, 'seconds'
+
+	####################### Section bounding box and mask generation ##########################
+
+	split_t = time.time()
 
 
-	# data_dir_stack = create_if_not_exists(os.path.join(os.environ['GORDON_SECTIONDATA_DIR'], stack))	# DavidData2015tif/CC35
-    
- #    resol = 'x0.3125'
-	# args_dict['resol'] = resol
+	data_dir_stack = create_if_not_exists(os.path.join(os.environ['GORDON_SECTIONDATA_DIR'], stack))	# DavidData2015sections/CC35
 
- #    data_dir_resol = create_if_not_exists(os.path.join(data_dir_stack, resol))		# DavidData2015tif/CC35/x0.3125
-	# data_dir_images = create_if_not_exists(os.path.join(data_dir_resol, 'images'))	# DavidData2015tif/CC35/x0.3125/images	
-	# data_dir_masks = create_if_not_exists(os.path.join(data_dir_resol, 'masks'))		# DavidData2015tif/CC35/x0.3125/masks
+	autogen_masked_img_dir = create_if_not_exists(os.path.join(data_dir_stack, 'autogen_maskedimg_x0.3125'))		# DavidData2015sections/CC35/autogen_masked_x0.3125
+	autogen_bbox_dir = create_if_not_exists(os.path.join(data_dir_stack, 'autogen_bbox_x0.3125'))		# DavidData2015sections/CC35/autogen_bbox
 
-	# if resol == 'x0.3125':
-	#     os.chdir(masked_dir)
-	#     for input_img in os.listdir('.'):
-	#     	if not input_img.endswith('.tif'): continue
-	#     	mask_path = os.path.join(data_dir_masks, '%(stack)s_%(resol)s_%(section_ind)04d_mask.png' % args_dict)		# DavidData2015tif/CC35/x0.3125/masks/CC35_x0.3125_0001_mask.png
-	# 	    execute_command('convert -channel Alpha %s -separate %s' % (input_img, mask_path))
-	# 	    shutil.copy(input_img, data_dir_images)
+	slide_dir = os.path.join(slide_dir_stack, 'x0.3125')		# DavidData2015slides/CC35/x0.3125
 
-	# else:
-	# 	slide_dir_resol = os.path.join(slide_dir_stack, resol)
+	n_slides = len([f for f in os.listdir(slide_dir) if f.endswith('.tif')])
+	# n_slides = 3
 
-	# 	section_counter = 0
+	options = [{'use_hsv':True, 'in_dir':slide_dir, 'slide_ind':i+1, 'stack':stack, 
+					'out_dir':autogen_masked_img_dir, 'num_section_per_slide': 5} for i in range(n_slides)] # set to True for Nissl stains, False for Fluorescent stains
 
-	# 	for bbox_file in os.listdir(bbox_dir):
-	# 		if bbox_file.endswith('txt'):
-	# 			slide_ind = int(bbox_file[:-4].split('_')[2])
-	# 			bboxes_percent = np.loadtxt(bbox_file)
+	# gen_mask(**options[22])
 
-	# 			slide_imagepath = os.path.join(slide_dir_resol, "CC35_%02d_x0.3125_z0.tif" % slide_ind)		# DavidData2015temp/CC35/x0.3125/CC35_45_x0.3125_z0.tif
-	# 			slide_image = np.array(Image.open(slide_imagepath).convert('RGB'))
-	# 			slide_width, slide_height = slide_image.shape[:2]
+	bboxes = Parallel(n_jobs=16)(delayed(gen_mask)(**kwargs) for kwargs in options)
 
-	# 			for minr, minc, maxr, maxc in bboxes_percent:
-	# 				minr = int(minr * slide_height)
-	# 				maxr = int(maxr * slide_height)
-	# 				minc = int(minc * slide_width)
-	# 				maxc = int(maxc * slide_width)
-	# 				section_image = slide_image[minr:maxr+1, minc:maxc+1]
+	for slide_ind, bboxes_slide in enumerate(bboxes):
+		bbox_filepath = os.path.join(autogen_bbox_dir, 'bbox_%s_x0.3125_%02d.txt'%(stack, slide_ind+1))		# DavidData2015sections/CC35/autogen_bbox/bbox_CC35_03.txt
+		np.savetxt(bbox_filepath, bboxes_slide, fmt='%d')
 
-	# 				args_dict['section_ind'] = section_counter
+	print time.time() - split_t, 'seconds'
 
-	# 				imsave(os.path.join(data_dir_images,  "%(stack)s_%(resol)s_%(section_ind)04d.tif" % args_dict))		# DavidData2015tif/CC35/x5/images/CC35_x5_0001.tif
 
-	# 		    	in_mask = os.path.join(data_dir_stack, 'x0.3125', 'masks', '%(stack)s_%(resol)s_%(section_ind)04d_mask.png' % args_dict)	# DavidData2015tif/CC35/x0.3125/masks/CC35_x0.3125_0001_mask.png
-	# 		    	out_mask = os.path.join(data_dir_masks, '%(stack)s_%(resol)s_%(section_ind)04d_mask.png' % args_dict)	# DavidData2015tif/CC35/x0.3125/masks/CC35_x0.3125_0001_mask.png
-	# 	    		execute_command('convert -resize 400\% %s %s' % (in_mask, out_mask))
-
-	# 				section_counter += 1
+	####################### Manually inspect masked sections and bounding boxes; Modify (using Gimp) if necessary ##########################
+	# ...

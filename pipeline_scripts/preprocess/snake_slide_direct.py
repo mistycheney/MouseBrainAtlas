@@ -26,7 +26,7 @@ def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_se
 
 	# ls = pickle.load(open('/tmp/levelset.pkl', 'rb'))
 
-	img = denoise_bilateral(img, win_size=5, sigma_range=1, sigma_spatial=7, bins=10000, mode='constant', cval=0)
+	# img = denoise_bilateral(img, win_size=5, sigma_range=1, sigma_spatial=3, bins=10000, mode='constant', cval=0)
 
 	# plt.imshow(img)
 	# plt.show()
@@ -152,7 +152,7 @@ if __name__ == '__main__':
 
 		# print 'slide', slide_ind
 
-	slide_ind = 5
+	slide_ind = 54
 	imgcolor = Image.open("/home/yuncong/DavidData2015slides/%s/x0.3125/%s_%02d_x0.3125_z0.tif" % (stack, stack, slide_ind))
 	imgcolor = imgcolor.convert('RGB')
 	imgcolor = np.array(imgcolor)
@@ -179,14 +179,27 @@ if __name__ == '__main__':
 	for i, box in enumerate(column_bboxes[indices, :]):
 		minr, minc, maxr, maxc = box
 
+		# # touch_top
+		# t = 0 if len(np.unique(img[minr, minc:maxc+1])) > 100 else 5
+		# # touch_bottom
+		# b = 0 if len(np.unique(img[maxr-1, minc:maxc+1])) > 100 else 5
+		# # touch_left
+		# l = 0 if len(np.unique(img[minr:maxr+1, minc])) > 100 else 5
+		# # touch_right
+		# r = 0 if len(np.unique(img[minr:maxr+1, maxc-1])) > 100 else 5
+
 		# touch_top
-		t = 0 if len(np.unique(img[minr, minc:maxc+1])) > 40 else 5
+		t = 0 if np.std(img[minr, minc:maxc+1]) > .06 else 5
 		# touch_bottom
-		b = 0 if len(np.unique(img[maxr-1, minc:maxc+1])) > 40 else 5
+		b = 0 if np.std(img[maxr-1, minc:maxc+1]) > .06 else 5
 		# touch_left
-		l = 0 if len(np.unique(img[minr:maxr+1, minc])) > 40 else 5
+		l = 0 if np.std(img[minr:maxr+1, minc]) > .06 else 5
 		# touch_right
-		r = 0 if len(np.unique(img[minr:maxr+1, maxc-1])) > 40 else 5
+		r = 0 if np.std(img[minr:maxr+1, maxc-1]) > .06 else 5
+
+		# print img[maxr-1, minc:maxc+1]
+
+		print np.std(img[minr, minc:maxc+1]),  np.std(img[maxr-1, minc:maxc+1]), np.std(img[minr:maxr+1, minc]),  np.std(img[minr:maxr+1, maxc-1])
 
 		mask[minr+t:maxr-b, minc+l:maxc-r] = 1
 
@@ -195,8 +208,8 @@ if __name__ == '__main__':
 
 	# plt.imshow(imghsv[...,0], cmap=plt.cm.gray)
 	# plt.show()
-	# plt.imshow(imghsv[...,1], cmap=plt.cm.gray)
-	# plt.show()
+	plt.imshow(imghsv[...,1], cmap=plt.cm.gray)
+	plt.show()
 	# plt.imshow(imghsv[...,2], cmap=plt.cm.gray)
 	# plt.show()
 

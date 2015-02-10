@@ -6,6 +6,8 @@ import numpy as np
 from PIL import Image
 from skimage.io import imread
 
+from preprocess_utility import create_if_not_exists
+
 parser = argparse.ArgumentParser()
 parser.add_argument("stack", type=str, help="choose what stack of images to crop and resolution, ex: RS141")
 args = parser.parse_args()
@@ -54,4 +56,7 @@ for fn in all_slide_files:
 		ax.set_title('section %d' % section_ind)
 		ax.axis('off')
 
-	plt.show()
+	out_dir = create_if_not_exists('evaluation_session')
+	plt.savefig(out_dir + '/' + slide_str + '.jpg')
+
+	# plt.show()

@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
 	def split_one_slide(ndpi_file):
 
-		execute_command(os.environ['GORDON_NDPISPLIT_PROGRAM'] + ' -m ' + os.path.join(ndpi_stack_dir, ndpi_file))
+		execute_command(os.environ['GORDON_NDPISPLIT_PROGRAM'] + ' -s -m ' + os.path.join(ndpi_stack_dir, ndpi_file))
 
 		prefix = ndpi_file[:-5]
 

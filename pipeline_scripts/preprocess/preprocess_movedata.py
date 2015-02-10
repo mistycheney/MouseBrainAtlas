@@ -57,6 +57,8 @@ def summarize_bbox_and_masks(bbox_dir, mask_dir):
 		_, stack, _, slide_str = bbox_file[:-4].split('_')
 		slide_ind = int(slide_str)
 
+		print slide_ind
+
 		bboxes_x03125 = np.loadtxt(bbox_file).astype(np.int)
 
 		# slide_imagepath = os.path.join(os.environ['GORDON_SLIDEDATA_DIR'], stack, '', "CC35_%02d_x0.3125_z0.tif" % slide_ind)		# DavidData2015slides/CC35/x0.3125/CC35_45_x0.3125_z0.tif
@@ -70,7 +72,8 @@ def summarize_bbox_and_masks(bbox_dir, mask_dir):
 
 		for resol in ['x0.3125', 'x1.25', 'x5', 'x20']:
 			curr_resol_slide_path = os.path.join(os.environ['GORDON_SLIDEDATA_DIR'], stack, resol, "%s_%02d_%s_z0.tif" % (stack, slide_ind, resol))
-			curr_resol_slide_image[resol] = np.array(Image.open(curr_resol_slide_path).convert('RGB'))
+			curr_resol_slide_image[resol] = np.asarray(Image.open(curr_resol_slide_path).convert('RGB'))
+			# print curr_resol_slide_image[resol].shape
 
 		for section_ind, bbox in enumerate(bboxes_x03125):
 
@@ -88,7 +91,7 @@ def summarize_bbox_and_masks(bbox_dir, mask_dir):
 
 			for l, resol in enumerate(['x0.3125', 'x1.25', 'x5', 'x20']):
 			# for l, resol in enumerate(['x0.3125']):
-				if resol != 'x20': continue
+				# if resol != 'x20': continue
 
 				scaling = 4**l
 
@@ -105,10 +108,11 @@ def summarize_bbox_and_masks(bbox_dir, mask_dir):
 
 				# print bbox_file, slide_ind, minr, minc, maxr, maxc
 
+				# print bbox, curr_resol_bbox, curr_resol_slide_image[resol].shape, alpha.shape
+
 				cur_resol_sectionimg = curr_resol_slide_image[resol][minr:maxr+scaling, minc:maxc+scaling]
 				cur_resol_alpha = 255 * (rescale(alpha, scaling, order=0) > 0).astype(np.uint8)
-				# print bbox, curr_resol_bbox, cur_resol_sectionimg.shape, alpha.shape, cur_resol_alpha.shape
-
+			
 				cur_resol_masked_sectionimg = np.dstack([cur_resol_sectionimg, cur_resol_alpha])
 
 				# sectionimg_path = os.path.join(os.environ['GORDON_SECTIONDATA_DIR'], stack, resol, 'images', '%s_%s_%04d.tif' % (stack, resol, section_counter))
@@ -118,6 +122,12 @@ def summarize_bbox_and_masks(bbox_dir, mask_dir):
 				# execute_command('convert -resize 400\% %s %s' % (mask_path, section_dict[resol]['mask_path']))
 
 			# summary_dict[section_counter] = section_dict
+
+				del cur_resol_sectionimg
+				del cur_resol_alpha
+				del cur_resol_masked_sectionimg
+
+		del curr_resol_slide_image[resol]
 
 	# json.dump(summary_dict, open('/tmp/summary.json', 'w'), cls=NumpyAwareJSONEncoder)
 

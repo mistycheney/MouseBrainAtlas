@@ -186,6 +186,7 @@ def generate_json(data_dir, res_dir, labeling_dir):
     """
 
     data_hierarchy = get_directory_structure(data_dir).values()[0]
+
     result_hierarchy = get_directory_structure(res_dir).values()[0]
     labeling_hierarchy = get_directory_structure(labeling_dir).values()[0]
 
@@ -202,6 +203,9 @@ def generate_json(data_dir, res_dir, labeling_dir):
                     }
 
         sec_infos = []
+
+        # print stack_content
+        # print stack_info
 
         if len(stack_info['available_resolution']) > 0:
             sec_items = stack_content[stack_info['available_resolution'][0]].items()
@@ -309,7 +313,7 @@ class DataManager(object):
         # print self.local_ds
 
         self.inv_labeing_index = build_inverse_labeing_index(self.local_ds)
-        print self.inv_labeing_index
+        # print self.inv_labeing_index
 
         self.slice_ind = None
         self.image_name = None

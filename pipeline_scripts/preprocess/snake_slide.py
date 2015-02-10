@@ -104,7 +104,6 @@ for slide_ind in range(3, 55):
 	# plt.show()
 
 	a = img_gray < 0.98
-
 	a = median(a.astype(np.float), disk(3))
 	a = remove_small_objects(a.astype(np.bool), min_size=50, connectivity=2, in_place=False)
 

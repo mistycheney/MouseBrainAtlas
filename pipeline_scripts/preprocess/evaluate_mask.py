@@ -10,6 +10,7 @@ from preprocess_utility import create_if_not_exists
 
 parser = argparse.ArgumentParser()
 parser.add_argument("stack", type=str, help="choose what stack of images to crop and resolution, ex: RS141")
+parser.add_argument("out_dir", type=str, help="choose what stack of images to crop and resolution, ex: RS141")
 args = parser.parse_args()
 
 stack = args.stack
@@ -56,7 +57,7 @@ for fn in all_slide_files:
 		ax.set_title('section %d' % section_ind)
 		ax.axis('off')
 
-	out_dir = create_if_not_exists('evaluation_session')
+	out_dir = create_if_not_exists(args.out_dir)
 	plt.savefig(out_dir + '/' + slide_str + '.jpg')
 
 	# plt.show()

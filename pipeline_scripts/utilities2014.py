@@ -186,6 +186,7 @@ def generate_json(data_dir, res_dir, labeling_dir):
     """
 
     data_hierarchy = get_directory_structure(data_dir).values()[0]
+
     result_hierarchy = get_directory_structure(res_dir).values()[0]
     labeling_hierarchy = get_directory_structure(labeling_dir).values()[0]
 
@@ -194,30 +195,34 @@ def generate_json(data_dir, res_dir, labeling_dir):
         }
 
     for stack_name, stack_content in data_hierarchy.items():
-        if stack_content is None or len(stack_content) == 0:
-            print '%s: empty stack' % stack_name
-            continue
+        if stack_content is None or len(stack_content) == 0: continue
         
         stack_info = {'name': stack_name,
-                    'available_resolution': [k for k in stack_content.keys() if k.startswith('x')],
+                    'available_resolution': stack_content.keys(),
                     'section_num': None
                     }
 
         sec_infos = []
 
+        # print stack_content
+        # print stack_info
+
         if len(stack_info['available_resolution']) > 0:
-            # sec_items = stack_content[stack_info['available_resolution'][0]].keys()
-            sec_items = stack_content['x0.3125'].keys()
+            sec_items = stack_content[stack_info['available_resolution'][0]].items()
 
-        for section_fn in sec_items:
+        for sec_str, sec_content in sec_items:
+
+            if sec_content is None: 
+                continue
             
-            stack, resol, sec_str = section_fn[:-4].split('_')
-
             # stack_info['available_sections'].append(int(sec_ind))
             sec_info = {'index': int(sec_str)}
+
             for resolution in stack_info['available_resolution']:
-                sec_info[resolution + '_imagepath'] = os.path.join(data_dir, stack_name, resolution, 
-                                                    '_'.join([stack_name, resolution, sec_str])+'.tif')
+                sec_info[resolution + '_imagepath'] = os.path.join(data_dir, stack_name, resolution, sec_str, 
+                                                        '_'.join([stack_name, resolution, sec_str])+'.tif')
+                sec_info[resolution + '_maskpath'] = os.path.join(data_dir, stack_name, resolution, sec_str, 
+                                                        '_'.join([stack_name, resolution, sec_str])+'_mask.png')
 
             if stack_name in labeling_hierarchy:
                 if sec_str in labeling_hierarchy[stack_name]:
@@ -248,8 +253,9 @@ def generate_json(data_dir, res_dir, labeling_dir):
             #     sec_info['available_results'] = sec_content['pipelineResults'].keys()
             sec_infos.append(sec_info)
 
-        stack_info['sections'] = sorted(sec_infos, key=lambda x: x['index'])
+        sec_infos = sorted(sec_infos, key=lambda x: x['index'])
 
+        stack_info['sections'] = sec_infos
         if stack_info['section_num'] is None:
             stack_info['section_num'] = len(sec_infos)
 
@@ -346,7 +352,7 @@ class DataManager(object):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
         self.slice_str = '%04d' % slice_ind
-        self.image_dir = os.path.join(self.data_dir, self.stack, self.resol)
+        self.image_dir = os.path.join(self.data_dir, self.stack, self.resol, self.slice_str)
         self.image_name = '_'.join([self.stack, self.resol, self.slice_str])
 
         self.image_path = os.path.join(self.image_dir, self.image_name + '.tif')
@@ -376,7 +382,7 @@ class DataManager(object):
         if section is None:
             section = self.slice_ind
 
-        image_dir = os.path.join(self.data_dir, stack, resol)
+        image_dir = os.path.join(self.data_dir, stack, resol, '%04d'%section)
         image_name = '_'.join([stack, resol, '%04d'%section])
         image_filename = os.path.join(image_dir, image_name + '.tif')
         return image_filename
@@ -391,12 +397,12 @@ class DataManager(object):
         self.image = imread(image_filename, as_grey=True)
         self.image_height, self.image_width = self.image.shape[:2]
         
-        image_rgba = imread(image_filename, as_grey=False)
-        self.image_rgb = image_rgba[..., :3]
+        self.image_rgb = imread(image_filename, as_grey=False)
 
-        # mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
-        # self.mask = imread(mask_filename, as_grey=True) > 0
-        self.mask = image_rgba[..., -1] > 0
+        self.image_rgb = imread(image_filename, as_grey=False)
+
+        mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
+        self.mask = imread(mask_filename, as_grey=True) > 0
         
     def set_gabor_params(self, gabor_params_id):
         
@@ -468,12 +474,13 @@ class DataManager(object):
             elif result_name in ['dirMap', 'dirHist', 'spMaxDirInd', 'spMaxDirAngle']:
                 param_dependencies = ['gabor', 'segm']
                 
+                
             elif result_name in ['texMap', 'original_centroids']:
                 param_dependencies = ['gabor', 'vq']
 
             elif result_name in ['texHist', 'clusters', 'groups', 'groupsTop10Vis', 
                             'groupsTop20to30Vis', 'groupsTop10to20Vis', 'texHistPairwiseDist',
-                            'votemap']:
+                            'votemap', 'votemapOverlaid']:
                 param_dependencies = ['gabor', 'segm', 'vq']
                 
             # elif result_name == 'tmp':
@@ -487,7 +494,8 @@ class DataManager(object):
             #                               '-vq-' + self.vq_params_id])
             
             else:
-                raise Exception('result name %s unknown' % result_name)
+                assert param_dependencies is not None
+                # raise Exception('result name %s unknown' % result_name)
 
         # instance_name = self.image_name
 
@@ -550,26 +558,12 @@ class DataManager(object):
         print 'saved %s' % result_filename
         
 
-    def load_labeling(self, labeling_name, stack=None, section=None):
-        labeling_fn = self._load_labeling_path(labeling_name, stack, section)
+    def load_labeling(self, stack=None, section=None, labeling_name=None):
+        labeling_fn = self._load_labeling_path(stack, section, labeling_name)
         labeling = pickle.load(open(labeling_fn, 'r'))
         return labeling
 
-    def _load_labeling_path(self, labeling_name, stack=None, section=None):
-        if stack is None:
-            stack = self.stack
-        if section is None:
-            section = self.slice_ind
-
-        if labeling_name.endswith('pkl'): # full filename
-            return os.path.join(self.labelings_dir, labeling_name)
-        else:
-            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.pkl')
-
-    def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
-        return imread(self._load_labeling_preview_path(labeling_name, stack=stack, section=section))
-
-    def _load_labeling_preview_path(self, labeling_name, stack=None, section=None):
+    def _load_labeling_preview_path(self, stack=None, section=None, labeling_name=None):
         if stack is None:
             stack = self.stack
         if section is None:
@@ -580,7 +574,21 @@ class DataManager(object):
         else:
             return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.jpg')
         
-                
+    def _load_labeling_path(self, stack=None, section=None, labeling_name=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
+
+        if labeling_name.endswith('pkl'): # full filename
+            return os.path.join(self.labelings_dir, labeling_name)
+        else:
+            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.pkl')
+        
+
+    def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
+        return imread(self._load_labeling_preview_path(stack, section, labeling_name))
+        
     def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
         
         try:

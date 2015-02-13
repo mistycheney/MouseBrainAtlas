@@ -54,7 +54,7 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
         # self.actionLabeling.triggered.connect(self.switch_to_labeling)
 
     def refresh_data(self):
-        self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+        self.dm = DataManager(data_dir=os.environ['LOCAL_SECTIONDATA_DIR'], 
             repo_dir=os.environ['LOCAL_REPO_DIR'],
             result_dir=os.environ['LOCAL_RESULT_DIR'], 
             labeling_dir=os.environ['LOCAL_LABELING_DIR'])
@@ -64,7 +64,6 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
             item = QStandardItem(stack_info['name'] + ' (%d sections)' % stack_info['section_num'])
             self.stack_model.appendRow(item)
 
-        
         self.comboBoxBrowseMode.clear()
 
         self.comboBoxBrowseMode.addItem('All')
@@ -95,7 +94,7 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         self.section_model.clear()
 
-        self.previewer.set_images(imgs=[], callback=self.process_labeling_selected)
+        self.previewer.set_images(path_caption_tuples=[], callback=self.process_labeling_selected)
 
 
     # def switch_to_labeling(self, event):
@@ -124,7 +123,7 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
             item = QStandardItem(stack_name)
             self.stack_model.appendRow(item)
 
-        self.previewer.set_images(imgs=self.preview_caption_tuples, callback=self.process_labeling_selected)
+        self.previewer.set_images(path_caption_tuples=self.preview_caption_tuples, callback=self.process_labeling_selected)
 
     def set_labelnameFilter(self, label_id):
         self.label_toshow = label_id
@@ -142,13 +141,13 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
 
         indices_toshow = list(itertools.chain.from_iterable(self.d[self.selected_stack_name].values()))
         tuples_toshow = [self.preview_caption_tuples[i] for i in indices_toshow]
-        self.previewer.set_images(imgs=tuples_toshow, callback=self.process_labeling_selected)
+        self.previewer.set_images(path_caption_tuples=tuples_toshow, callback=self.process_labeling_selected)
 
     def on_sectionlist_clicked_labelings(self, list_index):
         self.selected_section = int(str(list_index.data().toString()))
         indices_toshow = self.d[self.selected_stack_name][self.selected_section]
         tuples_toshow = [self.preview_caption_tuples[i] for i in indices_toshow]
-        self.previewer.set_images(imgs=tuples_toshow, callback=self.process_labeling_selected)
+        self.previewer.set_images(path_caption_tuples=tuples_toshow, callback=self.process_labeling_selected)
 
 
     def on_stacklist_clicked_images(self, list_index):
@@ -158,32 +157,31 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
         self.dm.set_stack(self.stack_name)
         
         try:
-            self.dm.set_resol('x1.25')
+            self.dm.set_resol('x0.3125')
         except Exception as e:
             print e
-            self.previewer.set_images(imgs=[], callback=self.process_section_selected)
+            self.previewer.set_images(path_caption_tuples=[], callback=self.process_section_selected)
             return
 
-        imgs_path_caption = []
-        
+        path_caption_tuples = []
+
         for section in self.dm.sections_info:
 
             self.dm.set_slice(section['index'])
-
-            # self.section_names.append(self.dm.slice_str)
-
             if 'labelings' in section:
                 caption = self.dm.slice_str + ' (%d labelings)' % len(section['labelings'])
             else:
                 caption = self.dm.slice_str + ' (0 labelings)'
-            
-            imgs_path_caption.append((self.dm.image_path, caption))
 
-        self.previewer.set_images(imgs=imgs_path_caption, callback=self.process_section_selected)
+            path_caption_tuples.append((self.dm.image_path, caption))
+
+        self.previewer.set_images(path_caption_tuples=path_caption_tuples, 
+                                    callback=self.process_section_selected)
 
 
     def process_section_selected(self, item_index):
-        self.dm.set_slice(item_index)
+
+        self.dm.set_slice(self.dm.sections_info[item_index]['index'])
 
         # list of (file path, caption) tuples
         previews_path_caption = []
@@ -204,7 +202,7 @@ class DataManagerGui(QMainWindow, Ui_DataManager):
                 previews_path_caption.append((preview_path, labeling_name))
 
         print previews_path_caption
-        self.previewer.set_images(imgs=previews_path_caption, callback=self.process_labeling_selected)
+        self.previewer.set_images(path_caption_tuples=previews_path_caption, callback=self.process_labeling_selected)
 
     def process_labeling_selected(self, labeling_index):
 

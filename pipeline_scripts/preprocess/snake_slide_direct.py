@@ -143,7 +143,7 @@ def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_se
 
 if __name__ == '__main__':
 
-	stack = 'CC35'
+	stack = sys.argv[1]
 	bboxes_json = defaultdict(list)
 
 	use_hsv = True	# set to True for Nissl stains, False for Fluorescent stains
@@ -152,8 +152,11 @@ if __name__ == '__main__':
 
 		# print 'slide', slide_ind
 
-	slide_ind = 54
+	slide_ind = int(sys.argv[2])
+
+	
 	imgcolor = Image.open("/home/yuncong/DavidData2015slides/%s/x0.3125/%s_%02d_x0.3125_z0.tif" % (stack, stack, slide_ind))
+	# imgcolor = Image.open("/home/yuncong/DavidData2015slides/%s/x5/%s_%02d_x5_z0.tif" % (stack, stack, slide_ind))
 	imgcolor = imgcolor.convert('RGB')
 	imgcolor = np.array(imgcolor)
 	img_gray = rgb2gray(imgcolor)
@@ -235,10 +238,10 @@ if __name__ == '__main__':
 		plt.title('section %d' % i)
 		plt.show()
 
-		imsave('curr_session/'+str(i)+'.tif', im)
+		# imsave('curr_session/'+str(i)+'.tif', im)
 
-	bboxes_percent = np.array(bboxes, dtype=np.float)/np.r_[img_gray.shape[:2], img_gray.shape[:2]][np.newaxis, :]
-	print bboxes_percent
-	np.savetxt('curr_session/bbox_curr_session.txt', bboxes_percent, fmt='%.3f')
+	# bboxes_percent = np.array(bboxes, dtype=np.float)/np.r_[img_gray.shape[:2], img_gray.shape[:2]][np.newaxis, :]
+	# print bboxes_percent
+	# np.savetxt('curr_session/bbox_curr_session.txt', bboxes_percent, fmt='%.3f')
 
 

@@ -5,14 +5,14 @@ import glob
 import argparse
 import time
 
-sys.path.append(os.environ['MSNAKES_PATH'])
+sys.path.append('morphsnakes')
 import morphsnakes
 
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.color import rgb2gray, rgb2hsv
 from skimage.io import imread, imsave
-from skimage.morphology import disk, remove_small_objects
+from skimage.morphology import disk, remove_small_objects, binary_dilation, square
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.filter.rank import median
@@ -20,8 +20,87 @@ from skimage.filter.rank import median
 from joblib import Parallel, delayed
 
 from PIL import Image
+import time
 
-def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_section_per_slide=5, min_iters=300):
+
+# def foreground_mask_morphsnakes(img, levelset=None, max_iters=1000, min_iters=300,
+# 								diff_thresh=40):
+	
+def foreground_mask_morphsnakes(img, levelset=None, max_iters=1000, scaling=1):
+
+	# img = denoise_bilateral(img, win_size=5, sigma_range=1, sigma_spatial=7, bins=10000, mode='constant', cval=0)
+
+	gI = morphsnakes.gborders(img, alpha=1000, sigma=3)
+
+	msnake = morphsnakes.MorphGAC(gI, smoothing=1, threshold=.8, balloon=-1, scaling=scaling)
+
+	if levelset is None:
+		msnake.levelset = np.ones_like(img)
+		msnake.levelset[:2,:] = 0
+		msnake.levelset[-2:,:] = 0
+		msnake.levelset[:,:2] = 0
+		msnake.levelset[:,-2:] = 0
+	else:
+		msnake.levelset = levelset
+
+	# min_iters = min(min_iters, max_iters)
+
+	prev_levelset = levelset
+
+	diffs = []
+	for i in xrange(max_iters):	
+
+		# print i
+		# c = time.time()
+		msnake.step()
+		# print time.time() - c
+		diff = np.count_nonzero(msnake.levelset - prev_levelset != 0)
+
+		diffs.append(diff)
+		if i > 10:
+			q = np.abs(np.mean(diffs[-5:]) - np.mean(diffs[-10:-5]))
+			if q < 2:
+				break
+		prev_levelset = msnake.levelset
+	
+	sys.stderr.write('iter %d\n'%i)
+
+	mask = msnake.levelset.astype(np.bool)
+	mask = remove_small_objects(mask, min_size=40)
+
+	# previous_levelset = levelset
+
+	# for i in xrange(max_iters):
+	# 	msnake.step()
+	# 	diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
+	# 	print i, diff
+	# 	if diff < diff_thresh and i > min_iters: # oscillate
+	# 		break
+	# 	previous_levelset = msnake.levelset
+
+	rows, cols = np.where(mask)
+	bbox = np.array([rows.min(), rows.max(), cols.min(), cols.max()])
+
+	return mask, bbox
+
+	# blob_labels, n_labels = label(msnake.levelset, neighbors=4, return_num=True, background=0)
+
+	# blob_props = regionprops(blob_labels + 1)
+
+	# height, width = img.shape[:2]
+
+	# minr, minc, maxr, maxc = blob_props[0].bbox
+
+	# mask = np.zeros_like(img, dtype=np.bool)
+	# mask[blob_labels == 0] = 1
+
+	# section_mask = mask[minr:maxr+1, minc:maxc+1]
+
+	# return section_mask, bbox
+
+
+def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, min_iters=300, 
+									num_section_per_slide=5, dilate_iters=0):
 
 	# img = denoise_bilateral(img, win_size=5, sigma_range=1, sigma_spatial=7, bins=10000, mode='constant', cval=0)
 
@@ -38,16 +117,22 @@ def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_se
 	else:
 		msnake.levelset = levelset
 
+	previous_levelset = levelset
+
 	for i in xrange(max_iters):
 		msnake.step()
-		if i > 0:
-			diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
-			if diff < 40 and i > min_iters: # oscillate
-				break
+
+		diff = np.count_nonzero(msnake.levelset - previous_levelset < 0)
+		if diff < 40 and i > min_iters: # oscillate
+			break
 
 		previous_levelset = msnake.levelset
 
-	blob_labels, n_labels = label(msnake.levelset, neighbors=4, return_num=True, background=0)
+	mask = previous_levelset
+	for _ in range(dilate_iters):
+		mask = binary_dilation(mask, selem=square(3))
+
+	blob_labels, n_labels = label(mask, neighbors=4, return_num=True, background=0)
 
 	blob_props = regionprops(blob_labels + 1)
 	all_areas = np.array([p.area for p in blob_props])
@@ -121,9 +206,11 @@ def foreground_mask_morphsnakes_slide(img, levelset=None, max_iters=1000, num_se
 
 
 
-def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, out_dir=None, num_section_per_slide=5, mirror=None, rotate=None):
+def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, 
+		out_dir=None, num_section_per_slide=5, mirror=None, rotate=None):
 
 	imgcolor = Image.open(os.path.join(in_dir, '%s_%02d_x0.3125_z0.tif'%(stack, slide_ind)))
+	# imgcolor = Image.open(os.path.join(in_dir, '%s_%02d_x5_z0.tif'%(stack, slide_ind)))
 	imgcolor = imgcolor.convert('RGB')
 	imgcolor = np.array(imgcolor)
 	img_gray = rgb2gray(imgcolor)
@@ -161,7 +248,8 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, out_dir=None
 		mask[minr+t:maxr-b, minc+l:maxc-r] = 1
 
 	section_masks, bboxes, exists = foreground_mask_morphsnakes_slide(img, levelset=mask, 
-				num_section_per_slide=num_section_per_slide, min_iters=400)
+				num_section_per_slide=num_section_per_slide, min_iters=400,
+				dilate_iters=1)
 
 	ids = np.where(exists)[0]
 	#     section_images = []
@@ -174,6 +262,7 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, out_dir=None
 		#         section_images.append(img)
 
 		image_filepath = os.path.join(out_dir, '%s_x0.3125_%02d_%d.tif'%(stack, slide_ind, section_id))
+		# image_filepath = os.path.join(out_dir, '%s_x5_%02d_%d.tif'%(stack, slide_ind, section_id))
 		imsave(image_filepath, masked_img)
 
 	# bboxes_percent = np.array(bboxes, dtype=np.float)/np.r_[img_gray.shape[:2], img_gray.shape[:2]][np.newaxis, :]

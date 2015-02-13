@@ -35,12 +35,17 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True,
 
 	# if use_hsv:
 	imghsv = rgb2hsv(imgcolor)
-	imgsat = imghsv[...,1]
+	imgsat = imghsv[..., 1]
 	# imghue = imghsv[...,0]
 
-	# plt.imshow(imghue, cmap=plt.cm.gray)
+	# plt.imshow(imghsv[...,0], cmap=plt.cm.gray)
 	# plt.colorbar()
 	# plt.show()
+
+	# plt.imshow(imghsv[...,2], cmap=plt.cm.gray)
+	# plt.colorbar()
+	# plt.show()
+
 
 	# else:
 	# 	img = img_gray

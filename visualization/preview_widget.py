@@ -30,17 +30,17 @@ class PreviewerWidget(QWidget):
 
         self.client = None
 
-    def set_images(self, imgs=[], callback=None):
+    def set_images(self, path_caption_tuples=[], callback=None):
         """
         callback takes an integer index as argument
         """
 
         self.callback = callback
 
-        self.imagepath_caption_tuples = imgs
+        self.imagepath_caption_tuples = path_caption_tuples
         
-        if len(imgs) > 0:
-            self.imagepaths, self.captions = zip(*imgs)
+        if len(path_caption_tuples) > 0:
+            self.imagepaths, self.captions = zip(*path_caption_tuples)
         else:
             self.imagepaths = []
             self.captions = []
@@ -68,7 +68,7 @@ class PreviewerWidget(QWidget):
         self.actions = []
         self.thumbnail_buttons = []
 
-        for count, (img_filename, img_text) in enumerate(imgs):
+        for count, (img_filename, img_text) in enumerate(path_caption_tuples):
                                 
             actionLoad = QAction(QIcon(img_filename), img_text, self)
             # actionLoad.setToolTip(toolTip)

@@ -64,7 +64,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.parent_labeling_name = parent_labeling_name
 
-		self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+		self.dm = DataManager(data_dir=os.environ['LOCAL_SECTIONDATA_DIR'], 
 			repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			result_dir=os.environ['LOCAL_RESULT_DIR'], labeling_dir=os.environ['LOCAL_LABELING_DIR'])
 
@@ -115,27 +115,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.masked_img = self.dm.image_rgb.copy()
 		self.masked_img[~self.dm.mask, :] = 0
 
-		try:
-			self.parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
+		if self.parent_labeling_name is None:
 
-			print 'Load saved labeling'
-			
-			# label_circles = parent_labeling['final_label_circles']
-
-			self.labeling = {
-				'username' : None,
-				'parent_labeling_name' : self.parent_labeling_name,
-				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-				'initial_polygons': self.parent_labeling['final_polygons'],
-				'final_polygons': None,
-				# 'init_label_circles' : label_circles,
-				# 'final_label_circles' : None,
-				'labelnames' : [],  # will be filled by _add_buttons()
-			}
-
-		except Exception as e:
-
-			print 'error', e
 			print 'No labeling is given. Initialize labeling.'
 
 			self.parent_labeling = None
@@ -162,6 +143,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# else:
 			# 	# n_models = 10
 			# 	n_models = 0
+		else:
+
+			self.parent_labeling = self.dm.load_labeling(self.parent_labeling_name)
+
+			print 'Load saved labeling'
+			
+			# label_circles = parent_labeling['final_label_circles']
+
+			self.labeling = {
+				'username' : None,
+				'parent_labeling_name' : self.parent_labeling_name,
+				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+				'initial_polygons': self.parent_labeling['final_polygons'],
+				'final_polygons': None,
+				# 'init_label_circles' : label_circles,
+				# 'final_label_circles' : None,
+				'labelnames' : [],  # will be filled by _add_buttons()
+			}
 		
 		# self.n_labels = len(self.labeling['labelnames'])
 

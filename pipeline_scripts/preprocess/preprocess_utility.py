@@ -3,7 +3,7 @@ import os
 import sys
 
 def run_distributed3(script_name, arg_tuples):
-	hostids = range(31, 36) + range(37, 39) + range(41,49)
+	hostids = range(31, 34) + [35] + range(37, 39) + range(41,49)
 	n_hosts = len(hostids)
 
 	temp_script = '/tmp/runall.sh'

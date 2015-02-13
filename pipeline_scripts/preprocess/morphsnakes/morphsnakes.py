@@ -34,6 +34,10 @@ from scipy import ndimage
 from scipy.ndimage import binary_dilation, binary_erosion, \
                         gaussian_filter, gaussian_gradient_magnitude
 
+
+import time
+
+
 class fcycle(object):
     
     def __init__(self, iterable):
@@ -188,7 +192,7 @@ class MorphACWE(object):
 class MorphGAC(object):
     """Morphological GAC based on the Geodesic Active Contours."""
     
-    def __init__(self, data, smoothing=1, threshold=0, balloon=0):
+    def __init__(self, data, smoothing=1, threshold=0, balloon=0, scaling=1):
         """Create a Morphological GAC solver.
         
         Parameters
@@ -208,6 +212,7 @@ class MorphGAC(object):
         self._v = balloon
         self._theta = threshold
         self.smoothing = smoothing
+        self.scaling = scaling
         
         self.set_data(data)
     
@@ -229,7 +234,12 @@ class MorphGAC(object):
         self._ddata = np.gradient(data)
         self._update_mask()
         # The structure element for binary dilation and erosion.
-        self.structure = np.ones((3,)*np.ndim(data))
+        if self.scaling == 1:
+            self.structure = np.ones((5,)*np.ndim(data))
+        elif self.scaling == 4:
+            self.structure = np.ones((15,)*np.ndim(data))
+        elif self.scaling == 4**2:
+            self.structure = np.ones((35,)*np.ndim(data))
     
     def _update_mask(self):
         """Pre-compute masks for speed."""
@@ -252,6 +262,8 @@ class MorphGAC(object):
     def step(self):
         """Perform a single step of the morphological snake evolution."""
         # Assign attributes to local variables for convenience.
+
+
         u = self._u
         gI = self._data
         dgI = self._ddata
@@ -271,6 +283,7 @@ class MorphGAC(object):
         if v!= 0:
             res[self._threshold_mask_v] = aux[self._threshold_mask_v]
         
+
         # Image attachment.
         aux = np.zeros_like(res)
         dres = np.gradient(res)
@@ -278,18 +291,20 @@ class MorphGAC(object):
             aux += el1*el2
         res[aux > 0] = 1
         res[aux < 0] = 0
-        
+
         # Smoothing.
         for i in xrange(self.smoothing):
             res = curvop(res)
         
         self._u = res
-    
+
+
     def run(self, iterations):
         """Run several iterations of the morphological snakes method."""
         for i in xrange(iterations):
             self.step()
     
+import time
 
 def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     """
@@ -312,7 +327,7 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     
     if levelset is not None:
         msnake.levelset = levelset
-    
+        
     # Prepare the visual environment.
     fig = ppl.gcf()
     fig.clf()
@@ -327,12 +342,28 @@ def evolve_visual(msnake, levelset=None, num_iters=20, background=None):
     ax_u = ax2.imshow(msnake.levelset)
     ppl.pause(0.001)
     
+
+    diffs = []
+
     # Iterate.
     for i in xrange(num_iters):
-        print i
         # Evolve.
+        print i
+        b = time.time()
+
         msnake.step()
-        
+
+        print time.time() - b
+
+        if i > 1:
+            diff = np.count_nonzero(msnake.levelset - prev_levelset != 0)
+            print 'diff', diff
+            if i > 10:
+                diffs.append(diff)
+                if np.abs(np.mean(diffs[-5:]) - np.mean(diffs[-10:-5])) < 2:
+                  break
+        prev_levelset = msnake.levelset
+
         # Update figure.
         del ax1.collections[0]
         ax1.contour(msnake.levelset, [0.5], colors='r')

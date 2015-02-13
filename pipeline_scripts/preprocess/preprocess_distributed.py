@@ -17,17 +17,27 @@ if __name__ == '__main__':
 	# t = time.time()
 
 	# splitndpi_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'split_ndpi.py')
-	# splitndpi_args = [(args.stack, i, min(i + args.jobs_per_node - 1, args.n_slides)) for i in range(1, args.n_slides, args.jobs_per_node)]
+	# splitndpi_args = [(args.stack, i, min(i + args.jobs_per_node - 1, args.n_slides)) for i in range(1, args.n_slides + 1, args.jobs_per_node)]
 
 	# run_distributed(splitndpi_script, splitndpi_args)
 
 	# print 'splitndpi', time.time() - t, 'seconds'
 
+	# t = time.time()
+
+	# genmask_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'generate_mask_script.py')
+	# genmask_args = [(args.stack, i, min(i + args.jobs_per_node - 1, args.n_slides)) for i in range(1, args.n_slides + 1, args.jobs_per_node)]
+
+	# run_distributed3(genmask_script, genmask_args)
+
+	# print 'genmask', time.time() - t, 'seconds'
+
 	t = time.time()
 
-	genmask_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'generate_mask_script.py')
-	genmask_args = [(args.stack, i, min(i + args.jobs_per_node - 1, args.n_slides)) for i in range(1, args.n_slides, args.jobs_per_node)]
+	movedata_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'preprocess_movedata_script.py')
+	movedata_args = [(args.stack, i, min(i + args.jobs_per_node - 1, args.n_slides)) 
+						for i in range(1, args.n_slides + 1, args.jobs_per_node)]
 
-	run_distributed(genmask_script, genmask_args)
+	run_distributed3(movedata_script, movedata_args)
 
-	print 'genmask', time.time() - t, 'seconds'
+	print 'movedata', time.time() - t, 'seconds'

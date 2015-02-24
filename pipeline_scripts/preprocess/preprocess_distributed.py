@@ -3,6 +3,9 @@
 import argparse
 import os
 import time
+import re
+
+from subprocess import check_output
 
 from subprocess import check_output
 
@@ -28,15 +31,16 @@ if __name__ == '__main__':
 	t = time.time()
 
 	s = check_output("ssh gordon.sdsc.edu ls %s" % os.path.join(os.environ['GORDON_NDPI_DIR'], stack), shell=True)
-	slide_indices = [int(f[:-5].split('_')[1]) for f in s.split('\n') if len(f) > 0]
+	print s
+	slide_indices = [int(re.split("_|-", f[:-5])[1]) for f in s.split('\n') if len(f) > 0]
 
 	if n_slides == 0:
 		n_slides = max(slide_indices)
-		print n_slides
+		print 'last slide index', n_slides
 
 	if task == 'splitndpi':
 
-		splitndpi_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'split_ndpi.py')
+		splitndpi_script = os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts', 'preprocess', 'split_ndpi_script.py')
 
 		splitndpi_args = [(stack, i, min(i + slides_per_node - 1, n_slides)) 
 							for i in range(1, n_slides + 1, slides_per_node)]

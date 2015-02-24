@@ -57,8 +57,12 @@ def create_if_not_exists(path):
 		os.makedirs(path)
 	return path
 
-def execute_command(cmd):
+def execute_command(cmd, dryrun=False):
+	print cmd
+
 	try:
+		if dryrun: return
+
 		retcode = call(cmd, shell=True)
 		if retcode < 0:
 			print >>sys.stderr, "Child was terminated by signal", -retcode

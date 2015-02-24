@@ -23,7 +23,12 @@ import datetime
 from visualization_utilities import *
 
 sys.path.append(os.path.realpath('../pipeline_scripts'))
-from utilities import *
+
+if os.environ['DATASET_VERSION'] == '2014':	
+	from utilities2014 import *
+else:
+	from utilities import *
+
 import json
 
 from pprint import pprint

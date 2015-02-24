@@ -32,15 +32,26 @@ if __name__ == '__main__':
 		prefix = ndpi_file[:-5]
 
 		mosaic_dir = create_if_not_exists(os.path.join(slide_dir_stack, 'x20_mosaic'))			# DavidData2015slides/CC35/x0.3125	
-		execute_command('mv %s*x20_z0*_i*j*.tif %s' % (prefix, mosaic_dir))
+		
+		try:
+			execute_command('mv %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_dir))
+		except:
+			execute_command('rm %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_dir))
 
 		for level in ['x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']:
 			resol_dir = create_if_not_exists(os.path.join(slide_dir_stack, level))			# DavidData2015slides/CC35/x0.3125
-			execute_command('mv %s*%s_z0*.tif %s' % (prefix, level, resol_dir))
+			
+			try:
+				execute_command('mv %s_%s_z0*.tif %s' % (prefix, level, resol_dir))
+			except:
+				execute_command('rm %s_%s_z0*.tif %s' % (prefix, level, resol_dir))
 
 		for kw in ['macro', 'map']:
 			kw_dir = create_if_not_exists(os.path.join(slide_dir_stack, kw))			# DavidData2015slides/CC35/map
-			execute_command('mv %s*%s*.tif %s' % (prefix, kw, kw_dir))
+			try:
+				execute_command('mv %s_%s.tif %s' % (prefix, kw, kw_dir))
+			except:
+				execute_command('rm %s_%s.tif %s' % (prefix, kw, kw_dir))
 
 		#execute_command('rm %s/*.tif'%ndpi_stack_dir)
 

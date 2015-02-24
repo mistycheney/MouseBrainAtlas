@@ -457,6 +457,9 @@ class DataManager(object):
     # def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
     def _get_result_filename(self, result_name, ext, param_dependencies=None):
 
+        if param_dependencies is None:
+            param_dependencies = ['gabor', 'segm', 'vq']
+
         if result_name in ['textons']:
             results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack)
             param_dependencies = ['gabor', 'vq']
@@ -543,9 +546,12 @@ class DataManager(object):
 
         return data
         
-    def save_pipeline_result(self, data, result_name, ext, is_rgb=None):
-            
-        result_filename = self._get_result_filename(result_name, ext)
+    def save_pipeline_result(self, data, result_name, ext, param_dependencies=None, is_rgb=None):
+        
+        if param_dependencies is None:
+            param_dependencies = ['gabor', 'segm', 'vq']
+
+        result_filename = self._get_result_filename(result_name, ext, param_dependencies=param_dependencies)
 
         if ext == 'npy':
             np.save(result_filename, data)

@@ -14,41 +14,56 @@ from skimage.filter import gaussian_filter
 
 from PIL import Image
 
-def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True, 
+def gen_mask(slide_ind=None, in_dir=None, stack=None, stain='nissl', 
 		out_dir=None, num_section_per_slide=5, mirror=None, rotate=None, show=False, resol='x0.3125'):
 
 	scaling = 4**['x0.3125', 'x1.25', 'x5'].index(resol)
 
 	# scaling = 1
 
-	imgcolor = np.array(Image.open(os.path.join(in_dir, '%s_%02d_%s_z0.tif'%(stack, slide_ind, resol))).convert('RGB'))
-	img_gray = rgb2gray(imgcolor)
+	try:
+		img_rgb = np.array(Image.open(os.path.join(in_dir, '%s_%02d_%s_z0.tif'%(stack, slide_ind, resol))).convert('RGB'))
+	except IOError as e:
+		print e
+		return
 
-	# utilize bounding box selected during scanning process
-	a = img_gray < 0.98
+	img_gray = rgb2gray(img_rgb)
 
-	a = median(a.astype(np.float), disk(3*scaling))
-	a = remove_small_objects(a.astype(np.bool), min_size=50*scaling, connectivity=2, in_place=False)
-
-	column_labels, n_columns = label(a, neighbors=8, return_num=True, background=0)
-	column_props = regionprops(column_labels + 1)
-
-	# if use_hsv:
-	imghsv = rgb2hsv(imgcolor)
-	imgsat = imghsv[..., 1]
+	if stain == 'nissl':
+		imghsv = rgb2hsv(img_rgb)
+		img = imghsv[..., 0]
 	# imghue = imghsv[...,0]
-
-	# plt.imshow(imghsv[...,0], cmap=plt.cm.gray)
-	# plt.colorbar()
-	# plt.show()
+	elif stain == 'fluorescent':
+		img = img_gray
 
 	# plt.imshow(imghsv[...,2], cmap=plt.cm.gray)
 	# plt.colorbar()
 	# plt.show()
 
+	# plt.imshow(img_gray, cmap=plt.cm.gray)
+	# plt.colorbar()
+	# plt.show()
 
-	# else:
-	# 	img = img_gray
+	# detect scanned zones on whole-slide images
+
+	if stain == 'nissl':
+		scanzone_mask = img_gray < 0.98
+	elif stain == 'fluorescent':
+		scanzone_mask = img_gray > 0.01
+
+	scanzone_mask = median(scanzone_mask.astype(np.float), disk(3*scaling))
+	scanzone_mask = remove_small_objects(scanzone_mask.astype(np.bool), 
+									min_size=50*scaling, connectivity=2, in_place=False)
+
+	if show:
+		plt.imshow(scanzone_mask, cmap=plt.cm.gray)
+		plt.title('detect scanned zones')
+		plt.show()
+
+	column_labels, n_columns = label(scanzone_mask, neighbors=8, return_num=True, background=0)
+	column_props = regionprops(column_labels + 1)
+
+	print len(column_props), 'scanned zones detected'
 
 	mask = np.zeros_like(img_gray, dtype=np.bool)
 	
@@ -62,34 +77,34 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, use_hsv=True,
 
 			minr, minc, maxr, maxc = cp.bbox
 
-			sys.stderr.write('start %d\n' % i)
+			sys.stderr.write('start slide %d column %d\n' % (slide_ind, i))
 
-			section_masks, section_bboxes = foreground_mask_simple(imgsat[minr:maxr, minc:maxc],
+			section_masks, section_bboxes = foreground_mask_simple(img[minr:maxr, minc:maxc],
 																	show=show, scaling=scaling)
-																	# hue=imghue[minr:maxr, minc:maxc])
-			sys.stderr.write('finish %d\n' % i)
+
+			sys.stderr.write('finish slide %d column %d\n' % (slide_ind, i))
 			
-			section_masks_all += section_masks
+			if len(section_masks) > 0:
+				section_masks_all += section_masks
+				bboxes_slide = section_bboxes + np.r_[minr, minc, minr, minc][np.newaxis, :]
 
-			bboxes_slide = section_bboxes + np.r_[minr, minc, minr, minc][np.newaxis, :]
+				section_bboxes_all += list(bboxes_slide)
 
-			section_bboxes_all += list(bboxes_slide)
-
-			centers_slide = np.atleast_2d(np.column_stack([bboxes_slide[:,[1,3]].mean(axis=1),
-												bboxes_slide[:,[0,2]].mean(axis=1)]))
-			
-			centers_slide_all += list(centers_slide)
+				centers_slide = np.atleast_2d(np.column_stack([bboxes_slide[:,[1,3]].mean(axis=1),
+													bboxes_slide[:,[0,2]].mean(axis=1)]))
+				
+				centers_slide_all += list(centers_slide)
 
 		except Exception as e:
 
 			print e
 			sys.stderr.write('Error occurs when processing slide ' + str(slide_ind) + '\n')
 
-	numbering, n_slots = renumber_blobs(np.array(centers_slide_all), imgsat.shape)
+	numbering, n_slots = renumber_blobs(np.array(centers_slide_all), img.shape)
 
 	for (minr, minc, maxr, maxc), mask, section_id in zip(section_bboxes_all, section_masks_all, numbering):
 
-		img = imgcolor[minr:maxr, minc:maxc]
+		img = img_rgb[minr:maxr, minc:maxc]
 
 		masked_img = np.dstack([img, img_as_ubyte(mask)])
 
@@ -160,24 +175,37 @@ def renumber_blobs(centers, img_shape, num_section_per_slide=5):
 	else:
 		return sorted_indices, num_section_per_slide
 
-def foreground_mask_simple(img, show=False, hue=None, scaling=1):
+# def foreground_mask_simple(img, show=False, hue=None, scaling=1):
+def foreground_mask_simple(img, show=False, scaling=1):
+
+	if show:
+		plt.imshow(img, cmap=plt.cm.gray)
+		plt.title('original')
+		plt.show()
 
 	img = denoise_bilateral(img, win_size=5*scaling)
 	# img = gaussian_filter(img, sigma=.5)
 
+	if img.shape[0] < 30*scaling or img.shape[1] < 30*scaling:
+		return [], []
+
+	# print img.shape
+
 	bg_samples = [img[5,5],img[-5,-5],img[5,-5],img[-5,5],
 					img[10,10],img[-10,-10],img[10,-10],img[-10,10]]
+
 	bg = np.median(bg_samples)
 	std = np.std(bg_samples)
 
-	if hue is not None:
-		bg_hue_samples = [hue[5,5],hue[-5,-5],hue[5,-5],hue[-5,5],
-						hue[10,10],hue[-10,-10],hue[10,-10],hue[-10,10]]
-		bg_hue = np.median(bg_hue_samples)
-		hue_std = np.std(bg_hue_samples)
+	# if hue is not None:
+	# 	bg_hue_samples = [hue[5,5],hue[-5,-5],hue[5,-5],hue[-5,5],
+	# 					hue[10,10],hue[-10,-10],hue[10,-10],hue[-10,10]]
+	# 	bg_hue = np.median(bg_hue_samples)
+	# 	hue_std = np.std(bg_hue_samples)
 
 	if show:
 		plt.imshow(img, cmap=plt.cm.gray)
+		plt.title('after denoising')
 		plt.show()
 
 	# if hue is not None:
@@ -201,9 +229,9 @@ def foreground_mask_simple(img, show=False, hue=None, scaling=1):
 
 	# img = remove_small_objects(img, min_size=img.size * .001, connectivity=8, in_place=False)	
 
-	if show:
-		plt.imshow(img, cmap=plt.cm.gray)
-		plt.show()
+	# if show:
+	# 	plt.imshow(img, cmap=plt.cm.gray)
+	# 	plt.show()
 
 	bg_region_labels, n_bg_regions = label(img, neighbors=8, return_num=True, background=0)
 
@@ -227,7 +255,6 @@ def foreground_mask_simple(img, show=False, hue=None, scaling=1):
 		plt.title('opening')
 		plt.show()
 
-
 	fg_mask_save = fg_mask.copy()
 
 	fg_mask = remove_small_objects(fg_mask, min_size=int(img.size*.01), connectivity=8, in_place=True)
@@ -240,8 +267,6 @@ def foreground_mask_simple(img, show=False, hue=None, scaling=1):
 	fg_region_labels, n_fg_regions = label(fg_mask, neighbors=8, return_num=True, background=0)
 	fg_regions = regionprops(fg_region_labels + 1)
 
-	# masks = [r.image for r in fg_regions]
-	# print [r.area for r in fg_regions]
 	max_area = np.max([r.area for r in fg_regions])
 
 	fg_mask = remove_small_objects(fg_mask_save, min_size=max_area*.5, connectivity=8, in_place=True)
@@ -263,7 +288,9 @@ def foreground_mask_simple(img, show=False, hue=None, scaling=1):
 
 if __name__ == '__main__':
 
-	filled_bboxes = gen_mask(slide_ind=2, in_dir='/home/yuncong/DavidData2015slides/CC35/x0.3125', stack='CC35', use_hsv=True, 
-		out_dir=None, num_section_per_slide=5, show=True)
+	filled_bboxes = gen_mask(slide_ind=7, in_dir='/home/yuncong/DavidData2015slides/CC28/x0.3125', 
+		# stack='CC28', stain='nissl', 
+		stack='CC28', stain='fluorescent', 
+		out_dir=None, num_section_per_slide=5, show=False)
 
 	print filled_bboxes

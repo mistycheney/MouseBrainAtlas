@@ -40,6 +40,9 @@ for fn in all_slide_files:
 	slide_img = np.array(Image.open(os.path.join(slide_dir, fn)).convert('RGB'))
 
 	n_sections = len(sections[slide_str])
+	
+	if n_sections == 0:
+		continue
 
 	ax1 = plt.subplot2grid((2,n_sections), (0,0), colspan=n_sections)
 

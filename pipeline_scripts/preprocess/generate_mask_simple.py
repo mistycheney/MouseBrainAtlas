@@ -49,11 +49,12 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, stain='nissl',
 	if stain == 'nissl':
 		scanzone_mask = img_gray < 0.98
 	elif stain == 'fluorescent':
-		scanzone_mask = img_gray > 0.01
+		scanzone_mask = img_gray > 0.0001
 
 	scanzone_mask = median(scanzone_mask.astype(np.float), disk(3*scaling))
 	scanzone_mask = remove_small_objects(scanzone_mask.astype(np.bool), 
 									min_size=50*scaling, connectivity=2, in_place=False)
+									# min_size=2000*scaling, connectivity=2, in_place=False)
 
 	if show:
 		plt.imshow(scanzone_mask, cmap=plt.cm.gray)
@@ -73,34 +74,34 @@ def gen_mask(slide_ind=None, in_dir=None, stack=None, stain='nissl',
 
 	for i, cp in enumerate(column_props):
 
-		try:
+		minr, minc, maxr, maxc = cp.bbox
 
-			minr, minc, maxr, maxc = cp.bbox
+		sys.stderr.write('start slide %d column %d\n' % (slide_ind, i))
 
-			sys.stderr.write('start slide %d column %d\n' % (slide_ind, i))
+		section_masks, section_bboxes = foreground_mask_simple(img[minr:maxr, minc:maxc],
+																show=show, scaling=scaling)
 
-			section_masks, section_bboxes = foreground_mask_simple(img[minr:maxr, minc:maxc],
-																	show=show, scaling=scaling)
+		sys.stderr.write('finish slide %d column %d\n' % (slide_ind, i))
+		
+		if len(section_masks) > 0:
+			section_masks_all += section_masks
+			bboxes_slide = section_bboxes + np.r_[minr, minc, minr, minc][np.newaxis, :]
 
-			sys.stderr.write('finish slide %d column %d\n' % (slide_ind, i))
+			section_bboxes_all += list(bboxes_slide)
+
+			centers_slide = np.atleast_2d(np.column_stack([bboxes_slide[:,[1,3]].mean(axis=1),
+												bboxes_slide[:,[0,2]].mean(axis=1)]))
 			
-			if len(section_masks) > 0:
-				section_masks_all += section_masks
-				bboxes_slide = section_bboxes + np.r_[minr, minc, minr, minc][np.newaxis, :]
-
-				section_bboxes_all += list(bboxes_slide)
-
-				centers_slide = np.atleast_2d(np.column_stack([bboxes_slide[:,[1,3]].mean(axis=1),
-													bboxes_slide[:,[0,2]].mean(axis=1)]))
-				
-				centers_slide_all += list(centers_slide)
-
-		except Exception as e:
-
-			print e
-			sys.stderr.write('Error occurs when processing slide ' + str(slide_ind) + '\n')
+			centers_slide_all += list(centers_slide)
 
 	numbering, n_slots = renumber_blobs(np.array(centers_slide_all), img.shape)
+
+	# if len(section_bboxes_all) != len(numbering):
+	# 	raise Exception('Error: number of section boxes does not match length of numbering: slide %d' % (slide_ind))
+
+	if len(section_bboxes_all) != len(numbering):
+		print 'Error: number of section boxes does not match length of numbering: slide %d' % (slide_ind)
+		return []
 
 	for (minr, minc, maxr, maxc), mask, section_id in zip(section_bboxes_all, section_masks_all, numbering):
 
@@ -162,6 +163,7 @@ def renumber_blobs(centers, img_shape, num_section_per_slide=5):
 
 		x = np.r_[ups, downs]
 		numbering = np.argsort(x)[:n]
+
 		return numbering, len(x)
 
 	elif n < num_section_per_slide:
@@ -170,10 +172,10 @@ def renumber_blobs(centers, img_shape, num_section_per_slide=5):
 		# arrangement = -1 * np.ones((num_section_per_slide,), dtype=np.int)
 		# arrangement[snap_to_columns] = sorted_indices
 		# return arrangement[arrangement > -1], n
-		return sorted_indices, n
+		return np.argsort(sorted_indices), n
 
 	else:
-		return sorted_indices, num_section_per_slide
+		return np.argsort(sorted_indices), num_section_per_slide
 
 # def foreground_mask_simple(img, show=False, hue=None, scaling=1):
 def foreground_mask_simple(img, show=False, scaling=1):
@@ -267,6 +269,9 @@ def foreground_mask_simple(img, show=False, scaling=1):
 	fg_region_labels, n_fg_regions = label(fg_mask, neighbors=8, return_num=True, background=0)
 	fg_regions = regionprops(fg_region_labels + 1)
 
+	if len(fg_regions) == 0:
+		return [], []
+
 	max_area = np.max([r.area for r in fg_regions])
 
 	fg_mask = remove_small_objects(fg_mask_save, min_size=max_area*.5, connectivity=8, in_place=True)
@@ -288,9 +293,11 @@ def foreground_mask_simple(img, show=False, scaling=1):
 
 if __name__ == '__main__':
 
-	filled_bboxes = gen_mask(slide_ind=7, in_dir='/home/yuncong/DavidData2015slides/CC28/x0.3125', 
+	# for i in range(23,48):
+	# 	print i
+	filled_bboxes = gen_mask(slide_ind=23, in_dir='/home/yuncong/DavidData2015slides/CC34/x0.3125', 
 		# stack='CC28', stain='nissl', 
-		stack='CC28', stain='fluorescent', 
-		out_dir=None, num_section_per_slide=5, show=False)
+		stack='CC34', stain='fluorescent', 
+		out_dir=None, num_section_per_slide=5, show=True)
 
 	print filled_bboxes

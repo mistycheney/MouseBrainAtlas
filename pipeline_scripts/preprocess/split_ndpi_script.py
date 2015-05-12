@@ -31,12 +31,18 @@ if __name__ == '__main__':
 
 		prefix = ndpi_file[:-5]
 
-		mosaic_dir = create_if_not_exists(os.path.join(slide_dir_stack, 'x20_mosaic'))			# DavidData2015slides/CC35/x0.3125	
+		mosaic_x20_dir = create_if_not_exists(os.path.join(slide_dir_stack, 'x20_mosaic'))			# DavidData2015slides/CC35/x20_mosaic	
 		
 		try:
-			execute_command('mv %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_dir))
+			execute_command('mv %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_x20_dir))
 		except:
-			execute_command('rm %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_dir))
+			execute_command('rm %s_x20_z0_i*j*.tif %s' % (prefix, mosaic_x20_dir))
+
+		mosaic_x5_dir = create_if_not_exists(os.path.join(slide_dir_stack, 'x5_mosaic'))			# DavidData2015slides/CC35/x5_mosaic
+		try:
+			execute_command('mv %s_x5_z0_i*j*.tif %s' % (prefix, mosaic_x5_dir))
+		except:
+			execute_command('rm %s_x5_z0_i*j*.tif %s' % (prefix, mosaic_x5_dir))
 
 		for level in ['x0.078125', 'x0.3125', 'x1.25', 'x5', 'x20']:
 			resol_dir = create_if_not_exists(os.path.join(slide_dir_stack, level))			# DavidData2015slides/CC35/x0.3125

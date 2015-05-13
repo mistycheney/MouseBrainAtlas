@@ -15,7 +15,10 @@ os.chdir(in_dir)
 #names = {}
 for fn in os.listdir('.'):
    if not fn.endswith('ndpi'): continue
-   stack, slide_str, _,_,_,_,_,_ = re.split('\W+', fn[:-5])
+   try:
+	stack, slide_str, _,_,_,_,_,_ = re.split('\W+', fn[:-5])
+   except:
+	continue
 
    if slide_str[0].isalpha():
 	slide_ind = int(slide_str[1:])   # slide_str is Gxx where xx is slide num

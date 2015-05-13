@@ -292,7 +292,26 @@ def build_inverse_labeing_index(dataset_json):
 
 class DataManager(object):
 
-    def __init__(self, data_dir, repo_dir, result_dir, labeling_dir):
+    def __init__(self, data_dir=None, repo_dir=None, 
+        result_dir=None, labeling_dir=None,
+        generate_hierarchy=False,
+        gabor_params_id=None, 
+        segm_params_id=None,
+        vq_params_id=None,
+        stack=None,
+        resol=None):
+
+        import os
+
+        if data_dir is None:
+            data_dir = os.environ['GORDON_DATA_DIR']
+        if repo_dir is None:
+            repo_dir=os.environ['GORDON_REPO_DIR']
+        if result_dir is None:
+            result_dir=os.environ['GORDON_RESULT_DIR']
+        if labeling_dir is None:
+            labeling_dir=os.environ['GORDON_LABELING_DIR']
+
         self.data_dir = data_dir
         self.repo_dir = repo_dir
         self.params_dir = os.path.join(repo_dir, 'params')
@@ -309,18 +328,30 @@ class DataManager(object):
 
         self.root_results_dir = result_dir
 
-        self.local_ds = generate_json(data_dir=data_dir, res_dir=result_dir, labeling_dir=labeling_dir)
-        # print self.local_ds
+        if generate_hierarchy:
+            self.local_ds = generate_json(data_dir=data_dir, res_dir=result_dir, labeling_dir=labeling_dir)
+            # print self.local_ds
 
-        self.inv_labeing_index = build_inverse_labeing_index(self.local_ds)
-        # print self.inv_labeing_index
+            self.inv_labeing_index = build_inverse_labeing_index(self.local_ds)
+            # print self.inv_labeing_index
 
         self.slice_ind = None
         self.image_name = None
 
-        self.gabor_params_id='blueNisslWide'
-        self.segm_params_id='blueNisslRegular'
-        self.vq_params_id='blueNissl'
+        if gabor_params_id is None:
+            self.gabor_params_id = 'blueNisslWide'
+
+        if segm_params_id is None:
+            self.segm_params_id = 'blueNisslRegular'
+
+        if vq_params_id is None:
+            self.vq_params_id = 'blueNissl'
+
+        if stack is not None:
+            self.set_stack(stack)
+
+        if resol is not None:
+            self.set_resol(resol)
 
     def set_labelnames(self, labelnames):
         self.labelnames = labelnames
@@ -332,7 +363,9 @@ class DataManager(object):
     def set_stack(self, stack):
         self.stack = stack
         self.stack_path = os.path.join(self.data_dir, self.stack)
-        self.stack_info = self.local_ds['stacks'][self.local_ds['available_stack_names'].index(stack)]
+
+        if generate_hierarchy:
+            self.stack_info = self.local_ds['stacks'][self.local_ds['available_stack_names'].index(stack)]
 
         self.slice_ind = None
 
@@ -343,7 +376,8 @@ class DataManager(object):
         self.resol = resol
         self.resol_dir = os.path.join(self.stack_path, self.resol)
 
-        self.sections_info = self.stack_info['sections']
+        if generate_hierarchy:
+            self.sections_info = self.stack_info['sections']
 
         if self.slice_ind is not None:
             self.set_slice(self.slice_ind)
@@ -366,7 +400,8 @@ class DataManager(object):
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
 
-        self.section_info = self.sections_info[map(itemgetter('index'), self.sections_info).index(self.slice_ind)]
+        if generate_hierarchy:
+            self.section_info = self.sections_info[map(itemgetter('index'), self.sections_info).index(self.slice_ind)]
 
     def set_image(self, stack, resol, slice_ind):
         self.set_stack(stack)
@@ -399,8 +434,6 @@ class DataManager(object):
         
         self.image_rgb = imread(image_filename, as_grey=False)
 
-        self.image_rgb = imread(image_filename, as_grey=False)
-
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
         self.mask = imread(mask_filename, as_grey=True) > 0
         
@@ -409,7 +442,6 @@ class DataManager(object):
         self.gabor_params_id = gabor_params_id
         self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
         self._generate_kernels(self.gabor_params)
-    
     
     def _generate_kernels(self, gabor_params):
         
@@ -549,12 +581,14 @@ class DataManager(object):
 
         return data
         
-    def save_pipeline_result(self, data, result_name, ext, param_dependencies=None, is_rgb=None):
+    def save_pipeline_result(self, data, result_name, ext, 
+        param_dependencies=None, is_rgb=None, section=None):
         
         if param_dependencies is None:
             param_dependencies = ['gabor', 'segm', 'vq']
 
-        result_filename = self._get_result_filename(result_name, ext, param_dependencies=param_dependencies)
+        result_filename = self._get_result_filename(result_name, ext, 
+            param_dependencies=param_dependencies, section=section)
 
         if ext == 'npy':
             np.save(result_filename, data)
@@ -639,7 +673,75 @@ class DataManager(object):
 
         return img
     
+
+    def visualize_edges(self, edges, img=None, text=False, color=[0,0,255]):
+        '''
+        Return a visualization of edgelets
+        '''
+
+        if not hasattr(self, 'edge_coords'):
+            self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
+
+        if img is None:
+            img = self.image
+            img_rgb = self.image_rgb
+        else:
+            img_rgb = gray2rgb(img) if img.ndim == 2 else img
+
+        vis = img_as_ubyte(img_rgb)
+        for edge_ind, degde in enumerate(edges):
+            q = frozenset(degde)
+            if q in self.edge_coords:
+                for y, x in self.edge_coords[q]:
+                    vis[y, x] = color
+                if text:
+                    vis = cv2.putText(vis, str(edge_ind), tuple([x, y]), 
+                                      cv2.FONT_HERSHEY_DUPLEX, 1, 255, 1)
+        return vis
+
     
+    def visualize_edge_sets(self, edge_sets, img=None, text=False, colors=None):
+        '''
+        Return a visualization of multiple sets of edgelets
+        '''
+        
+        if not hasattr(self, 'edge_coords'):
+            self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
+
+        if img is None:
+            img = self.image
+            img_rgb = self.image_rgb
+        else:
+            img_rgb = gray2rgb(img) if img.ndim == 2 else img
+        
+        if colors is None:
+            colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
+        
+        vis = img_as_ubyte(img_rgb)
+            
+        for edgeSet_ind, edges in enumerate(edge_sets):
+            
+            pointset = []
+            
+            for e_ind, degde in enumerate(edges):
+                q = frozenset(degde)
+                if q in self.edge_coords:
+                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):
+    #                     vis[y, x] = colors[edgeSet_ind%len(colors)]
+                        vis[y-5:y+5, x-5:x+5] = colors[edgeSet_ind%len(colors)]
+                        pointset.append((y,x))
+                        
+            if text:
+                import cv2
+                ymean, xmean = np.mean(pointset, axis=0)
+                c = colors[edgeSet_ind%len(colors)].astype(np.int)
+                vis = cv2.putText(vis, str(edgeSet_ind), 
+                                  tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 
+                                  cv2.FONT_HERSHEY_DUPLEX,
+                                  5., ((c[0],c[1],c[2])), 10)
+            
+        return vis
+
 # <codecell>
 
 def display(vis, filename='tmp.jpg'):

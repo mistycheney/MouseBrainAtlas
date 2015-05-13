@@ -455,7 +455,10 @@ class DataManager(object):
         
             
     # def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
-    def _get_result_filename(self, result_name, ext, param_dependencies=None):
+    def _get_result_filename(self, result_name, ext, param_dependencies=None, section=None):
+        
+        if section is not None:
+            self.set_slice(section)
 
         if param_dependencies is None:
             param_dependencies = ['gabor', 'segm', 'vq']
@@ -526,12 +529,12 @@ class DataManager(object):
         result_filename = self._get_result_filename(result_name, ext)
         return os.path.exists(result_filename)
 
-    def load_pipeline_result(self, result_name, ext, is_rgb=None):
+    def load_pipeline_result(self, result_name, ext, is_rgb=None, section=None):
         
         if REGENERATE_ALL_RESULTS:
             raise
         
-        result_filename = self._get_result_filename(result_name, ext)
+        result_filename = self._get_result_filename(result_name, ext, section=section)
 
         if ext == 'npy':
             assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)

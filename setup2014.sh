@@ -20,6 +20,6 @@ export DATASET_VERSION=2014
 
 export LOCAL_SLIDEDATA_DIR=$HOME/DavidData2014slides/
 export LOCAL_SECTIONDATA_DIR=$HOME/DavidData2014sections/
-export LOCAL_REPO_DIR=$HOME/BrainSaliencyDetection
+export LOCAL_REPO_DIR=$HOME/Brain
 export LOCAL_RESULT_DIR=$HOME/DavidData2014results
 export LOCAL_LABELING_DIR=$HOME/DavidData2014labelings

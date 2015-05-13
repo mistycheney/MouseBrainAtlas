@@ -295,7 +295,7 @@ if __name__ == '__main__':
 
 	# for i in range(23,48):
 	# 	print i
-	filled_bboxes = gen_mask(slide_ind=23, in_dir='/home/yuncong/DavidData2015slides/CC34/x0.3125', 
+	filled_bboxes = gen_mask(slide_ind=3, in_dir='/home/yuncong/DavidData2015slides/CC34/x0.3125', 
 		# stack='CC28', stain='nissl', 
 		stack='CC34', stain='fluorescent', 
 		out_dir=None, num_section_per_slide=5, show=True)

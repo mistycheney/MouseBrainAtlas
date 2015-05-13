@@ -24,10 +24,10 @@ from visualization_utilities import *
 
 sys.path.append(os.path.realpath('../pipeline_scripts'))
 
-if os.environ['DATASET_VERSION'] == '2014':	
-	from utilities2014 import *
-else:
-	from utilities import *
+# if os.environ['DATASET_VERSION'] == '2014':	
+# 	from utilities2014 import *
+# else:
+from utilities import *
 
 import json
 
@@ -71,7 +71,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.dm = DataManager(data_dir=os.environ['LOCAL_SECTIONDATA_DIR'], 
 			repo_dir=os.environ['LOCAL_REPO_DIR'], 
-			result_dir=os.environ['LOCAL_RESULT_DIR'], labeling_dir=os.environ['LOCAL_LABELING_DIR'])
+			result_dir=os.environ['LOCAL_RESULT_DIR'], 
+			labeling_dir=os.environ['LOCAL_LABELING_DIR'])
 
 		self.gabor_params_id='blueNisslWide'
 		self.segm_params_id='blueNisslRegular'
@@ -235,6 +236,27 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.statusBar().showMessage('Done labeling region using label %d (%s)' % (self.curr_label,
 											self.labeling['labelnames'][self.curr_label]))
 
+
+		elif action == self.endDrawOpen_Action:
+
+			self.is_placing_vertices = False
+
+			polygon = Polygon(self.curr_polygon_vertices, closed=False, fill=False,
+									edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			self.axes.add_patch(polygon)
+			self.polygon_list.append(polygon)
+			self.polygon_labels.append(self.curr_label)
+
+			self.curr_polygon_vertices = []
+
+			for v in self.vertex_list:
+				v.remove()
+			self.vertex_list = []
+
+			self.statusBar().showMessage('Done labeling region using label %d (%s)' % (self.curr_label,
+											self.labeling['labelnames'][self.curr_label]))
+
+
 		elif action == self.deletePolygon_Action:
 
 			polygon_index = self.polygon_list.index(self.selected_polygon)
@@ -257,6 +279,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.eraseColor_Action = self.menu.addAction("Remove label of this superpixel")
 		# self.eraseAllSpsCurrColor_Action = self.menu.addAction("Clear similar neighbors")
 		self.endDraw_Action = self.menu.addAction("End drawing region")
+		self.endDrawOpen_Action = self.menu.addAction("End drawing open boundary")
 		self.deletePolygon_Action = self.menu.addAction("Delete polygon")
 		self.crossReference_Action = self.menu.addAction("Cross reference")
 

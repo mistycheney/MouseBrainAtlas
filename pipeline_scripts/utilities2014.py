@@ -299,7 +299,10 @@ class DataManager(object):
         segm_params_id=None,
         vq_params_id=None,
         stack=None,
-        resol=None):
+        resol=None,
+        section=None):
+
+        self.generate_hierarchy = generate_hierarchy
 
         import os
 
@@ -328,7 +331,7 @@ class DataManager(object):
 
         self.root_results_dir = result_dir
 
-        if generate_hierarchy:
+        if self.generate_hierarchy:
             self.local_ds = generate_json(data_dir=data_dir, res_dir=result_dir, labeling_dir=labeling_dir)
             # print self.local_ds
 
@@ -353,6 +356,9 @@ class DataManager(object):
         if resol is not None:
             self.set_resol(resol)
 
+        if section is not None:
+            self.set_slice(section)
+
     def set_labelnames(self, labelnames):
         self.labelnames = labelnames
 
@@ -364,19 +370,20 @@ class DataManager(object):
         self.stack = stack
         self.stack_path = os.path.join(self.data_dir, self.stack)
 
-        if generate_hierarchy:
+        if self.generate_hierarchy:
             self.stack_info = self.local_ds['stacks'][self.local_ds['available_stack_names'].index(stack)]
 
         self.slice_ind = None
 
     def set_resol(self, resol):
-        if resol not in self.stack_info['available_resolution']:
-            raise Exception('images of resolution %s do not exist' % resol)
+        if self.generate_hierarchy:        
+            if resol not in self.stack_info['available_resolution']:
+                raise Exception('images of resolution %s do not exist' % resol)
 
         self.resol = resol
         self.resol_dir = os.path.join(self.stack_path, self.resol)
 
-        if generate_hierarchy:
+        if self.generate_hierarchy:
             self.sections_info = self.stack_info['sections']
 
         if self.slice_ind is not None:
@@ -400,7 +407,7 @@ class DataManager(object):
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
 
-        if generate_hierarchy:
+        if self.generate_hierarchy:
             self.section_info = self.sections_info[map(itemgetter('index'), self.sections_info).index(self.slice_ind)]
 
     def set_image(self, stack, resol, slice_ind):
@@ -496,7 +503,7 @@ class DataManager(object):
             param_dependencies = ['gabor', 'segm', 'vq']
 
         if result_name in ['textons']:
-            results_dir = os.path.join('/home/yuncong/project/DavidData2014results', self.stack)
+            results_dir = os.path.join(os.environ['GORDON_RESULT_DIR'], self.stack)
             param_dependencies = ['gabor', 'vq']
 
         else:
@@ -682,6 +689,9 @@ class DataManager(object):
         if not hasattr(self, 'edge_coords'):
             self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
 
+        if not hasattr(self, 'image'):
+            self._load_image()
+
         if img is None:
             img = self.image
             img_rgb = self.image_rgb
@@ -695,8 +705,8 @@ class DataManager(object):
                 for y, x in self.edge_coords[q]:
                     vis[y, x] = color
                 if text:
-                    vis = cv2.putText(vis, str(edge_ind), tuple([x, y]), 
-                                      cv2.FONT_HERSHEY_DUPLEX, 1, 255, 1)
+                    cv2.putText(vis, str(edge_ind), tuple([x, y]), 
+                                cv2.FONT_HERSHEY_DUPLEX, 1, 255, 1)
         return vis
 
     
@@ -708,6 +718,9 @@ class DataManager(object):
         if not hasattr(self, 'edge_coords'):
             self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
 
+        if not hasattr(self, 'image'):
+            self._load_image()
+
         if img is None:
             img = self.image
             img_rgb = self.image_rgb
@@ -716,7 +729,7 @@ class DataManager(object):
         
         if colors is None:
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
-        
+
         vis = img_as_ubyte(img_rgb)
             
         for edgeSet_ind, edges in enumerate(edge_sets):
@@ -726,23 +739,21 @@ class DataManager(object):
             for e_ind, degde in enumerate(edges):
                 q = frozenset(degde)
                 if q in self.edge_coords:
-                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):
-    #                     vis[y, x] = colors[edgeSet_ind%len(colors)]
-                        vis[y-5:y+5, x-5:x+5] = colors[edgeSet_ind%len(colors)]
+                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):    
+                        vis[max(0, y-5):min(self.image_height, y+5), 
+                                max(0, x-5):min(self.image_width, x+5)] = colors[edgeSet_ind%len(colors)]
                         pointset.append((y,x))
-                        
+
             if text:
                 import cv2
                 ymean, xmean = np.mean(pointset, axis=0)
                 c = colors[edgeSet_ind%len(colors)].astype(np.int)
-                vis = cv2.putText(vis, str(edgeSet_ind), 
-                                  tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 
-                                  cv2.FONT_HERSHEY_DUPLEX,
-                                  5., ((c[0],c[1],c[2])), 10)
-            
+                cv2.putText(vis, str(edgeSet_ind), 
+                              tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 
+                              cv2.FONT_HERSHEY_DUPLEX,
+                              5., ((c[0],c[1],c[2])), 10)
+        
         return vis
-
-# <codecell>
 
 def display(vis, filename='tmp.jpg'):
     
@@ -862,6 +873,20 @@ def chi2(u,v):
     
     r = np.nansum((u-v)**2/(u+v))
     return r
+
+
+def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
+    
+    out_alpha = src_alpha + dst_alpha * (1. - src_alpha)
+    out_rgb = (src_rgb * src_alpha[..., None] +
+               dst_rgb * dst_alpha[..., None] * (1. - src_alpha[..., None])) / out_alpha[..., None]
+    
+    out = np.zeros((src_rgb.shape[0], src_rgb.shape[1], 4))
+        
+    out[..., :3] = out_rgb
+    out[..., 3] = out_alpha
+    
+    return out
 
 # <codecell>
 

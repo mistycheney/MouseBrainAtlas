@@ -584,7 +584,8 @@ class DataManager(object):
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
 
-        print 'loaded %s' % result_filename
+
+        # print 'loaded %s' % result_filename
 
         return data
         
@@ -693,17 +694,20 @@ class DataManager(object):
             self._load_image()
 
         if img is None:
-            img = self.image
-            img_rgb = self.image_rgb
+            img = self.image.copy()
+            img_rgb = self.image_rgb.copy()
         else:
-            img_rgb = gray2rgb(img) if img.ndim == 2 else img
+            img_rgb = gray2rgb(img) if img.ndim == 2 else img.copy()
 
         vis = img_as_ubyte(img_rgb)
         for edge_ind, degde in enumerate(edges):
             q = frozenset(degde)
             if q in self.edge_coords:
                 for y, x in self.edge_coords[q]:
-                    vis[y, x] = color
+                    # vis[y, x] = color
+                    vis[max(0, y-5):min(self.image_height, y+5), 
+                        max(0, x-5):min(self.image_width, x+5)] = color
+
                 if text:
                     cv2.putText(vis, str(edge_ind), tuple([x, y]), 
                                 cv2.FONT_HERSHEY_DUPLEX, 1, 255, 1)
@@ -867,11 +871,10 @@ def chi2(u,v):
     
     """
     
-#     m = (u != 0) & (v != 0)
-#     q = (u-v)**2/(u+v)
-#     r = np.sum(q[m])
+    m = (u != 0) & (v != 0)
+    r = np.sum(((u[m]-v[m])**2).astype(np.float)/(u[m]+v[m]))
     
-    r = np.nansum((u-v)**2/(u+v))
+    # r = np.nansum(((u-v)**2).astype(np.float)/(u+v))
     return r
 
 

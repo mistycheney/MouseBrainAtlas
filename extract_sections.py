@@ -1,3 +1,5 @@
+from __future__ import print_function
+import sys
 import os
 import subprocess
 import argparse
@@ -13,7 +15,7 @@ This generates the brainstem-only dataset at various resolutions""")
 parser.add_argument("stack", type = str, help= "the stack to be sectioned")
 parser.add_argument("bbox", type = str, help = "the text file containing bounding box data")
 parser.add_argument("-o","--out_dir",type = str, help = "the directory where to save the extracted sections",default="BrainstemImages2015")
-parser.add_argument("-s","--slide_dir", type = str, help = "the directory where the slides are saved",default = "DavidData2015slides")
+parser.add_argument("-d","--slide_dir", type = str, help = "the directory where the slides are saved",default = "DavidData2015slides")
 parser.add_argument("-x","--res", nargs = '+',type =str, help="resolutions to be sectioned")
 
 args = parser.parse_args()
@@ -28,12 +30,20 @@ def create_if_not_exists(path_list):
 	for path in path_list:
 		if not os.path.exists(path):
 			subprocess.call(["mkdir",path])
-			print "Made Directory "+path
+			print("Made Directory "+path)
 
 def identify_slide(path):
-	img_id = subprocess.check_output(["identify",path]).split()
-	w = int(img_id[2].split('x')[0]) 
-	h = int(img_id[2].split('x')[1])
+	#currently scales the x5 values for x20 do to integer overflow errors with identify
+	if res == "x20":
+		img_id = subprocess.check_output(["identify",path.replace("x20","x5")]).split()
+		w = 4*int(img_id[2].split('x')[0]) 
+		h = 4*int(img_id[2].split('x')[1])
+	else:
+		img_id = subprocess.check_output(["identify",path]).split()
+		w = int(img_id[2].split('x')[0]) 
+		h = int(img_id[2].split('x')[1])
+			
+
 	return (w,h)
 
 def append_save_labels(bbox_data):
@@ -101,15 +111,18 @@ for res in res_list:
 	
 	### Create required directories for saving sections ###
 	a = os.path.join(main_dir,out_dir)
-	b = os.path.join(main_dir,out_dir,stack)       # e.g. */BrainStemImages/CC99
-	c = os.path.join(main_dir,out_dir,stack,res)   # e.g. */BrainStemImages/CC99/x1.25
+	b = os.path.join(main_dir,out_dir,stack)       # e.g. */BrainstemImages/CC99
+	c = os.path.join(main_dir,out_dir,stack,res)   # e.g. */BrainstemImages/CC99/x1.25
 	
 	create_if_not_exists([a,b,c])
 
 
 	# Section the slide images #
-	for item in bbox_data:
-		#print item
+	total = len(bbox_data)
+	for i,item in enumerate(bbox_data):
+
+		print("cropping image %d of %d" % (i+1,total),end='\r',file=sys.stdout.flush())
+		
 		slide_no = item[0].zfill(2)
 		save_no = item[-1].zfill(2)
 		image = '_'.join([stack,slide_no,res,"z0.tif"])
@@ -121,3 +134,5 @@ for res in res_list:
 		crop_cmd =  ["convert",image_path,"-crop",geometry,crop_path]
 		subprocess.call(crop_cmd)
 		change_format(crop_path,"tif","jpeg")
+
+	print("Completed extraction at %s resolution" % res)	

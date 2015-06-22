@@ -1,0 +1,440 @@
+
+# coding: utf-8
+
+# In[ ]:
+
+import sys
+sys.path.append('/home/yuncong/Brain/pipeline_scripts')
+# import utilities2014
+# reload(utilities2014)
+from utilities2014 import *
+
+import os
+import time
+
+from scipy.spatial.distance import cdist, pdist, squareform
+from scipy.cluster.hierarchy import average, fcluster, single, complete
+
+from joblib import Parallel, delayed
+
+from skimage.color import gray2rgb
+from skimage.measure import find_contours
+from skimage.util import img_as_float
+
+import matplotlib.pyplot as plt
+
+sys.path.append('/home/yuncong/project/opencv-2.4.9/release/lib/python2.7/site-packages')
+import cv2
+
+from networkx import from_dict_of_lists, Graph, adjacency_matrix, dfs_postorder_nodes
+from networkx.algorithms import node_connected_component
+
+os.environ['GORDON_DATA_DIR'] = '/home/yuncong/project/DavidData2014tif/'
+os.environ['GORDON_REPO_DIR'] = '/home/yuncong/Brain'
+os.environ['GORDON_RESULT_DIR'] = '/home/yuncong/project/DavidData2014results/'
+os.environ['GORDON_LABELING_DIR'] = '/home/yuncong/project/DavidData2014labelings/'
+
+
+# In[ ]:
+
+def find_boundary_sps(clusters, neighbors, neighbor_graph, mode=None):
+    '''
+    Identify superpixels that are at the boundary of regions: surround set and frontier set
+    
+    Parameters
+    ----------
+    clusters : list of integer lists
+    neighbors : neighbor_list
+    neighbor_graph : 
+    '''
+        
+    n_superpixels = len(clusters)
+    
+    surrounds_sps = []
+    frontiers_sps = []
+    
+    for cluster_ind, cluster in enumerate(clusters):
+        
+        surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+        surrounds = set([i for i in surrounds if any([n not in cluster for n in neighbors[i]])])
+
+        if len(surrounds) == 0:
+            surrounds_sps.append([])
+            frontiers_sps.append([])
+
+        else:
+            
+            if mode == 'surrounds' or mode == 'both':
+                surrounds_subgraph = neighbor_graph.subgraph(surrounds)
+                surrounds_traversal = list(dfs_postorder_nodes(surrounds_subgraph))
+                surrounds_sps.append(surrounds_traversal)
+            
+            if mode == 'frontiers' or mode == 'both':
+                frontiers = set.union(*[neighbors[c] for c in surrounds]) & set(cluster)
+                frontiers_subgraph = neighbor_graph.subgraph(frontiers)
+                frontiers_traversal = list(dfs_postorder_nodes(frontiers_subgraph))
+                frontiers_sps.append(frontiers_traversal)            
+    
+    if mode == 'surrounds':
+        return surrounds_sps
+    elif mode == 'frontiers':
+        return frontiers_sps
+    else:
+        return surrounds_sps, frontiers_sps
+
+
+# In[ ]:
+
+def compute_cluster_score(cluster, texton_hists, neighbors):
+    
+    cluster_list = list(cluster)
+    cluster_avg = texton_hists[cluster_list].mean(axis=0)
+    
+    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+    if len(surrounds) == 0: # single sp on background
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+    
+    surrounds_list = list(surrounds)
+    surround_dist = np.squeeze(cdist([cluster_avg], texton_hists[surrounds_list], chi2)).min()
+
+    surds = find_boundary_sps([cluster], neighbors=neighbors, neighbor_graph=neighbor_graph,
+                                    mode='surrounds')
+    
+    compactness = len(surds[0])**2/float(len(cluster))
+    compactness = .001 * np.maximum(compactness-40,0)**2
+    
+    size_prior = .1 * (1-np.exp(-.8*len(cluster)))
+    
+    score = surround_dist - compactness + size_prior
+    
+    interior_dist = np.nan
+    interior_pval = np.nan
+    surround_pval = np.nan
+    
+    return score, surround_dist, interior_dist, compactness, surround_pval, interior_pval, size_prior
+
+
+# In[ ]:
+
+neighbors_global = None
+
+def grow_cluster3(seed, texton_hists, neighbors=None, output=False, all_history=False):
+    
+    if neighbors is None:
+        neighbors = neighbors_global
+    
+    visited = set([])
+    curr_cluster = set([])
+        
+    candidate_scores = [0]
+    candidate_sps = [seed]
+
+    score_tuples = []
+    added_sps = []
+    
+    iter_ind = 0
+        
+    while len(candidate_sps) > 0:
+
+        best_ind = np.argmax(candidate_scores)
+        
+        heuristic = candidate_scores[best_ind]
+        sp = candidate_sps[best_ind]
+        
+        del candidate_scores[best_ind]
+        del candidate_sps[best_ind]
+        
+        if sp in curr_cluster:
+            continue
+                
+        iter_ind += 1
+        curr_cluster.add(sp)
+        added_sps.append(sp)
+        
+        tt = compute_cluster_score(curr_cluster, texton_hists=texton_hists, neighbors=neighbors)
+        tot, exterior, interior, compactness, surround_pval, interior_pval, size_prior = tt
+        if np.isnan(tot):
+            return [seed], -np.inf
+        score_tuples.append(np.r_[heuristic, tt])
+        
+        if output:
+            print 'iter', iter_ind, 'add', sp
+
+        visited.add(sp)
+        
+        candidate_sps = (set(candidate_sps) | (neighbors[sp] - set([-1])) | (visited - curr_cluster)) - curr_cluster
+        candidate_sps = list(candidate_sps)
+        
+#         f_avg = texton_freqs[list(curr_cluster)].sum(axis=0)
+#         candidate_scores = [chi2pval(f_avg, texton_freqs[i])[0] for i in candidate_sps]
+
+        h_avg = texton_hists[list(curr_cluster)].mean(axis=0)
+        candidate_scores = [-chi2(h_avg, texton_hists[i]) for i in candidate_sps]
+
+#         candidate_scores = [compute_cluster_score(curr_cluster | set([s])) for s in candidate_sps]
+                
+        if len(visited) > int(n_superpixels * 0.03):
+            break
+
+    score_tuples = np.array(score_tuples)
+    
+    min_size = 2
+    scores = score_tuples[:,1]
+    cutoff = np.argmax(scores[min_size:]) + min_size
+    
+    if output:
+        print 'cutoff', cutoff
+
+    final_cluster = added_sps[:cutoff]
+    final_score = scores[cutoff]
+    
+    if all_history:
+        return list(final_cluster), final_score, added_sps, score_tuples
+    else:
+        return list(final_cluster), final_score
+
+
+# In[ ]:
+
+def compute_overlap(c1, c2):
+    return float(len(c1 & c2)) / min(len(c1),len(c2))
+
+def compute_overlap2(c1, c2):
+    return float(len(c1 & c2)) / len(c1 | c2)    
+
+def compute_overlap_partial(indices, sets, metric=1):
+    n_sets = len(sets)
+    
+    overlap_matrix = np.zeros((len(indices), n_sets))
+        
+    for ii, i in enumerate(indices):
+        for j in range(n_sets):
+            c1 = set(sets[i])
+            c2 = set(sets[j])
+            if len(c1) == 0 or len(c2) == 0:
+                overlap_matrix[ii, j] = 0
+            else:
+                if metric == 1:
+                    overlap_matrix[ii, j] = compute_overlap(c1, c2)
+                elif metric == 2:
+                    overlap_matrix[ii, j] = compute_overlap2(c1, c2)
+            
+    return overlap_matrix
+
+def set_pairwise_distances(sets, metric):
+
+    partial_overlap_mat = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric=metric) 
+                                        for s in np.array_split(range(len(sets)), 16))
+    overlap_matrix = np.vstack(partial_overlap_mat)
+    distance_matrix = 1 - overlap_matrix
+    
+    np.fill_diagonal(distance_matrix, 0)
+    
+    return distance_matrix
+
+def group_clusters(clusters=None, dist_thresh = 0.1, distance_matrix=None, metric=1):
+
+    if distance_matrix is None:
+        assert clusters is not None
+        distance_matrix = set_pairwise_distances(clusters, metric)
+        
+    lk = average(squareform(distance_matrix))
+#     lk = single(squareform(distance_matrix))
+
+    # T = fcluster(lk, 1.15, criterion='inconsistent')
+    T = fcluster(lk, dist_thresh, criterion='distance')
+    # Note that T starts from 1 not 0 !!!
+    
+    n_groups = len(set(T))    
+    groups = [None] * n_groups
+
+    for group_id in range(n_groups):
+        groups[group_id] = np.where(T == group_id+1)[0]
+        
+    return [g for g in groups if len(g) > 0]
+
+
+# In[ ]:
+
+def spSet_to_edgeSet(cluster, n_superpixels, neighbors=None, fill_holes=False):
+        
+    if neighbors is None:
+        neighbors = neighbors_global
+                
+    holes = set([])
+    for t in [j for j in range(n_superpixels) if j not in cluster]:
+        if np.sum([i in cluster for i in neighbors[t]]) >= 3:
+            holes.add(t)
+#         print ci, holes
+    cluster = set(cluster) | holes
+
+    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+    surrounds = set([i for i in surrounds if any([n not in cluster for n in neighbors[i]])])
+
+    frontiers = set.union(*[neighbors[c] for c in surrounds]) & set(cluster)
+
+    region_edges = []
+    for s in surrounds:
+        for f in neighbors[s] & set(frontiers):
+            region_edges.append((s, f))
+
+    for i in cluster:
+        if -1 in neighbors[i]:
+            region_edges.append((-1, i))
+    
+    return region_edges
+
+
+# In[ ]:
+
+import argparse
+
+if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='Generate region proposals and detect closedRegion landmarks')
+
+    parser.add_argument("stack_name", type=str, help="stack name")
+    parser.add_argument("slice_ind", type=int, help="slice index")
+    parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
+    parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
+    parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
+    args = parser.parse_args()
+
+    section_id = int(args.slice_ind)
+    
+    dm = DataManager(generate_hierarchy=False, stack=args.stack_name, resol='x5', section=section_id,
+                    gabor_params_id=args.gabor_params_id,
+                    segm_params_id=args.segm_params_id,
+                    vq_params_id=args.vq_params_id)
+    dm._load_image()
+
+    texton_hists = dm.load_pipeline_result('texHist', 'npy')
+    segmentation = dm.load_pipeline_result('segmentation', 'npy')
+    n_superpixels = len(np.unique(segmentation)) - 1
+    textonmap = dm.load_pipeline_result('texMap', 'npy')
+    n_texton = len(np.unique(textonmap)) - 1
+
+    neighbors = dm.load_pipeline_result('neighbors', 'npy')
+    neighbors_global = neighbors
+
+    sp_properties = dm.load_pipeline_result('spProps', 'npy')
+    # each item is (center_y, center_x, area, mean_intensity, ymin, xmin, ymax, xmax)
+    segmentation_vis = dm.load_pipeline_result('segmentationWithoutText', 'jpg')
+
+    try:
+        sp_sp_dists = dm.load_pipeline_result('texHistPairwiseDist', 'npy')
+    #     raise
+    except:
+        def f(a):
+            sp_dists = cdist(a, texton_hists, metric=chi2)
+    #         sp_dists = cdist(a, texton_hists, metric=js)
+            return sp_dists
+
+        sp_dists = Parallel(n_jobs=16)(delayed(f)(s) for s in np.array_split(texton_hists, 16))
+        sp_sp_dists = np.vstack(sp_dists)
+
+        dm.save_pipeline_result(sp_sp_dists, 'texHistPairwiseDist', 'npy')
+
+    center_dists = pdist(sp_properties[:, :2])
+    center_dist_matrix = squareform(center_dists)
+
+    neighbors_dict = dict(zip(np.arange(n_superpixels), [list(i) for i in neighbors]))
+    neighbor_graph = from_dict_of_lists(neighbors_dict)
+
+
+    try:
+        expansion_clusters_tuples = dm.load_pipeline_result('clusters', 'pkl')
+        raise
+    except Exception as e:
+
+        b = time.time()
+
+        # Observation: if `neighbors` is passed as argument, execution takes 4.5 times than if `neighbors` is global
+        # Reason: `neighbors` is a list of sets, not mem-mappable. To see the error, run the lines below:
+        # from joblib import load, dump
+        # _ = dump(neighbors, '/tmp/tmp')
+        # large_memmap = load('/tmp/tmp', mmap_mode='r+')
+        # Solution: make `neighbors` global
+        # p.s. if CPU utilizations of many processes are low, it means IO is taking much of the time
+        # p.s. specify max_nbytes argument to Parallel enables memmap for shared variables, but using it results in 
+        # error `zero-dimensional array concatenates...`
+        expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster3)(s, texton_hists=texton_hists)
+                                                                    for s in range(n_superpixels))
+
+        print 'grow cluster', time.time() - b
+
+        dm.save_pipeline_result(expansion_clusters_tuples, 'clusters', 'pkl')
+
+    expansion_clusters, expansion_cluster_scores = zip(*expansion_clusters_tuples)
+    expansion_cluster_scores = np.array(expansion_cluster_scores)
+
+
+    try:
+        D = dm.load_pipeline_result('clusterPairwiseDist', 'npy')
+        raise
+    except:
+
+        b = time.time()
+
+        D = set_pairwise_distances(expansion_clusters, metric=2)
+        dm.save_pipeline_result(D, 'clusterPairwiseDist', 'npy')
+
+        print 'compute pairwise', time.time() - b
+
+
+    try:
+        expansion_cluster_groups = dm.load_pipeline_result('clusterGroups', 'pkl')
+        raise
+    except:
+
+        b = time.time()
+
+        expansion_cluster_groups = group_clusters(expansion_clusters, dist_thresh=.8, distance_matrix=D)
+        dm.save_pipeline_result(expansion_cluster_groups, 'clusterGroups', 'pkl')
+
+        print 'group clusters', time.time() - b
+
+
+    print len(expansion_cluster_groups), 'expansion cluster groups'
+    expansion_cluster_group_sizes = np.array(map(len, expansion_cluster_groups))
+
+
+    big_group_indices = np.where(expansion_cluster_group_sizes > 5)[0]
+    n_big_groups = len(big_group_indices)
+    print n_big_groups, 'big cluster groups'
+    big_groups = [expansion_cluster_groups[i] for i in big_group_indices]
+
+    from collections import Counter
+
+    representative_clusters = []
+    representative_cluster_scores = []
+    representative_cluster_indices = []
+
+    big_groups_valid = []
+
+    for g in big_groups:
+        for i in np.argsort(expansion_cluster_scores[g])[::-1]:
+            c = expansion_clusters[g[i]]
+            sc = expansion_cluster_scores[g[i]]
+            if len(c) > n_superpixels * .004:
+                representative_clusters.append(c)
+                representative_cluster_indices.append(g[i])
+                representative_cluster_scores.append(sc)
+                big_groups_valid.append(g)
+                break
+
+    print len(representative_clusters), 'representative clusters'
+
+    representative_cluster_scores_sorted, representative_clusters_sorted_by_score,     representative_cluster_indices_sorted_by_score,     big_groups_sorted_by_score = map(list, zip(*sorted(zip(representative_cluster_scores, 
+                                                            representative_clusters,
+                                                            representative_cluster_indices,
+                                                            big_groups_valid), reverse=True)))
+
+    representative_clusters = zip(representative_cluster_scores_sorted, representative_clusters_sorted_by_score, 
+                   representative_cluster_indices_sorted_by_score, 
+                   big_groups_sorted_by_score)
+
+    dm.save_pipeline_result(representative_clusters, 'representativeClusters', 'pkl')
+

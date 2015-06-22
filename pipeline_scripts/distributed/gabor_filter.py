@@ -1,5 +1,9 @@
-#============================================================
-from utilities import *
+
+if DATASET_VERSION == 2014:
+	from utilities2014 import *
+elif DATASET_VERSION == 2015:
+	from utilities import *
+	
 import os
 import argparse
 import sys

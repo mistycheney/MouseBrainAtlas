@@ -7,8 +7,6 @@ import re
 
 from subprocess import check_output
 
-from subprocess import check_output
-
 from preprocess_utility import *
 
 if __name__ == '__main__':

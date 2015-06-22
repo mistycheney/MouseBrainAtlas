@@ -29,6 +29,16 @@ with open('/tmp/argfile', 'w') as f:
 		f.write('gcn-20-%d.sdsc.edu %d\n'%(hostids[section_ind%n_hosts], section_ind))
 
 def run_distributed(script_name):
+	'''
+	script should have the following command arguments:
+
+	parser.add_argument("stack_name", type=str, help="stack name")
+    parser.add_argument("slice_ind", type=int, help="slice index")
+    parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
+    parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
+    parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
+
+	'''
 	cmd = "parallel --colsep ' ' ssh yuncong@{1} 'python %s/pipeline_scripts/" % d['gordon_repo_dir'] + script_name + " %(stack)s {2} -g %(gabor_params)s -s %(segm_params)s -v %(vq_params)s' :::: /tmp/argfile" % d
 	print cmd
 	subprocess.call(cmd, shell=True)
@@ -44,4 +54,7 @@ def run_distributed(script_name):
 
 # run_distributed('assign_textons.py')
 # run_distributed('compute_texton_histograms.py')
-run_distributed('grow_regions.py')
+# run_distributed('grow_regions.py')
+# run_distributed('grow_regions_greedy_executable.py')
+
+run_distributed('match_boundaries_edge_executable.py')

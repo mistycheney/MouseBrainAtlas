@@ -343,12 +343,18 @@ class DataManager(object):
 
         if gabor_params_id is None:
             self.gabor_params_id = 'blueNisslWide'
+        else:
+            self.gabor_params_id = gabor_params_id
 
         if segm_params_id is None:
             self.segm_params_id = 'blueNisslRegular'
+        else:
+            self.segm_params_id = segm_params_id
 
         if vq_params_id is None:
             self.vq_params_id = 'blueNissl'
+        else:
+            self.vq_params_id = vq_params_id
 
         if stack is not None:
             self.set_stack(stack)
@@ -726,10 +732,10 @@ class DataManager(object):
             self._load_image()
 
         if img is None:
-            img = self.image
-            img_rgb = self.image_rgb
+            img = self.image.copy()
+            img_rgb = self.image_rgb.copy()
         else:
-            img_rgb = gray2rgb(img) if img.ndim == 2 else img
+            img_rgb = gray2rgb(img) if img.ndim == 2 else img.copy()
         
         if colors is None:
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
@@ -758,6 +764,112 @@ class DataManager(object):
                               5., ((c[0],c[1],c[2])), 10)
         
         return vis
+
+
+    def visualize_cluster(self, cluster, bg='segmentationWithText', text=False,
+                        highlight_seed=False):
+
+        if not hasattr(self, 'segmentation'):
+            self.segmentation = self.load_pipeline_result('segmentation', 'npy')
+
+        if bg == 'originalImage':
+            segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+        elif bg == 'segmentationWithText':
+            segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+        elif bg == 'segmentationWithoutText':
+            segmentation_vis = self.load_pipeline_result('segmentationWithoutText', 'jpg')
+
+        a = -1*np.ones_like(self.segmentation)
+
+        for i, c in enumerate(cluster):
+            if highlight_seed:
+                if i == 0:
+                    a[self.segmentation == c] = 1       
+                else:
+                    a[self.segmentation == c] = 0
+            else:
+                a[self.segmentation == c] = 0
+
+        vis = label2rgb(a, image=segmentation_vis)
+
+        vis = img_as_ubyte(vis[...,::-1])
+
+        if text:
+
+            for i, sp in enumerate(cluster):
+                vis = cv2.putText(vis, str(i), 
+                                  tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
+                                  cv2.FONT_HERSHEY_DUPLEX,
+                                  1., ((0,255,255)), 1)
+
+        return vis.copy()
+
+    def visualize_multiple_clusters(self, clusters, alpha_blend=True):
+        
+        if not hasattr(self, 'segmentation'):
+            self.segmentation = self.load_pipeline_result('segmentation', 'npy')
+
+        if not hasattr(self, 'mask'):
+            self._load_image()
+
+        segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+
+        if len(clusters) == 0:
+            return segmentation_vis
+        
+        colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
+        n_superpixels = self.segmentation.max() + 1
+        
+        mask_alpha = .4
+        
+        if alpha_blend:
+            
+            for ci, c in enumerate(clusters):
+                m =  np.zeros((n_superpixels,), dtype=np.float)
+                m[list(c)] = mask_alpha
+                alpha = m[self.segmentation]
+                alpha[~self.mask] = 0
+                
+                mm = np.zeros((n_superpixels,3), dtype=np.float)
+                mm[list(c)] = colors[ci]
+                blob = mm[self.segmentation]
+                
+                if ci == 0:
+                    vis = alpha_blending(blob, gray2rgb(self.image), alpha, 
+                                        1.*np.ones((self.image_height, self.image_width)))
+                else:
+                    vis = alpha_blending(blob, vis[..., :-1], alpha, vis[..., -1])
+                    
+        else:
+        
+            n_superpixels = self.segmentation.max() + 1
+
+            n = len(clusters)
+            m = -1*np.ones((n_superpixels,), dtype=np.int)
+
+            for ci, c in enumerate(clusters):
+                m[list(c)] = ci
+
+            a = m[self.segmentation]
+            a[~self.mask] = -1
+        #     a = -1*np.ones_like(segmentation)
+        #     for ci, c in enumerate(clusters):
+        #         for i in c:
+        #             a[segmentation == i] = ci
+
+            vis = label2rgb(a, image=segmentation_vis)
+
+            vis = img_as_ubyte(vis[...,::-1])
+
+        #     for ci, c in enumerate(clusters):
+        #         for i, sp in enumerate(c):
+        #             vis = cv2.putText(vis, str(i), 
+        #                               tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
+        #                               cv2.FONT_HERSHEY_DUPLEX,
+        #                               1., ((0,255,255)), 1)
+        
+        return vis.copy()
+
 
 def display(vis, filename='tmp.jpg'):
     
@@ -871,8 +983,12 @@ def chi2(u,v):
     
     """
     
-    m = (u != 0) & (v != 0)
-    r = np.sum(((u[m]-v[m])**2).astype(np.float)/(u[m]+v[m]))
+    u[u==0] = 1e-6
+    v[v==0] = 1e-6
+    r = np.sum(((u-v)**2).astype(np.float)/(u+v))
+
+    # m = (u != 0) & (v != 0)
+    # r = np.sum(((u[m]-v[m])**2).astype(np.float)/(u[m]+v[m]))
     
     # r = np.nansum(((u-v)**2).astype(np.float)/(u+v))
     return r

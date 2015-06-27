@@ -1,10 +1,15 @@
-#============================================================
-from utilities import *
+
 import os
 import argparse
 import sys
 from joblib import Parallel, delayed
 
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -40,11 +45,13 @@ if dm.check_pipeline_result('textons', 'npy'):
 else:
 
 	import random
+	from subprocess import check_output
 
 	features_rotated_list = []
 
-	stack_ind = dm.local_ds['available_stack_names'].index(args.stack_name)
-	section_num = dm.local_ds['stacks'][stack_ind]['section_num']
+	s = check_output("ls %s" % os.path.join(os.environ['GORDON_DATA_DIR'], args.stack_name, 'x5'), shell=True)
+	slide_indices = [int(f) for f in s.split('\n') if len(f) > 0]
+	section_num = len(slide_indices)
 
 	for i in range(0, section_num, args.interval):
 

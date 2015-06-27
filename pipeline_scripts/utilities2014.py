@@ -441,11 +441,10 @@ class DataManager(object):
 
         image_filename = self._get_image_filepath()
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-        
-        self.image = imread(image_filename, as_grey=True)
-        self.image_height, self.image_width = self.image.shape[:2]
-        
+
         self.image_rgb = imread(image_filename, as_grey=False)
+        self.image = rgb2gray(self.image_rgb)
+        self.image_height, self.image_width = self.image.shape[:2]
 
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
         self.mask = imread(mask_filename, as_grey=True) > 0
@@ -720,13 +719,18 @@ class DataManager(object):
         return vis
 
     
-    def visualize_edge_sets(self, edge_sets, img=None, text=False, colors=None):
+    def visualize_edge_sets(self, edge_sets, img=None, text=False, colors=None, directed=False):
         '''
         Return a visualization of multiple sets of edgelets
         '''
         
+        import cv2
+        
         if not hasattr(self, 'edge_coords'):
             self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
+
+        if not hasattr(self, 'sp_props'):
+            self.sp_props = self.load_pipeline_result('spProps', 'npy')
 
         if not hasattr(self, 'image'):
             self._load_image()
@@ -745,19 +749,28 @@ class DataManager(object):
         for edgeSet_ind, edges in enumerate(edge_sets):
             
             pointset = []
+            c = colors[edgeSet_ind%len(colors)].astype(np.int)
             
             for e_ind, degde in enumerate(edges):
                 q = frozenset(degde)
+                ext_sp, int_sp = degde
+                if directed:
+                    # ymax, xmax = pts.max(axis=0)
+                    # ymin, xmin = pts.min(axis=0)
+                    # slope = (ymax-ymin)/(xmax-xmin)
+                    vector_outward = self.sp_props[ext_sp, :2][::-1] - self.sp_props[int_sp, :2][::-1]
+                    midpoint = np.mean(list(self.edge_coords[q]), axis=0)[::-1]
+                    end = midpoint + .2 * vector_outward
+                    cv2.line(vis, tuple(np.floor(midpoint).astype(np.int)), tuple(np.floor(end).astype(np.int)), (c[0],c[1],c[2]), 5)
+
                 if q in self.edge_coords:
-                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):    
+                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):
                         vis[max(0, y-5):min(self.image_height, y+5), 
                                 max(0, x-5):min(self.image_width, x+5)] = colors[edgeSet_ind%len(colors)]
                         pointset.append((y,x))
 
             if text:
-                import cv2
                 ymean, xmean = np.mean(pointset, axis=0)
-                c = colors[edgeSet_ind%len(colors)].astype(np.int)
                 cv2.putText(vis, str(edgeSet_ind), 
                               tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 
                               cv2.FONT_HERSHEY_DUPLEX,
@@ -996,6 +1009,12 @@ def chi2(u,v):
 
 def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
     
+    if isinstance(src_alpha, float) or  isinstance(src_alpha, int):
+        src_alpha = src_alpha * np.ones((src_rgb.shape[0], src_rgb.shape[1]))
+
+    if isinstance(dst_alpha, float) or  isinstance(dst_alpha, int):
+        dst_alpha = dst_alpha * np.ones((dst_rgb.shape[0], dst_rgb.shape[1]))
+
     out_alpha = src_alpha + dst_alpha * (1. - src_alpha)
     out_rgb = (src_rgb * src_alpha[..., None] +
                dst_rgb * dst_alpha[..., None] * (1. - src_alpha[..., None])) / out_alpha[..., None]

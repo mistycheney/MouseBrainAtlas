@@ -1,4 +1,5 @@
 CSD181=/oasis/projects/nsf/csd181/yuncong
+CSD395=/oasis/projects/nsf/csd395/yuncong
 
 export DATASET_VERSION=2014
 
@@ -9,7 +10,7 @@ export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$P
 
 export GORDON_DATA_DIR=$CSD181/DavidData2014tif
 export GORDON_REPO_DIR=$HOME/Brain
-export GORDON_RESULT_DIR=$CSD181/DavidData2014results
+export GORDON_RESULT_DIR=$CSD395/DavidData2014results
 export GORDON_LABELING_DIR=$CSD181/DavidData2014labelings
 export GORDON_SLIDEDATA_DIR=$CSD181/DavidData2014slides
 export GORDON_NDPI_DIR=$CSD181/DavidData2014ndpi

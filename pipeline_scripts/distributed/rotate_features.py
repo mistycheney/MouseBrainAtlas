@@ -1,9 +1,15 @@
-#============================================================
-from utilities import *
+
 import os
 import argparse
 import sys
 from joblib import Parallel, delayed
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,

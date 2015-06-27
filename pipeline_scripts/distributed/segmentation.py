@@ -1,9 +1,15 @@
-#============================================================
-from utilities import *
+
 import os
 import argparse
 import sys
 from joblib import Parallel, delayed
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -63,7 +69,7 @@ except Exception as e:
 													
 	masked_segmentation = segmentation.copy()
 	for i in np.where(q)[0]:
-			masked_segmentation[segmentation == i] = -1
+		masked_segmentation[segmentation == i] = -1
 
 	from skimage.segmentation import relabel_sequential
 
@@ -110,16 +116,16 @@ img_superpixelized_with_text = img_as_ubyte(img_superpixelized)
 dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithoutText', 'jpg')
 
 for s in range(n_superpixels):
-		img_superpixelized_with_text = cv2.putText(img_superpixelized_with_text, str(s), 
-																							 tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
-																							 cv2.FONT_HERSHEY_DUPLEX,
-																							 .5, ((255,0,255)), 1)
+	cv2.putText(img_superpixelized_with_text, str(s), 
+				 tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
+				 cv2.FONT_HERSHEY_DUPLEX,
+				 .5, ((255,0,255)), 1)
 
 dm.save_pipeline_result(img_superpixelized_with_text, 'segmentationWithText', 'jpg')
 
 
 emptycanvas_superpixelized = mark_boundaries(np.ones_like(dm.image), masked_segmentation_relabeled, 
-																						 color=(0,0,0), outline_color=None)
+											 color=(0,0,0), outline_color=None)
 alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
 a = np.dstack([emptycanvas_superpixelized, alpha_channel])
 
@@ -139,12 +145,12 @@ else:
 	neighbors = [set() for i in range(n_superpixels)]
 
 	for y,x in zip(*np.nonzero(edge_map)):
-			if masked_segmentation_relabeled[y,x] != -1:
-					neighbors[masked_segmentation_relabeled[y,x]] |= set(masked_segmentation_relabeled[max(0, y-2):min(dm.image_height, y+2),
+		if masked_segmentation_relabeled[y,x] != -1:
+			neighbors[masked_segmentation_relabeled[y,x]] |= set(masked_segmentation_relabeled[max(0, y-2):min(dm.image_height, y+2),
 																																												 max(0, x-2):min(dm.image_width, x+2)].ravel())
 					
 	for i in range(n_superpixels):
-			neighbors[i] -= set([i])
+		neighbors[i] -= set([i])
 
 	dm.save_pipeline_result(neighbors, 'neighbors', 'npy')
 

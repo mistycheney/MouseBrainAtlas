@@ -1,10 +1,14 @@
-#============================================================
-from utilities import *
 import os
 import argparse
 import sys
 from joblib import Parallel, delayed
 
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -21,15 +25,9 @@ parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation param
 parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
 args = parser.parse_args()
 
-dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-  repo_dir=os.environ['GORDON_REPO_DIR'], 
-  result_dir=os.environ['GORDON_RESULT_DIR'], labeling_dir=os.environ['GORDON_LABELING_DIR'])
-
-dm.set_gabor_params(gabor_params_id='blueNisslWide')
-dm.set_segmentation_params(segm_params_id='blueNisslRegular')
-dm.set_vq_params(vq_params_id='blueNissl')
-
-dm.set_image(args.stack_name, 'x5', args.slice_ind)
+dm = DataManager(generate_hierarchy=False, stack=args.stack_name, resol='x5', section=args.slice_ind,
+	gabor_params_id=args.gabor_params_id, segm_params_id=args.segm_params_id, 
+	vq_params_id=args.vq_params_id)
 
 #============================================================
 

@@ -257,15 +257,31 @@ def group_clusters(clusters=None, dist_thresh = 0.1, distance_matrix=None, metri
 # In[ ]:
 
 def spSet_to_edgeSet(cluster, n_superpixels, neighbors=None, fill_holes=False):
-        
+
     if neighbors is None:
         neighbors = neighbors_global
-                
-    holes = set([])
-    for t in [j for j in range(n_superpixels) if j not in cluster]:
-        if np.sum([i in cluster for i in neighbors[t]]) >= 3:
-            holes.add(t)
-#         print ci, holes
+
+    
+    cluster = set(cluster)
+    
+    surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+    surrounds = set([i for i in surrounds if any([n not in cluster for n in neighbors[i]])])
+
+    outside = set(range(n_superpixels)) - cluster - surrounds
+    hole_candidates = set(range(n_superpixels)) - cluster
+    
+    goon = True
+    while goon:
+        goon = False
+        for hc in hole_candidates - outside:
+            if any([s in outside for s in neighbors[hc]]):
+    #             print hc
+                outside.add(hc)
+                goon = True
+
+    holes = set(range(n_superpixels)) - outside - cluster
+#     print holes
+
     cluster = set(cluster) | holes
 
     surrounds = set([i for i in set.union(*[neighbors[c] for c in cluster]) if i not in cluster and i != -1])
@@ -281,8 +297,8 @@ def spSet_to_edgeSet(cluster, n_superpixels, neighbors=None, fill_holes=False):
     for i in cluster:
         if -1 in neighbors[i]:
             region_edges.append((-1, i))
-    
-    return region_edges
+
+    return sorted(region_edges)
 
 
 # In[ ]:

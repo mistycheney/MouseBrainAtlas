@@ -1,13 +1,15 @@
 
-if DATASET_VERSION == 2014:
-	from utilities2014 import *
-elif DATASET_VERSION == 2015:
-	from utilities import *
-	
 import os
 import argparse
 import sys
 from joblib import Parallel, delayed
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 parser = argparse.ArgumentParser(
 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -36,11 +38,10 @@ dm.set_image(args.stack_name, 'x5', args.slice_ind)
 
 #============================================================
 
-try:
-	features = dm.load_pipeline_result('features', 'npy')
+if dm.check_pipeline_result('features', 'npy'):
 	print "features.npy already exists, skip"
 
-except Exception as e:
+else:
 
 	from skimage.util import pad
 
@@ -50,7 +51,6 @@ except Exception as e:
 	masked_image[~dm.mask] = approx_bg_intensity
 
 	padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
-
 
 	from joblib import Parallel, delayed
 	from scipy.signal import fftconvolve

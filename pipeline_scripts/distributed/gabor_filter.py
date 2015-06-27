@@ -38,11 +38,10 @@ dm.set_image(args.stack_name, 'x5', args.slice_ind)
 
 #============================================================
 
-try:
-	features = dm.load_pipeline_result('features', 'npy')
+if dm.check_pipeline_result('features', 'npy'):
 	print "features.npy already exists, skip"
 
-except Exception as e:
+else:
 
 	from skimage.util import pad
 
@@ -52,7 +51,6 @@ except Exception as e:
 	masked_image[~dm.mask] = approx_bg_intensity
 
 	padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
-
 
 	from joblib import Parallel, delayed
 	from scipy.signal import fftconvolve

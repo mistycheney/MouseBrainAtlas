@@ -2,8 +2,45 @@ from subprocess import call
 import os
 import sys
 
+def detect_responsive_nodes():
+
+	# hostids = range(31,39)+range(41,49)
+	hostids = range(31,33)+range(34,39)+range(41,49) # parallel jobs on gcn-33 executes forever for some reason 
+	n_hosts = len(hostids)
+
+	import paramiko
+	paramiko.util.log_to_file("filename.log")
+
+	ssh = paramiko.SSHClient()
+	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+	up_hostids = []
+	for h in hostids:
+		hostname = 'gcn-20-%d.sdsc.edu' % h
+		try:
+			ssh.connect(hostname, timeout=5)
+			up_hostids.append(h)
+		except:
+			print hostname, 'is down'
+
+	return up_hostids
+
+# untested
+def run_distributed4(script_name, arg_tuples):
+	from pssh import ParallelSSHClient
+	hostids = detect_responsive_nodes()
+
+	hosts = ['gcn-20-%d.sdsc.edu'%i for i in hostids]
+	client = ParallelSSHClient(hosts, timeout=5)
+	output = client.run_command('hostname')
+	for host in output:
+	  for line in output[host]['stdout']:
+	    print "Host %s - output: %s" % (host, line)
+
+
 def run_distributed3(script_name, arg_tuples):
-	hostids = range(31, 34) + [35] + range(37, 39) + range(41,49)
+
+	hostids = detect_responsive_nodes()
 	n_hosts = len(hostids)
 
 	temp_script = '/tmp/runall.sh'

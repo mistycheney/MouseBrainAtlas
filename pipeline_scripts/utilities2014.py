@@ -750,7 +750,11 @@ class DataManager(object):
             
             pointset = []
             c = colors[edgeSet_ind%len(colors)].astype(np.int)
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> 832e3111743a8e3b4260dce759652e3698c61ff2
             for e_ind, degde in enumerate(edges):
                 q = frozenset(degde)
                 ext_sp, int_sp = degde
@@ -758,10 +762,18 @@ class DataManager(object):
                     # ymax, xmax = pts.max(axis=0)
                     # ymin, xmin = pts.min(axis=0)
                     # slope = (ymax-ymin)/(xmax-xmin)
+<<<<<<< HEAD
                     vector_outward = self.sp_props[ext_sp, :2][::-1] - self.sp_props[int_sp, :2][::-1]
                     midpoint = np.mean(list(self.edge_coords[q]), axis=0)[::-1]
                     end = midpoint + .2 * vector_outward
                     cv2.line(vis, tuple(np.floor(midpoint).astype(np.int)), tuple(np.floor(end).astype(np.int)), (c[0],c[1],c[2]), 5)
+=======
+                    vector_outward = self.sp_props[ext_sp, :2] - self.sp_props[int_sp, :2]
+                    midpoint = np.mean(list(self.edge_coords[q]), axis=0)[::-1]
+                    start = midpoint - .5 * vector_outward
+                    end = midpoint + vector_outward
+                    cv2.line(vis, start, end, (c[0],c[1],c[2]))
+>>>>>>> 832e3111743a8e3b4260dce759652e3698c61ff2
 
                 if q in self.edge_coords:
                     for point_ind, (y, x) in enumerate(self.edge_coords[q]):

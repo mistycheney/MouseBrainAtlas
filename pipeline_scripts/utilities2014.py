@@ -441,11 +441,10 @@ class DataManager(object):
 
         image_filename = self._get_image_filepath()
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-        
-        self.image = imread(image_filename, as_grey=True)
-        self.image_height, self.image_width = self.image.shape[:2]
-        
+
         self.image_rgb = imread(image_filename, as_grey=False)
+        self.image = rgb2gray(self.image_rgb)
+        self.image_height, self.image_width = self.image.shape[:2]
 
         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
         self.mask = imread(mask_filename, as_grey=True) > 0
@@ -725,6 +724,8 @@ class DataManager(object):
         Return a visualization of multiple sets of edgelets
         '''
         
+        import cv2
+        
         if not hasattr(self, 'edge_coords'):
             self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
 
@@ -757,20 +758,18 @@ class DataManager(object):
                     # ymax, xmax = pts.max(axis=0)
                     # ymin, xmin = pts.min(axis=0)
                     # slope = (ymax-ymin)/(xmax-xmin)
-                    vector_outward = self.sp_props[ext_sp, :2] - self.sp_props[int_sp, :2]
+                    vector_outward = self.sp_props[ext_sp, :2][::-1] - self.sp_props[int_sp, :2][::-1]
                     midpoint = np.mean(list(self.edge_coords[q]), axis=0)[::-1]
-                    start = midpoint - .5 * vector_outward
-                    end = midpoint + vector_outward
-                    cv2.line(vis, start, end, (c[0],c[1],c[2]))
+                    end = midpoint + .2 * vector_outward
+                    cv2.line(vis, tuple(np.floor(midpoint).astype(np.int)), tuple(np.floor(end).astype(np.int)), (c[0],c[1],c[2]), 5)
 
                 if q in self.edge_coords:
-                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):    
+                    for point_ind, (y, x) in enumerate(self.edge_coords[q]):
                         vis[max(0, y-5):min(self.image_height, y+5), 
                                 max(0, x-5):min(self.image_width, x+5)] = colors[edgeSet_ind%len(colors)]
                         pointset.append((y,x))
 
             if text:
-                import cv2
                 ymean, xmean = np.mean(pointset, axis=0)
                 cv2.putText(vis, str(edgeSet_ind), 
                               tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 

@@ -1,0 +1,32 @@
+Merge branch 'master' of github.com:mistycheney/BrainSaliencyDetection
+
+Conflicts:
+	pipeline_scripts/distributed/assign_textons.py
+	pipeline_scripts/distributed/grow_regions_greedy_executable.py
+	pipeline_scripts/distributed/run_pipeline_distributed.py
+	pipeline_scripts/distributed/segmentation.py
+	pipeline_scripts/utilities2014.py
+#
+# It looks like you may be committing a MERGE.
+# If this is not correct, please remove the file
+#	.git/MERGE_HEAD
+# and try again.
+#
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch master
+# Your branch and 'origin/master' have diverged,
+# and have 1 and 1 different commit(s) each, respectively.
+#
+# Changes to be committed:
+#
+#	modified:   notebooks/combine_landmarks.ipynb
+#	modified:   pipeline_scripts/distributed/assign_textons.py
+#	modified:   pipeline_scripts/distributed/gabor_filter.py
+#	modified:   pipeline_scripts/distributed/generate_textons.py
+#	modified:   pipeline_scripts/distributed/preprocess_utility.py
+#	modified:   pipeline_scripts/distributed/run_pipeline_distributed.py
+#	modified:   pipeline_scripts/distributed/segmentation.py
+#	modified:   pipeline_scripts/utilities2014.py
+#

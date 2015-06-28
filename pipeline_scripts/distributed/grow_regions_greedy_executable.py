@@ -1,16 +1,13 @@
-
-# coding: utf-8
-
-# In[ ]:
-
 import sys
-sys.path.append('/home/yuncong/Brain/pipeline_scripts')
-# import utilities2014
-# reload(utilities2014)
-from utilities2014 import *
-
 import os
 import time
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
+
+if os.environ['DATASET_VERSION'] == '2014':
+	from utilities2014 import *
+elif os.environ['DATASET_VERSION'] == '2015':
+	from utilities import *
 
 from scipy.spatial.distance import cdist, pdist, squareform
 from scipy.cluster.hierarchy import average, fcluster, single, complete
@@ -29,13 +26,11 @@ import cv2
 from networkx import from_dict_of_lists, Graph, adjacency_matrix, dfs_postorder_nodes
 from networkx.algorithms import node_connected_component
 
-os.environ['GORDON_DATA_DIR'] = '/home/yuncong/project/DavidData2014tif/'
-os.environ['GORDON_REPO_DIR'] = '/home/yuncong/Brain'
-os.environ['GORDON_RESULT_DIR'] = '/home/yuncong/project/DavidData2014results/'
-os.environ['GORDON_LABELING_DIR'] = '/home/yuncong/project/DavidData2014labelings/'
+# os.environ['GORDON_DATA_DIR'] = '/home/yuncong/project/DavidData2014tif/'
+# os.environ['GORDON_REPO_DIR'] = '/home/yuncong/Brain'
+# os.environ['GORDON_RESULT_DIR'] = '/home/yuncong/project/DavidData2014results/'
+# os.environ['GORDON_LABELING_DIR'] = '/home/yuncong/project/DavidData2014labelings/'
 
-
-# In[ ]:
 
 def find_boundary_sps(clusters, neighbors, neighbor_graph, mode=None):
     '''
@@ -83,8 +78,6 @@ def find_boundary_sps(clusters, neighbors, neighbor_graph, mode=None):
         return surrounds_sps, frontiers_sps
 
 
-# In[ ]:
-
 def compute_cluster_score(cluster, texton_hists, neighbors):
     
     cluster_list = list(cluster)
@@ -113,8 +106,6 @@ def compute_cluster_score(cluster, texton_hists, neighbors):
     
     return score, surround_dist, interior_dist, compactness, surround_pval, interior_pval, size_prior
 
-
-# In[ ]:
 
 neighbors_global = None
 
@@ -194,7 +185,6 @@ def grow_cluster3(seed, texton_hists, neighbors=None, output=False, all_history=
         return list(final_cluster), final_score
 
 
-# In[ ]:
 
 def compute_overlap(c1, c2):
     return float(len(c1 & c2)) / min(len(c1),len(c2))
@@ -254,7 +244,7 @@ def group_clusters(clusters=None, dist_thresh = 0.1, distance_matrix=None, metri
     return [g for g in groups if len(g) > 0]
 
 
-# In[ ]:
+
 
 def spSet_to_edgeSet(cluster, n_superpixels, neighbors=None, fill_holes=False):
 
@@ -301,8 +291,6 @@ def spSet_to_edgeSet(cluster, n_superpixels, neighbors=None, fill_holes=False):
     return sorted(region_edges)
 
 
-# In[ ]:
-
 import argparse
 
 if __name__ == '__main__':
@@ -332,7 +320,7 @@ if __name__ == '__main__':
     textonmap = dm.load_pipeline_result('texMap', 'npy')
     n_texton = len(np.unique(textonmap)) - 1
 
-    neighbors = dm.load_pipeline_result('neighbors', 'npy')
+    neighbors = dm.load_pipeline_result('neighbors', 'pkl')
     neighbors_global = neighbors
 
     sp_properties = dm.load_pipeline_result('spProps', 'npy')
@@ -362,7 +350,7 @@ if __name__ == '__main__':
 
     try:
         expansion_clusters_tuples = dm.load_pipeline_result('clusters', 'pkl')
-        raise
+#         raise
     except Exception as e:
 
         b = time.time()
@@ -389,7 +377,7 @@ if __name__ == '__main__':
 
     try:
         D = dm.load_pipeline_result('clusterPairwiseDist', 'npy')
-        raise
+#         raise
     except:
 
         b = time.time()
@@ -402,7 +390,7 @@ if __name__ == '__main__':
 
     try:
         expansion_cluster_groups = dm.load_pipeline_result('clusterGroups', 'pkl')
-        raise
+#         raise
     except:
 
         b = time.time()
@@ -412,45 +400,69 @@ if __name__ == '__main__':
 
         print 'group clusters', time.time() - b
 
+    
+    try:
+        representative_clusters = dm.load_pipeline_result('representativeClusters', 'pkl')
+        edgeSets = dm.load_pipeline_result('closedRegionsTop30Edgesets', 'pkl')
+    except:
+        
+        print len(expansion_cluster_groups), 'expansion cluster groups'
+        expansion_cluster_group_sizes = np.array(map(len, expansion_cluster_groups))
 
-    print len(expansion_cluster_groups), 'expansion cluster groups'
-    expansion_cluster_group_sizes = np.array(map(len, expansion_cluster_groups))
 
+        big_group_indices = np.where(expansion_cluster_group_sizes > 5)[0]
+        n_big_groups = len(big_group_indices)
+        print n_big_groups, 'big cluster groups'
+        big_groups = [expansion_cluster_groups[i] for i in big_group_indices]
 
-    big_group_indices = np.where(expansion_cluster_group_sizes > 5)[0]
-    n_big_groups = len(big_group_indices)
-    print n_big_groups, 'big cluster groups'
-    big_groups = [expansion_cluster_groups[i] for i in big_group_indices]
+        from collections import Counter
 
-    from collections import Counter
+        representative_clusters = []
+        representative_cluster_scores = []
+        representative_cluster_indices = []
 
-    representative_clusters = []
-    representative_cluster_scores = []
-    representative_cluster_indices = []
+        big_groups_valid = []
 
-    big_groups_valid = []
+        for g in big_groups:
+            for i in np.argsort(expansion_cluster_scores[g])[::-1]:
+                c = expansion_clusters[g[i]]
+                sc = expansion_cluster_scores[g[i]]
+                if len(c) > n_superpixels * .004:
+                    representative_clusters.append(c)
+                    representative_cluster_indices.append(g[i])
+                    representative_cluster_scores.append(sc)
+                    big_groups_valid.append(g)
+                    break
 
-    for g in big_groups:
-        for i in np.argsort(expansion_cluster_scores[g])[::-1]:
-            c = expansion_clusters[g[i]]
-            sc = expansion_cluster_scores[g[i]]
-            if len(c) > n_superpixels * .004:
-                representative_clusters.append(c)
-                representative_cluster_indices.append(g[i])
-                representative_cluster_scores.append(sc)
-                big_groups_valid.append(g)
-                break
+        print len(representative_clusters), 'representative clusters'
 
-    print len(representative_clusters), 'representative clusters'
+        representative_cluster_scores_sorted,\
+        representative_clusters_sorted_by_score,\
+        representative_cluster_indices_sorted_by_score,\
+        big_groups_sorted_by_score = map(list, zip(*sorted(zip(representative_cluster_scores,\
+                                                               representative_clusters,\
+                                                               representative_cluster_indices,\
+                                                               big_groups_valid), reverse=True)))
 
-    representative_cluster_scores_sorted, representative_clusters_sorted_by_score,     representative_cluster_indices_sorted_by_score,     big_groups_sorted_by_score = map(list, zip(*sorted(zip(representative_cluster_scores, 
-                                                            representative_clusters,
-                                                            representative_cluster_indices,
-                                                            big_groups_valid), reverse=True)))
+        representative_clusters = zip(representative_cluster_scores_sorted, representative_clusters_sorted_by_score, 
+                       representative_cluster_indices_sorted_by_score, 
+                       big_groups_sorted_by_score)
 
-    representative_clusters = zip(representative_cluster_scores_sorted, representative_clusters_sorted_by_score, 
-                   representative_cluster_indices_sorted_by_score, 
-                   big_groups_sorted_by_score)
+        dm.save_pipeline_result(representative_clusters, 'representativeClusters', 'pkl')
+    
+        edgeSets = Parallel(n_jobs=16)(delayed(spSet_to_edgeSet)(c, n_superpixels=n_superpixels,
+                                                 fill_holes=True) for c in representative_clusters_sorted_by_score[:30])
 
-    dm.save_pipeline_result(representative_clusters, 'representativeClusters', 'pkl')
+        dm.save_pipeline_result(edgeSets, 'closedRegionsTop30Edgesets', 'pkl')
 
+    vis = dm.visualize_edge_sets(edgeSets[:10], width=5)
+    dm.save_pipeline_result( vis, 'contoursTop10' , 'jpg')
+
+    vis = dm.visualize_edge_sets(edgeSets[:20], width=5)
+    dm.save_pipeline_result( vis, 'contoursTop20' , 'jpg')
+
+    vis = dm.visualize_edge_sets(edgeSets[:30], width=5)
+    dm.save_pipeline_result( vis, 'contoursTop30' , 'jpg')
+    
+#     vis = dm.visualize_edge_sets(edgeSets[:30], text=True)
+#     dm.save_pipeline_result( vis, 'contoursTop30WithText' , 'jpg')

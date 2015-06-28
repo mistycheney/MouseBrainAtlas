@@ -24,10 +24,10 @@ from visualization_utilities import *
 
 sys.path.append(os.path.realpath('../pipeline_scripts'))
 
-# if os.environ['DATASET_VERSION'] == '2014':	
-# 	from utilities2014 import *
-# else:
-from utilities import *
+if os.environ['DATASET_VERSION'] == '2014':	
+	from utilities2014 import *
+else:
+	from utilities import *
 
 import json
 
@@ -51,6 +51,7 @@ else:
 from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
 IGNORE_EXISTING_LABELNAMES = False
+
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, parent_labeling_name=None, stack=None, section=None):
@@ -82,7 +83,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.dm.set_segmentation_params(segm_params_id=self.segm_params_id)
 		self.dm.set_vq_params(vq_params_id=self.vq_params_id)
 
-		if stack is None or section is None:
+		if (stack is None or section is None) and self.parent_labeling_name is not None:
 			stack, section_str, user, timestamp = self.parent_labeling_name[:-4].split('_')
 			section = int(section_str)
 
@@ -1011,3 +1012,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # 	gui = BrainLabelingGUI(dm=dm)
 #  #    # gui.show()
 # 	gui.app.exec_()
+
+               
+if __name__ == "__main__":
+    from sys import argv, exit
+
+    a = QApplication(argv)
+    m = BrainLabelingGUI(stack='RS140', section=7)
+    m.setWindowTitle("Brain Labeling")
+    m.showMaximized()
+    m.raise_()
+    exit(a.exec_())

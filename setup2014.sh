@@ -19,8 +19,7 @@ export GORDON_NDPISPLIT_PROGRAM=$CSD181/ndpisplit
 
 export MSNAKES_PATH=$GORDON_REPO_DIR/pipeline_scripts/preprocess/morphsnakes
 
-export DATASET_VERSION=2014
-
+export LOCAL_DATA_DIR=$HOME/DavidData2014tif
 export LOCAL_SLIDEDATA_DIR=$HOME/DavidData2014slides/
 export LOCAL_SECTIONDATA_DIR=$HOME/DavidData2014sections/
 export LOCAL_REPO_DIR=$HOME/Brain

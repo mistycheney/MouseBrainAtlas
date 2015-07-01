@@ -61,16 +61,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.params_dir = '../params'
 
-		# self.image_name = None
-		# self.instance_dir = None
-		# self.instance_name = None
-
 		# self.app = QApplication(sys.argv)
 		QMainWindow.__init__(self, parent)
 
 		self.parent_labeling_name = parent_labeling_name
 
-		self.dm = DataManager(data_dir=os.environ['LOCAL_SECTIONDATA_DIR'], 
+		self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
 			repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			result_dir=os.environ['LOCAL_RESULT_DIR'], 
 			labeling_dir=os.environ['LOCAL_LABELING_DIR'])
@@ -406,7 +402,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def load_groups(self):
 
-		self.groups = self.dm.load_pipeline_result('groups', 'pkl')
+		self.groups = self.dm.load_pipeline_result('clusterGroups', 'pkl')
 
 		self.groups_ranked, self.group_scores_ranked = zip(*self.groups)
 		
@@ -543,12 +539,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				if not self.seg_loaded:
 					self.load_segmentation()
 
-				if not self.groups_loaded:
-					self.load_groups()
-				else:
-					for rect in self.sp_rectlist:
-						if rect is not None:
-							self.axes.add_patch(rect)
+				# if not self.groups_loaded:
+				# 	self.load_groups()
+				# else:
+				for rect in self.sp_rectlist:
+					if rect is not None:
+						self.axes.add_patch(rect)
 
 				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText', 'jpg')
 				self.seg_vis[~self.dm.mask] = 0
@@ -1012,3 +1008,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # 	gui = BrainLabelingGUI(dm=dm)
 #  #    # gui.show()
 # 	gui.app.exec_()
+
+               
+if __name__ == "__main__":
+    from sys import argv, exit
+
+    a = QApplication(argv)
+    m = BrainLabelingGUI(stack='RS140', section=7)
+    m.setWindowTitle("Brain Labeling")
+    m.showMaximized()
+    m.raise_()
+    exit(a.exec_())

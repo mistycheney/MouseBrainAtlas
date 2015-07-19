@@ -2,7 +2,14 @@ import sys
 sys.path.append('/home/yuncong/project/opencv-2.4.9/release/lib/python2.7/site-packages')
 
 sys.path.insert(0, '/home/yuncong/project/cython-munkres-wrapper/build/lib.linux-x86_64-2.7')
+# import munkres
+# reload(munkres)
 from munkres import munkres
+
+# https://github.com/jfrelinger/cython-munkres-wrapper,
+# 10 times faster than the python implementation http://software.clapper.org/munkres/
+
+# from munkres import Munkres # http://software.clapper.org/munkres/
 
 sys.path.append('/home/yuncong/Brain/pipeline_scripts')
 import utilities2014
@@ -65,11 +72,12 @@ def boundary_distance(b1, b2, sc1=None, sc2=None, loc_thresh=1500):
     # compute location difference
     d_loc = np.linalg.norm(center1 - center2)
     D_loc = np.maximum(0, d_loc - 500)
+    
+#     print 'd_loc', d_loc
 
     if d_loc > loc_thresh:
         return np.inf, np.inf, np.inf, np.inf, np.inf
     
-    # if the sizes of two point sets vary too much, discard
     n1 = len(points1)
     n2 = len(points2)
     if max(n1,n2) > min(n1,n2) * 3:
@@ -77,11 +85,11 @@ def boundary_distance(b1, b2, sc1=None, sc2=None, loc_thresh=1500):
     
     # compute interior texture difference
     D_int = chi2(interior_texture1, interior_texture2)
+#     D_ext = hausdorff_histograms(exterior_textures1, exterior_textures2, metric=chi2)
 
     # compute shape difference, exterior texture difference
-#     b = time.time()
     D_shape, matches = shape_context_score(points1, points2, descriptor1=sc1, descriptor2=sc2)
-#     print 'shape_context_score', time.time() - b
+#         D_ext = np.mean([chi2(exterior_textures1[i], exterior_textures2[j]) for i, j in matches])
     
     bg_match = 0
 
@@ -111,32 +119,19 @@ def boundary_distance(b1, b2, sc1=None, sc2=None, loc_thresh=1500):
             D_ext = 2.
         else:
             D_ext = np.mean(ddd)
-        
-    D_shape = D_shape * .004
+    
+    D_shape = D_shape * .01
 
     # weighted average of four terms
     d = D_int + D_ext + D_shape + 0 * D_loc
     
     return d, D_int, D_ext, D_shape, D_loc
 
-
-
-def centering(ps):
-    return ps - ps.mean(axis=0)
-
-def hausdorff(ps1, ps2, center=False):
-    if center:
-        ps1 = centering(ps1)
-        ps2 = centering(ps2)
-    D = cdist(ps1, ps2)
-    return max(np.max(D.min(axis=0)), np.max(D.min(axis=1)))
-
-def hausdorff_histograms(h1s, h2s, metric):
-    Ds = cdist(h1s, h2s, metric)
-    return max(np.nanmax(np.nanmin(Ds, axis=1)), np.nanmax(np.nanmin(Ds, axis=0)))
-
-
 def rigid_transform_from_pairs(X,Y):
+    '''
+    X, Y are n-by-2 matrices
+    '''
+    
     Xcentroid = X.mean(axis=0)
     Ycentroid = Y.mean(axis=0)
     
@@ -160,7 +155,6 @@ def rigid_transform_to(pts1, T):
     pts1_trans = pts1_trans[:,:2]/pts1_trans[:,-1][:,np.newaxis]
     return pts1_trans
 
-
 from scipy.misc import comb
 
 def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac_iters=20, sample_size=5,
@@ -176,6 +170,9 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
     
     rs, cs = np.where(Dm < high_confidence_thresh)
     high_confidence_pairs = np.c_[rs,cs]
+    
+    if len(high_confidence_pairs) == 0:
+        return None, [], None, np.inf
     
     if OUTPUT:
         print 'high_confidence_pairs', high_confidence_pairs
@@ -198,20 +195,23 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
     n1 = len(p1s)
     n2 = len(p2s)
     
+    if n1 < sample_size or n2 < sample_size:
+        return None, [], None, np.inf
+    
     offsets = []
     scores = []
     matches_list = []
     samples_list = []
     
     sample_counter = 0
-    n_possible_samples = comb(len(high_confidence_pairs), sample_size, exact=False)
+    n_possible_samples = int(comb(len(high_confidence_pairs), sample_size, exact=False))
+
 #     n_possible_samples = len(possible_samples)
     for ri in range(min(ransac_iters, n_possible_samples)):
         
         samples = []
         
-        while True:
-#         for tt in range(10):
+        for tt in range(100):
 #             s = possible_samples[sample_counter]
             s = random.sample(high_confidence_pairs, sample_size)
             sample_counter += 1
@@ -230,7 +230,7 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
                 
         # generate transform hypothesis
         T, angle = rigid_transform_from_pairs(X, Y)
-        if np.abs(angle) > np.pi/2:
+        if np.abs(angle) > np.pi/4:
             if OUTPUT:
                 print 'angle too wide', np.rad2deg(angle)
             continue
@@ -286,10 +286,27 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
             # some 9999 edges will be included, the "if" above removes them
 #             print 'matches', time.time() - b
         
+            expanded_matches = []
+            matches1 = set([i for i,j in matches])
+            matches2 = set([j for i,j in matches])
+            rem1 = set(range(N1)) - matches1
+            rem2 = set(range(N2)) - matches2
+            add1 = set([])
+            add2 = set([])
+            for i in rem1:
+                for j in rem2:
+                    if j in Dargmin1[i,:3] and i in Dargmin0[:3,j] and i not in add1 and j not in add2:
+                        add1.add(i)
+                        add2.add(j)
+                        expanded_matches.append((i,j))
+
+            if len(expanded_matches) > 0 and len(matches) > 0 :
+                matches = np.vstack([matches, np.array(expanded_matches)])
+    
             if OUTPUT:
 #                 print 'considered pairs', w
 #                 print 'matches', [(i,j) for i,j in matches
-                q1, q2 = np.where(D_hc_pairs < 99)
+                q1, q2 = np.where(D_hc_pairs < 999)
                 w = zip(*[p1s[q1], p2s[q2]])
                 print 'matches', len(matches), '/', 'considered pairs', len(w), '/', 'all hc pairs', len(high_confidence_pairs)
 
@@ -311,7 +328,7 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
                 
                 coverage = .5 * x_coverage1 * y_coverage1 + .5 * x_coverage2 * y_coverage2
                 
-                s = Dh[matches[:,0], matches[:,1]].mean() / coverage    
+                s = Dh[matches[:,0], matches[:,1]].mean() / coverage**2   
 #             s = .5 * Dm[Dh.argmin(axis=0), np.arange(len(pts2))].mean() + .5 * Dm[np.arange(len(pts1)), Dh.argmin(axis=1)].mean()            
 #             s = np.mean([np.mean(Dh.min(axis=0)), np.mean(Dh.min(axis=1))])
     
@@ -319,7 +336,7 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
             Y = pts2[matches[:,1]]
 
             T, angle = rigid_transform_from_pairs(X, Y)
-            if np.abs(angle) > np.pi/2:
+            if np.abs(angle) > np.pi/4:
                 break
 
             pts1_trans = rigid_transform_to(pts1, T)
@@ -331,7 +348,29 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
         
 #             print mi, time.time() - t1
                 
-                
+#         Dh = cdist(pts1_trans, pts2, metric='euclidean')
+#         Dargmin1 = Dh.argsort(axis=1)
+#         Dargmin0 = Dh.argsort(axis=0)
+        
+#         expanded_matches = []
+#         matches1 = set([i for i,j in matches])
+#         matches2 = set([j for i,j in matches])
+#         rem1 = set(range(N1)) - matches1
+#         rem2 = set(range(N2)) - matches2
+#         add1 = set([])
+#         add2 = set([])
+#         for i in rem1:
+#             for j in rem2:
+#                 if j in Dargmin1[i,:3] and i in Dargmin0[:3,j] and i not in add1 and j not in add2:
+#                     add1.add(i)
+#                     add2.add(j)
+#                     expanded_matches.append((i,j))
+                    
+#         if len(expanded_matches) > 0 and len(matches) > 0 :
+#             matches = np.vstack([matches, np.array(expanded_matches)])
+        
+#         print matches
+                            
         samples_list.append(samples)
         offsets.append(T)
         matches_list.append(matches)
@@ -355,7 +394,7 @@ def ransac_compute_rigid_transform(Dm, pts1, pts2, confidence_thresh=.01, ransac
     else:
         return None, [], None, np.inf
 
-
+    
 def shape_context_score(pts1, pts2, descriptor1=None, descriptor2=None):
 
     if descriptor1 is None:
@@ -367,9 +406,11 @@ def shape_context_score(pts1, pts2, descriptor1=None, descriptor2=None):
     descriptor_dists = cdist(descriptor1, descriptor2, metric='euclidean')
         
 #     b = time.time()
+
     T, best_match, best_sample, best_score = ransac_compute_rigid_transform(descriptor_dists, pts1, pts2, 
                                                                             ransac_iters=50, confidence_thresh=0.03, 
-                                                                           sample_size=3, matching_iter=10)
+                                                                            sample_size=3, matching_iter=10,
+                                                                           n_neighbors=3)
 #     print 'ransac_compute_rigid_transform', time.time() - b
 
     
@@ -382,7 +423,6 @@ def shape_context_score(pts1, pts2, descriptor1=None, descriptor2=None):
         print 'best_score', best_score
 
     return best_score, best_match
-    
 
 def euclidean_dists_angles(points):
     """Returns symmetric pairwise ``dists`` and ``angles`` arrays."""
@@ -458,84 +498,6 @@ def compute_shape_context_descriptors(pts, n_radial_bins=5, n_polar_bins=12,
     return descriptors
 
 
-def generate_matching_visualizations(stack_name, sec1, sec2):
-    '''
-    Generate visualization for matching between sec1 and sec2
-    '''
-
-    dm1 = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec1)
-    dm2 = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec2)
-    
-    boundaries1 = dm1.load_pipeline_result('boundaryModels', 'pkl')
-    boundaries2 = dm2.load_pipeline_result('boundaryModels', 'pkl')    
-    
-    matchings = dm1.load_pipeline_result('matchings%dWith%d'%(sec1, sec2), 'pkl')
-
-    matched_boundaries1 = [boundaries1[i][0] for ind, (d,i,j) in enumerate(matchings)]
-    vis_matched_boundaries_next = dm1.visualize_edge_sets(matched_boundaries1, text=True)
-#     dm1.save_pipeline_result(vis_matched_boundaries_next, 'matchedBoundaries%dWith%d'%(sec1, sec2), 'jpg')
-
-    matched_boundaries2 = [boundaries2[j][0] for ind, (d,i,j) in enumerate(matchings)]
-    vis_matched_boundaries_prev = dm2.visualize_edge_sets(matched_boundaries2, text=True)
-#     dm2.save_pipeline_result(vis_matched_boundaries_prev, 'matchedBoundaries%dWith%d'%(sec2, sec1), 'jpg')
-
-    
-    # Place two images vertically 
-    h1, w1 = vis_matched_boundaries_next.shape[:2]
-    h2, w2 = vis_matched_boundaries_prev.shape[:2]
-    
-    if w1 < w2:
-        left_margin = int((w2 - w1)/2)
-        right_margin = w2 - w1 - left_margin
-        vis_matched_boundaries_next = pad(vis_matched_boundaries_next, 
-                                          ((0,0),(left_margin,right_margin),(0,0)), 
-                                          'constant', constant_values=255)
-    else:
-        left_margin = int((w1 - w2)/2)
-        right_margin = w1 - w2 - left_margin
-        vis_matched_boundaries_prev = pad(vis_matched_boundaries_prev, 
-                                          ((0,0),(left_margin,right_margin),(0,0)), 
-                                          'constant', constant_values=255)
-        
-    vis = np.r_[vis_matched_boundaries_next, vis_matched_boundaries_prev]
-    
-    dm1.save_pipeline_result(vis, 'matchedBoundaries%dWith%dSideBySide'%(sec1, sec2), 'jpg')
-    dm2.save_pipeline_result(vis, 'matchedBoundaries%dWith%dSideBySide'%(sec2, sec1), 'jpg')
-    
-    
-#     for ind, (s, i, j) in enumerate(matchings):
-#         # image with a particular boundary highlighted
-        
-#         vis1 = dm1.load_pipeline_result('boundary%02d'%i, 'jpg')
-#         vis2 = dm2.load_pipeline_result('boundary%02d'%j, 'jpg')
-        
-#         h1, w1 = vis1.shape[:2]
-#         h2, w2 = vis2.shape[:2]
-        
-#         # Place vertically
-#         if w1 < w2:
-#             left_margin = int((w2 - w1)/2)
-#             right_margin = w2 - w1 - left_margin
-#             vis1 = pad(vis1, ((0,0),(left_margin,right_margin),(0,0)), 'constant', constant_values=255)
-#         else:
-#             left_margin = int((w1 - w2)/2)
-#             right_margin = w1 - w2 - left_margin
-#             vis2 = pad(vis2, ((0,0),(left_margin,right_margin),(0,0)), 'constant', constant_values=255)
-
-#         vis_pair_prev = np.r_[vis1, vis2]
-#         vis_pair_next = np.r_[vis2, vis1]
-        
-#         dm1.save_pipeline_result(vis_pair_prev, 'matchedBoundaryPair%dFor%dWith%d'%(ind, sec1, sec2), 'jpg')
-#         dm2.save_pipeline_result(vis_pair_next, 'matchedBoundaryPair%dFor%dWith%d'%(ind, sec2, sec1), 'jpg')
-    
-    
-def compute_shape_context_descriptors_section(stack_name, sec_ind):
-    dm = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec_ind)
-    boundaries = dm.load_pipeline_result('boundaryModels', 'pkl')
-    descs = [compute_shape_context_descriptors(b[3], dist_limit=.8) for b in boundaries]
-    dm.save_pipeline_result(descs, 'shapeContext', 'pkl')
-#     return descs
-
 def compute_boundary_distances(stack_name, sec1, sec2):
     
     dm1 = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec1)
@@ -559,30 +521,47 @@ def compute_boundary_distances(stack_name, sec1, sec2):
     centers2 = [b[4] for b in boundaries2]
     center_distances = cdist(centers1, centers2, metric='euclidean')
     b1s, b2s = np.where(center_distances < center_dist_thresh)
+    
+#     b = time.time()
 
     Ds = Parallel(n_jobs=16)(delayed(boundary_distance)(boundaries1[i], boundaries2[j], sc1=sc1[i], sc2=sc2[j]) 
                              for i, j in zip(b1s, b2s))
+#     print  'boundary_distance', time.time() - b
     
     D_boundaries = np.inf * np.ones((n_boundaries1, n_boundaries2))
     D_int = np.inf * np.ones((n_boundaries1, n_boundaries2))
     D_ext = np.inf * np.ones((n_boundaries1, n_boundaries2))
     D_shape = np.inf * np.ones((n_boundaries1, n_boundaries2))
+    
+    D_boundaries[b1s, b2s] = [d for d, d_int, d_ext, d_shape, d_loc in Ds]
+    D_int[b1s, b2s] = [d_int for d, d_int, d_ext, d_shape, d_loc in Ds]
+    D_ext[b1s, b2s] = [d_ext for d, d_int, d_ext, d_shape, d_loc in Ds]
+    D_shape[b1s, b2s] = [d_shape for d, d_int, d_ext, d_shape, d_loc in Ds]
+    
+#     Ds = []
+#     for i, j in product(range(n_boundaries1), range(n_boundaries2)):
+#         sys.stderr.write('%d,%d\n'%(i,j))
+#         Ds.append(boundary_distance(boundaries1[i], boundaries2[j], sc1=sc1[i], sc2=sc2[j]))
 
-#     D_boundaries[b1s, b2s] = [d for d, d_int, d_ext, d_shape, d_loc in Ds]
-#     D_int[b1s, b2s] = [d_int for d, d_int, d_ext, d_shape, d_loc in Ds]
-#     D_ext[b1s, b2s] = [d_ext for d, d_int, d_ext, d_shape, d_loc in Ds]
-#     D_shape[b1s, b2s] = [d_shape for d, d_int, d_ext, d_shape, d_loc in Ds]
+#     D_boundaries, D_int, D_ext, D_shape, D_loc = zip(*Ds)
+
+#     D_boundaries = np.reshape(D_boundaries, (n_boundaries1, n_boundaries2))
+#     D_int = np.reshape(D_int, (n_boundaries1, n_boundaries2))
+#     D_ext = np.reshape(D_ext, (n_boundaries1, n_boundaries2))
+#     D_shape = np.reshape(D_shape, (n_boundaries1, n_boundaries2))
+#     D4 = np.reshape(D_loc, (n_boundaries1, n_boundaries2))
     
     dm1.save_pipeline_result(D_boundaries, 'DBoundaries%dWith%d'%(sec1, sec2), 'npy')
     dm1.save_pipeline_result(D_int, 'D1s%dWith%d'%(sec1, sec2), 'npy')
     dm1.save_pipeline_result(D_ext, 'D2s%dWith%d'%(sec1, sec2), 'npy')
     dm1.save_pipeline_result(D_shape, 'D3s%dWith%d'%(sec1, sec2), 'npy')
-
+    
 #     dm2.save_pipeline_result(D_boundaries.T, 'DBoundaries%dWith%d'%(sec2, sec1), 'npy')
 #     dm2.save_pipeline_result(D_int.T, 'D1s%dWith%d'%(sec2, sec1), 'npy')
 #     dm2.save_pipeline_result(D_ext.T, 'D2s%dWith%d'%(sec2, sec1), 'npy')
 #     dm2.save_pipeline_result(D_shape.T, 'D3s%dWith%d'%(sec2, sec1), 'npy')
 
+#####################################
 
 def stable(rankings, A, B):
     partners = dict((a, (rankings[(a, 1)], 1)) for a in A)
@@ -655,16 +634,128 @@ def greedy_matching(D_boundaries, thresh_percentage=.2, verified_matchings=[], e
             
     return matchings
 
-def match_landmarks(sec1, sec2, must_match=[], cannot_match=[]):
+
+def knn_matching(D_boundaries, boundaries1, boundaries2, k=2, centroid_dist_limit=500):
     
-    dm = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec_ind)
-#     boundaries = dm.load_pipeline_result('boundaryModels', 'pkl')
-    D_boundaries = dm.load_pipeline_result('DBoundaries%dWith%d'%(sec1, sec2), 'npy')
+    import networkx as nx
     
-    matchings = greedy_matching(D_boundaries, verified_matchings=must_match, excluded_matchings=cannot_match)
+    n_boundaries1, n_boundaries2 = D_boundaries.shape
+
+    
+    nn1 = D_boundaries.argsort(axis=1)
+    dd1 = np.sort(D_boundaries,axis=1)
+    nn1 = [nn[:np.searchsorted(d, d[0]+0.2)] for d, nn in zip(dd1, nn1)]
+    
+    nn2 = D_boundaries.argsort(axis=0).T
+    dd2 = np.sort(D_boundaries,axis=0).T
+    nn2 = [nn[:np.searchsorted(d, d[0]+0.2)] for d, nn in zip(dd2, nn2)]
+
+    DD = np.zeros((n_boundaries1+n_boundaries2, n_boundaries1+n_boundaries2))
+    G = nx.Graph(DD)
+    G = nx.relabel_nodes(G, dict([(i,(0,i)) for i in range(n_boundaries1)]+[(n_boundaries1+j,(1,j)) for j in range(n_boundaries2)]))
+    matches = []
+    for i in range(n_boundaries1):
+        for j in range(n_boundaries2):
+#             if j in nn1[i,:k] and i in nn2[j,:k]:
+            if j in nn1[i] and i in nn2[j]:
+                matches.append((i,j))
+                G.add_edge((0,i), (1,j))
+                
+
+    ms = [sorted(g) for g in sorted(list(nx.connected_components(G)), key=len, reverse=True) if len(g) >= 2]
+#     print len(ms), 'matchings'
+    
+    
+    groups = []
+    for mi, m in enumerate(ms):
+        d = defaultdict(list)
+        for sec_i, bnd_i in m:
+            d[sec_i].append(bnd_i)
+        A = D_boundaries[d[0]][:,d[1]]
+        rs, cs = np.unravel_index(np.argsort(D_boundaries[d[0]][:,d[1]].flat), (len(d[0]), len(d[1])))
+    #     print rs, cs
+    #     print [((sec1, d[sec1][r]), (sec2, d[sec2][c]), D_boundaries[d[sec1][r], d[sec2][c]]) for r, c in zip(rs, cs)
+    #           if D_boundaries[d[sec1][r], d[sec2][c]] < np.inf]
+
+        g = []
+        for r, c in zip(rs, cs):
+            if D_boundaries[d[0][r], d[1][c]] < np.inf:
+    #             print ((sec1, d[sec1][r]), (sec2, d[sec2][c]), D_boundaries[d[sec1][r], d[sec2][c]])
+                g.append([d[0][r], d[1][c]])
+
+        groups.append(g)
+
+    #     print '\n'
+    
+    
+    import random
+
+    boundary1_centers = np.array([b[4][::-1] for b in boundaries1])
+    boundary2_centers = np.array([b[4][::-1] for b in boundaries2])
+
+    matches = []
+    scores = []
+
+    for ransac_iter in range(5000):
+
+        boundary_samples = [random.sample(g, 1)[0] for g in random.sample(groups, 3)]
+        X = []
+        Y = []
+        for b1, b2 in boundary_samples:
+            X.append(boundary1_centers[b1])
+            Y.append(boundary2_centers[b2])
+        X = np.array(X)
+        Y = np.array(Y)
+
+        T, angle = rigid_transform_from_pairs(X,Y)
+    #     print T, angle
+        if angle > np.pi/2:
+    #         print 'angle too wide'
+            matches.append([])
+            scores.append(0)
+            continue
+
+        boundary1_centers_trans = rigid_transform_to(boundary1_centers, T)
+
+        match = [(bi,bj) for g in groups for bi,bj in g 
+                 if np.linalg.norm(boundary1_centers_trans[bi] - boundary2_centers[bj]) < centroid_dist_limit]
+
+        score = len(match)
+
+        matches.append(match)
+        scores.append(score)
+
+    best = np.argmax(scores)
+    s_best = scores[best]
+    m_best = matches[best]
+
+    g = nx.Graph()
+    g.add_edges_from([((0, i),(1, j), {'weight': D_boundaries[D_boundaries!=np.inf].max()-D_boundaries[i,j]}) 
+                      for i,j in m_best])
+    m = nx.matching.max_weight_matching(g, maxcardinality=True)
+    
+    best_match = set(((0, dict([n1,n2])[0]), (1, dict([n1,n2])[1])) for n1,n2 in m.iteritems())
+    best_match = [(D_boundaries[t1[1],  t2[1]], t1[1], t2[1]) for t1,t2 in best_match]
+
+    return best_match
+
+
+def match_landmarks(stack_name, sec1, sec2, must_match=[], cannot_match=[]):
+    
+    dm1 = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec1)
+    dm2 = DataManager(generate_hierarchy=False, stack=stack_name, resol='x5', section=sec2)
+    boundaries1 = dm1.load_pipeline_result('boundaryModels', 'pkl')
+    boundaries2 = dm2.load_pipeline_result('boundaryModels', 'pkl')
+    D_boundaries = dm1.load_pipeline_result('DBoundaries%dWith%d'%(sec1, sec2), 'npy')
+    
+#     matchings = greedy_matching(D_boundaries, verified_matchings=must_match, excluded_matchings=cannot_match)
+    matchings = knn_matching(D_boundaries, boundaries1, boundaries2)
+    
     if len(matchings) > 0:
-        dm.save_pipeline_result(matchings, 'matchings%dWith%d'%(sec1, sec2), 'pkl')
-        dm.save_pipeline_result([(d,j,i) for d,i,j in matchings], 'matchings%dWith%d'%(sec2, sec1), 'pkl')
+        dm1.save_pipeline_result(matchings, 'matchings%dWith%d'%(sec1, sec2), 'pkl')
+        dm2.save_pipeline_result([(d,j,i) for d,i,j in matchings], 'matchings%dWith%d'%(sec2, sec1), 'pkl')
+                
+############################################################        
         
 import argparse
 
@@ -690,27 +781,27 @@ if __name__ == '__main__':
     slide_indices = [int(f) for f in s.split('\n') if len(f) > 0]
     n_slice = len(slide_indices)
     last_sec = max(slide_indices)
-        
+    
     if sec_ind < last_sec:
         compute_boundary_distances(args.stack_name, sec_ind, sec_ind+1)
-#     if sec_ind < last_sec-1:
-#         compute_boundary_distances(args.stack_name, sec_ind, sec_ind+2)
-#     if sec_ind < last_sec-2:
-#         compute_boundary_distances(args.stack_name, sec_ind, sec_ind+3)
+    if sec_ind < last_sec-1:
+        compute_boundary_distances(args.stack_name, sec_ind, sec_ind+2)
+    if sec_ind < last_sec-2:
+        compute_boundary_distances(args.stack_name, sec_ind, sec_ind+3)
         
-#     must_matches = []
+    must_matches = []
 
-#     must_match_sections = defaultdict(list)
-#     for m in must_matches:
-#         mm = sorted(list(m))
-#         must_match_sections[(mm[0][0], mm[1][0])].append((mm[0][1], mm[1][1]))
+    must_match_sections = defaultdict(list)
+    for m in must_matches:
+        mm = sorted(list(m))
+        must_match_sections[(mm[0][0], mm[1][0])].append((mm[0][1], mm[1][1]))
     
-#     if sec_ind < last_sec:
-#         match_landmarks(args.stack_name, sec_ind, sec_ind+1, must_match=must_match_sections[(sec_ind, sec_ind+1)])
-#     if sec_ind < last_sec-1:
-#         match_landmarks(args.stack_name, sec_ind, sec_ind+2, must_match=must_match_sections[(sec_ind, sec_ind+2)])
-#     if sec_ind < last_sec-2:
-#         match_landmarks(args.stack_name, sec_ind, sec_ind+3, must_match=must_match_sections[(sec_ind, sec_ind+3)])
+    if sec_ind < last_sec:
+        match_landmarks(args.stack_name, sec_ind, sec_ind+1, must_match=must_match_sections[(sec_ind, sec_ind+1)])
+    if sec_ind < last_sec-1:
+        match_landmarks(args.stack_name, sec_ind, sec_ind+2, must_match=must_match_sections[(sec_ind, sec_ind+2)])
+    if sec_ind < last_sec-2:
+        match_landmarks(args.stack_name, sec_ind, sec_ind+3, must_match=must_match_sections[(sec_ind, sec_ind+3)])
         
 #     Parallel(n_jobs=16)(delayed(generate_matching_visualizations)(args.stack_name, sec_ind, sec_ind+1) for sec_ind in range(n_slice-1))
 #     Parallel(n_jobs=16)(delayed(generate_matching_visualizations)(args.stack_name, sec_ind, sec_ind+2) for sec_ind in range(n_slice-2))

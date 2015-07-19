@@ -3,7 +3,7 @@
 
 # <codecell>
 
-from skimage.filter import threshold_otsu, threshold_adaptive, gaussian_filter
+from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
 from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
@@ -443,7 +443,11 @@ class DataManager(object):
         image_filename = self._get_image_filepath()
         assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
 
-        self.image_rgb = imread(image_filename, as_grey=False)
+        if image_filename.endswith('tif') or  image_filename.endswith('tiff'):
+            from PIL.Image import open
+            self.image_rgb = np.array(open(image_filename))/255.
+        else:
+            self.image_rgb = imread(image_filename, as_grey=False)
         self.image = rgb2gray(self.image_rgb)
         self.image_height, self.image_width = self.image.shape[:2]
 
@@ -499,7 +503,6 @@ class DataManager(object):
         self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq', 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
         
             
-    # def _get_result_filename(self, result_name, ext, results_dir=None, param_dependencies=None):
     def _get_result_filename(self, result_name, ext, param_dependencies=None, section=None):
         
         if section is not None:
@@ -508,7 +511,7 @@ class DataManager(object):
         if param_dependencies is None:
             param_dependencies = ['gabor', 'segm', 'vq']
 
-        if result_name in ['textons']:
+        if result_name in ['textons', 'landmarkGroups']:
             results_dir = os.path.join(os.environ['GORDON_RESULT_DIR'], self.stack)
             param_dependencies = ['gabor', 'vq']
 
@@ -559,7 +562,7 @@ class DataManager(object):
             param_strs.append('vq-' + self.vq_params_id)
             # raise Exception("parameter dependency string not recognized")
         
-        if result_name in ['textons']:
+        if result_name in ['textons', 'landmarkGroups']:
             result_filename = os.path.join(results_dir, self.stack + '_' +self.resol + '_' + '-'.join(param_strs) + '_' + result_name + '.' + ext)
         else:
             result_filename = os.path.join(results_dir, self.image_name + '_' + '-'.join(param_strs) + '_' + result_name + '.' + ext)
@@ -582,7 +585,7 @@ class DataManager(object):
         result_filename = self._get_result_filename(result_name, ext, section=section)
 
         if ext == 'npy':
-            assert os.path.exists(result_filename), "Pipeline result '%s' does not exist" % (result_name + '.' + ext)
+            assert os.path.exists(result_filename), "%d: Pipeline result '%s' does not exist" % (self.slice_ind, result_name + '.' + ext)
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = imread(result_filename, as_grey=False)
@@ -687,41 +690,9 @@ class DataManager(object):
 
         return img
     
-
-    def visualize_edges(self, edges, img=None, text=False, color=[0,0,255]):
-        '''
-        Return a visualization of edgelets
-        '''
-
-        if not hasattr(self, 'edge_coords'):
-            self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
-
-        if not hasattr(self, 'image'):
-            self._load_image()
-
-        if img is None:
-            img = self.image.copy()
-            img_rgb = self.image_rgb.copy()
-        else:
-            img_rgb = gray2rgb(img) if img.ndim == 2 else img.copy()
-
-        vis = img_as_ubyte(img_rgb)
-        for edge_ind, degde in enumerate(edges):
-            q = frozenset(degde)
-            if q in self.edge_coords:
-                for y, x in self.edge_coords[q]:
-                    # vis[y, x] = color
-                    vis[max(0, y-5):min(self.image_height, y+5), 
-                        max(0, x-5):min(self.image_width, x+5)] = color
-
-                if text:
-                    cv2.putText(vis, str(edge_ind), tuple([x, y]), 
-                                cv2.FONT_HERSHEY_DUPLEX, 1, 255, 1)
-        return vis
-
     
     def visualize_edge_sets(self, edge_sets, img=None, text_size=0, colors=None, directed=False,
-                           neighbors=None):
+                           neighbors=None, text=None):
         '''
         Return a visualization of multiple sets of edgelets
         '''
@@ -730,6 +701,12 @@ class DataManager(object):
         
         if not hasattr(self, 'edge_coords'):
             self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
+           
+        if not hasattr(self, 'edge_midpoints'):
+            self.edge_midpoints = self.load_pipeline_result('edgeMidpoints', 'pkl')
+            
+        if not hasattr(self, 'edge_vectors'):
+            self.edge_vectors = self.load_pipeline_result('edgeVectors', 'pkl')
 
         if not hasattr(self, 'sp_props'):
             self.sp_props = self.load_pipeline_result('spProps', 'npy')
@@ -747,49 +724,63 @@ class DataManager(object):
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
 
         vis = img_as_ubyte(img_rgb)
-                    
+
+        # if input are tuples, draw directional sign
+        if len(edge_sets) == 0:
+            return vis
+        else:
+            directed = isinstance(list(edge_sets[0])[0], tuple)
+            
         for edgeSet_ind, edges in enumerate(edge_sets):
             
-            junction_pts = []
-            pointset = []
-            c = colors[edgeSet_ind%len(colors)].astype(np.int)
+            if directed:
+                centroid = np.mean([self.edge_midpoints[frozenset(e)] for e in edges], axis=0)
+            else:
+                centroid = np.mean([self.edge_midpoints[e] for e in edges], axis=0)
+                
+#             junction_pts = []
             
-            for e_ind, degde in enumerate(edges):
-                q = frozenset(degde)
-                ext_sp, int_sp = degde
+            if text is None:
+                s = str(edgeSet_ind)
+                c = colors[edgeSet_ind%len(colors)].astype(np.int)
+            else:
+                s = text[edgeSet_ind]
+                c = colors[int(s)%len(colors)].astype(np.int)
+            
+            for e_ind, edge in enumerate(edges):
+                
                 if directed:
-                    # ymax, xmax = pts.max(axis=0)
-                    # ymin, xmin = pts.min(axis=0)
-                    # slope = (ymax-ymin)/(xmax-xmin)
-                    vector_outward = self.sp_props[ext_sp, :2][::-1] - self.sp_props[int_sp, :2][::-1]
-                    midpoint = np.mean(list(self.edge_coords[q]), axis=0)[::-1]
-                    end = midpoint + .2 * vector_outward
-                    cv2.line(vis, tuple(np.floor(midpoint).astype(np.int)), tuple(np.floor(end).astype(np.int)), (c[0],c[1],c[2]), 5)
-
-                pts = self.edge_coords[q]
-                for y, x in pts:
+                    e = frozenset(edge)
+                    midpoint = self.edge_midpoints[e]
+                    end = midpoint + 10 * self.edge_vectors[edge]
+                    cv2.line(vis, tuple(np.floor(midpoint).astype(np.int)), 
+                             tuple(np.floor(end).astype(np.int)), (c[0],c[1],c[2]), 5)
+  
+                    stroke_pts = self.edge_coords[e]
+                else:
+                    stroke_pts = self.edge_coords[edge]
+                    
+                for x, y in stroke_pts:
                     vis[max(0, y-5):min(self.image_height, y+5), 
-                            max(0, x-5):min(self.image_width, x+5)] = colors[edgeSet_ind%len(colors)]
-                    pointset.append((y,x))
-                        
-                if neighbors is not None:
-                    nbrs = neighbors[degde]
-                    for nbr in nbrs:
-                        pts2 = self.edge_coords[frozenset(nbr)]
-                        am = np.unravel_index(np.argmin(cdist(pts[[0,-1]], pts2[[0,-1]]).flat), (2,2))
-#                         print degde, nbr, am
-                        junction_pt = (pts[-1 if am[0]==1 else 0] + pts2[-1 if am[1]==1 else 0])/2
-                        junction_pts.append(junction_pt)
+                        max(0, x-5):min(self.image_width, x+5)] = [c[0],c[1],c[2],1] if vis.shape[2] == 4 else c
+                                                
+#                 if neighbors is not None:
+#                     nbrs = neighbors[degde]
+#                     for nbr in nbrs:
+#                         pts2 = self.edge_coords[frozenset(nbr)]
+#                         am = np.unravel_index(np.argmin(cdist(pts[[0,-1]], pts2[[0,-1]]).flat), (2,2))
+# #                         print degde, nbr, am
+#                         junction_pt = (pts[-1 if am[0]==1 else 0] + pts2[-1 if am[1]==1 else 0])/2
+#                         junction_pts.append(junction_pt)
                  
             if text_size > 0:
-                ymean, xmean = np.mean(pointset, axis=0)
-                cv2.putText(vis, str(edgeSet_ind), 
-                              tuple(np.floor([xmean-100,ymean+100]).astype(np.int)), 
-                              cv2.FONT_HERSHEY_DUPLEX,
-                              text_size, ((c[0],c[1],c[2])), 3)
+                cv2.putText(vis, s, 
+                            tuple(np.floor(centroid + [-100, 100]).astype(np.int)), 
+                            cv2.FONT_HERSHEY_DUPLEX,
+                            text_size, ((c[0],c[1],c[2])), 3)
             
-            for p in junction_pts:
-                cv2.circle(vis, tuple(np.floor(p[::-1]).astype(np.int)), 5, (255,0,0), -1)
+#             for p in junction_pts:
+#                 cv2.circle(vis, tuple(np.floor(p).astype(np.int)), 5, (255,0,0), -1)
         
         return vis
 
@@ -835,13 +826,16 @@ class DataManager(object):
         return vis.copy()
 
     
-    def visualize_edges_and_superpixels(self, edge_sets, cluster):
-        vis = self.visualize_cluster(cluster)
-        viz = self.visualize_edge_sets(edge_sets, directed=True, img=vis)
+    def visualize_edges_and_superpixels(self, edge_sets, clusters, colors=None):
+        if colors is None:
+            colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
+            
+        vis = self.visualize_multiple_clusters(clusters, colors=colors)
+        viz = self.visualize_edge_sets(edge_sets, directed=True, img=vis, colors=colors)
         return viz
         
     
-    def visualize_multiple_clusters(self, clusters, alpha_blend=True):
+    def visualize_multiple_clusters(self, clusters, alpha_blend=True, colors=None):
         
         if not hasattr(self, 'segmentation'):
             self.segmentation = self.load_pipeline_result('segmentation', 'npy')
@@ -854,7 +848,9 @@ class DataManager(object):
         if len(clusters) == 0:
             return segmentation_vis
         
-        colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
+        if colors is None:
+            colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
+            
         n_superpixels = self.segmentation.max() + 1
         
         mask_alpha = .4

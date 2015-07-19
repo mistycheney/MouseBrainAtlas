@@ -38,35 +38,65 @@ dm.set_image(args.stack_name, 'x5', args.slice_ind)
 
 #============================================================
 
-if dm.check_pipeline_result('features', 'npy'):
-	print "features.npy already exists, skip"
-
+if dm.check_pipeline_result('features_rotated', 'npy'):
+	print "features_rotated.npy already exists, skip"
 else:
+    
+    if dm.check_pipeline_result('features', 'npy'):
+        print "features.npy already exists, load"
+        features = dm.load_pipeline_result('features', 'npy')
+    else:
 
-	from skimage.util import pad
+        from skimage.util import pad
 
-	approx_bg_intensity = dm.image[10:20, 10:20].mean()
+        approx_bg_intensity = dm.image[10:20, 10:20].mean()
 
-	masked_image = dm.image.copy()
-	masked_image[~dm.mask] = approx_bg_intensity
+        masked_image = dm.image.copy()
+        masked_image[~dm.mask] = approx_bg_intensity
 
-	padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
+        padded_image = pad(masked_image, dm.max_kern_size, 'linear_ramp', end_values=approx_bg_intensity)
 
-	from joblib import Parallel, delayed
-	from scipy.signal import fftconvolve
+        from joblib import Parallel, delayed
+        from scipy.signal import fftconvolve
 
-	def convolve_per_proc(i):
-	    return fftconvolve(padded_image, dm.kernels[i], 'same').astype(np.half)
+        def convolve_per_proc(i):
+            return fftconvolve(padded_image, dm.kernels[i], 'same').astype(np.half)
 
-	padded_filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
-	                        for i in range(dm.n_kernel))
+        padded_filtered = Parallel(n_jobs=16)(delayed(convolve_per_proc)(i) 
+                                for i in range(dm.n_kernel))
 
-	filtered = [f[dm.max_kern_size:-dm.max_kern_size, dm.max_kern_size:-dm.max_kern_size] for f in padded_filtered]
+        filtered = [f[dm.max_kern_size:-dm.max_kern_size, dm.max_kern_size:-dm.max_kern_size] for f in padded_filtered]
 
-	features = np.empty((dm.n_kernel, dm.image_height, dm.image_width), dtype=np.half)
-	for i in range(dm.n_kernel):
-	    features[i, ...] = filtered[i]
+        features = np.empty((dm.n_kernel, dm.image_height, dm.image_width), dtype=np.half)
+        for i in range(dm.n_kernel):
+            features[i, ...] = filtered[i]
 
-	del filtered
+        del filtered
 
-	dm.save_pipeline_result(features, 'features', 'npy')
+        dm.save_pipeline_result(features, 'features', 'npy')
+    
+
+    valid_features = features[:, dm.mask].T
+    n_valid = len(valid_features)
+
+    del features
+
+    def rotate_features(fs):
+        features_tabular = fs.reshape((fs.shape[0], dm.n_freq, dm.n_angle))
+        max_angle_indices = features_tabular.max(axis=1).argmax(axis=-1)
+        features_rotated = np.reshape([np.roll(features_tabular[i], -ai, axis=-1) 
+                                   for i, ai in enumerate(max_angle_indices)], (fs.shape[0], dm.n_freq * dm.n_angle))
+
+        return features_rotated
+
+    from joblib import Parallel, delayed
+
+    n_splits = 1000
+    features_rotated_list = Parallel(n_jobs=16)(delayed(rotate_features)(fs) for fs in np.array_split(valid_features, n_splits))
+    features_rotated = np.vstack(features_rotated_list)
+
+    del valid_features
+
+    dm.save_pipeline_result(features_rotated, 'features_rotated', 'npy')
+
+    

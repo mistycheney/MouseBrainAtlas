@@ -9,7 +9,7 @@ export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$P
 #source /opt/intel/composer_xe_2013_sp1.2.144/bin/compilervars.sh intel64
 
 export GORDON_DATA_DIR=$CSD181/DavidData2014tif
-export GORDON_REPO_DIR=$HOME/Brain
+export GORDON_REPO_DIR=$CSD395/Brain
 export GORDON_RESULT_DIR=$CSD395/DavidData2014results
 export GORDON_LABELING_DIR=$CSD181/DavidData2014labelings
 export GORDON_SLIDEDATA_DIR=$CSD181/DavidData2014slides

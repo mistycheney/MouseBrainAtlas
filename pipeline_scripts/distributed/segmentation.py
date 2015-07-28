@@ -4,6 +4,9 @@ import argparse
 import sys
 from joblib import Parallel, delayed
 
+sys.path.append('/home/yuncong/project/opencv-2.4.9/release/lib/python2.7/site-packages')
+import cv2
+
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'pipeline_scripts'))
 
 if os.environ['DATASET_VERSION'] == '2014':
@@ -163,12 +166,20 @@ def f(d, y1_offset=0, x1_offset=0, y2_offset=0, x2_offset=0):
         l2 = masked_segmentation_relabeled[y2,x2]
         if l1 != -1:
             neighbors[l1].add(l2)
-            edge_coords[frozenset([l1,l2])].add((y1,x1))
-            edge_coords[frozenset([l1,l2])].add((y2,x2))
+            edge_coords[frozenset([l1,l2])].add((x1,y1))
+            edge_coords[frozenset([l1,l2])].add((x2,y2))
         if l2 != -1:
-            neighbors[l2].add(l1)
-            edge_coords[frozenset([l1,l2])].add((y1,x1))
-            edge_coords[frozenset([l1,l2])].add((y2,x2))
+            try:
+                neighbors[l2].add(l1)
+            except:
+                print l2,l1
+            edge_coords[frozenset([l1,l2])].add((x1,y1))
+            edge_coords[frozenset([l1,l2])].add((x2,y2))
+                
+# cannot work because writing to the same container simultaneous is dangerous
+# fargs = [(d1, 0,0,1,0),(d2, 0,0,0,1),(d3, 0,0,1,1),(d4, 0,1,1,0),
+#          (d5, 0,0,2,0),(d6, 0,0,0,2),(d7, 0,0,2,2),(d8, 0,2,2,0)]
+# Parallel(n_jobs=16)(delayed(f)(t) for t in fargs)
     
 f(d1, 0,0,1,0)
 f(d2, 0,0,0,1)
@@ -178,6 +189,9 @@ f(d5, 0,0,2,0)
 f(d6, 0,0,0,2)
 f(d7, 0,0,2,2)
 f(d8, 0,2,2,0)
+
+edge_coords.default_factory = None
+
 
 # check symmetry; note that this CANNOT check if neighbors is complete
 A = np.zeros((n_superpixels, n_superpixels))
@@ -190,7 +204,94 @@ for i in range(n_superpixels):
     neighbors[i] -= {i}
     
 dm.save_pipeline_result(neighbors, 'neighbors', 'pkl')
-dm.save_pipeline_result(edge_coords, 'edgeCoords', 'pkl')
+
+
+
+edges = edge_coords.keys()
+
+edge_map = -1 * np.ones_like(dm.image, np.int)
+for ei, (e, pts_set) in enumerate(edge_coords.iteritems()):
+    xs, ys = zip(*pts_set)
+    edge_map[np.array(ys), np.array(xs)] = ei
+    
+def f(edge_coords):
+    return [set(zip(*np.hstack([np.mgrid[max(x-5,0):min(x+5, dm.image_width), 
+                                         max(y-5,0):min(y+5, dm.image_height)].reshape((2,-1)) 
+                                for x,y in pts]).reshape((2,-1)).tolist())) 
+            for e, pts in edge_coords]
+
+b = Parallel(n_jobs=16)(delayed(f)(s) for s in np.array_split(edge_coords.items(), 16))
+neighborhood_pts = [p for bb in b for p in bb]
+
+edge_neighbors = defaultdict(set)
+for ei, pts in enumerate(neighborhood_pts):
+    xs, ys = zip(*pts)
+    eis = set(edge_map[ys,xs]) - {-1, ei}
+    edge_neighbors[edges[ei]] |= set([edges[ei] for ei in eis])
+
+dm.save_pipeline_result(edge_neighbors, 'edgeNeighbors','pkl')
+
+
+edge_coords_sorted = {}
+edge_midpoint = {}
+
+for e, pts in edge_coords.iteritems():
+    X = np.array(list(pts), dtype=np.float) # n-by-2
+    c = X.mean(axis=0)
+    edge_midpoint[e] = c
+    Xc = X - c
+    U,S,V = np.linalg.svd(np.dot(Xc.T, Xc))
+    u1 = U[:,0]
+    projs = np.dot(Xc,u1)
+    order = projs.argsort()
+    if Xc[order[0],0] > Xc[order[-1],0]:
+        order = order[::-1]
+    edge_coords_sorted[e] = X[order].astype(np.int)
+    
+dm.save_pipeline_result(edge_coords_sorted, 'edgeCoords', 'pkl')
+dm.save_pipeline_result(edge_midpoint, 'edgeMidpoints', 'pkl')
+
+
+dedge_vectors = defaultdict(float)
+
+for e in edge_coords.keys():
+    c = edge_midpoint[e]
+    i, j = e
+    if i == -1:
+        vector_ji = sp_properties[j,:2][::-1] - c
+    elif j == -1:
+        vector_ji = c - sp_properties[i,:2][::-1]
+    else:
+        vector_ji = sp_properties[i,:2][::-1] - sp_properties[j,:2][::-1]
+
+    dedge_vectors[(i,j)] = vector_ji/np.linalg.norm(vector_ji)
+    dedge_vectors[(j,i)] = -dedge_vectors[(i,j)]
+
+dedge_vectors.default_factory = None
+
+dm.save_pipeline_result(dedge_vectors, 'edgeVectors', 'pkl')
+
+
+dedge_neighbors = defaultdict(set)
+for (i,j), es in edge_neighbors.iteritems():
+
+    if len(es) == 0:
+        print 'WARNING: edge (%d,%d) has no neighbors'%(i,j)
+        ls = []
+    else:
+        ls = set.union(*[{(a,b),(b,a)} for a,b in es])
+    
+    dedge_neighbors[(i,j)] |= set((a,b) for a,b in ls 
+                                  if not (i==b or j==a) and\
+                                  np.dot(dedge_vectors[(i,j)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}
+
+    dedge_neighbors[(j,i)] |= set((a,b) for a,b in ls 
+                                  if not (j==b or i==a) and\
+                                  np.dot(dedge_vectors[(j,i)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}
+
+dedge_neighbors.default_factory = None
+dm.save_pipeline_result(dedge_neighbors, 'dedgeNeighbors', 'pkl')
+
 
 border_len_thresh = 20
 neighbors_long_border = [set([nbr for nbr in nbrs if len(edge_coords[frozenset([n,nbr])]) > border_len_thresh]) 

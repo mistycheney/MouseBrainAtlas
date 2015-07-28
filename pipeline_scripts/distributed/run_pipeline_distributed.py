@@ -9,7 +9,7 @@ from preprocess_utility import *
 parser = argparse.ArgumentParser(description="Run pipeline for different instances on different servers")
 parser.add_argument("task", type=str, help="task to perform (must be one of filter, segment, rotate_features)")
 parser.add_argument("stack", help="stack name, e.g. RS141")
-parser.add_argument("n_slides", type=int, help="number of slides, use 0 for all slides")
+parser.add_argument("-n", type=int, help="number of slides, use 0 for all slides (default: %(default)s)", default=0)
 # parser.add_argument("start_section", type=int, help="beginning section in the stack")
 # parser.add_argument("end_section", type=int, help="ending section in the stack")
 parser.add_argument("-j", "--slides_per_node", type=int, help="number of slides each node processes (default: %(default)d)", default=4)
@@ -19,7 +19,7 @@ parser.add_argument("-v", "--vq_params", type=str, help="vq parameters id (defau
 
 args = parser.parse_args()
 
-n_slides = args.n_slides
+n_slides = args.n
 slides_per_node = args.slides_per_node
 
 t = time.time()
@@ -42,9 +42,9 @@ elif args.task == 'segment':
 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
 	run_distributed3(script_root+'/segmentation.py', arg_tuples)
 
-elif args.task == 'rotate_features':
-	arg_tuples = [(args.stack, i) for i in range(n_slides)]
-	run_distributed3(script_root+'/rotate_features.py', arg_tuples)
+# elif args.task == 'rotate_features':
+# 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
+# 	run_distributed3(script_root+'/rotate_features.py', arg_tuples)
 
 elif args.task == 'generate_textons':
 	section_interval = 5
@@ -60,28 +60,28 @@ elif args.task == 'compute_texton_histograms':
 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
 	run_distributed3(script_root+'/compute_texton_histograms.py', arg_tuples)
 
-elif args.task == 'all':
-	arg_tuples = [(args.stack, i) for i in range(n_slides)]
+# elif args.task == 'all':
+# 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
 
-	run_distributed3(script_root+'/gabor_filter.py', arg_tuples)
-	run_distributed3(script_root+'/segmentation.py', arg_tuples)
-	run_distributed3(script_root+'/rotate_features.py', arg_tuples)
+# 	run_distributed3(script_root+'/gabor_filter.py', arg_tuples)
+# 	run_distributed3(script_root+'/segmentation.py', arg_tuples)
+# 	run_distributed3(script_root+'/rotate_features.py', arg_tuples)
 
-	section_interval = 5
-	cmd = "ssh yuncong@gcn-20-33.sdsc.edu 'python %s/generate_textons.py %s %d'" %(script_root, args.stack, section_interval)
-	print cmd
-	call(cmd, shell=True)
+# 	section_interval = 5
+# 	cmd = "ssh yuncong@gcn-20-33.sdsc.edu 'python %s/generate_textons.py %s %d'" %(script_root, args.stack, section_interval)
+# 	print cmd
+# 	call(cmd, shell=True)
 
-	run_distributed3(script_root+'/assign_textons.py', arg_tuples)
-	run_distributed3(script_root+'/compute_texton_histograms.py', arg_tuples)
+# 	run_distributed3(script_root+'/assign_textons.py', arg_tuples)
+# 	run_distributed3(script_root+'/compute_texton_histograms.py', arg_tuples)
 
 elif args.task == 'grow_regions':
 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
 	run_distributed3(script_root+'/grow_regions_greedy_executable.py', arg_tuples)
 
-elif args.task == 'detect_boundaries':
+elif args.task == 'detect_edges':
 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
-	run_distributed3(script_root+'/detect_boundaries_executable.py', arg_tuples)
+	run_distributed3(script_root+'/detect_edges_executable.py', arg_tuples)
 
 elif args.task == 'match_landmarks':
 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
@@ -89,7 +89,7 @@ elif args.task == 'match_landmarks':
 
 
 else:
-	raise Exception('task must be one of filter, segment, rotate_features')
+	raise Exception('task must be one of filter, segment, generate_textons, assign_textons, compute_texton_histograms, grow_regions, detect_edges, match_landmarks')
 
 
 print args.task, time.time() - t, 'seconds'

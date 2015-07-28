@@ -594,6 +594,9 @@ class DataManager(object):
             data = self._regulate_image(data, is_rgb)
         elif ext == 'pkl':
             data = pickle.load(open(result_filename, 'r'))
+        elif ext == 'hdf':
+            with open_file(result_filename, mode="r") as f:
+                data = f.get_node('/data').read()
 
 
         # print 'loaded %s' % result_filename
@@ -619,7 +622,7 @@ class DataManager(object):
         elif ext == 'hdf':
             filters = Filters(complevel=9, complib='blosc')
             with open_file(result_filename, mode="w") as f:
-                _ = f.create_carray('/', 'data', tables.Atom.from_dtype(data.dtype), filters=filters, obj=data)
+                _ = f.create_carray('/', 'data', Atom.from_dtype(data.dtype), filters=filters, obj=data)
             
         print 'saved %s' % result_filename
         
@@ -1031,6 +1034,16 @@ def chi2(u,v):
     
     # r = np.nansum(((u-v)**2).astype(np.float)/(u+v))
     return r
+
+
+def chi2s(h1s, h2s):
+    '''
+    h1s is n x n_texton
+    '''
+    s = (h1s+h2s).astype(np.float)
+    ss = (h1s-h2s)**2/s
+    ss[s==0] = 0
+    return np.sum(ss, axis=1)
 
 
 def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):

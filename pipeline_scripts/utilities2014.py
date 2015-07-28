@@ -9,7 +9,7 @@ from skimage.segmentation import clear_border
 from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
-from skimage.util import img_as_ubyte
+from skimage.util import img_as_ubyte, img_as_float
 from skimage.io import imread, imsave
 from scipy.spatial.distance import cdist
 import numpy as np
@@ -19,6 +19,8 @@ import sys
 from operator import itemgetter
 import json
 import cPickle as pickle
+
+from tables import *
 
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
@@ -343,20 +345,20 @@ class DataManager(object):
         self.image_name = None
 
         if gabor_params_id is None:
-            self.gabor_params_id = 'blueNisslWide'
+            self.set_gabor_params('blueNisslWide')
         else:
-            self.gabor_params_id = gabor_params_id
+            self.set_gabor_params(gabor_params_id)
 
         if segm_params_id is None:
-            self.segm_params_id = 'blueNisslRegular'
+            self.set_segmentation_params('blueNisslRegular')
         else:
-            self.segm_params_id = segm_params_id
+            self.set_segmentation_params(segm_params_id)
 
         if vq_params_id is None:
-            self.vq_params_id = 'blueNissl'
+            self.set_vq_params('blueNissl')
         else:
-            self.vq_params_id = vq_params_id
-
+            self.set_vq_params(vq_params_id)
+            
         if stack is not None:
             self.set_stack(stack)
 
@@ -614,6 +616,10 @@ class DataManager(object):
             imsave(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
+        elif ext == 'hdf':
+            filters = Filters(complevel=9, complib='blosc')
+            with open_file(result_filename, mode="w") as f:
+                _ = f.create_carray('/', 'data', tables.Atom.from_dtype(data.dtype), filters=filters, obj=data)
             
         print 'saved %s' % result_filename
         

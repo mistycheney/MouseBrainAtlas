@@ -2,6 +2,9 @@ import numpy as np
 cimport numpy as np
 
 cimport cython
+
+from libcpp.vector cimport vector
+
 @cython.boundscheck(False) # turn of bounds-checking for entire function
 def compute_pie_histogram(np.ndarray[np.int_t, ndim=2] textonmap,
                           np.ndarray[np.int16_t, ndim=2] pie_indices_s, 
@@ -10,7 +13,9 @@ def compute_pie_histogram(np.ndarray[np.int_t, ndim=2] textonmap,
                           np.int_t radius, 
                           np.int_t height, 
                           np.int_t width,
-                          np.int_t n_texton):
+                          np.int_t n_texton,
+                          np.int_t ri,
+                          np.int_t s):
     
     cdef np.ndarray[np.int_t, ndim=3] Hs = np.zeros((height, width, n_texton), np.int)
 
@@ -25,9 +30,6 @@ def compute_pie_histogram(np.ndarray[np.int_t, ndim=2] textonmap,
 
     for i in range(L):
         
-#         if i%500000==0:
-#             print i
-        
         yc = mys[i]
         xc = mxs[i]
         check = yc <= radius or yc >= height - radius or xc <= radius or xc >= width - radius
@@ -36,21 +38,88 @@ def compute_pie_histogram(np.ndarray[np.int_t, ndim=2] textonmap,
             h[k] = 0
 
         for j in range(n):
-            
+
             shifted_y = pie_indices_s[j,0] + yc
             shifted_x = pie_indices_s[j,1] + xc
-            
+
             if check:
                 if not (shifted_y >= 0 and shifted_y < height and shifted_x >= 0 and shifted_x < width):
                     continue
-                    
+
             t = textonmap[shifted_y, shifted_x]
             if t > 0:
                 h[t] += 1
-            
+
         Hs[yc, xc] = h
-        
+
     return Hs
+
+@cython.wraparound(False)
+@cython.boundscheck(False) # turn of bounds-checking for entire function
+def compute_connection_weight(np.ndarray[np.float_t, ndim=2] G_nonmaxsup,
+                              np.ndarray[np.int16_t, ndim=2] circle_j,
+                          list conns_ij_y, 
+                          list conns_ij_x, 
+                          np.ndarray[np.int16_t, ndim=1] mys, 
+                          np.ndarray[np.int16_t, ndim=1] mxs,
+                          np.int_t height, 
+                          np.int_t width,
+                          np.ndarray[np.uint8_t, cast=True, ndim=2] mask):
+    
+    cdef unsigned int i, j, p_i
+    cdef unsigned int L = len(mys)
+    cdef unsigned int n = len(conns_ij_y)
+    cdef unsigned int conn_len
+    cdef int xx, yy, x, y, yj, xj
+    cdef float vmax = 0, v
+#     cdef np.ndarray[np.float_t, ndim=1] vmaxs
+    cdef np.ndarray[np.int_t, ndim=1] ys
+    cdef np.ndarray[np.int_t, ndim=1] xs
+    cdef np.ndarray[np.float_t, ndim=2] ret = np.zeros((L, n), np.float)
+    
+    for i in range(L):
+        y = mys[i]
+        x = mxs[i]
+                            
+        for p_i in range(n):
+            
+            ys = conns_ij_y[p_i]
+            xs = conns_ij_x[p_i]
+            conn_len = len(ys)
+            
+            yj = y + circle_j[p_i,0]
+            xj = x + circle_j[p_i,1]
+
+            if yj < 0 or yj >= height or xj < 0 or xj >= width or mask[yj,xj] == 0:
+                continue
+            
+            vmax = 0
+            for j in range(conn_len):
+                yy = y + ys[j]
+                xx = x + xs[j]
+                
+                if yy < 0 or yy >= height or xx < 0 or xx >= width or mask[yy,xx] == 0:
+                    continue
+                v = G_nonmaxsup[yy, xx]
+                if v > vmax:
+                    vmax = v
+            
+#             if yy == 36 and xx == 2529:
+#                 print vmax
+            
+            if vmax > 0:
+                ret[i, p_i] = vmax
+                
+            
+#             vmaxs[p_i] = vmax
+#             if vmax > 0:
+#                 ret.append((i, p_i, vmax))
+#         print 'vmaxs', vmaxs
+#         ret.append(vmaxs)
+
+    return ret
+        
+        
 
 # @cython.boundscheck(False) # turn of bounds-checking for entire function
 # def compute_halfdisc_histogram_diff(np.ndarray[np.int_t, ndim=4] H, 

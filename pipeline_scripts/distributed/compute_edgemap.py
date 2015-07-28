@@ -30,7 +30,8 @@ dm = DataManager(generate_hierarchy=False, stack=args.stack_name, resol='x5', se
 #============================================================
 
 from scipy.signal import convolve2d, fftconvolve
-
+from joblib import Parallel, delayed
+import matplotlib.pyplot as plt
 
 dm._load_image()
 
@@ -128,3 +129,6 @@ for ri in range(n_radius):
     Gmax = np.maximum(Gmax_r, Gmax)
     
 dm.save_pipeline_result(Gmax, 'Gmax', 'npy')
+
+Gmax_viz = plt.cm.jet(Gmax/np.nanmax(Gmax));
+dm.save_pipeline_result(Gmax_viz, 'Gmax', 'jpg')

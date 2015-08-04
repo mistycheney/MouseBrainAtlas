@@ -1041,7 +1041,8 @@ def chi2s(h1s, h2s):
     h1s is n x n_texton
     '''
     s = (h1s+h2s).astype(np.float)
-    ss = (h1s-h2s)**2/s
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ss = (h1s-h2s)**2/s
     ss[s==0] = 0
     return np.sum(ss, axis=1)
 

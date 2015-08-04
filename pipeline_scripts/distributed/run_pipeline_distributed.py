@@ -61,21 +61,6 @@ elif args.task == 'compute_texton_histograms':
 	arg_tuples = [(args.stack, i) for i in slide_indices]
 	run_distributed3(script_root+'/compute_texton_histograms.py', arg_tuples)
 
-# elif args.task == 'all':
-# 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
-
-# 	run_distributed3(script_root+'/gabor_filter.py', arg_tuples)
-# 	run_distributed3(script_root+'/segmentation.py', arg_tuples)
-# 	run_distributed3(script_root+'/rotate_features.py', arg_tuples)
-
-# 	section_interval = 5
-# 	cmd = "ssh yuncong@gcn-20-33.sdsc.edu 'python %s/generate_textons.py %s %d'" %(script_root, args.stack, section_interval)
-# 	print cmd
-# 	call(cmd, shell=True)
-
-# 	run_distributed3(script_root+'/assign_textons.py', arg_tuples)
-# 	run_distributed3(script_root+'/compute_texton_histograms.py', arg_tuples)
-
 elif args.task == 'grow_regions':
 	arg_tuples = [(args.stack, i) for i in slide_indices]
 	run_distributed3(script_root+'/grow_regions_greedy_executable.py', arg_tuples)

@@ -1039,12 +1039,19 @@ def chi2(u,v):
 def chi2s(h1s, h2s):
     '''
     h1s is n x n_texton
-    '''
-    s = (h1s+h2s).astype(np.float)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        ss = (h1s-h2s)**2/s
-    ss[s==0] = 0
-    return np.sum(ss, axis=1)
+    MUST be float type
+    '''    
+    return np.sum((h1s-h2s)**2/(h1s+h2s+1e-10), axis=1)
+
+# def chi2s(h1s, h2s):
+#     '''
+#     h1s is n x n_texton
+#     '''
+#     s = (h1s+h2s).astype(np.float)
+#     with np.errstate(divide='ignore', invalid='ignore'):
+#         ss = (h1s-h2s)**2/s
+#     ss[s==0] = 0
+#     return np.sum(ss, axis=1)
 
 
 def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):

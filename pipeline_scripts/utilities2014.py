@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
-
-# <codecell>
-
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -98,8 +93,6 @@ def crop_image(img, smooth=20):
 #     ystop = min(slc[1].stop + margin, img.shape[1])
 #     cutout = img[xstart:xstop, ystart:ystop]
     return slc
-
-# <codecell>
 
 import time
 

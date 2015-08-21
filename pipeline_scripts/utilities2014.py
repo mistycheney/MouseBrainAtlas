@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
-
-# <codecell>
-
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -98,8 +93,6 @@ def crop_image(img, smooth=20):
 #     ystop = min(slc[1].stop + margin, img.shape[1])
 #     cutout = img[xstart:xstop, ystart:ystop]
     return slc
-
-# <codecell>
 
 import time
 
@@ -1039,12 +1032,19 @@ def chi2(u,v):
 def chi2s(h1s, h2s):
     '''
     h1s is n x n_texton
-    '''
-    s = (h1s+h2s).astype(np.float)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        ss = (h1s-h2s)**2/s
-    ss[s==0] = 0
-    return np.sum(ss, axis=1)
+    MUST be float type
+    '''    
+    return np.sum((h1s-h2s)**2/(h1s+h2s+1e-10), axis=1)
+
+# def chi2s(h1s, h2s):
+#     '''
+#     h1s is n x n_texton
+#     '''
+#     s = (h1s+h2s).astype(np.float)
+#     with np.errstate(divide='ignore', invalid='ignore'):
+#         ss = (h1s-h2s)**2/s
+#     ss[s==0] = 0
+#     return np.sum(ss, axis=1)
 
 
 def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):

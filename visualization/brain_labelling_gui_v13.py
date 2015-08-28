@@ -2,16 +2,27 @@ import sys
 import os
 import datetime
 import numpy as np
-import matplotlib as mpl
+
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_qt4agg import (
 	FigureCanvasQTAgg as FigureCanvas,
 	NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.backends import qt4_compat
+use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
+if use_pyside:
+	#print 'Using PySide'
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+else:
+	#print 'Using PyQt4'
+	from PyQt4.QtCore import *
+	from PyQt4.QtGui import *
+
 
 from matplotlib.patches import Rectangle, Polygon
+from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
 from skimage.color import label2rgb
 from random import random
@@ -34,23 +45,13 @@ from pprint import pprint
 
 import cPickle as pickle
 
-from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-
-if use_pyside:
-	#print 'Using PySide'
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-else:
-	#print 'Using PyQt4'
-	from PyQt4.QtCore import *
-	from PyQt4.QtGui import *
 
 from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
 IGNORE_EXISTING_LABELNAMES = False
 
+from itertools import groupby
 from operator import itemgetter
 
 from enum import Enum
@@ -255,7 +256,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif action == self.confirmDirectionality_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
-			self.statusBar().showMessage('Done drawing directioned regions using label %d (%s)' % (self.curr_label,
+			self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
 			self.mode = Mode.IDLE
 
@@ -281,11 +282,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def initialize_brain_labeling_gui(self):
 
 		self.menu = QMenu()
-		self.endDraw_Action = self.menu.addAction("Confirm closed contour only")
-		self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary only")
+		self.endDraw_Action = self.menu.addAction("Confirm closed contour")
+		self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
 		self.confirmTexture_Action = self.menu.addAction("Confirm textured region without contour")
 		self.confirmTextureWithContour_Action = self.menu.addAction("Confirm textured region with contour")
-		self.confirmDirectionality_Action = self.menu.addAction("Confirm directioned region")
+		self.confirmDirectionality_Action = self.menu.addAction("Confirm striated region")
 
 		self.deletePolygon_Action = self.menu.addAction("Delete polygon")
 		self.deleteVertex_Action = self.menu.addAction("Delete vertex")
@@ -608,7 +609,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# each row is (label, type, N-by-2 vertices)
 		# self.labeling['final_polygons'] = [(l, t, p.get_xy()/[self.dm.image_width, self.dm.image_height]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
 
-		self.curr_labeling['final_polygons'] = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
+		typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
+		self.curr_labeling['final_polygons'] = [(label, list(group)) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))]
+
 
 		self.curr_labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 		self.curr_labeling['username'] = self.username
@@ -932,11 +935,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                
 if __name__ == "__main__":
-    from sys import argv, exit
-
-    a = QApplication(argv)
-    m = BrainLabelingGUI(stack='RS141', section=2, parent_labeling_name='filter_08202015152324')
-    m.setWindowTitle("Brain Labeling")
-    m.showMaximized()
-    m.raise_()
-    exit(a.exec_())
+	from sys import argv, exit
+	a = QApplication(argv)
+	labeling_name = sys.argv[1]
+	section = int(labeling_name.split('_')[1])
+	m = BrainLabelingGUI(stack='RS141', section=section, parent_labeling_name='_'.join(labeling_name.split('_')[2:]))
+	
+	# m = BrainLabelingGUI(stack='RS141', section=1)
+	m.setWindowTitle("Brain Labeling")
+	m.showMaximized()
+	m.raise_()
+	exit(a.exec_())

@@ -1,7 +1,6 @@
 import os
-
 import sys
-sys.path.append(os.environ['GORDON_REPO_DIR'] + '/pipeline_scripts')
+
 from utilities2014 import *
 
 import time
@@ -31,6 +30,20 @@ import warnings
 from scipy.interpolate import RectBivariateSpline
 from skimage.feature import peak_local_max
 
+import cPickle as pickle
+
+
+
+from enum import Enum
+
+class PolygonType(Enum):
+    CLOSED = 'closed'
+    OPEN = 'open'
+    TEXTURE = 'textured'
+    TEXTURE_WITH_CONTOUR = 'texture with contour'
+    DIRECTION = 'directionality'
+
+
 section_ind = int(sys.argv[1])
 
 dm = DataManager(generate_hierarchy=False, stack='RS141', resol='x5', section=section_ind)
@@ -59,16 +72,14 @@ Rs = [np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]]
 
 grid_spacing = (10,10)
 
-n_sample = 5
-sample_portion = np.linspace(0,1,n_sample) * 20
+n_boundary_texture_sample = 5
+boundary_texture_sample_pos = np.linspace(0,1,n_boundary_texture_sample) * 20
 
 def evaluate_spline_partial(spline, s):
     return spline(s, range(dm.image_height)) # indirect call is faster than directly put spline() in delayed; don't know why
 
 
-def compute_filter_response_at_points(pts, theta, texture_lm, 
-                                      template_height, template_width,
-                                     centroid_local_y, centroid_local_x):
+def compute_filter_response_at_points(pts, has_boundary, has_texture, has_striation):
     
     n = len(pts)
     
@@ -79,7 +90,7 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
 
     for i, (x, y) in enumerate(pts):
 
-        if texture_lm is None:
+        if not has_texture:
             v_texture = np.nan
         else:
             bbox_ymax_global = y + template_height - 1 - centroid_local_y
@@ -90,7 +101,7 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
             texture_img = texture_map[bbox_ymin_global:bbox_ymax_global+1:10, 
                              bbox_xmin_global:bbox_xmax_global+1:10].reshape((-1,n_texton))
 
-            chi2_dists = chi2s(texture_img, texture_lm)
+            chi2_dists = chi2s(texture_img, texture_template)
 
             # I expect to see RuntimeWarnings in this block
             with warnings.catch_warnings():
@@ -98,16 +109,12 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
                 v_texture = np.nansum(np.exp(-chi2_dists/.5)) / len(chi2_dists)
                 if np.isnan(v_texture):
                     v_texture = 0
-
                     
-        if lm_boundary_textures is None:
+        if not has_boundary:
             v_boundary = np.nan
         else:
-            vertices_local_ys = lm_boundary_vertices_rotated_versions[theta][:,1]
-            vertices_local_xs = lm_boundary_vertices_rotated_versions[theta][:,0]
-
-            vertices_global_ys = (vertices_local_ys + y - centroid_local_y).astype(np.int, copy=False)
-            vertices_global_xs = (vertices_local_xs + x - centroid_local_x).astype(np.int, copy=False)
+            vertices_global_ys = (boundary_vertices[:,1] + y - centroid_local_y).astype(np.int, copy=False)
+            vertices_global_xs = (boundary_vertices[:,0] + x - centroid_local_x).astype(np.int, copy=False)
 
             try:
                 r = Gmax[vertices_global_ys, vertices_global_xs]
@@ -123,7 +130,7 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
                 int_ys = np.maximum(np.minimum(vertices_global_ys[:,None] + int_texture_sampling_positions[:,:,1],
                                                dm.image_height-1), 0)
                 avg_int_texture = np.nanmean(texture_map[int_ys, int_xs], axis=1)
-                int_texture_dists = chi2s(lm_boundary_textures[:,:n_texton], avg_int_texture)
+                int_texture_dists = chi2s(boundary_textures[:,:n_texton], avg_int_texture)
 
                 
                 ext_xs = np.maximum(np.minimum(vertices_global_xs[:,None] + ext_texture_sampling_positions[:,:,0],
@@ -131,19 +138,20 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
                 ext_ys = np.maximum(np.minimum(vertices_global_ys[:,None] + ext_texture_sampling_positions[:,:,1], 
                                                dm.image_height-1), 0)
                 avg_ext_texture = np.nanmean(texture_map[ext_ys, ext_xs], axis=1)
-                ext_texture_dists = chi2s(lm_boundary_textures[:,n_texton:], avg_ext_texture)
+                ext_texture_dists = chi2s(boundary_textures[:,n_texton:], avg_ext_texture)
 
                 sigma = .5
-                v_boundary = np.nansum(r * np.exp(-(int_texture_dists+ext_texture_dists)/(2*sigma)))
+                v_boundary = np.nansum(r * (np.exp(-int_texture_dists/(2*sigma))
+                                            + np.exp(-ext_texture_dists/(2*sigma))))
  
-        if lm_striation_points_rotated_versions[theta] is None:
+        if not has_striation:
             v_striation = np.nan
         else:
-            striation_points_global_ys = (lm_striation_points_rotated_versions[theta][:,1] + y - centroid_local_y).astype(np.int, copy=False)
-            striation_points_global_xs = (lm_striation_points_rotated_versions[theta][:,0] + x - centroid_local_x).astype(np.int, copy=False)
+            striation_points_global_ys = (striation_points[:,1] + y - centroid_local_y).astype(np.int, copy=False)
+            striation_points_global_xs = (striation_points[:,0] + x - centroid_local_x).astype(np.int, copy=False)
             
             sample_vecs = eigenvec_map[striation_points_global_ys, striation_points_global_xs]
-            vec_cosine_sims = np.abs(np.sum(sample_vecs * lm_striation_vecs_rotated_versions[theta], axis=1))
+            vec_cosine_sims = np.abs(np.sum(sample_vecs * striation_vecs, axis=1))
             v_striation = np.mean(vec_cosine_sims)
         
         vs_texture[i] = v_texture
@@ -153,98 +161,78 @@ def compute_filter_response_at_points(pts, theta, texture_lm,
 
     return vs, vs_texture, vs_boundary, vs_striation
 
-import cPickle as pickle
-
-def find_peaks(vs_max_all_angles):
-    
-    top3_locs = []
-    for theta, vs_max in enumerate(vs_max_all_angles):
-        vs_max_smooth = gaussian_filter(vs_max, sigma=10)
-
-        peaks = peak_local_max(vs_max_smooth)
-        ypeaks = peaks[:,0]
-        xpeaks = peaks[:,1]
-
-        order = np.argsort(vs_max_smooth[ypeaks, xpeaks])[::-1]
-        ypeaks = ypeaks[order]
-        xpeaks = xpeaks[order]
-
-        for y, x in zip(ypeaks, xpeaks)[:3]:
-            top3_locs.append((y, x, vs_max[y, x], theta))
-
-    top3_locs = sorted(top3_locs, key=lambda x: x[2], reverse=True)[:3]
-    
-    return top3_locs  
 
 def filter_image_with_landmark_descriptor(lm_ind):
+    
+    print 'landmark', lm_ind
 
-# lm_ind = 5
     
-    global lm_texture_template_rotated_versions
-    global lm_bbox_rotated_versions
-    global lm_boundary_vertices_rotated_versions
-    global lm_boundary_textures
-    global lm_striation_points_rotated_versions
-    global lm_striation_vecs_rotated_versions
+    global template_height, template_width, centroid_local_y, centroid_local_x
     
+    global boundary_vertices
+    global boundary_textures
     global ext_texture_sampling_positions
     global int_texture_sampling_positions
 
-    print 'landmark', lm_ind
-
-    with open('/home/yuncong/csd395/all_landmark_descriptors_%d.pkl'%lm_ind, 'r') as f:
-        landmark_descriptor = pickle.load(f)
-
-    lm_texture_template_rotated_versions = map(itemgetter('texture_template'), landmark_descriptor)
-    lm_bbox_rotated_versions = map(itemgetter('bbox'), landmark_descriptor)
-    lm_boundary_vertices_rotated_versions = map(itemgetter('boundary_vertices'), landmark_descriptor)
-    lm_boundary_textures = map(itemgetter('boundary_texture'), landmark_descriptor)[0]
-    lm_vertice_normals = map(itemgetter('normal'), landmark_descriptor)
-    lm_striations = map(itemgetter('striation'), landmark_descriptor)
-    lm_striation_points_rotated_versions = [s[:,:2] if s is not None else None for s in lm_striations]
-    lm_striation_vecs_rotated_versions = [s[:,2:] if s is not None else None for s in lm_striations]
+    global striation_points
+    global striation_vecs
+      
+    global texture_template
         
+
+    b = time.time()
+    with open('/home/yuncong/csd395/landmark_descriptors/RS141_0001_yuncong_08212015001655_landmark_descriptors_%d.pkl'%lm_ind, 'r') as f:
+        landmark_descriptor_all_rotations = pickle.load(f)
+    print 'load', time.time() - b
+       
     vs_max = np.zeros((dm.image_height, dm.image_width))
     vs_argmax = np.zeros((dm.image_height, dm.image_width), np.uint8)
 
     vs_max_all_angles = []
-#     vs_texture_all_angles = []
-#     vs_boundary_all_angles = []
-#     vs_striation_all_angles = []
+    vs_texture_all_angles = []
+    vs_boundary_all_angles = []
+    vs_striation_all_angles = []
 
-    for theta in range(n_theta):
-    # theta = 4
-
-        print 'theta', theta
+    has_boundary = False
+    has_texture = False
+    has_striation = False
+    
+    for theta_i in range(n_theta):
+        print 'theta', theta_i
 
         b = time.time()
-
-        if lm_vertice_normals[theta] is not None:
         
-            ext_texture_sampling_positions = (lm_vertice_normals[theta][:, None] * sample_portion[None,:,None]).astype(np.int)
-            int_texture_sampling_positions = - ext_texture_sampling_positions
-
-        template_width, template_height = lm_bbox_rotated_versions[theta][:2]
-        centroid_local_x, centroid_local_y = lm_bbox_rotated_versions[theta][2:4]
-
+        landmark_descriptor = landmark_descriptor_all_rotations[theta_i]
+        
+        template_width, template_height, centroid_local_x, centroid_local_y = landmark_descriptor['bbox'][:4]
+        
         ys, xs = np.mgrid[centroid_local_y : dm.image_height  - (template_height - centroid_local_y) : grid_spacing[0], 
                           centroid_local_x : dm.image_width - (template_width - centroid_local_x) : grid_spacing[1]]
-
-        #         print dm.image_width, dm.image_height, template_width, template_height, centroid_local_x, centroid_local_y
-
-        if lm_texture_template_rotated_versions[theta] is not None:        
-            t2 = lm_texture_template_rotated_versions[theta][::10,::10].reshape((-1,n_texton))  
-        else:
-            t2 = None
+        
+        if 'boundary_normals' in landmark_descriptor and len(landmark_descriptor['boundary_normals']) > 0:
+            ext_texture_sampling_positions = (landmark_descriptor['boundary_normals'][:, None] * boundary_texture_sample_pos[None,:,None]).astype(np.int)
+            int_texture_sampling_positions = - ext_texture_sampling_positions
             
-        res =  Parallel(n_jobs=16)(delayed(compute_filter_response_at_points)(s, theta, t2, 
-                                          template_height, template_width,
-                                         lm_bbox_rotated_versions[theta][3],
-                                         lm_bbox_rotated_versions[theta][2]) 
-                                for s in np.array_split(zip(xs.flat, ys.flat), 16))
+            boundary_vertices = landmark_descriptor['boundary_vertices_local']
+            boundary_textures = np.c_[landmark_descriptor['boundary_int_texture'],
+                                      landmark_descriptor['boundary_ext_texture']]
+            has_boundary = True
+            
+        if 'textured_area_template' in landmark_descriptor:
+            texture_template = landmark_descriptor['textured_area_template'][::10,::10].reshape((-1,n_texton))
+            has_texture = True
+            
+        if 'striation_points_local' in landmark_descriptor and len(landmark_descriptor['striation_points_local']) > 0:
+            striation_points = landmark_descriptor['striation_points_local']
+            striation_vecs = landmark_descriptor['striation_vecs']
+            has_striation = True
+                    
+        res =  Parallel(n_jobs=16)(delayed(compute_filter_response_at_points)(s, 
+                                          has_boundary, has_texture, has_striation) 
+                                   for s in np.array_split(zip(xs.flat, ys.flat), 16))
 
         vs, vs_texture, vs_boundary, vs_striation = zip(*res)
-
+        
         # V = []
         # for s in np.array_split(zip(xs.flat, ys.flat), 16):
         # #         q = time.time()
@@ -256,6 +244,12 @@ def filter_image_with_landmark_descriptor(lm_ind):
         vs_boundary = np.reshape(np.concatenate(vs_boundary), xs.shape)
         vs_striation = np.reshape(np.concatenate(vs_striation), xs.shape)
 
+        vs_texture = vs_texture/np.nanmax(vs_texture)
+        vs_boundary = vs_boundary/np.nanmax(vs_boundary)
+        vs_striation = vs_striation/np.nanmax(vs_striation)
+        vs = np.nan_to_num(vs_texture) + np.nan_to_num(vs_boundary) + np.nan_to_num(vs_striation)
+        
+        # interpolate over entire image domain
         spline = RectBivariateSpline(range(centroid_local_x, dm.image_width + centroid_local_x - template_width, grid_spacing[1]), 
                                      range(centroid_local_y, dm.image_height + centroid_local_y - template_height, grid_spacing[0]),
                                      vs.T, bbox=[0, dm.image_width-1, 0, dm.image_height-1])
@@ -277,16 +271,17 @@ def filter_image_with_landmark_descriptor(lm_ind):
         vs_i_normalized = vs_i/np.nansum(vs_i)
         
         vs_max_all_angles.append(vs_i_normalized)
-#         vs_texture_all_angles.append(vs_texture)
-#         vs_boundary_all_angles.append(vs_boundary)
-#         vs_striation_all_angles.append(vs_striation)
+        vs_texture_all_angles.append(vs_texture)
+        vs_boundary_all_angles.append(vs_boundary)
+        vs_striation_all_angles.append(vs_striation)
         
         print time.time() - b
 
     dm.save_pipeline_result(np.asarray(vs_max_all_angles), 'responseMapLmAllRotations%d'%lm_ind, 'npy')
     
-#     return vs_max_all_angles, vs_texture_all_angles, vs_boundary_all_angles, vs_striation_all_angles
+    return vs_max_all_angles, vs_texture_all_angles, vs_boundary_all_angles, vs_striation_all_angles
+
     
-landmark_indices = [0,5,6,7,8,9,10,11,12,13]
+landmark_indices = range(17)
 for lm_ind in landmark_indices:
-    filter_image_with_landmark_descriptor(lm_ind)
+    _ = filter_image_with_landmark_descriptor(lm_ind)

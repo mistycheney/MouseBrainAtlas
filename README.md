@@ -1,4 +1,4 @@
-### BrainSaliencyDetection
+### Mouse Brain Atlas
 
 Project directory is `/oasis/projects/nsf/csd181/yuncong/Brain`
 

@@ -43,6 +43,10 @@ elif args.task == 'segment':
 	arg_tuples = [(args.stack, i) for i in slide_indices]
 	run_distributed3(script_root+'/segmentation.py', arg_tuples)
 
+elif args.task == 'directionality':
+	arg_tuples = [(args.stack, i) for i in slide_indices]
+	run_distributed3(os.environ['GORDON_REPO_DIR']+'/notebooks/compute_structure_tensor_map_executable.py', arg_tuples)
+
 # elif args.task == 'rotate_features':
 # 	arg_tuples = [(args.stack, i) for i in range(n_slides)]
 # 	run_distributed3(script_root+'/rotate_features.py', arg_tuples)

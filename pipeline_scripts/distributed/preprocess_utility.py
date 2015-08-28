@@ -45,14 +45,23 @@ def run_distributed3(script_name, arg_tuples):
 
 	temp_script = '/tmp/runall.sh'
 
-	with open(temp_script, 'w') as f:
-		for i, args in enumerate(arg_tuples):
-			hostid = 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts]
-			line = "ssh yuncong@%s python %s %s &" % (hostid, script_name, ' '.join(map(str, args)))
-			f.write(line + '\n')
+	n_jobs = len(arg_tuples)
 
-		f.write('wait\n')
+	with open(temp_script, 'w') as f:
+		arg_tuple_batches = [[arg_tuples[j] for j in range(n_hosts*i, min(n_hosts*(i+1), n_jobs))] for i in range(n_jobs/n_hosts+1)]
+
+		for arg_tuple_batch in arg_tuple_batches:
+			for i, args in enumerate(arg_tuple_batch):
+				hostid = 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts]
+				line = "ssh yuncong@%s python %s %s &" % (hostid, script_name, ' '.join(map(str, args)))
+				f.write(line + '\n')
+			f.write('wait\n')
+			f.write('echo =================\n')
+			f.write('echo a batch is done!\n')
+			f.write('echo =================\n')
+		f.write('echo =================\n')
 		f.write('echo all jobs are done!\n')
+		f.write('echo =================\n')
 
 	call('chmod u+x ' + temp_script, shell=True)
 	call(temp_script, shell=True)

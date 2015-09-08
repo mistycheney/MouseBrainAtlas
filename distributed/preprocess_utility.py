@@ -4,8 +4,8 @@ import sys
 
 def detect_responsive_nodes():
 
-	# hostids = range(31,39)+range(41,49)
-	hostids = range(31,39)+range(41,49) # parallel jobs on gcn-33 executes forever for some reason 
+	hostids = range(31,39)+range(41,49)
+	# hostids = range(31,33) + range(34,39) + range(41,49)
 	n_hosts = len(hostids)
 
 	import paramiko

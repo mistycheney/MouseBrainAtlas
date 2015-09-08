@@ -1,9 +1,16 @@
 import sys
 import os
 import datetime
-import numpy as np
+from random import random
+import subprocess
+import time
+import json
+from pprint import pprint
+import cPickle as pickle
+from itertools import groupby
+from operator import itemgetter
 
-import matplotlib.pyplot as plt
+import numpy as np
 
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_qt4agg import (
@@ -20,39 +27,24 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
+from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
+import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
 from skimage.color import label2rgb
-from random import random
 
-import subprocess
-
-import time
 from visualization_utilities import *
 
-sys.path.append(os.environ['LOCAL_REPO_DIR']+'/pipeline_scripts')
-
+sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/notebooks')
 if os.environ['DATASET_VERSION'] == '2014':	
 	from utilities2014 import *
 else:
 	from utilities import *
 
-import json
-
-from pprint import pprint
-
-import cPickle as pickle
-
-
-
-from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
-
 IGNORE_EXISTING_LABELNAMES = False
 
-from itertools import groupby
-from operator import itemgetter
 
 from enum import Enum
 class Mode(Enum):
@@ -356,40 +348,40 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
 
 		if self.curr_labeling['initial_polygons'] is not None:
-			for label, polygon_type, vertices in self.curr_labeling['initial_polygons']:
+			for label, typed_polygons in self.curr_labeling['initial_polygons'].iteritems():
+				for polygon_type, vertices in typed_polygons:
+					if polygon_type == PolygonType.CLOSED:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
+					elif polygon_type == PolygonType.OPEN:
+						polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
+					elif polygon_type == PolygonType.TEXTURE:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='/')
+					elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='x')
+					elif polygon_type == PolygonType.DIRECTION:
+						polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2, linestyle='dashed')
+					else:
+						raise 'polygon_type must be one of enum closed, open, texture'
 
-				if polygon_type == PolygonType.CLOSED:
-					polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-				elif polygon_type == PolygonType.OPEN:
-					polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-				elif polygon_type == PolygonType.TEXTURE:
-					polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='/')
-				elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
-					polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='x')
-				elif polygon_type == PolygonType.DIRECTION:
-					polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2, linestyle='dashed')
-				else:
-					raise 'polygon_type must be one of enum closed, open, texture'
+					xys = polygon.get_xy()
+					x0_y0_x1_y1 = np.r_[xys.min(axis=0), xys.max(axis=0)]
 
-				xys = polygon.get_xy()
-				x0_y0_x1_y1 = np.r_[xys.min(axis=0), xys.max(axis=0)]
+					polygon.set_picker(10.)
 
-				polygon.set_picker(10.)
+					self.axis.add_patch(polygon)
+					self.polygon_list.append(polygon)
+					self.polygon_bbox_list.append(x0_y0_x1_y1)
+					self.polygon_labels.append(label)
+					self.polygon_types.append(polygon_type)
 
-				self.axis.add_patch(polygon)
-				self.polygon_list.append(polygon)
-				self.polygon_bbox_list.append(x0_y0_x1_y1)
-				self.polygon_labels.append(label)
-				self.polygon_types.append(polygon_type)
+					curr_polygon_vertex_circles = []
+					for x,y in vertices:
+						curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[label + 1], alpha=.8)
+						curr_vertex_circle.set_picker(True)
+						self.axis.add_patch(curr_vertex_circle)
+						curr_polygon_vertex_circles.append(curr_vertex_circle)
 
-				curr_polygon_vertex_circles = []
-				for x,y in vertices:
-					curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[label + 1], alpha=.8)
-					curr_vertex_circle.set_picker(True)
-					self.axis.add_patch(curr_vertex_circle)
-					curr_polygon_vertex_circles.append(curr_vertex_circle)
-
-				self.all_polygons_vertex_circles.append(curr_polygon_vertex_circles)
+					self.all_polygons_vertex_circles.append(curr_polygon_vertex_circles)
 
 		# self.curr_polygon_vertices = []
 
@@ -610,7 +602,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.labeling['final_polygons'] = [(l, t, p.get_xy()/[self.dm.image_width, self.dm.image_height]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
 
 		typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
-		self.curr_labeling['final_polygons'] = [(label, list(group)) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))]
+		self.curr_labeling['final_polygons'] = dict([(label, [(t,p) for l,t,p in group]) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))])
 
 
 		self.curr_labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")

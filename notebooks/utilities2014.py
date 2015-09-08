@@ -1050,9 +1050,6 @@ def chi2s(h1s, h2s):
 def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
     
     
-    if np.issubdtype(src_rgb.dtype, np.uint8):
-        img = img_as_float(img)
-    
     if src_rgb.dtype == np.uint8:
         src_rgb = img_as_float(src_rgb)
 

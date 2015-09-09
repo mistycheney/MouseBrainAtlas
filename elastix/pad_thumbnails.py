@@ -11,6 +11,8 @@ import cv2
 import time
 
 from joblib import Parallel, delayed
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
 from utilities2014 import execute_command
 
 stack = sys.argv[1]

@@ -3,6 +3,9 @@
 import os
 import sys
 
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], '/notebooks'))
+from utilities2014 import execute_command
+
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
 last_sec = int(sys.argv[3])
@@ -10,7 +13,7 @@ last_sec = int(sys.argv[3])
 d = {'all_sections_str': ' '.join(map(str, range(first_sec, last_sec+1))),
      'all_sections_str2': ' '.join(map(str, range(first_sec+1, last_sec+1))),
      'all_servers_str': ','.join(['gcn-20-%d.sdsc.edu'%i for i in range(31,39)+range(41,49)]),
-     'script_dir': '/home/yuncong/csd395/elastix',
+     'script_dir': '/home/yuncong/csd395/Brain/elastix',
      'stack': stack,
      'first_sec': first_sec,
      'last_sec': last_sec

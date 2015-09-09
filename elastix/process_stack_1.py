@@ -3,8 +3,24 @@
 import os
 import sys
 
-sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], '/notebooks'))
-from utilities2014 import execute_command
+# sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+# from utilities2014 import execute_command
+
+from subprocess import check_output, call
+
+def execute_command(cmd):
+    print cmd
+
+    try:
+        retcode = call(cmd, shell=True)
+        if retcode < 0:
+            print >>sys.stderr, "Child was terminated by signal", -retcode
+        else:
+            print >>sys.stderr, "Child returned", retcode
+    except OSError as e:
+        print >>sys.stderr, "Execution failed:", e
+        raise e
+
 
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])

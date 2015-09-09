@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import sys
 
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
@@ -15,8 +16,8 @@ d = {'all_sections_str': ' '.join(map(str, range(first_sec, last_sec+1))),
      'last_sec': last_sec
     }
 
-execute_command("%(script_dir)s/pad_thumbnails.py %(stack)s %(first_sec)s %(last_sec)s"%d)
+execute_command("ssh gcn-20-33.sdsc.edu %(script_dir)s/pad_thumbnails.py %(stack)s %(first_sec)s %(last_sec)s"%d)
 
 execute_command("parallel -j 1 --filter-hosts -S %(all_servers_str)s %(script_dir)s/elastix_consecutive.py %(stack)s ::: %(all_sections_str2)s"%d)
 
-execute_command("%(script_dir)s/elastix_consecutive2.py %(stack)s %(first_sec)s %(last_sec)s"%d)
+execute_command("ssh gcn-20-33.sdsc.edu %(script_dir)s/elastix_consecutive2.py %(stack)s %(first_sec)s %(last_sec)s"%d)

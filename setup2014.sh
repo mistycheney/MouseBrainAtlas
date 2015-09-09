@@ -9,6 +9,7 @@ export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$P
 #source /opt/intel/composer_xe_2013_sp1.2.144/bin/compilervars.sh intel64
 
 export LOCAL_ELASTIX='$HOME/elastix_linux64_v4.7/bin/elastix'
+export GORDON_ELASTIX=$CSD395/elastix_linux64_v4.7/bin/elastix
 
 export GORDON_DATA_DIR=$CSD181/DavidData2014tif
 export GORDON_REPO_DIR=$CSD395/Brain

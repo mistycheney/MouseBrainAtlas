@@ -17,6 +17,21 @@ import cPickle as pickle
 
 from tables import *
 
+from subprocess import check_output, call
+
+def execute_command(cmd):
+    print cmd
+
+    try:
+        retcode = call(cmd, shell=True)
+        if retcode < 0:
+            print >>sys.stderr, "Child was terminated by signal", -retcode
+        else:
+            print >>sys.stderr, "Child returned", retcode
+    except OSError as e:
+        print >>sys.stderr, "Execution failed:", e
+        raise e
+
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html
 

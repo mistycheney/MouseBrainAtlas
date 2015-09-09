@@ -155,6 +155,6 @@
 
 // The pixel type and format of the resulting deformed moving image
 (ResultImagePixelType "unsigned char")
-(ResultImageFormat "jpg")
+(ResultImageFormat "tif")
 
 

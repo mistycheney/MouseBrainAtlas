@@ -11,7 +11,9 @@ import cv2
 import time
 
 from joblib import Parallel, delayed
-from utilities2014 import execute_command
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+from utilities2014 import execute_command, create_if_not_exists
 
 stack = sys.argv[1]
 x_thumbnail, y_thumbnail, w_thumbnail, h_thumbnail = map(int, sys.argv[2:6])
@@ -41,17 +43,9 @@ margin = 0
 canvas_width = max_width + 2 * margin
 canvas_height = max_height + 2 * margin
 
-padded_dir = '/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_padded'
-if not os.path.exists(padded_dir):
-    os.makedirs(padded_dir)
-
-warped_dir = '/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_warped'
-if not os.path.exists(warped_dir):
-    os.makedirs(warped_dir)
-    
-cropped_dir = '/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_cropped'
-if not os.path.exists(cropped_dir):
-    os.makedirs(cropped_dir)
+padded_dir = create_if_not_exists('/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_padded')
+warped_dir = create_if_not_exists('/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_warped')
+cropped_dir = create_if_not_exists('/home/yuncong/csd395/CSHL_data/' + stack + '_' + suffix + '_cropped')
 
 def pad_IM(img_fn):
     
@@ -107,9 +101,7 @@ def crop_IM(img_fn, x, y, w, h):
     crop_cmd = 'convert %(input_fn)s -crop %(w)dx%(h)d+%(x)d+%(y)d %(output_fn)s'%d
     execute_command(crop_cmd)
     
-if not os.path.exists('/home/yuncong/csd395/CSHL_data/%s_thumbnail_finalTransfParams.pkl'%stack):
-    execute_command('../elastix/successive_registration.py %s %d %d thumbnail' % (stack, first_sec, last_sec))
-    
+
 with open('/home/yuncong/csd395/CSHL_data/%s_thumbnail_finalTransfParams.pkl'%stack, 'r') as f:
     Ts = pickle.load(f)
     

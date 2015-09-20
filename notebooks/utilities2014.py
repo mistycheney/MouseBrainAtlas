@@ -19,6 +19,11 @@ from tables import *
 
 from subprocess import check_output, call
 
+def create_if_not_exists(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
 def execute_command(cmd):
     print cmd
 

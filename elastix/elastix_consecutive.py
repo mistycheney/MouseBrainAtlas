@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from subprocess import check_output, call
 import os 
 import numpy as np
 import sys
@@ -10,50 +9,37 @@ import re
 import cPickle as pickle
 from skimage.transform import warp, AffineTransform
 
-def create_if_not_exists(path):
-	if not os.path.exists(path):
-		os.makedirs(path)
-	return path
-
-def execute_command(cmd):
-	print cmd
-
-	try:
-		retcode = call(cmd, shell=True)
-		if retcode < 0:
-			print >>sys.stderr, "Child was terminated by signal", -retcode
-		else:
-			print >>sys.stderr, "Child returned", retcode
-	except OSError as e:
-		print >>sys.stderr, "Execution failed:", e
-		raise e
-
+# sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+# from utilities2014 import execute_command, create_if_not_exists
 
 stack = sys.argv[1]
-moving_secind = int(sys.argv[2])
 
-suffix = 'thumbnail'
+# moving_secind = int(sys.argv[2])
+first_moving_secind = int(sys.argv[2])
+last_moving_secind = int(sys.argv[3])
 
 DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 
-prefix = stack + '_' + suffix
+input_dir = os.path.join(DATA_DIR, stack + '_thumbnail_padded')
+output_dir = os.path.join(DATA_DIR, stack + '_thumbnail_output')
 
-im_dir = os.path.join(DATA_DIR, prefix + '_padded')
-output_dir = create_if_not_exists(os.path.join('/tmp', prefix + '_output'))
-consecutive_transf_filename = os.path.join(DATA_DIR, prefix + '_consecTransfParams.pkl')
+if not os.path.exists(output_dir):
+	os.makedirs(output_dir)
 
-n_sections = len(os.listdir(im_dir))
+n_sections = len(os.listdir(input_dir))
 
 rg_param = os.environ['GORDON_REPO_DIR'] + "/elastix/parameters/Parameters_Rigid.txt"
 
-d = {'elastix_bin': os.environ['GORDON_ELASTIX'], 'rg_param': rg_param}
+for moving_secind in range(first_moving_secind, last_moving_secind+1):
 
-ext = 'tif'
+	d = {'elastix_bin': os.environ['GORDON_ELASTIX'], 
+		'rg_param': rg_param,
+		'output_subdir': os.path.join(output_dir, 'output%dto%d'%(moving_secind, moving_secind-1)),
+		'fixed_fn': os.path.join(input_dir, stack+'_%04d'%(moving_secind-1)+'_thumbnail_trimmed_padded.tif'),
+		'moving_fn': os.path.join(input_dir, stack+'_%04d'%(moving_secind)+'_thumbnail_trimmed_padded.tif')
+		}
 
-d['output_subdir'] = os.path.join(output_dir, 'output%dto%d'%(moving_secind, moving_secind-1))
-d['fixed_fn'] = os.path.join(im_dir, stack+'_%04d'%(moving_secind-1)+'_'+suffix+'_padded.'+ext)
-d['moving_fn'] = os.path.join(im_dir, stack+'_%04d'%(moving_secind)+'_'+suffix+'_padded.'+ext)
+	if not os.path.exists(d['output_subdir']):
+		os.makedirs(d['output_subdir'])
 
-create_if_not_exists(d['output_subdir'])
-
-execute_command('%(elastix_bin)s -f %(fixed_fn)s -m %(moving_fn)s -out %(output_subdir)s -p %(rg_param)s' % d)
+	os.system('%(elastix_bin)s -f %(fixed_fn)s -m %(moving_fn)s -out %(output_subdir)s -p %(rg_param)s' % d)

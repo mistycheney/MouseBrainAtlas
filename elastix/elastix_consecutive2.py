@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
-from subprocess import check_output, call
 import os 
 import numpy as np
 import sys
-from skimage.io import imread, imsave
-import time
-import re
 import cPickle as pickle
-from skimage.transform import warp, AffineTransform
+
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+from utilities2014 import execute_command, create_if_not_exists
 
 def parameter_file_to_dict(filename):
 	d = {}
@@ -52,23 +50,6 @@ def parse_parameter_file(filepath):
 
 	return T
 
-def create_if_not_exists(path):
-	if not os.path.exists(path):
-		os.makedirs(path)
-	return path
-
-def execute_command(cmd):
-	print cmd
-
-	try:
-		retcode = call(cmd, shell=True)
-		if retcode < 0:
-			print >>sys.stderr, "Child was terminated by signal", -retcode
-		else:
-			print >>sys.stderr, "Child returned", retcode
-	except OSError as e:
-		print >>sys.stderr, "Execution failed:", e
-		raise e
 
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
@@ -80,8 +61,9 @@ DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 prefix = stack + '_' + suffix
 
 final_tranf_filename = os.path.join(DATA_DIR, prefix + '_finalTransfParams.pkl')
-output_dir = create_if_not_exists(os.path.join('/tmp', prefix + '_output'))
+# consecutive_transf_filename = os.path.join(DATA_DIR, stack + 'thumbnail_consecTransfParams.pkl')
 
+output_dir = os.path.join(DATA_DIR, prefix + '_output')
 
 transformation_to_previous_sec = {}
 for moving_secind in range(first_sec+1, last_sec+1):

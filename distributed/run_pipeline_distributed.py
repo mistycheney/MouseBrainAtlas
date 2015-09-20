@@ -33,7 +33,7 @@ slide_indices = [int(f) for f in s.split('\n') if len(f) > 0]
 end = len(slide_indices) - 1 if args.e == -1 else args.e
 slide_indices = [i for i in slide_indices if i >= args.b and i <= end]
 
-script_root = os.environ['GORDON_REPO_DIR']+'/pipeline_scripts/distributed'
+script_root = os.environ['GORDON_REPO_DIR']+'/distributed'
 
 if args.task == 'filter':
 	arg_tuples = [(args.stack, i) for i in slide_indices]

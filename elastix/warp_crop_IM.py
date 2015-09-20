@@ -13,6 +13,7 @@ output_dir = sys.argv[3]
 first_secind = int(sys.argv[4])
 last_secind = int(sys.argv[5])
 suffix = sys.argv[6]
+x,y,w,h = map(int, sys.argv[7:11])
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -44,7 +45,11 @@ for secind in range(first_secind, last_secind+1):
          'tx':T[0,2],
          'ty':T[1,2],
          'input_fn': os.path.join(input_dir, all_files[secind]),
-         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_warped.tif')
+         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_warped.tif'),
+         'x': '+' + str(x * scale_factor) if int(x)>=0 else str(x * scale_factor),
+         'y': '+' + str(y * scale_factor) if int(y)>=0 else str(y * scale_factor),
+         'w': str(w * scale_factor),
+         'h': str(h * scale_factor),
         }
 
-    os.system("convert %(input_fn)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop 2000x1500+0+0\! -flatten -compress lzw %(output_fn)s"%d)
+    os.system("convert %(input_fn)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)

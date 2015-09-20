@@ -2,6 +2,16 @@ from subprocess import call
 import os
 import sys
 
+
+def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
+	hostids = detect_responsive_nodes()
+	n_host = len(hostids)
+
+	secs_per_job = (last_sec - first_sec + 1)/float(n_host)
+	first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
+
+	return first_last_tuples
+
 def detect_responsive_nodes():
 
 	hostids = range(31,39)+range(41,49)

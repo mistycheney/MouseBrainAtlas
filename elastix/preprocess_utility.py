@@ -14,12 +14,12 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
 
 def detect_responsive_nodes():
 
-	hostids = range(31,39)+range(41,49)
-	# hostids = range(31,33) + range(34,39) + range(41,49)
+	#hostids = range(31,39)+range(41,49)
+	hostids = range(31,33) + range(34,39) + range(41,49)
 	n_hosts = len(hostids)
 
 	import paramiko
-	paramiko.util.log_to_file("filename.log")
+	#paramiko.util.log_to_file("filename.log")
 
 	ssh = paramiko.SSHClient()
 	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

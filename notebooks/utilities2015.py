@@ -15,6 +15,8 @@ from operator import itemgetter
 import json
 import cPickle as pickle
 
+import cv2
+
 from tables import *
 
 from subprocess import check_output, call
@@ -70,21 +72,22 @@ class DataManager(object):
                  vq_params_id=None,
                  stack=None,
                  resol='lossless',
-                 section=None):
+                 section=None,
+                 load_mask=True):
 
         self.data_dir = data_dir
         self.repo_dir = repo_dir
         self.params_dir = os.path.join(repo_dir, 'params')
 
-#         self.root_labelings_dir = labeling_dir
-#         self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
+        self.root_labelings_dir = labeling_dir
+        self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
     
-#         if os.path.isfile(self.labelnames_path):
-#             with open(self.labelnames_path, 'r') as f:
-#                 self.labelnames = [n.strip() for n in f.readlines()]
-#                 self.labelnames = [n for n in self.labelnames if len(n) > 0]
-#         else:
-#             self.labelnames = []
+        if os.path.isfile(self.labelnames_path):
+            with open(self.labelnames_path, 'r') as f:
+                self.labelnames = [n.strip() for n in f.readlines()]
+                self.labelnames = [n for n in self.labelnames if len(n) > 0]
+        else:
+            self.labelnames = []
 
         self.root_results_dir = result_dir
 
@@ -115,6 +118,9 @@ class DataManager(object):
         if section is not None:
             self.set_slice(section)
 
+        if load_mask:
+            self._load_mask()
+
 #     def set_labelnames(self, labelnames):
 #         self.labelnames = labelnames
 
@@ -129,7 +135,34 @@ class DataManager(object):
         
     def set_resol(self, resol):
         self.resol = resol
-        
+    
+
+    def _load_mask(self):
+
+        self.mask = np.zeros((self.image_height, self.image_width), np.bool)
+
+        if self.stack == 'MD593':
+            self.mask[1848:1848+4807, 924:924+10186] = True
+        elif self.stack == 'MD594':
+            self.mask[1081:1081+6049, 552:552+12443] = True
+        else:
+            raise 'mask is not specified'
+
+        xs_valid = np.any(self.mask, axis=0)
+        ys_valid = np.any(self.mask, axis=1)
+        self.xmin = np.where(xs_valid)[0][0]
+        self.xmax = np.where(xs_valid)[0][-1]
+        self.ymin = np.where(ys_valid)[0][0]
+        self.ymax = np.where(ys_valid)[0][-1]
+
+        # rs, cs = np.where(self.mask)
+        # self.ymax = rs.max()
+        # self.ymin = rs.min()
+        # self.xmax = cs.max()
+        # self.xmin = cs.min()
+        self.h = self.ymax-self.ymin+1
+        self.w = self.xmax-self.xmin+1
+
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
@@ -141,20 +174,9 @@ class DataManager(object):
 
         self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
 
-        if self.stack == 'MD593':
-            self.mask = np.zeros((self.image_height, self.image_width), np.bool)
-            self.mask[1848:1848+4807, 924:924+10186] = True
-            
-            rs, cs = np.where(self.mask)
-            self.ymax = rs.max()
-            self.ymin = rs.min()
-            self.xmax = cs.max()
-            self.xmin = cs.min()
-            self.h = self.ymax-self.ymin+1
-            self.w = self.xmax-self.xmin+1
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
-#         self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
+        self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
         
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
         
@@ -162,12 +184,12 @@ class DataManager(object):
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
 
-    def set_image(self, stack, slice_ind):
-        self.set_stack(stack)
-        self.set_slice(slice_ind)
-        self._load_image()
+    # def set_image(self, stack, slice_ind):
+    #     self.set_stack(stack)
+    #     self.set_slice(slice_ind)
+    #     self._load_image()
 
-    def _get_image_filepath(self, stack=None, resol=None, section=None):
+    def _get_image_filepath(self, stack=None, resol=None, section=None, version='rgb-jpg'):
         if stack is None:
             stack = self.stack
         if resol is None:
@@ -177,27 +199,57 @@ class DataManager(object):
             
         slice_str = '%04d' % section
 
-        image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped')
-        image_name = '_'.join([stack, slice_str, resol, 'warped'])
-        image_path = os.path.join(image_dir, image_name + '.tif')
+        if version == 'rgb-jpg':
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_downscaled')
+            image_name = '_'.join([stack, slice_str, resol, 'warped_downscaled'])
+            image_path = os.path.join(image_dir, image_name + '.jpg')
+        # elif version == 'gray-jpg':
+        #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
+        #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
+        #     image_path = os.path.join(image_dir, image_name + '.jpg')
+        elif version == 'gray':
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale')
+            image_name = '_'.join([stack, slice_str, resol, 'warped_grayscale'])
+            image_path = os.path.join(image_dir, image_name + '.tif')
+        elif version == 'rgb':
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped')
+            image_name = '_'.join([stack, slice_str, resol, 'warped'])
+            image_path = os.path.join(image_dir, image_name + '.tif')
          
         return image_path
-        
-    def _load_image(self):
+    
+    def _read_image(self, image_filename):
+        if image_filename.endswith('tif') or image_filename.endswith('tiff'):
+            from PIL.Image import open
+            img = np.array(open(image_filename))/255.
+        else:
+            img = imread(image_filename)
+        return img
+
+    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg']):
         
         assert self.image_name is not None, 'Image is not specified'
 
-        image_filename = self._get_image_filepath()
-        assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-
-        if image_filename.endswith('tif') or image_filename.endswith('tiff'):
-            from PIL.Image import open
-            self.image_rgb = np.array(open(image_filename))/255.
-        else:
-            self.image_rgb = imread(image_filename, as_grey=False)
+        if 'rgb-jpg' in versions and not hasattr(self, 'image_rgb_jpg'):
+            image_filename = self._get_image_filepath(version='rgb-jpg')
+            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+            self.image_rgb_jpg = self._read_image(image_filename)
         
+        if 'rgb' in versions and not hasattr(self, 'image_rgb'):
+            image_filename = self._get_image_filepath(version='rgb')
+            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+            self.image_rgb = self._read_image(image_filename)
+
+        if 'gray' in versions and not hasattr(self, 'image'):
+            image_filename = self._get_image_filepath(version='gray')
+            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+            self.image = self._read_image(image_filename)
+
+        # elif format == 'gray-rgb':
+        #     self.image = rgb2gray(self.image_rgb)
+
         # self.image_rgb = imread(image_filename, as_grey=False)
-        self.image = rgb2gray(self.image_rgb)
+#         self.image = rgb2gray(self.image_rgb)
         
 #         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
 #         self.mask = imread(mask_filename, as_grey=True) > 0
@@ -205,19 +257,24 @@ class DataManager(object):
     def set_gabor_params(self, gabor_params_id):
         
         self.gabor_params_id = gabor_params_id
-        self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
-        self._generate_kernels(self.gabor_params)
+        # self._generate_kernels(self.gabor_params)
     
-    def _generate_kernels(self, gabor_params):
+    def _generate_kernels(self, gabor_params_id=None):
         
         from skimage.filter import gabor_kernel
-    
-        theta_interval = gabor_params['theta_interval']
+
+        if gabor_params_id is None:
+            assert hasattr(self, 'gabor_params_id')
+            gabor_params_id = self.gabor_params_id
+
+        self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
+        
+        theta_interval = self.gabor_params['theta_interval']
         self.n_angle = int(180/theta_interval)
-        freq_step = gabor_params['freq_step']
-        freq_max = 1./gabor_params['min_wavelen']
-        freq_min = 1./gabor_params['max_wavelen']
-        bandwidth = gabor_params['bandwidth']
+        freq_step = self.gabor_params['freq_step']
+        freq_max = 1./self.gabor_params['min_wavelen']
+        freq_min = 1./self.gabor_params['max_wavelen']
+        bandwidth = self.gabor_params['bandwidth']
         self.n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
         self.frequencies = freq_max/freq_step**np.arange(self.n_freq)
         self.angles = np.arange(0, self.n_angle)*np.deg2rad(theta_interval)
@@ -243,39 +300,91 @@ class DataManager(object):
     def set_segmentation_params(self, segm_params_id):
         
         self.segm_params_id = segm_params_id
-        self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
+        if segm_params_id == 'gridsize200':
+            self.grid_size = 200
+        elif segm_params_id == 'gridsize100':
+            self.grid_size = 100
+        elif segm_params_id == 'gridsize50':
+            self.grid_size = 50
+        else:
+            self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
+        # else:
+        #     raise 'segm_params_id %s not recognized' % segm_params_id
 
     def set_vq_params(self, vq_params_id):
         
         self.vq_params_id = vq_params_id
         self.vq_params = json.load(open(os.path.join(self.params_dir, 'vq', 'vq_' + vq_params_id + '.json'), 'r')) if vq_params_id is not None else None
         
-            
-    def _get_result_filename(self, result_name, ext):
-
-        if result_name in ['textons', 'landmarkGroups']:
-            results_dir = os.path.join(os.environ['GORDON_RESULT_DIR'], self.stack)
-            result_filename = os.path.join(results_dir, self.stack + '_' + self.resol + '_' + result_name + '.' + ext)
-        else:
-            result_filename = os.path.join(self.results_dir, self.image_name + '_' + result_name + '.' + ext)
+    
+    def _param_str(self, param_dependencies):
+        param_strs = []
+        if 'gabor' in param_dependencies:
+            param_strs.append('gabor-' + self.gabor_params_id)
+        if 'segm' in param_dependencies:
+            param_strs.append('segm-' + self.segm_params_id)
+        if 'vq' in param_dependencies:
+            param_strs.append('vq-' + self.vq_params_id)
+        return '-'.join(param_strs)
         
+    def _refresh_result_info(self):
+        with open(self.repo_dir + '/notebooks/results.csv', 'r') as f:
+            f.readline()
+            self.result_info = {}
+            for row in csv.DictReader(f, delimiter=' '):
+                self.result_info[row['name']] = row
+        
+        
+    def _get_result_filename(self, result_name):
+
+        if not hasattr(self, 'result_info'):
+            with open(self.repo_dir + '/notebooks/results.csv', 'r') as f:
+                f.readline()
+                self.result_info = {}
+                for row in csv.DictReader(f, delimiter=' '):
+                    self.result_info[row['name']] = row
+                
+        info = self.result_info[result_name]
+        
+        if info['dir'] == '0':
+            result_dir = self.results_dir
+            prefix = self.image_name
+        elif info['dir'] == '1':
+            result_dir = os.path.join(os.environ['GORDON_RESULT_DIR'], self.stack)
+            prefix = self.stack + '_' + self.resol
+
+        else:
+            raise Exception('unrecognized result dir specification')
+            
+        if info['param_dep'] == '0':
+            param_dep = ['gabor']
+        elif info['param_dep'] == '1':
+            param_dep = ['segm']
+        elif info['param_dep'] == '2':
+            param_dep = ['gabor', 'vq']
+        elif info['param_dep'] == '3':
+            param_dep = ['gabor', 'segm', 'vq']
+        else:
+            raise Exception('unrecognized result param_dep specification')
+            
+        result_filename = os.path.join(result_dir, '_'.join([prefix, self._param_str(param_dep), 
+                                                             result_name + '.' + info['extension']]))
+
         return result_filename
             
-
-    def check_pipeline_result(self, result_name, ext):
+    def check_pipeline_result(self, result_name):
 #         if REGENERATE_ALL_RESULTS:
 #             return False
-        result_filename = self._get_result_filename(result_name, ext)
+        result_filename = self._get_result_filename(result_name)
         return os.path.exists(result_filename)
 
-    def load_pipeline_result(self, result_name, ext, is_rgb=None, section=None):
+    def load_pipeline_result(self, result_name, is_rgb=None, section=None):
         
-#         if REGENERATE_ALL_RESULTS:
-#             raise
-        result_filename = self._get_result_filename(result_name, ext)
-
+        result_filename = self._get_result_filename(result_name)
+        ext = self.result_info[result_name]['extension']
+        
         if ext == 'npy':
-            assert os.path.exists(result_filename), "%d: Pipeline result '%s' does not exist" % (self.slice_ind, result_name + '.' + ext)
+            assert os.path.exists(result_filename), "%d: Pipeline result '%s' does not exist, trying to find %s" % (self.slice_ind, result_name + '.' + ext, result_filename)
             data = np.load(result_filename)
         elif ext == 'tif' or ext == 'png' or ext == 'jpg':
             data = imread(result_filename, as_grey=False)
@@ -286,14 +395,14 @@ class DataManager(object):
             with open_file(result_filename, mode="r") as f:
                 data = f.get_node('/data').read()
 
-
         # print 'loaded %s' % result_filename
 
         return data
         
-    def save_pipeline_result(self, data, result_name, ext, is_rgb=None, section=None):
+    def save_pipeline_result(self, data, result_name, is_rgb=None, section=None):
         
-        result_filename = self._get_result_filename(result_name, ext)
+        result_filename = self._get_result_filename(result_name)
+        ext = self.result_info[result_name]['extension']
 
         if ext == 'npy':
             np.save(result_filename, data)
@@ -310,57 +419,57 @@ class DataManager(object):
         print 'saved %s' % result_filename
         
 
-#     def load_labeling(self, stack=None, section=None, labeling_name=None):
-#         labeling_fn = self._load_labeling_path(stack, section, labeling_name)
-#         labeling = pickle.load(open(labeling_fn, 'r'))
-#         return labeling
+    def load_labeling(self, stack=None, section=None, labeling_name=None):
+        labeling_fn = self._load_labeling_path(stack, section, labeling_name)
+        labeling = pickle.load(open(labeling_fn, 'r'))
+        return labeling
 
-#     def _load_labeling_preview_path(self, stack=None, section=None, labeling_name=None):
-#         if stack is None:
-#             stack = self.stack
-#         if section is None:
-#             section = self.slice_ind
+    def _load_labeling_preview_path(self, stack=None, section=None, labeling_name=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
 
-#         if labeling_name.endswith('pkl'): # full filename
-#             return os.path.join(self.labelings_dir, labeling_name[:-4]+'.jpg')
-#         else:
-#             return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.jpg')
+        if labeling_name.endswith('pkl'): # full filename
+            return os.path.join(self.labelings_dir, labeling_name[:-4]+'.jpg')
+        else:
+            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.jpg')
         
-#     def _load_labeling_path(self, stack=None, section=None, labeling_name=None):
-#         if stack is None:
-#             stack = self.stack
-#         if section is None:
-#             section = self.slice_ind
+    def _load_labeling_path(self, stack=None, section=None, labeling_name=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
 
-#         if labeling_name.endswith('pkl'): # full filename
-#             return os.path.join(self.labelings_dir, labeling_name)
-#         else:
-#             return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.pkl')
+        if labeling_name.endswith('pkl'): # full filename
+            return os.path.join(self.labelings_dir, labeling_name)
+        else:
+            return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, labeling_name]) + '.pkl')
         
 
-#     def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
-#         return imread(self._load_labeling_preview_path(stack, section, labeling_name))
+    def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
+        return imread(self._load_labeling_preview_path(stack, section, labeling_name))
         
-#     def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
+    def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
         
-#         try:
-#             os.makedirs(self.labelings_dir)
-#         except:
-#             pass
+        try:
+            os.makedirs(self.labelings_dir)
+        except:
+            pass
 
-#         new_labeling_fn = self._load_labeling_path(labeling_name=new_labeling_name)
-#         # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
-#         pickle.dump(labeling, open(new_labeling_fn, 'w'))
-#         print 'Labeling saved to', new_labeling_fn
+        new_labeling_fn = self._load_labeling_path(labeling_name=new_labeling_name)
+        # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.pkl')
+        pickle.dump(labeling, open(new_labeling_fn, 'w'))
+        print 'Labeling saved to', new_labeling_fn
 
-#         new_preview_fn = self._load_labeling_preview_path(labeling_name=new_labeling_name)
+        # new_preview_fn = self._load_labeling_preview_path(labeling_name=new_labeling_name)
 
-#         # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
-#         data = self._regulate_image(labelmap_vis, is_rgb=True)
-#         imsave(new_preview_fn, data)
-#         print 'Preview saved to', new_preview_fn
+        # # os.path.join(self.labelings_dir, self.image_name + '_' + new_labeling_name + '.tif')
+        # data = self._regulate_image(labelmap_vis, is_rgb=True)
+        # imsave(new_preview_fn, data)
+        # print 'Preview saved to', new_preview_fn
 
-#         return new_labeling_fn
+        return new_labeling_fn
         
     def _regulate_image(self, img, is_rgb=None):
         """
@@ -383,8 +492,86 @@ class DataManager(object):
         return img
     
     
-    def visualize_edge_sets(self, edge_sets, img=None, text_size=0, colors=None, directed=False,
-                           neighbors=None, text=None):
+    # def visualize_segmentation(self, bg='rgb-jpg', show_sp_index=True):
+
+    #     if bg == 'originalImage':
+    #         if not hasattr(self, 'image'):
+    #             self._load_image(format='rgb-jpg')
+    #         viz = self.image
+    #     elif bg == 'transparent':
+
+
+    #     img_superpixelized = mark_boundaries(viz, self.segmentation)
+    #     img_superpixelized = img_as_ubyte(img_superpixelized)
+    #     dm.save_pipeline_result(img_superpixelized, 'segmentationWithoutText')
+
+    #     for s in range(n_superpixels):
+    #         cv2.putText(img_superpixelized, str(s), 
+    #                     tuple(np.floor(sp_centroids[s][::-1]).astype(np.int) - np.array([10,-10])), 
+    #                     cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,255)), 1)
+
+
+
+    def visualize_edge_set(self, edges, bg=None, show_edge_index=False, c=None):
+        
+        import cv2
+        
+        if not hasattr(self, 'edge_coords'):
+            self.edge_coords = self.load_pipeline_result('edgeCoords')
+           
+        if not hasattr(self, 'edge_midpoints'):
+            self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
+            
+        if not hasattr(self, 'edge_vectors'):
+            self.edge_vectors = self.load_pipeline_result('edgeVectors')
+
+        if bg == 'originalImage':
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
+        elif bg == 'segmentationWithText':
+            if not hasattr(self, 'segmentation_vis'):
+                self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
+            segmentation_viz = self.segmentation_viz
+        elif bg == 'segmentationWithoutText':
+            if not hasattr(self, 'segmentation_notext_vis'):
+                self.segmentation_notext_viz = self.load_pipeline_result('segmentationWithoutText')
+            segmentation_viz = self.segmentation_notext_viz
+        else:
+            segmentation_viz = bg
+            
+        vis = img_as_ubyte(segmentation_viz[self.ymin:self.ymax+1, self.xmin:self.xmax+1])
+        
+        directed = isinstance(list(edges)[0], tuple)
+        
+        if c is None:
+            c = [255,0,0]
+        
+        for e_ind, edge in enumerate(edges):
+                
+            if directed:
+                e = frozenset(edge)
+                midpoint = self.edge_midpoints[e]
+                end = midpoint + 10 * self.edge_vectors[edge]
+                cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
+                         tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
+                         (c[0],c[1],c[2]), 5)
+                stroke_pts = self.edge_coords[e]
+            else:
+                stroke_pts = self.edge_coords[edge]
+
+            for x, y in stroke_pts:
+                cv2.circle(vis, (x-self.xmin, y-self.ymin), 5, c, -1)
+
+            if show_edge_index:
+                cv2.putText(vis, str(e_ind), 
+                            tuple(np.floor(midpoint + [-50, 30] - (self.xmin, self.ymin)).astype(np.int)), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1, ((c[0],c[1],c[2])), 3)
+        
+        return vis
+    
+    
+    def visualize_edge_sets(self, edge_sets, bg='segmentationWithText', show_set_index=0, colors=None, neighbors=None, labels=None):
         '''
         Return a visualization of multiple sets of edgelets
         '''
@@ -392,28 +579,34 @@ class DataManager(object):
         import cv2
         
         if not hasattr(self, 'edge_coords'):
-            self.edge_coords = self.load_pipeline_result('edgeCoords', 'pkl')
+            self.edge_coords = self.load_pipeline_result('edgeCoords')
            
         if not hasattr(self, 'edge_midpoints'):
-            self.edge_midpoints = self.load_pipeline_result('edgeMidpoints', 'pkl')
+            self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
         if not hasattr(self, 'edge_vectors'):
-            self.edge_vectors = self.load_pipeline_result('edgeVectors', 'pkl')
+            self.edge_vectors = self.load_pipeline_result('edgeVectors')
 
-        if not hasattr(self, 'image'):
-            self._load_image()
-
-        # if img is None:
-        #     # img = self.image.copy()
-        #     # img_rgb = self.image_rgb.copy()
-        # else:
-        #     img_rgb = gray2rgb(img) if img.ndim == 2 else img.copy()
-        
         if colors is None:
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
-
-        vis = img_as_ubyte(self.image_rgb)
-
+        
+        if bg == 'originalImage':
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
+        elif bg == 'segmentationWithText':
+            if not hasattr(self, 'segmentation_vis'):
+                self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
+            segmentation_viz = self.segmentation_viz
+        elif bg == 'segmentationWithoutText':
+            if not hasattr(self, 'segmentation_notext_vis'):
+                self.segmentation_notext_viz = self.load_pipeline_result('segmentationWithoutText')
+            segmentation_viz = self.segmentation_notext_viz
+        else:
+            segmentation_viz = bg
+            
+        vis = img_as_ubyte(segmentation_viz[self.ymin:self.ymax+1, self.xmin:self.xmax+1])
+            
         # if input are tuples, draw directional sign
         if len(edge_sets) == 0:
             return vis
@@ -424,11 +617,11 @@ class DataManager(object):
             
 #             junction_pts = []
             
-            if text is None:
+            if labels is None:
                 s = str(edgeSet_ind)
                 c = colors[edgeSet_ind%len(colors)].astype(np.int)
             else:
-                s = text[edgeSet_ind]
+                s = labels[edgeSet_ind]
                 c = colors[int(s)%len(colors)].astype(np.int)
             
             for e_ind, edge in enumerate(edges):
@@ -437,16 +630,16 @@ class DataManager(object):
                     e = frozenset(edge)
                     midpoint = self.edge_midpoints[e]
                     end = midpoint + 10 * self.edge_vectors[edge]
-                    cv2.line(vis, tuple(midpoint.astype(np.int)), tuple(end.astype(np.int)), (c[0],c[1],c[2]), 5)
+                    cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
+                             tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
+                             (c[0],c[1],c[2]), 5)
                     stroke_pts = self.edge_coords[e]
                 else:
                     stroke_pts = self.edge_coords[edge]
                 
-                t = time.time()
                 for x, y in stroke_pts:
-                    cv2.circle(vis, (x,y), 5, c, -1)
+                    cv2.circle(vis, (x-self.xmin, y-self.ymin), 5, c, -1)
 
-                print time.time() - t
                     # vis[max(0, y-5):min(self.image_height, y+5), 
                     #     max(0, x-5):min(self.image_width, x+5)] = (c[0],c[1],c[2],1) if vis.shape[2] == 4 else c
                                                 
@@ -459,7 +652,7 @@ class DataManager(object):
 #                         junction_pt = (pts[-1 if am[0]==1 else 0] + pts2[-1 if am[1]==1 else 0])/2
 #                         junction_pts.append(junction_pt)
                  
-            if text_size > 0:
+            if show_set_index:
 
                 if directed:
                     centroid = np.mean([self.edge_midpoints[frozenset(e)] for e in edges], axis=0)
@@ -467,15 +660,16 @@ class DataManager(object):
                     centroid = np.mean([self.edge_midpoints[e] for e in edges], axis=0)
 
                 cv2.putText(vis, s, 
-                            tuple(np.floor(centroid + [-100, 100]).astype(np.int)), 
+                            tuple(np.floor(centroid + [-100, 100] - (self.xmin, self.ymin)).astype(np.int)), 
                             cv2.FONT_HERSHEY_DUPLEX,
-                            text_size, ((c[0],c[1],c[2])), 3)
+                            3, ((c[0],c[1],c[2])), 3)
             
 #             for p in junction_pts:
 #                 cv2.circle(vis, tuple(np.floor(p).astype(np.int)), 5, (255,0,0), -1)
         
         return vis
 
+    
     def visualize_kernels(self):
         fig, axes = plt.subplots(self.n_freq, self.n_angle, figsize=(20,20))
 
@@ -486,54 +680,57 @@ class DataManager(object):
         plt.show()
 
 
-    def visualize_cluster(self, cluster, bg='segmentationWithText', text=False,
-                        highlight_seed=False):
+    def visualize_cluster(self, cluster, bg='segmentationWithText', seq_text=False, highlight_seed=True,
+                         ymin=None, xmin=None, ymax=None, xmax=None):
 
-        # if not hasattr(self, 'segmentation'):
-        #     self.segmentation = self.load_pipeline_result('segmentation', 'npy')
-
+        if ymin is None:
+            ymin=self.ymin
+        if xmin is None:
+            xmin=self.xmin
+        if ymax is None:
+            ymax=self.ymax
+        if xmax is None:
+            xmax=self.xmax
+        
         if not hasattr(self, 'sp_coords'):
-            self.sp_coords = self.load_pipeline_result('spCoords', 'npy')
-
+            self.sp_coords = self.load_pipeline_result('spCoords')
+                    
         if bg == 'originalImage':
-            segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
-            segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+            if not hasattr(self, 'segmentation_vis'):
+                self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
+            segmentation_viz = self.segmentation_viz
         elif bg == 'segmentationWithoutText':
-            segmentation_vis = self.load_pipeline_result('segmentationWithoutText', 'jpg')
+            if not hasattr(self, 'segmentation_notext_vis'):
+                self.segmentation_notext_viz = self.load_pipeline_result('segmentationWithoutText')
+            segmentation_viz = self.segmentation_notext_viz
         else:
-            segmentation_vis = bg
+            segmentation_viz = bg
 
         msk = -1*np.ones((self.image_height, self.image_width), np.int8)
 
         for i, c in enumerate(cluster):
             rs = self.sp_coords[c][:,0]
             cs = self.sp_coords[c][:,1]
-            if highlight_seed:
-                if i == 0:        
-                    msk[rs, cs] = 1
-                else:
-                    msk[rs, cs] = 0
+            if highlight_seed and i == 0:
+                msk[rs, cs] = 1
             else:
                 msk[rs, cs] = 0
 
-        viz_msk = label2rgb(msk[self.ymin:self.ymax+1, self.xmin:self.xmax+1], image=segmentation_vis[self.ymin:self.ymax+1, self.xmin:self.xmax+1])
-        viz_msk = img_as_ubyte(viz_msk[...,::-1])
+        viz_msk = label2rgb(msk[ymin:ymax+1, xmin:xmax+1], image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
 
-        # viz = dm.image_rgb.copy()
-        # viz[dm.mask] = viz_msk.reshape((-1,3))
+        if seq_text:
+            viz_msk = img_as_ubyte(viz_msk[...,::-1])
 
-        # vis = label2rgb(msk, image=segmentation_vis)
-        # vis = img_as_ubyte(vis[...,::-1])
-
-        if text:
             if not hasattr(self, 'sp_centroids'):
-                self.sp_centroids = self.load_pipeline_result('spCentroids', 'npy')
+                self.sp_centroids = self.load_pipeline_result('spCentroids')
 
             import cv2
             for i, sp in enumerate(cluster):
-                cv2.putText(viz_msk, str(i), tuple((self.sp_centroids[sp, ::-1] - (self.xmin, self.ymin) - (10,-10)).astype(np.int)), 
-                            cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
+                cv2.putText(viz_msk, str(i), tuple((self.sp_centroids[sp, ::-1] - (xmin, ymin) - (10,-10)).astype(np.int)), cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
 
         return viz_msk
 
@@ -547,15 +744,21 @@ class DataManager(object):
         return viz
         
     
-    def visualize_multiple_clusters(self, clusters, alpha_blend=True, colors=None):
+    def visualize_multiple_clusters(self, clusters, bg='segmentationWithText', alpha_blend=False, colors=None,
+                                    show_cluster_indices=False,
+                                    ymin=None, xmin=None, ymax=None, xmax=None):
         
+        if ymin is None:
+            ymin = self.ymin
+        if xmin is None:
+            xmin = self.xmin
+        if ymax is None:
+            ymax = self.ymax
+        if xmax is None:
+            xmax = self.xmax
+
         if not hasattr(self, 'segmentation'):
-            self.segmentation = self.load_pipeline_result('segmentation', 'npy')
-
-        if not hasattr(self, 'mask'):
-            self._load_image()
-
-        segmentation_vis = self.load_pipeline_result('segmentationWithText', 'jpg')
+            self.segmentation = self.load_pipeline_result('segmentation')
 
         if len(clusters) == 0:
             return segmentation_vis
@@ -565,6 +768,22 @@ class DataManager(object):
             
         n_superpixels = self.segmentation.max() + 1
         
+
+        if bg == 'originalImage':
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
+        elif bg == 'segmentationWithText':
+            if not hasattr(self, 'segmentation_vis'):
+                self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
+            segmentation_viz = self.segmentation_viz
+        elif bg == 'segmentationWithoutText':
+            if not hasattr(self, 'segmentation_notext_vis'):
+                self.segmentation_notext_viz = self.load_pipeline_result('segmentationWithoutText')
+            segmentation_viz = self.segmentation_notext_viz
+        else:
+            segmentation_viz = bg
+
         mask_alpha = .4
         
         if alpha_blend:
@@ -572,19 +791,18 @@ class DataManager(object):
             for ci, c in enumerate(clusters):
                 m =  np.zeros((n_superpixels,), dtype=np.float)
                 m[list(c)] = mask_alpha
-                alpha = m[self.segmentation]
-                alpha[~self.mask] = 0
+                alpha = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
+                alpha[~self.mask[ymin:ymax+1, xmin:xmax+1]] = 0
                 
                 mm = np.zeros((n_superpixels,3), dtype=np.float)
                 mm[list(c)] = colors[ci]
-                blob = mm[self.segmentation]
+                blob = mm[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
                 
                 if ci == 0:
-                    vis = alpha_blending(blob, gray2rgb(self.image), alpha, 
-                                        1.*np.ones((self.image_height, self.image_width)))
+                    vis = alpha_blending(blob, segmentation_viz[ymin:ymax+1, xmin:xmax+1], alpha, 1.)
                 else:
                     vis = alpha_blending(blob, vis[..., :-1], alpha, vis[..., -1])
-                    
+
         else:
         
             n_superpixels = self.segmentation.max() + 1
@@ -595,23 +813,32 @@ class DataManager(object):
             for ci, c in enumerate(clusters):
                 m[list(c)] = ci
 
-            a = m[self.segmentation]
-            a[~self.mask] = -1
+            a = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
+            a[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
         #     a = -1*np.ones_like(segmentation)
         #     for ci, c in enumerate(clusters):
         #         for i in c:
         #             a[segmentation == i] = ci
 
-            vis = label2rgb(a, image=segmentation_vis)
+            vis = label2rgb(a, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
 
-            vis = img_as_ubyte(vis[...,::-1])
+        # vis = img_as_ubyte(vis[..., ::-1])
+        vis = img_as_ubyte(vis)
 
-        #     for ci, c in enumerate(clusters):
-        #         for i, sp in enumerate(c):
-        #             vis = cv2.putText(vis, str(i), 
-        #                               tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
-        #                               cv2.FONT_HERSHEY_DUPLEX,
-        #                               1., ((0,255,255)), 1)
+        if show_cluster_indices:
+            if not hasattr(self, 'sp_centroids'):
+                self.sp_centroids = self.load_pipeline_result('spCentroids')
+
+            for ci, cl in enumerate(clusters):
+                cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
+                cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
+
+                # for i, sp in enumerate(c):
+                #     vis = cv2.putText(vis, str(i), 
+                #                       tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
+                #                       cv2.FONT_HERSHEY_DUPLEX,
+                #                       1., ((0,255,255)), 1)
         
         return vis.copy()
 

@@ -14,7 +14,7 @@ parser.add_argument("first_sec", type=int, help="first slice")
 parser.add_argument("last_sec", type=int, help="last slice")
 parser.add_argument("interval", type=int, help="slice interval to take feature samples")
 parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
-parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
+# parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
 parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
 args = parser.parse_args()
 
@@ -24,18 +24,18 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
 from utilities2015 import *
 
-os.environ['GORDON_DATA_DIR'] = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-os.environ['GORDON_REPO_DIR'] = '/oasis/projects/nsf/csd395/yuncong/Brain'
-os.environ['GORDON_RESULT_DIR'] = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_results'
-
 dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-  repo_dir=os.environ['GORDON_REPO_DIR'], 
-  result_dir=os.environ['GORDON_RESULT_DIR'], labeling_dir=os.environ['GORDON_LABELING_DIR'],
-  stack=args.stack_name)
+                 repo_dir=os.environ['GORDON_REPO_DIR'], 
+                 result_dir=os.environ['GORDON_RESULT_DIR'], 
+                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
+                 gabor_params_id=args.gabor_params_id, 
+                 # segm_params_id=args.segm_params_id, 
+                 vq_params_id=args.vq_params_id,
+                 stack=args.stack_name)
 
 #===================================================
 
-if dm.check_pipeline_result('textons', 'npy'):
+if dm.check_pipeline_result('textons'):
 	print "textons.npy already exists, skip"
 
 else:
@@ -54,7 +54,7 @@ else:
 	# 	all_centroids.append(centroids)
 	# centroids = np.vstack(all_centroids)
 
- #   	print 'done in', time.time() - t, 'seconds'
+    #print 'done in', time.time() - t, 'seconds'
 
 
 	print 'reading features ...',
@@ -75,7 +75,7 @@ else:
 		dm.set_slice(i)
 		dm._load_image()
 
-		features_rotated_one_image = dm.load_pipeline_result('featuresRotated', 'npy')
+		features_rotated_one_image = dm.load_pipeline_result('featuresRotated')
 		features_rotated_list.append(features_rotated_one_image[np.random.randint(features_rotated_one_image.shape[0], size=1000000), :])
 	
 	features_rotated = np.vstack(features_rotated_list)
@@ -83,8 +83,6 @@ else:
 	del features_rotated_list
 
 	print 'done in', time.time() - t, 'seconds'
-
-
 
 
 	print 'clustering features ...',
@@ -125,4 +123,4 @@ else:
 
 	print 'done in', time.time() - t, 'seconds'
 
-	dm.save_pipeline_result(reduced_centroids, 'textons', 'npy')
+	dm.save_pipeline_result(reduced_centroids, 'textons')

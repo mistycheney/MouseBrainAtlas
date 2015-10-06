@@ -7,17 +7,13 @@ import time
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Execute feature extraction pipeline',
-    epilog=""" 
-    The following command processes image RS141_x5_0001.tif using the specified parameters.
-    python %s RS141 1 -g blueNisslWide -s blueNisslRegular -v blueNissl
-    """%(os.path.basename(sys.argv[0]), ))
+    description='Generate features using Gabor filters')
 
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("slice_ind", type=int, help="slice index")
 parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
-parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
-parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
+# parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
+# parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
 args = parser.parse_args()
 
 
@@ -26,17 +22,20 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
 from utilities2015 import *
 
-os.environ['GORDON_DATA_DIR'] = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-os.environ['GORDON_REPO_DIR'] = '/oasis/projects/nsf/csd395/yuncong/Brain'
-os.environ['GORDON_RESULT_DIR'] = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_results'
-
 dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-  repo_dir=os.environ['GORDON_REPO_DIR'], 
-  result_dir=os.environ['GORDON_RESULT_DIR'], labeling_dir=os.environ['GORDON_LABELING_DIR'])
+                 repo_dir=os.environ['GORDON_REPO_DIR'], 
+                 result_dir=os.environ['GORDON_RESULT_DIR'], 
+                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
+                 gabor_params_id=args.gabor_params_id, 
+                 # segm_params_id=args.segm_params_id, 
+                 # vq_params_id=args.vq_params_id,
+                 stack=args.stack_name, 
+                 section=args.slice_ind)
 
 print 'reading image ...',
 t = time.time()
-dm.set_image(args.stack_name, args.slice_ind)
+dm._load_image(versions=['gray'])
+dm._generate_kernels()
 print 'done in', time.time() - t, 'seconds'
 
 #============================================================
@@ -45,13 +44,17 @@ import numpy as np
 from joblib import Parallel, delayed
 from scipy.signal import fftconvolve
 
-if dm.check_pipeline_result('features_rotated', 'npy'):
+
+# try:
+#     features_rotated = dm.load_pipeline_result('featuresRotated')
+if dm.check_pipeline_result('featuresRotated'):
     print "features_rotated.npy already exists, skip"
 else:
+# except:
     
-    if dm.check_pipeline_result('features', 'npy'):
+    if dm.check_pipeline_result('features'):
         print "features.npy already exists, load"
-        features = dm.load_pipeline_result('features', 'npy')
+        features = dm.load_pipeline_result('features')
     else:
 
         t = time.time()
@@ -70,7 +73,7 @@ else:
 
         del filtered
 
-        dm.save_pipeline_result(features, 'features', 'npy')
+        dm.save_pipeline_result(features, 'features')
 
         print 'done in', time.time() - t, 'seconds'
 
@@ -91,20 +94,24 @@ else:
                                for fs in np.array_split(features.reshape((dm.n_kernel,-1)).T, n_splits))
     features_rotated = np.vstack(features_rotated)
 
-    dm.save_pipeline_result(features_rotated, 'featuresRotated', 'npy')
+    dm.save_pipeline_result(features_rotated, 'featuresRotated')
 
     print 'done in', time.time() - t, 'seconds'
 
 
+if not dm.check_pipeline_result('centroids'):
+
     t = time.time()
-    print 'quantize feature vectors ...',
+    sys.stderr.write('quantize feature vectors ...\n')
 
     n_texton = 100
-        
+
     from sklearn.cluster import MiniBatchKMeans
     kmeans = MiniBatchKMeans(n_clusters=n_texton, batch_size=1000)
     kmeans.fit(features_rotated[::10])
     centroids = kmeans.cluster_centers_
+
+    from scipy.cluster.hierarchy import fclusterdata
 
     cluster_assignments = fclusterdata(centroids, 1.15, method="complete", criterion="inconsistent")
     # cluster_assignments = fclusterdata(centroids, 80., method="complete", criterion="distance"
@@ -115,10 +122,8 @@ else:
     n_texton = len(centroids)
     print n_texton, 'reduced textons'
 
-    dm.save_pipeline_result(centroids, 'centroids', 'npy')
+    dm.save_pipeline_result(centroids, 'centroids')
 
-    print 'done in', time.time() - t, 'seconds'
+    sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
 
     del kmeans
-
-        

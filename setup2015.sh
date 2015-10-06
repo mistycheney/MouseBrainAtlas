@@ -16,7 +16,7 @@ export GORDON_DATA_DIR=$CSD395/CSHL_data_processed
 export GORDON_REPO_DIR=$CSD395/Brain
 export GORDON_PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
 export GORDON_RESULT_DIR=$CSD395/CSHL_data_results
-export GORDON_LABELING_DIR=$CSD181/DavidData2014labelings
+export GORDON_LABELING_DIR=$CSD395/CSHL_data_labelings
 #export GORDON_SLIDEDATA_DIR=$CSD181/DavidData2014slides
 #export GORDON_NDPI_DIR=$CSD181/DavidData2014ndpi
 

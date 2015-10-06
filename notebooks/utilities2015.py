@@ -15,6 +15,8 @@ from operator import itemgetter
 import json
 import cPickle as pickle
 
+import cv2
+
 from tables import *
 
 from subprocess import check_output, call
@@ -70,7 +72,8 @@ class DataManager(object):
                  vq_params_id=None,
                  stack=None,
                  resol='lossless',
-                 section=None):
+                 section=None,
+                 load_mask=True):
 
         self.data_dir = data_dir
         self.repo_dir = repo_dir
@@ -115,6 +118,9 @@ class DataManager(object):
         if section is not None:
             self.set_slice(section)
 
+        if load_mask:
+            self._load_mask()
+
 #     def set_labelnames(self, labelnames):
 #         self.labelnames = labelnames
 
@@ -129,7 +135,34 @@ class DataManager(object):
         
     def set_resol(self, resol):
         self.resol = resol
-        
+    
+
+    def _load_mask(self):
+
+        self.mask = np.zeros((self.image_height, self.image_width), np.bool)
+
+        if self.stack == 'MD593':
+            self.mask[1848:1848+4807, 924:924+10186] = True
+        elif self.stack == 'MD594':
+            self.mask[1081:1081+6049, 552:552+12443] = True
+        else:
+            raise 'mask is not specified'
+
+        xs_valid = np.any(self.mask, axis=0)
+        ys_valid = np.any(self.mask, axis=1)
+        self.xmin = np.where(xs_valid)[0][0]
+        self.xmax = np.where(xs_valid)[0][-1]
+        self.ymin = np.where(ys_valid)[0][0]
+        self.ymax = np.where(ys_valid)[0][-1]
+
+        # rs, cs = np.where(self.mask)
+        # self.ymax = rs.max()
+        # self.ymin = rs.min()
+        # self.xmax = cs.max()
+        # self.xmin = cs.min()
+        self.h = self.ymax-self.ymin+1
+        self.w = self.xmax-self.xmin+1
+
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
@@ -141,17 +174,6 @@ class DataManager(object):
 
         self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
 
-        if self.stack == 'MD593':
-            self.mask = np.zeros((self.image_height, self.image_width), np.bool)
-            self.mask[1848:1848+4807, 924:924+10186] = True
-            
-            rs, cs = np.where(self.mask)
-            self.ymax = rs.max()
-            self.ymin = rs.min()
-            self.xmax = cs.max()
-            self.xmin = cs.min()
-            self.h = self.ymax-self.ymin+1
-            self.w = self.xmax-self.xmin+1
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
         self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
@@ -235,19 +257,24 @@ class DataManager(object):
     def set_gabor_params(self, gabor_params_id):
         
         self.gabor_params_id = gabor_params_id
-        self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
-        self._generate_kernels(self.gabor_params)
+        # self._generate_kernels(self.gabor_params)
     
-    def _generate_kernels(self, gabor_params):
+    def _generate_kernels(self, gabor_params_id=None):
         
         from skimage.filter import gabor_kernel
-    
-        theta_interval = gabor_params['theta_interval']
+
+        if gabor_params_id is None:
+            assert hasattr(self, 'gabor_params_id')
+            gabor_params_id = self.gabor_params_id
+
+        self.gabor_params = json.load(open(os.path.join(self.params_dir, 'gabor', 'gabor_' + gabor_params_id + '.json'), 'r')) if gabor_params_id is not None else None
+        
+        theta_interval = self.gabor_params['theta_interval']
         self.n_angle = int(180/theta_interval)
-        freq_step = gabor_params['freq_step']
-        freq_max = 1./gabor_params['min_wavelen']
-        freq_min = 1./gabor_params['max_wavelen']
-        bandwidth = gabor_params['bandwidth']
+        freq_step = self.gabor_params['freq_step']
+        freq_max = 1./self.gabor_params['min_wavelen']
+        freq_min = 1./self.gabor_params['max_wavelen']
+        bandwidth = self.gabor_params['bandwidth']
         self.n_freq = int(np.log(freq_max/freq_min)/np.log(freq_step)) + 1
         self.frequencies = freq_max/freq_step**np.arange(self.n_freq)
         self.angles = np.arange(0, self.n_angle)*np.deg2rad(theta_interval)
@@ -273,11 +300,14 @@ class DataManager(object):
     def set_segmentation_params(self, segm_params_id):
         
         self.segm_params_id = segm_params_id
-        # self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
-        if self.segm_params_id == 'gridsize200':
+        if segm_params_id == 'gridsize200':
             self.grid_size = 200
-        else:
+        elif segm_params_id == 'gridsize100':
             self.grid_size = 100
+        elif segm_params_id == 'gridsize50':
+            self.grid_size = 50
+        else:
+            self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
 
     def set_vq_params(self, vq_params_id):
         
@@ -494,9 +524,7 @@ class DataManager(object):
             self.edge_vectors = self.load_pipeline_result('edgeVectors')
 
         if bg == 'originalImage':
-            if not hasattr(self, 'image'):
-                self._load_image(version='rgb_jpg')
-            segmentation_viz = self.image
+            segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
             if not hasattr(self, 'segmentation_vis'):
                 self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
@@ -559,9 +587,9 @@ class DataManager(object):
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
         
         if bg == 'originalImage':
-            if not hasattr(self, 'image'):
-                self._load_image(version='rgb-jpg')
-            segmentation_viz = self.image
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
             if not hasattr(self, 'segmentation_vis'):
                 self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
@@ -664,7 +692,9 @@ class DataManager(object):
             self.sp_coords = self.load_pipeline_result('spCoords')
                     
         if bg == 'originalImage':
-            segmentation_viz = self.image
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
             if not hasattr(self, 'segmentation_vis'):
                 self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
@@ -710,8 +740,8 @@ class DataManager(object):
         return viz
         
     
-    def visualize_multiple_clusters(self, clusters, bg='segmentationWithText', alpha_blend=True, colors=None,
-                                    show_cluster_indices=True,
+    def visualize_multiple_clusters(self, clusters, bg='segmentationWithText', alpha_blend=False, colors=None,
+                                    show_cluster_indices=False,
                                     ymin=None, xmin=None, ymax=None, xmax=None):
         
         if ymin is None:
@@ -736,9 +766,9 @@ class DataManager(object):
         
 
         if bg == 'originalImage':
-            if not hasattr(self, 'image'):
-                self._load_image(version='rgb-jpg')
-            segmentation_viz = self.image
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
+            segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
             if not hasattr(self, 'segmentation_vis'):
                 self.segmentation_viz = self.load_pipeline_result('segmentationWithText')
@@ -779,24 +809,26 @@ class DataManager(object):
             for ci, c in enumerate(clusters):
                 m[list(c)] = ci
 
-            a = m[self.segmentation]
-            a[~self.mask] = -1
+            a = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
+            a[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
         #     a = -1*np.ones_like(segmentation)
         #     for ci, c in enumerate(clusters):
         #         for i in c:
         #             a[segmentation == i] = ci
 
-            vis = label2rgb(a, image=segmentation_viz)
+            vis = label2rgb(a, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
 
-            vis = img_as_ubyte(vis[...,::-1])
+        # vis = img_as_ubyte(vis[..., ::-1])
+        vis = img_as_ubyte(vis)
 
         if show_cluster_indices:
             if not hasattr(self, 'sp_centroids'):
                 self.sp_centroids = self.load_pipeline_result('spCentroids')
+
             for ci, cl in enumerate(clusters):
-                cluster_center_yx = sp_centroids[cl].mean(axis=0).astype(np.int)
-                vis = cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
-                                cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
+                cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
+                cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
 
                 # for i, sp in enumerate(c):
                 #     vis = cv2.putText(vis, str(i), 

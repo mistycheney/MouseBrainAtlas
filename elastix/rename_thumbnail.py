@@ -7,10 +7,10 @@ import cPickle as pickle
 from preprocess_utility import *
 import time
 
-def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
-	secs_per_job = (last_sec - first_sec + 1)/float(n_host)
-	first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
-	return first_last_tuples
+# def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
+# 	secs_per_job = (last_sec - first_sec + 1)/float(n_host)
+# 	first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
+# 	return first_last_tuples
 
 DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'

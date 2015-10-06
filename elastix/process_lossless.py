@@ -13,8 +13,7 @@ x,y,w,h = map(int, sys.argv[4:8])
 
 hostids = detect_responsive_nodes()
 n_hosts = len(hostids)
-first_last_tuples = first_last_tuples_distribute_over(first_sec, last_sec, n_hosts)
-
+# first_last_tuples = first_last_tuples_distribute_over(first_sec, last_sec, n_hosts)
 
 DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
@@ -22,6 +21,25 @@ DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 tmp_dir = DATAPROC_DIR + '/' + 'tmp'
 
 script_dir = os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix')
+
+# hostids = detect_responsive_nodes()
+# n_host = len(hostids)
+input_dir = os.path.join(DATA_DIR, stack)
+filenames = os.listdir(input_dir)
+tuple_sorted = sorted([(int(fn[:-4].split('_')[-1]), fn) for fn in filenames if fn.endswith('tif')])
+indices_sorted, fn_sorted = zip(*tuple_sorted)
+fn_correctInd_tuples = zip(fn_sorted, range(1, len(indices_sorted)+1))
+filenames_per_node = [fn_correctInd_tuples[f-1:l] for f,l in first_last_tuples_distribute_over(1, len(indices_sorted), n_hosts)]
+
+tmp_dir = DATAPROC_DIR + '/' + 'tmp'
+if not os.path.exists(tmp_dir):
+	os.makedirs(tmp_dir)
+
+os.system('rm '+tmp_dir + '/'+stack+'_filename_map_*')
+
+for i, args in enumerate(filenames_per_node):
+	with open(tmp_dir + '/' + stack + '_filename_map_%d'%i, 'w') as f:
+		f.write('\n'.join([fn + ' ' + str(ind) for fn, ind in args]))
 
 t = time.time()
 print 'renaming and expanding lossless...',

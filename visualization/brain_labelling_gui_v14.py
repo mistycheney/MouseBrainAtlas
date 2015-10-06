@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import sys
 import os
 import datetime
@@ -71,21 +73,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.dm = DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
 			repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			result_dir=os.environ['LOCAL_RESULT_DIR'], 
-			labeling_dir=os.environ['LOCAL_LABELING_DIR'])
-
-		self.gabor_params_id='blueNisslWide'
-		self.segm_params_id='blueNisslRegular'
-		self.vq_params_id='blueNissl'
-
-		self.dm.set_gabor_params(gabor_params_id=self.gabor_params_id)
-		self.dm.set_segmentation_params(segm_params_id=self.segm_params_id)
-		self.dm.set_vq_params(vq_params_id=self.vq_params_id)
+			labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+			stack=stack, section=section, segm_params_id='gridsize200')
 
 		if (stack is None or section is None) and self.parent_labeling_name is not None:
 			stack, section_str, user, timestamp = self.parent_labeling_name[:-4].split('_')
 			section = int(section_str)
 
-		self.dm.set_image(stack, 'x5', section)
+		self.dm._load_image(versions=['rgb-jpg'])
 
 		self.selected_circle = None
 		self.selected_polygon = None
@@ -116,13 +111,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.data_manager.close()
 		self.initialize_brain_labeling_gui()
 
+		self.seg_loaded = False
+		self.seg_enabled = False
+
 	def paramSettings_clicked(self):
 		pass
 
 	def load_labeling(self):
 
 		# self.masked_img = self.dm.image_rgb.copy()
-		self.masked_img = gray2rgb(self.dm.image)
+		self.masked_img = self.dm.image_rgb_jpg
 		# self.masked_img[~self.dm.mask, :] = 0
 
 		if self.parent_labeling_name is None:
@@ -389,6 +387,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.canvas.draw()
 		self.show()
 
+		self.sp_rectlist = []
+
 	
 
 	def on_pick(self, event):
@@ -433,109 +433,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		print polygon_ids, 'set', self.click_on_object
 
 
-
-	def display_option_changed(self):
-		if self.sender() == self.spOnOffSlider:
-
-			if self.spOnOffSlider.value() == 1:
-
-				if self.segm_transparent is None:
-					self.segm_transparent = self.dm.load_pipeline_result('segmentationTransparent', 'png')
-					self.my_cmap = plt.cm.Reds
-					self.my_cmap.set_under(color="white", alpha="0")
-
-				if not self.seg_loaded:
-					self.load_segmentation()
-
-				self.seg_enabled = True
-			else:
-				self.segm_handle.remove()
-				self.seg_enabled = False
-
-		else:
-			# if self.under_img is not None:
-			# 	self.under_img.remove()
-
-			self.axis.clear()
-
-			if self.sender() == self.img_radioButton:
-
-				# self.axis.clear()
-				# self.axis.axis('off')
-
-				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				# self.seg_enabled = False
-
-			elif self.sender() == self.textonmap_radioButton:
-
-				# self.axis.clear()
-				# self.axis.axis('off')
-
-				if self.textonmap_vis is None:
-					self.textonmap_vis = self.dm.load_pipeline_result('texMap', 'png')
-
-				# if self.under_img is not None:
-				# 	self.under_img.remove()
-
-				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				# self.seg_enabled = False
-
-			elif self.sender() == self.dirmap_radioButton:
-
-				# self.axis.clear()
-				# self.axis.axis('off')
-
-				if self.dirmap_vis is None:
-					self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
-					self.dirmap_vis[~self.dm.mask] = 0
-
-
-				# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
-				self.axis.imshow(self.dirmap_vis, aspect='equal')
-
-				# if not self.seg_loaded:
-				# 	self.load_segmentation()
-
-				# self.seg_enabled = False
-
-			elif self.sender() == self.labeling_radioButton:
-
-
-				self.axis.clear()
-				self.axis.axis('off')
-
-				if not self.seg_loaded:
-					self.load_segmentation()
-
-				# if not self.groups_loaded:
-				# 	self.load_groups()
-				# else:
-				for rect in self.sp_rectlist:
-					if rect is not None:
-						self.axis.add_patch(rect)
-
-				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText', 'jpg')
-				self.seg_vis[~self.dm.mask] = 0
-				self.axis.imshow(self.seg_vis, aspect='equal')
-
-			# self.seg_enabled = True
-
-		if self.seg_enabled:
-			self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
-									cmap=self.my_cmap, alpha=1.)
-
-			for i in range(len(self.sp_rectlist)):
-				self.sp_rectlist[i] = None
-
-		self.axis.axis('off')
-
-		self.axis.set_xlim([self.newxmin, self.newxmax])
-		self.axis.set_ylim([self.newymin, self.newymax])
-
-		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas.draw()
 
 
 	def _add_labelbutton(self, desc=None):
@@ -610,7 +507,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# labelmap_vis = label2rgb(self.labelmap, image=self.masked_img, colors=self.colors[1:], 
 		# 				bg_label=-1, bg_color=(1,1,1), alpha=0.3, image_alpha=1.)
 
-		labelmap_vis = np.zeros_like(self.dm.image_rgb)
+		labelmap_vis = np.zeros((self.dm.image_height, self.dm.image_width))
 
 		new_labeling_fn = self.dm.save_labeling(self.curr_labeling, new_labeling_name, labelmap_vis)
 
@@ -809,9 +706,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.release_y = event.ydata
 		self.release_time = time.time()
 
-
-		print self.click_on_object
-
 		if not self.click_on_object:
 			if self.selected_circle is not None:
 				self.selected_circle.set_radius(10.)
@@ -843,6 +737,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					self.statusBar().showMessage('... in the process of labeling region using label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
 
+				elif self.seg_enabled:
+					self.handle_sp_press(event.xdata, event.ydata)
+
 
 			elif event.button == 3: # right click: open context menu
 				canvas_pos = (event.xdata, event.ydata)
@@ -864,6 +761,149 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.curr_label = selected_label
 		self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
 
+	def handle_sp_press(self, x, y):
+		clicked_sp = self.segmentation[int(y), int(x)]
+		sys.stderr.write('clicked sp %d\n'%clicked_sp)
+		self.show_region(clicked_sp)
+
+
+	def load_segmentation(self):
+		sys.stderr.write('loading segmentation...\n')
+		self.statusBar().showMessage('loading segmentation...')
+		self.segmentation = self.dm.load_pipeline_result('segmentation')
+		self.n_superpixels = self.segmentation.max() + 1
+		self.seg_loaded = True
+		sys.stderr.write('segmentation loaded.\n')
+
+		sys.stderr.write('loading clusters...\n')
+		self.statusBar().showMessage('loading clusters..')
+		cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
+		from collections import defaultdict
+		self.region_score_tuples = defaultdict(list)
+		for s, cl, sc, ed in cluster_tuples:
+			self.region_score_tuples[s].append((sc, cl))
+		sys.stderr.write('regions loaded.\n')
+
+		sys.stderr.write('loading sp props...\n')
+		self.statusBar().showMessage('loading so properties..')
+		self.sp_centroids = self.dm.load_pipeline_result('spCentroids')
+		self.sp_bboxes = self.dm.load_pipeline_result('spBbox')
+		sys.stderr.write('sp properties loaded.\n')
+
+		self.statusBar().showMessage('')
+
+		self.sp_rectlist = [None for _ in range(self.n_superpixels)]
+
+	def display_option_changed(self):
+		if self.sender() == self.spOnOffSlider:
+
+			if self.spOnOffSlider.value() == 1:
+
+				if self.segm_transparent is None:
+					self.segm_transparent = self.dm.load_pipeline_result('segmentationTransparent')
+					self.my_cmap = plt.cm.Reds
+					self.my_cmap.set_under(color="white", alpha="0")
+
+				if not self.seg_loaded:
+					self.load_segmentation()
+
+				self.seg_enabled = True
+
+				self.axis.clear()
+				self.axis.axis('off')
+				
+				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
+				self.seg_vis[~self.dm.mask] = 0
+				self.axis.imshow(self.seg_vis, aspect='equal')
+
+			else:
+				self.segm_handle.remove()
+				self.seg_enabled = False
+
+		else:
+			# if self.under_img is not None:
+			# 	self.under_img.remove()
+
+			self.axis.clear()
+
+			if self.sender() == self.img_radioButton:
+
+				# self.axis.clear()
+				# self.axis.axis('off')
+
+				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+				self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+				# self.seg_enabled = False
+
+			elif self.sender() == self.textonmap_radioButton:
+
+				# self.axis.clear()
+				# self.axis.axis('off')
+
+				if self.textonmap_vis is None:
+					self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
+
+				# if self.under_img is not None:
+				# 	self.under_img.remove()
+
+				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+				# self.seg_enabled = False
+
+			elif self.sender() == self.dirmap_radioButton:
+
+				# self.axis.clear()
+				# self.axis.axis('off')
+
+				if self.dirmap_vis is None:
+					self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
+					self.dirmap_vis[~self.dm.mask] = 0
+
+
+				# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
+				self.axis.imshow(self.dirmap_vis, aspect='equal')
+
+				# if not self.seg_loaded:
+				# 	self.load_segmentation()
+
+				# self.seg_enabled = False
+
+			elif self.sender() == self.labeling_radioButton:
+
+
+				self.axis.clear()
+				self.axis.axis('off')
+
+				if not self.seg_loaded:
+					self.load_segmentation()
+
+				# if not self.groups_loaded:
+				# 	self.load_groups()
+				# else:
+				for rect in self.sp_rectlist:
+					if rect is not None:
+						self.axis.add_patch(rect)
+
+				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
+				self.seg_vis[~self.dm.mask] = 0
+				self.axis.imshow(self.seg_vis, aspect='equal')
+
+			# self.seg_enabled = True
+
+		if self.seg_enabled:
+			self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
+									cmap=self.my_cmap, alpha=1.)
+
+			for i in range(len(self.sp_rectlist)):
+				self.sp_rectlist[i] = None
+
+		self.axis.axis('off')
+
+		self.axis.set_xlim([self.newxmin, self.newxmax])
+		self.axis.set_ylim([self.newymin, self.newymax])
+
+		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+		self.canvas.draw()
 
 	def show_region(self, sp_ind):
 
@@ -872,19 +912,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				r.remove()
 				self.sp_rectlist[i] = None
 
-		for i in self.cluster_sps[sp_ind]:
+		if not hasattr(self, 'alt_ind'):
+			self.alt_ind = 0
 
-			ymin, xmin, ymax, xmax = self.sp_props[i, 4:]
+		self.alt_ind = (self.alt_ind + 1) % len(self.region_score_tuples[sp_ind])
+
+		sc, cl = self.region_score_tuples[sp_ind][self.alt_ind]
+
+		for i in set(cl):
+
+			ymin, xmin, ymax, xmax = self.sp_bboxes[i]
 			width = xmax - xmin
 			height = ymax - ymin
 
-			rect = Rectangle((xmin, ymin), width, height, 
-				ec="none", alpha=.3, color=self.colors[self.curr_label + 1])
+			rect = Rectangle((xmin, ymin), width, height, ec="none", 
+							alpha=.3, color=self.colors[self.curr_label + 1])
 
 			self.sp_rectlist[i] = rect
 			self.axis.add_patch(rect)
 
-		self.statusBar().showMessage('Sp %d, cluster score %.4f' % (sp_ind, self.curr_cluster_score_sps[sp_ind]))
+		self.statusBar().showMessage('Sp %d, cluster score %.4f' % (sp_ind, sc))
 
 
 	def paint_superpixel(self, sp_ind):
@@ -904,7 +951,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			# approximate the superpixel area with a square
 
-			ymin, xmin, ymax, xmax = self.sp_props[sp_ind, 4:]
+			ymin, xmin, ymax, xmax = self.sp_bboxes[sp_ind]
 			width = xmax - xmin
 			height = ymax - ymin
 
@@ -925,9 +972,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 if __name__ == "__main__":
 	from sys import argv, exit
 	a = QApplication(argv)
-	labeling_name = sys.argv[1]
-	section = int(labeling_name.split('_')[1])
-	m = BrainLabelingGUI(stack='RS141', section=section, parent_labeling_name='_'.join(labeling_name.split('_')[2:]))
+
+	# labeling_name = sys.argv[1]
+	# section = int(labeling_name.split('_')[1])
+	# m = BrainLabelingGUI(stack='MD593', section=section, parent_labeling_name='_'.join(labeling_name.split('_')[2:]))
+
+	section = int(sys.argv[1])
+	m = BrainLabelingGUI(stack='MD593', section=section)
 	
 	# m = BrainLabelingGUI(stack='RS141', section=1)
 	m.setWindowTitle("Brain Labeling")

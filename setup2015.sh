@@ -24,13 +24,13 @@ export GORDON_LABELING_DIR=$CSD181/DavidData2014labelings
 
 #export MSNAKES_PATH=$GORDON_REPO_DIR/pipeline_scripts/preprocess/morphsnakes
 
-export LOCAL_DATA_DIR=$HOME/CSHL_data
+export LOCAL_DATA_DIR=$HOME/CSHL_data_processed
 #export LOCAL_SLIDEDATA_DIR=$HOME/DavidData2014slides/
 #export LOCAL_SECTIONDATA_DIR=$HOME/DavidData2014sections/
 export LOCAL_REPO_DIR=$HOME/Brain
 export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
-export LOCAL_LABELING_DIR=$HOME/DavidData2014labelings
+export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
 
-alias sync_result='function _sr(){ cd $LOCAL_RESULT_DIR; rsync -azP --delete --include="*/" --include="00*/$2" --exclude="*" -m  yuncong@gordon.sdsc.edu:$GORDON_RESULT_DIR/$1 . ; cd - ;}; _sr'
-alias extract_result='function _er(){ mkdir $3; find $LOCAL_RESULT_DIR/$1 -regex .*/$2 -type f -print0 | xargs -0 cp -t $3; }; _er'
+alias sync_result='function _sr(){ cd $LOCAL_RESULT_DIR; rsync -azP --delete --include="*/" --include="0*/*$2*" --exclude="*" -m  yuncong@gordon.sdsc.edu:$GORDON_RESULT_DIR/$1 . ; cd - ;}; _sr'
+alias extract_result='function _er(){ mkdir $1_$2; find $LOCAL_RESULT_DIR/$1 -regex .*/.*$2.* -type f -print0 | xargs -0 cp -t $1_$2; }; _er'
 alias killall_gordon_python='for i in {31..38} {41..48}; do ssh gcn-20-$i.sdsc.edu "killall python"; done'

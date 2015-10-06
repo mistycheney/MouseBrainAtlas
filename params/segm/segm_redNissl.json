@@ -1,6 +1,0 @@
-{
- "param_id": "redNissl", 
- "n_superpixels": 2000.0, 
- "slic_compactness": 20.0, 
- "slic_sigma": 5.0
-}

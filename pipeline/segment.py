@@ -45,9 +45,6 @@ try:
 
 except Exception as e:
 
-    # masked_image = dm.image.copy()
-    # masked_image[~dm.mask] = 0
-
     # grid_size = dm.grid_size
 
     # segmentation = np.zeros((dm.image_height, dm.image_width), np.int16)
@@ -61,19 +58,58 @@ except Exception as e:
     sys.stderr.write('superpixel segmentation ...\n')
     t = time.time()
 
-    dm._load_image(versions=['rgb'])
+    if dm.segm_params_id in ['gridsize200', 'gridsize100', 'gridsize50']:
+        grid_size = dm.grid_size
 
-    # masked_image = dm.image.copy()
-    # masked_image[~dm.mask] = 0
+        segmentation = np.zeros((dm.image_height, dm.image_width), np.int16)
+        rss, css = np.mgrid[0:dm.image_height:grid_size, 0:dm.image_width:grid_size]
+        for gi, (rs, cs) in enumerate(zip(rss.flat, css.flat)):
+            segmentation[rs:rs+grid_size, cs:cs+grid_size] = gi
 
-    segmentation = -1 * np.ones((dm.image_height, dm.image_width), np.int16)
+    elif dm.segm_params_id in ['blueNisslRegular', 'n1500']:
 
-    segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = slic(dm.image_rgb[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1], 
-                                                            n_segments=int(dm.segm_params['n_superpixels']), 
-                                                            max_iter=10, 
-                                                            compactness=float(dm.segm_params['slic_compactness']), 
-                                                            sigma=float(dm.segm_params['slic_sigma']), 
-                                                            enforce_connectivity=True)
+        dm._load_image(versions=['rgb'])
+        segmentation = -1 * np.ones((dm.image_height, dm.image_width), np.int16)
+        segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = slic(dm.image_rgb[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1], 
+                                                                n_segments=int(dm.segm_params['n_superpixels']), 
+                                                                max_iter=10, 
+                                                                compactness=float(dm.segm_params['slic_compactness']), 
+                                                                sigma=float(dm.segm_params['slic_sigma']), 
+                                                                enforce_connectivity=True)
+
+    elif dm.segm_params_id in ['tSLIC200']:
+
+        from slic_texture import slic_texture, enforce_connectivity
+        from skimage.transform import integral_image
+
+        segmentation = np.zeros((dm.image_height, dm.image_width), np.int16)
+
+        textonmap = dm.load_pipeline_result('texMap')
+        n_texton = textonmap.max() + 1
+
+        window_size = 201
+        window_halfsize = (window_size-1)/2
+
+        single_channel_maps = [textonmap[dm.ymin-window_halfsize : dm.ymax+1+window_halfsize, 
+                                         dm.xmin-window_halfsize : dm.xmax+1+window_halfsize] == c
+                               for c in range(n_texton)]
+
+
+        # it is important to pad the integral image with zeros before first row and first column
+        def compute_integral_image(m):
+            return np.pad(integral_image(m), ((1,0),(1,0)), mode='constant', constant_values=0)
+
+        int_imgs = np.dstack(Parallel(n_jobs=4)(delayed(compute_integral_image)(m) for m in single_channel_maps))
+
+        histograms = int_imgs[window_size:, window_size:] + \
+                    int_imgs[:-window_size, :-window_size] - \
+                    int_imgs[window_size:, :-window_size] - \
+                    int_imgs[:-window_size, window_size:]
+                
+        histograms_normalized = histograms/histograms.sum(axis=-1)[...,None].astype(np.float)
+
+        seg = slic_texture(histograms_normalized, max_iter=1)
+        segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = enforce_connectivity(seg)
 
     segmentation[~dm.mask] = -1
     				
@@ -110,7 +146,7 @@ dm.save_pipeline_result(spp_coords, 'spCoords')
 
 print 'done in', time.time() - t, 'seconds'
 
-if dm.check_pipeline_result('segmentationTransparent'):
+if dm.check_pipeline_result('segmentationWithText'):
     sys.stderr.write('visualizations exist, skip')
 else:
 
@@ -120,7 +156,7 @@ else:
     t = time.time()
 
     dm._load_image(versions=['rgb-jpg'])
-    img_superpixelized = mark_boundaries(dm.image_rgb_jpg, segmentation)
+    img_superpixelized = mark_boundaries(dm.image_rgb_jpg, segmentation, color=(1,0,0))
     img_superpixelized = img_as_ubyte(img_superpixelized)
     dm.save_pipeline_result(img_superpixelized, 'segmentationWithoutText')
 
@@ -148,6 +184,7 @@ try:
     edge_coords = dm.load_pipeline_result('edgeCoords')
     neighbors = dm.load_pipeline_result('neighbors')
     edge_midpoints = dm.load_pipeline_result('edgeMidpoints')
+    dedge_vectors = dm.load_pipeline_result('dedgeVectors')
 
 except:
 
@@ -201,19 +238,36 @@ except:
 
     print 'done in', time.time() - t, 'seconds'
 
-    print 'sort edge points ...',
+    print 'compute edge info ...',
     t = time.time()
 
+    dedge_vectors = {}
     edge_coords_sorted = {}
     edge_midpoints = {}
 
     for e, pts in edge_coords.iteritems():
+        
         X = pts.astype(np.float)
         c = X.mean(axis=0)
-        edge_midpoints[e] = c
+        edge_midpoints[e] = X[np.squeeze(cdist([c], X)).argmin()] # closest point to the centroid
         Xc = X - c
         U,S,V = np.linalg.svd(np.dot(Xc.T, Xc))
         u1 = U[:,0]
+        n1 = np.array([-u1[1], u1[0]])
+
+        s1, s2 = e
+        if s1 == -1:
+            mid_to_s1 = edge_midpoints[e] - sp_centroids[s2, ::-1]
+        else:
+            mid_to_s1 = sp_centroids[s1, ::-1] - edge_midpoints[e]
+            
+        if np.dot(n1, mid_to_s1) > 0:
+            dedge_vectors[(s1,s2)] = n1
+            dedge_vectors[(s2,s1)] = -n1
+        else:
+            dedge_vectors[(s2,s1)] = n1
+            dedge_vectors[(s1,s2)] = -n1
+
         projs = np.dot(Xc,u1)
         order = projs.argsort()
         if Xc[order[0],0] > Xc[order[-1],0]:
@@ -226,6 +280,7 @@ except:
 
     dm.save_pipeline_result(edge_coords, 'edgeCoords')
     dm.save_pipeline_result(edge_midpoints, 'edgeMidpoints')
+    dm.save_pipeline_result(dedge_vectors, 'dedgeVectors')
 
 
 try:
@@ -243,7 +298,7 @@ except:
         
     edges = edge_coords.keys()
 
-    xs, ys = np.mgrid[-5:5, -5:5]
+    xs, ys = np.mgrid[-1:2, -1:2]
 
     def compute_edge_neighbors_worker(pts):
         nbrs = set(edge_map[np.maximum(0, np.minimum(dm.image_height-1, (pts[:,1] + ys[:,:,None]).flat)), 
@@ -259,71 +314,89 @@ except:
 
     dm.save_pipeline_result(edge_neighbors, 'edgeNeighbors')
 
-try:
-    dedge_vectors = dm.load_pipeline_result('edgeVectors')
-    raise
-except:
-    print 'compute edge vectors ...',
-    t = time.time()
-
-    dedge_vectors = defaultdict(float)
-
-    for e in edge_coords.iterkeys():
-        i, j = e #(ext, int)
-        if i == -1:
-            vector_ji = edge_midpoints[e] - sp_centroids[j, ::-1]
-            dedge_vectors[(i,j)] = vector_ji/np.linalg.norm(vector_ji)
-        elif j == -1:
-            vector_ji = sp_centroids[i, ::-1] - edge_midpoints[e]
-            dedge_vectors[(j,i)] = -vector_ji/np.linalg.norm(vector_ji)
-        else:
-            vector_ji = sp_centroids[i, ::-1] - sp_centroids[j, ::-1]
-            dedge_vectors[(i,j)] = vector_ji/np.linalg.norm(vector_ji)
-            dedge_vectors[(j,i)] = -dedge_vectors[(i,j)]
-
-    dedge_vectors.default_factory = None
-
-    print 'done in', time.time() - t, 'seconds'
-
-    dm.save_pipeline_result(dedge_vectors, 'edgeVectors')
 
 print 'compute dedge neighbors ...',
 t = time.time()
 
 dedge_neighbors = defaultdict(set)
-for (i,j), es in edge_neighbors.iteritems():
-    if len(es) == 0:
-        print 'WARNING: edge (%d,%d) has no neighbors'%(i,j)
-        ls = set([])
-    else:
-        ls = set([])
-        for a, b in es:
-            if a != -1 and b != -1:
-                ls.add((a,b))
-                ls.add((b,a))
-            elif a == -1:
-                ls.add((a,b))
-            elif b == -1:
-                ls.add((b,a))
-    
-    if i == -1:
-        dedge_neighbors[(i,j)] |= set((a,b) for a,b in ls 
-                                  if not (i==b or j==a) and\
-                                  np.dot(dedge_vectors[(i,j)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}
+for edge, nbr_edges in edge_neighbors.iteritems():
+    s1, s2 = edge
+        
+    for nbr_edge in nbr_edges:
+        t1, t2 = nbr_edge
 
-    elif j == -1:
-        dedge_neighbors[(j,i)] |= set((a,b) for a,b in ls 
-                                      if not (j==b or i==a) and\
-                                      np.dot(dedge_vectors[(j,i)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}
+        ep1 = edge_coords[edge][0]
+        ep2 = edge_coords[edge][-1]
+        nbr_ep1 = edge_coords[nbr_edge][0]
+        nbr_ep2 = edge_coords[nbr_edge][-1]
+        endpoints_dists = cdist([ep1, ep2], [nbr_ep1, nbr_ep2])
+        ep_ind, nbr_ep_ind = np.unravel_index(endpoints_dists.argmin(), endpoints_dists.shape)
+        if ep_ind == 0:
+            ep_ind = 0
+            ep_inner_ind = min(100, len(edge_coords[edge])-1)
+        else:
+            ep_ind = -1
+            ep_inner_ind = max(-101, -len(edge_coords[edge]))
+            
+        if nbr_ep_ind == 0:
+            nbr_ep_ind = 0
+            nbr_ep_inner_ind = min(100, len(edge_coords[nbr_edge])-1)
+        else:
+            nbr_ep_ind = -1
+            nbr_ep_inner_ind = max(-101, -len(edge_coords[nbr_edge]))
 
-    else:
-        dedge_neighbors[(i,j)] |= set((a,b) for a,b in ls 
-                                  if not (i==b or j==a) and\
-                                  np.dot(dedge_vectors[(i,j)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}    
-        dedge_neighbors[(j,i)] |= set((a,b) for a,b in ls 
-                                      if not (j==b or i==a) and\
-                                      np.dot(dedge_vectors[(j,i)], dedge_vectors[(a,b)]) > -.5) - {(j,i),(i,j)}
-
+        ep_inner = edge_coords[edge][ep_inner_ind]
+        nbr_ep_inner = edge_coords[nbr_edge][nbr_ep_inner_ind]
+            
+        junction = .5 * (edge_coords[edge][ep_ind] + edge_coords[nbr_edge][nbr_ep_ind])
+        
+        vec_to_junction = junction - .5 * (ep_inner + nbr_ep_inner)
+        
+        unit_vec_to_junction = vec_to_junction/np.linalg.norm(vec_to_junction)
+        
+        midpoint_to_midpoint = ep_inner - nbr_ep_inner
+        midpoint_to_midpoint = midpoint_to_midpoint/np.linalg.norm(midpoint_to_midpoint)
+        n_mp_mp = np.array([-midpoint_to_midpoint[1], midpoint_to_midpoint[0]])
+        if np.dot(n_mp_mp, unit_vec_to_junction) < 0:
+            n_mp_mp = -n_mp_mp
+        
+        tang_ep = junction - ep_inner
+        n_ep = np.array([-tang_ep[1], tang_ep[0]])
+        if np.linalg.norm(n_ep) == 0:
+            n_ep = n_ep
+        else:
+            n_ep = n_ep/np.linalg.norm(n_ep)
+        
+        x_ep, y_ep = ep_inner + (5*n_ep).astype(np.int)
+        x_ep2, y_ep2 = ep_inner - (5*n_ep).astype(np.int)
+        
+        if segmentation[y_ep, x_ep] == s2 or segmentation[y_ep2, x_ep2] == s1:
+            n_ep = -n_ep
+            
+        tang_nbrep = junction - nbr_ep_inner
+        n_nbrep = np.array([-tang_nbrep[1], tang_nbrep[0]])
+        if np.linalg.norm(n_nbrep) == 0:
+            n_nbrep = n_nbrep
+        else:
+            n_nbrep = n_ep/np.linalg.norm(n_nbrep)
+        
+        x_nbrep, y_nbrep =  nbr_ep_inner + (5*n_nbrep).astype(np.int)
+        x_nbrep2, y_nbrep2 =  nbr_ep_inner - (5*n_nbrep).astype(np.int)
+        
+        if segmentation[y_nbrep, x_nbrep] == t2 or segmentation[y_nbrep2, x_nbrep2] == t1:
+            n_nbrep = -n_nbrep
+            
+        if np.dot(np.cross(n_ep, n_mp_mp), np.cross(n_mp_mp, n_nbrep)) > 0:
+            dedge_neighbors[(s1, s2)].add((t1, t2))
+            dedge_neighbors[(t1, t2)].add((s1, s2))
+            dedge_neighbors[(s2, s1)].add((t2, t1))
+            dedge_neighbors[(t2, t1)].add((s2, s1))            
+        else:
+            dedge_neighbors[(s2, s1)].add((t1, t2))
+            dedge_neighbors[(t1, t2)].add((s2, s1))
+            dedge_neighbors[(s1, s2)].add((t2, t1))
+            dedge_neighbors[(t2, t1)].add((s1, s2))
+                                        
 dedge_neighbors.default_factory = None
 
 print 'done in', time.time() - t, 'seconds'

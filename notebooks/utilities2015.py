@@ -61,6 +61,95 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
+
+def order_nodes(sps, neighbor_graph, verbose=False):
+
+    from networkx.algorithms import dfs_successors, dfs_postorder_nodes
+
+
+    subg = neighbor_graph.subgraph(sps)
+    d_suc = dfs_successors(subg)
+    
+    x = [(a,b) for a,b in d_suc.iteritems() if len(b) == 2]
+    
+    if verbose:
+        print 'root, two_leaves', x
+    
+    if len(x) == 0:
+        trav = list(dfs_postorder_nodes(subg))
+    else:
+        if verbose:
+            print 'd_succ'
+            for it in d_suc.iteritems():
+                print it
+        
+        root, two_leaves = x[0]
+
+        left_branch = []
+        right_branch = []
+
+        c = two_leaves[0]
+        left_branch.append(c)
+        while c in d_suc:
+            c = d_suc[c][0]
+            left_branch.append(c)
+
+        c = two_leaves[1]
+        right_branch.append(c)
+        while c in d_suc:
+            c = d_suc[c][0]
+            right_branch.append(c)
+
+        trav = left_branch[::-1] + [root] + right_branch
+        
+        if verbose:
+            print 'left_branch', left_branch
+            print 'right_branch', right_branch
+        
+    return trav
+
+def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, threshold_abs=0, peakedness_lim=.001,
+                    peakedness_radius=5):
+
+
+    from skimage.feature import peak_local_max
+    
+    if len(scores) > min_size + 1:
+    
+        peaks = peak_local_max(scores[min_size-1:]-scores[min_size-1:].min(), min_distance=min_distance, 
+                                      threshold_rel=threshold_rel, exclude_border=False)
+        
+        if len(peaks) > 0:
+            peaks = min_size-1 + peaks.T
+            peaks = peaks[0]
+
+            peakedness = np.array([scores[p]-np.mean(np.r_[scores[p-peakedness_radius:p], 
+                                                           scores[p+1:p+1+peakedness_radius]]) for p in peaks])
+
+            peaks = peaks[peakedness > peakedness_lim]
+            peakedness = peakedness[peakedness > peakedness_lim]
+
+            peaks_sorted = peaks[scores[peaks].argsort()[::-1]]
+        else:
+            peaks = np.array([np.argmax(scores[min_size-1:]) + min_size])
+            peakedness = np.atleast_1d([scores[p]-np.mean(np.r_[scores[max(0, p-peakedness_radius):p], 
+                                                           scores[p+1:min(p+1+peakedness_radius, len(scores))]]) 
+                                       for p in peaks])
+            peaks = peaks[peakedness > peakedness_lim]
+            peakedness = peakedness[peakedness > peakedness_lim]
+            peaks_sorted = peaks[scores[peaks].argsort()[::-1]]
+    else:
+        peaks = np.array([np.argmax(scores)])
+        peakedness = np.atleast_1d([scores[p]-np.mean(np.r_[scores[max(0, p-peakedness_radius):p], 
+                                                           scores[p+1:min(p+1+peakedness_radius, len(scores))]]) 
+                                       for p in peaks])
+        peaks_sorted = peaks[scores[peaks].argsort()[::-1]]
+    
+    peakedness_sorted = np.atleast_2d(peakedness[scores[peaks].argsort()[::-1]])[0]
+    
+    return peaks_sorted, peakedness_sorted    
+
+
 class DataManager(object):
 
     def __init__(self, data_dir=os.environ['GORDON_DATA_DIR'], 
@@ -189,6 +278,339 @@ class DataManager(object):
     #     self.set_slice(slice_ind)
     #     self._load_image()
 
+    def load_multiple_results(self, results):
+
+        from networkx import from_dict_of_lists
+
+        if 'texHist' in results and not hasattr(self, 'texton_hists'):
+            self.texton_hists = self.load_pipeline_result('texHist')
+
+        if 'segmentation' in results and  not hasattr(self, 'segmentation'):
+            self.segmentation = self.load_pipeline_result('segmentation')
+            self.n_superpixels = self.segmentation.max() + 1
+        
+        if 'texMap' in results and not hasattr(self, 'textonmap'):
+            self.textonmap = self.load_pipeline_result('texMap')
+            self.n_texton = self.textonmap.max() + 1
+
+        if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            self.sp_centroids = self.load_pipeline_result('spCentroids')
+
+        if 'spCoords' in results and not hasattr(self, 'sp_coords'):
+            self.sp_coords = self.load_pipeline_result('spCoords')            
+
+        if 'spAreas' in results and not hasattr(self, 'sp_areas'):
+            self.sp_areas = self.load_pipeline_result('spAreas')
+
+        if 'edgeCoords' in results and not  hasattr(self, 'edge_coords'):
+            self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+
+        if 'neighbors' in results and not  hasattr(self, 'neighbors'):
+            self.neighbors = self.load_pipeline_result('neighbors')
+            self.neighbor_graph = from_dict_of_lists(dict(enumerate(self.neighbors)))
+            if not hasattr(self, 'edge_coords'):
+                self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+            self.neighbors_long = dict([(s, set([n for n in nbrs if len(self.edge_coords[frozenset([s,n])]) > 10])) 
+                       for s, nbrs in enumerate(self.neighbors)])
+            self.neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+
+        if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            self.sp_centroids = self.load_pipeline_result('spCentroids')
+        
+        if 'edgeNeighbors' in results and not hasattr(self, 'edge_neighbors'):
+            self.edge_neighbors = self.load_pipeline_result('edgeNeighbors')
+
+        if 'dedgeNeighbors' in results and not hasattr(self, 'dedge_neighbors'):
+            self.dedge_neighbors = self.load_pipeline_result('dedgeNeighbors')
+            self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
+
+
+    def compute_cluster_score(self, cluster, verbose=False, thresh=.2):
+        
+        self.load_multiple_results(['texHist', 'neighbors'])
+
+        cluster_list = list(cluster)
+        cluster_avg = self.texton_hists[cluster_list].mean(axis=0)
+
+        surrounds = set([i for i in set.union(*[self.neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+        
+        if len(surrounds) == 0: # single sp on background
+            return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+
+        surrounds_list = list(surrounds)
+            
+        ds = np.squeeze(cdist([cluster_avg], self.texton_hists[surrounds_list], chi2))
+        #     surround_dist = np.count_nonzero(ds > thresh) / float(len(ds)) # hard
+
+        sigma = .01
+        surround_dist = np.sum(1./(1+np.exp((thresh - ds)/sigma)))/len(ds); #soft
+
+        if verbose:
+            print 'min', surrounds_list[ds.argmin()]
+
+        score = surround_dist
+
+        if len(cluster) > 1:
+            ds = np.squeeze(chi2s([cluster_avg], self.texton_hists[list(cluster)]))
+            var = ds.mean()
+        else:
+            var = 0
+
+        interior_dist = np.nan
+        compactness = np.nan
+        interior_pval = np.nan
+        surround_pval = np.nan
+        size_prior = np.nan
+
+        return score, surround_dist, var, compactness, surround_pval, interior_pval, size_prior
+
+
+    def plot_scores(self, peaks, clusters_allhistory, scores, margin=300, visualize_peaks=False, ncol=3,
+                    xmin=None, ymin=None, xmax=None, ymax=None):
+
+        ncol = min(ncol, len(peaks))
+        
+        fig, axes = plt.subplots(2,1,squeeze=True, sharex=True, figsize=(20,10))
+
+        scores_to_plot = scores[:,1]
+        axes[0].plot(scores_to_plot);
+        for p in peaks:
+            axes[0].vlines(p, ymin=scores_to_plot.min(), ymax=scores_to_plot.max(), colors='r');
+        axes[0].set_xlabel('iteration');
+        axes[0].set_ylabel('exterior distance');
+
+        scores_to_plot = scores[:,3]
+        axes[1].plot(scores_to_plot);
+        for p in peaks:
+            axes[1].vlines(p, ymin=scores_to_plot.min(), ymax=scores_to_plot.max(), colors='r');
+        axes[1].set_xlabel('iteration');
+        axes[1].set_ylabel('interior variance');
+
+        if visualize_peaks:
+
+            if xmin is None:
+                self.load_multiple_results(['spCentroids'])
+
+                xmin = np.inf
+                ymin = np.inf
+                xmax = 0
+                ymax = 0
+
+                for i in peaks:
+                    centroids = self.sp_centroids[clusters_allhistory[i], ::-1]
+                    xmin = min(xmin, centroids[:,0].min(axis=0))
+                    xmax = max(xmax, centroids[:,0].max(axis=0))
+                    ymin = min(ymin, centroids[:,1].min(axis=0))
+                    ymax = max(ymax, centroids[:,1].max(axis=0))
+
+                xmin = int(max(0, xmin - margin))
+                ymin = int(max(0, ymin - margin))
+                xmax = int(min(self.image_width, xmax + margin))
+                ymax = int(min(self.image_height, ymax + margin))
+
+            n_peak = len(peaks)
+            fig, axes = plt.subplots(int((n_peak-1)/ncol)+1, ncol, figsize=(20,20), squeeze=False)
+
+            for pi, p in enumerate(peaks):
+                viz = self.visualize_cluster(clusters_allhistory[p], highlight_seed=True, seq_text=True,
+                                           ymin=ymin, xmin=xmin, ymax=ymax, xmax=xmax)
+                ax = axes[pi/ncol, pi%ncol]
+                ax.imshow(viz)
+                ax.axis('off')
+                ax.set_title('peak %d, cluster score %.3f'%(p, scores[p, 1]))
+                
+            plt.show()
+        
+
+    def grow_cluster(self, seed, verbose=False, all_history=True, 
+                                             coherence_limit=0.07,
+                                             num_sp_percentage_limit=0.05,
+                                             min_size=1, min_distance=3, thresh=.4):
+
+        from networkx import from_dict_of_lists, Graph, adjacency_matrix, connected_components
+
+        from itertools import chain
+        from skimage.feature import peak_local_max
+        from scipy.spatial import ConvexHull
+        from matplotlib.path import Path
+
+        self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
+
+        neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+
+        visited = set([])
+        curr_cluster = set([])
+
+        candidate_scores = [0]
+        candidate_sps = [seed]
+
+        score_tuples = []
+        added_sps = []
+        n_sps = []
+
+        cluster_list = []
+        addorder_list = []
+
+        iter_ind = 0
+
+        hull_begin = False
+
+        nearest_surrounds = []
+        toadd_list = []
+
+        while len(candidate_sps) > 0:
+
+            if verbose:
+                print '\niter', iter_ind
+
+            best_ind = np.argmax(candidate_scores)
+
+            just_added_score = candidate_scores[best_ind]
+            sp = candidate_sps[best_ind]
+
+            del candidate_scores[best_ind]
+            del candidate_sps[best_ind]
+
+            if sp in curr_cluster:
+                continue
+
+            curr_cluster.add(sp)
+            added_sps.append(sp)
+
+            extra_sps = []
+
+            sg = self.neighbor_long_graph.subgraph(list(set(range(self.n_superpixels)) - curr_cluster))
+            for c in connected_components(sg):
+                if len(c) < 10: # holes
+                    extra_sps.append(c)
+
+            extra_sps = list(chain(*extra_sps))
+            curr_cluster |= set(extra_sps)
+            added_sps += extra_sps
+
+            tt = self.compute_cluster_score(curr_cluster, verbose=verbose, thresh=thresh)
+
+            # nearest_surround = compute_nearest_surround(curr_cluster, neighbors, texton_hists)
+            # nearest_surrounds.append(nearest_surround)
+
+            tot, exterior, interior, compactness, surround_pval, interior_pval, size_prior = tt
+
+            if len(curr_cluster) > 5 and (interior > coherence_limit):
+                break
+
+            if np.isnan(tot):
+                return [seed], -np.inf
+            score_tuples.append(np.r_[just_added_score, tt])
+
+            n_sps.append(len(curr_cluster))
+
+            # just_added_score, curr_total_score, exterior_score, interior_score, compactness_score, surround_pval,
+            # interior_pval, size_prior
+
+            if verbose:
+                print 'add', sp
+                print 'extra', extra_sps
+                print 'added_sps', added_sps
+                print 'curr_cluster', curr_cluster
+                print 'n_sps', n_sps
+                print 'tt', tot
+                if len(curr_cluster) != len(added_sps):
+                    print len(curr_cluster), len(added_sps)
+                    raise
+
+            cluster_list.append(curr_cluster.copy())
+            addorder_list.append(added_sps[:])
+            candidate_sps = (set(candidate_sps) | \
+                             (set.union(*[self.neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
+            candidate_sps = list(candidate_sps)
+
+            h_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
+
+            candidate_scores = -.5*chi2s([h_avg], self.texton_hists[candidate_sps])-\
+                            .5*chi2s([self.texton_hists[seed]], self.texton_hists[candidate_sps])
+
+            candidate_scores = candidate_scores.tolist()
+
+            if verbose:
+    #                 print 'candidate', candidate_sps
+                print 'candidate\n'
+
+                for i,j in sorted(zip(candidate_scores, candidate_sps), reverse=True):
+                    print i, j
+                print 'best', candidate_sps[np.argmax(candidate_scores)]
+
+            toadd_list.append(candidate_sps[np.argmax(candidate_scores)])
+
+            if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
+                break
+
+            iter_ind += 1
+
+        score_tuples = np.array(score_tuples)
+        scores = score_tuples[:,1]
+
+        peaks_sorted, peakedness_sorted = find_score_peaks(scores, min_size=min_size, min_distance=min_distance,
+                                                          threshold_abs=0.05)
+
+        if all_history:
+            # return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, nearest_surrounds, toadd_list
+            return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, toadd_list
+        else:
+            return [addorder_list[i] for i in peaks_sorted], score_tuples[peaks_sorted, 1]
+
+
+
+    def convert_cluster_to_descriptor(self, cluster, verbose=False):
+
+        self.load_multiple_results(['neighbors', 'dedgeNeighbors', 'texHist', 'edgeCoords', 'spAreas'])
+
+        dedge_set = self.find_boundary_dedges_ordered(cluster, verbose=verbose)
+        
+        interior_texture = self.texton_hists[list(cluster)].mean(axis=0)
+
+        surrounds = [e[0] for e in dedge_set]
+        exterior_textures = np.array([self.texton_hists[s] if s!=-1 else np.nan * np.ones((self.texton_hists.shape[1],)) 
+                                      for s in surrounds])
+
+        points = np.array([self.edge_coords[frozenset(e)].mean(axis=0) for e in dedge_set])
+        center = points.mean(axis=0)
+
+        area = self.sp_areas[cluster].sum()
+        
+        return (dedge_set, interior_texture, exterior_textures, points, center, area)
+
+
+    def find_boundary_dedges_ordered(self, cluster, verbose=False):
+
+        self.load_multiple_results(['neighbors', 'dedgeNeighbors', 'edgeCoords'])
+
+        surrounds = set([i for i in set.union(*[self.neighbors[c] for c in cluster]) if i not in cluster])
+        surrounds = set([i for i in surrounds if any([n not in cluster for n in self.neighbors[i]])])
+    #     surrounds_ordered = order_nodes(surrounds, linking_neighbor_graph)
+        
+    #     frontiers = (set.union(*[neighbors[c] for c in surrounds]) | set()) & set(cluster)
+        
+        non_border_dedges = [(s, int_sp) for s in surrounds for int_sp in set.intersection(set(cluster), self.neighbors[s]) 
+                             if int_sp != -1 and s != -1]
+        border_dedges = [(-1,f) for f in cluster if -1 in self.neighbors[f]] if -1 in surrounds else []
+
+        dedges_cluster = non_border_dedges + border_dedges
+        dedges_cluster_long = [dedge for dedge in dedges_cluster if len(self.edge_coords[frozenset(dedge)]) > 10]
+
+        if verbose:
+            print 'surrounds', surrounds
+            print 'non_border_dedges', non_border_dedges
+            print 'border_dedges', border_dedges
+            print 'dedges_cluster_long', dedges_cluster_long
+
+        dedges_cluster_long_sorted = order_nodes(dedges_cluster_long, self.dedge_neighbor_graph, verbose=verbose)    
+        
+        missing = set(dedges_cluster_long) - set(dedges_cluster_long_sorted)
+        assert len(missing) == 0, missing
+        
+        return dedges_cluster_long_sorted
+
+
     def _get_image_filepath(self, stack=None, resol=None, section=None, version='rgb-jpg'):
         if stack is None:
             stack = self.stack
@@ -306,6 +728,8 @@ class DataManager(object):
             self.grid_size = 100
         elif segm_params_id == 'gridsize50':
             self.grid_size = 50
+        elif segm_params_id == 'tSLIC200':
+            pass
         else:
             self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
 
@@ -520,8 +944,8 @@ class DataManager(object):
         if not hasattr(self, 'edge_midpoints'):
             self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
-        if not hasattr(self, 'edge_vectors'):
-            self.edge_vectors = self.load_pipeline_result('edgeVectors')
+        if not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if bg == 'originalImage':
             segmentation_viz = self.image_rgb_jpg
@@ -548,10 +972,14 @@ class DataManager(object):
             if directed:
                 e = frozenset(edge)
                 midpoint = self.edge_midpoints[e]
-                end = midpoint + 10 * self.edge_vectors[edge]
+                end = midpoint + 10 * self.dedge_vectors[edge]
                 cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
                          tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
-                         (c[0],c[1],c[2]), 5)
+                         (c[0],c[1],c[2]), 2)
+
+                cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                         (c[0],c[1],c[2]), -1)
+
                 stroke_pts = self.edge_coords[e]
             else:
                 stroke_pts = self.edge_coords[edge]
@@ -580,8 +1008,8 @@ class DataManager(object):
         if not hasattr(self, 'edge_midpoints'):
             self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
-        if not hasattr(self, 'edge_vectors'):
-            self.edge_vectors = self.load_pipeline_result('edgeVectors')
+        if not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if colors is None:
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
@@ -625,10 +1053,13 @@ class DataManager(object):
                 if directed:
                     e = frozenset(edge)
                     midpoint = self.edge_midpoints[e]
-                    end = midpoint + 10 * self.edge_vectors[edge]
+                    end = midpoint + 10 * self.dedge_vectors[edge]
                     cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
                              tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
-                             (c[0],c[1],c[2]), 5)
+                             (c[0],c[1],c[2]), 2)
+
+                    cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                             (c[0],c[1],c[2]), -1)
                     stroke_pts = self.edge_coords[e]
                 else:
                     stroke_pts = self.edge_coords[edge]

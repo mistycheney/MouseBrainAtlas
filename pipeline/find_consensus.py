@@ -41,7 +41,7 @@ def compute_cluster_coherence_score(cluster, verbose=False):
     if len(cluster) > 1:
         cluster_avg = texton_hists[cluster].mean(axis=0)
         ds = np.squeeze(chi2s([cluster_avg], texton_hists[list(cluster)]))
-        var = np.sum(ds**2)/len(ds)
+        var = ds.mean()
     else:
         var = 0
     
@@ -58,17 +58,21 @@ def compute_cluster_significance_score(cluster, verbose=False, method='min'):
     if verbose:
         print 'surround_list', surround_list
         
-    ds = np.squeeze(chi2s([cluster_avg], texton_hists[surround_list])) 
-
+    ds = np.atleast_1d(np.squeeze(cdist([cluster_avg], texton_hists[surround_list], chi2)))
+    
     if method == 'min':
         surround_dist = ds.min()
     elif method == 'mean':
         surround_dist = ds.mean()
     elif method == 'percentage':
-        surround_dist = np.count_nonzero(ds > .2) / float(len(ds)) # hard
+        try:
+            surround_dist = np.count_nonzero(ds > .3) / float(len(ds)) # hard
+        except:
+            print ds
+            raise
     elif method == 'percentage-soft':
         sigma = .05
-        surround_dist = np.sum(1./(1+np.exp((.2-ds)/sigma)))/len(ds); #soft
+        surround_dist = np.sum(1./(1+np.exp((.3-ds)/sigma)))/len(ds); #soft
     
     if verbose:
         print 'min', surround_list[ds.argmin()]
@@ -76,6 +80,14 @@ def compute_cluster_significance_score(cluster, verbose=False, method='min'):
     score = surround_dist
     
     return score
+
+from scipy.spatial.distance import cdist, pdist, squareform
+from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single, dendrogram, ward
+
+from collections import defaultdict, Counter
+from itertools import combinations, chain, product
+
+import networkx
 
 def compute_overlap_minjaccard(c1, c2):
     if isinstance(c1, list):
@@ -89,7 +101,25 @@ def compute_overlap_jaccard(c1, c2):
         c1 = set(c1)
     if isinstance(c2, list):
         c2 = set(c2)
-    return float(len(c1 & c2)) / len(c1 | c2)    
+    return float(len(c1 & c2)) / len(c1 | c2)
+
+def compute_overlap_size(c1, c2):
+    if isinstance(c1, list):
+        c1 = set(c1)
+    if isinstance(c2, list):
+        c2 = set(c2)
+    return len(c1 & c2)
+
+def compute_nonoverlap_area(c1, c2):
+    if isinstance(c1, list):
+        c1 = set(c1)
+    if isinstance(c2, list):
+        c2 = set(c2)
+    if len(c1&c2) == 0:
+        return 100.
+    else:
+        nonoverlap_sps = (c1|c2)-(c1&c2)
+        return sp_areas[list(nonoverlap_sps)].sum()/5e5 # area of the whole frame is 100
 
 def compute_overlap_partial(indices, sets, metric='jaccard'):
     n_sets = len(sets)
@@ -107,6 +137,10 @@ def compute_overlap_partial(indices, sets, metric='jaccard'):
                     overlap_matrix[ii, j] = compute_overlap_minjaccard(c1, c2)
                 elif metric == 'jaccard':
                     overlap_matrix[ii, j] = compute_overlap_jaccard(c1, c2)
+                elif metric == 'size':
+                    overlap_matrix[ii, j] = compute_overlap_size(c1, c2)
+                elif metric == 'nonoverlap-area':
+                    overlap_matrix[ii, j] = compute_nonoverlap_area(c1, c2)
                 else:
                     raise Exception('metric %s is unknown'%metric)
             
@@ -114,10 +148,18 @@ def compute_overlap_partial(indices, sets, metric='jaccard'):
 
 def compute_pairwise_distances(sets, metric):
 
-    partial_overlap_mat = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric=metric) 
-                                        for s in np.array_split(range(len(sets)), 16))
-    overlap_matrix = np.vstack(partial_overlap_mat)
-    distance_matrix = 1 - overlap_matrix
+    if metric == 'nonoverlap-area':
+        
+        partial_distance_matrix = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric=metric) 
+                                                              for s in np.array_split(range(len(sets)), 16))
+        distance_matrix = np.vstack(partial_distance_matrix)
+
+    else:
+    
+        partial_overlap_mat = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric=metric) 
+                                            for s in np.array_split(range(len(sets)), 16))
+        overlap_matrix = np.vstack(partial_overlap_mat)
+        distance_matrix = 1 - overlap_matrix
     
     np.fill_diagonal(distance_matrix, 0)
     
@@ -178,6 +220,7 @@ def smart_union(x):
     gs = set([s for s, c in cc.iteritems() if c > (cc.most_common(1)[0][1]*.3)])                           
     return gs
 
+
 segmentation = dm.load_pipeline_result('segmentation')
 n_superpixels = segmentation.max() + 1
 
@@ -190,11 +233,11 @@ neighbors = dm.load_pipeline_result('neighbors')
 edge_coords = dict(dm.load_pipeline_result('edgeCoords'))
 edge_neighbors = dm.load_pipeline_result('edgeNeighbors')
 
-dedge_vectors = dm.load_pipeline_result('edgeVectors')
+dedge_vectors = dm.load_pipeline_result('dedgeVectors')
 dedge_neighbors = dm.load_pipeline_result('dedgeNeighbors')
 
 try:
-    raise
+    # raise
     good_clusters = dm.load_pipeline_result('goodClusters')
     good_dedges = dm.load_pipeline_result('goodDedges')
 
@@ -204,101 +247,119 @@ except:
 
     all_seed, all_clusters, all_cluster_scores, all_cluster_dedges = zip(*all_seed_cluster_score_dedge_tuples)
 
+    all_cluster_sigs = [compute_cluster_significance_score(cl, method='percentage') for cl in all_clusters]
+
     all_cluster_coherences = np.array([compute_cluster_coherence_score(cl) for cl in all_clusters])
 
-    remaining_cluster_indices = [i for i, (cl, coh, sig) in enumerate(zip(all_clusters, all_cluster_coherences, all_cluster_scores)) 
-                    if coh < .005 and sig > .03]
+    all_cluster_hists = [texton_hists[cl].mean(axis=0) for cl in all_clusters]
 
-    all_seed = [all_seed[i] for i in remaining_cluster_indices]
-    all_clusters = [all_clusters[i] for i in remaining_cluster_indices]
-    all_cluster_scores = [all_cluster_scores[i] for i in remaining_cluster_indices]
-    all_cluster_coherences = [all_cluster_coherences[i] for i in remaining_cluster_indices]
-    all_cluster_dedges = [all_cluster_dedges[i] for i in remaining_cluster_indices]
-    all_seed_cluster_score_dedge_tuples = [all_seed_cluster_score_dedge_tuples[i] for i in remaining_cluster_indices]
-
-    from scipy.spatial.distance import cdist, pdist, squareform
-    from scipy.cluster.hierarchy import average, fcluster, leaders, complete, single, dendrogram, ward
-
-    from collections import defaultdict, Counter
-    from itertools import combinations, chain, product
-
-    import networkx
-
-
-    sys.stderr.write('group clusters ...\n')
-    t = time.time()
-
-    all_seed_cluster_sig_coh_dedge_tuples = zip(all_seed, all_clusters, all_cluster_scores, all_cluster_coherences,
-                                             all_cluster_dedges)
-
-    tuple_indices_grouped, tuples_grouped, _ = group_tuples(all_seed_cluster_sig_coh_dedge_tuples, 
-                                                             val_ind = 1,
-                                                             metric='jaccard',
-                                                             dist_thresh=.2)
-    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-
-    all_seeds_grouped, all_clusters_grouped, \
-    all_scores_grouped, all_cohs_grouped, all_dedges_grouped = [list(map(list, lst)) for lst in zip(*[zip(*g) for g in tuples_grouped])]
-
-
-    all_scores_grouped = [[compute_cluster_significance_score(g, method='percentage') for g in cg] 
-                          for cg in all_clusters_grouped]
-
-    group_rep_indices = map(np.argmax, all_scores_grouped)
-
-    rep_tuples = [(sc_grp[rep_ind], coh_grp[rep_ind], cl_grp[rep_ind], dedge_grp[rep_ind], gi) 
-                    for gi, (rep_ind, cl_grp, sc_grp, coh_grp, dedge_grp) in enumerate(zip(group_rep_indices, all_clusters_grouped, 
-                                                                                  all_scores_grouped, 
-                                                                                  all_cohs_grouped,
-                                                                                  all_dedges_grouped))]
-
-    rep_tuples_ranked = sorted(rep_tuples, reverse=True)
-
-    rep_score_ranked = map(itemgetter(0), rep_tuples_ranked)
-    rep_coh_ranked = map(itemgetter(1), rep_tuples_ranked)
-    rep_clusters_ranked = map(itemgetter(2), rep_tuples_ranked)
-    rep_dedges_ranked = map(itemgetter(3), rep_tuples_ranked)
-    group_indices_ranked = map(itemgetter(4), rep_tuples_ranked)
-
-    rep_entropy_ranked = np.nan_to_num([-np.sum(texton_hists[cl].mean(axis=0)*np.log(texton_hists[cl].mean(axis=0)) )
-                          for cl in rep_clusters_ranked])
+    all_cluster_entropy = np.nan_to_num([-np.sum(hist[hist!=0]*np.log(hist[hist!=0])) for hist in all_cluster_hists])
 
     sp_centroids = dm.load_pipeline_result('spCentroids')[:, ::-1]
-    rep_centroids_ranked = np.array([sp_centroids[cl].mean(axis=0) for cl in rep_clusters_ranked])
+    all_cluster_centroids = np.array([sp_centroids[cl].mean(axis=0) for cl in all_clusters])
 
-    valid_indices = [i for i, (cl, ent, cent) in enumerate(zip(rep_clusters_ranked, rep_entropy_ranked, rep_centroids_ranked))
-                if len(cl) > 3 and (ent > 2. or \
+    all_cluster_compactness = np.array([len(eds)**2/float(len(cl)) for cl, eds in zip(all_clusters, all_cluster_dedges)])
+    all_cluster_compactness = .001 * np.maximum(all_cluster_compactness-40,0)**2
+
+    remaining_cluster_indices = [i for i, (cl, coh, sig, ent, cent, comp) in enumerate(zip(all_clusters, 
+                                                                      all_cluster_coherences, 
+                                                                      all_cluster_sigs,
+                                                                      all_cluster_entropy,
+                                                                      all_cluster_centroids,
+                                                                      all_cluster_compactness
+                                                                     )) 
+                if coh < .25 and sig > .3 and len(cl) > 1 and \
+#                  comp < 2 and \
+                 (ent > 1.5 or \
                   (cent[0] - dm.xmin > 800 and \
                    dm.xmax - cent[0] > 800 and \
                    cent[1] - dm.ymin > 800 and \
                    dm.ymax - cent[1] > 800)
                  )]
-    
-    good_cluster_tuples = [(sig, cl, dedges, i) for i, (sig, coh, cl, dedges, grp_ind) in enumerate(rep_tuples_ranked) 
-                   if i in valid_indices]
-    
-    good_cluster_indices_grouped, good_cluster_tuples_grouped, _ = group_tuples(good_cluster_tuples, 
-                                            val_ind = 1,
-                                            metric='jaccard',
-                                            dist_thresh=.6)
 
-    good_cluster_rep_tuples = [tpls[np.argmax([sig for sig,cl,dedges,i in tpls])] 
-                               for tpls in good_cluster_tuples_grouped]
+    sys.stderr.write('remaining_cluster_indices = %d\n'%len(remaining_cluster_indices))
 
-    good_cluster_rep_tuples_ranked = sorted(good_cluster_rep_tuples, reverse=True)
+    all_seed = [all_seed[i] for i in remaining_cluster_indices]
+    all_clusters = [all_clusters[i] for i in remaining_cluster_indices]
+    all_cluster_sigs = [all_cluster_sigs[i] for i in remaining_cluster_indices]
+    all_cluster_coherences = [all_cluster_coherences[i] for i in remaining_cluster_indices]
+    all_cluster_dedges = [all_cluster_dedges[i] for i in remaining_cluster_indices]
+    all_seed_cluster_score_dedge_tuples = [all_seed_cluster_score_dedge_tuples[i] for i in remaining_cluster_indices]
 
-    good_clusters = map(itemgetter(1), good_cluster_rep_tuples_ranked)
-    good_dedges = map(itemgetter(2), good_cluster_rep_tuples_ranked)
+    sp_areas = dm.load_pipeline_result('spAreas')
+
+
+    sys.stderr.write('group clusters ...\n')
+    t = time.time()
+
+    all_seed_cluster_sig_coh_dedge_tuples = zip(all_seed, all_clusters, all_cluster_sigs, all_cluster_coherences,
+                                             all_cluster_dedges)
+    # merge if area difference is less than 1% of entire frame
+    tuple_indices_grouped, tuples_grouped, _ = group_tuples(all_seed_cluster_sig_coh_dedge_tuples, 
+                                                             val_ind = 1,
+                                                             metric='nonoverlap-area',
+                                                             dist_thresh=1.) 
+
+    n_group = len(tuple_indices_grouped)
+    sys.stderr.write('%d groups\n'%n_group)
+
+    sys.stderr.write('done in %.2f seconds ...\n' % (time.time() - t))
+
+
+    all_seeds_grouped, all_clusters_grouped, \
+    all_sigs_grouped, all_cohs_grouped, all_dedges_grouped = [list(map(list, lst)) for lst in zip(*[zip(*g) for g in tuples_grouped])]
+
+    all_cluster_grouped_union = [set.union(*map(set, cls)) for cls in all_clusters_grouped]
+    all_scores_grouped = [len(seeds) / float(len(union_cl)) for seeds, union_cl in zip(all_seeds_grouped,
+                                                                                      all_cluster_grouped_union)]
+
+
+    group_rep_indices = map(np.argmax, all_sigs_grouped)
+
+    rep_tuples = [(sc, sig_grp[rep_ind], cl_grp[rep_ind], dedge_grp[rep_ind], gi) 
+                    for gi, (rep_ind, cl_grp, dedge_grp, sig_grp, sc) in enumerate(zip(group_rep_indices, 
+                                                                                  all_clusters_grouped, 
+                                                                                  all_dedges_grouped,
+                                                                                all_sigs_grouped, 
+                                                                                 all_scores_grouped))]
+
+    rep_scores = map(itemgetter(0), rep_tuples)
+    rep_sigs = map(itemgetter(1), rep_tuples)
+
+    def scores_to_vote(scores):
+        vals = np.unique(scores)
+        d = dict(zip(vals, np.linspace(0, 1, len(vals))))
+        votes = np.array([d[s] for s in scores])
+        votes = votes/votes.sum()
+        return votes
+
+    d1 = scores_to_vote(rep_sigs)
+    d2 = scores_to_vote(rep_scores)
+    group_indices_ranked = np.argsort(d1 + d2)[::-1]
+
+    rep_tuples_ranked = [rep_tuples[i] for i in group_indices_ranked]
+
+    rep_score_ranked = map(itemgetter(0), rep_tuples_ranked)
+    rep_sig_ranked = map(itemgetter(1), rep_tuples_ranked)
+    rep_clusters_ranked = map(itemgetter(2), rep_tuples_ranked)
+    rep_dedges_ranked = map(itemgetter(3), rep_tuples_ranked)
+
+    good_clusters = rep_clusters_ranked
+    good_dedges = rep_dedges_ranked
 
     dm.save_pipeline_result(good_clusters, 'goodClusters')
     dm.save_pipeline_result(good_dedges, 'goodDedges')
 
-viz = dm.visualize_edge_sets(good_dedges[:60], show_set_index=True)
-dm.save_pipeline_result(viz, 'landmarksViz')
+# for i in range(0, len(good_dedges), 10):
+#     viz = dm.visualize_edge_sets(good_dedges[i:i+10], show_set_index=True)
+#     try:
+#         dm.save_pipeline_result(viz, 'landmarks%dViz'%(i+10))
+#     except:
+#         pass
 
 boundary_models = []
 
-for i, es in enumerate(good_dedges[:60]):
+for i, es in enumerate(good_dedges):
 
     es = list(es)
 

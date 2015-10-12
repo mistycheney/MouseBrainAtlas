@@ -16,7 +16,7 @@ edgeCoords pkl 1 0
 edgeNeighbors pkl 1 0
 edgeCoords pkl 1 0
 edgeMidpoints pkl 1 0
-edgeVectors pkl 1 0
+dedgeVectors pkl 1 0
 dedgeNeighbors pkl 1 0
 textons npy 2 1
 texMap npy 2 0
@@ -26,6 +26,17 @@ allSeedClusterScoreDedgeTuples pkl 3 0
 goodClusters pkl 3 0
 goodDedges pkl 3 0
 landmarksViz jpg 3 0
+landmarks10Viz jpg 3 0
+landmarks20Viz jpg 3 0
+landmarks30Viz jpg 3 0
+landmarks40Viz jpg 3 0
+landmarks50Viz jpg 3 0
+landmarks60Viz jpg 3 0
+landmarks70Viz jpg 3 0
+landmarks80Viz jpg 3 0
+landmarks90Viz jpg 3 0
+landmarks100Viz jpg 3 0
+landmarks110Viz jpg 3 0
 boundaryModels pkl 3 0
 shapeContext pkl 3 0
 matchingsNext1 pkl 3 0

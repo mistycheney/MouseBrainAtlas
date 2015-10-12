@@ -75,7 +75,7 @@ def compute_nearest_surround(cluster):
     return surrounds_list[ds.argmin()]
     
 
-def compute_cluster_score(cluster, texton_hists, verbose=False):
+def compute_cluster_score(cluster, texton_hists, verbose=False, thresh=.2):
     
     cluster_list = list(cluster)
     cluster_avg = texton_hists[cluster_list].mean(axis=0)
@@ -85,17 +85,19 @@ def compute_cluster_score(cluster, texton_hists, verbose=False):
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     
     surrounds_list = list(surrounds)
-    
-    ds = np.squeeze(cdist([cluster_avg], texton_hists[surrounds_list], chi2))
-    surround_dist = ds.min()
+    ds = np.atleast_1d(np.squeeze(cdist([cluster_avg], texton_hists[surrounds_list], chi2)))
+   
+    surround_dist = np.count_nonzero(ds > thresh) / float(len(ds)) # hard
+
     if verbose:
         print 'min', surrounds_list[ds.argmin()]
+
 
     score = surround_dist
     
     if len(cluster) > 1:
         ds = np.squeeze(chi2s([cluster_avg], texton_hists[list(cluster)]))
-        var = np.sum(ds**2)/len(ds)
+        var = ds.mean()
     else:
         var = 0
     
@@ -112,7 +114,12 @@ from skimage.feature import peak_local_max
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 
-def grow_cluster4(seed, verbose=False, all_history=False):
+from skimage.feature import peak_local_max
+from scipy.spatial import ConvexHull
+from matplotlib.path import Path
+
+def grow_cluster4(seed, verbose=False, all_history=False, coherence_limit=0.005, num_sp_percentage_limit=0.05,
+                 min_size=4, min_distance=5, thresh=.2):
     try:
     
         visited = set([])
@@ -156,6 +163,7 @@ def grow_cluster4(seed, verbose=False, all_history=False):
 
             extra_sps = []
             
+#             sg = neighbor_graph.subgraph(list(set(range(n_superpixels))-curr_cluster))
             sg = neighbor_long_graph.subgraph(list(set(range(n_superpixels))-curr_cluster))
             for c in networkx.connected_components(sg):
                 if len(c) < 10: # holes
@@ -163,13 +171,50 @@ def grow_cluster4(seed, verbose=False, all_history=False):
             extra_sps = list(chain(*extra_sps))
             curr_cluster |= set(extra_sps)
             added_sps += extra_sps
+                
+#             if not hull_begin:
+#                 pts = sp_centroids[list(curr_cluster)]
+#                 # if all points are colinear, ConvexHull will fail
+#                 try:
+#                     hull = ConvexHull(pts, incremental=True)
+#                     hull_begin = True
+#                 except:
+#                     pass
 
-            tt = compute_cluster_score(curr_cluster, texton_hists=texton_hists, verbose=verbose)
+#             if hull_begin:
+                
+#                 hull.add_points([sp_centroids[sp]])
+
+#                 vertices = hull.points[hull.vertices]
+#                 mpath = Path(vertices)
+#                 xmin, ymin = vertices.min(axis=0)
+#                 xmax, ymax = vertices.max(axis=0)
+
+#                 in_bbox_sps = np.where((sp_centroids[:,0] >= xmin) & (sp_centroids[:,1] >= ymin) & \
+#                                 (sp_centroids[:,0] <= xmax) & (sp_centroids[:,1] <= ymax))[0]
+
+#                 extra_sps_to_consider = np.asarray(list(set(in_bbox_sps)))
+#                 if verbose:
+#                     print '\nextra_sps_to_consider', extra_sps_to_consider
+#                 if len(extra_sps_to_consider) > 0:
+#                     in_hull = mpath.contains_points(sp_centroids[extra_sps_to_consider])
+#                     if np.any(in_hull):
+#                         extra_sps = extra_sps_to_consider[in_hull]
+#                         hull.add_points(sp_centroids[extra_sps])
+#                         curr_cluster |= set(list(extra_sps))
+#                         added_sps += extra_sps.tolist()
+
+
+            tt = compute_cluster_score(curr_cluster, texton_hists=texton_hists, verbose=verbose,
+                                      thresh=thresh)
     
             nearest_surround = compute_nearest_surround(curr_cluster)
             nearest_surrounds.append(nearest_surround)
             
             tot, exterior, interior, compactness, surround_pval, interior_pval, size_prior = tt
+            
+            if len(curr_cluster) > 5 and (interior > coherence_limit):
+                break
             
             if np.isnan(tot):
                 return [seed], -np.inf
@@ -177,6 +222,9 @@ def grow_cluster4(seed, verbose=False, all_history=False):
                     
             n_sps.append(len(curr_cluster))
     
+            # just_added_score, curr_total_score, exterior_score, interior_score, compactness_score, surround_pval,
+            # interior_pval, size_prior
+
             if verbose:
                 print 'add', sp
                 print 'extra', extra_sps
@@ -188,25 +236,41 @@ def grow_cluster4(seed, verbose=False, all_history=False):
                     print len(curr_cluster), len(added_sps)
                     raise                
 
+#             visited.add(sp)
+            
             cluster_list.append(curr_cluster.copy())
             addorder_list.append(added_sps[:])
             
-            if interior > 0.003:
-                break
-
+            
+#             if hull_begin:
+#             visited |= set(list(extra_sps))
+            
+#             if hull_begin and len(extra_sps) > 0:
             candidate_sps = (set(candidate_sps) | \
                              (set.union(*[neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
+#             else:
+            
+#             candidate_sps = (set(candidate_sps) | (neighbors[sp] - set([-1])) | (visited - curr_cluster)) - curr_cluster                
+#             candidate_sps = (set(candidate_sps) | (neighbors[sp] - {-1})) - curr_cluster                
+
+#             if hull_begin and len(extra_sps) > 0:
+#                 candidate_sps = (set(candidate_sps) | ((set.union(*[neighbors_long[i] for i in list(extra_sps)]) | neighbors_long[sp]) - set([-1])) | (visited - curr_cluster)) - curr_cluster
+#             else:
+#                 candidate_sps = (set(candidate_sps) | (neighbors_long[sp] - set([-1])) | (visited - curr_cluster)) - curr_cluster
+
             candidate_sps = list(candidate_sps)
             
             h_avg = texton_hists[list(curr_cluster)].mean(axis=0)
         
+#             candidate_scores = -chi2s([h_avg], texton_hists[candidate_sps])
+
             candidate_scores = -.5*chi2s([h_avg], texton_hists[candidate_sps])-\
                             .5*chi2s([texton_hists[seed]], texton_hists[candidate_sps])
             
             candidate_scores = candidate_scores.tolist()
 
             if verbose:
-
+#                 print 'candidate', candidate_sps
                 print 'candidate\n'
     
                 for i,j in sorted(zip(candidate_scores, candidate_sps), reverse=True):
@@ -215,7 +279,7 @@ def grow_cluster4(seed, verbose=False, all_history=False):
                 
             toadd_list.append(candidate_sps[np.argmax(candidate_scores)])
 
-            if len(curr_cluster) > int(n_superpixels * 0.05):
+            if len(curr_cluster) > int(n_superpixels * num_sp_percentage_limit):
                 break
                 
             iter_ind += 1
@@ -223,7 +287,7 @@ def grow_cluster4(seed, verbose=False, all_history=False):
         score_tuples = np.array(score_tuples)
         scores = score_tuples[:,1]
         
-        peaks_sorted, peakedness_sorted = find_score_peaks(scores)
+        peaks_sorted, peakedness_sorted = find_score_peaks(scores, min_size=min_size, min_distance=min_distance)
         
         if all_history:
             return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, nearest_surrounds, toadd_list
@@ -242,6 +306,7 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, pe
     
         peaks = peak_local_max(scores[min_size:]-scores[min_size:].min(), min_distance=min_distance, 
                                       threshold_rel=threshold_rel, exclude_border=False)
+        
         if len(peaks) > 0:
             peaks = min_size + peaks.T
             peaks = peaks[0]
@@ -268,14 +333,17 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, pe
                                        for p in peaks])
         peaks_sorted = peaks[scores[peaks].argsort()[::-1]]
     
-    peakedness_sorted = np.atleast_2d(peakedness[scores[peaks].argsort()[::-1]])
+    peakedness_sorted = np.atleast_2d(peakedness[scores[peaks].argsort()[::-1]])[0]
     
-    return peaks_sorted, peakedness_sorted    
+    return peaks_sorted, peakedness_sorted   
 
 
 sys.stderr.write('growing regions ...\n')
 t = time.time()
-expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster4)(s) for s in range(n_superpixels))
+expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster4)(s, min_size=1,
+                                                                          min_distance=10,
+                                                                         coherence_limit=0.05,
+                                                                         thresh=.3) for s in range(n_superpixels))
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 expansion_clusters, expansion_cluster_scores = zip(*expansion_clusters_tuples)
@@ -316,7 +384,7 @@ def order_nodes(sps, neighbor_graph):
             c = d_suc[c][0]
             right_branch.append(c)
 
-        trav = left_branch[::-1] + right_branch
+        trav = left_branch[::-1] + [root] + right_branch
         
     return trav
 

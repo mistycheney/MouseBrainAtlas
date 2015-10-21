@@ -106,21 +106,21 @@ def slic_texture(hist_map, spacing=200, w_spatial=0.001, max_iter=1):
 def _obtain_props_worker(spp):
     return spp.area, spp.bbox, spp.coords
 
-def enforce_connectivity(seg):
+def enforce_connectivity(seg, sp_area_limit=2000):
 
 	from skimage.measure import label, regionprops
 	from collections import Counter
 
 	h, w = seg.shape[:2]
 
-	component_labels = label(seg)
+	component_labels = label(seg, connectivity=1)
 	sp_all_props = regionprops(component_labels + 1, cache=True)
 	    # (row, col), a, (min_row, min_col, max_row, max_col),(rows, cols)
 
 	sp_props = Parallel(n_jobs=16)(delayed(_obtain_props_worker)(spp) for spp in sp_all_props)
 	sp_areas, sp_bbox, spp_coords = map(np.asarray, zip(*sp_props))
 
-	for i in np.where(sp_areas < 2000)[0]:
+	for i in np.where(sp_areas < sp_area_limit)[0]:
 	    min_row, min_col, max_row, max_col = sp_bbox[i]
 	    c = Counter([component_labels[min(h-1, max_row+5), min(w-1, max_col+5)], 
 	    	component_labels[max(0, min_row-5), max(0, min_col-5)], 

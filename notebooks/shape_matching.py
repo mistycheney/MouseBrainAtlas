@@ -10,6 +10,7 @@ from munkres import munkres
 import matplotlib.pyplot as plt
 
 from scipy.spatial.distance import cdist, pdist, squareform
+
 def rigid_transform_from_pairs(X,Y):
     '''
     X, Y are n-by-2 matrices

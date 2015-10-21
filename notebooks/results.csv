@@ -22,6 +22,7 @@ textons npy 2 1
 texMap npy 2 0
 texMapViz jpg 2 0
 texHist npy 3 0
+allSeedClusterScoreTuples pkl 3 0
 allSeedClusterScoreDedgeTuples pkl 3 0
 goodClusters pkl 3 0
 goodDedges pkl 3 0
@@ -37,6 +38,15 @@ landmarks80Viz jpg 3 0
 landmarks90Viz jpg 3 0
 landmarks100Viz jpg 3 0
 landmarks110Viz jpg 3 0
+landmarks120Viz jpg 3 0
+landmarks130Viz jpg 3 0
+landmarks140Viz jpg 3 0
+landmarks150Viz jpg 3 0
+landmarks160Viz jpg 3 0
+landmarks170Viz jpg 3 0
+landmarks180Viz jpg 3 0
+landmarks190Viz jpg 3 0
+landmarks200Viz jpg 3 0
 boundaryModels pkl 3 0
 shapeContext pkl 3 0
 matchingsNext1 pkl 3 0

@@ -40,6 +40,7 @@ from skimage.util import img_as_ubyte, pad
 import cv2
 
 try:
+    # raise
     segmentation = dm.load_pipeline_result('segmentation')
     print "segmentation.npy already exists, skip"
 
@@ -147,6 +148,7 @@ dm.save_pipeline_result(spp_coords, 'spCoords')
 print 'done in', time.time() - t, 'seconds'
 
 if dm.check_pipeline_result('segmentationWithText'):
+# if False:
     sys.stderr.write('visualizations exist, skip')
 else:
 
@@ -163,7 +165,7 @@ else:
     for s in range(n_superpixels):
         cv2.putText(img_superpixelized, str(s), 
                     tuple(sp_centroids[s][::-1].astype(np.int) - (10,-10)), 
-                    cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,255)), 1)
+                    cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,0)), 1)
 
     dm.save_pipeline_result(img_superpixelized, 'segmentationWithText')
 
@@ -181,6 +183,7 @@ else:
 from collections import defaultdict
 
 try:
+    raise
     edge_coords = dm.load_pipeline_result('edgeCoords')
     neighbors = dm.load_pipeline_result('neighbors')
     edge_midpoints = dm.load_pipeline_result('edgeMidpoints')
@@ -220,13 +223,24 @@ except:
         
         return r
 
-    diffs = np.vstack([diff_offset(1,0), diff_offset(0,1), diff_offset(1,1), diff_offset(1,-1)])
+    diffs = np.vstack([diff_offset(1,0), diff_offset(0,1)])
 
     edge_coords = defaultdict(set)
+    edge_junctions = defaultdict(set)
     neighbors = [set() for _ in range(n_superpixels)]
 
     for i, j, y1, x1, y2, x2 in diffs:
         edge_coords[frozenset([i,j])] |= {(x1,y1), (x2,y2)}
+
+        if x1 == x2:
+            edge_junctions[frozenset([i,j])] |= {frozenset([(x1,y1),(x2,y2),(x1-1,y1),(x2-1,y2)]),
+                                                frozenset([(x1,y1),(x2,y2),(x1+1,y1),(x2+1,y2)])}
+        elif y1 == y2:
+            edge_junctions[frozenset([i,j])] |= {frozenset([(x1,y1),(x2,y2),(x1,y1-1),(x2,y2-1)]),
+                                                frozenset([(x1,y1),(x2,y2),(x1,y1+1),(x2,y2+1)])}
+        else:
+            edge_junctions[frozenset([i,j])] |= {frozenset([(x1,y1),(x2,y2),(x1,y2),(x2,y1)])}
+
         if i != -1:
             neighbors[i].add(j)
         if j != -1:
@@ -284,6 +298,7 @@ except:
 
 
 try:
+    raise
     edge_neighbors = dm.load_pipeline_result('edgeNeighbors')
 
 except:
@@ -308,8 +323,8 @@ except:
     edge_neighbors = {}
     for ei, (e, pts) in enumerate(edge_coords.iteritems()):
         nbr_ids = compute_edge_neighbors_worker(pts) - {-1, ei}
-        edge_neighbors[e] = set(edges[i] for i in nbr_ids)
-        
+        edge_neighbors[e] = set([edges[i] for i in nbr_ids if len(set.intersection(edge_junctions[e], edge_junctions[edges[i]])) > 0])
+    
     print 'done in', time.time() - t, 'seconds'
 
     dm.save_pipeline_result(edge_neighbors, 'edgeNeighbors')
@@ -324,6 +339,19 @@ for edge, nbr_edges in edge_neighbors.iteritems():
         
     for nbr_edge in nbr_edges:
         t1, t2 = nbr_edge
+
+        if s1 == t1 or s2 == t2:
+            dedge_neighbors[(s1, s2)].add((t1, t2))
+            dedge_neighbors[(t1, t2)].add((s1, s2))
+            dedge_neighbors[(s2, s1)].add((t2, t1))
+            dedge_neighbors[(t2, t1)].add((s2, s1))      
+            continue
+        elif s1 == t2 or s2 == t1:
+            dedge_neighbors[(s2, s1)].add((t1, t2))
+            dedge_neighbors[(t1, t2)].add((s2, s1))
+            dedge_neighbors[(s1, s2)].add((t2, t1))
+            dedge_neighbors[(t2, t1)].add((s1, s2))
+            continue
 
         ep1 = edge_coords[edge][0]
         ep2 = edge_coords[edge][-1]
@@ -378,7 +406,7 @@ for edge, nbr_edges in edge_neighbors.iteritems():
         if np.linalg.norm(n_nbrep) == 0:
             n_nbrep = n_nbrep
         else:
-            n_nbrep = n_ep/np.linalg.norm(n_nbrep)
+            n_nbrep = n_nbrep/np.linalg.norm(n_nbrep)
         
         x_nbrep, y_nbrep =  nbr_ep_inner + (5*n_nbrep).astype(np.int)
         x_nbrep2, y_nbrep2 =  nbr_ep_inner - (5*n_nbrep).astype(np.int)

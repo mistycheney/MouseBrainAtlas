@@ -756,7 +756,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 	def save_callback(self):
-		self._save_labeling()
+		if self.proposal_mode:
+			self._save_proposal_review_results()
+		else:
+			self._save_labeling()
+
+	def _save_proposal_review_results(self):
+		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+		self.dm.save_proposal_review_result(self.proposal_review_results, self.username, timestamp)
 
 	def labelbutton_callback(self):
 		self.statusBar().showMessage('Left click to drop vertices')

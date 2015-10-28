@@ -997,7 +997,7 @@ class DataManager(object):
         return '-'.join(param_strs)
         
     def _refresh_result_info(self):
-        with open(self.repo_dir + '/notebooks/results.csv', 'r') as f:
+        with open(self.repo_dir + '/results.csv', 'r') as f:
             f.readline()
             self.result_info = {}
             for row in csv.DictReader(f, delimiter=' '):
@@ -1007,7 +1007,7 @@ class DataManager(object):
     def _get_result_filename(self, result_name):
 
         if not hasattr(self, 'result_info'):
-            with open(self.repo_dir + '/notebooks/results.csv', 'r') as f:
+            with open(self.repo_dir + '/results.csv', 'r') as f:
                 f.readline()
                 self.result_info = {}
                 for row in csv.DictReader(f, delimiter=' '):

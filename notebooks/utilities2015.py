@@ -6,7 +6,7 @@ from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
 from skimage.io import imread, imsave
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance import cdist, pdist
 import numpy as np
 import os
 import csv
@@ -60,6 +60,112 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     int(q[1] + arrow_magnitude * np.sin(angle - np.pi/4)))
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
+
+
+def order_nodes(sps, neighbor_graph, verbose=False):
+
+    from networkx.algorithms import dfs_successors, dfs_postorder_nodes
+
+
+    subg = neighbor_graph.subgraph(sps)
+    d_suc = dfs_successors(subg)
+    
+    x = [(a,b) for a,b in d_suc.iteritems() if len(b) == 2]
+    
+    if verbose:
+        print 'root, two_leaves', x
+    
+    if len(x) == 0:
+        trav = list(dfs_postorder_nodes(subg))
+    else:
+        if verbose:
+            print 'd_succ'
+            for it in d_suc.iteritems():
+                print it
+        
+        root, two_leaves = x[0]
+
+        left_branch = []
+        right_branch = []
+
+        c = two_leaves[0]
+        left_branch.append(c)
+        while c in d_suc:
+            c = d_suc[c][0]
+            left_branch.append(c)
+
+        c = two_leaves[1]
+        right_branch.append(c)
+        while c in d_suc:
+            c = d_suc[c][0]
+            right_branch.append(c)
+
+        trav = left_branch[::-1] + [root] + right_branch
+        
+        if verbose:
+            print 'left_branch', left_branch
+            print 'right_branch', right_branch
+        
+    return trav
+
+def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, threshold_abs=0, peakedness_lim=0,
+                    peakedness_radius=1, verbose=False):
+
+    from skimage.feature import peak_local_max
+
+    scores2 = scores.copy()
+    scores2[np.isnan(scores)] = np.nanmin(scores)
+    scores = scores2
+    
+    if len(scores) > min_size:
+    
+        scores_shifted = scores[min_size-1:]
+        scores_shifted_positive = scores_shifted - scores_shifted.min()
+
+        peaks_shifted = np.atleast_1d(np.squeeze(peak_local_max(scores_shifted_positive, 
+                                    min_distance=min_distance, threshold_abs=threshold_abs-scores_shifted.min(), exclude_border=False)))
+
+        # print peaks_shifted
+
+        if len(peaks_shifted) == 0:
+            high_peaks_sorted = np.array([np.argmax(scores)])
+            high_peaks_peakedness = np.inf
+
+        else:
+            peaks_shifted = peaks_shifted[scores_shifted[peaks_shifted] >= np.max(scores_shifted) - threshold_rel]
+            peaks_shifted = np.unique(np.r_[peaks_shifted, np.argmax(scores_shifted)])
+
+            if verbose:
+                print 'raw peaks', np.atleast_1d(np.squeeze(min_size - 1 + peaks_shifted))
+
+            if len(peaks_shifted) > 0:
+                peaks = min_size - 1 + peaks_shifted
+            else:
+                peaks = np.array([np.argmax(scores[min_size-1:]) + min_size-1])
+
+            peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
+                                                           scores[p+1:min(len(scores), p+1+peakedness_radius)]]) for p in peaks])
+
+            if verbose:
+                print 'peakedness', peakedness
+                print 'filtered peaks', np.atleast_1d(np.squeeze(peaks))
+
+            high_peaks = peaks[peakedness > peakedness_lim]
+            high_peaks = np.unique(np.r_[high_peaks, min_size - 1 + np.argmax(scores_shifted)])
+
+            high_peaks_order = scores[high_peaks].argsort()[::-1]
+            high_peaks_sorted = high_peaks[high_peaks_order]
+
+            high_peaks_peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
+                                                                    scores[p+1:min(len(scores), p+1+peakedness_radius)]]) 
+                                    for p in high_peaks_sorted])
+
+    else:
+        high_peaks_sorted = np.array([np.argmax(scores)])
+        high_peaks_peakedness = np.inf
+        
+    return high_peaks_sorted, high_peaks_peakedness    
+
 
 class DataManager(object):
 
@@ -121,12 +227,12 @@ class DataManager(object):
         if load_mask:
             self._load_mask()
 
-#     def set_labelnames(self, labelnames):
-#         self.labelnames = labelnames
+    def set_labelnames(self, labelnames):
+        self.labelnames = labelnames
 
-#         with open(self.labelnames_path, 'w') as f:
-#             for n in labelnames:
-#                 f.write('%s\n' % n)
+        with open(self.labelnames_path, 'w') as f:
+            for n in labelnames:
+                f.write('%s\n' % n)
 
     def set_stack(self, stack):
         self.stack = stack
@@ -188,6 +294,567 @@ class DataManager(object):
     #     self.set_stack(stack)
     #     self.set_slice(slice_ind)
     #     self._load_image()
+
+    def load_multiple_results(self, results):
+
+        from networkx import from_dict_of_lists
+
+        if 'texHist' in results and not hasattr(self, 'texton_hists'):
+            self.texton_hists = self.load_pipeline_result('texHist')
+
+        if 'segmentation' in results and  not hasattr(self, 'segmentation'):
+            self.segmentation = self.load_pipeline_result('segmentation')
+            self.n_superpixels = self.segmentation.max() + 1
+        
+        if 'texMap' in results and not hasattr(self, 'textonmap'):
+            self.textonmap = self.load_pipeline_result('texMap')
+            self.n_texton = self.textonmap.max() + 1
+
+        if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            self.sp_centroids = self.load_pipeline_result('spCentroids')
+
+        if 'spBboxes' in results and not hasattr(self, 'sp_bboxes'):
+            self.sp_bboxes = self.load_pipeline_result('spBbox')            
+
+        if 'spCoords' in results and not hasattr(self, 'sp_coords'):
+            self.sp_coords = self.load_pipeline_result('spCoords')            
+
+        if 'spAreas' in results and not hasattr(self, 'sp_areas'):
+            self.sp_areas = self.load_pipeline_result('spAreas')
+
+        if 'edgeCoords' in results and not hasattr(self, 'edge_coords'):
+            self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+
+        if 'edgeMidpoints' in results and not hasattr(self, 'edge_midpoints'):
+            self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))            
+
+        if 'neighbors' in results and not  hasattr(self, 'neighbors'):
+            self.neighbors = self.load_pipeline_result('neighbors')
+            self.neighbor_graph = from_dict_of_lists(dict(enumerate(self.neighbors)))
+            if not hasattr(self, 'edge_coords'):
+                self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+            self.neighbors_long = dict([(s, set([n for n in nbrs if len(self.edge_coords[frozenset([s,n])]) > 10])) 
+                       for s, nbrs in enumerate(self.neighbors)])
+            self.neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+
+        if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            self.sp_centroids = self.load_pipeline_result('spCentroids')
+        
+        if 'edgeNeighbors' in results and not hasattr(self, 'edge_neighbors'):
+            self.edge_neighbors = self.load_pipeline_result('edgeNeighbors')
+
+        if 'dedgeNeighbors' in results and not hasattr(self, 'dedge_neighbors'):
+            self.dedge_neighbors = self.load_pipeline_result('dedgeNeighbors')
+            self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
+
+
+    def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
+        
+        cluster_list = list(cluster)
+        cluster_avg = self.texton_hists[cluster_list].mean(axis=0)
+
+        surrounds = set([i for i in set.union(*[self.neighbors[c] for c in cluster]) if i not in cluster and i != -1])
+        
+        if len(surrounds) == 0: # single sp on background
+            return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+
+        surrounds_list = list(surrounds)
+
+        # if verbose:
+        #     print 'min', surrounds_list[ds.argmin()]
+
+        ds = np.atleast_1d(np.squeeze(chi2s([cluster_avg], self.texton_hists[surrounds_list])))
+
+        if method == 'min':
+            surround_dist = ds.min()
+            if verbose:
+                print 'min', surrounds_list[ds.argmin()]
+            score = surround_dist
+
+        elif method == 'mean':
+            surround_dist = ds.mean()
+            score = surround_dist
+
+        elif method == 'percentage':
+            surround_dist = np.count_nonzero(ds > thresh) / float(len(ds)) # hard
+            score = surround_dist
+
+        elif method == 'percentage-soft':        
+            sigma = .01
+            surround_dist = np.sum(1./(1+np.exp((thresh - ds)/sigma)))/len(ds); #soft        
+            if verbose:
+                for t in sorted(zip(surrounds_list, ds), key=itemgetter(1)):
+                    print t
+                plt.hist(ds, bins=np.linspace(0,1,50));
+                plt.show();
+
+            score = surround_dist
+
+        elif method == 'rc-min' or method == 'rc-mean':
+
+            sigs_front = []
+            if len(cluster) > 1:
+                
+                # frontiers = set.union(*[set(self.neighbors[s]) for s in surrounds_list]) & set(cluster_list)
+                frontiers = cluster
+                for f in frontiers:
+                    if len(surrounds & set(self.neighbors[f])) > 0:
+                        alternative_sps = list((surrounds & set(self.neighbors[f])) - {-1})
+                    else:
+                        q = list(surrounds-{-1})
+                        alternative_sps = [q[np.squeeze(cdist([self.sp_centroids[f]], self.sp_centroids[q])).argmin()]]
+                        
+                    # alternative_dist = np.atleast_1d(np.squeeze(chi2s([self.texton_hists[f]], 
+                    #                                 self.texton_hists[alternative_sps+[f]].mean(axis=0)))).min()
+                    # alternative_dist = np.min([chi2(self.texton_hists[f], self.texton_hists[[s,f]].mean(axis=0)) for s in alternative_sps])
+                    alternative_dist = np.mean([chi2(self.texton_hists[f], self.texton_hists[[s,f]].mean(axis=0)) for s in alternative_sps])
+
+                    # interior_neighbors = list((set(cluster_list) & set(self.neighbors[f])) - {-1})
+                    # interior_avg = self.texton_hists[interior_neighbors + [f]].mean(axis=0)
+                    # curr_dist = .5 * chi2(self.texton_hists[f], interior_avg) + .5 * chi2(self.texton_hists[f], cluster_avg)
+                    
+                    if seed is not None:
+                        curr_dist = chi2(self.texton_hists[f], seed_weight*self.texton_hists[seed]+(1.-seed_weight)*self.texton_hists[cluster_list].mean(axis=0))                        
+                    else:
+                        curr_dist = chi2(self.texton_hists[f], self.texton_hists[cluster_list].mean(axis=0))
+
+                    sig = alternative_dist - curr_dist
+                    sigs_front.append(sig)
+
+                if verbose:
+                    print 'frontiers advantages'
+                    print zip(list(frontiers), sigs_front)
+
+            sigs_sur = []
+            for s in surrounds:
+                sur_neighbors = self.neighbors[s] - set(cluster)
+                alternative_dist = np.mean([chi2(self.texton_hists[s], self.texton_hists[[s,n]].mean(axis=0)) for n in sur_neighbors])
+
+                if seed is not None:
+                    curr_dist = chi2(self.texton_hists[s], seed_weight*self.texton_hists[seed]+(1.-seed_weight)*self.texton_hists[cluster_list+[s]].mean(axis=0))
+                else:
+                    curr_dist = chi2(self.texton_hists[s], self.texton_hists[cluster_list+[s]].mean(axis=0))
+
+                sig = curr_dist - alternative_dist
+                sigs_sur.append(sig)
+
+            if verbose:
+                print 'surround advantages'
+                print zip(list(surrounds), sigs_sur)
+
+            # sigs_sur = np.array(sigs_sur)
+            # sigs_front = np.array(sigs_front)
+
+            # thresh = .2
+            # # sig = int(sig > thresh)
+            # sigma = .025
+            # sigs = 1./(1+np.exp((thresh - sigs)/sigma)); #soft
+
+            if method == 'rc-min':
+                if len(sigs_front) > 0:
+                    score = min(np.min(sigs_sur), np.min(sigs_front))
+                    s1_max = np.max(sigs_sur)
+                    s1_min = np.min(sigs_sur)
+                    s2_max = np.max(sigs_front)
+                    s2_min = np.min(sigs_front)
+                else:
+                    score = np.min(sigs_sur)
+                    s1_max = np.max(sigs_sur)
+                    s1_min = np.min(sigs_sur)
+                    s2_max = np.nan
+                    s2_min = np.nan
+
+                # score = .5*np.min(sigs_sur)+.5*np.min(sigs_front) if len(sigs_front) > 0 else 0                
+            elif method == 'rc-mean':
+                if len(sigs_front) > 0:
+                    # print np.mean(sigs_sur), np.mean(sigs_front)
+                    score = .5*np.mean(sigs_sur)+.5*np.mean(sigs_front)
+                    # score = max(np.mean(sigs_sur), np.mean(sigs_front))
+                    s1_max = np.max(sigs_sur)
+                    s1_min = np.min(sigs_sur)
+                    s2_max = np.max(sigs_front)
+                    s2_min = np.min(sigs_front)
+                else:
+                    score = np.mean(sigs_sur)
+                    s1_max = np.max(sigs_sur)
+                    s1_min = np.min(sigs_sur)
+                    s2_max = np.nan
+                    s2_min = np.nan
+
+        else:
+            raise 'unrecognized method'
+                # print list(frontiers)[np.argmin(sigs)]
+
+
+        inter_sp_dists = np.squeeze(pdist(self.texton_hists[list(cluster)], chi2))
+        inter_sp_dist = inter_sp_dists.mean()
+
+        if seed is not None:
+            seed_dist = chi2(cluster_avg, self.texton_hists[seed])
+        else:
+            seed_dist = np.nan
+
+        if method == 'rc-min' or method == 'rc-mean':
+            return score,  np.mean(sigs_sur),  np.mean(sigs_front), inter_sp_dist, seed_dist, s1_max, s1_min, s2_max, s2_min
+        else:
+            return score,  np.nan, np.nan, inter_sp_dist, seed_dist, np.nan, np.nan, np.nan, np.nan
+
+
+    # def plot_scores(self, peaks, clusters_allhistory, scores, margin=300, visualize_peaks=False,
+    #                 xmin=None, ymin=None, xmax=None, ymax=None, ncol=4, sort_by_score=True):
+    def plot_scores(self, peaks1, peaks2, clusters_allhistory, scores, margin=300, visualize_peaks=False,
+                    xmin=None, ymin=None, xmax=None, ymax=None, ncol=4, sort_by_score=True):
+
+        fig, axes = plt.subplots(7,1, squeeze=True, sharex=True, figsize=(20,40))
+
+        axes = np.atleast_1d(axes)
+
+        peaks = np.unique(np.r_[peaks1, peaks2])
+
+        scores_to_plot = scores[:,1]
+        axes[0].plot(scores_to_plot);
+        for p in peaks:
+            axes[0].vlines(p, ymin=scores_to_plot.min(), ymax=scores_to_plot.max(), colors='r');
+        axes[0].set_xlabel('iteration');
+        axes[0].set_ylabel('significance score', fontsize=20);
+
+        s1_mean = scores[:,2]
+        axes[1].plot(s1_mean);
+        for p in peaks1:
+            axes[1].vlines(p, ymin=s1_mean.min(), ymax=s1_mean.max(), colors='r');
+        axes[1].set_xlabel('iteration');
+        axes[1].set_ylabel('surround keep outside', fontsize=20);
+
+        s2_mean = scores[:,3]
+        axes[2].plot(s2_mean);
+        for p in peaks2:
+            axes[2].vlines(p, ymin=np.nanmin(s2_mean), ymax=np.nanmax(s2_mean), colors='r');
+        axes[2].set_xlabel('iteration');
+        axes[2].set_ylabel('frontier keep inside', fontsize=20);
+
+        # s1_mean = scores[:,2]
+        # s1_max = scores[:,6]
+        # s1_min = scores[:,7]
+        # axes[3].plot(s1_mean);
+        # axes[3].plot(s1_max, 'g');
+        # axes[3].plot(s1_min, 'g');
+        # for p in peaks1:
+        #     axes[3].vlines(p, ymin=s1_mean.min(), ymax=s1_mean.max(), colors='r');
+        # axes[3].set_xlabel('iteration');
+        # axes[3].set_ylabel('surround keep outside', fontsize=20);
+
+        # s2_mean = scores[:,3]
+        # s2_max = scores[:,8]
+        # s2_min = scores[:,9]
+        # axes[4].plot(s2_mean);
+        # axes[4].plot(s2_max, 'g');
+        # axes[4].plot(s2_min, 'g');
+        # for p in peaks2:
+        #     axes[4].vlines(p, ymin=np.nanmin(s2_mean), ymax=np.nanmax(s2_mean), colors='r');
+        # axes[4].set_xlabel('iteration');
+        # axes[4].set_ylabel('frontier keep inside', fontsize=20);
+
+        scores_to_plot = scores[:,4]
+        axes[5].plot(scores_to_plot);
+        for p in peaks:
+            axes[5].vlines(p, ymin=np.nanmin(scores_to_plot), ymax=np.nanmax(scores_to_plot), colors='r');
+        axes[5].set_xlabel('iteration');
+        axes[5].set_ylabel('mean interior distance', fontsize=20);
+
+        scores_to_plot = scores[:,5]
+        axes[6].plot(scores_to_plot);
+        for p in peaks:
+            axes[6].vlines(p, ymin=scores_to_plot.min(), ymax=scores_to_plot.max(), colors='r');
+        axes[6].set_xlabel('iteration');
+        axes[6].set_ylabel('seed-avg distance', fontsize=20);
+
+        if not sort_by_score:
+            peaks = sorted(peaks)
+
+        if len(peaks) > 0:    
+            if visualize_peaks:
+                self.visualize_clusters_in_subplots([clusters_allhistory[p] for p in peaks], 
+                        ['peak %d, score %.3f'%(pk, sc) for pi, (pk, sc) in enumerate(zip(peaks, scores[peaks,1]))],
+                        ncol=ncol)
+        
+
+    def visualize_clusters_in_subplots(self, clusters, titles=None, ncol=3, 
+                                    xmin=None, ymin=None, xmax=None, ymax=None, fname=None):
+
+        margin = 300
+        ncol = min(ncol, len(clusters))
+
+        if xmin is None:
+            self.load_multiple_results(['spCentroids'])
+
+            xmin = np.inf
+            ymin = np.inf
+            xmax = 0
+            ymax = 0
+
+            for cl in clusters:
+                centroids = self.sp_centroids[list(cl), ::-1]
+                xmin = min(xmin, centroids[:,0].min(axis=0))
+                xmax = max(xmax, centroids[:,0].max(axis=0))
+                ymin = min(ymin, centroids[:,1].min(axis=0))
+                ymax = max(ymax, centroids[:,1].max(axis=0))
+
+            xmin = int(max(0, xmin - margin))
+            ymin = int(max(0, ymin - margin))
+            xmax = int(min(self.image_width, xmax + margin))
+            ymax = int(min(self.image_height, ymax + margin))
+
+        n_cls = len(clusters)
+        fig, axes = plt.subplots(int((n_cls-1)/ncol)+1, ncol, figsize=(20,20), squeeze=False)
+
+        for ci, cl in enumerate(clusters):
+            viz = self.visualize_cluster(cl, highlight_seed=True, seq_text=True,
+                                       ymin=ymin, xmin=xmin, ymax=ymax, xmax=xmax)
+            ax = axes[ci/ncol, ci%ncol]
+            ax.imshow(viz)
+            ax.axis('off')
+            if titles is not None:
+                ax.set_title(titles[ci])
+        
+        if fname is not None:
+            fig.savefig(fname)
+            plt.close()
+        else:
+            plt.show()
+
+    def grow_cluster(self, seed, seed_weight=.5,
+                    verbose=False, all_history=True, 
+                     num_sp_percentage_limit=0.05,
+                     min_size=1, min_distance=3, thresh=.4,
+                     threshold_abs=-0.05, threshold_rel=.4,
+                     peakedness_limit=0.001, method='rc-min'):
+
+        try:
+
+            from networkx import from_dict_of_lists, Graph, adjacency_matrix, connected_components
+
+            from itertools import chain
+            from skimage.feature import peak_local_max
+            from scipy.spatial import ConvexHull
+            from matplotlib.path import Path
+
+            # self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
+
+            neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+
+            visited = set([])
+            curr_cluster = set([])
+
+            candidate_scores = [0]
+            candidate_sps = [seed]
+
+            score_tuples = []
+            added_sps = []
+            n_sps = []
+
+            cluster_list = []
+            addorder_list = []
+
+            iter_ind = 0
+
+            hull_begin = False
+
+            nearest_surrounds = []
+            toadd_list = []
+
+            while len(candidate_sps) > 0:
+
+                if verbose:
+                    print '\niter', iter_ind
+
+                best_ind = np.argmax(candidate_scores)
+
+                just_added_score = candidate_scores[best_ind]
+                sp = candidate_sps[best_ind]
+
+                del candidate_scores[best_ind]
+                del candidate_sps[best_ind]
+
+                if sp in curr_cluster:
+                    continue
+
+                curr_cluster.add(sp)
+                added_sps.append(sp)
+
+                extra_sps = []
+
+                sg = self.neighbor_long_graph.subgraph(list(set(range(self.n_superpixels)) - curr_cluster))
+                for c in connected_components(sg):
+                    if len(c) < 10: # holes
+                        extra_sps.append(c)
+
+                extra_sps = list(chain(*extra_sps))
+                curr_cluster |= set(extra_sps)
+                added_sps += extra_sps
+
+                tt = self.compute_cluster_score(curr_cluster, seed=seed, seed_weight=seed_weight, verbose=verbose, thresh=thresh, method=method)
+
+                # nearest_surround = compute_nearest_surround(curr_cluster, neighbors, texton_hists)
+                # nearest_surrounds.append(nearest_surround)
+
+                tot, s1, s2, inter_sp_dist, seed_dist, s1_max, s1_min, s2_max, s2_min = tt
+
+                cluster_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
+
+                if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
+                    # if verbose:
+                    print 'terminate', seed_dist, inter_sp_dist
+                    break
+
+                if np.isnan(tot):
+                    return [seed], -np.inf
+                score_tuples.append(np.r_[just_added_score, tt])
+
+                n_sps.append(len(curr_cluster))
+
+                # just_added_score, curr_total_score, exterior_score, interior_score, compactness_score, surround_pval,
+                # interior_pval, size_prior
+
+                if verbose:
+                    print 'add', sp
+                    print 'extra', extra_sps
+                    print 'added_sps', added_sps
+                    print 'curr_cluster', curr_cluster
+                    print 'n_sps', n_sps
+                    print 'tt', tot
+                    if len(curr_cluster) != len(added_sps):
+                        print len(curr_cluster), len(added_sps)
+                        raise
+
+                cluster_list.append(curr_cluster.copy())
+                addorder_list.append(added_sps[:])
+                candidate_sps = (set(candidate_sps) | \
+                                 (set.union(*[self.neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
+                candidate_sps = list(candidate_sps)
+
+                # for c in candidate_sps:
+                #     int_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
+                #     ext_neighbors = self.neighbors[c] - set(curr_cluster)
+                #     chi2(self.texton_hists[c], self.texton_hists[s+[c]]) for s in ext_neighbors
+
+                candidate_scores = []
+                candidate_seed_dists = []
+                for c in candidate_sps:
+                    int_neighbors = list(set(curr_cluster) & self.neighbors[c])
+                    int_dist = chi2(self.texton_hists[c], self.texton_hists[int_neighbors + [c]].mean(axis=0))
+                    curr_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
+                    seed_dist = chi2(self.texton_hists[c], self.texton_hists[seed])
+                    sc = .1 * int_dist + .3* curr_dist + .6*seed_dist
+                    candidate_seed_dists.append(seed_dist)
+                    candidate_scores.append(-sc)
+
+                if np.min(candidate_seed_dists) > .4:
+                    print iter_ind, 'min seed_dist', np.min(candidate_seed_dists)
+                    break
+                    
+                # h_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
+                # candidate_scores = -.5*chi2s([h_avg], self.texton_hists[candidate_sps])-\
+                #                 .5*chi2s([self.texton_hists[seed]], self.texton_hists[candidate_sps])
+
+                # candidate_scores = candidate_scores.tolist()
+
+                if verbose:
+        #                 print 'candidate', candidate_sps
+                    print 'candidate\n'
+
+                    for i,j in sorted(zip(candidate_scores, candidate_sps), reverse=True):
+                        print i, j
+                    print 'best', candidate_sps[np.argmax(candidate_scores)]
+
+                toadd_list.append(candidate_sps[np.argmax(candidate_scores)])
+
+                iter_ind += 1
+
+            score_tuples = np.array(score_tuples)
+
+            # peaks_sorted, peakedness_sorted = find_score_peaks(score_tuples[:,1], min_size=min_size, min_distance=min_distance,
+            #                                                     threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+            #                                                     peakedness_lim=peakedness_limit,
+            #                                                     verbose=verbose)
+
+            peaks_sorted1, peakedness_sorted1 = find_score_peaks(score_tuples[:,2], min_size=min_size, min_distance=min_distance,
+                                                                threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+                                                                peakedness_lim=peakedness_limit,
+                                                                verbose=verbose)
+
+            peaks_sorted2, peakedness_sorted2 = find_score_peaks(score_tuples[:,3], min_size=min_size, min_distance=min_distance,
+                                                                threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+                                                                peakedness_lim=peakedness_limit,
+                                                                verbose=verbose)
+
+            peaks_sorted = np.unique(np.r_[peaks_sorted1, peaks_sorted2])
+            peakedness_sorted = np.unique(np.r_[peakedness_sorted1, peakedness_sorted2])
+
+            if all_history:
+                # return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, nearest_surrounds, toadd_list
+                return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, toadd_list, peaks_sorted1, peaks_sorted2
+            else:
+                return [addorder_list[i] for i in peaks_sorted], score_tuples[peaks_sorted, 1]
+
+        except:
+            print seed 
+            raise
+
+
+    def convert_cluster_to_descriptor(self, cluster, verbose=False):
+
+        self.load_multiple_results(['neighbors', 'dedgeNeighbors', 'texHist', 'edgeCoords', 'spAreas'])
+
+        dedge_set = self.find_boundary_dedges_ordered(cluster, verbose=verbose)
+        
+        interior_texture = self.texton_hists[list(cluster)].mean(axis=0)
+
+        surrounds = [e[0] for e in dedge_set]
+        exterior_textures = np.array([self.texton_hists[s] if s!=-1 else np.nan * np.ones((self.texton_hists.shape[1],)) 
+                                      for s in surrounds])
+
+        points = np.array([self.edge_coords[frozenset(e)].mean(axis=0) for e in dedge_set])
+        center = points.mean(axis=0)
+
+        area = self.sp_areas[cluster].sum()
+        
+        return (dedge_set, interior_texture, exterior_textures, points, center, area)
+
+
+    def find_boundary_dedges_ordered(self, cluster, verbose=False):
+
+        self.load_multiple_results(['neighbors', 'dedgeNeighbors', 'edgeCoords'])
+
+        surrounds = set([i for i in set.union(*[self.neighbors[c] for c in cluster]) if i not in cluster])
+        surrounds = set([i for i in surrounds if any([n not in cluster for n in self.neighbors[i]])])
+        
+        non_border_dedges = [(s, int_sp) for s in surrounds for int_sp in set.intersection(set(cluster), self.neighbors[s]) 
+                             if int_sp != -1 and s != -1]
+        border_dedges = [(-1,f) for f in cluster if -1 in self.neighbors[f]] if -1 in surrounds else []
+
+        dedges_cluster = non_border_dedges + border_dedges
+        # dedges_cluster_long = [dedge for dedge in dedges_cluster if len(self.edge_coords[frozenset(dedge)]) > 10]
+
+        if verbose:
+            print 'surrounds', surrounds
+            # print 'non_border_dedges', non_border_dedges
+            # print 'border_dedges', border_dedges
+            print 'dedges_cluster', dedges_cluster
+            # print 'dedges_cluster_long', dedges_cluster_long
+
+        # dedges_cluster_long_sorted = order_nodes(dedges_cluster_long, self.dedge_neighbor_graph, verbose=verbose)    
+        dedges_cluster_sorted = order_nodes(dedges_cluster, self.dedge_neighbor_graph, verbose=verbose)    
+        
+        # missing = set(dedges_cluster_long) - set(dedges_cluster_long_sorted)
+        # assert len(missing) == 0, missing
+        missing = set(dedges_cluster) - set(dedges_cluster_sorted)
+        if len(missing) > 0:
+            print 'dedges missing', len(missing), '%d%%'%(100*len(missing)/float(len(dedges_cluster)))
+            dedges_cluster_sorted += missing
+        
+        return dedges_cluster_sorted
+        # return dedges_cluster_long_sorted
+
 
     def _get_image_filepath(self, stack=None, resol=None, section=None, version='rgb-jpg'):
         if stack is None:
@@ -306,6 +973,8 @@ class DataManager(object):
             self.grid_size = 100
         elif segm_params_id == 'gridsize50':
             self.grid_size = 50
+        elif segm_params_id == 'tSLIC200':
+            pass
         else:
             self.segm_params = json.load(open(os.path.join(self.params_dir, 'segm', 'segm_' + segm_params_id + '.json'), 'r')) if segm_params_id is not None else None
 
@@ -520,8 +1189,8 @@ class DataManager(object):
         if not hasattr(self, 'edge_midpoints'):
             self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
-        if not hasattr(self, 'edge_vectors'):
-            self.edge_vectors = self.load_pipeline_result('edgeVectors')
+        if not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if bg == 'originalImage':
             segmentation_viz = self.image_rgb_jpg
@@ -548,10 +1217,14 @@ class DataManager(object):
             if directed:
                 e = frozenset(edge)
                 midpoint = self.edge_midpoints[e]
-                end = midpoint + 10 * self.edge_vectors[edge]
+                end = midpoint + 10 * self.dedge_vectors[edge]
                 cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
                          tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
-                         (c[0],c[1],c[2]), 5)
+                         (c[0],c[1],c[2]), 2)
+
+                cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                         (c[0],c[1],c[2]), -1)
+
                 stroke_pts = self.edge_coords[e]
             else:
                 stroke_pts = self.edge_coords[edge]
@@ -580,11 +1253,14 @@ class DataManager(object):
         if not hasattr(self, 'edge_midpoints'):
             self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
-        if not hasattr(self, 'edge_vectors'):
-            self.edge_vectors = self.load_pipeline_result('edgeVectors')
+        if not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if colors is None:
             colors = np.uint8(np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt') * 255)
+        elif isinstance(colors[0], int):
+            colors = [colors] * len(edge_sets)
+
         
         if bg == 'originalImage':
             if not hasattr(self, 'image_rgb_jpg'):
@@ -625,10 +1301,13 @@ class DataManager(object):
                 if directed:
                     e = frozenset(edge)
                     midpoint = self.edge_midpoints[e]
-                    end = midpoint + 10 * self.edge_vectors[edge]
+                    end = midpoint + 10 * self.dedge_vectors[edge]
                     cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
                              tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
-                             (c[0],c[1],c[2]), 5)
+                             (c[0],c[1],c[2]), 2)
+
+                    cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                             (c[0],c[1],c[2]), -1)
                     stroke_pts = self.edge_coords[e]
                 else:
                     stroke_pts = self.edge_coords[edge]
@@ -742,8 +1421,10 @@ class DataManager(object):
     
     def visualize_multiple_clusters(self, clusters, bg='segmentationWithText', alpha_blend=False, colors=None,
                                     show_cluster_indices=False,
-                                    ymin=None, xmin=None, ymax=None, xmax=None):
+                                    ymin=None, xmin=None, ymax=None, xmax=None,
+                                    labels=None):
         
+
         if ymin is None:
             ymin = self.ymin
         if xmin is None:
@@ -761,10 +1442,7 @@ class DataManager(object):
         
         if colors is None:
             colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
-            
-        n_superpixels = self.segmentation.max() + 1
-        
-
+                    
         if bg == 'originalImage':
             if not hasattr(self, 'image_rgb_jpg'):
                 self._load_image(versions=['rgb-jpg'])
@@ -780,17 +1458,17 @@ class DataManager(object):
         else:
             segmentation_viz = bg
 
-        mask_alpha = .4
-        
         if alpha_blend:
+
+            mask_alpha = .4
             
             for ci, c in enumerate(clusters):
-                m =  np.zeros((n_superpixels,), dtype=np.float)
+                m =  np.zeros((self.n_superpixels,), dtype=np.float)
                 m[list(c)] = mask_alpha
                 alpha = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
                 alpha[~self.mask[ymin:ymax+1, xmin:xmax+1]] = 0
                 
-                mm = np.zeros((n_superpixels,3), dtype=np.float)
+                mm = np.zeros((self.n_superpixels,3), dtype=np.float)
                 mm[list(c)] = colors[ci]
                 blob = mm[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
                 
@@ -801,24 +1479,16 @@ class DataManager(object):
 
         else:
         
-            n_superpixels = self.segmentation.max() + 1
-
-            n = len(clusters)
-            m = -1*np.ones((n_superpixels,), dtype=np.int)
+            sp_labels = -1*np.ones((self.n_superpixels,), dtype=np.int)
 
             for ci, c in enumerate(clusters):
-                m[list(c)] = ci
+                sp_labels[list(c)] = ci
 
-            a = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
-            a[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
-        #     a = -1*np.ones_like(segmentation)
-        #     for ci, c in enumerate(clusters):
-        #         for i in c:
-        #             a[segmentation == i] = ci
+            labelmap = sp_labels[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
+            labelmap[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
 
-            vis = label2rgb(a, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
+            vis = label2rgb(labelmap, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
 
-        # vis = img_as_ubyte(vis[..., ::-1])
         vis = img_as_ubyte(vis)
 
         if show_cluster_indices:
@@ -826,15 +1496,17 @@ class DataManager(object):
                 self.sp_centroids = self.load_pipeline_result('spCentroids')
 
             for ci, cl in enumerate(clusters):
-                cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
-                cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
-                            cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
+                # cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
+                # cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
+                #             cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
 
-                # for i, sp in enumerate(c):
-                #     vis = cv2.putText(vis, str(i), 
-                #                       tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
-                #                       cv2.FONT_HERSHEY_DUPLEX,
-                #                       1., ((0,255,255)), 1)
+                for i, sp in enumerate(cl):
+                    if labels is not None:
+                        cv2.putText(vis, labels[ci][i], tuple((self.sp_centroids[sp][::-1] - (xmin, ymin) - [10,-10]).astype(np.int)), 
+                                      cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
+                    else:
+                        cv2.putText(vis, str(i), tuple((self.sp_centroids[sp][::-1] - (xmin, ymin) - [10,-10]).astype(np.int)), 
+                                      cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
         
         return vis.copy()
 
@@ -851,40 +1523,40 @@ def display(vis, filename='tmp.jpg'):
 
 # <codecell>
 
-import numpy as np
-from scipy.ndimage.filters import maximum_filter
-from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
+# import numpy as np
+# from scipy.ndimage.filters import maximum_filter
+# from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
 
-def detect_peaks(image):
-    """
-    Takes an image and detect the peaks usingthe local maximum filter.
-    Returns a boolean mask of the peaks (i.e. 1 when
-    the pixel's value is the neighborhood maximum, 0 otherwise)
-    """
+# def detect_peaks(image):
+#     """
+#     Takes an image and detect the peaks usingthe local maximum filter.
+#     Returns a boolean mask of the peaks (i.e. 1 when
+#     the pixel's value is the neighborhood maximum, 0 otherwise)
+#     """
 
-    # define an 8-connected neighborhood
-    neighborhood = generate_binary_structure(2,2)
+#     # define an 8-connected neighborhood
+#     neighborhood = generate_binary_structure(2,2)
 
-    #apply the local maximum filter; all pixel of maximal value 
-    #in their neighborhood are set to 1
-    local_max = maximum_filter(image, footprint=neighborhood)==image
-    #local_max is a mask that contains the peaks we are 
-    #looking for, but also the background.
-    #In order to isolate the peaks we must remove the background from the mask.
+#     #apply the local maximum filter; all pixel of maximal value 
+#     #in their neighborhood are set to 1
+#     local_max = maximum_filter(image, footprint=neighborhood)==image
+#     #local_max is a mask that contains the peaks we are 
+#     #looking for, but also the background.
+#     #In order to isolate the peaks we must remove the background from the mask.
 
-    #we create the mask of the background
-    background = (image==0)
+#     #we create the mask of the background
+#     background = (image==0)
 
-    #a little technicality: we must erode the background in order to 
-    #successfully subtract it form local_max, otherwise a line will 
-    #appear along the background border (artifact of the local maximum filter)
-    eroded_background = binary_erosion(background, structure=neighborhood, border_value=1)
+#     #a little technicality: we must erode the background in order to 
+#     #successfully subtract it form local_max, otherwise a line will 
+#     #appear along the background border (artifact of the local maximum filter)
+#     eroded_background = binary_erosion(background, structure=neighborhood, border_value=1)
 
-    #we obtain the final mask, containing only peaks, 
-    #by removing the background from the local_max mask
-    detected_peaks = local_max - eroded_background
+#     #we obtain the final mask, containing only peaks, 
+#     #by removing the background from the local_max mask
+#     detected_peaks = local_max - eroded_background
 
-    return detected_peaks
+#     return detected_peaks
 
 # <codecell>
 

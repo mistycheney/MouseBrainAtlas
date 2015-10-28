@@ -32,5 +32,5 @@ export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
 export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
 
 alias sync_result='function _sr(){ cd $LOCAL_RESULT_DIR; rsync -azP --delete --include="*/" --include="0*/*$2*" --exclude="*" -m  yuncong@gordon.sdsc.edu:$GORDON_RESULT_DIR/$1 . ; cd - ;}; _sr'
-alias extract_result='function _er(){ mkdir $1_$2; find $LOCAL_RESULT_DIR/$1 -regex .*/.*$2.* -type f -print0 | xargs -0 cp -t $1_$2; }; _er'
+alias extract_result='function _er(){ mkdir $3; find $LOCAL_RESULT_DIR/$1 -regex .*/.*$2.* -type f -print0 | xargs -0 cp -t $3; }; _er'
 alias killall_gordon_python='for i in {31..38} {41..48}; do ssh gcn-20-$i.sdsc.edu "killall python"; done'

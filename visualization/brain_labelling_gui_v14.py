@@ -39,7 +39,7 @@ from skimage.color import label2rgb
 
 from visualization_utilities import *
 
-sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/notebooks')
+sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
 IGNORE_EXISTING_LABELNAMES = False

@@ -19,7 +19,7 @@ args = parser.parse_args()
 
 from joblib import Parallel, delayed
 
-sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
 dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 

@@ -167,13 +167,21 @@ else:
 
     dm.save_pipeline_result(img_superpixelized, 'segmentationWithText')
 
+    emptycanvas_superpixelized_mask = mark_boundaries(np.ones((dm.h, dm.w)), dm.segmentation[dm.ymin:dm.ymax+1,
+                                                                                   dm.xmin:dm.xmax+1], 
+                                             color=(0,0,0), outline_color=None)
+
+    emptycanvas_superpixelized = np.ones((dm.image_height, dm.image_width, 3))
+    emptycanvas_superpixelized[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = emptycanvas_superpixelized_mask
+
+
     # emptycanvas_superpixelized = mark_boundaries(np.ones((dm.image_height, dm.image_width)), segmentation, 
     #                                              color=(0,0,0), outline_color=None)
 
-    # alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
-    # rgba = np.dstack([emptycanvas_superpixelized, alpha_channel])
+    alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
+    rgba = np.dstack([emptycanvas_superpixelized, alpha_channel])
 
-    # dm.save_pipeline_result(rgba, 'segmentationTransparent', is_rgb=True)
+    dm.save_pipeline_result(rgba, 'segmentationTransparent', is_rgb=True)
 
     print 'done in', time.time() - t, 'seconds'
 

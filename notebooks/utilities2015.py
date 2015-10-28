@@ -532,6 +532,7 @@ class DataManager(object):
         axes[2].set_xlabel('iteration');
         axes[2].set_ylabel('frontier keep inside', fontsize=20);
 
+<<<<<<< HEAD
         # s1_mean = scores[:,2]
         # s1_max = scores[:,6]
         # s1_min = scores[:,7]

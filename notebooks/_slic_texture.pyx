@@ -10,8 +10,8 @@ cimport numpy as cnp
 
 from _regular_grid import regular_grid
 
-def _slic_cython(double[:, :, ::1] image_yx,
-                 double[:, ::1] segments,
+def _slic_cython(double[:, :, ::1] texhists,
+                 double[:, ::1] centroids,
                  float step,
                  Py_ssize_t max_iter,
                  double[::1] spacing,
@@ -19,12 +19,12 @@ def _slic_cython(double[:, :, ::1] image_yx,
 
     # initialize on grid
     cdef Py_ssize_t height, width
-    height = image_yx.shape[0]
-    width = image_yx.shape[1]
+    height = texhists.shape[0]
+    width = texhists.shape[1]
 
-    cdef Py_ssize_t n_segments = segments.shape[0]
+    cdef Py_ssize_t n_segments = centroids.shape[0]
     # number of features [X, Y, Z, ...]
-    cdef Py_ssize_t n_features = segments.shape[1]
+    # cdef Py_ssize_t n_features = segments.shape[1]
 
     # approximate grid size for desired n_segments
     cdef Py_ssize_t step_y, step_x
@@ -47,7 +47,7 @@ def _slic_cython(double[:, :, ::1] image_yx,
     
     # The colors are scaled before being passed to _slic_cython so
     # max_color_sq can be initialised as all ones
-    cdef double[::1] max_dist_color = np.ones(n_segments, dtype=np.double)
+    # cdef double[::1] max_dist_color = np.ones(n_segments, dtype=np.double)
     cdef double dist_color
 
     # The reference implementation (Achanta et al.) calls this invxywt

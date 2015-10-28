@@ -22,14 +22,6 @@ args = parser.parse_args()
 
 t = time.time()
 
-# s = check_output("ssh gordon.sdsc.edu ls %s" % os.path.join(os.environ['GORDON_DATA_DIR'], args.stack, 'lossless'), shell=True)
-# slide_indices = [int(f) for f in s.split('\n') if len(f) > 0]
-
-# end = len(slide_indices) - 1 if args.e == -1 else args.e
-# slide_indices = [i for i in slide_indices if i >= args.b and i <= end]
-
-# slide_indices = range(args.b, args.e+1)
-
 if args.task == 'filter':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s'%\
 								{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/gabor_filter.py', 
@@ -129,15 +121,6 @@ elif args.task == 'visualize_atlas':
 				first_sec=args.b,
 				last_sec=args.e,
 				exclude_nodes=[33])
-
-
-# elif args.task == 'match_landmarks':
-# 	arg_tuples = [(args.stack, i) for i in slide_indices]
-# 	run_distributed3(script_root+'/match_landmarks_executable.py', arg_tuples)
-
-# elif args.task == 'compute_edgemap':
-# 	arg_tuples = [(args.stack, i) for i in slide_indices]
-# 	run_distributed3(script_root+'/compute_edgemap.py', arg_tuples)
 
 else:
 	raise Exception('task must be one of filter, segment, compute_textons, compute_histograms, grow_regions, find_consensus, match_landmarks')

@@ -35,6 +35,7 @@ dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'],
 #==================================================
 
 if dm.check_pipeline_result('texMap') and dm.check_pipeline_result('texMapViz'):
+# if False:
     print "texMap.npy already exists, skip"
 
     textonmap = dm.load_pipeline_result('texMap')
@@ -88,7 +89,8 @@ else:
     dm.save_pipeline_result(textonmap_viz, 'texMapViz')
 
 
-if dm.check_pipeline_result('texHist'):
+# if dm.check_pipeline_result('texHist'):
+if False:
 	print "texHist.npy already exists, skip"
 
 else:

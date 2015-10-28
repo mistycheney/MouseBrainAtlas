@@ -23,19 +23,19 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
 from utilities2015 import *
 
-# dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-#                  repo_dir=os.environ['GORDON_REPO_DIR'], 
-#                  result_dir=os.environ['GORDON_RESULT_DIR'], 
-#                  labeling_dir=os.environ['GORDON_LABELING_DIR'],
-#                  gabor_params_id=args.gabor_params_id, 
-#                  segm_params_id=args.segm_params_id, 
-#                  vq_params_id=args.vq_params_id,
-#                  stack=args.stack_name, 
-#                  section=args.slice_ind)
+dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
+                 repo_dir=os.environ['GORDON_REPO_DIR'], 
+                 result_dir=os.environ['GORDON_RESULT_DIR'], 
+                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
+                 gabor_params_id=args.gabor_params_id, 
+                 segm_params_id=args.segm_params_id, 
+                 vq_params_id=args.vq_params_id,
+                 stack=args.stack_name, 
+                 section=args.slice_ind)
 
-dm = DataManager(segm_params_id='gridsize200', 
-                 stack='MD593', 
-                 section=98)
+# dm = DataManager(segm_params_id='gridsize200', 
+#                  stack='MD593', 
+#                  section=98)
 
 #======================================================
 

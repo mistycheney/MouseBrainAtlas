@@ -1088,10 +1088,30 @@ class DataManager(object):
         print 'saved %s' % result_filename
         
 
+    def load_review_result_path(self, username, timestamp, stack=None, section=None):
+        if stack is None:
+            stack = self.stack
+        if section is None:
+            section = self.slice_ind
+
+        return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_ProposalReviewResult.pkl')
+
+    def save_proposal_review_result(self, result, username, timestamp):
+        path = open(self.load_review_result_path(username, timestamp), 'w')
+        pickle.dump(result, path)
+        print 'Labeling saved to', path
+
+
+    def load_proposal_review_result(self, username, timestamp):
+        path = open(self.load_review_result_path(username, timestamp), 'r')
+        result = pickle.load(path)
+        return result
+
     def load_labeling(self, stack=None, section=None, labeling_name=None):
         labeling_fn = self._load_labeling_path(stack, section, labeling_name)
         labeling = pickle.load(open(labeling_fn, 'r'))
         return labeling
+        
 
     def _load_labeling_preview_path(self, stack=None, section=None, labeling_name=None):
         if stack is None:
@@ -1118,7 +1138,7 @@ class DataManager(object):
 
     def load_labeling_preview(self, stack=None, section=None, labeling_name=None):
         return imread(self._load_labeling_preview_path(stack, section, labeling_name))
-        
+
     def save_labeling(self, labeling, new_labeling_name, labelmap_vis):
         
         try:

@@ -34,7 +34,7 @@ dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'],
 
 #======================================================
 
-from skimage.segmentation import slic, mark_boundaries
+from skimage.segmentation import slic, mark_boundaries, relabel_sequential
 from skimage.measure import regionprops
 from skimage.util import img_as_ubyte, pad
 import cv2
@@ -114,8 +114,6 @@ except Exception as e:
 
     segmentation[~dm.mask] = -1
     				
-    from skimage.segmentation import relabel_sequential
-
     # segmentation starts from 0
     masked_segmentation_relabeled, _, _ = relabel_sequential(segmentation + 1)
 

@@ -112,6 +112,10 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
                     peakedness_radius=1, verbose=False):
 
     from skimage.feature import peak_local_max
+
+    scores2 = scores.copy()
+    scores2[np.isnan(scores)] = np.nanmin(scores)
+    scores = scores2
     
     if len(scores) > min_size:
     
@@ -120,34 +124,41 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
 
         peaks_shifted = np.atleast_1d(np.squeeze(peak_local_max(scores_shifted_positive, 
                                     min_distance=min_distance, threshold_abs=threshold_abs-scores_shifted.min(), exclude_border=False)))
-        peaks_shifted = peaks_shifted[scores_shifted[peaks_shifted] >= np.max(scores_shifted) - threshold_rel]
 
-        peaks_shifted = np.unique(np.r_[peaks_shifted, np.argmax(scores_shifted)])
+        # print peaks_shifted
 
-        if verbose:
-            print 'raw peaks', np.atleast_1d(np.squeeze(min_size - 1 + peaks_shifted))
+        if len(peaks_shifted) == 0:
+            high_peaks_sorted = np.array([np.argmax(scores)])
+            high_peaks_peakedness = np.inf
 
-        if len(peaks_shifted) > 0:
-            peaks = min_size - 1 + peaks_shifted
         else:
-            peaks = np.array([np.argmax(scores[min_size-1:]) + min_size-1])
+            peaks_shifted = peaks_shifted[scores_shifted[peaks_shifted] >= np.max(scores_shifted) - threshold_rel]
+            peaks_shifted = np.unique(np.r_[peaks_shifted, np.argmax(scores_shifted)])
 
-        peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
-                                                       scores[p+1:min(len(scores), p+1+peakedness_radius)]]) for p in peaks])
+            if verbose:
+                print 'raw peaks', np.atleast_1d(np.squeeze(min_size - 1 + peaks_shifted))
 
-        if verbose:
-            print 'peakedness', peakedness
-            print 'filtered peaks', np.atleast_1d(np.squeeze(peaks))
+            if len(peaks_shifted) > 0:
+                peaks = min_size - 1 + peaks_shifted
+            else:
+                peaks = np.array([np.argmax(scores[min_size-1:]) + min_size-1])
 
-        high_peaks = peaks[peakedness > peakedness_lim]
-        high_peaks = np.unique(np.r_[high_peaks, min_size - 1 + np.argmax(scores_shifted)])
+            peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
+                                                           scores[p+1:min(len(scores), p+1+peakedness_radius)]]) for p in peaks])
 
-        high_peaks_order = scores[high_peaks].argsort()[::-1]
-        high_peaks_sorted = high_peaks[high_peaks_order]
+            if verbose:
+                print 'peakedness', peakedness
+                print 'filtered peaks', np.atleast_1d(np.squeeze(peaks))
 
-        high_peaks_peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
-                                                                scores[p+1:min(len(scores), p+1+peakedness_radius)]]) 
-                                for p in high_peaks_sorted])
+            high_peaks = peaks[peakedness > peakedness_lim]
+            high_peaks = np.unique(np.r_[high_peaks, min_size - 1 + np.argmax(scores_shifted)])
+
+            high_peaks_order = scores[high_peaks].argsort()[::-1]
+            high_peaks_sorted = high_peaks[high_peaks_order]
+
+            high_peaks_peakedness = np.array([scores[p]-np.mean(np.r_[scores[max(min_size-1, p-peakedness_radius):p], 
+                                                                    scores[p+1:min(len(scores), p+1+peakedness_radius)]]) 
+                                    for p in high_peaks_sorted])
 
     else:
         high_peaks_sorted = np.array([np.argmax(scores)])
@@ -216,12 +227,12 @@ class DataManager(object):
         if load_mask:
             self._load_mask()
 
-#     def set_labelnames(self, labelnames):
-#         self.labelnames = labelnames
+    def set_labelnames(self, labelnames):
+        self.labelnames = labelnames
 
-#         with open(self.labelnames_path, 'w') as f:
-#             for n in labelnames:
-#                 f.write('%s\n' % n)
+        with open(self.labelnames_path, 'w') as f:
+            for n in labelnames:
+                f.write('%s\n' % n)
 
     def set_stack(self, stack):
         self.stack = stack
@@ -518,27 +529,27 @@ class DataManager(object):
         axes[2].set_xlabel('iteration');
         axes[2].set_ylabel('frontier keep inside', fontsize=20);
 
-        s1_mean = scores[:,2]
-        s1_max = scores[:,6]
-        s1_min = scores[:,7]
-        axes[3].plot(s1_mean);
-        axes[3].plot(s1_max, 'g');
-        axes[3].plot(s1_min, 'g');
-        for p in peaks1:
-            axes[3].vlines(p, ymin=s1_mean.min(), ymax=s1_mean.max(), colors='r');
-        axes[3].set_xlabel('iteration');
-        axes[3].set_ylabel('surround keep outside', fontsize=20);
+        # s1_mean = scores[:,2]
+        # s1_max = scores[:,6]
+        # s1_min = scores[:,7]
+        # axes[3].plot(s1_mean);
+        # axes[3].plot(s1_max, 'g');
+        # axes[3].plot(s1_min, 'g');
+        # for p in peaks1:
+        #     axes[3].vlines(p, ymin=s1_mean.min(), ymax=s1_mean.max(), colors='r');
+        # axes[3].set_xlabel('iteration');
+        # axes[3].set_ylabel('surround keep outside', fontsize=20);
 
-        s2_mean = scores[:,3]
-        s2_max = scores[:,8]
-        s2_min = scores[:,9]
-        axes[4].plot(s2_mean);
-        axes[4].plot(s2_max, 'g');
-        axes[4].plot(s2_min, 'g');
-        for p in peaks2:
-            axes[4].vlines(p, ymin=np.nanmin(s2_mean), ymax=np.nanmax(s2_mean), colors='r');
-        axes[4].set_xlabel('iteration');
-        axes[4].set_ylabel('frontier keep inside', fontsize=20);
+        # s2_mean = scores[:,3]
+        # s2_max = scores[:,8]
+        # s2_min = scores[:,9]
+        # axes[4].plot(s2_mean);
+        # axes[4].plot(s2_max, 'g');
+        # axes[4].plot(s2_min, 'g');
+        # for p in peaks2:
+        #     axes[4].vlines(p, ymin=np.nanmin(s2_mean), ymax=np.nanmax(s2_mean), colors='r');
+        # axes[4].set_xlabel('iteration');
+        # axes[4].set_ylabel('frontier keep inside', fontsize=20);
 
         scores_to_plot = scores[:,4]
         axes[5].plot(scores_to_plot);
@@ -565,7 +576,7 @@ class DataManager(object):
         
 
     def visualize_clusters_in_subplots(self, clusters, titles=None, ncol=3, 
-                                    xmin=None, ymin=None, xmax=None, ymax=None):
+                                    xmin=None, ymin=None, xmax=None, ymax=None, fname=None):
 
         margin = 300
         ncol = min(ncol, len(clusters))
@@ -601,8 +612,12 @@ class DataManager(object):
             ax.axis('off')
             if titles is not None:
                 ax.set_title(titles[ci])
-            
-        plt.show()
+        
+        if fname is not None:
+            fig.savefig(fname)
+            plt.close()
+        else:
+            plt.show()
 
     def grow_cluster(self, seed, seed_weight=.5,
                     verbose=False, all_history=True, 
@@ -611,165 +626,181 @@ class DataManager(object):
                      threshold_abs=-0.05, threshold_rel=.4,
                      peakedness_limit=0.001, method='rc-min'):
 
-        from networkx import from_dict_of_lists, Graph, adjacency_matrix, connected_components
+        try:
 
-        from itertools import chain
-        from skimage.feature import peak_local_max
-        from scipy.spatial import ConvexHull
-        from matplotlib.path import Path
+            from networkx import from_dict_of_lists, Graph, adjacency_matrix, connected_components
 
-        # self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
+            from itertools import chain
+            from skimage.feature import peak_local_max
+            from scipy.spatial import ConvexHull
+            from matplotlib.path import Path
 
-        neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+            # self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
 
-        visited = set([])
-        curr_cluster = set([])
+            neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
 
-        candidate_scores = [0]
-        candidate_sps = [seed]
+            visited = set([])
+            curr_cluster = set([])
 
-        score_tuples = []
-        added_sps = []
-        n_sps = []
+            candidate_scores = [0]
+            candidate_sps = [seed]
 
-        cluster_list = []
-        addorder_list = []
+            score_tuples = []
+            added_sps = []
+            n_sps = []
 
-        iter_ind = 0
+            cluster_list = []
+            addorder_list = []
 
-        hull_begin = False
+            iter_ind = 0
 
-        nearest_surrounds = []
-        toadd_list = []
+            hull_begin = False
 
-        while len(candidate_sps) > 0:
+            nearest_surrounds = []
+            toadd_list = []
 
-            if verbose:
-                print '\niter', iter_ind
+            while len(candidate_sps) > 0:
 
-            best_ind = np.argmax(candidate_scores)
+                if verbose:
+                    print '\niter', iter_ind
 
-            just_added_score = candidate_scores[best_ind]
-            sp = candidate_sps[best_ind]
+                best_ind = np.argmax(candidate_scores)
 
-            del candidate_scores[best_ind]
-            del candidate_sps[best_ind]
+                just_added_score = candidate_scores[best_ind]
+                sp = candidate_sps[best_ind]
 
-            if sp in curr_cluster:
-                continue
+                del candidate_scores[best_ind]
+                del candidate_sps[best_ind]
 
-            curr_cluster.add(sp)
-            added_sps.append(sp)
+                if sp in curr_cluster:
+                    continue
 
-            extra_sps = []
+                curr_cluster.add(sp)
+                added_sps.append(sp)
 
-            sg = self.neighbor_long_graph.subgraph(list(set(range(self.n_superpixels)) - curr_cluster))
-            for c in connected_components(sg):
-                if len(c) < 10: # holes
-                    extra_sps.append(c)
+                extra_sps = []
 
-            extra_sps = list(chain(*extra_sps))
-            curr_cluster |= set(extra_sps)
-            added_sps += extra_sps
+                sg = self.neighbor_long_graph.subgraph(list(set(range(self.n_superpixels)) - curr_cluster))
+                for c in connected_components(sg):
+                    if len(c) < 10: # holes
+                        extra_sps.append(c)
 
-            tt = self.compute_cluster_score(curr_cluster, seed=seed, seed_weight=seed_weight, verbose=verbose, thresh=thresh, method=method)
+                extra_sps = list(chain(*extra_sps))
+                curr_cluster |= set(extra_sps)
+                added_sps += extra_sps
 
-            # nearest_surround = compute_nearest_surround(curr_cluster, neighbors, texton_hists)
-            # nearest_surrounds.append(nearest_surround)
+                tt = self.compute_cluster_score(curr_cluster, seed=seed, seed_weight=seed_weight, verbose=verbose, thresh=thresh, method=method)
 
-            tot, s1, s2, inter_sp_dist, seed_dist, s1_max, s1_min, s2_max, s2_min = tt
+                # nearest_surround = compute_nearest_surround(curr_cluster, neighbors, texton_hists)
+                # nearest_surrounds.append(nearest_surround)
 
-            cluster_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
+                tot, s1, s2, inter_sp_dist, seed_dist, s1_max, s1_min, s2_max, s2_min = tt
 
-            if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
-                # if verbose:
-                print 'terminate', seed_dist, inter_sp_dist
-                break
+                cluster_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
 
-            if np.isnan(tot):
-                return [seed], -np.inf
-            score_tuples.append(np.r_[just_added_score, tt])
+                if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
+                    # if verbose:
+                    if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
+                        print 'terminate over-size'
+                    elif seed_dist > .2 :
+                        print 'terminate seed_dist', seed_dist
+                    elif inter_sp_dist > .3:
+                        print 'terminate inter_sp_dist', inter_sp_dist
+                    break
 
-            n_sps.append(len(curr_cluster))
+                if np.isnan(tot):
+                    return [seed], -np.inf
+                score_tuples.append(np.r_[just_added_score, tt])
 
-            # just_added_score, curr_total_score, exterior_score, interior_score, compactness_score, surround_pval,
-            # interior_pval, size_prior
+                n_sps.append(len(curr_cluster))
 
-            if verbose:
-                print 'add', sp
-                print 'extra', extra_sps
-                print 'added_sps', added_sps
-                print 'curr_cluster', curr_cluster
-                print 'n_sps', n_sps
-                print 'tt', tot
-                if len(curr_cluster) != len(added_sps):
-                    print len(curr_cluster), len(added_sps)
-                    raise
+                # just_added_score, curr_total_score, exterior_score, interior_score, compactness_score, surround_pval,
+                # interior_pval, size_prior
 
-            cluster_list.append(curr_cluster.copy())
-            addorder_list.append(added_sps[:])
-            candidate_sps = (set(candidate_sps) | \
-                             (set.union(*[self.neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
-            candidate_sps = list(candidate_sps)
+                if verbose:
+                    print 'add', sp
+                    print 'extra', extra_sps
+                    print 'added_sps', added_sps
+                    print 'curr_cluster', curr_cluster
+                    print 'n_sps', n_sps
+                    print 'tt', tot
+                    if len(curr_cluster) != len(added_sps):
+                        print len(curr_cluster), len(added_sps)
+                        raise
 
-            # for c in candidate_sps:
-            #     int_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
-            #     ext_neighbors = self.neighbors[c] - set(curr_cluster)
-            #     chi2(self.texton_hists[c], self.texton_hists[s+[c]]) for s in ext_neighbors
+                cluster_list.append(curr_cluster.copy())
+                addorder_list.append(added_sps[:])
+                candidate_sps = (set(candidate_sps) | \
+                                 (set.union(*[self.neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
+                candidate_sps = list(candidate_sps)
 
-            candidate_scores = []
-            for c in candidate_sps:
-                int_neighbors = list(set(curr_cluster) & self.neighbors[c])
-                int_dist = chi2(self.texton_hists[c], self.texton_hists[int_neighbors + [c]].mean(axis=0))
-                curr_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
-                seed_dist = chi2(self.texton_hists[c], self.texton_hists[seed])
-                sc = .1 * int_dist + .3* curr_dist + .6*seed_dist
-                candidate_scores.append(-sc)
-                
-            # h_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
-            # candidate_scores = -.5*chi2s([h_avg], self.texton_hists[candidate_sps])-\
-            #                 .5*chi2s([self.texton_hists[seed]], self.texton_hists[candidate_sps])
+                # for c in candidate_sps:
+                #     int_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
+                #     ext_neighbors = self.neighbors[c] - set(curr_cluster)
+                #     chi2(self.texton_hists[c], self.texton_hists[s+[c]]) for s in ext_neighbors
 
-            # candidate_scores = candidate_scores.tolist()
+                candidate_scores = []
+                candidate_seed_dists = []
+                for c in candidate_sps:
+                    int_neighbors = list(set(curr_cluster) & self.neighbors[c])
+                    int_dist = chi2(self.texton_hists[c], self.texton_hists[int_neighbors + [c]].mean(axis=0))
+                    curr_dist = chi2(self.texton_hists[c], self.texton_hists[list(curr_cluster)+[c]].mean(axis=0))
+                    seed_dist = chi2(self.texton_hists[c], self.texton_hists[seed])
+                    sc = .1 * int_dist + .3* curr_dist + .6*seed_dist
+                    candidate_seed_dists.append(seed_dist)
+                    candidate_scores.append(-sc)
 
-            if verbose:
-    #                 print 'candidate', candidate_sps
-                print 'candidate\n'
+                if np.min(candidate_seed_dists) > .4:
+                    print iter_ind, 'min seed_dist', np.min(candidate_seed_dists)
+                    break
+                    
+                # h_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
+                # candidate_scores = -.5*chi2s([h_avg], self.texton_hists[candidate_sps])-\
+                #                 .5*chi2s([self.texton_hists[seed]], self.texton_hists[candidate_sps])
 
-                for i,j in sorted(zip(candidate_scores, candidate_sps), reverse=True):
-                    print i, j
-                print 'best', candidate_sps[np.argmax(candidate_scores)]
+                # candidate_scores = candidate_scores.tolist()
 
-            toadd_list.append(candidate_sps[np.argmax(candidate_scores)])
+                if verbose:
+        #                 print 'candidate', candidate_sps
+                    print 'candidate\n'
 
-            iter_ind += 1
+                    for i,j in sorted(zip(candidate_scores, candidate_sps), reverse=True):
+                        print i, j
+                    print 'best', candidate_sps[np.argmax(candidate_scores)]
 
-        score_tuples = np.array(score_tuples)
+                toadd_list.append(candidate_sps[np.argmax(candidate_scores)])
 
-        # peaks_sorted, peakedness_sorted = find_score_peaks(score_tuples[:,1], min_size=min_size, min_distance=min_distance,
-        #                                                     threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
-        #                                                     peakedness_lim=peakedness_limit,
-        #                                                     verbose=verbose)
+                iter_ind += 1
 
-        peaks_sorted1, peakedness_sorted1 = find_score_peaks(score_tuples[:,2], min_size=min_size, min_distance=min_distance,
-                                                            threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
-                                                            peakedness_lim=peakedness_limit,
-                                                            verbose=verbose)
+            score_tuples = np.array(score_tuples)
 
-        peaks_sorted2, peakedness_sorted2 = find_score_peaks(score_tuples[:,3], min_size=min_size, min_distance=min_distance,
-                                                            threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
-                                                            peakedness_lim=peakedness_limit,
-                                                            verbose=verbose)
+            # peaks_sorted, peakedness_sorted = find_score_peaks(score_tuples[:,1], min_size=min_size, min_distance=min_distance,
+            #                                                     threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+            #                                                     peakedness_lim=peakedness_limit,
+            #                                                     verbose=verbose)
 
-        peaks_sorted = np.unique(np.r_[peaks_sorted1, peaks_sorted2])
-        peakedness_sorted = np.unique(np.r_[peakedness_sorted1, peakedness_sorted2])
+            peaks_sorted1, peakedness_sorted1 = find_score_peaks(score_tuples[:,2], min_size=min_size, min_distance=min_distance,
+                                                                threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+                                                                peakedness_lim=peakedness_limit,
+                                                                verbose=verbose)
 
-        if all_history:
-            # return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, nearest_surrounds, toadd_list
-            return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, toadd_list, peaks_sorted1, peaks_sorted2
-        else:
-            return [addorder_list[i] for i in peaks_sorted], score_tuples[peaks_sorted, 1]
+            peaks_sorted2, peakedness_sorted2 = find_score_peaks(score_tuples[:,3], min_size=min_size, min_distance=min_distance,
+                                                                threshold_abs=threshold_abs, threshold_rel=threshold_rel, 
+                                                                peakedness_lim=peakedness_limit,
+                                                                verbose=verbose)
 
+            peaks_sorted = np.unique(np.r_[peaks_sorted1, peaks_sorted2])
+            peakedness_sorted = np.unique(np.r_[peakedness_sorted1, peakedness_sorted2])
+
+            if all_history:
+                # return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, nearest_surrounds, toadd_list
+                return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, toadd_list, peaks_sorted1, peaks_sorted2
+            else:
+                return [addorder_list[i] for i in peaks_sorted], score_tuples[peaks_sorted, 1]
+
+        except:
+            print seed 
+            raise
 
 
     def convert_cluster_to_descriptor(self, cluster, verbose=False):
@@ -1392,8 +1423,10 @@ class DataManager(object):
     
     def visualize_multiple_clusters(self, clusters, bg='segmentationWithText', alpha_blend=False, colors=None,
                                     show_cluster_indices=False,
-                                    ymin=None, xmin=None, ymax=None, xmax=None):
+                                    ymin=None, xmin=None, ymax=None, xmax=None,
+                                    labels=None):
         
+
         if ymin is None:
             ymin = self.ymin
         if xmin is None:
@@ -1411,10 +1444,7 @@ class DataManager(object):
         
         if colors is None:
             colors = np.loadtxt(os.environ['GORDON_REPO_DIR'] + '/visualization/100colors.txt')
-            
-        n_superpixels = self.segmentation.max() + 1
-        
-
+                    
         if bg == 'originalImage':
             if not hasattr(self, 'image_rgb_jpg'):
                 self._load_image(versions=['rgb-jpg'])
@@ -1430,17 +1460,17 @@ class DataManager(object):
         else:
             segmentation_viz = bg
 
-        mask_alpha = .4
-        
         if alpha_blend:
+
+            mask_alpha = .4
             
             for ci, c in enumerate(clusters):
-                m =  np.zeros((n_superpixels,), dtype=np.float)
+                m =  np.zeros((self.n_superpixels,), dtype=np.float)
                 m[list(c)] = mask_alpha
                 alpha = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
                 alpha[~self.mask[ymin:ymax+1, xmin:xmax+1]] = 0
                 
-                mm = np.zeros((n_superpixels,3), dtype=np.float)
+                mm = np.zeros((self.n_superpixels,3), dtype=np.float)
                 mm[list(c)] = colors[ci]
                 blob = mm[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
                 
@@ -1451,24 +1481,16 @@ class DataManager(object):
 
         else:
         
-            n_superpixels = self.segmentation.max() + 1
-
-            n = len(clusters)
-            m = -1*np.ones((n_superpixels,), dtype=np.int)
+            sp_labels = -1*np.ones((self.n_superpixels,), dtype=np.int)
 
             for ci, c in enumerate(clusters):
-                m[list(c)] = ci
+                sp_labels[list(c)] = ci
 
-            a = m[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
-            a[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
-        #     a = -1*np.ones_like(segmentation)
-        #     for ci, c in enumerate(clusters):
-        #         for i in c:
-        #             a[segmentation == i] = ci
+            labelmap = sp_labels[self.segmentation[ymin:ymax+1, xmin:xmax+1]]
+            labelmap[~self.mask[ymin:ymax+1, xmin:xmax+1]] = -1
 
-            vis = label2rgb(a, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
+            vis = label2rgb(labelmap, image=segmentation_viz[ymin:ymax+1, xmin:xmax+1])
 
-        # vis = img_as_ubyte(vis[..., ::-1])
         vis = img_as_ubyte(vis)
 
         if show_cluster_indices:
@@ -1476,15 +1498,17 @@ class DataManager(object):
                 self.sp_centroids = self.load_pipeline_result('spCentroids')
 
             for ci, cl in enumerate(clusters):
-                cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
-                cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
-                            cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
+                # cluster_center_yx = self.sp_centroids[cl].mean(axis=0).astype(np.int)
+                # cv2.putText(vis, str(ci), tuple(cluster_center_yx[::-1] - np.array([10,-10])), 
+                #             cv2.FONT_HERSHEY_DUPLEX, 1., ((0,255,255)), 1)
 
-                # for i, sp in enumerate(c):
-                #     vis = cv2.putText(vis, str(i), 
-                #                       tuple(np.floor(sp_properties[sp, [1,0]] - np.array([10,-10])).astype(np.int)), 
-                #                       cv2.FONT_HERSHEY_DUPLEX,
-                #                       1., ((0,255,255)), 1)
+                for i, sp in enumerate(cl):
+                    if labels is not None:
+                        cv2.putText(vis, labels[ci][i], tuple((self.sp_centroids[sp][::-1] - (xmin, ymin) - [10,-10]).astype(np.int)), 
+                                      cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
+                    else:
+                        cv2.putText(vis, str(i), tuple((self.sp_centroids[sp][::-1] - (xmin, ymin) - [10,-10]).astype(np.int)), 
+                                      cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
         
         return vis.copy()
 

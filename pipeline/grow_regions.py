@@ -63,10 +63,10 @@ except:
     t = time.time()
     expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster)(s, verbose=False, all_history=False, 
                                                                          seed_weight=0,
-                                                                        num_sp_percentage_limit=0.1,
-                                                                     min_size=3, min_distance=3,
+                                                                        num_sp_percentage_limit=0.2,
+                                                                     min_size=1, min_distance=5,
                                                                         threshold_abs=-0.1,
-                                                                        threshold_rel=0.05,
+                                                                        threshold_rel=0.02,
                                                                        peakedness_limit=.002,
                                                                        method='rc-mean')
                                     for s in range(dm.n_superpixels))

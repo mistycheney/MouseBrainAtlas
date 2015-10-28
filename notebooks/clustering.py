@@ -59,7 +59,7 @@ def compute_overlap_partial(indices, sets, metric='jaccard', sp_areas=None):
                     overlap_matrix[ii, j] = compute_overlap_minjaccard(c1, c2)
                 elif metric == 'jaccard':
                     overlap_matrix[ii, j] = compute_overlap_jaccard(c1, c2)
-                elif metric == 'size':
+                elif metric == 'overlap-size':
                     overlap_matrix[ii, j] = compute_overlap_size(c1, c2)
                 elif metric == 'nonoverlap-area':
                     overlap_matrix[ii, j] = compute_nonoverlap_area(c1, c2, sp_areas)
@@ -76,7 +76,23 @@ def compute_pairwise_distances(sets, metric, sp_areas=None):
                                                                                                       sp_areas=sp_areas) 
                                                               for s in np.array_split(range(len(sets)), 16))
         distance_matrix = np.vstack(partial_distance_matrix)
-
+        np.fill_diagonal(distance_matrix, 0)
+        return distance_matrix
+        
+    elif hasattr(metric, '__call__'):
+        
+        partial_distance_matrix = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(cdist)(s, sets, metric=metric) 
+                                                                      for s in np.array_split(sets, 16))
+        distance_matrix = np.vstack(partial_distance_matrix)
+        np.fill_diagonal(distance_matrix, 0)
+        return distance_matrix
+        
+    elif metric == 'overlap-size':
+        partial_overlap_mat = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric='overlap-size') 
+                                            for s in np.array_split(range(len(sets)), 16))
+        overlap_matrix = np.vstack(partial_overlap_mat)
+        return overlap_matrix
+    
     else:
     
         partial_overlap_mat = Parallel(n_jobs=16, max_nbytes=1e6)(delayed(compute_overlap_partial)(s, sets, metric=metric) 
@@ -84,9 +100,9 @@ def compute_pairwise_distances(sets, metric, sp_areas=None):
         overlap_matrix = np.vstack(partial_overlap_mat)
         distance_matrix = 1 - overlap_matrix
     
-    np.fill_diagonal(distance_matrix, 0)
+        np.fill_diagonal(distance_matrix, 0)
     
-    return distance_matrix
+        return distance_matrix
 
 
 def group_tuples(items=None, val_ind=None, dist_thresh = 0.1, distance_matrix=None, 
@@ -98,7 +114,15 @@ def group_tuples(items=None, val_ind=None, dist_thresh = 0.1, distance_matrix=No
     
     if distance_matrix is not None:
         if items is not None:
-            values = map(itemgetter(val_ind), items)
+            if isinstance(items, dict):
+                keys = items.keys()
+                values = items.values()
+            elif isinstance(items, list):
+                keys = range(len(items))
+                if isinstance(items[0], tuple):
+                    values = map(itemgetter(val_ind), items)
+                else:
+                    values = items
     else:
         if isinstance(items, dict):
             keys = items.keys()

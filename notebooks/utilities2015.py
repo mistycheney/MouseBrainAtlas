@@ -313,9 +313,6 @@ class DataManager(object):
         if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
             self.sp_centroids = self.load_pipeline_result('spCentroids')
 
-        if 'spBboxes' in results and not hasattr(self, 'sp_bboxes'):
-            self.sp_bboxes = self.load_pipeline_result('spBbox')            
-
         if 'spCoords' in results and not hasattr(self, 'sp_coords'):
             self.sp_coords = self.load_pipeline_result('spCoords')            
 
@@ -532,7 +529,6 @@ class DataManager(object):
         axes[2].set_xlabel('iteration');
         axes[2].set_ylabel('frontier keep inside', fontsize=20);
 
-<<<<<<< HEAD
         # s1_mean = scores[:,2]
         # s1_max = scores[:,6]
         # s1_min = scores[:,7]
@@ -704,7 +700,12 @@ class DataManager(object):
 
                 if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
                     # if verbose:
-                    print 'terminate', seed_dist, inter_sp_dist
+                    if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
+                        print 'terminate over-size'
+                    elif seed_dist > .2 :
+                        print 'terminate seed_dist', seed_dist
+                    elif inter_sp_dist > .3:
+                        print 'terminate inter_sp_dist', inter_sp_dist
                     break
 
                 if np.isnan(tot):

@@ -4,7 +4,7 @@ CSD395=/oasis/projects/nsf/csd395/yuncong
 export DATASET_VERSION=2015
 
 export PYTHONPATH=$CSD181/opencv-2.4.9/release/lib/python2.7/site-packages:$PYTHONPATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CSD181/opencv/release/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CSD181/opencv-2.4.9/release/lib
 
 export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$PATH
 export LD_LIBRARY_PATH=/opt/python/lib:$LD_LIBRARY_PATH

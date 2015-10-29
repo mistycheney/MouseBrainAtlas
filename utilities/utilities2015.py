@@ -739,11 +739,11 @@ class DataManager(object):
             if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
                 # if verbose:
                 if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
-                    print 'terminate due to over-size'
+                    print seed, 'terminate due to over-size'
                 elif seed_dist > .2 :
-                    print 'terminate due to seed_dist exceeds threshold', seed_dist
+                    print seed, 'terminate due to seed_dist exceeds threshold', seed_dist
                 elif inter_sp_dist > .3:
-                    print 'terminate due to inter_sp_dist exceeds threshold', inter_sp_dist
+                    print seed, 'terminate due to inter_sp_dist exceeds threshold', inter_sp_dist
                 break
 
             if np.isnan(tot):

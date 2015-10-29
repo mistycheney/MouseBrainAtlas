@@ -145,46 +145,6 @@ dm.save_pipeline_result(spp_coords, 'spCoords')
 
 print 'done in', time.time() - t, 'seconds'
 
-if dm.check_pipeline_result('segmentationWithText'):
-# if False:
-    sys.stderr.write('visualizations exist, skip')
-else:
-
-    # from skimage.segmentation import mark_boundaries
-
-    print 'generating segmentation visualization ...',
-    t = time.time()
-
-    dm._load_image(versions=['rgb-jpg'])
-    img_superpixelized = mark_boundaries(dm.image_rgb_jpg, segmentation, color=(1,0,0))
-    img_superpixelized = img_as_ubyte(img_superpixelized)
-    dm.save_pipeline_result(img_superpixelized, 'segmentationWithoutText')
-
-    for s in range(n_superpixels):
-        cv2.putText(img_superpixelized, str(s), 
-                    tuple(sp_centroids[s][::-1].astype(np.int) - (10,-10)), 
-                    cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,0)), 1)
-
-    dm.save_pipeline_result(img_superpixelized, 'segmentationWithText')
-
-    emptycanvas_superpixelized_mask = mark_boundaries(np.ones((dm.h, dm.w)), dm.segmentation[dm.ymin:dm.ymax+1,
-                                                                                   dm.xmin:dm.xmax+1], 
-                                             color=(0,0,0), outline_color=None)
-
-    emptycanvas_superpixelized = np.ones((dm.image_height, dm.image_width, 3))
-    emptycanvas_superpixelized[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = emptycanvas_superpixelized_mask
-
-
-    # emptycanvas_superpixelized = mark_boundaries(np.ones((dm.image_height, dm.image_width)), segmentation, 
-    #                                              color=(0,0,0), outline_color=None)
-
-    alpha_channel = ~ emptycanvas_superpixelized.all(axis=2)
-    rgba = np.dstack([emptycanvas_superpixelized, alpha_channel])
-
-    dm.save_pipeline_result(rgba, 'segmentationTransparent', is_rgb=True)
-
-    print 'done in', time.time() - t, 'seconds'
-
 
 from collections import defaultdict
 
@@ -302,6 +262,37 @@ except:
     dm.save_pipeline_result(edge_midpoints, 'edgeMidpoints')
     dm.save_pipeline_result(dedge_vectors, 'dedgeVectors')
 
+ 
+if dm.check_pipeline_result('segmentationWithText'):
+# if False:
+    sys.stderr.write('visualizations exist, skip')
+else:
+
+    e_coords = np.vstack(edge_coords.itervalues())
+
+    print 'generating segmentation visualization ...',
+    t = time.time()
+
+    dm._load_image(versions=['rgb-jpg'])
+    img_superpixelized = dm.image_rgb_jpg.copy()
+    img_superpixelized[e_coords[:,1], e_coords[:,0]] = (1,0,0)
+
+    # img_superpixelized = mark_boundaries(dm.image_rgb_jpg, segmentation, color=(1,0,0))
+    img_superpixelized = img_as_ubyte(img_superpixelized)
+    dm.save_pipeline_result(img_superpixelized, 'segmentationWithoutText')
+
+    for s in range(n_superpixels):
+        cv2.putText(img_superpixelized, str(s), 
+                    tuple(sp_centroids[s][::-1].astype(np.int) - (10,-10)), 
+                    cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,0)), 1)
+
+    dm.save_pipeline_result(img_superpixelized, 'segmentationWithText')
+
+    rgba = np.zeros((dm.image_height, dm.image_width, 4), np.uint8)
+    rgba[e_coords[:,1], e_coords[:,0], 3] = 255
+    dm.save_pipeline_result(rgba, 'segmentationTransparent', is_rgb=True)
+
+    print 'done in', time.time() - t, 'seconds'
 
 try:
     raise

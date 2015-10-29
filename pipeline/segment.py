@@ -19,7 +19,7 @@ args = parser.parse_args()
 
 from joblib import Parallel, delayed
 
-sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
 dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
@@ -40,7 +40,7 @@ from skimage.util import img_as_ubyte, pad
 import cv2
 
 try:
-    # raise
+    raise
     segmentation = dm.load_pipeline_result('segmentation')
     print "segmentation.npy already exists, skip"
 
@@ -263,8 +263,8 @@ except:
     dm.save_pipeline_result(dedge_vectors, 'dedgeVectors')
 
  
-if dm.check_pipeline_result('segmentationWithText'):
-# if False:
+# if dm.check_pipeline_result('segmentationWithText'):
+if False:
     sys.stderr.write('visualizations exist, skip')
 else:
 

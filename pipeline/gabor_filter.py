@@ -19,7 +19,7 @@ args = parser.parse_args()
 
 from joblib import Parallel, delayed
 
-sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'notebooks'))
+sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
 dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
@@ -45,12 +45,12 @@ from joblib import Parallel, delayed
 from scipy.signal import fftconvolve
 
 
-# try:
-#     features_rotated = dm.load_pipeline_result('featuresRotated')
-if dm.check_pipeline_result('featuresRotated'):
+try:
+    features_rotated = dm.load_pipeline_result('featuresRotated')
+# if dm.check_pipeline_result('featuresRotated'):
     print "features_rotated.npy already exists, skip"
-else:
-# except:
+# else:
+except:
     
     if dm.check_pipeline_result('features'):
         print "features.npy already exists, load"

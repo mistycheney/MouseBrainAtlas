@@ -118,6 +118,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.show_all_accepted = False
 
+		self.proposal_review_results = None
+
 	def paramSettings_clicked(self):
 		pass
 
@@ -354,6 +356,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.buttonAccProp.clicked.connect(self.accProp_callback)
 		# self.buttonRejProp.clicked.connect(self.rejProp_callback)
 
+		self.buttonLoadPropRev.clicked.connect(self.loadPropRev_callback)
+
 		self.buttonShowAllAcc.clicked.connect(self.showAllAcc_callback)
 
 		self.setWindowTitle(self.windowTitle() + ', parent_labeling = %s' %(self.parent_labeling_name))
@@ -516,12 +520,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		
 		self.turn_superpixels_on()
 
-		proposal_models = self.dm.load_pipeline_result('boundaryModels')
+		proposal_models = self.dm.load_pipeline_result('proposals')
 		self.proposal_clusters = [m[0] for m in proposal_models]
 		self.proposal_dedges = [m[1] for m in proposal_models]
 		self.proposal_sigs = [m[2] for m in proposal_models]
 		self.n_proposals = len(proposal_models)
-		self.proposal_review_results = [None for _ in range(self.n_proposals)]
+
+		if self.proposal_review_results is None:
+			self.proposal_review_results = [None for _ in range(self.n_proposals)]
 
 		self.curr_prop_id = 0
 		self.statusBar().showMessage('%d proposals loaded' % (self.n_proposals))
@@ -535,7 +541,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		from matplotlib.patches import PathPatch
 
 		self.proposal_pathPatches = []
-		for dedges in self.proposal_dedges:
+		for prop_id, dedges in enumerate(self.proposal_dedges):
  		
  			vertices = []
 	 		for de_ind, de in enumerate(dedges):
@@ -550,13 +556,27 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				else:
 					vertices += [pts[0], midpt, pts[-1]]
 
-			path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,1), fill=False, linewidth=3)
+
+			if self.proposal_review_results is None:
+				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,1), fill=False, linewidth=3)
+			elif self.proposal_review_results[prop_id] is None:
+				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,1), fill=False, linewidth=3)
+			elif self.proposal_review_results[prop_id]:
+				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,0), fill=False, linewidth=3)
+			else:
+				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(1,0,0), fill=False, linewidth=3)
+
 			self.proposal_pathPatches.append(path_patch)
 
 		# self.proposal_pathPatches = [PathPatch(Path(vertices=[self.dm.edge_midpoints[frozenset(de)] for de in dedges], closed=True), color=(0,1,1), fill=False)
 		# 						for dedges in self.proposal_dedges]
 
 		self.canvas.draw()
+
+	def loadPropRev_callback(self):
+		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
+		stack, sec, username, timestamp, _ = os.path.basename(fname).split('_')
+		self._load_proposal_review_results(username, timestamp)
 
 	def reviewProposals_callback(self):
 		self.review_mode = True
@@ -761,9 +781,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self._save_labeling()
 
+	def _load_proposal_review_results(self, username, timestamp):
+		self.proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
+		self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
+		self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
+
 	def _save_proposal_review_results(self):
 		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+		username, okay = QInputDialog.getText(self, "Username", 
+							"Please enter your username:", QLineEdit.Normal, 'anon')
+		if not okay: return
+
+		self.username = str(username)
 		self.dm.save_proposal_review_result(self.proposal_review_results, self.username, timestamp)
+
+		self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp) )
 
 	def labelbutton_callback(self):
 		self.statusBar().showMessage('Left click to drop vertices')

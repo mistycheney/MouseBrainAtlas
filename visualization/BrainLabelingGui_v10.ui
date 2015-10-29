@@ -112,9 +112,23 @@
       <item>
        <layout class="QVBoxLayout" name="buttonsLayout">
         <item>
-         <widget class="QPushButton" name="saveButton">
+         <widget class="QPushButton" name="buttonLoadLabeling">
           <property name="text">
-           <string>Save</string>
+           <string>Load Labeling</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="buttonLoadPropRev">
+          <property name="text">
+           <string>Load Proposal Review</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="buttonGenProposals">
+          <property name="text">
+           <string>Review Proposals</string>
           </property>
          </widget>
         </item>
@@ -133,16 +147,16 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="buttonGenProposals">
+         <widget class="QPushButton" name="buttonShowAllAcc">
           <property name="text">
-           <string>Review Proposals</string>
+           <string>Show All Accepted</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="buttonShowAllAcc">
+         <widget class="QPushButton" name="saveButton">
           <property name="text">
-           <string>Show All Accepted</string>
+           <string>Save</string>
           </property>
          </widget>
         </item>

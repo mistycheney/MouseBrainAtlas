@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Tue Oct 27 18:39:20 2015
+# Created: Wed Oct 28 12:15:57 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -83,21 +83,27 @@ class Ui_BrainLabelingGui(object):
         self.horizontalLayout.addLayout(self.verticalLayout_3)
         self.buttonsLayout = QtGui.QVBoxLayout()
         self.buttonsLayout.setObjectName(_fromUtf8("buttonsLayout"))
-        self.saveButton = QtGui.QPushButton(self.centralwidget)
-        self.saveButton.setObjectName(_fromUtf8("saveButton"))
-        self.buttonsLayout.addWidget(self.saveButton)
+        self.buttonLoadLabeling = QtGui.QPushButton(self.centralwidget)
+        self.buttonLoadLabeling.setObjectName(_fromUtf8("buttonLoadLabeling"))
+        self.buttonsLayout.addWidget(self.buttonLoadLabeling)
+        self.buttonLoadPropRev = QtGui.QPushButton(self.centralwidget)
+        self.buttonLoadPropRev.setObjectName(_fromUtf8("buttonLoadPropRev"))
+        self.buttonsLayout.addWidget(self.buttonLoadPropRev)
+        self.buttonGenProposals = QtGui.QPushButton(self.centralwidget)
+        self.buttonGenProposals.setObjectName(_fromUtf8("buttonGenProposals"))
+        self.buttonsLayout.addWidget(self.buttonGenProposals)
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
         self.buttonParams = QtGui.QPushButton(self.centralwidget)
         self.buttonParams.setObjectName(_fromUtf8("buttonParams"))
         self.buttonsLayout.addWidget(self.buttonParams)
-        self.buttonGenProposals = QtGui.QPushButton(self.centralwidget)
-        self.buttonGenProposals.setObjectName(_fromUtf8("buttonGenProposals"))
-        self.buttonsLayout.addWidget(self.buttonGenProposals)
         self.buttonShowAllAcc = QtGui.QPushButton(self.centralwidget)
         self.buttonShowAllAcc.setObjectName(_fromUtf8("buttonShowAllAcc"))
         self.buttonsLayout.addWidget(self.buttonShowAllAcc)
+        self.saveButton = QtGui.QPushButton(self.centralwidget)
+        self.saveButton.setObjectName(_fromUtf8("saveButton"))
+        self.buttonsLayout.addWidget(self.saveButton)
         self.quitButton = QtGui.QPushButton(self.centralwidget)
         self.quitButton.setObjectName(_fromUtf8("quitButton"))
         self.buttonsLayout.addWidget(self.quitButton)
@@ -127,11 +133,13 @@ class Ui_BrainLabelingGui(object):
         self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality (gabor, segm)", None))
         self.labeling_radioButton.setText(_translate("BrainLabelingGui", "labeling", None))
         self.buttonSpOnOff.setText(_translate("BrainLabelingGui", "Turn Superpixels On", None))
-        self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
+        self.buttonLoadLabeling.setText(_translate("BrainLabelingGui", "Load Labeling", None))
+        self.buttonLoadPropRev.setText(_translate("BrainLabelingGui", "Load Proposal Review", None))
+        self.buttonGenProposals.setText(_translate("BrainLabelingGui", "Review Proposals", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add New Label", None))
         self.buttonParams.setText(_translate("BrainLabelingGui", "Change Parameters", None))
-        self.buttonGenProposals.setText(_translate("BrainLabelingGui", "Review Proposals", None))
         self.buttonShowAllAcc.setText(_translate("BrainLabelingGui", "Show All Accepted", None))
+        self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 

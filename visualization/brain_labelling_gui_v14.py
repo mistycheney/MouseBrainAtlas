@@ -34,6 +34,8 @@ from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 
 from skimage.color import label2rgb
 
@@ -42,6 +44,8 @@ from visualization_utilities import *
 sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
+from collections import defaultdict
+
 IGNORE_EXISTING_LABELNAMES = False
 
 from enum import Enum
@@ -49,6 +53,9 @@ class Mode(Enum):
     PLACING_VERTICES = 'placing vertices'
     POLYGON_SELECTED = 'polygon selected'
     IDLE = 'idle'
+    REVIEW_GLOBAL_PROPOSAL = 'review proposal'
+    REVIEW_LOCAL_PROPOSAL = 'review proposal from sp'
+    FREEFORM_DRAWING = 'freeform drawing'
 
 class PolygonType(Enum):
     CLOSED = 'closed'
@@ -112,13 +119,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.initialize_brain_labeling_gui()
 
 		self.seg_loaded = False
-		self.seg_enabled = False
+		self.superpixels_on = False
 
-		self.proposal_mode = False
+		# self.show_all_accepted = False
 
-		self.show_all_accepted = False
+		self.boundary_colors = [(0,1,1), (0,1,0), (1,0,0),(0,0,1)] # unknown, accepted, rejected
 
-		self.proposal_review_results = None
+		self.user_approved_local_proposals = []
+		self.user_approved_local_pathPatches = []
+
+		self.user_approved_global_proposals = []
+		self.user_approved_global_pathPatches = []
+
+		self.user_defined_proposals = []
+		self.user_defined_pathPatches = []
+
+		self.curr_global_proposal_pathPatch = None
+		self.curr_local_proposal_pathPatch = None
+
+		# self.user_defined_proposals = []
+		# self.user_defined_pathPatches = []
+		# self.accepted_proposals = []
+		# self.accepted_pathPatches = []
 
 	def paramSettings_clicked(self):
 		pass
@@ -220,8 +242,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.addVertex_Action.setVisible(self.selected_polygon is not None)
 
 		# if self.proposal_mode:
-		self.accProp_Action.setVisible(self.proposal_mode)
-		self.rejProp_Action.setVisible(self.proposal_mode)
+		# self.accProp_Action.setVisible(self.mode == Mode.REVIEW_GLOBAL_PROPOSAL)
+		# self.rejProp_Action.setVisible(self.mode == Mode.REVIEW_GLOBAL_PROPOSAL)
 
 		action = self.menu.exec_(self.cursor().pos())
 
@@ -230,34 +252,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.CLOSED)
 			self.statusBar().showMessage('Done drawing closed region using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
-			self.mode = Mode.IDLE
+			self.mode = Mode.FREEFORM_DRAWING
 
 		elif action == self.endDrawOpen_Action:
 
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.OPEN)
 			self.statusBar().showMessage('Done drawing edge segment using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
-			self.mode = Mode.IDLE
+			self.mode = Mode.FREEFORM_DRAWING
 
 		elif action == self.confirmTexture_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE)
 			self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
 
-			self.mode = Mode.IDLE
+			self.mode = Mode.FREEFORM_DRAWING
 
 		elif action == self.confirmTextureWithContour_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE_WITH_CONTOUR)
 			self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
-			self.mode = Mode.IDLE
+			self.mode = Mode.FREEFORM_DRAWING
 
 
 		elif action == self.confirmDirectionality_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
 			self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
 														self.curr_labeling['labelnames'][self.curr_label]))
-			self.mode = Mode.IDLE
+			self.mode = Mode.FREEFORM_DRAWING
 
 		elif action == self.deletePolygon_Action:
 			self.remove_polygon()
@@ -324,6 +346,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		for b in self.display_buttons:
 			b.toggled.connect(self.display_option_changed)
 
+		self.radioButton_suggested.toggled.connect(self.mode_changed)
+		self.radioButton_individual.toggled.connect(self.mode_changed)
+		self.radioButton_freeform.toggled.connect(self.mode_changed)
+		self.radioButton_freeform.setChecked(True)
+
 		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
 
 
@@ -350,7 +377,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.newLabelButton.clicked.connect(self.sigboost_callback)
 		self.quitButton.clicked.connect(self.close)
 		self.buttonParams.clicked.connect(self.paramSettings_clicked)
-		self.buttonGenProposals.clicked.connect(self.reviewProposals_callback)
+		# self.buttonGenProposals.clicked.connect(self.reviewProposals_callback)
 		# self.buttonPrevProp.clicked.connect(self.prevProp_callback)
 		# self.buttonNextProp.clicked.connect(self.nextProp_callback)
 		# self.buttonAccProp.clicked.connect(self.accProp_callback)
@@ -358,7 +385,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.buttonLoadPropRev.clicked.connect(self.loadPropRev_callback)
 
-		self.buttonShowAllAcc.clicked.connect(self.showAllAcc_callback)
+		# self.buttonShowAllAcc.clicked.connect(self.showAllAcc_callback)
 
 		self.setWindowTitle(self.windowTitle() + ', parent_labeling = %s' %(self.parent_labeling_name))
 
@@ -370,7 +397,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.axis = self.fig.add_subplot(111)
 		self.axis.axis('off')
 
-		self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
+		self.orig_image_handle = self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
 
 		if self.curr_labeling['initial_polygons'] is not None:
 			for label, typed_polygons in self.curr_labeling['initial_polygons'].iteritems():
@@ -469,7 +496,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.canvas.draw()
 
 		self.click_on_object = True
-		print polygon_ids, 'set', self.click_on_object
+		# print polygon_ids, 'set', self.click_on_object
 
 
 	def _add_labelbutton(self, desc=None):
@@ -514,134 +541,131 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# def load_callback(self):
 	# 	self.initialize_data_manager()
 
-	def load_proposals(self):
-		if not self.seg_loaded:
-			self.load_segmentation()
+
+	def pathPatch_from_dedges(self, dedges, color):
+
+	 	vertices = []
+ 		for de_ind, de in enumerate(dedges):
+ 			midpt = self.dm.edge_midpoints[frozenset(de)]
+ 			pts = self.dm.edge_coords[frozenset(de)]
+ 			pts_next_dedge = self.dm.edge_coords[frozenset(dedges[(de_ind+1)%len(dedges)])]
+
+			dij = cdist([pts[0], pts[-1]], [pts_next_dedge[0], pts_next_dedge[-1]])
+			i,j = np.unravel_index(np.argmin(dij), (2,2))
+			if i == 0:
+				vertices += [pts[-1], midpt, pts[0]]
+			else:
+				vertices += [pts[0], midpt, pts[-1]]
+
+		path_patch = PathPatch(Path(vertices=vertices, closed=True), color=color, fill=False, linewidth=3)
+
+		return path_patch
+
+	def load_local_proposals(self):
+
+		sys.stderr.write('loading local proposals ...\n')
+		self.statusBar().showMessage('loading local proposals ...')
 		
-		self.turn_superpixels_on()
+		cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
+		self.local_proposal_tuples = [(cl, ed, sig) for seed, cl, sig, ed in cluster_tuples]
+		self.n_local_proposals = len(self.local_proposal_tuples)
+		
+		self.local_proposal_indices_from_sp = defaultdict(list)
+		for i, (seed, _, _, _) in enumerate(cluster_tuples):
+			self.local_proposal_indices_from_sp[seed].append(i)
+		self.local_proposal_indices_from_sp.default_factory = None
 
-		proposal_models = self.dm.load_pipeline_result('proposals')
-		self.proposal_clusters = [m[0] for m in proposal_models]
-		self.proposal_dedges = [m[1] for m in proposal_models]
-		self.proposal_sigs = [m[2] for m in proposal_models]
-		self.n_proposals = len(proposal_models)
+		if not hasattr(self, 'local_proposal_review_results'):
+			self.local_proposal_review_results = [0] * self.n_local_proposals
+			self.local_proposal_pathPatches = [None] * self.n_local_proposals
 
-		if self.proposal_review_results is None:
-			self.proposal_review_results = [None for _ in range(self.n_proposals)]
+		sys.stderr.write('%d local proposals loaded.\n' % self.n_local_proposals)
+		self.statusBar().showMessage('Local proposals loaded.')
 
-		self.curr_prop_id = 0
-		self.statusBar().showMessage('%d proposals loaded' % (self.n_proposals))
+	def load_global_proposals(self):
+		
+		self.global_proposal_tuples = self.dm.load_pipeline_result('proposals')
+		self.global_proposal_clusters = [m[0] for m in self.global_proposal_tuples]
+		self.global_proposal_dedges = [m[1] for m in self.global_proposal_tuples]
+		self.global_proposal_sigs = [m[2] for m in self.global_proposal_tuples]
+		self.n_global_proposals = len(self.global_proposal_tuples)
+
+		if not hasattr(self, 'global_proposal_review_results'):
+			self.global_proposal_review_results = [0] * self.n_global_proposals
+			self.global_proposal_pathPatches = [None] * self.n_global_proposals
+
+		self.statusBar().showMessage('%d global proposals loaded' % self.n_global_proposals)
 
 		self.sp_covered_by_proposals = self.dm.load_pipeline_result('spCoveredByProposals')
 		self.sp_covered_by_proposals = dict([(s, list(props)) for s, props in self.sp_covered_by_proposals.iteritems()])
 
-		self.proposal_mode = True
-
-		from matplotlib.path import Path
-		from matplotlib.patches import PathPatch
-
-		self.proposal_pathPatches = []
-		for prop_id, dedges in enumerate(self.proposal_dedges):
- 		
- 			vertices = []
-	 		for de_ind, de in enumerate(dedges):
-	 			midpt = self.dm.edge_midpoints[frozenset(de)]
-	 			pts = self.dm.edge_coords[frozenset(de)]
-	 			pts_next_dedge = self.dm.edge_coords[frozenset(dedges[(de_ind+1)%len(dedges)])]
-
-				dij = cdist([pts[0], pts[-1]], [pts_next_dedge[0], pts_next_dedge[-1]])
-				i,j = np.unravel_index(np.argmin(dij), (2,2))
-				if i == 0:
-					vertices += [pts[-1], midpt, pts[0]]
-				else:
-					vertices += [pts[0], midpt, pts[-1]]
-
-
-			if self.proposal_review_results is None:
-				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,1), fill=False, linewidth=3)
-			elif self.proposal_review_results[prop_id] is None:
-				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,1), fill=False, linewidth=3)
-			elif self.proposal_review_results[prop_id]:
-				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(0,1,0), fill=False, linewidth=3)
-			else:
-				path_patch = PathPatch(Path(vertices=vertices, closed=True), color=(1,0,0), fill=False, linewidth=3)
-
-			self.proposal_pathPatches.append(path_patch)
-
-		# self.proposal_pathPatches = [PathPatch(Path(vertices=[self.dm.edge_midpoints[frozenset(de)] for de in dedges], closed=True), color=(0,1,1), fill=False)
-		# 						for dedges in self.proposal_dedges]
-
 		self.canvas.draw()
 
 	def loadPropRev_callback(self):
+
 		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
 		stack, sec, username, timestamp, _ = os.path.basename(fname).split('_')
-		self._load_proposal_review_results(username, timestamp)
+		self._load_global_proposal_review_results(username, timestamp)
+		self.load_global_proposals()
+		# self.show_all_accepted_proposals()
 
-	def reviewProposals_callback(self):
-		self.review_mode = True
-		self.load_proposals()
+	# def reviewProposals_callback(self):
+	# 	if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+	# 		self.mode = Mode.IDLE
+	# 		self.buttonGenProposals.setText('Review Good Proposals ON')
+
+	# 		self.curr_global_proposal_pathPatch.remove()
+	# 		self.canvas.draw()
+
+	# 	else:
+	# 		self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
+	# 		self.buttonGenProposals.setText('Review Good Proposals OFF')
+			
+	# 		self.curr_local_proposal_pathPatch.remove()
+
+	# 		self.load_global_proposals()
 
 	def accProp_callback(self):
-		self.proposal_review_results[self.curr_prop_id] = True
-		# self.buttonAccProp.setDown(True)
-		# self.buttonRejProp.setDown(False)
-		
-		# self.remove_all_sp_highlightBoxes()
-		# self.remove_all_proposal_pathpatches()
 
-		# if self.show_all_accepted:
-		# 	self.show_all_accepted_proposals()
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
 
-		self.proposal_pathPatches[self.curr_prop_id].set_color((0,1,0))
-		self.canvas.draw()
-		# self.show_proposal(self.curr_prop_id)
+			self.global_proposal_review_results[self.curr_global_prop_id] = 1
+			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[1])
+			self.curr_global_proposal_pathPatch = None
 
-		self.statusBar().showMessage('Accept proposal %d' % (self.curr_prop_id))
+			self.canvas.draw()
+
+			self.statusBar().showMessage('Accept proposal %d' % (self.curr_global_prop_id))
+
+		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+
+			self.local_proposal_review_results[self.curr_local_prop_id] = 1
+			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[1])
+			self.curr_local_proposal_pathPatch = None
+
+			self.canvas.draw()
+
 
 	def rejProp_callback(self):
-		self.proposal_review_results[self.curr_prop_id] = False
-		# self.buttonRejProp.setDown(True)
-		# self.buttonAccProp.setDown(False)
 
-		# self.remove_all_sp_highlightBoxes()
-		# self.remove_all_proposal_pathpatches()
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
 
-		# if self.show_all_accepted:
-		# 	self.show_all_accepted_proposals()
-		
-		# self.show_proposal(self.curr_prop_id)
+			self.global_proposal_review_results[self.curr_global_prop_id] = 2
+			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[2])
 
-		self.proposal_pathPatches[self.curr_prop_id].set_color((1,0,0))
-		self.canvas.draw()
-		
-		self.statusBar().showMessage('Reject proposal %d' % (self.curr_prop_id))
+			self.canvas.draw()
+			
+			self.statusBar().showMessage('Reject proposal %d' % (self.curr_global_prop_id))
 	
-	def showAllAcc_callback(self):
-		if self.show_all_accepted:
-			self.buttonShowAllAcc.setText('Show All Accepted')
-			# self.remove_all_sp_highlightBoxes()
-			# self.remove_all_proposal_pathpatches()
-			self.hide_all_accepted_proposals()
-			self.show_all_accepted = False
-		else:
-			self.buttonShowAllAcc.setText('Hide All Accepted')
-			self.show_all_accepted_proposals()
-			self.show_all_accepted = True
+		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+			self.local_proposal_review_results[self.curr_local_prop_id] = 2
+			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[2])
 
-	def show_all_accepted_proposals(self):
-		proposal_ids = np.where(self.proposal_review_results)[0]
-		self.show_proposals(proposal_ids)
-
-	def hide_all_accepted_proposals(self):
-		proposal_ids = np.where(self.proposal_review_results)[0]
-		for prop_id in proposal_ids:
-			self.proposal_pathPatches[prop_id].remove()
-		self.canvas.draw()
+			self.canvas.draw()
 
 	def remove_all_proposal_pathpatches(self):
 
-		for p in self.proposal_pathPatches:
+		for p in self.global_proposal_pathPatches:
 			try:
 				p.remove()
 			except:
@@ -660,71 +684,79 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw()
 
-	def show_proposals(self, proposal_ids):
 
- 		for proposal_id in proposal_ids:
-
- 			# cl = self.proposal_clusters[proposal_id]
-			# sc = self.proposal_sigs[proposal_id]
-			# self.paint_sps(cl, color=(0,1,0))
-			self.axis.add_patch(self.proposal_pathPatches[proposal_id])
-
-		self.canvas.draw()
-
-
-	def show_proposal(self, proposal_id):
-
-		# cl = self.proposal_clusters[proposal_id]
-		sc = self.proposal_sigs[proposal_id]
-		decision = self.proposal_review_results[proposal_id]
-
-		if decision is None:
-			# self.buttonAccProp.setDown(False)
-			# self.buttonRejProp.setDown(False)
-			decision_str = ''
-			paint_color = (0,1,1)
-		
-		elif decision:
-			# self.buttonAccProp.setDown(True)
-			# self.buttonRejProp.setDown(False)
-			decision_str = 'accepted'
-			paint_color = (0,1,0)
-			
-		else:
-			# self.buttonAccProp.setDown(False)
-			# self.buttonRejProp.setDown(True)
-			decision_str = 'rejected'
-			paint_color = (1,0,0)
-
-		self.proposal_pathPatches[proposal_id].set_color(paint_color)
-		self.axis.add_patch(self.proposal_pathPatches[proposal_id])
-
-		# self.paint_sps(cl, color=paint_color)
-
-		self.statusBar().showMessage('proposal %d, score %.4f, %s' % (proposal_id, sc, decision_str))
-		self.canvas.draw()
-
-
-	def show_proposals_covering_sp(self, sp_ind):
+	def show_global_proposal_covering_sp(self, sp_ind):
 
 		if sp_ind not in self.sp_covered_by_proposals:
 			self.statusBar().showMessage('No proposal covers superpixel %d' % sp_ind)
 			return 
 
-		if not hasattr(self, 'alternative_proposal_ind'):
-			self.alternative_proposal_ind = 0
+		if not hasattr(self, 'alternative_global_proposal_ind'):
+			self.alternative_global_proposal_ind = 0
 		else:
-			self.alternative_proposal_ind = (self.alternative_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
+			self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
 
-		self.curr_prop_id = self.sp_covered_by_proposals[sp_ind][self.alternative_proposal_ind]
+		if self.curr_global_proposal_pathPatch is not None:
 
-		# self.remove_all_sp_highlightBoxes()
-		self.remove_all_proposal_pathpatches()
+			if self.curr_global_proposal_pathPatch.get_linewidth() != 3:
+				self.curr_global_proposal_pathPatch.set_linewidth(3)
+
+			if self.global_proposal_review_results[self.curr_global_prop_id] != 1:
+				self.curr_global_proposal_pathPatch.remove()
+
+		self.curr_global_prop_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
+		decision = self.global_proposal_review_results[self.curr_global_prop_id]
+
+		if self.global_proposal_pathPatches[self.curr_global_prop_id] is None:
+			self.global_proposal_pathPatches[self.curr_global_prop_id] = self.pathPatch_from_dedges(self.global_proposal_dedges[self.curr_global_prop_id], 
+										color=self.boundary_colors[decision])
+
+		self.curr_global_proposal_pathPatch = self.global_proposal_pathPatches[self.curr_global_prop_id]
+
+		if self.curr_global_proposal_pathPatch not in self.axis.patches:
+			self.axis.add_patch(self.curr_global_proposal_pathPatch)
+
+		if decision == 1:
+			self.curr_global_proposal_pathPatch.set_linewidth(5.)
+
+		self.canvas.draw()
+
+	def show_local_proposal_from_sp(self, sp_ind):
+
+		if not hasattr(self, 'alternative_local_proposal_ind'):
+			self.alternative_local_proposal_ind = 0
+		else:
+			self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
+
+
+		if self.curr_local_proposal_pathPatch is not None:
+
+			if self.curr_local_proposal_pathPatch.get_linewidth() != 3:
+				self.curr_local_proposal_pathPatch.set_linewidth(3)
+
+			if self.local_proposal_review_results[self.curr_local_prop_id] != 1:
+				self.curr_local_proposal_pathPatch.remove()
+
+		self.curr_local_prop_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
+		cl, dedges, sig = self.local_proposal_tuples[self.curr_local_prop_id]
+
+		decision = self.local_proposal_review_results[self.curr_local_prop_id]
+
+		if self.local_proposal_pathPatches[self.curr_local_prop_id] is None:	
+			self.local_proposal_pathPatches[self.curr_local_prop_id] = self.pathPatch_from_dedges(dedges, 
+																color=self.boundary_colors[decision])
+
+		self.curr_local_proposal_pathPatch = self.local_proposal_pathPatches[self.curr_local_prop_id]
 		
-		if self.show_all_accepted:
-			self.show_all_accepted_proposals()
+		if self.curr_local_proposal_pathPatch not in self.axis.patches:
+			self.axis.add_patch(self.curr_local_proposal_pathPatch)
 
-		self.show_proposal(self.curr_prop_id)
+		if decision == 1:
+			self.curr_local_proposal_pathPatch.set_linewidth(5.)
+
+		self.statusBar().showMessage('local proposal from seed %d, score %.4f' % (sp_ind, sig))
+		self.canvas.draw()
+
 
 
 	def labelNameChanged(self):
@@ -776,29 +808,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 	def save_callback(self):
-		if self.proposal_mode:
-			self._save_proposal_review_results()
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+			self._save_global_proposal_review_results()
 		else:
 			self._save_labeling()
 
-	def _load_proposal_review_results(self, username, timestamp):
-		self.proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
+	def _load_global_proposal_review_results(self, username, timestamp):
+		self.global_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
 		self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
 		self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
 
-	def _save_proposal_review_results(self):
+	def _save_global_proposal_review_results(self):
 		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 		username, okay = QInputDialog.getText(self, "Username", 
 							"Please enter your username:", QLineEdit.Normal, 'anon')
 		if not okay: return
 
 		self.username = str(username)
-		self.dm.save_proposal_review_result(self.proposal_review_results, self.username, timestamp)
+		self.dm.save_proposal_review_result(self.global_proposal_review_results, self.username, timestamp)
 
 		self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp) )
 
 	def labelbutton_callback(self):
-		self.statusBar().showMessage('Left click to drop vertices')
+
+		self.statusBar().showMessage('Left click to place vertices')
+		
 		self.mode = Mode.PLACING_VERTICES
 		self.pick_color(int(self.sender().text()))
 
@@ -1005,9 +1039,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					self.statusBar().showMessage('... in the process of labeling region using label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
 
-				elif self.seg_enabled:
+				elif self.superpixels_on:
 					self.handle_sp_press(event.xdata, event.ydata)
-
 
 			elif event.button == 3: # right click: open context menu
 				canvas_pos = (event.xdata, event.ydata)
@@ -1032,32 +1065,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def handle_sp_press(self, x, y):
 		self.clicked_sp = self.dm.segmentation[int(y), int(x)]
 		sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
-		if self.proposal_mode:
-			self.show_proposals_covering_sp(self.clicked_sp)
-		else:
-			self.show_region(self.clicked_sp)
+
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+			self.show_global_proposal_covering_sp(self.clicked_sp)
+		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+			self.show_local_proposal_from_sp(self.clicked_sp)
+			# self.show_region(self.clicked_sp)
+
 
 
 	def load_segmentation(self):
 		sys.stderr.write('loading segmentation...\n')
 		self.statusBar().showMessage('loading segmentation...')
 
-		self.dm.load_multiple_results(results=['segmentation', 'neighbors', 
-                                  'edgeCoords', 'spCentroids', 'edgeNeighbors', 'dedgeNeighbors', 'edgeMidpoints'])
+		self.dm.load_multiple_results(results=['segmentation', 'edgeCoords', 'spCentroids', 'edgeMidpoints'])
 
 		# self.segmentation = self.dm.load_pipeline_result('segmentation')
 		self.n_superpixels = self.dm.segmentation.max() + 1
 		self.seg_loaded = True
 		sys.stderr.write('segmentation loaded.\n')
-
-		sys.stderr.write('loading clusters...\n')
-		self.statusBar().showMessage('loading clusters..')
-		cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
-		from collections import defaultdict
-		self.region_score_tuples = defaultdict(list)
-		for s, cl, sc, ed in cluster_tuples:
-			self.region_score_tuples[s].append((sc, cl))
-		sys.stderr.write('regions loaded.\n')
 
 		sys.stderr.write('loading sp props...\n')
 		self.statusBar().showMessage('loading sp properties..')
@@ -1069,8 +1095,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.sp_rectlist = [None for _ in range(self.n_superpixels)]
 
+
+	def turn_superpixels_off(self):
+		self.statusBar().showMessage('Supepixels OFF')
+
+		self.buttonSpOnOff.setText('Turn Superpixels ON')
+
+		self.segm_handle.remove()
+		self.superpixels_on = False
+		
+		# self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
+		# self.orig_image_handle = self.axis.imshow(self.masked_img, aspect='equal')
+
 	def turn_superpixels_on(self):
-		self.statusBar().showMessage('Turning supepixels on...')
+		self.statusBar().showMessage('Supepixels ON')
 
 		self.buttonSpOnOff.setText('Turn Superpixels OFF')
 
@@ -1082,38 +1120,77 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if not self.seg_loaded:
 			self.load_segmentation()
 
-		self.seg_enabled = True
-
-		self.axis.clear()
-		self.axis.axis('off')
+		self.superpixels_on = True
 		
-		self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
-		# self.seg_vis[~self.dm.mask] = 0
-		self.axis.imshow(self.seg_vis, aspect='equal')
-		self.canvas.draw()
+		# self.orig_image_handle.remove()
 
+		self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
+								cmap=self.my_cmap, alpha=1.)
+
+		# self.axis.clear()
+		
+		# self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
+		# # self.seg_vis[~self.dm.mask] = 0
+		# self.seg_viz_handle = self.axis.imshow(self.seg_vis, aspect='equal')
+
+		# self.canvas.draw()
+
+	def mode_changed(self):
+
+		if self.radioButton_suggested.isChecked():
+
+			if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+				if self.curr_local_proposal_pathPatch is not None and self.curr_local_proposal_pathPatch not in self.user_approved_local_pathPatches:
+					self.curr_local_proposal_pathPatch.remove()
+					self.curr_local_proposal_pathPatch = None
+
+			self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
+
+			if not self.superpixels_on:
+				self.turn_superpixels_on()
+
+			if not hasattr(self, 'global_proposal_tuples'):
+				self.load_global_proposals()
+
+		elif self.radioButton_individual.isChecked():
+
+			if not self.superpixels_on:
+				self.turn_superpixels_on()
+
+			if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+				if self.curr_global_proposal_pathPatch is not None and self.curr_global_proposal_pathPatch not in self.user_approved_global_pathPatches:
+					self.curr_global_proposal_pathPatch.remove()
+					self.curr_global_proposal_pathPatch = None
+
+			self.mode = Mode.REVIEW_LOCAL_PROPOSAL
+
+			if not hasattr(self, 'local_proposal_tuples'):
+				self.load_local_proposals()
+				
+
+		elif self.radioButton_freeform.isChecked():
+
+			if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+				if self.curr_global_proposal_pathPatch is not None and self.curr_local_proposal_pathPatch not in self.user_approved_local_pathPatches:
+					self.curr_local_proposal_pathPatch.remove()
+					self.curr_local_proposal_pathPatch = None
+			elif self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+				if self.curr_local_proposal_pathPatch is not None and self.curr_global_proposal_pathPatch not in self.user_approved_global_pathPatches:
+					self.curr_global_proposal_pathPatch.remove()
+					self.curr_global_proposal_pathPatch = None
+
+			self.mode = Mode.FREEFORM_DRAWING
+
+
+		self.canvas.draw()
 
 	def display_option_changed(self):
 		if self.sender() == self.buttonSpOnOff:
 
-			if not self.seg_enabled:
+			if not self.superpixels_on:
 				self.turn_superpixels_on()
-
 			else:
-				self.buttonSpOnOff.setText('Turn Superpixels ON')
-
-				print 'superpixels off'
-				self.segm_handle.remove()
-				self.seg_enabled = False
-
-				self.axis.clear()
-				self.axis.axis('off')
-				
-				# self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
-				self.axis.imshow(self.masked_img, aspect='equal')
-
-				# self.canvas.draw()
-
+				self.turn_superpixels_off()
 		else:
 			# if self.under_img is not None:
 			# 	self.under_img.remove()
@@ -1127,7 +1204,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
 				self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				# self.seg_enabled = False
+				# self.superpixels_on = False
 
 			elif self.sender() == self.textonmap_radioButton:
 
@@ -1142,7 +1219,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
 				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				# self.seg_enabled = False
+				# self.superpixels_on = False
 
 			elif self.sender() == self.dirmap_radioButton:
 
@@ -1160,36 +1237,36 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# if not self.seg_loaded:
 				# 	self.load_segmentation()
 
-				# self.seg_enabled = False
+				# self.superpixels_on = False
 
 			elif self.sender() == self.labeling_radioButton:
+				pass
 
+				# self.axis.clear()
+				# self.axis.axis('off')
 
-				self.axis.clear()
-				self.axis.axis('off')
+				# if not self.seg_loaded:
+				# 	self.load_segmentation()
 
-				if not self.seg_loaded:
-					self.load_segmentation()
+				# # if not self.groups_loaded:
+				# # 	self.load_groups()
+				# # else:
+				# for rect in self.sp_rectlist:
+				# 	if rect is not None:
+				# 		self.axis.add_patch(rect)
 
-				# if not self.groups_loaded:
-				# 	self.load_groups()
-				# else:
-				for rect in self.sp_rectlist:
-					if rect is not None:
-						self.axis.add_patch(rect)
+				# self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
+				# self.seg_vis[~self.dm.mask] = 0
+				# self.axis.imshow(self.seg_vis, aspect='equal')
 
-				self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
-				self.seg_vis[~self.dm.mask] = 0
-				self.axis.imshow(self.seg_vis, aspect='equal')
+			# self.superpixels_on = True
 
-			# self.seg_enabled = True
+		# if self.superpixels_on:
+		# 	self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
+		# 							cmap=self.my_cmap, alpha=1.)
 
-		if self.seg_enabled:
-			self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
-									cmap=self.my_cmap, alpha=1.)
-
-			for i in range(len(self.sp_rectlist)):
-				self.sp_rectlist[i] = None
+		# 	for i in range(len(self.sp_rectlist)):
+		# 		self.sp_rectlist[i] = None
 
 		self.axis.axis('off')
 
@@ -1199,21 +1276,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 		self.canvas.draw()
 
-	def show_region(self, sp_ind):
 
-		for i, r in enumerate(self.sp_rectlist):
-			if r is not None:
-				r.remove()
-				self.sp_rectlist[i] = None
+	# def show_region(self, sp_ind):
 
-		if not hasattr(self, 'alt_ind'):
-			self.alt_ind = 0
+	# 	for i, r in enumerate(self.sp_rectlist):
+	# 		if r is not None:
+	# 			r.remove()
+	# 			self.sp_rectlist[i] = None
 
-		self.alt_ind = (self.alt_ind + 1) % len(self.region_score_tuples[sp_ind])
+	# 	if not hasattr(self, 'alt_ind'):
+	# 		self.alt_ind = 0
 
-		sc, cl = self.region_score_tuples[sp_ind][self.alt_ind]
+	# 	self.alt_ind = (self.alt_ind + 1) % len(self.local_proposal_tuples[sp_ind])
 
-		self.paint_sps(cl, self.colors[self.curr_label + 1])
+	# 	sc, cl = self.local_proposal_tuples[sp_ind][self.alt_ind]
+
+	# 	self.paint_sps(cl, self.colors[self.curr_label + 1])
 
 		# for i in set(cl):
 
@@ -1227,7 +1305,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# 	self.sp_rectlist[i] = rect
 		# 	self.axis.add_patch(rect)
 
-		self.statusBar().showMessage('Sp %d, cluster score %.4f' % (sp_ind, sc))
+		# self.statusBar().showMessage('Sp %d, cluster score %.4f' % (sp_ind, sc))
 
 
 	def paint_sps(self, sp_inds, color):

@@ -62,6 +62,36 @@
        </spacer>
       </item>
       <item>
+       <widget class="QGroupBox" name="groupBox">
+        <property name="title">
+         <string>Mode</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <widget class="QRadioButton" name="radioButton_suggested">
+           <property name="text">
+            <string>Review Global Proposals</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="radioButton_individual">
+           <property name="text">
+            <string>Review Local Proposals</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="radioButton_freeform">
+           <property name="text">
+            <string>Freeform Drawing</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
          <widget class="QGroupBox" name="display_groupBox">
@@ -126,13 +156,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="buttonGenProposals">
-          <property name="text">
-           <string>Review Proposals</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QPushButton" name="newLabelButton">
           <property name="text">
            <string>Add New Label</string>
@@ -143,13 +166,6 @@
          <widget class="QPushButton" name="buttonParams">
           <property name="text">
            <string>Change Parameters</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="buttonShowAllAcc">
-          <property name="text">
-           <string>Show All Accepted</string>
           </property>
          </widget>
         </item>

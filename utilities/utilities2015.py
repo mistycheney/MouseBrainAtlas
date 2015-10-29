@@ -299,7 +299,11 @@ class DataManager(object):
             self.image_name = '_'.join([self.stack, self.slice_str, self.resol])
             self.image_path = os.path.join(self.image_dir, self.image_name + '_warped.tif')
 
-        self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
+        try:
+            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
+        except:
+            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
+            
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
         self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Wed Oct 28 12:15:57 2015
+# Created: Thu Oct 29 00:08:21 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -58,6 +58,20 @@ class Ui_BrainLabelingGui(object):
         self.horizontalLayout.addLayout(self.labelsLayout)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
+        self.groupBox = QtGui.QGroupBox(self.centralwidget)
+        self.groupBox.setObjectName(_fromUtf8("groupBox"))
+        self.verticalLayout_4 = QtGui.QVBoxLayout(self.groupBox)
+        self.verticalLayout_4.setObjectName(_fromUtf8("verticalLayout_4"))
+        self.radioButton_suggested = QtGui.QRadioButton(self.groupBox)
+        self.radioButton_suggested.setObjectName(_fromUtf8("radioButton_suggested"))
+        self.verticalLayout_4.addWidget(self.radioButton_suggested)
+        self.radioButton_individual = QtGui.QRadioButton(self.groupBox)
+        self.radioButton_individual.setObjectName(_fromUtf8("radioButton_individual"))
+        self.verticalLayout_4.addWidget(self.radioButton_individual)
+        self.radioButton_freeform = QtGui.QRadioButton(self.groupBox)
+        self.radioButton_freeform.setObjectName(_fromUtf8("radioButton_freeform"))
+        self.verticalLayout_4.addWidget(self.radioButton_freeform)
+        self.horizontalLayout.addWidget(self.groupBox)
         self.verticalLayout_3 = QtGui.QVBoxLayout()
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
         self.display_groupBox = QtGui.QGroupBox(self.centralwidget)
@@ -89,18 +103,12 @@ class Ui_BrainLabelingGui(object):
         self.buttonLoadPropRev = QtGui.QPushButton(self.centralwidget)
         self.buttonLoadPropRev.setObjectName(_fromUtf8("buttonLoadPropRev"))
         self.buttonsLayout.addWidget(self.buttonLoadPropRev)
-        self.buttonGenProposals = QtGui.QPushButton(self.centralwidget)
-        self.buttonGenProposals.setObjectName(_fromUtf8("buttonGenProposals"))
-        self.buttonsLayout.addWidget(self.buttonGenProposals)
         self.newLabelButton = QtGui.QPushButton(self.centralwidget)
         self.newLabelButton.setObjectName(_fromUtf8("newLabelButton"))
         self.buttonsLayout.addWidget(self.newLabelButton)
         self.buttonParams = QtGui.QPushButton(self.centralwidget)
         self.buttonParams.setObjectName(_fromUtf8("buttonParams"))
         self.buttonsLayout.addWidget(self.buttonParams)
-        self.buttonShowAllAcc = QtGui.QPushButton(self.centralwidget)
-        self.buttonShowAllAcc.setObjectName(_fromUtf8("buttonShowAllAcc"))
-        self.buttonsLayout.addWidget(self.buttonShowAllAcc)
         self.saveButton = QtGui.QPushButton(self.centralwidget)
         self.saveButton.setObjectName(_fromUtf8("saveButton"))
         self.buttonsLayout.addWidget(self.saveButton)
@@ -127,6 +135,10 @@ class Ui_BrainLabelingGui(object):
 
     def retranslateUi(self, BrainLabelingGui):
         BrainLabelingGui.setWindowTitle(_translate("BrainLabelingGui", "BrainLabelingGui", None))
+        self.groupBox.setTitle(_translate("BrainLabelingGui", "Mode", None))
+        self.radioButton_suggested.setText(_translate("BrainLabelingGui", "Review Global Proposals", None))
+        self.radioButton_individual.setText(_translate("BrainLabelingGui", "Review Local Proposals", None))
+        self.radioButton_freeform.setText(_translate("BrainLabelingGui", "Freeform Drawing", None))
         self.display_groupBox.setTitle(_translate("BrainLabelingGui", "Display", None))
         self.img_radioButton.setText(_translate("BrainLabelingGui", "image", None))
         self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap (gabor, vq)", None))
@@ -135,10 +147,8 @@ class Ui_BrainLabelingGui(object):
         self.buttonSpOnOff.setText(_translate("BrainLabelingGui", "Turn Superpixels On", None))
         self.buttonLoadLabeling.setText(_translate("BrainLabelingGui", "Load Labeling", None))
         self.buttonLoadPropRev.setText(_translate("BrainLabelingGui", "Load Proposal Review", None))
-        self.buttonGenProposals.setText(_translate("BrainLabelingGui", "Review Proposals", None))
         self.newLabelButton.setText(_translate("BrainLabelingGui", "Add New Label", None))
         self.buttonParams.setText(_translate("BrainLabelingGui", "Change Parameters", None))
-        self.buttonShowAllAcc.setText(_translate("BrainLabelingGui", "Show All Accepted", None))
         self.saveButton.setText(_translate("BrainLabelingGui", "Save", None))
         self.quitButton.setText(_translate("BrainLabelingGui", "Quit", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))

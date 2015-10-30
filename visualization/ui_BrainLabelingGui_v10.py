@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Thu Oct 29 00:08:21 2015
+# Created: Thu Oct 29 17:40:53 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -71,6 +71,9 @@ class Ui_BrainLabelingGui(object):
         self.radioButton_freeform = QtGui.QRadioButton(self.groupBox)
         self.radioButton_freeform.setObjectName(_fromUtf8("radioButton_freeform"))
         self.verticalLayout_4.addWidget(self.radioButton_freeform)
+        self.radioButton_readonly = QtGui.QRadioButton(self.groupBox)
+        self.radioButton_readonly.setObjectName(_fromUtf8("radioButton_readonly"))
+        self.verticalLayout_4.addWidget(self.radioButton_readonly)
         self.horizontalLayout.addWidget(self.groupBox)
         self.verticalLayout_3 = QtGui.QVBoxLayout()
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
@@ -139,6 +142,7 @@ class Ui_BrainLabelingGui(object):
         self.radioButton_suggested.setText(_translate("BrainLabelingGui", "Review Global Proposals", None))
         self.radioButton_individual.setText(_translate("BrainLabelingGui", "Review Local Proposals", None))
         self.radioButton_freeform.setText(_translate("BrainLabelingGui", "Freeform Drawing", None))
+        self.radioButton_readonly.setText(_translate("BrainLabelingGui", "Read Only", None))
         self.display_groupBox.setTitle(_translate("BrainLabelingGui", "Display", None))
         self.img_radioButton.setText(_translate("BrainLabelingGui", "image", None))
         self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap (gabor, vq)", None))

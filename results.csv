@@ -1,7 +1,7 @@
 # name, extension, param_dependencies (0 for gabor, 1 for segm, 2 for gabor + vq, 3 for gabor + segm + vq), store_dir (0 for section dir, 1 for stack dir)
 name extension param_dep dir
-features npy 0 0
-featuresRotated npy 0 0
+features bp 0 0
+featuresRotated bp 0 0
 centroids npy 0 0
 segmentation bp 1 0
 spCentroids npy 1 0
@@ -16,10 +16,11 @@ edgeCoords pkl 1 0
 edgeNeighbors pkl 1 0
 edgeCoords pkl 1 0
 edgeMidpoints pkl 1 0
+edgeEndpoints pkl 1 0
 dedgeVectors pkl 1 0
 dedgeNeighbors pkl 1 0
 textons npy 2 1
-texMap npy 2 0
+texMap bp 2 0
 texMapViz jpg 2 0
 texHist npy 3 0
 allSeedClusterScoreTuples pkl 3 0

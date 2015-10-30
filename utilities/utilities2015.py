@@ -258,7 +258,7 @@ class DataManager(object):
         if self.stack == 'MD593':
             self.mask[1848:1848+4807, 924:924+10186] = True
         elif self.stack == 'MD594':
-            self.mask[1081:1081+6049, 552:552+12443] = True
+            self.mask[1081:1081+6051, 552:552+12445] = True
         else:
             raise 'mask is not specified'
 
@@ -271,14 +271,14 @@ class DataManager(object):
 
         if self.stack == 'MD593':
             self.xmin = 924
-            self.xmax = 924+10186+1
+            self.xmax = 924+10186-1
             self.ymin = 1848
-            self.ymax = 1848+4807+1
+            self.ymax = 1848+4807-1
         elif self.stack == 'MD594':
             self.xmin = 552
-            self.xmax = 552+12443+1
+            self.xmax = 552+12445-1
             self.ymin = 1081
-            self.ymax = 1081+6049+1
+            self.ymax = 1081+6051-1
         else:
             raise 'mask is not specified'
 
@@ -350,6 +350,9 @@ class DataManager(object):
 
         if 'edgeMidpoints' in results and not hasattr(self, 'edge_midpoints'):
             self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))            
+
+        if 'edgeEndpoints' in results and not hasattr(self, 'edge_endpoints'):
+            self.edge_endpoints = dict(self.load_pipeline_result('edgeEndpoints'))            
 
         if 'neighbors' in results and not  hasattr(self, 'neighbors'):
             self.neighbors = self.load_pipeline_result('neighbors')
@@ -1139,22 +1142,22 @@ class DataManager(object):
         print 'saved %s' % result_filename
         
 
-    def load_review_result_path(self, username, timestamp, stack=None, section=None):
+    def load_review_result_path(self, username, timestamp, stack=None, section=None, suffix=''):
         if stack is None:
             stack = self.stack
         if section is None:
             section = self.slice_ind
 
-        return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_ProposalReviewResult.pkl')
+        return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl')
 
-    def save_proposal_review_result(self, result, username, timestamp):
-        path = self.load_review_result_path(username, timestamp)
+    def save_proposal_review_result(self, result, username, timestamp, suffix):
+        path = self.load_review_result_path(username, timestamp, suffix=suffix)
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 
 
-    def load_proposal_review_result(self, username, timestamp):
-        path = open(self.load_review_result_path(username, timestamp), 'r')
+    def load_proposal_review_result(self, username, timestamp, suffix):
+        path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
         result = pickle.load(path)
         return result
 

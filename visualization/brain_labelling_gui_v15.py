@@ -94,9 +94,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.selected_polygon = None
 
 		self.curr_polygon_vertices = []
-		self.polygon_list = []
+		self.freeform_polygons = []
 		self.polygon_bbox_list = []
-		self.polygon_labels = []
+		# self.polygon_labels = []
 		self.polygon_types = []
 
 		self.curr_polygon_vertex_circles = []
@@ -136,6 +136,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.curr_global_proposal_pathPatch = None
 		self.curr_local_proposal_pathPatch = None
+
+		self.new_labelnames = []
+		
+		self.proposal_picked = False
+
 
 	def paramSettings_clicked(self):
 		pass
@@ -192,18 +197,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.all_polygons_vertex_circles.append(self.curr_polygon_vertex_circles)
 
 		if polygon_type == PolygonType.CLOSED:
-			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
 		elif polygon_type == PolygonType.OPEN:
-			polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			# polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
 		elif polygon_type == PolygonType.TEXTURE:
 			# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, hatch='/')
-			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+			
 		elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
 			# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, hatch='x')
-			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
 		elif polygon_type == PolygonType.DIRECTION:
 			# polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, linestyle='dashed')
-			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
+			polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
 		else:
 			raise 'polygon_type must be one of enum closed, open, texture'
 
@@ -214,9 +223,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		polygon.set_picker(True)
 
-		self.polygon_list.append(polygon)
+		self.freeform_polygons.append(polygon)
 		self.polygon_bbox_list.append(x0_y0_x1_y1)
-		self.polygon_labels.append(self.curr_label)
+		# self.polygon_labels.append(self.curr_label)
 		self.polygon_types.append(polygon_type)
 
 		self.curr_polygon_vertices = []
@@ -227,7 +236,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def openMenu(self, canvas_pos):
 
-		self.endDraw_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+		self.endDrawClosed_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
 		self.endDrawOpen_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
 		self.confirmTexture_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
 		self.confirmTextureWithContour_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
@@ -242,39 +251,56 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		action = self.menu.exec_(self.cursor().pos())
 
-		if action == self.endDraw_Action:
+		if action == self.endDrawClosed_Action:
 
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.CLOSED)
-			self.statusBar().showMessage('Done drawing closed region using label %d (%s)' % (self.curr_label,
-														self.curr_labeling['labelnames'][self.curr_label]))
+			# self.statusBar().showMessage('Done drawing closed region using label %d (%s)' % (self.curr_label,
+			# 											self.free_proposal_labels[self.curr_label]))
 			self.mode = Mode.FREEFORM_DRAWING
+			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.freeform_proposal_labels.append('')
 
+			print self.curr_freeform_polygon_id, self.freeform_proposal_labels
+
+			self.accProp_callback()
+			
 		elif action == self.endDrawOpen_Action:
 
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.OPEN)
-			self.statusBar().showMessage('Done drawing edge segment using label %d (%s)' % (self.curr_label,
-														self.curr_labeling['labelnames'][self.curr_label]))
+			# self.statusBar().showMessage('Done drawing edge segment using label %d (%s)' % (self.curr_label,
+			# 											self.free_proposal_labels[self.curr_label]))
 			self.mode = Mode.FREEFORM_DRAWING
+			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.freeform_proposal_labels.append('')
+			self.accProp_callback()
 
 		elif action == self.confirmTexture_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE)
-			self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
-														self.curr_labeling['labelnames'][self.curr_label]))
-
+			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
+			# 											self.free_proposal_labels[self.curr_label]))
 			self.mode = Mode.FREEFORM_DRAWING
+			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.freeform_proposal_labels.append('')
+			self.accProp_callback()
 
 		elif action == self.confirmTextureWithContour_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE_WITH_CONTOUR)
-			self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
-														self.curr_labeling['labelnames'][self.curr_label]))
+			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
+			# 											self.free_proposal_labels[self.curr_label]))
 			self.mode = Mode.FREEFORM_DRAWING
-
+			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.freeform_proposal_labels.append('')
+			self.accProp_callback()
 
 		elif action == self.confirmDirectionality_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
-			self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
-														self.curr_labeling['labelnames'][self.curr_label]))
+			# self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
+			# 											self.free_proposal_labels[self.curr_label]))
 			self.mode = Mode.FREEFORM_DRAWING
+			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.freeform_proposal_labels.append('')
+			self.accProp_callback()
+	
 
 		elif action == self.deletePolygon_Action:
 			self.remove_polygon()
@@ -285,11 +311,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif action == self.addVertex_Action:
 			self.add_vertex_to_existing_polygon(canvas_pos)
 
-		elif action == self.crossReference_Action:
-			self.parent().refresh_data()
-			self.parent().comboBoxBrowseMode.setCurrentIndex(self.curr_label + 1)
-			self.parent().set_labelnameFilter(self.curr_label)
-			self.parent().switch_to_labeling()
+		# elif action == self.crossReference_Action:
+		# 	self.parent().refresh_data()
+		# 	self.parent().comboBoxBrowseMode.setCurrentIndex(self.curr_label + 1)
+		# 	self.parent().set_labelnameFilter(self.curr_label)
+		# 	self.parent().switch_to_labeling()
 
 		elif action == self.accProp_Action:
 			self.accProp_callback()
@@ -297,14 +323,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif action == self.rejProp_Action:
 			self.rejProp_callback()
 
-		elif action in self.existing_label_actions:
-			self.selected_label = str(action.text())
-			if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-				self.global_proposal_labels[self.curr_global_prop_id] = self.selected_label
-			elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-				self.local_proposal_labels[self.curr_local_prop_id] = self.selected_label
+		# elif action in self.existing_label_actions:
+		# 	self.selected_label = str(action.text())
+		# 	if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+		# 		self.global_proposal_labels[self.curr_global_prop_id] = self.selected_label
+		# 	elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+		# 		self.local_proposal_labels[self.curr_local_prop_id] = self.selected_label
 			# elif self.mode == Mode.FREEFORM_DRAWING:
 			# 	self.free_proposal_labels[self.curr_local_prop_id] = self.selected_label
+
+		elif action == self.newPolygon_Action:
+			self.statusBar().showMessage('Left click to place vertices')
+			self.mode = Mode.PLACING_VERTICES
+
+			# self.curr_label = selected_label			
+			# self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
+
+			# self.pick_color(int(self.sender().text()))
 
 		else:
 			# raise 'do not know how to deal with action %s' % action
@@ -313,7 +348,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def initialize_brain_labeling_gui(self):
 
 		self.menu = QMenu()
-		self.endDraw_Action = self.menu.addAction("Confirm closed contour")
+		self.endDrawClosed_Action = self.menu.addAction("Confirm closed contour")
 		self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
 		self.confirmTexture_Action = self.menu.addAction("Confirm textured region without contour")
 		self.confirmTextureWithContour_Action = self.menu.addAction("Confirm textured region with contour")
@@ -323,21 +358,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.deleteVertex_Action = self.menu.addAction("Delete vertex")
 		self.addVertex_Action = self.menu.addAction("Add vertex")
 
+		self.newPolygon_Action = self.menu.addAction("New polygon")
+
 		self.crossReference_Action = self.menu.addAction("Cross reference")
 
 		self.accProp_Action = self.menu.addAction("Accept")
 		self.rejProp_Action = self.menu.addAction("Reject")
 
-		self.label_selection_menu = QMenu("Assign known labels")
+		# self.sp_covered_by_accepted_global_proposal = defaultdict(list)
+		# self.sp_covered_by_accepted_local_proposal = defaultdict(list)
 
-		self.existing_label_actions = []
-		for i, label_name in enumerate(self.dm.labelnames): #or your dict
-			action = self.label_selection_menu.addAction(label_name) #it is just a regular QMenu
-			self.existing_label_actions.append(action)
+		# self.selectAcceptedProposal_Action = self.menu.addAction("Select accepted proposal")
 
-		self.menu.addMenu(self.label_selection_menu)
+		# self.label_selection_menu = QMenu("Assign known labels")
 
-		self.newLabel_Action = self.menu.addAction("Assign new label")
+		# self.existing_label_actions = []
+		# for i, label_name in enumerate(self.dm.labelnames): #or your dict
+		# 	action = self.label_selection_menu.addAction(label_name) #it is just a regular QMenu
+		# 	self.existing_label_actions.append(action)
+
+		# self.menu.addMenu(self.label_selection_menu)
+
+		# self.newLabel_Action = self.menu.addAction("Assign new label")
 
 		# A set of high-contrast colors proposed by Green-Armytage
 		self.colors = np.loadtxt('100colors.txt', skiprows=1)
@@ -371,24 +413,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.mpl_connect('pick_event', self.on_pick)
 
+		######################################
+
+		# self.label_selection_dialog = QInputDialog(self)
+		# self.label_selection_dialog.setLabelText('Select landmark label')
+		# self.label_selection_dialog.setComboBoxItems(['New label'] + self.dm.labelnames)
+
+		# self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
 
 		########## Label buttons #############
 
-		self.n_labelbuttons = 0
+		# self.n_labelbuttons = 0
 		
-		self.labelbuttons = []
-		self.labeledits = []
+		# self.labelbuttons = []
+		# self.labeledits = []
 
-		if self.parent_labeling is not None:
-			for n in self.parent_labeling['labelnames']:
-				self._add_labelbutton(desc=n)
-		else:
-			for n in self.dm.labelnames:
-				self._add_labelbutton(desc=n)
+		# if self.parent_labeling is not None:
+		# 	for n in self.parent_labeling['labelnames']:
+		# 		self._add_labelbutton(desc=n)
+		# else:
+		# 	for n in self.dm.labelnames:
+		# 		self._add_labelbutton(desc=n)
 
 		# self.loadButton.clicked.connect(self.load_callback)
 		self.saveButton.clicked.connect(self.save_callback)
-		self.newLabelButton.clicked.connect(self.newlabel_callback)
+		# self.newLabelButton.clicked.connect(self.newlabel_callback)
 		# self.newLabelButton.clicked.connect(self.sigboost_callback)
 		self.quitButton.clicked.connect(self.close)
 		self.buttonParams.clicked.connect(self.paramSettings_clicked)
@@ -439,7 +488,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					polygon.set_picker(10.)
 
 					self.axis.add_patch(polygon)
-					self.polygon_list.append(polygon)
+					self.freeform_polygons.append(polygon)
 					self.polygon_bbox_list.append(x0_y0_x1_y1)
 					self.polygon_labels.append(label)
 					self.polygon_types.append(polygon_type)
@@ -466,105 +515,89 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.sp_rectlist = []
 
 	
-
 	def on_pick(self, event):
 
-		import matplotlib.path as mplPath
-			
-		polygon_ids = np.where([event.artist in circs for circs in self.all_polygons_vertex_circles])[0]
-		# polygon_ids contains either 0 or 1 item
-		if len(polygon_ids) > 0: # picked on a vertex circle
+		print 'picked'
 
-			if self.selected_circle is not None:
-				self.selected_circle.set_radius(10.)
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+			self.cancel_curr_global()
 
-			if self.selected_polygon is not None:
-				self.selected_polygon.set_linewidth(2.)
-				
-			self.selected_polygon_id = polygon_ids[0]
-			self.selected_vertex_index = self.all_polygons_vertex_circles[self.selected_polygon_id].index(event.artist)
-			print 'picked polygon', self.selected_polygon_id, 'vertex', self.selected_vertex_index, 'label', self.polygon_labels[self.selected_polygon_id]
-			self.selected_circle = event.artist
-			self.selected_circle.set_radius(20.)
-			self.selected_polygon = self.polygon_list[self.selected_polygon_id]
-			self.selected_polygon.set_linewidth(5.)	
-			
-			self.statusBar().showMessage('picked polygon %d, vertex %d, label %d' % (self.selected_polygon_id, self.selected_vertex_index, self.polygon_labels[self.selected_polygon_id]))
+		if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+			self.cancel_curr_local()
 
-		elif event.artist in self.polygon_list: # picked on a polygon
+		if event.artist in self.freeform_polygons:
 
-			if self.selected_circle is None or not mplPath.Path(event.artist.get_xy()).contains_point(self.selected_circle.center):
+			polygon_ids = np.where([event.artist in circs for circs in self.all_polygons_vertex_circles])[0]
+			# polygon_ids contains either 0 or 1 item
+			if len(polygon_ids) > 0: # picked on a vertex circle
 
 				if self.selected_circle is not None:
 					self.selected_circle.set_radius(10.)
-							
+
 				if self.selected_polygon is not None:
 					self.selected_polygon.set_linewidth(2.)
-
-				self.selected_polygon = event.artist
-				self.selected_polygon_id = self.polygon_list.index(self.selected_polygon)
-				print 'picked polygon', self.selected_polygon_id, 'label', self.polygon_labels[self.selected_polygon_id]
+					
+				self.curr_freeform_polygon_id = polygon_ids[0]
+				self.selected_vertex_index = self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].index(event.artist)
+				print 'picked polygon', self.curr_freeform_polygon_id, 'vertex', self.selected_vertex_index, 'label', self.freeform_proposal_labels[self.curr_freeform_polygon_id]
+				self.selected_circle = event.artist
+				self.selected_circle.set_radius(20.)
+				self.selected_polygon = self.freeform_polygons[self.curr_freeform_polygon_id]
 				self.selected_polygon.set_linewidth(5.)
-			
-				self.statusBar().showMessage('picked polygon %d, label %d' % (self.selected_polygon_id, self.polygon_labels[self.selected_polygon_id]))
+				
+				self.statusBar().showMessage('picked polygon %d, vertex %d (%s)' % (self.curr_freeform_polygon_id, self.selected_vertex_index, self.freeform_proposal_labels[self.curr_freeform_polygon_id]))
+
+			elif event.artist in self.freeform_polygons: # picked on a polygon
+
+				if self.selected_circle is None or not Path(event.artist.get_xy()).contains_point(self.selected_circle.center):
+
+					if self.selected_circle is not None:
+						self.selected_circle.set_radius(10.)
+								
+					if self.selected_polygon is not None:
+						self.selected_polygon.set_linewidth(2.)
+
+					self.selected_polygon = event.artist
+					self.curr_freeform_polygon_id = self.freeform_polygons.index(self.selected_polygon)
+					print 'picked polygon', self.curr_freeform_polygon_id, 'label', self.freeform_proposal_labels[self.curr_freeform_polygon_id]
+					self.selected_polygon.set_linewidth(5.)
+				
+					self.statusBar().showMessage('picked polygon %d (%s)' % (self.curr_freeform_polygon_id, self.freeform_proposal_labels[self.curr_freeform_polygon_id]))
+
+			self.click_on_object = True
+
+		elif hasattr(self, 'global_proposal_pathPatches') and event.artist in self.global_proposal_pathPatches:
+			self.curr_global_prop_id = self.global_proposal_pathPatches.index(event.artist)
+			self.curr_global_proposal_pathPatch = event.artist
+			self.curr_global_proposal_pathPatch.set_linewidth(5)
+
+			self.statusBar().showMessage('picked global proposal %d (%s)' % (self.curr_global_prop_id, self.global_proposal_labels[self.curr_global_prop_id]))
+
+		elif hasattr(self, 'local_proposal_pathPatches') and event.artist in self.local_proposal_pathPatches:
+			self.curr_local_prop_id = self.local_proposal_pathPatches.index(event.artist)
+			self.curr_local_proposal_pathPatch = event.artist
+			self.curr_local_proposal_pathPatch.set_linewidth(5)
+
+			self.statusBar().showMessage('picked local proposal %d (%s)' % (self.curr_local_prop_id, self.local_proposal_labels[self.curr_local_prop_id]))
+		
+		self.proposal_picked = True
 
 		self.canvas.draw()
-
-		self.click_on_object = True
-		# print polygon_ids, 'set', self.click_on_object
-
-
-	def _add_labelbutton(self, desc=None):
-		self.n_labelbuttons += 1
-
-		index = self.n_labelbuttons - 1
-
-		row = (index) % 5
-		col = (index) / 5
-
-		btn = QPushButton('%d' % index, self)
-
-		if desc is None:
-			labelname = 'label %d'%index			
-		else:
-			labelname = desc
-
-		edt = QLineEdit(QString(labelname))
-		self.curr_labeling['labelnames'].append(labelname)
-
-		self.labelbuttons.append(btn)
-		self.labeledits.append(edt)
-
-		btn.clicked.connect(self.labelbutton_callback)
-		edt.editingFinished.connect(self.labelNameChanged)
-
-		r, g, b, a = self.label_cmap(index + 1)
-
-		btn.setStyleSheet("background-color: rgb(%d, %d, %d)"%(int(r*255),int(g*255),int(b*255)))
-		btn.setFixedSize(20, 20)
-
-		self.labelsLayout.addWidget(btn, row, 2*col)
-		self.labelsLayout.addWidget(edt, row, 2*col+1)
-
-	def newlabel_callback(self):
-		# self.n_labels += 1
-		self._add_labelbutton()
-
 
 	def pathPatch_from_dedges(self, dedges, color):
 
 	 	vertices = []
  		for de_ind, de in enumerate(dedges):
  			midpt = self.dm.edge_midpoints[frozenset(de)]
- 			pts = self.dm.edge_coords[frozenset(de)]
- 			pts_next_dedge = self.dm.edge_coords[frozenset(dedges[(de_ind+1)%len(dedges)])]
+ 			endpts = self.dm.edge_endpoints[frozenset(de)]
+ 			endpts_next_dedge = self.dm.edge_endpoints[frozenset(dedges[(de_ind+1)%len(dedges)])]
 
-			dij = cdist([pts[0], pts[-1]], [pts_next_dedge[0], pts_next_dedge[-1]])
+			dij = cdist([endpts[0], endpts[-1]], [endpts_next_dedge[0], endpts_next_dedge[-1]])
 			i,j = np.unravel_index(np.argmin(dij), (2,2))
 			if i == 0:
-				vertices += [pts[-1], midpt, pts[0]]
+				vertices += [endpts[-1], midpt, endpts[0]]
 			else:
-				vertices += [pts[0], midpt, pts[-1]]
+				vertices += [endpts[0], midpt, endpts[-1]]
 
 		path_patch = PathPatch(Path(vertices=vertices, closed=True), color=color, fill=False, linewidth=3)
 
@@ -627,32 +660,89 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.global_proposal_review_results[self.curr_global_prop_id] = 1
 			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[1])
 
+			self.curr_global_proposal_pathPatch.set_picker(True)
+
+			# cl, ed, sig = self.global_proposal_tuples[self.curr_global_prop_id]:
+			# for s in cl:
+			# 	self.sp_covered_by_accepted_global_proposal[s].append(self.curr_global_prop_id)
+
 			self.canvas.draw()
 
-			self.statusBar().showMessage('Accept proposal %d' % (self.curr_global_prop_id))
+			# self.statusBar().showMessage('Accept proposal %d' % (self.curr_global_prop_id))
 
 		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
 
 			self.local_proposal_review_results[self.curr_local_prop_id] = 1
 			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[1])
 
-			self.canvas.draw()
+			self.curr_local_proposal_pathPatch.set_picker(True)
 
+			# cl, ed, sig = self.local_proposal_tuples[self.curr_local_prop_id]:
+			# for s in cl:
+			# 	self.sp_covered_by_accepted_local_proposal[s].append(self.curr_local_prop_id)
+
+			self.canvas.draw()			
+
+
+		self.label_selection_dialog = QInputDialog(self)
+		self.label_selection_dialog.setLabelText('Select landmark label')
+		self.label_selection_dialog.setComboBoxItems(['New label'] + self.dm.labelnames + self.new_labelnames)
+
+		self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
+
+		self.label_selection_dialog.exec_()
+		
+		# label, done = QInputDialog.getText(self, "Label", "Label for accepted proposal:", QLineEdit.Normal, 'landmark')
+
+	def label_dialog_text_changed(self, text):
+		
+		if str(text) == 'New label':
+			label, okay = QInputDialog.getText(self, "New label", 
+									"Enter label:", QLineEdit.Normal, 'landmark')
+			if not okay: 
+				return
+			else:
+				label = str(label)
+				if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+					self.global_proposal_labels[self.curr_global_prop_id] = label
+				elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+					self.local_proposal_labels[self.curr_local_prop_id] = label
+				elif self.mode == Mode.FREEFORM_DRAWING:
+					self.freeform_proposal_labels[self.curr_freeform_polygon_id] = label
+
+				if label not in self.new_labelnames:
+					self.new_labelnames.append(label)
+
+				self.label_selection_dialog.done(0)
+		else:
+			if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+				self.global_proposal_labels[self.curr_global_prop_id] = str(text)
+			elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+				self.local_proposal_labels[self.curr_local_prop_id] = str(text)
+			elif self.mode == Mode.FREEFORM_DRAWING:
+				self.freeform_proposal_labels[self.curr_freeform_polygon_id] = str(text)
+
+			self.label_selection_dialog.done(0)
 
 	def rejProp_callback(self):
 
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+		if self.curr_global_proposal_pathPatch is not None:
 
 			self.global_proposal_review_results[self.curr_global_prop_id] = 2
 			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[2])
+
+			self.curr_global_proposal_pathPatch.set_picker(False)
 
 			self.canvas.draw()
 			
 			self.statusBar().showMessage('Reject proposal %d' % (self.curr_global_prop_id))
 	
-		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+		elif self.curr_local_proposal_pathPatch is not None:
+
 			self.local_proposal_review_results[self.curr_local_prop_id] = 2
 			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[2])
+
+			self.curr_local_proposal_pathPatch.set_picker(False)
 
 			self.canvas.draw()
 
@@ -683,13 +773,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
 
-		if self.curr_global_proposal_pathPatch is not None:
-
-			if self.curr_global_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_global_proposal_pathPatch.set_linewidth(3)
-
-			if self.global_proposal_review_results[self.curr_global_prop_id] != 1:
-				self.curr_global_proposal_pathPatch.remove()
+		self.cancel_curr_global()
 
 		self.curr_global_prop_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
 		decision = self.global_proposal_review_results[self.curr_global_prop_id]
@@ -721,14 +805,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
 
-
-		if self.curr_local_proposal_pathPatch is not None:
-
-			if self.curr_local_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_local_proposal_pathPatch.set_linewidth(3)
-
-			if self.local_proposal_review_results[self.curr_local_prop_id] != 1:
-				self.curr_local_proposal_pathPatch.remove()
+		self.cancel_curr_local()
 
 		self.curr_local_prop_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
 		cl, dedges, sig = self.local_proposal_tuples[self.curr_local_prop_id]
@@ -756,83 +833,139 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.canvas.draw()
 
 
+	# def labelNameChanged(self):
+	# 	edt = self.sender()
+	# 	ind_onscreen = self.labeledits.index(edt) # the first one is "no label"
+	# 	self.curr_labeling['labelnames'][ind_onscreen] = str(edt.text())
 
-	def labelNameChanged(self):
-		edt = self.sender()
-		ind_onscreen = self.labeledits.index(edt) # the first one is "no label"
-		self.curr_labeling['labelnames'][ind_onscreen] = str(edt.text())
+	# def _save_labeling(self, ):
 
-	def _save_labeling(self, ):
+	# 	username, okay = QInputDialog.getText(self, "Username", 
+	# 						"Please enter your username:", QLineEdit.Normal, 'anon')
+	# 	if not okay: return
 
-		username, okay = QInputDialog.getText(self, "Username", 
-							"Please enter your username:", QLineEdit.Normal, 'anon')
-		if not okay: return
+	# 	self.username = str(username)
 
-		self.username = str(username)
+	# 	# each row is (label, type, N-by-2 vertices)
+	# 	# self.labeling['final_polygons'] = [(l, t, p.get_xy()/[self.dm.image_width, self.dm.image_height]) for l,p,t in zip(self.polygon_labels, self.freeform_polygons, self.polygon_types)]
 
-		# each row is (label, type, N-by-2 vertices)
-		# self.labeling['final_polygons'] = [(l, t, p.get_xy()/[self.dm.image_width, self.dm.image_height]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
-
-		typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.polygon_labels, self.polygon_list, self.polygon_types)]
-		self.curr_labeling['final_polygons'] = dict([(label, [(t,p) for l,t,p in group]) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))])
+	# 	typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.polygon_labels, self.freeform_polygons, self.polygon_types)]
+	# 	self.curr_labeling['final_polygons'] = dict([(label, [(t,p) for l,t,p in group]) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))])
 
 
-		self.curr_labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-		self.curr_labeling['username'] = self.username
+	# 	self.curr_labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+	# 	self.curr_labeling['username'] = self.username
 
-		new_labeling_name = self.username + '_' + self.curr_labeling['logout_time']
+	# 	new_labeling_name = self.username + '_' + self.curr_labeling['logout_time']
 
-		# self.labelmap = self.generate_labelmap(self.polygon_list, self.polygon_labels)
-		# labelmap_vis = label2rgb(self.labelmap, image=self.masked_img, colors=self.colors[1:], 
-		# 				bg_label=-1, bg_color=(1,1,1), alpha=0.3, image_alpha=1.)
+	# 	# self.labelmap = self.generate_labelmap(self.freeform_polygons, self.polygon_labels)
+	# 	# labelmap_vis = label2rgb(self.labelmap, image=self.masked_img, colors=self.colors[1:], 
+	# 	# 				bg_label=-1, bg_color=(1,1,1), alpha=0.3, image_alpha=1.)
 
-		labelmap_vis = np.zeros((self.dm.image_height, self.dm.image_width))
+	# 	labelmap_vis = np.zeros((self.dm.image_height, self.dm.image_width))
 
-		new_labeling_fn = self.dm.save_labeling(self.curr_labeling, new_labeling_name, labelmap_vis)
+	# 	new_labeling_fn = self.dm.save_labeling(self.curr_labeling, new_labeling_name, labelmap_vis)
 
-		print 'Curr labelnames', self.curr_labeling['labelnames']
+	# 	print 'Curr labelnames', self.curr_labeling['labelnames']
 
-		new_labelnames = []
-		q = [n.lower() for n in self.dm.labelnames]
-		for n in self.curr_labeling['labelnames']:
-			if n.lower() not in q:
-				new_labelnames.append(n)
+	# 	new_labelnames = []
+	# 	q = [n.lower() for n in self.dm.labelnames]
+	# 	for n in self.curr_labeling['labelnames']:
+	# 		if n.lower() not in q:
+	# 			new_labelnames.append(n)
 
-		print 'Global Labelnames', self.dm.labelnames + new_labelnames
+	# 	print 'Global Labelnames', self.dm.labelnames + new_labelnames
 
-		self.dm.set_labelnames(self.dm.labelnames + new_labelnames)
+	# 	self.dm.set_labelnames(self.dm.labelnames + new_labelnames)
 		
-		self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
+	# 	self.statusBar().showMessage('Labeling saved to %s' % new_labeling_fn )
 
 
 	def save_callback(self):
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-			self._save_global_proposal_review_results()
-		else:
-			self._save_labeling()
+		self.save_proposals()
 
 	def _load_global_proposal_review_results(self, username, timestamp):
 		self.global_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
 		self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
 		self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
 
-	def _save_global_proposal_review_results(self):
+
+	def save_proposals(self):
+
 		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-		username, okay = QInputDialog.getText(self, "Username", 
-							"Please enter your username:", QLineEdit.Normal, 'anon')
+		username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
 		if not okay: return
 
 		self.username = str(username)
-		self.dm.save_proposal_review_result(self.global_proposal_review_results, self.username, timestamp)
 
-		self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp) )
+		if hasattr(self, 'global_proposal_review_results'):
+			self.dm.save_proposal_review_result(self.global_proposal_review_results, self.username, timestamp, suffix='globalProposalReviewResult')
+		
+		if hasattr(self, 'local_proposal_review_results'):
+			self.dm.save_proposal_review_result(self.local_proposal_review_results, self.username, timestamp, suffix='localProposalReviewResult')
+
+		if hasattr(self, 'freeform_polygons') and len(self.freeform_polygons) > 0:
+			typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.freeform_proposal_labels, self.freeform_polygons, self.polygon_types)]
+			final_polygons = dict([(label, [(t,p) for l,t,p in group]) for label, group in groupby(sorted(typed_polygons, key=itemgetter(0)), itemgetter(0))])
+
+			# self.curr_labeling['logout_time'] = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+			# self.curr_labeling['username'] = self.username
+
+			# new_labeling_name = self.username + '_' + self.curr_labeling['logout_time']
+
+			# self.labelmap = self.generate_labelmap(self.freeform_polygons, self.polygon_labels)
+			# labelmap_vis = label2rgb(self.labelmap, image=self.masked_img, colors=self.colors[1:], 
+			# 				bg_label=-1, bg_color=(1,1,1), alpha=0.3, image_alpha=1.)
+
+			# labelmap_vis = np.zeros((self.dm.image_height, self.dm.image_width))
+
+			# new_labeling_fn = self.dm.save_labeling(self.curr_labeling, new_labeling_name, labelmap_vis)
+
+			# print 'Curr labelnames', self.curr_labeling['labelnames']
+
+			# new_labelnames = []
+
+			# q = [n.lower() for n in self.dm.labelnames]
+			# for n in self.new_labelnames:
+			# 	if n.lower() not in q:
+			# 		self.new_labelnames.append(n)
+
+			# print self.new_labelnames
+
+			# print 'Global Labelnames', self.dm.labelnames + new_labelnames
+
+			self.dm.set_labelnames(list(set(self.dm.labelnames + self.new_labelnames)))
+
+			self.dm.save_proposal_review_result(final_polygons, self.username, timestamp, suffix='freeformProposals')
+
+		self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp))
+
+		cur_xlim = self.axis.get_xlim()
+		cur_ylim = self.axis.get_ylim()
+
+		self.axis.set_xlim([0, self.dm.image_width])
+		self.axis.set_ylim([self.dm.image_height, 0])
+
+		self.fig.savefig('/tmp/preview.jpg', bbox_inches='tight')
+
+		self.axis.set_xlim(cur_xlim)
+		self.axis.set_ylim(cur_ylim)
+
+		self.canvas.draw()
+
+	# def _save_global_proposal_review_results(self):
+	# 	timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+	# 	username, okay = QInputDialog.getText(self, "Username", 
+	# 						"Please enter your username:", QLineEdit.Normal, 'anon')
+	# 	if not okay: return
+
+	# 	self.username = str(username)
+	# 	self.dm.save_proposal_review_result(self.global_proposal_review_results, self.username, timestamp)
+
+	# 	self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp) )
 
 	def labelbutton_callback(self):
-
-		self.statusBar().showMessage('Left click to place vertices')
-		
-		self.mode = Mode.PLACING_VERTICES
-		self.pick_color(int(self.sender().text()))
+		pass
 
 	############################################
 	# matplotlib canvas CALLBACKs
@@ -880,10 +1013,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if self.selected_polygon is not None:
 			self.selected_polygon_xy0 = self.selected_polygon.get_xy()
-			self.selected_polygon_circle_centers0 = [circ.center for circ in self.all_polygons_vertex_circles[self.selected_polygon_id]]
+			self.selected_polygon_circle_centers0 = [circ.center for circ in self.all_polygons_vertex_circles[self.curr_freeform_polygon_id]]
 
 		self.pressed = True
 		self.press_time = time.time()
+
+		# if self.proposal_picked:
+		# 	if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+		# 		self.cancel_curr_global()
+		# 	elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+		# 		self.cancel_curr_local()
+		# 	self.proposal_picked = False
+
+
 
 	def motion_fun(self, event):
 		
@@ -895,7 +1037,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			xys = self.selected_polygon.get_xy()
 			xys[self.selected_vertex_index] = self.selected_circle.center
-			if self.polygon_list[self.selected_polygon_id].get_closed():
+			if self.freeform_polygons[self.curr_freeform_polygon_id].get_closed():
 				self.selected_polygon.set_xy(xys[:-1])
 			else:
 				self.selected_polygon.set_xy(xys)
@@ -909,11 +1051,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			offset_x = event.xdata - self.press_x
 			offset_y = event.ydata - self.press_y
 
-			for c, center0 in zip(self.all_polygons_vertex_circles[self.selected_polygon_id], self.selected_polygon_circle_centers0):
+			for c, center0 in zip(self.all_polygons_vertex_circles[self.curr_freeform_polygon_id], self.selected_polygon_circle_centers0):
 				c.center = (center0[0] + offset_x, center0[1] + offset_y)
 
 			xys = self.selected_polygon_xy0 + (offset_x, offset_y)
-			if self.polygon_list[self.selected_polygon_id].get_closed():
+			if self.freeform_polygons[self.curr_freeform_polygon_id].get_closed():
 				self.selected_polygon.set_xy(xys[:-1])
 			else:
 				self.selected_polygon.set_xy(xys)
@@ -941,12 +1083,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def remove_polygon(self):
 		self.selected_polygon.remove()
-		self.polygon_list.remove(self.selected_polygon)
-		del self.polygon_types[self.selected_polygon_id]
-		del self.polygon_bbox_list[self.selected_polygon_id]
-		del self.polygon_labels[self.selected_polygon_id]
+		self.freeform_polygons.remove(self.selected_polygon)
+		self.selected_polygon = None
 
-		selected_vertex_circles = self.all_polygons_vertex_circles[self.selected_polygon_id]
+		del self.polygon_types[self.curr_freeform_polygon_id]
+		del self.polygon_bbox_list[self.curr_freeform_polygon_id]
+		del self.freeform_proposal_labels[self.curr_freeform_polygon_id]
+
+		selected_vertex_circles = self.all_polygons_vertex_circles[self.curr_freeform_polygon_id]
 		for circ in selected_vertex_circles:
 			circ.remove()
 		self.all_polygons_vertex_circles.remove(selected_vertex_circles)
@@ -965,10 +1109,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.selected_polygon.set_xy(xys)
 		print 3, self.selected_polygon.get_xy()
 
-		vertex_circle = plt.Circle(pos, radius=10, color=self.colors[self.polygon_labels[self.selected_polygon_id] + 1], alpha=.8)
+		vertex_circle = plt.Circle(pos, radius=10, color=self.colors[self.freeform_proposal_labels[self.curr_freeform_polygon_id] + 1], alpha=.8)
 		self.axis.add_patch(vertex_circle)
 
-		self.all_polygons_vertex_circles[self.selected_polygon_id].insert(new_vertex_ind, vertex_circle)
+		self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].insert(new_vertex_ind, vertex_circle)
 
 		vertex_circle.set_picker(True)
 
@@ -977,11 +1121,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def remove_selected_vertex(self):
 		self.selected_circle.remove()
-		self.all_polygons_vertex_circles[self.selected_polygon_id].remove(self.selected_circle)
-		p = self.polygon_list[self.selected_polygon_id]
+		self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].remove(self.selected_circle)
+		p = self.freeform_polygons[self.curr_freeform_polygon_id]
 		xys = p.get_xy()
 		xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
-		self.polygon_list[self.selected_polygon_id].set_xy(xys[:-1] if p.get_closed() else xys)
+		self.freeform_polygons[self.curr_freeform_polygon_id].set_xy(xys[:-1] if p.get_closed() else xys)
 
 		self.canvas.draw()
 
@@ -989,7 +1133,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def place_vertex(self, x,y):
 		self.curr_polygon_vertices.append([x, y])
 
-		curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[self.curr_label + 1], alpha=.8)
+		# curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[self.curr_label + 1], alpha=.8)
+		curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
 		self.axis.add_patch(curr_vertex_circle)
 		self.curr_polygon_vertex_circles.append(curr_vertex_circle)
 
@@ -1035,10 +1180,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					# self.axis.add_patch(polygon_vertex_circle)
 					# self.existing_polygons_vertex_circles.append(polygon_vertex_circle)
 
-					self.statusBar().showMessage('... in the process of labeling region using label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
+					# self.statusBar().showMessage('... in the process of labeling region using label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
 
 				elif self.superpixels_on:
-					self.handle_sp_press(event.xdata, event.ydata)
+					if not self.proposal_picked:
+						self.handle_sp_press(event.xdata, event.ydata)
 
 			elif event.button == 3: # right click: open context menu
 				canvas_pos = (event.xdata, event.ydata)
@@ -1051,18 +1197,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw() # force re-draw
 
+		self.proposal_picked = False
+
 	############################################
 	# other functions
 	############################################
 
 	def pick_color(self, selected_label):
-
-		self.curr_label = selected_label
-		self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
+		pass
 
 	def handle_sp_press(self, x, y):
+		print 'clicked'
 		self.clicked_sp = self.dm.segmentation[int(y), int(x)]
 		sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
+
+		self.cancel_curr_global()
+		self.cancel_curr_local()
 
 		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
 			self.show_global_proposal_covering_sp(self.clicked_sp)
@@ -1075,9 +1225,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def load_segmentation(self):
 		sys.stderr.write('loading segmentation...\n')
 		self.statusBar().showMessage('loading segmentation...')
-
-		self.dm.load_multiple_results(results=['segmentation', 'edgeCoords', 'edgeMidpoints'])
-
+		self.dm.load_multiple_results(results=['segmentation', 'edgeEndpoints', 'edgeMidpoints'])
 		# self.segmentation = self.dm.load_pipeline_result('segmentation')
 		self.n_superpixels = self.dm.segmentation.max() + 1
 		self.seg_loaded = True
@@ -1133,14 +1281,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.canvas.draw()
 
+	def cancel_curr_local(self):
+		if self.curr_local_proposal_pathPatch is not None:
+			if self.curr_local_proposal_pathPatch.get_linewidth() != 3:
+				self.curr_local_proposal_pathPatch.set_linewidth(3)
+
+			if self.local_proposal_review_results[self.curr_local_prop_id] != 1 and self.curr_local_proposal_pathPatch in self.axis.patches:
+				self.curr_local_proposal_pathPatch.remove()
+
+	def cancel_curr_global(self):
+		if self.curr_global_proposal_pathPatch is not None:
+			if self.curr_global_proposal_pathPatch.get_linewidth() != 3:
+				self.curr_global_proposal_pathPatch.set_linewidth(3)
+
+			if self.global_proposal_review_results[self.curr_global_prop_id] != 1 and self.curr_global_proposal_pathPatch in self.axis.patches:
+				self.curr_global_proposal_pathPatch.remove()
+
 	def mode_changed(self):
 
-		if self.radioButton_suggested.isChecked():
+		if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+			self.cancel_curr_local()
 
-			if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-				if self.curr_local_proposal_pathPatch is not None and self.curr_local_proposal_pathPatch not in self.user_approved_local_pathPatches:
-					self.curr_local_proposal_pathPatch.remove()
-					self.curr_local_proposal_pathPatch = None
+		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+			self.cancel_curr_global()
+
+		if self.radioButton_suggested.isChecked():
 
 			self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
 
@@ -1155,30 +1320,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if not self.superpixels_on:
 				self.turn_superpixels_on()
 
-			if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-				if self.curr_global_proposal_pathPatch is not None and self.curr_global_proposal_pathPatch not in self.user_approved_global_pathPatches:
-					self.curr_global_proposal_pathPatch.remove()
-					self.curr_global_proposal_pathPatch = None
-
 			self.mode = Mode.REVIEW_LOCAL_PROPOSAL
 
 			if not hasattr(self, 'local_proposal_tuples'):
 				self.load_local_proposals()
-				
 
 		elif self.radioButton_freeform.isChecked():
 
-			if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-				if self.curr_local_proposal_pathPatch is not None and self.curr_local_proposal_pathPatch not in self.user_approved_local_pathPatches:
-					self.curr_local_proposal_pathPatch.remove()
-					self.curr_local_proposal_pathPatch = None
-			elif self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-				if self.curr_global_proposal_pathPatch is not None and self.curr_global_proposal_pathPatch not in self.user_approved_global_pathPatches:
-					self.curr_global_proposal_pathPatch.remove()
-					self.curr_global_proposal_pathPatch = None
-
 			self.mode = Mode.FREEFORM_DRAWING
 
+			self.freeform_proposal_labels = []
+
+		elif self.radioButton_readonly.isChecked():
+
+			self.mode = Mode.READONLY
 
 		self.canvas.draw()
 
@@ -1363,7 +1518,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                
 if __name__ == "__main__":
 	from sys import argv, exit
-	a = QApplication(argv)
+	appl = QApplication(argv)
 
 	# labeling_name = sys.argv[1]
 	# section = int(labeling_name.split('_')[1])
@@ -1380,4 +1535,4 @@ if __name__ == "__main__":
 	m.setWindowTitle("Brain Labeling")
 	m.showMaximized()
 	m.raise_()
-	exit(a.exec_())
+	exit(appl.exec_())

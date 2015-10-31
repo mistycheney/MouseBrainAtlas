@@ -52,11 +52,14 @@ from enum import Enum
 class Mode(Enum):
     PLACING_VERTICES = 'placing vertices'
     POLYGON_SELECTED = 'polygon selected'
-    # IDLE = 'idle'
-    REVIEW_GLOBAL_PROPOSAL = 'review proposal'
-    REVIEW_LOCAL_PROPOSAL = 'review proposal from sp'
-    FREEFORM_DRAWING = 'freeform drawing'
-    READONLY = 'read only'
+    REVIEW_PROPOSAL = 'review proposal'
+    # REVIEW_GLOBAL_PROPOSAL = 'review global proposal'
+    # REVIEW_LOCAL_PROPOSAL = 'review local proposal'
+
+class ProposalType(Enum):
+	GLOBAL = 'global'
+	LOCAL = 'local'
+	FREEFORM = 'freeform'
 
 class PolygonType(Enum):
     CLOSED = 'closed'
@@ -95,7 +98,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.curr_polygon_vertices = []
 		self.freeform_polygons = []
-		self.polygon_bbox_list = []
+		# self.polygon_bbox_list = []
 		# self.polygon_labels = []
 		self.polygon_types = []
 
@@ -110,13 +113,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.textonmap_vis = None
 		self.dirmap_vis = None
 
-		self.mode = Mode.READONLY
+		self.mode = Mode.REVIEW_PROPOSAL
 		self.click_on_object = False
 
-		self.load_labeling()
-
-		# self.data_manager.close()
-		self.initialize_brain_labeling_gui()
+		# self.load_labeling()
 
 		self.seg_loaded = False
 		self.superpixels_on = False
@@ -134,62 +134,76 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.user_defined_proposals = []
 		self.user_defined_pathPatches = []
 
-		self.curr_global_proposal_pathPatch = None
-		self.curr_local_proposal_pathPatch = None
+		# self.curr_global_proposal_pathPatch = None
+		# self.curr_local_proposal_pathPatch = None
+		self.curr_proposal_pathPatch = None
 
 		self.new_labelnames = []
 		
+		self.freeform_proposal_labels = []
+
 		self.proposal_picked = False
 
+		self.shuffle_global_proposals = True # instead of local proposals
 
-	def paramSettings_clicked(self):
-		pass
-
-	def load_labeling(self):
-
-		# self.masked_img = self.dm.image_rgb.copy()
-		self.masked_img = self.dm.image_rgb_jpg
-		# self.masked_img[~self.dm.mask, :] = 0
-
-		if self.parent_labeling_name is None:
-
-			print 'No labeling is given. Initialize labeling.'
-
-			self.parent_labeling = None
-
-			self.curr_labeling = {
-				'username' : None,
-				'parent_labeling_name' : None,
-				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-				'initial_polygons': None,
-				'final_polygons': None,
-				'labelnames' : [],  # will be filled by _add_buttons()
-			}
-
-		else:
-
-			print self.parent_labeling_name
-			self.parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
-
-			print 'Load saved labeling'
-
-			self.curr_labeling = {
-				'username' : None,
-				'parent_labeling_name' : self.parent_labeling_name,
-				'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
-				'initial_polygons': self.parent_labeling['final_polygons'],
-				'final_polygons': None,
-				'labelnames' : [],  # will be filled by _add_buttons()
-			}
-		
-		# self.n_labels = len(self.labeling['labelnames'])
-
-		# initialize GUI variables
+		# self.data_manager.close()
 		self.paint_label = -1        # color of pen
 		self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
 		self.pressed = False           # related to pan (press and drag) vs. select (click)
 		self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
 		self.moved = False           # indicates whether mouse has moved while left button is pressed
+
+		self.initialize_brain_labeling_gui()
+	
+
+	def paramSettings_clicked(self):
+		pass
+
+	# def load_labeling(self):
+
+		# self.masked_img = self.dm.image_rgb.copy()
+		# self.masked_img = self.dm.image_rgb_jpg
+		# self.masked_img[~self.dm.mask, :] = 0
+
+		# if self.parent_labeling_name is None:
+
+		# 	print 'No labeling is given. Initialize labeling.'
+
+		# 	self.parent_labeling = None
+
+		# 	self.curr_labeling = {
+		# 		'username' : None,
+		# 		'parent_labeling_name' : None,
+		# 		'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+		# 		'initial_polygons': None,
+		# 		'final_polygons': None,
+		# 		'labelnames' : [],  # will be filled by _add_buttons()
+		# 	}
+
+		# else:
+
+		# 	print self.parent_labeling_name
+		# 	self.parent_labeling = self.dm.load_labeling(labeling_name=self.parent_labeling_name)
+
+		# 	print 'Load saved labeling'
+
+		# 	self.curr_labeling = {
+		# 		'username' : None,
+		# 		'parent_labeling_name' : self.parent_labeling_name,
+		# 		'login_time' : datetime.datetime.now().strftime("%m%d%Y%H%M%S"),
+		# 		'initial_polygons': self.parent_labeling['final_polygons'],
+		# 		'final_polygons': None,
+		# 		'labelnames' : [],  # will be filled by _add_buttons()
+		# 	}
+		
+		# self.n_labels = len(self.labeling['labelnames'])
+
+		# initialize GUI variables
+		# self.paint_label = -1        # color of pen
+		# self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
+		# self.pressed = False           # related to pan (press and drag) vs. select (click)
+		# self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
+		# self.moved = False           # indicates whether mouse has moved while left button is pressed
 
 
 	def add_polygon(self, vertices, polygon_type):
@@ -224,7 +238,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		polygon.set_picker(True)
 
 		self.freeform_polygons.append(polygon)
-		self.polygon_bbox_list.append(x0_y0_x1_y1)
+		# self.polygon_bbox_list.append(x0_y0_x1_y1)
 		# self.polygon_labels.append(self.curr_label)
 		self.polygon_types.append(polygon_type)
 
@@ -256,11 +270,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.CLOSED)
 			# self.statusBar().showMessage('Done drawing closed region using label %d (%s)' % (self.curr_label,
 			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.FREEFORM_DRAWING
-			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			# self.mode = Mode.FREEFORM_DRAWING
+
+			self.curr_proposal_type = ProposalType.FREEFORM
+			self.curr_proposal_id = len(self.freeform_proposal_labels)
 			self.freeform_proposal_labels.append('')
 
-			print self.curr_freeform_polygon_id, self.freeform_proposal_labels
+			self.mode = Mode.REVIEW_PROPOSAL
+			# self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			# self.freeform_proposal_labels.append('')
 
 			self.accProp_callback()
 			
@@ -269,39 +287,48 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.OPEN)
 			# self.statusBar().showMessage('Done drawing edge segment using label %d (%s)' % (self.curr_label,
 			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.FREEFORM_DRAWING
-			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+
+			self.mode = Mode.REVIEW_PROPOSAL
+
+			self.curr_proposal_type = ProposalType.FREEFORM
+			self.curr_proposal_id = len(self.freeform_proposal_labels)
 			self.freeform_proposal_labels.append('')
+
 			self.accProp_callback()
 
 		elif action == self.confirmTexture_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE)
 			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
 			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.FREEFORM_DRAWING
-			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.mode = Mode.REVIEW_PROPOSAL
+
+			self.curr_proposal_type = ProposalType.FREEFORM
+			self.curr_proposal_id = len(self.freeform_proposal_labels)
 			self.freeform_proposal_labels.append('')
+
 			self.accProp_callback()
 
 		elif action == self.confirmTextureWithContour_Action:
 			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE_WITH_CONTOUR)
 			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
 			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.FREEFORM_DRAWING
-			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+			self.mode = Mode.REVIEW_PROPOSAL
+
+			self.curr_proposal_type = ProposalType.FREEFORM
+			self.curr_proposal_id = len(self.freeform_proposal_labels)
 			self.freeform_proposal_labels.append('')
+
 			self.accProp_callback()
 
-		elif action == self.confirmDirectionality_Action:
-			self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
-			# self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
-			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.FREEFORM_DRAWING
-			self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
-			self.freeform_proposal_labels.append('')
-			self.accProp_callback()
+		# elif action == self.confirmDirectionality_Action:
+		# 	self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
+		# 	# self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
+		# 	# 											self.free_proposal_labels[self.curr_label]))
+		# 	self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
+		# 	self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
+		# 	self.freeform_proposal_labels.append('')
+		# 	self.accProp_callback()
 	
-
 		elif action == self.deletePolygon_Action:
 			self.remove_polygon()
 
@@ -323,23 +350,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif action == self.rejProp_Action:
 			self.rejProp_callback()
 
-		# elif action in self.existing_label_actions:
-		# 	self.selected_label = str(action.text())
-		# 	if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-		# 		self.global_proposal_labels[self.curr_global_prop_id] = self.selected_label
-		# 	elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-		# 		self.local_proposal_labels[self.curr_local_prop_id] = self.selected_label
-			# elif self.mode == Mode.FREEFORM_DRAWING:
-			# 	self.free_proposal_labels[self.curr_local_prop_id] = self.selected_label
-
 		elif action == self.newPolygon_Action:
 			self.statusBar().showMessage('Left click to place vertices')
 			self.mode = Mode.PLACING_VERTICES
 
-			# self.curr_label = selected_label			
-			# self.statusBar().showMessage('Picked label %d (%s)' % (self.curr_label, self.curr_labeling['labelnames'][self.curr_label]))
-
-			# self.pick_color(int(self.sender().text()))
+		elif action == self.changeLabel_Action:
+			self.open_label_selection_dialog()
 
 		else:
 			# raise 'do not know how to deal with action %s' % action
@@ -364,6 +380,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.accProp_Action = self.menu.addAction("Accept")
 		self.rejProp_Action = self.menu.addAction("Reject")
+
+		self.changeLabel_Action = self.menu.addAction('Change label')
 
 		# self.sp_covered_by_accepted_global_proposal = defaultdict(list)
 		# self.sp_covered_by_accepted_local_proposal = defaultdict(list)
@@ -397,20 +415,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.bre_id = self.canvas.mpl_connect('button_release_event', self.release_fun)
 		self.canvas.mpl_connect('motion_notify_event', self.motion_fun)
 
-		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton, self.labeling_radioButton]
-		self.img_radioButton.setChecked(True)
-
-		for b in self.display_buttons:
-			b.toggled.connect(self.display_option_changed)
-
-		self.radioButton_suggested.toggled.connect(self.mode_changed)
-		self.radioButton_individual.toggled.connect(self.mode_changed)
-		self.radioButton_freeform.toggled.connect(self.mode_changed)
-		self.radioButton_freeform.setChecked(True)
-
-		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
-
-
 		self.canvas.mpl_connect('pick_event', self.on_pick)
 
 		######################################
@@ -435,11 +439,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# 	for n in self.dm.labelnames:
 		# 		self._add_labelbutton(desc=n)
 
-		# self.loadButton.clicked.connect(self.load_callback)
-		self.saveButton.clicked.connect(self.save_callback)
+		self.button_loadLabeling.clicked.connect(self.load_callback)
+		self.button_saveLabeling.clicked.connect(self.save_callback)
 		# self.newLabelButton.clicked.connect(self.newlabel_callback)
 		# self.newLabelButton.clicked.connect(self.sigboost_callback)
-		self.quitButton.clicked.connect(self.close)
+		self.button_quit.clicked.connect(self.close)
 		self.buttonParams.clicked.connect(self.paramSettings_clicked)
 		# self.buttonGenProposals.clicked.connect(self.reviewProposals_callback)
 		# self.buttonPrevProp.clicked.connect(self.prevProp_callback)
@@ -447,7 +451,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.buttonAccProp.clicked.connect(self.accProp_callback)
 		# self.buttonRejProp.clicked.connect(self.rejProp_callback)
 
-		self.buttonLoadPropRev.clicked.connect(self.loadPropRev_callback)
+		# self.buttonLoadPropRev.clicked.connect(self.loadPropRev_callback)
 
 		# self.buttonShowAllAcc.clicked.connect(self.showAllAcc_callback)
 
@@ -461,53 +465,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.axis = self.fig.add_subplot(111)
 		self.axis.axis('off')
 
-		self.orig_image_handle = self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
-
-		if self.curr_labeling['initial_polygons'] is not None:
-			for label, typed_polygons in self.curr_labeling['initial_polygons'].iteritems():
-				for polygon_type, vertices in typed_polygons:
-					if polygon_type == PolygonType.CLOSED:
-						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-					elif polygon_type == PolygonType.OPEN:
-						polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-					elif polygon_type == PolygonType.TEXTURE:
-						# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='/')
-						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-					elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
-						# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2, hatch='x')
-						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-					elif polygon_type == PolygonType.DIRECTION:
-						# polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[label + 1], linewidth=2, linestyle='dashed')
-						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[label + 1], linewidth=2)
-					else:
-						raise 'polygon_type must be one of enum closed, open, texture'
-
-					xys = polygon.get_xy()
-					x0_y0_x1_y1 = np.r_[xys.min(axis=0), xys.max(axis=0)]
-
-					polygon.set_picker(10.)
-
-					self.axis.add_patch(polygon)
-					self.freeform_polygons.append(polygon)
-					self.polygon_bbox_list.append(x0_y0_x1_y1)
-					self.polygon_labels.append(label)
-					self.polygon_types.append(polygon_type)
-
-					curr_polygon_vertex_circles = []
-					for x,y in vertices:
-						curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[label + 1], alpha=.8)
-						curr_vertex_circle.set_picker(True)
-						self.axis.add_patch(curr_vertex_circle)
-						curr_polygon_vertex_circles.append(curr_vertex_circle)
-
-					self.all_polygons_vertex_circles.append(curr_polygon_vertex_circles)
-
-		# self.curr_polygon_vertices = []
+		self.orig_image_handle = self.axis.imshow(self.dm.image_rgb_jpg, cmap=plt.cm.Greys_r,aspect='equal')
 
 		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 
 		self.newxmin, self.newxmax = self.axis.get_xlim()
 		self.newymin, self.newymax = self.axis.get_ylim()
+
+
+		##########################################
+		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton, self.labeling_radioButton]
+		self.img_radioButton.setChecked(True)
+
+		for b in self.display_buttons:
+			b.toggled.connect(self.display_option_changed)
+
+		self.radioButton_globalProposal.toggled.connect(self.mode_changed)
+		self.radioButton_localProposal.toggled.connect(self.mode_changed)
+		self.radioButton_globalProposal.setChecked(True)
+
+		# self.radioButton_freeform.toggled.connect(self.mode_changed)
+		# self.radioButton_freeform.setChecked(True)
+
+		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
+		##########################################
 
 		self.canvas.draw()
 		self.show()
@@ -519,13 +500,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		print 'picked'
 
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-			self.cancel_curr_global()
-
-		if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-			self.cancel_curr_local()
+		self.cancel_current_proposal()
 
 		if event.artist in self.freeform_polygons:
+
+			self.curr_proposal_type = ProposalType.FREEFORM
 
 			polygon_ids = np.where([event.artist in circs for circs in self.all_polygons_vertex_circles])[0]
 			# polygon_ids contains either 0 or 1 item
@@ -538,6 +517,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.selected_polygon.set_linewidth(2.)
 					
 				self.curr_freeform_polygon_id = polygon_ids[0]
+				self.curr_proposal_id = self.curr_freeform_polygon_id
 				self.selected_vertex_index = self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].index(event.artist)
 				print 'picked polygon', self.curr_freeform_polygon_id, 'vertex', self.selected_vertex_index, 'label', self.freeform_proposal_labels[self.curr_freeform_polygon_id]
 				self.selected_circle = event.artist
@@ -559,6 +539,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					self.selected_polygon = event.artist
 					self.curr_freeform_polygon_id = self.freeform_polygons.index(self.selected_polygon)
+					self.curr_proposal_id = self.curr_freeform_polygon_id
 					print 'picked polygon', self.curr_freeform_polygon_id, 'label', self.freeform_proposal_labels[self.curr_freeform_polygon_id]
 					self.selected_polygon.set_linewidth(5.)
 				
@@ -566,19 +547,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.click_on_object = True
 
-		elif hasattr(self, 'global_proposal_pathPatches') and event.artist in self.global_proposal_pathPatches:
-			self.curr_global_prop_id = self.global_proposal_pathPatches.index(event.artist)
-			self.curr_global_proposal_pathPatch = event.artist
-			self.curr_global_proposal_pathPatch.set_linewidth(5)
+		else:
+			if hasattr(self, 'global_proposal_pathPatches') and event.artist in self.global_proposal_pathPatches:
+				self.curr_proposal_id = self.global_proposal_pathPatches.index(event.artist)
+				self.curr_proposal_type = ProposalType.GLOBAL
+				self.statusBar().showMessage('picked global proposal %d (%s)' % (self.curr_proposal_id, self.global_proposal_labels[self.curr_proposal_id]))
 
-			self.statusBar().showMessage('picked global proposal %d (%s)' % (self.curr_global_prop_id, self.global_proposal_labels[self.curr_global_prop_id]))
+			elif hasattr(self, 'local_proposal_pathPatches') and event.artist in self.local_proposal_pathPatches:
+				self.curr_proposal_id = self.local_proposal_pathPatches.index(event.artist)
+				self.curr_proposal_type = ProposalType.LOCAL
+				self.statusBar().showMessage('picked local proposal %d (%s)' % (self.curr_proposal_id, self.local_proposal_labels[self.curr_proposal_id]))
 
-		elif hasattr(self, 'local_proposal_pathPatches') and event.artist in self.local_proposal_pathPatches:
-			self.curr_local_prop_id = self.local_proposal_pathPatches.index(event.artist)
-			self.curr_local_proposal_pathPatch = event.artist
-			self.curr_local_proposal_pathPatch.set_linewidth(5)
-
-			self.statusBar().showMessage('picked local proposal %d (%s)' % (self.curr_local_prop_id, self.local_proposal_labels[self.curr_local_prop_id]))
+			self.curr_proposal_pathPatch = event.artist
+			self.curr_proposal_pathPatch.set_linewidth(5)
 		
 		self.proposal_picked = True
 
@@ -610,6 +591,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		
 		cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
 		self.local_proposal_tuples = [(cl, ed, sig) for seed, cl, sig, ed in cluster_tuples]
+		self.local_proposal_clusters = [m[0] for m in self.local_proposal_tuples]
+		self.local_proposal_dedges = [m[1] for m in self.local_proposal_tuples]
+		self.local_proposal_sigs = [m[2] for m in self.local_proposal_tuples]
+
 		self.n_local_proposals = len(self.local_proposal_tuples)
 		
 		self.local_proposal_indices_from_sp = defaultdict(list)
@@ -646,121 +631,155 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.global_proposal_labels = [None] * self.n_global_proposals
 
-	def loadPropRev_callback(self):
+	def load_callback(self):
 
 		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
-		stack, sec, username, timestamp, _ = os.path.basename(fname).split('_')
-		self._load_global_proposal_review_results(username, timestamp)
-		self.load_global_proposals()
+		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
 
-	def accProp_callback(self):
+		if suffix == 'globalProposalReviewResult':
+			self.load_global_proposals()
+			self.global_proposal_labels, self.global_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp, suffix)
+			
+			for i, r in enumerate(self.global_proposal_review_results):
+				if r == 1:
+					self.global_proposal_pathPatches[i] = self.pathPatch_from_dedges(self.global_proposal_dedges[i], color=self.boundary_colors[1])
+					self.global_proposal_pathPatches[i].set_picker(True)
+					self.axis.add_patch(self.global_proposal_pathPatches[i])
 
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
+			# self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
+			# self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
 
-			self.global_proposal_review_results[self.curr_global_prop_id] = 1
-			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[1])
+		elif suffix == 'localProposalReviewResult':
+			self.load_local_proposals()
+			self.local_proposal_labels, self.local_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp, suffix)
 
-			self.curr_global_proposal_pathPatch.set_picker(True)
+			for i, r in enumerate(self.local_proposal_review_results):
+				if r == 1:
+					self.local_proposal_pathPatches[i] = self.pathPatch_from_dedges(self.local_proposal_dedges[i], color=self.boundary_colors[1])
+					self.local_proposal_pathPatches[i].set_picker(True)
+					self.axis.add_patch(self.local_proposal_pathPatches[i])
 
-			# cl, ed, sig = self.global_proposal_tuples[self.curr_global_prop_id]:
-			# for s in cl:
-			# 	self.sp_covered_by_accepted_global_proposal[s].append(self.curr_global_prop_id)
+		elif suffix == 'freeformProposals':
 
-			self.canvas.draw()
+			init_freeform_polygons_dict = self.dm.load_proposal_review_result(username, timestamp, suffix)
 
-			# self.statusBar().showMessage('Accept proposal %d' % (self.curr_global_prop_id))
+			for label, typed_polygons in init_freeform_polygons_dict.iteritems():
+				for polygon_type, vertices in typed_polygons:
+					if polygon_type == PolygonType.CLOSED:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+					elif polygon_type == PolygonType.OPEN:
+						polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+					elif polygon_type == PolygonType.TEXTURE:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+					elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+					elif polygon_type == PolygonType.DIRECTION:
+						polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+					else:
+						raise 'polygon_type must be one of enum closed, open, texture'
 
-		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
+					xys = polygon.get_xy()
+					x0_y0_x1_y1 = np.r_[xys.min(axis=0), xys.max(axis=0)]
 
-			self.local_proposal_review_results[self.curr_local_prop_id] = 1
-			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[1])
+					polygon.set_picker(10.)
 
-			self.curr_local_proposal_pathPatch.set_picker(True)
+					self.axis.add_patch(polygon)
 
-			# cl, ed, sig = self.local_proposal_tuples[self.curr_local_prop_id]:
-			# for s in cl:
-			# 	self.sp_covered_by_accepted_local_proposal[s].append(self.curr_local_prop_id)
+					self.freeform_polygons.append(polygon)
+					# self.polygon_bbox_list.append(x0_y0_x1_y1)
+					self.freeform_proposal_labels.append(label)
+					self.polygon_types.append(polygon_type)
 
-			self.canvas.draw()			
+					curr_polygon_vertex_circles = []
+					for x,y in vertices:
+						curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
+						curr_vertex_circle.set_picker(True)
+						self.axis.add_patch(curr_vertex_circle)
+						curr_polygon_vertex_circles.append(curr_vertex_circle)
 
+					self.all_polygons_vertex_circles.append(curr_polygon_vertex_circles)
+
+		self.canvas.draw()
+
+
+	def open_label_selection_dialog(self):
 
 		self.label_selection_dialog = QInputDialog(self)
 		self.label_selection_dialog.setLabelText('Select landmark label')
-		self.label_selection_dialog.setComboBoxItems(['New label'] + self.dm.labelnames + self.new_labelnames)
+		self.label_selection_dialog.setComboBoxItems(['New label'] + sorted(self.dm.labelnames + self.new_labelnames))
 
 		self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
 
 		self.label_selection_dialog.exec_()
-		
-		# label, done = QInputDialog.getText(self, "Label", "Label for accepted proposal:", QLineEdit.Normal, 'landmark')
+
+	def set_selected_proposal_label(self, label):
+
+		if self.curr_proposal_type == ProposalType.GLOBAL:
+			self.global_proposal_labels[self.curr_proposal_id] = label
+		elif self.curr_proposal_type == ProposalType.LOCAL:
+			self.local_proposal_labels[self.curr_proposal_id] = label
+		elif self.curr_proposal_type == ProposalType.FREEFORM:
+			self.freeform_proposal_labels[self.curr_proposal_id] = label
 
 	def label_dialog_text_changed(self, text):
 		
 		if str(text) == 'New label':
 			label, okay = QInputDialog.getText(self, "New label", 
 									"Enter label:", QLineEdit.Normal, 'landmark')
-			if not okay: 
+			if not okay:
 				return
 			else:
 				label = str(label)
-				if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-					self.global_proposal_labels[self.curr_global_prop_id] = label
-				elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-					self.local_proposal_labels[self.curr_local_prop_id] = label
-				elif self.mode == Mode.FREEFORM_DRAWING:
-					self.freeform_proposal_labels[self.curr_freeform_polygon_id] = label
+				self.set_selected_proposal_label(label)
 
 				if label not in self.new_labelnames:
 					self.new_labelnames.append(label)
-
-				self.label_selection_dialog.done(0)
 		else:
-			if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-				self.global_proposal_labels[self.curr_global_prop_id] = str(text)
-			elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-				self.local_proposal_labels[self.curr_local_prop_id] = str(text)
-			elif self.mode == Mode.FREEFORM_DRAWING:
-				self.freeform_proposal_labels[self.curr_freeform_polygon_id] = str(text)
+			self.set_selected_proposal_label(str(text))
+		
+		self.label_selection_dialog.done(0)
 
-			self.label_selection_dialog.done(0)
+
+	def accProp_callback(self):
+
+		if self.curr_proposal_type == ProposalType.GLOBAL:
+			self.global_proposal_review_results[self.curr_proposal_id] = 1
+
+		elif self.curr_proposal_type == ProposalType.LOCAL:
+			self.local_proposal_review_results[self.curr_proposal_id] = 1
+
+		self.curr_proposal_pathPatch.set_color(self.boundary_colors[1])
+		self.curr_proposal_pathPatch.set_picker(True)
+			
+		self.canvas.draw()
+
+		self.open_label_selection_dialog()
 
 	def rejProp_callback(self):
 
-		if self.curr_global_proposal_pathPatch is not None:
+		if self.curr_proposal_type == ProposalType.GLOBAL:
+			self.global_proposal_review_results[self.curr_proposal_id] = 2
+		elif self.curr_proposal_type == ProposalType.LOCAL:
+			self.local_proposal_review_results[self.curr_proposal_id] = 2
 
-			self.global_proposal_review_results[self.curr_global_prop_id] = 2
-			self.curr_global_proposal_pathPatch.set_color(self.boundary_colors[2])
-
-			self.curr_global_proposal_pathPatch.set_picker(False)
-
-			self.canvas.draw()
-			
-			self.statusBar().showMessage('Reject proposal %d' % (self.curr_global_prop_id))
+		self.curr_proposal_pathPatch.set_color(self.boundary_colors[2])
+		self.curr_proposal_pathPatch.set_picker(False)
+		self.canvas.draw()
 	
-		elif self.curr_local_proposal_pathPatch is not None:
+	# def remove_all_proposal_pathpatches(self):
 
-			self.local_proposal_review_results[self.curr_local_prop_id] = 2
-			self.curr_local_proposal_pathPatch.set_color(self.boundary_colors[2])
+	# 	for p in self.axis.patches:
+	# 		p.remove()
 
-			self.curr_local_proposal_pathPatch.set_picker(False)
+	# 	self.canvas.draw()
 
-			self.canvas.draw()
+	# def remove_all_sp_highlightBoxes(self):
+	# 	for i, r in enumerate(self.sp_rectlist):
+	# 		if r is not None:
+	# 			r.remove()
+	# 			self.sp_rectlist[i] = None
 
-	def remove_all_proposal_pathpatches(self):
-
-		for p in self.axis.patches:
-			p.remove()
-
-		self.canvas.draw()
-
-	def remove_all_sp_highlightBoxes(self):
-		for i, r in enumerate(self.sp_rectlist):
-			if r is not None:
-				r.remove()
-				self.sp_rectlist[i] = None
-
-		self.canvas.draw()
-
+	# 	self.canvas.draw()
 
 	def show_global_proposal_covering_sp(self, sp_ind):
 
@@ -773,30 +792,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
 
-		self.cancel_curr_global()
+		self.cancel_current_proposal()
 
-		self.curr_global_prop_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
-		decision = self.global_proposal_review_results[self.curr_global_prop_id]
+		self.curr_proposal_type = ProposalType.GLOBAL
+		self.curr_proposal_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
 
-		if self.global_proposal_pathPatches[self.curr_global_prop_id] is None:
-			self.global_proposal_pathPatches[self.curr_global_prop_id] = self.pathPatch_from_dedges(self.global_proposal_dedges[self.curr_global_prop_id], 
+		decision = self.global_proposal_review_results[self.curr_proposal_id]
+
+		if self.global_proposal_pathPatches[self.curr_proposal_id] is None:
+			self.global_proposal_pathPatches[self.curr_proposal_id] = self.pathPatch_from_dedges(self.global_proposal_dedges[self.curr_proposal_id], 
 										color=self.boundary_colors[decision])
 
-		self.curr_global_proposal_pathPatch = self.global_proposal_pathPatches[self.curr_global_prop_id]
+		self.curr_proposal_pathPatch = self.global_proposal_pathPatches[self.curr_proposal_id]
 
-		if self.curr_global_proposal_pathPatch not in self.axis.patches:
-			self.axis.add_patch(self.curr_global_proposal_pathPatch)
+		if self.curr_proposal_pathPatch not in self.axis.patches:
+			self.axis.add_patch(self.curr_proposal_pathPatch)
 
 		if decision == 1:
-			self.curr_global_proposal_pathPatch.set_linewidth(5.)
+			self.curr_proposal_pathPatch.set_linewidth(5.)
 
-		if self.global_proposal_labels[self.curr_global_prop_id] is None:
+		if self.global_proposal_labels[self.curr_proposal_id] is None:
 			label = ''
 		else:
-			label = self.global_proposal_labels[self.curr_global_prop_id]
+			label = self.global_proposal_labels[self.curr_proposal_id]
 
-		self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.curr_global_prop_id]))
+		self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.curr_proposal_id]))
 		self.canvas.draw()
+
 
 	def show_local_proposal_from_sp(self, sp_ind):
 
@@ -805,33 +827,35 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
 
-		self.cancel_curr_local()
+		# self.cancel_curr_local()
 
-		self.curr_local_prop_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
-		cl, dedges, sig = self.local_proposal_tuples[self.curr_local_prop_id]
+		self.cancel_current_proposal()
 
-		decision = self.local_proposal_review_results[self.curr_local_prop_id]
+		self.curr_proposal_type = ProposalType.LOCAL
+		self.curr_proposal_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
+		cl, dedges, sig = self.local_proposal_tuples[self.curr_proposal_id]
 
-		if self.local_proposal_pathPatches[self.curr_local_prop_id] is None:	
-			self.local_proposal_pathPatches[self.curr_local_prop_id] = self.pathPatch_from_dedges(dedges, 
+		decision = self.local_proposal_review_results[self.curr_proposal_id]
+
+		if self.local_proposal_pathPatches[self.curr_proposal_id] is None:	
+			self.local_proposal_pathPatches[self.curr_proposal_id] = self.pathPatch_from_dedges(dedges, 
 																color=self.boundary_colors[decision])
 
-		self.curr_local_proposal_pathPatch = self.local_proposal_pathPatches[self.curr_local_prop_id]
+		self.curr_proposal_pathPatch = self.local_proposal_pathPatches[self.curr_proposal_id]
 		
-		if self.curr_local_proposal_pathPatch not in self.axis.patches:
-			self.axis.add_patch(self.curr_local_proposal_pathPatch)
+		if self.curr_proposal_pathPatch not in self.axis.patches:
+			self.axis.add_patch(self.curr_proposal_pathPatch)
 
 		if decision == 1:
-			self.curr_local_proposal_pathPatch.set_linewidth(5.)
+			self.curr_proposal_pathPatch.set_linewidth(5.)
 
-		if self.local_proposal_labels[self.curr_local_prop_id] is None:
+		if self.local_proposal_labels[self.curr_proposal_id] is None:
 			label = ''
 		else:
-			label = self.local_proposal_labels[self.curr_local_prop_id]
+			label = self.local_proposal_labels[self.curr_proposal_id]
 
 		self.statusBar().showMessage('local proposal (%s) from seed %d, score %.4f' % (label, sp_ind, sig))
 		self.canvas.draw()
-
 
 	# def labelNameChanged(self):
 	# 	edt = self.sender()
@@ -882,15 +906,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 	def save_callback(self):
-		self.save_proposals()
+		# self.save_proposals()
 
-	def _load_global_proposal_review_results(self, username, timestamp):
-		self.global_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
-		self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
-		self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
+	# def _load_global_proposal_review_results(self, username, timestamp):
+	# 	self.global_proposal_review_results = self.dm.load_proposal_review_result(username, timestamp)
+	# 	self.statusBar().showMessage('Loaded proposal review result %s' % (username+'_'+timestamp))
+	# 	self.setWindowTitle(self.windowTitle() + ', proposal: %s' %(username+'_'+timestamp))
 
-
-	def save_proposals(self):
+	# def save_proposals(self):
 
 		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 		username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
@@ -899,10 +922,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.username = str(username)
 
 		if hasattr(self, 'global_proposal_review_results'):
-			self.dm.save_proposal_review_result(self.global_proposal_review_results, self.username, timestamp, suffix='globalProposalReviewResult')
-		
+			self.dm.save_proposal_review_result((self.global_proposal_labels, self.global_proposal_review_results), self.username, timestamp, suffix='globalProposalReviewResult')
+
 		if hasattr(self, 'local_proposal_review_results'):
-			self.dm.save_proposal_review_result(self.local_proposal_review_results, self.username, timestamp, suffix='localProposalReviewResult')
+			self.dm.save_proposal_review_result((self.local_proposal_labels, self.local_proposal_review_results), self.username, timestamp, suffix='localProposalReviewResult')
 
 		if hasattr(self, 'freeform_polygons') and len(self.freeform_polygons) > 0:
 			typed_polygons = [(l, t, p.get_xy()) if t in [PolygonType.OPEN, PolygonType.DIRECTION] else (l, t, p.get_xy()[:-1]) for l,p,t in zip(self.freeform_proposal_labels, self.freeform_polygons, self.polygon_types)]
@@ -934,11 +957,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			# print 'Global Labelnames', self.dm.labelnames + new_labelnames
 
-			self.dm.set_labelnames(list(set(self.dm.labelnames + self.new_labelnames)))
+			self.dm.set_labelnames(sorted(list(set(self.dm.labelnames + self.new_labelnames))))
 
 			self.dm.save_proposal_review_result(final_polygons, self.username, timestamp, suffix='freeformProposals')
 
-		self.statusBar().showMessage('Proposal review result saved to %s' % (self.username+'_'+timestamp))
+		self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
 
 		cur_xlim = self.axis.get_xlim()
 		cur_ylim = self.axis.get_ylim()
@@ -1044,7 +1067,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			
 			self.canvas.draw()
 
-		elif self.selected_polygon is not None and self.pressed:
+		elif self.selected_polygon is not None and self.pressed and self.proposal_picked: # drag polygon
 
 			print 'dragging polygon'
 
@@ -1087,7 +1110,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.selected_polygon = None
 
 		del self.polygon_types[self.curr_freeform_polygon_id]
-		del self.polygon_bbox_list[self.curr_freeform_polygon_id]
+		# del self.polygon_bbox_list[self.curr_freeform_polygon_id]
 		del self.freeform_proposal_labels[self.curr_freeform_polygon_id]
 
 		selected_vertex_circles = self.all_polygons_vertex_circles[self.curr_freeform_polygon_id]
@@ -1211,13 +1234,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.clicked_sp = self.dm.segmentation[int(y), int(x)]
 		sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
 
-		self.cancel_curr_global()
-		self.cancel_curr_local()
+		self.cancel_current_proposal()
 
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-			self.show_global_proposal_covering_sp(self.clicked_sp)
-		elif self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-			self.show_local_proposal_from_sp(self.clicked_sp)
+		# self.cancel_curr_global()
+		# self.cancel_curr_local()
+
+		if self.mode == Mode.REVIEW_PROPOSAL:
+			if self.shuffle_global_proposals:
+				self.show_global_proposal_covering_sp(self.clicked_sp)
+			else:
+				self.show_local_proposal_from_sp(self.clicked_sp)
 			# self.show_region(self.clicked_sp)
 
 
@@ -1281,33 +1307,40 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.canvas.draw()
 
-	def cancel_curr_local(self):
-		if self.curr_local_proposal_pathPatch is not None:
-			if self.curr_local_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_local_proposal_pathPatch.set_linewidth(3)
+	def cancel_current_proposal(self):
+		if self.curr_proposal_pathPatch is not None:
+			if self.curr_proposal_pathPatch.get_linewidth() != 3:
+				self.curr_proposal_pathPatch.set_linewidth(3)
 
-			if self.local_proposal_review_results[self.curr_local_prop_id] != 1 and self.curr_local_proposal_pathPatch in self.axis.patches:
-				self.curr_local_proposal_pathPatch.remove()
+			if self.curr_proposal_pathPatch in self.axis.patches:
+				if (self.curr_proposal_type == ProposalType.GLOBAL and self.global_proposal_review_results[self.curr_proposal_id] != 1) or \
+					(self.curr_proposal_type == ProposalType.LOCAL and self.local_proposal_review_results[self.curr_proposal_id] != 1):
 
-	def cancel_curr_global(self):
-		if self.curr_global_proposal_pathPatch is not None:
-			if self.curr_global_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_global_proposal_pathPatch.set_linewidth(3)
+					self.curr_proposal_pathPatch.remove()
 
-			if self.global_proposal_review_results[self.curr_global_prop_id] != 1 and self.curr_global_proposal_pathPatch in self.axis.patches:
-				self.curr_global_proposal_pathPatch.remove()
+	# def cancel_curr_local(self):
+	# 	if self.curr_local_proposal_pathPatch is not None:
+	# 		if self.curr_local_proposal_pathPatch.get_linewidth() != 3:
+	# 			self.curr_local_proposal_pathPatch.set_linewidth(3)
+
+	# 		if self.local_proposal_review_results[self.curr_local_prop_id] != 1 and self.curr_local_proposal_pathPatch in self.axis.patches:
+	# 			self.curr_local_proposal_pathPatch.remove()
+
+	# def cancel_curr_global(self):
+	# 	if self.curr_global_proposal_pathPatch is not None:
+	# 		if self.curr_global_proposal_pathPatch.get_linewidth() != 3:
+	# 			self.curr_global_proposal_pathPatch.set_linewidth(3)
+
+	# 		if self.global_proposal_review_results[self.curr_global_prop_id] != 1 and self.curr_global_proposal_pathPatch in self.axis.patches:
+	# 			self.curr_global_proposal_pathPatch.remove()
 
 	def mode_changed(self):
 
-		if self.mode == Mode.REVIEW_LOCAL_PROPOSAL:
-			self.cancel_curr_local()
+		self.cancel_current_proposal()
 
-		if self.mode == Mode.REVIEW_GLOBAL_PROPOSAL:
-			self.cancel_curr_global()
+		if self.radioButton_globalProposal.isChecked():
 
-		if self.radioButton_suggested.isChecked():
-
-			self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
+			self.shuffle_global_proposals = True
 
 			if not self.superpixels_on:
 				self.turn_superpixels_on()
@@ -1315,25 +1348,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if not hasattr(self, 'global_proposal_tuples'):
 				self.load_global_proposals()
 
-		elif self.radioButton_individual.isChecked():
+		elif self.radioButton_localProposal.isChecked():
 
 			if not self.superpixels_on:
 				self.turn_superpixels_on()
 
-			self.mode = Mode.REVIEW_LOCAL_PROPOSAL
+			self.shuffle_global_proposals = False
 
 			if not hasattr(self, 'local_proposal_tuples'):
 				self.load_local_proposals()
 
-		elif self.radioButton_freeform.isChecked():
+		# elif self.radioButton_freeform.isChecked():
 
-			self.mode = Mode.FREEFORM_DRAWING
+		# 	self.mode = Mode.FREEFORM_DRAWING
 
-			self.freeform_proposal_labels = []
+		# 	self.freeform_proposal_labels = []
 
-		elif self.radioButton_readonly.isChecked():
+		# elif self.radioButton_readonly.isChecked():
 
-			self.mode = Mode.READONLY
+		# 	self.mode = Mode.READONLY
 
 		self.canvas.draw()
 
@@ -1356,7 +1389,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# self.axis.axis('off')
 
 				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+				self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
 				# self.superpixels_on = False
 
 			elif self.sender() == self.textonmap_radioButton:
@@ -1461,24 +1494,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.statusBar().showMessage('Sp %d, cluster score %.4f' % (sp_ind, sc))
 
 
-	def paint_sps(self, sp_inds, color):
-		for sp_ind in sp_inds:
-			self.paint_sp(sp_ind, color)
+	# def paint_sps(self, sp_inds, color):
+	# 	for sp_ind in sp_inds:
+	# 		self.paint_sp(sp_ind, color)
 
-	def paint_sp(self, sp_ind, color):
+	# def paint_sp(self, sp_ind, color):
 
-		if self.sp_rectlist[sp_ind] is not None:
-			self.sp_rectlist[sp_ind].remove()
-			self.sp_rectlist[sp_ind] = None
+	# 	if self.sp_rectlist[sp_ind] is not None:
+	# 		self.sp_rectlist[sp_ind].remove()
+	# 		self.sp_rectlist[sp_ind] = None
 
-		ymin, xmin, ymax, xmax = self.dm.sp_bboxes[sp_ind]
-		width = xmax - xmin
-		height = ymax - ymin
+	# 	ymin, xmin, ymax, xmax = self.dm.sp_bboxes[sp_ind]
+	# 	width = xmax - xmin
+	# 	height = ymax - ymin
 
-		rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.3, color=color)
+	# 	rect = Rectangle((xmin, ymin), width, height, ec="none", alpha=.3, color=color)
 
-		self.sp_rectlist[sp_ind] = rect
-		self.axis.add_patch(rect)
+	# 	self.sp_rectlist[sp_ind] = rect
+	# 	self.axis.add_patch(rect)
 
 
 	# def paint_superpixel(self, sp_ind):

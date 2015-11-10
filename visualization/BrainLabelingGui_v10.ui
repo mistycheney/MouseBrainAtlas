@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>965</width>
+    <width>1009</width>
     <height>749</height>
    </rect>
   </property>
@@ -135,6 +135,31 @@
       <item>
        <layout class="QVBoxLayout" name="buttonsLayout">
         <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="button_prev">
+            <property name="text">
+             <string>Previous</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="button_next">
+            <property name="text">
+             <string>Next</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="button_autoDetect">
+          <property name="text">
+           <string>Auto Detect</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="button_loadLabeling">
           <property name="text">
            <string>Load</string>
@@ -174,7 +199,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>965</width>
+     <width>1009</width>
      <height>25</height>
     </rect>
    </property>

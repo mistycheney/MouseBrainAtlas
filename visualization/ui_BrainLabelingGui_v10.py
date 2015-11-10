@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Fri Oct 30 15:58:56 2015
+# Created: Mon Nov  9 01:26:48 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_BrainLabelingGui(object):
     def setupUi(self, BrainLabelingGui):
         BrainLabelingGui.setObjectName(_fromUtf8("BrainLabelingGui"))
-        BrainLabelingGui.resize(965, 749)
+        BrainLabelingGui.resize(1009, 749)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -94,6 +94,18 @@ class Ui_BrainLabelingGui(object):
         self.horizontalLayout.addLayout(self.verticalLayout_3)
         self.buttonsLayout = QtGui.QVBoxLayout()
         self.buttonsLayout.setObjectName(_fromUtf8("buttonsLayout"))
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.button_prev = QtGui.QPushButton(self.centralwidget)
+        self.button_prev.setObjectName(_fromUtf8("button_prev"))
+        self.horizontalLayout_2.addWidget(self.button_prev)
+        self.button_next = QtGui.QPushButton(self.centralwidget)
+        self.button_next.setObjectName(_fromUtf8("button_next"))
+        self.horizontalLayout_2.addWidget(self.button_next)
+        self.buttonsLayout.addLayout(self.horizontalLayout_2)
+        self.button_autoDetect = QtGui.QPushButton(self.centralwidget)
+        self.button_autoDetect.setObjectName(_fromUtf8("button_autoDetect"))
+        self.buttonsLayout.addWidget(self.button_autoDetect)
         self.button_loadLabeling = QtGui.QPushButton(self.centralwidget)
         self.button_loadLabeling.setObjectName(_fromUtf8("button_loadLabeling"))
         self.buttonsLayout.addWidget(self.button_loadLabeling)
@@ -113,7 +125,7 @@ class Ui_BrainLabelingGui(object):
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
         BrainLabelingGui.setStatusBar(self.statusbar)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 965, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1009, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         BrainLabelingGui.setMenuBar(self.menubar)
         self.toolBar = QtGui.QToolBar(BrainLabelingGui)
@@ -135,6 +147,9 @@ class Ui_BrainLabelingGui(object):
         self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality (gabor, segm)", None))
         self.labeling_radioButton.setText(_translate("BrainLabelingGui", "labeling", None))
         self.buttonSpOnOff.setText(_translate("BrainLabelingGui", "Turn Superpixels On", None))
+        self.button_prev.setText(_translate("BrainLabelingGui", "Previous", None))
+        self.button_next.setText(_translate("BrainLabelingGui", "Next", None))
+        self.button_autoDetect.setText(_translate("BrainLabelingGui", "Auto Detect", None))
         self.button_loadLabeling.setText(_translate("BrainLabelingGui", "Load", None))
         self.button_saveLabeling.setText(_translate("BrainLabelingGui", "Save", None))
         self.buttonParams.setText(_translate("BrainLabelingGui", "Change Parameters", None))

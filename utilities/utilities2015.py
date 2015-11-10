@@ -175,6 +175,7 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness    
 
 
+
 class DataManager(object):
 
     def __init__(self, data_dir=os.environ['GORDON_DATA_DIR'], 
@@ -232,8 +233,8 @@ class DataManager(object):
         if section is not None:
             self.set_slice(section)
 
-        if load_mask:
-            self._load_mask()
+        self._load_mask(create_mask=load_mask)
+
 
     def set_labelnames(self, labelnames):
         self.labelnames = labelnames
@@ -251,16 +252,21 @@ class DataManager(object):
         self.resol = resol
     
 
-    def _load_mask(self):
+    def _load_mask(self, create_mask=True):
 
-        self.mask = np.zeros((self.image_height, self.image_width), np.bool)
+        if create_mask:
 
-        if self.stack == 'MD593':
-            self.mask[1848:1848+4807, 924:924+10186] = True
-        elif self.stack == 'MD594':
-            self.mask[1081:1081+6051, 552:552+12445] = True
-        else:
-            raise 'mask is not specified'
+            self.mask = np.zeros((self.image_height, self.image_width), np.bool)
+
+            if self.stack == 'MD593':
+                self.mask[1848:1848+4807, 924:924+10186] = True
+            elif self.stack == 'MD594':
+                self.mask[1081:1081+6051, 552:552+12445] = True
+            else:
+                self.mask[500:self.image_height-500, 500:self.image_width-500] = True
+                # self.mask[4500:6500, 1000:3000] = True
+            # else:
+            #     raise 'mask is not specified'
 
         # xs_valid = np.any(self.mask, axis=0)
         # ys_valid = np.any(self.mask, axis=1)
@@ -280,7 +286,17 @@ class DataManager(object):
             self.ymin = 1081
             self.ymax = 1081+6051-1
         else:
-            raise 'mask is not specified'
+            self.xmin = 500
+            self.ymin = 500 
+            self.xmax = self.image_width - 500 - 1
+            self.ymax = self.image_height - 500 - 1
+
+            # self.xmin = 1000
+            # self.ymin = 4500
+            # self.xmax = 3000-1
+            # self.ymax = 6500-1
+        # else:
+        #     raise 'mask is not specified'
 
         # rs, cs = np.where(self.mask)
         # self.ymax = rs.max()
@@ -302,6 +318,7 @@ class DataManager(object):
         try:
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
         except:
+            sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
             
 
@@ -320,6 +337,12 @@ class DataManager(object):
     #     self.set_stack(stack)
     #     self.set_slice(slice_ind)
     #     self._load_image()
+
+    def superpixels_in_polygon(vertices):
+        from matplotlib.path import Path
+        self.load_multiple_results(['spCentroids'])
+        pp = Path(vertices)
+        return np.where([pp.contains_point(s) for s in self.sp_centroids[:,::-1]])[0]
 
     def load_multiple_results(self, results):
 
@@ -376,6 +399,8 @@ class DataManager(object):
 
     def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
         
+        self.load_multiple_results(['neighbors', 'spCentroids', 'texHist'])
+
         # try:
                 
         cluster_list = list(cluster)
@@ -676,7 +701,9 @@ class DataManager(object):
         from scipy.spatial import ConvexHull
         from matplotlib.path import Path
 
-        # self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
+        sys.stderr.write('%d\n'%seed)
+
+        self.load_multiple_results(['neighbors', 'texHist', 'segmentation'])
 
         neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
 
@@ -742,10 +769,13 @@ class DataManager(object):
             if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
                 # if verbose:
                 if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
+                    # if verbose:
                     print seed, 'terminate due to over-size'
                 elif seed_dist > .2 :
+                    # if verbose:
                     print seed, 'terminate due to seed_dist exceeds threshold', seed_dist
                 elif inter_sp_dist > .3:
+                    # if verbose:
                     print seed, 'terminate due to inter_sp_dist exceeds threshold', inter_sp_dist
                 break
 
@@ -773,6 +803,10 @@ class DataManager(object):
             addorder_list.append(added_sps[:])
             candidate_sps = (set(candidate_sps) | \
                              (set.union(*[self.neighbors_long[i] for i in list(extra_sps)+[sp]]) - {-1})) - curr_cluster
+
+            if len(candidate_sps) == 0:
+                return [], []
+
             candidate_sps = list(candidate_sps)
 
             # for c in candidate_sps:
@@ -793,7 +827,8 @@ class DataManager(object):
                 candidate_scores.append(-sc)
 
             if np.min(candidate_seed_dists) > .4:
-                print 'iter', iter_ind, 'closest seed_dist', np.min(candidate_seed_dists)
+                if verbose:
+                    print 'iter', iter_ind, 'closest seed_dist', np.min(candidate_seed_dists)
                 break
                 
             # h_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
@@ -847,7 +882,6 @@ class DataManager(object):
             return addorder_list, score_tuples, peaks_sorted, peakedness_sorted, toadd_list, peaks_sorted1, peaks_sorted2
         else:
             return [addorder_list[i] for i in peaks_sorted], score_tuples[peaks_sorted, 1]
-
 
 
     def convert_cluster_to_descriptor(self, cluster, verbose=False):
@@ -1051,7 +1085,7 @@ class DataManager(object):
                 self.result_info[row['name']] = row
         
         
-    def _get_result_filename(self, result_name):
+    def _get_result_filename(self, result_name, include_path=True):
 
         if not hasattr(self, 'result_info'):
             with open(self.repo_dir + '/results.csv', 'r') as f:
@@ -1066,7 +1100,7 @@ class DataManager(object):
             result_dir = self.results_dir
             prefix = self.image_name
         elif info['dir'] == '1':
-            result_dir = os.path.join(os.environ['GORDON_RESULT_DIR'], self.stack)
+            result_dir = os.path.join(self.root_results_dir, self.stack)
             prefix = self.stack + '_' + self.resol
 
         else:
@@ -1082,9 +1116,12 @@ class DataManager(object):
             param_dep = ['gabor', 'segm', 'vq']
         else:
             raise Exception('unrecognized result param_dep specification')
-            
-        result_filename = os.path.join(result_dir, '_'.join([prefix, self._param_str(param_dep), 
+        
+        if include_path:
+            result_filename = os.path.join(result_dir, '_'.join([prefix, self._param_str(param_dep), 
                                                              result_name + '.' + info['extension']]))
+        else:
+            result_filename = '_'.join([prefix, self._param_str(param_dep), result_name + '.' + info['extension']])
 
         return result_filename
             
@@ -1155,11 +1192,35 @@ class DataManager(object):
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 
-
     def load_proposal_review_result(self, username, timestamp, suffix):
-        path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
-        result = pickle.load(path)
-        return result
+
+        import datetime
+
+        if not hasattr(self, 'result_list'):
+            from collections import defaultdict
+
+            self.result_list = defaultdict(lambda: defaultdict(list))
+            for fn in os.listdir(self.labelings_dir):
+                st, se, us, ts, suf = fn[:-4].split('_')
+                self.result_list[us][ts].append(suf)
+
+        if len(self.result_list[username]) == 0:
+            return []
+
+        if timestamp == 'latest':
+            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username].keys()), reverse=True))
+            timestamp = timestamps_sorted[0]
+
+        if suffix == 'all':
+            results = []
+            for suf in self.result_list[username][timestamp]:
+                path = open(self.load_review_result_path(username, timestamp, suffix=suf), 'r')
+                results.append((username, timestamp, suf, pickle.load(path)))
+            return results
+        else:
+            path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
+            return pickle.load(path)
+        
 
     def load_labeling(self, stack=None, section=None, labeling_name=None):
         labeling_fn = self._load_labeling_path(stack, section, labeling_name)

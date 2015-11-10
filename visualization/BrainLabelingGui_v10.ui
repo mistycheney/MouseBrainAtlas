@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>965</width>
+    <width>1009</width>
     <height>749</height>
    </rect>
   </property>
@@ -64,34 +64,20 @@
       <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="title">
-         <string>Mode</string>
+         <string>Proposal Source</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
-          <widget class="QRadioButton" name="radioButton_suggested">
+          <widget class="QRadioButton" name="radioButton_globalProposal">
            <property name="text">
-            <string>Review Global Proposals</string>
+            <string>Global Proposals</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QRadioButton" name="radioButton_individual">
+          <widget class="QRadioButton" name="radioButton_localProposal">
            <property name="text">
-            <string>Review Local Proposals</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="radioButton_freeform">
-           <property name="text">
-            <string>Freeform Drawing</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="radioButton_readonly">
-           <property name="text">
-            <string>Read Only</string>
+            <string>Local Proposals</string>
            </property>
           </widget>
          </item>
@@ -149,23 +135,41 @@
       <item>
        <layout class="QVBoxLayout" name="buttonsLayout">
         <item>
-         <widget class="QPushButton" name="buttonLoadLabeling">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="button_prev">
+            <property name="text">
+             <string>Previous</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="button_next">
+            <property name="text">
+             <string>Next</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="button_autoDetect">
           <property name="text">
-           <string>Load Labeling</string>
+           <string>Auto Detect</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="buttonLoadPropRev">
+         <widget class="QPushButton" name="button_loadLabeling">
           <property name="text">
-           <string>Load Proposal Review</string>
+           <string>Load</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="newLabelButton">
+         <widget class="QPushButton" name="button_saveLabeling">
           <property name="text">
-           <string>Add New Label</string>
+           <string>Save</string>
           </property>
          </widget>
         </item>
@@ -177,14 +181,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="saveButton">
-          <property name="text">
-           <string>Save</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="quitButton">
+         <widget class="QPushButton" name="button_quit">
           <property name="text">
            <string>Quit</string>
           </property>
@@ -202,7 +199,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>965</width>
+     <width>1009</width>
      <height>25</height>
     </rect>
    </property>

@@ -22,11 +22,7 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
-dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-                 repo_dir=os.environ['GORDON_REPO_DIR'], 
-                 result_dir=os.environ['GORDON_RESULT_DIR'], 
-                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
-                 gabor_params_id=args.gabor_params_id, 
+dm = DataManager(gabor_params_id=args.gabor_params_id, 
                  segm_params_id=args.segm_params_id, 
                  vq_params_id=args.vq_params_id,
                  stack=args.stack_name, 
@@ -45,22 +41,34 @@ def find_boundary_dedges_ordered(*args, **kwargs):
     return dm.find_boundary_dedges_ordered(*args, **kwargs)
 
 try:
-    raise
+    # raise
     all_seed_cluster_score_tuples = dm.load_pipeline_result('allSeedClusterScoreTuples')
     sys.stderr.write('allSeedClusterScoreTuples exists, skip ...\n')
     all_seeds, all_clusters, all_cluster_scores = zip(*all_seed_cluster_score_tuples)
 except:
     sys.stderr.write('growing regions ...\n')
     t = time.time()
-    expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster)(s, verbose=False, all_history=False, 
+
+    expansion_clusters_tuples = []
+    for s in range(dm.n_superpixels):
+        expansion_clusters_tuples.append(grow_cluster(s, verbose=False, all_history=False, 
                                                                          seed_weight=0,
                                                                         num_sp_percentage_limit=0.05,
                                                                      min_size=1, min_distance=2,
                                                                         threshold_abs=-0.1,
                                                                         threshold_rel=0.02,
                                                                        peakedness_limit=.002,
-                                                                       method='rc-mean')
-                                    for s in range(dm.n_superpixels))
+                                                                       method='rc-mean'))                                    
+
+    # expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster)(s, verbose=False, all_history=False, 
+    #                                                                      seed_weight=0,
+    #                                                                     num_sp_percentage_limit=0.05,
+    #                                                                  min_size=1, min_distance=2,
+    #                                                                     threshold_abs=-0.1,
+    #                                                                     threshold_rel=0.02,
+    #                                                                    peakedness_limit=.002,
+    #                                                                    method='rc-mean')
+    #                                 for s in range(dm.n_superpixels))
     sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
     expansion_clusters, expansion_cluster_scores = zip(*expansion_clusters_tuples)

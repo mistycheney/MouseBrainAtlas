@@ -15,7 +15,7 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
 def detect_responsive_nodes():
 
 	#hostids = range(31,39)+range(41,49)
-	hostids = range(31,33) + range(34,39) + range(41,49)
+	hostids = range(31,33) + range(34,39) + range(41,42) + range(43,49)
 	n_hosts = len(hostids)
 
 	import paramiko

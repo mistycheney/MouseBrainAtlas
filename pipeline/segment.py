@@ -12,9 +12,9 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("slice_ind", type=int, help="slice index")
-# parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
+parser.add_argument("-g", "--gabor_params_id", type=str, help="gabor filter parameters id (default: %(default)s)", default='blueNisslWide')
 parser.add_argument("-s", "--segm_params_id", type=str, help="segmentation parameters id (default: %(default)s)", default='blueNisslRegular')
-# parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
+parser.add_argument("-v", "--vq_params_id", type=str, help="vector quantization parameters id (default: %(default)s)", default='blueNissl')
 args = parser.parse_args()
 
 from joblib import Parallel, delayed
@@ -22,13 +22,9 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
-dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-                 repo_dir=os.environ['GORDON_REPO_DIR'], 
-                 result_dir=os.environ['GORDON_RESULT_DIR'], 
-                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
-                 # gabor_params_id=args.gabor_params_id, 
+dm = DataManager(gabor_params_id=args.gabor_params_id, 
                  segm_params_id=args.segm_params_id, 
-                 # vq_params_id=args.vq_params_id,
+                 vq_params_id=args.vq_params_id,
                  stack=args.stack_name, 
                  section=args.slice_ind)
 
@@ -57,7 +53,7 @@ except Exception as e:
     # segmentation[~dm.mask] = -1
 
     sys.stderr.write('superpixel segmentation ...\n')
-    t = time.time()
+    t1 = time.time()
 
     if dm.segm_params_id in ['gridsize200', 'gridsize100', 'gridsize50']:
         grid_size = dm.grid_size
@@ -88,13 +84,16 @@ except Exception as e:
         textonmap = dm.load_pipeline_result('texMap')
         n_texton = textonmap.max() + 1
 
+
+        sys.stderr.write('compute texture histogram map\n')
+        t = time.time()
+
         window_size = 201
         window_halfsize = (window_size-1)/2
 
         single_channel_maps = [textonmap[dm.ymin-window_halfsize : dm.ymax+1+window_halfsize, 
                                          dm.xmin-window_halfsize : dm.xmax+1+window_halfsize] == c
                                for c in range(n_texton)]
-
 
         # it is important to pad the integral image with zeros before first row and first column
         def compute_integral_image(m):
@@ -106,11 +105,22 @@ except Exception as e:
                     int_imgs[:-window_size, :-window_size] - \
                     int_imgs[window_size:, :-window_size] - \
                     int_imgs[:-window_size, window_size:]
-                
+
         histograms_normalized = histograms/histograms.sum(axis=-1)[...,None].astype(np.float)
 
-        seg = slic_texture(histograms_normalized, max_iter=1)
+        del single_channel_maps, histograms, int_imgs
+
+        sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
+
+        seg = slic_texture(histograms_normalized, max_iter=10)
+
+        sys.stderr.write('enforce connectivity\n')
+        t = time.time()
+
         segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = enforce_connectivity(seg)
+
+        sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
+
 
     segmentation[~dm.mask] = -1
     				
@@ -122,7 +132,7 @@ except Exception as e:
 
     dm.save_pipeline_result(segmentation.astype(np.int16), 'segmentation')
 
-    sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
+    sys.stderr.write('done in %.2f seconds\n' % (time.time() - t1))
 
 n_superpixels = len(np.unique(segmentation)) - 1
 
@@ -224,6 +234,7 @@ except:
     dedge_vectors = {}
     edge_coords_sorted = {}
     edge_midpoints = {}
+    edge_endpoints = {}
 
     for e, pts in edge_coords.iteritems():
         
@@ -261,6 +272,8 @@ except:
     dm.save_pipeline_result(edge_coords, 'edgeCoords')
     dm.save_pipeline_result(edge_midpoints, 'edgeMidpoints')
     dm.save_pipeline_result(dedge_vectors, 'dedgeVectors')
+    dm.save_pipeline_result(dict([(edge, (coords[0], coords[-1])) for edge, coords in edge_coords.iteritems()]), 
+                            'edgeEndpoints')
 
  
 # if dm.check_pipeline_result('segmentationWithText'):

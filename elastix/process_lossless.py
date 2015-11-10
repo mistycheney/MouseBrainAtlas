@@ -42,7 +42,7 @@ for i, args in enumerate(filenames_per_node):
 		f.write('\n'.join([fn + ' ' + str(ind) for fn, ind in args]))
 
 t = time.time()
-print 'renaming and expanding lossless...',
+print 'renaming and decompressing lossless...',
 run_distributed3(script_dir + '/rename.py',
                 [(stack, os.path.join(DATA_DIR, stack), os.path.join(DATAPROC_DIR, stack + '_lossless_renamed'), tmp_dir+'/'+stack+'_filename_map_%d'%i, 'lossless') 
                     for i in range(n_hosts)],

@@ -21,11 +21,7 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['GORDON_REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
-dm = DataManager(data_dir=os.environ['GORDON_DATA_DIR'], 
-                 repo_dir=os.environ['GORDON_REPO_DIR'], 
-                 result_dir=os.environ['GORDON_RESULT_DIR'], 
-                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
-                 gabor_params_id=args.gabor_params_id, 
+dm = DataManager(gabor_params_id=args.gabor_params_id, 
                  segm_params_id=args.segm_params_id, 
                  vq_params_id=args.vq_params_id,
                  stack=args.stack_name, 
@@ -39,21 +35,31 @@ if False:
 
 else:
 	
-    print 'computing histograms ...',
+    sys.stderr.write('computing histograms ...\n')
     t = time.time()
 
-    segmentation = dm.load_pipeline_result('segmentation')
+    textonmap = dm.load_pipeline_result('texMap')
+
+    try:
+        segmentation = dm.load_pipeline_result('segmentation')
+    except Exception as e:
+        sys.stderr.write('ERROR: No segmentation available: stack %s, section %d.\n'%(dm.stack, dm.slice_ind))
+        sys.exit(0)
+
     n_superpixels = segmentation.max() + 1
+
+    centroids = dm.load_pipeline_result('textons')
+    n_texton = len(centroids)
 
     def texton_histogram_worker(i):
         # return np.bincount(textonmap[(segmentation == i)&(textonmap != -1)], minlength=n_texton)
         return np.bincount(textonmap[segmentation == i], minlength=n_texton)
 
-    r = Parallel(n_jobs=8)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
+    r = Parallel(n_jobs=16)(delayed(texton_histogram_worker)(i) for i in range(n_superpixels))
     sp_texton_hist = np.array(r)
     sp_texton_hist_normalized = sp_texton_hist.astype(np.float) / sp_texton_hist.sum(axis=1)[:, np.newaxis] # denom might be invalid
 
     dm.save_pipeline_result(sp_texton_hist_normalized, 'texHist')
 
-    print 'done in', time.time() - t, 'seconds'
+    sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1009</width>
-    <height>749</height>
+    <width>1787</width>
+    <height>1448</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -135,27 +135,26 @@
       <item>
        <layout class="QVBoxLayout" name="buttonsLayout">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
-          <item>
-           <widget class="QPushButton" name="button_prev">
-            <property name="text">
-             <string>Previous</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="button_next">
-            <property name="text">
-             <string>Next</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QSpinBox" name="spinBox_section">
+          <property name="keyboardTracking">
+           <bool>false</bool>
+          </property>
+          <property name="maximum">
+           <number>300</number>
+          </property>
+         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="button_autoDetect">
           <property name="text">
            <string>Auto Detect</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="button_updateDB">
+          <property name="text">
+           <string>Update DB</string>
           </property>
          </widget>
         </item>
@@ -170,13 +169,6 @@
          <widget class="QPushButton" name="button_saveLabeling">
           <property name="text">
            <string>Save</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="buttonParams">
-          <property name="text">
-           <string>Change Parameters</string>
           </property>
          </widget>
         </item>
@@ -199,7 +191,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1009</width>
+     <width>1787</width>
      <height>25</height>
     </rect>
    </property>

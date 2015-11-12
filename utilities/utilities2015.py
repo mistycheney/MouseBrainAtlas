@@ -236,6 +236,13 @@ class DataManager(object):
         self._load_mask(create_mask=load_mask)
 
 
+    def add_labels(self, labels):
+        labelnames = list(set(self.labelnames + labels))
+
+        with open(self.labelnames_path, 'w') as f:
+            for n in labelnames:
+                f.write('%s\n' % n)
+
     def set_labelnames(self, labelnames):
         self.labelnames = labelnames
 
@@ -344,57 +351,129 @@ class DataManager(object):
         pp = Path(vertices)
         return np.where([pp.contains_point(s) for s in self.sp_centroids[:,::-1]])[0]
 
-    def load_multiple_results(self, results):
+
+    def download_result(self, result):
+        filename = self._get_result_filename(result, include_path=False)
+        cmd = "rsync -az yuncong@gcn-20-33.sdsc.edu:%(gordon_result_dir)s/%(stack)s/%(section)s/%(filename)s %(local_result_dir)s/%(stack)s/%(section)s/ " % {'gordon_result_dir':os.environ['GORDON_RESULT_DIR'],
+                                                                            'local_result_dir':os.environ['LOCAL_RESULT_DIR'],
+                                                                            'stack': self.stack,
+                                                                            'section': self.slice_str,
+                                                                            'filename': filename
+                                                                            }
+        os.system(cmd)
+
+
+    def download_results(self, results):
+        for result_name in results:
+            filename = self._get_result_filename(result_name, include_path=False)
+            cmd = "rsync -az yuncong@gcn-20-33.sdsc.edu:%(gordon_result_dir)s/%(stack)s/%(section)s/%(filename)s %(local_result_dir)s/%(stack)s/%(section)s/ " % {'gordon_result_dir':os.environ['GORDON_RESULT_DIR'],
+                                                                                'local_result_dir':os.environ['LOCAL_RESULT_DIR'],
+                                                                                'stack': self.stack,
+                                                                                'section': self.slice_str,
+                                                                                'filename': filename
+                                                                                }
+            # print cmd
+            os.system(cmd)
+
+    def load_multiple_results(self, results, download_if_not_exist=False):
 
         from networkx import from_dict_of_lists
 
+        if download_if_not_exist:
+            for r in results:
+                if not self.check_pipeline_result(r):
+                    self.download_result(r)
+
         if 'texHist' in results and not hasattr(self, 'texton_hists'):
+
             self.texton_hists = self.load_pipeline_result('texHist')
 
-        if 'segmentation' in results and  not hasattr(self, 'segmentation'):
+        if 'segmentation' in results and not hasattr(self, 'segmentation'):
             self.segmentation = self.load_pipeline_result('segmentation')
             self.n_superpixels = self.segmentation.max() + 1
         
         if 'texMap' in results and not hasattr(self, 'textonmap'):
+            # if self.check_pipeline_result('texMap'):
             self.textonmap = self.load_pipeline_result('texMap')
             self.n_texton = self.textonmap.max() + 1
+            # else:
+                # self.download_result('texMap')
+                # missing.append('texMap')
 
         if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            # if self.check_pipeline_result('spCentroids'):
             self.sp_centroids = self.load_pipeline_result('spCentroids')
+            # else:
+            #     self.download_result('spCentroids')
+                # missing.append('spCentroids')
 
         if 'spCoords' in results and not hasattr(self, 'sp_coords'):
-            self.sp_coords = self.load_pipeline_result('spCoords')            
+            # if self.check_pipeline_result('spCoords'):
+            self.sp_coords = self.load_pipeline_result('spCoords')
+            # except:
+            #     self.download_result('spCoords')
+            #     # missing.append('spCoords')
 
         if 'spAreas' in results and not hasattr(self, 'sp_areas'):
+            # try:
             self.sp_areas = self.load_pipeline_result('spAreas')
+            # except:
+            #     self.download_result('spAreas')
+            #     self.sp_areas = self.load_pipeline_result('spAreas')
+            #     # missing.append('spAreas')
 
         if 'edgeCoords' in results and not hasattr(self, 'edge_coords'):
+            # try:
             self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+            # except:
+            #     missing.append('edgeCoords')
 
         if 'edgeMidpoints' in results and not hasattr(self, 'edge_midpoints'):
-            self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))            
+            # try:
+            self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))
+            # except:
+            #     missing.append('edgeMidpoints')
 
         if 'edgeEndpoints' in results and not hasattr(self, 'edge_endpoints'):
-            self.edge_endpoints = dict(self.load_pipeline_result('edgeEndpoints'))            
+            # try:
+            self.edge_endpoints = dict(self.load_pipeline_result('edgeEndpoints'))
+            # except:
+            #     missing.append('edgeEndpoints')
 
         if 'neighbors' in results and not  hasattr(self, 'neighbors'):
+            # try:
             self.neighbors = self.load_pipeline_result('neighbors')
             self.neighbor_graph = from_dict_of_lists(dict(enumerate(self.neighbors)))
             if not hasattr(self, 'edge_coords'):
+                # try:
                 self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+                # except:
+                #     missing.append('edgeCoords')
+
             self.neighbors_long = dict([(s, set([n for n in nbrs if len(self.edge_coords[frozenset([s,n])]) > 10])) 
                        for s, nbrs in enumerate(self.neighbors)])
             self.neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+            # except:
+            #     missing.append('neighbors')
 
         if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            # try:
             self.sp_centroids = self.load_pipeline_result('spCentroids')
+            # except:
+                # missing.append('spCentroids')
         
         if 'edgeNeighbors' in results and not hasattr(self, 'edge_neighbors'):
+            # try:
             self.edge_neighbors = self.load_pipeline_result('edgeNeighbors')
+            # except:
+            #     missing.append('edgeNeighbors')
 
         if 'dedgeNeighbors' in results and not hasattr(self, 'dedge_neighbors'):
+            # try:
             self.dedge_neighbors = self.load_pipeline_result('dedgeNeighbors')
             self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
+            # except:
+            #     missing.append('dedgeNeighbors')
 
 
     def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
@@ -1199,16 +1278,18 @@ class DataManager(object):
         if not hasattr(self, 'result_list'):
             from collections import defaultdict
 
-            self.result_list = defaultdict(lambda: defaultdict(list))
+            # self.result_list = defaultdict(lambda: defaultdict(list))
+            self.result_list = defaultdict(list)
             for fn in os.listdir(self.labelings_dir):
                 st, se, us, ts, suf = fn[:-4].split('_')
-                self.result_list[us][ts].append(suf)
+                # self.result_list[us][ts].append(suf)
+                self.result_list[us].append(ts)
 
         if len(self.result_list[username]) == 0:
-            return []
+            return None
 
         if timestamp == 'latest':
-            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username].keys()), reverse=True))
+            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
             timestamp = timestamps_sorted[0]
 
         if suffix == 'all':
@@ -1219,7 +1300,8 @@ class DataManager(object):
             return results
         else:
             path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
-            return pickle.load(path)
+            return (username, timestamp, suffix, pickle.load(path))
+
 
     def load_labeling(self, stack=None, section=None, labeling_name=None):
         labeling_fn = self._load_labeling_path(stack, section, labeling_name)

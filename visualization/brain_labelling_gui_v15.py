@@ -829,14 +829,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             return
 
         else:
-            if text not in [abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()]:  # new label
-                abbr, fullname = m.groups()
+            abbr, fullname = m.groups()
+            if not (abbr in self.structure_names.keys() and fullname in self.structure_names.values()):  # new label
                 if abbr in self.structure_names:
                     QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists' % abbr)
                     return
                 else:
                     self.structure_names[abbr] = fullname
-        
+
         self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = abbr
 
         if 'labelTextArtist' in self.accepted_proposals[self.curr_proposal_pathPatch] and self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'] is not None:

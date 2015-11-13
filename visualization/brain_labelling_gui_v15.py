@@ -14,7 +14,7 @@ from operator import itemgetter
 
 import numpy as np
 
-from matplotlib.backend_bases import key_press_handler
+from matplotlib.backend_bases import key_press_handler, MouseEvent, KeyEvent
 from matplotlib.backends.backend_qt4agg import (
 	FigureCanvasQTAgg as FigureCanvas,
 	NavigationToolbar2QT as NavigationToolbar)
@@ -32,10 +32,10 @@ else:
 from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import Rectangle, Polygon, PathPatch
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+from matplotlib.text import Text
 
 from skimage.color import label2rgb
 
@@ -67,6 +67,11 @@ class PolygonType(Enum):
     TEXTURE_WITH_CONTOUR = 'texture with contour'
     DIRECTION = 'directionality'
 
+SELECTED_POLYGON_LINEWIDTH = 5
+UNSELECTED_POLYGON_LINEWIDTH = 3
+SELECTED_CIRCLE_SIZE = 30
+UNSELECTED_CIRCLE_SIZE = 5
+CIRCLE_PICK_THRESH = 1000.
 
 class ListSelection(QDialog):
 	def __init__(self, item_ls, parent=None):
@@ -176,7 +181,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.dm.load_multiple_results(required_results, download_if_not_exist=True)
 		print 3, time.time() - t
 
-
 		self.segm_transparent = None
 		self.under_img = None
 		self.textonmap_vis = None
@@ -221,7 +225,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if action == self.endDrawClosed_Action:
 
-			polygon = Polygon(self.curr_polygon_vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+			polygon = Polygon(self.curr_polygon_vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
 			self.axis.add_patch(polygon)
 			polygon.set_picker(True)
 
@@ -409,10 +413,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.fig = self.canvaswidget.fig
 		self.canvas = self.canvaswidget.canvas
 
+		self.canvas.setFocusPolicy( Qt.ClickFocus )
+		self.canvas.setFocus()
+
 		self.canvas.mpl_connect('scroll_event', self.on_zoom)
 		self.bpe_id = self.canvas.mpl_connect('button_press_event', self.on_press)
 		self.bre_id = self.canvas.mpl_connect('button_release_event', self.on_release)
 		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+		self.canvas.mpl_connect('key_press_event', self.on_zoom)
 
 		self.canvas.mpl_connect('pick_event', self.on_pick)
 
@@ -425,7 +434,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.spinBox_section.setRange(0, 200)
 		self.spinBox_section.valueChanged.connect(self.section_changed)
 
-		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton, self.labeling_radioButton]
+		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
 		self.img_radioButton.setChecked(True)
 
 		for b in self.display_buttons:
@@ -439,9 +448,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.thumbnail_list = QListWidget(parent=self)
 		# self.thumbnail_list.setIconSize(QSize(200,200))
-		# self.thumbnail_list.setResizeMode(QListWidget.Adjust)
-		# self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-		# self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.setResizeMode(QListWidget.Adjust)
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+		self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
 
 
 	def updateDB_callback(self):
@@ -493,6 +508,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def on_pick(self, event):
 
+		if self.mode == Mode.PLACING_VERTICES:
+			return
+
+		self.object_picked = True
+
 		patch_vertexInd_tuple = [(patch, props['vertexPatches'].index(event.artist)) for patch, props in self.accepted_proposals.iteritems() 
 					if 'vertexPatches' in props and event.artist in props['vertexPatches']]
 		
@@ -505,11 +525,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.selected_vertex_index = patch_vertexInd_tuple[0][1]
 
 			self.selected_circle = event.artist
-			self.selected_circle.set_radius(100.)
+			self.selected_circle.set_radius(SELECTED_CIRCLE_SIZE)
 			
 			self.selected_polygon = self.curr_proposal_pathPatch
 
-			self.curr_proposal_pathPatch.set_linewidth(5.)
+			self.curr_proposal_pathPatch.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
 
 			self.statusBar().showMessage('picked %s proposal (%s), vertex %d' % (self.accepted_proposals[self.curr_proposal_pathPatch]['type'].value,
 																	 self.accepted_proposals[self.curr_proposal_pathPatch]['label'],
@@ -523,11 +543,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if not (self.selected_circle is not None and \
 					self.accepted_proposals[self.curr_proposal_pathPatch]['type'] == ProposalType.FREEFORM):
 				self.cancel_current_selection()
+			else:
+				return
 
 			if event.artist in self.accepted_proposals:
 
 				self.curr_proposal_pathPatch = event.artist
-				self.curr_proposal_pathPatch.set_linewidth(5)
+				self.curr_proposal_pathPatch.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
 
 				if self.accepted_proposals[self.curr_proposal_pathPatch]['type'] == ProposalType.FREEFORM:
 					self.selected_polygon = self.curr_proposal_pathPatch
@@ -543,8 +565,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		else:
 			raise 'unknown situation'
-
-		self.object_picked = True
 
 		self.canvas.draw()
 
@@ -563,7 +583,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			else:
 				vertices += [endpts[0], midpt, endpts[-1]]
 
-		path_patch = PathPatch(Path(vertices=vertices, closed=True), color=color, fill=False, linewidth=3)
+		path_patch = PathPatch(Path(vertices=vertices, closed=True), color=color, fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
 
 		return path_patch
 
@@ -628,11 +648,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if props['type'] == ProposalType.GLOBAL or props['type'] == ProposalType.LOCAL or props['type'] == ProposalType.ALGORITHM:
 				patch = self.pathPatch_from_dedges(props['dedges'], color=self.boundary_colors[1])
 			elif props['type'] == ProposalType.FREEFORM:
-				patch = Polygon(props['vertices'], closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
+				patch = Polygon(props['vertices'], closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
 				props['vertexPatches'] = []
 				for x,y in props['vertices']:
-					vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
-					vertex_circle.set_picker(100.)
+					vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+					vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 					props['vertexPatches'].append(vertex_circle)
 					self.axis.add_patch(vertex_circle)
 
@@ -648,14 +668,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.label_selection_dialog = QInputDialog(self)
 		self.label_selection_dialog.setLabelText('Select landmark label')
+
 		self.label_selection_dialog.setComboBoxItems(['New label'] + sorted(self.dm.labelnames + self.new_labelnames))
+
+		if 'label' in self.accepted_proposals[self.curr_proposal_pathPatch]:
+			self.label_selection_dialog.setTextValue(self.accepted_proposals[self.curr_proposal_pathPatch]['label'])
+		else:
+			self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = ''
 
 		self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
 
 		self.label_selection_dialog.exec_()
 
-	def set_selected_proposal_label(self, label):
-		self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = label
+	# def set_selected_proposal_label(self, label):
+	# 	self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = label
 
 	def label_dialog_text_changed(self, text):
 		
@@ -664,14 +690,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 									"Enter label:", QLineEdit.Normal, 'landmark')
 			if not okay:
 				return
-			else:
-				label = str(label)
-				self.set_selected_proposal_label(label)
+			
+			label = str(label)
+			self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = label
 
-				if label not in self.new_labelnames:
-					self.new_labelnames.append(label)
+			if 'labelTextArtist' in self.accepted_proposals[self.curr_proposal_pathPatch] and self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'] is not None:
+				self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'].set_text(label)
+			else:
+				centroid = self.curr_proposal_pathPatch.get_xy().mean(axis=0)
+				text_artist = Text(centroid[0], centroid[1], label, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+				self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'] = text_artist
+				self.axis.add_artist(text_artist)
+
+			if label not in self.new_labelnames:
+				self.new_labelnames.append(label)
+
 		else:
-			self.set_selected_proposal_label(str(text))
+			self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = str(text)
+
+			if 'labelTextArtist' in self.accepted_proposals[self.curr_proposal_pathPatch] and self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'] is not None:
+				self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'].set_text(str(text))
+			else:
+				centroid = self.curr_proposal_pathPatch.get_xy().mean(axis=0)
+				text_artist = Text(centroid[0], centroid[1], str(text), style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+				self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'] = text_artist
+				self.axis.add_artist(text_artist)
 		
 		self.label_selection_dialog.done(0)
 
@@ -738,7 +781,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.curr_proposal_pathPatch.set_picker(None)
 
 		if self.curr_proposal_pathPatch in self.accepted_proposals:
-			self.curr_proposal_pathPatch.set_linewidth(5.)
+			self.curr_proposal_pathPatch.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
 			label =  self.accepted_proposals[self.curr_proposal_pathPatch]['label']
 		else:
 			label = ''			
@@ -772,7 +815,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.curr_proposal_pathPatch.set_picker(None)
 
 		if  self.curr_proposal_pathPatch in self.accepted_proposals:
-			self.curr_proposal_pathPatch.set_linewidth(5.)
+			self.curr_proposal_pathPatch.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
 			label = self.accepted_proposals[self.curr_proposal_pathPatch]['label']
 		else:
 			label = ''
@@ -839,6 +882,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	############################################
 
 	def on_zoom(self, event):
+
+		print 1
+
 		# get the current x and y limits and subplot position
 		cur_pos = self.axis.get_position()
 		cur_xlim = self.axis.get_xlim()
@@ -857,12 +903,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# print left, right, up, down
 
-		if event.button == 'up':
-			# deal with zoom in
-			scale_factor = 1/self.base_scale
-		elif event.button == 'down':
-			# deal with zoom out
-			scale_factor = self.base_scale
+		if isinstance(event, MouseEvent):
+
+			if event.button == 'up':
+				# deal with zoom in
+				scale_factor = 1/self.base_scale
+			elif event.button == 'down':
+				# deal with zoom out
+				scale_factor = self.base_scale
+
+		elif isinstance(event, KeyEvent):
+			if event.key == '=':
+				scale_factor = 1/self.base_scale
+			elif event.key == '-':
+				scale_factor = self.base_scale				
 		
 		self.newxmin = xdata - left*scale_factor
 		self.newxmax = xdata + right*scale_factor
@@ -887,7 +941,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if self.mode == Mode.PLACING_VERTICES:
 			return
 		
-		if hasattr(self, 'selected_circle') and self.selected_circle is not None and self.pressed: # drag vertex
+		if hasattr(self, 'selected_circle') and self.selected_circle is not None and self.pressed and self.object_picked and bool(self.selected_circle.contains(event)[0]): # drag vertex
 
 			print 'dragging vertex'
 
@@ -903,7 +957,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			
 			self.canvas.draw()
 
-		elif hasattr(self, 'selected_polygon') and self.selected_polygon is not None and self.pressed and self.object_picked: # drag polygon
+		elif hasattr(self, 'selected_polygon') and self.selected_polygon is not None and self.pressed and self.object_picked and bool(self.selected_polygon.contains(event)[0]):
+			# drag polygon
 
 			print 'dragging polygon'
 
@@ -925,6 +980,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 		elif hasattr(self, 'pressed') and self.pressed and time.time() - self.press_time > .5:
+
 			# this is drag and move
 			cur_xlim = self.axis.get_xlim()
 			cur_ylim = self.axis.get_ylim()
@@ -961,10 +1017,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# fast click
 
 			if event.button == 1: # left click
-
-				# if self.selected_circle is not None:
-				# 	self.selected_circle.set_radius(10.)
-				# 	self.selected_circle = None
 							
 				if self.mode == Mode.PLACING_VERTICES:
 					self.place_vertex(event.xdata, event.ydata)
@@ -1024,7 +1076,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		xys = np.insert(xys, new_vertex_ind, pos, axis=0)
 		self.selected_polygon.set_xy(xys)
 
-		vertex_circle = plt.Circle(pos, radius=10, color=self.boundary_colors[1], alpha=.8)
+		vertex_circle = plt.Circle(pos, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
 		self.axis.add_patch(vertex_circle)
 
 		self.accepted_proposals[self.curr_proposal_pathPatch]['vertexPatches'].insert(new_vertex_ind, vertex_circle)
@@ -1032,7 +1084,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].insert(new_vertex_ind, vertex_circle)
 
-		vertex_circle.set_picker(100.)
+		vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 
 		self.canvas.draw()
 
@@ -1060,11 +1112,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.curr_polygon_vertices.append([x, y])
 
 		# curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[self.curr_label + 1], alpha=.8)
-		curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
+		curr_vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
 		self.axis.add_patch(curr_vertex_circle)
 		self.curr_polygon_vertex_circles.append(curr_vertex_circle)
 
-		curr_vertex_circle.set_picker(100.)
+		curr_vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 
 
 
@@ -1159,8 +1211,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if self.curr_proposal_pathPatch is not None:
 
 			# restore line width from 5 to 3
-			if self.curr_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_proposal_pathPatch.set_linewidth(3)
+			if self.curr_proposal_pathPatch.get_linewidth() != UNSELECTED_POLYGON_LINEWIDTH:
+				self.curr_proposal_pathPatch.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
 
 			if self.curr_proposal_pathPatch in self.axis.patches:
 				if self.curr_proposal_pathPatch not in self.accepted_proposals:
@@ -1169,7 +1221,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.curr_proposal_pathPatch = None
 
 		if self.selected_circle is not None:
-			self.selected_circle.set_radius(10.)
+			self.selected_circle.set_radius(UNSELECTED_CIRCLE_SIZE)
 			self.selected_circle = None
 
 
@@ -1254,8 +1306,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				# self.superpixels_on = False
 
-			elif self.sender() == self.labeling_radioButton:
-				pass
+			# elif self.sender() == self.labeling_radioButton:
+			# 	pass
 
 		self.axis.axis('off')
 

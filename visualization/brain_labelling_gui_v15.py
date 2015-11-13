@@ -556,17 +556,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
         # self.thumbnail_list = QListWidget(parent=self)
-        # self.thumbnail_list.setIconSize(QSize(200,200))
+        self.thumbnail_list.setIconSize(QSize(200,200))
         self.thumbnail_list.setResizeMode(QListWidget.Adjust)
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
-        self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_thumbnail_warped/MD593_0130_thumbnail_warped.tif"), '130'))
+        self.thumbnail_list.itemDoubleClicked.connect(self.section_changed)
+        for i in range(60, 150):
+            self.thumbnail_list.addItem(QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/MD593_lossless_cropped_preview/MD593_%04d_lossless_warped_downscaled.jpg"%i), str(i)))
 
+        self.thumbnail_list.resizeEvent = self.thumbnail_list_resized
+        self.init_thumbnail_list_width = self.thumbnail_list.width()
+        print self.init_thumbnail_list_width
+
+    def thumbnail_list_resized(self, event):
+        new_size = 200 * event.size().width() / self.init_thumbnail_list_width
+        self.thumbnail_list.setIconSize( QSize(new_size , new_size ) )
 
     def toggle_labels(self):
 
@@ -832,7 +834,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             abbr, fullname = m.groups()
             if not (abbr in self.structure_names.keys() and fullname in self.structure_names.values()):  # new label
                 if abbr in self.structure_names:
-                    QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists' % abbr)
+                    QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists: %s' % (abbr, fullname))
                     return
                 else:
                     self.structure_names[abbr] = fullname
@@ -879,6 +881,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.selected_polygon = None
             for circ in self.accepted_proposals[self.curr_proposal_pathPatch]['vertexPatches']:
                 circ.remove()
+
+        self.accepted_proposals[self.curr_proposal_pathPatch]['labelTextArtist'].remove()
 
         self.accepted_proposals.pop(self.curr_proposal_pathPatch)
 
@@ -955,10 +959,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.canvas.draw()
 
 
-    def section_changed(self, val):
+    def section_changed(self, item):
 
-        self.spinBox_section.findChild(QLineEdit).deselect()
-        
         if hasattr(self, 'global_proposal_tuples'):
             del self.global_proposal_tuples
         if hasattr(self, 'global_proposal_pathPatches'):
@@ -968,10 +970,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if hasattr(self, 'local_proposal_pathPatches'):
             del self.local_proposal_pathPatches
 
-        self.init_data(section=val)
+        self.init_data(section=int(str(item.text())))
         self.reload_brain_labeling_gui()
 
         self.mode_changed()
+
+    # def section_changed(self, val):
+
+    #     # self.spinBox_section.findChild(QLineEdit).deselect()
+
+    #     if hasattr(self, 'global_proposal_tuples'):
+    #         del self.global_proposal_tuples
+    #     if hasattr(self, 'global_proposal_pathPatches'):
+    #         del self.global_proposal_pathPatches
+    #     if hasattr(self, 'local_proposal_tuples'):
+    #         del self.local_proposal_tuples
+    #     if hasattr(self, 'local_proposal_pathPatches'):
+    #         del self.local_proposal_pathPatches
+
+    #     self.init_data(section=val)
+    #     self.reload_brain_labeling_gui()
+
+    #     self.mode_changed()
 
 
     def save_callback(self):
@@ -984,7 +1004,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         accepted_proposal_props = []
         for patch, props in self.accepted_proposals.iteritems():
-            accepted_proposal_props.append(dict([(k,v) for k, v in props.iteritems() if k != 'vertexPatches']))
+            accepted_proposal_props.append(dict([(k,v) for k, v in props.iteritems() if k != 'vertexPatches' and k != 'labelTextArtist']))
 
         self.dm.save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
 
@@ -1019,8 +1039,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         cur_xlim = self.axis.get_xlim()
         cur_ylim = self.axis.get_ylim()
         
-        xdata = event.xdata # get event x location
-        ydata = event.ydata # get event y location
+        xdata = event.xdata # get mouse x location
+        ydata = event.ydata # get mouse y location
 
         if xdata is None or ydata is None: # mouse position outside data region
             return

@@ -46,7 +46,7 @@
         </size>
        </property>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
          <widget class="MplWidget" name="canvaswidget" native="true">
@@ -68,7 +68,10 @@
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
+         <layout class="QHBoxLayout" name="bottom_panel">
+          <item>
+           <widget class="QGraphicsView" name="graphicsView_navMap"/>
+          </item>
           <item>
            <spacer name="horizontalSpacer">
             <property name="orientation">
@@ -193,29 +196,8 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout">
             <property name="sizeConstraint">
-             <enum>QLayout::SetMinimumSize</enum>
+             <enum>QLayout::SetMinAndMaxSize</enum>
             </property>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLabel" name="label">
-                <property name="text">
-                 <string>section #</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QSpinBox" name="spinBox_section">
-                <property name="keyboardTracking">
-                 <bool>false</bool>
-                </property>
-                <property name="maximum">
-                 <number>300</number>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
             <item>
              <widget class="QPushButton" name="button_autoDetect">
               <property name="text">
@@ -251,6 +233,19 @@
               </property>
              </widget>
             </item>
+            <item>
+             <spacer name="verticalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
            </layout>
           </item>
          </layout>
@@ -260,11 +255,6 @@
      </widget>
     </item>
    </layout>
-   <zorder>proposalSource_panel</zorder>
-   <zorder>layoutWidget</zorder>
-   <zorder>canvaswidget</zorder>
-   <zorder>thumbnail_list</zorder>
-   <zorder>displayOption_panel</zorder>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">

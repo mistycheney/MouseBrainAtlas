@@ -539,8 +539,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_saveLabeling.clicked.connect(self.save_callback)
         self.button_quit.clicked.connect(self.close)
         
-        self.spinBox_section.setRange(0, 200)
-        self.spinBox_section.valueChanged.connect(self.section_changed)
+        # self.spinBox_section.setRange(0, 200)
+        # self.spinBox_section.valueChanged.connect(self.section_changed)
 
         self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
         self.img_radioButton.setChecked(True)
@@ -554,7 +554,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.buttonSpOnOff.clicked.connect(self.display_option_changed)
         self.button_labelsOnOff.clicked.connect(self.toggle_labels)
 
-
         # self.thumbnail_list = QListWidget(parent=self)
         self.thumbnail_list.setIconSize(QSize(200,200))
         self.thumbnail_list.setResizeMode(QListWidget.Adjust)
@@ -564,7 +563,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.thumbnail_list.resizeEvent = self.thumbnail_list_resized
         self.init_thumbnail_list_width = self.thumbnail_list.width()
-        print self.init_thumbnail_list_width
+        # print self.init_thumbnail_list_width
 
     def thumbnail_list_resized(self, event):
         new_size = 200 * event.size().width() / self.init_thumbnail_list_width
@@ -964,34 +963,37 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if hasattr(self, 'global_proposal_tuples'):
             del self.global_proposal_tuples
         if hasattr(self, 'global_proposal_pathPatches'):
+            for p in self.global_proposal_pathPatches:
+                if p in self.axis.patches:
+                    p.remove()
             del self.global_proposal_pathPatches
         if hasattr(self, 'local_proposal_tuples'):
             del self.local_proposal_tuples
         if hasattr(self, 'local_proposal_pathPatches'):
+            for p in self.local_proposal_pathPatches:
+                if p in self.axis.patches:
+                    p.remove()
             del self.local_proposal_pathPatches
 
-        self.init_data(section=int(str(item.text())))
+        sec = int(str(item.text()))
+        self.init_data(section=sec)
         self.reload_brain_labeling_gui()
 
         self.mode_changed()
 
-    # def section_changed(self, val):
+        self.pixmap = QPixmap("/home/yuncong/CSHL_data_processed/MD593_lossless_cropped_preview/MD593_%04d_lossless_warped_downscaled.jpg"%sec)
+        self.pixmap_scaled = self.pixmap.scaledToHeight(self.bottom_panel.sizeHint().height())
 
-    #     # self.spinBox_section.findChild(QLineEdit).deselect()
+        self.graphicsScene_navMap = QGraphicsScene(self.graphicsView_navMap)
+        self.graphicsScene_navMap.addPixmap(self.pixmap_scaled)
 
-    #     if hasattr(self, 'global_proposal_tuples'):
-    #         del self.global_proposal_tuples
-    #     if hasattr(self, 'global_proposal_pathPatches'):
-    #         del self.global_proposal_pathPatches
-    #     if hasattr(self, 'local_proposal_tuples'):
-    #         del self.local_proposal_tuples
-    #     if hasattr(self, 'local_proposal_pathPatches'):
-    #         del self.local_proposal_pathPatches
+        self.navRect = self.graphicsScene_navMap.addRect(10,10,200,200, QPen(QColor(255,0,0), 1))
 
-    #     self.init_data(section=val)
-    #     self.reload_brain_labeling_gui()
+        self.graphicsView_navMap.setScene(self.graphicsScene_navMap)
+        self.graphicsView_navMap.show()
 
-    #     self.mode_changed()
+        self.navMap_scaling_x = self.pixmap_scaled.size().width()/float(self.dm.image_width)
+        self.navMap_scaling_y = self.pixmap_scaled.size().height()/float(self.dm.image_height)
 
 
     def save_callback(self):
@@ -1036,6 +1038,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # get the current x and y limits and subplot position
         cur_pos = self.axis.get_position()
+
         cur_xlim = self.axis.get_xlim()
         cur_ylim = self.axis.get_ylim()
         
@@ -1068,14 +1071,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 scale_factor = self.base_scale              
         
         self.newxmin = xdata - left*scale_factor
+        # self.newxmin = 0
         self.newxmax = xdata + right*scale_factor
         self.newymin = ydata - up*scale_factor
         self.newymax = ydata + down*scale_factor
+
+        # print self.newxmin, self.newxmax, self.newymin, self.newymax
 
         self.axis.set_xlim([self.newxmin, self.newxmax])
         self.axis.set_ylim([self.newymin, self.newymax])
 
         self.canvas.draw() # force re-draw
+
+        self.update_navMap()
+        
+    def update_navMap(self):
+
+        cur_xmin, cur_xmax = self.axis.get_xlim()
+        cur_ymin, cur_ymax = self.axis.get_ylim()
+        self.navRect.setRect(cur_xmin * self.navMap_scaling_x, cur_ymin * self.navMap_scaling_y, self.navMap_scaling_x * (cur_xmax - cur_xmin), self.navMap_scaling_y * (cur_ymax - cur_ymin))
+        self.graphicsScene_navMap.update(0, 0, self.graphicsView_navMap.size().width(), self.graphicsView_navMap.size().height())
+        self.graphicsView_navMap.setSceneRect(0, 0, self.dm.image_width*self.navMap_scaling_x, self.dm.image_height*self.navMap_scaling_y)
+
 
     def on_press(self, event):
         self.press_x = event.xdata
@@ -1144,6 +1161,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.axis.set_xlim(cur_xlim + offset_x)
             self.axis.set_ylim(cur_ylim + offset_y)
             self.canvas.draw()
+
+            self.update_navMap()
 
 
     def on_release(self, event):

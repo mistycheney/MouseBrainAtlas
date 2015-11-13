@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Thu Nov 12 18:28:50 2015
+# Created: Thu Nov 12 21:39:59 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -111,6 +111,9 @@ class Ui_BrainLabelingGui(object):
         self.buttonSpOnOff = QtGui.QPushButton(self.displayOption_panel)
         self.buttonSpOnOff.setObjectName(_fromUtf8("buttonSpOnOff"))
         self.verticalLayout_3.addWidget(self.buttonSpOnOff)
+        self.button_labelsOnOff = QtGui.QPushButton(self.displayOption_panel)
+        self.button_labelsOnOff.setObjectName(_fromUtf8("button_labelsOnOff"))
+        self.verticalLayout_3.addWidget(self.button_labelsOnOff)
         spacerItem2 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem2)
         self.horizontalLayout.addWidget(self.displayOption_panel)
@@ -172,6 +175,7 @@ class Ui_BrainLabelingGui(object):
         self.textonmap_radioButton.setText(_translate("BrainLabelingGui", "textonmap", None))
         self.dirmap_radioButton.setText(_translate("BrainLabelingGui", "directionality", None))
         self.buttonSpOnOff.setText(_translate("BrainLabelingGui", "Turn Superpixels On", None))
+        self.button_labelsOnOff.setText(_translate("BrainLabelingGui", "Turn Labels Off", None))
         self.label.setText(_translate("BrainLabelingGui", "section #", None))
         self.button_autoDetect.setText(_translate("BrainLabelingGui", "Auto Detect", None))
         self.button_updateDB.setText(_translate("BrainLabelingGui", "Update DB", None))

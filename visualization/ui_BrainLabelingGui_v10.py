@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
 #
-# Created: Fri Nov 13 14:09:57 2015
+# Created: Fri Nov 13 14:53:04 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -138,6 +138,8 @@ class Ui_BrainLabelingGui(object):
         self.button_quit = QtGui.QPushButton(self.layoutWidget)
         self.button_quit.setObjectName(_fromUtf8("button_quit"))
         self.verticalLayout.addWidget(self.button_quit)
+        spacerItem3 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem3)
         self.bottom_panel.addLayout(self.verticalLayout)
         self.verticalLayout_4.addLayout(self.bottom_panel)
         self.gridLayout.addWidget(self.splitter, 0, 0, 1, 1)

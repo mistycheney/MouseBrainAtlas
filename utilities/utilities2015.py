@@ -195,14 +195,15 @@ class DataManager(object):
         self.params_dir = os.path.join(repo_dir, 'params')
 
         self.root_labelings_dir = labeling_dir
-        self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
+
+        # self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
     
-        if os.path.isfile(self.labelnames_path):
-            with open(self.labelnames_path, 'r') as f:
-                self.labelnames = [n.strip() for n in f.readlines()]
-                self.labelnames = [n for n in self.labelnames if len(n) > 0]
-        else:
-            self.labelnames = []
+        # if os.path.isfile(self.labelnames_path):
+        #     with open(self.labelnames_path, 'r') as f:
+        #         self.labelnames = [n.strip() for n in f.readlines()]
+        #         self.labelnames = [n for n in self.labelnames if len(n) > 0]
+        # else:
+        #     self.labelnames = []
 
         self.root_results_dir = result_dir
 
@@ -235,13 +236,19 @@ class DataManager(object):
 
         self._load_mask(create_mask=load_mask)
 
+    # def add_labels(self, labels):
+    #     labelnames = list(set(self.labelnames + labels))
 
-    def set_labelnames(self, labelnames):
-        self.labelnames = labelnames
+    #     with open(self.labelnames_path, 'w') as f:
+    #         for n in labelnames:
+    #             f.write('%s\n' % n)
 
-        with open(self.labelnames_path, 'w') as f:
-            for n in labelnames:
-                f.write('%s\n' % n)
+    # def set_labelnames(self, labelnames):
+    #     self.labelnames = labelnames
+
+    #     with open(self.labelnames_path, 'w') as f:
+    #         for n in labelnames:
+    #             f.write('%s\n' % n)
 
     def set_stack(self, stack):
         self.stack = stack
@@ -344,57 +351,129 @@ class DataManager(object):
         pp = Path(vertices)
         return np.where([pp.contains_point(s) for s in self.sp_centroids[:,::-1]])[0]
 
-    def load_multiple_results(self, results):
+
+    def download_result(self, result):
+        filename = self._get_result_filename(result, include_path=False)
+        cmd = "rsync -az yuncong@gcn-20-33.sdsc.edu:%(gordon_result_dir)s/%(stack)s/%(section)s/%(filename)s %(local_result_dir)s/%(stack)s/%(section)s/ " % {'gordon_result_dir':os.environ['GORDON_RESULT_DIR'],
+                                                                            'local_result_dir':os.environ['LOCAL_RESULT_DIR'],
+                                                                            'stack': self.stack,
+                                                                            'section': self.slice_str,
+                                                                            'filename': filename
+                                                                            }
+        os.system(cmd)
+
+
+    def download_results(self, results):
+        for result_name in results:
+            filename = self._get_result_filename(result_name, include_path=False)
+            cmd = "rsync -az yuncong@gcn-20-33.sdsc.edu:%(gordon_result_dir)s/%(stack)s/%(section)s/%(filename)s %(local_result_dir)s/%(stack)s/%(section)s/ " % {'gordon_result_dir':os.environ['GORDON_RESULT_DIR'],
+                                                                                'local_result_dir':os.environ['LOCAL_RESULT_DIR'],
+                                                                                'stack': self.stack,
+                                                                                'section': self.slice_str,
+                                                                                'filename': filename
+                                                                                }
+            # print cmd
+            os.system(cmd)
+
+    def load_multiple_results(self, results, download_if_not_exist=False):
 
         from networkx import from_dict_of_lists
 
+        if download_if_not_exist:
+            for r in results:
+                if not self.check_pipeline_result(r):
+                    self.download_result(r)
+
         if 'texHist' in results and not hasattr(self, 'texton_hists'):
+
             self.texton_hists = self.load_pipeline_result('texHist')
 
-        if 'segmentation' in results and  not hasattr(self, 'segmentation'):
+        if 'segmentation' in results and not hasattr(self, 'segmentation'):
             self.segmentation = self.load_pipeline_result('segmentation')
             self.n_superpixels = self.segmentation.max() + 1
         
         if 'texMap' in results and not hasattr(self, 'textonmap'):
+            # if self.check_pipeline_result('texMap'):
             self.textonmap = self.load_pipeline_result('texMap')
             self.n_texton = self.textonmap.max() + 1
+            # else:
+                # self.download_result('texMap')
+                # missing.append('texMap')
 
         if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            # if self.check_pipeline_result('spCentroids'):
             self.sp_centroids = self.load_pipeline_result('spCentroids')
+            # else:
+            #     self.download_result('spCentroids')
+                # missing.append('spCentroids')
 
         if 'spCoords' in results and not hasattr(self, 'sp_coords'):
-            self.sp_coords = self.load_pipeline_result('spCoords')            
+            # if self.check_pipeline_result('spCoords'):
+            self.sp_coords = self.load_pipeline_result('spCoords')
+            # except:
+            #     self.download_result('spCoords')
+            #     # missing.append('spCoords')
 
         if 'spAreas' in results and not hasattr(self, 'sp_areas'):
+            # try:
             self.sp_areas = self.load_pipeline_result('spAreas')
+            # except:
+            #     self.download_result('spAreas')
+            #     self.sp_areas = self.load_pipeline_result('spAreas')
+            #     # missing.append('spAreas')
 
         if 'edgeCoords' in results and not hasattr(self, 'edge_coords'):
+            # try:
             self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+            # except:
+            #     missing.append('edgeCoords')
 
         if 'edgeMidpoints' in results and not hasattr(self, 'edge_midpoints'):
-            self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))            
+            # try:
+            self.edge_midpoints = dict(self.load_pipeline_result('edgeMidpoints'))
+            # except:
+            #     missing.append('edgeMidpoints')
 
         if 'edgeEndpoints' in results and not hasattr(self, 'edge_endpoints'):
-            self.edge_endpoints = dict(self.load_pipeline_result('edgeEndpoints'))            
+            # try:
+            self.edge_endpoints = dict(self.load_pipeline_result('edgeEndpoints'))
+            # except:
+            #     missing.append('edgeEndpoints')
 
         if 'neighbors' in results and not  hasattr(self, 'neighbors'):
+            # try:
             self.neighbors = self.load_pipeline_result('neighbors')
             self.neighbor_graph = from_dict_of_lists(dict(enumerate(self.neighbors)))
             if not hasattr(self, 'edge_coords'):
+                # try:
                 self.edge_coords = dict(self.load_pipeline_result('edgeCoords'))
+                # except:
+                #     missing.append('edgeCoords')
+
             self.neighbors_long = dict([(s, set([n for n in nbrs if len(self.edge_coords[frozenset([s,n])]) > 10])) 
                        for s, nbrs in enumerate(self.neighbors)])
             self.neighbor_long_graph = from_dict_of_lists(self.neighbors_long)
+            # except:
+            #     missing.append('neighbors')
 
         if 'spCentroids' in results and not hasattr(self, 'sp_centroids'):
+            # try:
             self.sp_centroids = self.load_pipeline_result('spCentroids')
+            # except:
+                # missing.append('spCentroids')
         
         if 'edgeNeighbors' in results and not hasattr(self, 'edge_neighbors'):
+            # try:
             self.edge_neighbors = self.load_pipeline_result('edgeNeighbors')
+            # except:
+            #     missing.append('edgeNeighbors')
 
         if 'dedgeNeighbors' in results and not hasattr(self, 'dedge_neighbors'):
+            # try:
             self.dedge_neighbors = self.load_pipeline_result('dedgeNeighbors')
             self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
+            # except:
+            #     missing.append('dedgeNeighbors')
 
 
     def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
@@ -692,7 +771,9 @@ class DataManager(object):
                      num_sp_percentage_limit=0.05,
                      min_size=1, min_distance=3, thresh=.4,
                      threshold_abs=-0.05, threshold_rel=.4,
-                     peakedness_limit=0.001, method='rc-min'):
+                     peakedness_limit=0.001, method='rc-min',
+                     seed_dist_lim = 0.2,
+                     inter_sp_dist_lim=0.3):
 
         from networkx import from_dict_of_lists, Graph, adjacency_matrix, connected_components
 
@@ -766,7 +847,7 @@ class DataManager(object):
 
             cluster_avg = self.texton_hists[list(curr_cluster)].mean(axis=0)
 
-            if (len(curr_cluster) > 5 and (seed_dist > .2 or inter_sp_dist > .3)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
+            if (len(curr_cluster) > 5 and (seed_dist > seed_dist_lim or inter_sp_dist > inter_sp_dist_lim)) or (len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit)):
                 # if verbose:
                 if len(curr_cluster) > int(self.n_superpixels * num_sp_percentage_limit):
                     # if verbose:
@@ -1192,23 +1273,29 @@ class DataManager(object):
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 
+    def reload_labelings(self):
+        # if not hasattr(self, 'result_list'):
+        from collections import defaultdict
+
+        # self.result_list = defaultdict(lambda: defaultdict(list))
+        self.result_list = defaultdict(list)
+        for fn in os.listdir(self.labelings_dir):
+            st, se, us, ts, suf = fn[:-4].split('_')
+            # self.result_list[us][ts].append(suf)
+            self.result_list[us].append(ts)
+
     def load_proposal_review_result(self, username, timestamp, suffix):
 
         import datetime
 
         if not hasattr(self, 'result_list'):
-            from collections import defaultdict
-
-            self.result_list = defaultdict(lambda: defaultdict(list))
-            for fn in os.listdir(self.labelings_dir):
-                st, se, us, ts, suf = fn[:-4].split('_')
-                self.result_list[us][ts].append(suf)
+            self.reload_labelings()
 
         if len(self.result_list[username]) == 0:
-            return []
+            return None
 
         if timestamp == 'latest':
-            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username].keys()), reverse=True))
+            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
             timestamp = timestamps_sorted[0]
 
         if suffix == 'all':
@@ -1219,7 +1306,8 @@ class DataManager(object):
             return results
         else:
             path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
-            return pickle.load(path)
+            return (username, timestamp, suffix, pickle.load(path))
+
 
     def load_labeling(self, stack=None, section=None, labeling_name=None):
         labeling_fn = self._load_labeling_path(stack, section, labeling_name)
@@ -1314,21 +1402,40 @@ class DataManager(object):
     #                     cv2.FONT_HERSHEY_DUPLEX, .5, ((255,0,255)), 1)
 
 
+    def visualize_edge_set(self, edges, bg=None, show_edge_index=False, c=None, tight=False,
+                        ymin=None, xmin=None, ymax=None, xmax=None, linewidth=5):
+        
+        if tight:
+            self.load_multiple_results(['edgeCoords'])
+            cs = np.vstack(self.edge_coords[frozenset(e)] for e in edges)
+            tight_xmin, tight_ymin = cs.min(axis=0).astype(np.int) - 300
+            tight_xmax, tight_ymax = cs.max(axis=0).astype(np.int) + 300
 
-    def visualize_edge_set(self, edges, bg=None, show_edge_index=False, c=None):
-        
+        if ymin is None:
+            ymin = tight_ymin if tight else self.ymin
+        if xmin is None:
+            xmin = tight_xmin if tight else self.xmin
+        if ymax is None:
+            ymax = tight_ymax if tight else self.ymax
+        if xmax is None:
+            xmax = tight_xmax if tight else self.xmax
+
         import cv2
+
+        self.load_multiple_results(['edgeCoords', 'edgeMidpoints', 'dedgeVectors'])
         
-        if not hasattr(self, 'edge_coords'):
-            self.edge_coords = self.load_pipeline_result('edgeCoords')
+        # if not hasattr(self, 'edge_coords'):
+        #     self.edge_coords = self.load_pipeline_result('edgeCoords')
            
-        if not hasattr(self, 'edge_midpoints'):
-            self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
+        # if not hasattr(self, 'edge_midpoints'):
+        #     self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
             
-        if not hasattr(self, 'dedge_vectors'):
-            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
+        # if not hasattr(self, 'dedge_vectors'):
+        #     self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if bg == 'originalImage':
+            if not hasattr(self, 'image_rgb_jpg'):
+                self._load_image(versions=['rgb-jpg'])
             segmentation_viz = self.image_rgb_jpg
         elif bg == 'segmentationWithText':
             if not hasattr(self, 'segmentation_vis'):
@@ -1341,7 +1448,7 @@ class DataManager(object):
         else:
             segmentation_viz = bg
             
-        vis = img_as_ubyte(segmentation_viz[self.ymin:self.ymax+1, self.xmin:self.xmax+1])
+        vis = img_as_ubyte(segmentation_viz[ymin:ymax+1, xmin:xmax+1])
         
         directed = isinstance(list(edges)[0], tuple)
         
@@ -1354,11 +1461,11 @@ class DataManager(object):
                 e = frozenset(edge)
                 midpoint = self.edge_midpoints[e]
                 end = midpoint + 10 * self.dedge_vectors[edge]
-                cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
-                         tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
+                cv2.line(vis, tuple((midpoint-(xmin, ymin)).astype(np.int)), 
+                         tuple((end-(xmin, ymin)).astype(np.int)), 
                          (c[0],c[1],c[2]), 2)
 
-                cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                cv2.circle(vis, tuple((end-(xmin, ymin)).astype(np.int)), 3,
                          (c[0],c[1],c[2]), -1)
 
                 stroke_pts = self.edge_coords[e]
@@ -1366,20 +1473,30 @@ class DataManager(object):
                 stroke_pts = self.edge_coords[edge]
 
             for x, y in stroke_pts:
-                cv2.circle(vis, (x-self.xmin, y-self.ymin), 5, c, -1)
+                cv2.circle(vis, (x-xmin, y-ymin), linewidth, c, -1)
 
             if show_edge_index:
                 cv2.putText(vis, str(e_ind), 
-                            tuple(np.floor(midpoint + [-50, 30] - (self.xmin, self.ymin)).astype(np.int)), 
+                            tuple(np.floor(midpoint + [-50, 30] - (xmin, ymin)).astype(np.int)), 
                             cv2.FONT_HERSHEY_DUPLEX, 1, ((c[0],c[1],c[2])), 3)
         
         return vis
     
     
-    def visualize_edge_sets(self, edge_sets, bg='segmentationWithText', show_set_index=0, colors=None, neighbors=None, labels=None):
+    def visualize_edge_sets(self, edge_sets, bg='segmentationWithText', show_set_index=0, colors=None, neighbors=None, labels=None,
+                            ymin=None, xmin=None, ymax=None, xmax=None, linewidth=5):
         '''
         Return a visualization of multiple sets of edgelets
         '''
+
+        if ymin is None:
+            ymin = self.ymin
+        if xmin is None:
+            xmin = self.xmin
+        if ymax is None:
+            ymax = self.ymax
+        if xmax is None:
+            xmax = self.xmax
         
         import cv2
         
@@ -1413,7 +1530,7 @@ class DataManager(object):
         else:
             segmentation_viz = bg
             
-        vis = img_as_ubyte(segmentation_viz[self.ymin:self.ymax+1, self.xmin:self.xmax+1])
+        vis = img_as_ubyte(segmentation_viz[ymin:ymax+1, xmin:xmax+1])
             
         # if input are tuples, draw directional sign
         if len(edge_sets) == 0:
@@ -1438,18 +1555,18 @@ class DataManager(object):
                     e = frozenset(edge)
                     midpoint = self.edge_midpoints[e]
                     end = midpoint + 10 * self.dedge_vectors[edge]
-                    cv2.line(vis, tuple((midpoint-(self.xmin, self.ymin)).astype(np.int)), 
-                             tuple((end-(self.xmin, self.ymin)).astype(np.int)), 
+                    cv2.line(vis, tuple((midpoint-(xmin, ymin)).astype(np.int)), 
+                             tuple((end-(xmin, ymin)).astype(np.int)), 
                              (c[0],c[1],c[2]), 2)
 
-                    cv2.circle(vis, tuple((end-(self.xmin, self.ymin)).astype(np.int)), 3,
+                    cv2.circle(vis, tuple((end-(xmin, ymin)).astype(np.int)), 3,
                              (c[0],c[1],c[2]), -1)
                     stroke_pts = self.edge_coords[e]
                 else:
                     stroke_pts = self.edge_coords[edge]
                 
                 for x, y in stroke_pts:
-                    cv2.circle(vis, (x-self.xmin, y-self.ymin), 5, c, -1)
+                    cv2.circle(vis, (x-xmin, y-ymin), linewidth, c, -1)
 
                     # vis[max(0, y-5):min(self.image_height, y+5), 
                     #     max(0, x-5):min(self.image_width, x+5)] = (c[0],c[1],c[2],1) if vis.shape[2] == 4 else c
@@ -1471,7 +1588,7 @@ class DataManager(object):
                     centroid = np.mean([self.edge_midpoints[e] for e in edges], axis=0)
 
                 cv2.putText(vis, s, 
-                            tuple(np.floor(centroid + [-100, 100] - (self.xmin, self.ymin)).astype(np.int)), 
+                            tuple(np.floor(centroid + [-100, 100] - (xmin, ymin)).astype(np.int)), 
                             cv2.FONT_HERSHEY_DUPLEX,
                             3, ((c[0],c[1],c[2])), 3)
             
@@ -1492,16 +1609,22 @@ class DataManager(object):
 
 
     def visualize_cluster(self, cluster, bg='segmentationWithText', seq_text=False, highlight_seed=True,
-                         ymin=None, xmin=None, ymax=None, xmax=None):
+                         ymin=None, xmin=None, ymax=None, xmax=None, tight=False):
+
+        if tight:
+            self.load_multiple_results(['spCentroids'])
+            cs = self.sp_centroids[cluster]
+            tight_ymin, tight_xmin = cs.min(axis=0).astype(np.int) - 300
+            tight_ymax, tight_xmax = cs.max(axis=0).astype(np.int) + 300
 
         if ymin is None:
-            ymin=self.ymin
+            ymin = tight_ymin if tight else self.ymin
         if xmin is None:
-            xmin=self.xmin
+            xmin = tight_xmin if tight else self.xmin
         if ymax is None:
-            ymax=self.ymax
+            ymax = tight_ymax if tight else self.ymax
         if xmax is None:
-            xmax=self.xmax
+            xmax = tight_xmax if tight else self.xmax
         
         if not hasattr(self, 'sp_coords'):
             self.sp_coords = self.load_pipeline_result('spCoords')
@@ -1560,7 +1683,6 @@ class DataManager(object):
                                     ymin=None, xmin=None, ymax=None, xmax=None,
                                     labels=None):
         
-
         if ymin is None:
             ymin = self.ymin
         if xmin is None:
@@ -1570,8 +1692,7 @@ class DataManager(object):
         if xmax is None:
             xmax = self.xmax
 
-        if not hasattr(self, 'segmentation'):
-            self.segmentation = self.load_pipeline_result('segmentation')
+        self.load_multiple_results(['segmentation'])
 
         if len(clusters) == 0:
             return segmentation_vis
@@ -1645,6 +1766,58 @@ class DataManager(object):
                                       cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
         
         return vis.copy()
+
+
+    def vertices_from_dedges(self, dedges, sparsify=True):
+
+        self.load_multiple_results(['edgeMidpoints', 'edgeEndpoints'])
+
+        vertices = []
+        for de_ind, de in enumerate(dedges):
+            midpt = self.edge_midpoints[frozenset(de)]
+            endpts = self.edge_endpoints[frozenset(de)]
+            endpts_next_dedge = self.edge_endpoints[frozenset(dedges[(de_ind+1)%len(dedges)])]
+
+            dij = cdist([endpts[0], endpts[-1]], [endpts_next_dedge[0], endpts_next_dedge[-1]])
+            i,j = np.unravel_index(np.argmin(dij), (2,2))
+            if i == 0:
+                vertices += [endpts[-1], midpt, endpts[0]]
+            else:
+                vertices += [endpts[0], midpt, endpts[-1]]
+    
+        if sparsify:
+            # keep only vertices that are far enough apart
+            vertices = np.array(vertices)
+            distance_to_next_point = np.sqrt(np.sum(np.r_[vertices[1:] - vertices[:-1], [vertices[0] - vertices[-1]]]**2, axis=1))
+            vertices = vertices[distance_to_next_point > 20]
+            vertices = vertices.tolist()
+
+        return vertices
+
+
+def fit_ellipse_to_points(pts):
+
+    pts = np.array(list(pts) if isinstance(pts, set) else pts)
+
+    c0 = pts.mean(axis=0)
+
+    coords0 = pts - c0
+
+    U,S,V = np.linalg.svd(np.dot(coords0.T, coords0)/coords0.shape[0])
+    v1 = U[:,0]
+    v2 = U[:,1]
+    s1 = np.sqrt(S[0])
+    s2 = np.sqrt(S[1])
+
+    return v1, v2, s1, s2, c0
+
+
+def scores_to_vote(scores):
+    vals = np.unique(scores)
+    d = dict(zip(vals, np.linspace(0, 1, len(vals))))
+    votes = np.array([d[s] for s in scores])
+    votes = votes/votes.sum()
+    return votes
 
 
 def display(vis, filename='tmp.jpg'):

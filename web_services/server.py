@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
@@ -35,42 +35,39 @@ from utilities2015 import *
 from enum import Enum
 
 class ProposalType(Enum):
-    GLOBAL = 'global'
-    LOCAL = 'local'
-    FREEFORM = 'freeform'
-    
+	GLOBAL = 'global'
+	LOCAL = 'local'
+	FREEFORM = 'freeform'
+	ALGORITHM = 'algorithm'
+	
 class PolygonType(Enum):
-    CLOSED = 'closed'
-    OPEN = 'open'
-    TEXTURE = 'textured'
-    TEXTURE_WITH_CONTOUR = 'texture with contour'
-    DIRECTION = 'directionality'
+	CLOSED = 'closed'
+	OPEN = 'open'
+	TEXTURE = 'textured'
+	TEXTURE_WITH_CONTOUR = 'texture with contour'
+	DIRECTION = 'directionality'
 
-dms = dict([(sc, DataManager(stack='MD593', section=sc, segm_params_id='tSLIC200', load_mask=False)) 
-            for sc in range(60, 151)])
+label_examples = None
+label_polygon = None
+label_position = None
+label_texture = None
+
+dms = dict([(sc, DataManager(stack='MD594', section=sc, segm_params_id='tSLIC200', load_mask=False)) 
+			for sc in range(47, 185)])
 
 for dm in dms.itervalues():
-    dm.load_multiple_results(['texHist', 'spCentroids', 'edgeMidpoints', 'edgeEndpoints'])
-
-label_examples = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_examples.pkl', 'r'))
-label_position = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_position.pkl', 'r'))
-label_polygon = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_polygon.pkl', 'r'))
-label_texture = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_texture.pkl', 'r'))
+	dm.load_multiple_results(['texHist', 'spCentroids', 'edgeMidpoints', 'edgeEndpoints'])
 
 def grow_cluster_section(sec, *args, **kwargs):
     return dms[sec].grow_cluster(*args, **kwargs)
 
 def grow_clusters_from_sps(sec, sps):
     
-    expansion_clusters_tuples = Parallel(n_jobs=16)(delayed(grow_cluster_section)(sec, s, verbose=False, all_history=False, 
-                                                                         seed_weight=0,
-                                                                        num_sp_percentage_limit=0.05,
-                                                                     min_size=1, min_distance=2,
-                                                                        threshold_abs=-0.1,
-                                                                        threshold_rel=0.02,
-                                                                       peakedness_limit=.002,
-                                                                       method='rc-mean')
-                                    for s in sps)
+    expansion_clusters_tuples = Parallel(n_jobs=16)\
+    (delayed(grow_cluster_section)(sec, s, verbose=False, all_history=False, seed_weight=0,\
+                                   num_sp_percentage_limit=0.05, min_size=1, min_distance=2, threshold_abs=-0.1,
+                                   threshold_rel=0.02, peakedness_limit=.002, method='rc-mean',
+                                   seed_dist_lim = 0.2, inter_sp_dist_lim=1.) for s in sps)
 
     all_seed_cluster_score_tuples = [(seed, cl, sig) for seed, peaks in enumerate(expansion_clusters_tuples) 
                                      for cl, sig in zip(*peaks)]
@@ -89,15 +86,15 @@ def grow_clusters_from_sps(sec, sps):
     return all_unique_tuples
 
 def compute_cluster_coherence_score(sec, cluster, verbose=False):
-    
-    if len(cluster) > 1:
-        cluster_avg = dms[sec].texton_hists[cluster].mean(axis=0)
-        ds = np.squeeze(chi2s([cluster_avg], dms[sec].texton_hists[list(cluster)]))
-        var = ds.mean()
-    else:
-        var = 0
-    
-    return var
+	
+	if len(cluster) > 1:
+		cluster_avg = dms[sec].texton_hists[cluster].mean(axis=0)
+		ds = np.squeeze(chi2s([cluster_avg], dms[sec].texton_hists[list(cluster)]))
+		var = ds.mean()
+	else:
+		var = 0
+	
+	return var
 
 
 coherence_limit = .25
@@ -108,67 +105,37 @@ bg_texton_percentage = .2
 significance_limit = 0.05
 consensus_limit = -20
 
-def scores_to_vote(scores):
-    vals = np.unique(scores)
-    d = dict(zip(vals, np.linspace(0, 1, len(vals))))
-    votes = np.array([d[s] for s in scores])
-    votes = votes/votes.sum()
-    return votes
 
-
-def filter_clusters(sec, all_unique_tuples, label, sec2):
+def sort_clusters(sec, all_unique_tuples, label, sec2):
     
     dm = dms[sec]
     
-    all_unique_seeds, all_unique_clusters, all_unique_cluster_scores = zip(*all_unique_tuples)
+    seeds, clusters, sigs = zip(*all_unique_tuples)
     
-    all_cluster_sigs = np.array(all_unique_cluster_scores)
-    all_cluster_coherences = np.array([compute_cluster_coherence_score(sec, cl) for cl in all_unique_clusters])
-    all_cluster_hists = [dm.texton_hists[cl].mean(axis=0) for cl in all_unique_clusters]
-    all_cluster_entropy = np.nan_to_num([-np.sum(hist[hist!=0]*np.log(hist[hist!=0])) for hist in all_cluster_hists])
-
-    all_cluster_centroids = np.array([dm.sp_centroids[cl, ::-1].mean(axis=0) for cl in all_unique_clusters])
-
-    dm.load_multiple_results(['spAreas'])
-    all_cluster_area = np.array([dm.sp_areas[cl].sum() for cl in all_unique_clusters])
+#     props = compute_proposal_properties(all_unique_tuples, sec)  
+#     cluster_areas = map(attrgetter('area'), props)
+#     cluster_centers = map(attrgetter('centroid'), props)
     
-    remaining_cluster_indices = [i for i, (cl, coh, sig, ent, cent, area, hist) in enumerate(zip(all_unique_clusters, 
-                                                                                      all_cluster_coherences, 
-                                                                                      all_cluster_sigs,
-                                                                                      all_cluster_entropy,
-                                                                                      all_cluster_centroids,
-                                                                                      all_cluster_area,
-                                                                                    all_cluster_hists)) 
-            if coh < coherence_limit and sig > significance_limit and \
-                area > area_limit and \
-             ((ent > 1.5 and hist[bg_texton] < bg_texton_percentage) or \
-              (cent[0] - dm.xmin > 800 and \
-               dm.xmax - cent[0] > 800 and \
-               cent[1] - dm.ymin > 800 and \
-               dm.ymax - cent[1] > 800)
-             )]
-    
-    print '%d unique clusters, %d remaining clusters' % (len(all_unique_clusters), len(remaining_cluster_indices))
-    
-    all_remaining_clusters = [all_unique_clusters[i] for i in remaining_cluster_indices]
-
-    tex_dists = cdist([label_texture[label]], [all_cluster_hists[i] for i in remaining_cluster_indices], chi2)[0]
+    tex_dists = chi2s(label_texture[label], [dm.texton_hists[sps].mean(axis=0) for sps in clusters])
     
 #     remaining_cluster_indices_sortedByTexture = [remaining_cluster_indices[j] for j in np.argsort(tex_dists)]
       
-    polygons = [Polygon(vertices_from_dedges(sec, dm.find_boundary_dedges_ordered(cl))) for cl in all_remaining_clusters]
+    polygons = [Polygon(dm.vertices_from_dedges(dm.find_boundary_dedges_ordered(cl))) 
+                for cl in clusters]
 
     polygon_overlaps = []
     for p in polygons:
         try:
-            polygon_overlaps.append(label_polygon[label][sec2].intersection(p).area)
+#             polygon_overlaps.append(label_polygon[label][sec2].intersection(p).area)
+            polygon_overlaps.append(float(label_polygon[label][sec2].intersection(p).area)/label_polygon[label][sec2].union(p).area)
         except:
+#             print list(p.exterior.coords)
             polygon_overlaps.append(0)
     
 #     rank = np.argsort(.3*scores_to_vote(polygon_overlaps) + .7*scores_to_vote(-tex_dists))[::-1]
-    rank = np.argsort(.1*scores_to_vote(polygon_overlaps) + .9*scores_to_vote(-tex_dists))[::-1]
+    rank = np.argsort(.5*scores_to_vote(polygon_overlaps) + .5*scores_to_vote(-tex_dists))[::-1]
 
-    all_remaining_clusters_sorted = [all_unique_clusters[i] for i in rank]
+    all_remaining_clusters_sorted = [clusters[i] for i in rank]
 
 #     remaining_cluster_indices_sortedByOverlap = [remaining_cluster_indices[j] for j in np.argsort(polygon_overlaps)[::-1]]
     
@@ -180,33 +147,103 @@ def filter_clusters(sec, all_unique_tuples, label, sec2):
 #     return all_remaining_clusters_sortedByOverlap
     return all_remaining_clusters_sorted
 
-
-def vertices_from_dedges(sec, dedges):
-
-    vertices = []
-    for de_ind, de in enumerate(dedges):
-        midpt = dms[sec].edge_midpoints[frozenset(de)]
-        endpts = dms[sec].edge_endpoints[frozenset(de)]
-        endpts_next_dedge = dms[sec].edge_endpoints[frozenset(dedges[(de_ind+1)%len(dedges)])]
-
-        dij = cdist([endpts[0], endpts[-1]], [endpts_next_dedge[0], endpts_next_dedge[-1]])
-        i,j = np.unravel_index(np.argmin(dij), (2,2))
-        if i == 0:
-            vertices += [endpts[-1], midpt, endpts[0]]
-        else:
-            vertices += [endpts[0], midpt, endpts[-1]]
-        
-    return vertices
-
 @app.route('/')
 def index():
-    return "Brainstem"
+	return "Brainstem"
 
-from flask import request
+
+@app.route('/update_db')
+def update_db():
+
+	label_examples = defaultdict(list) # cluster, dedges, sig, stack, sec, proposal_type, labeling username, timestamp
+
+	for sec, dm in dms.iteritems():
+		
+		dm.reload_labelings()
+		res = dm.load_proposal_review_result('yuncong', 'latest', 'consolidated')
+		
+		if res is None:
+			continue
+			
+		usr, ts, suffix, result = res
+		
+		for props in result:
+			if props['type'] == ProposalType.FREEFORM:
+				pp = Path(props['vertices'])
+				cl = np.where([pp.contains_point(s) for s in dm.sp_centroids[:, ::-1]])[0]
+				de = dm.find_boundary_dedges_ordered(cl)
+				sig = dm.compute_cluster_score(cl, method='rc-mean')[0]
+				label_examples[props['label']].append((cl, de, sig, dm.stack, dm.slice_ind, ProposalType.FREEFORM, usr, ts))            
+			else:
+				label_examples[props['label']].append((props['sps'], props['dedges'], props['sig'], 
+										  dm.stack, dm.slice_ind, props['type'], usr, ts))
+
+	label_examples.default_factory = None
+
+	label_texture = {}
+
+	for label, proposals in label_examples.iteritems():
+		w = []
+		for prop in proposals:
+			cluster, dedges, sig, stack, sec, proposal_type, username, timestamp = prop
+			w.append(dms[sec].texton_hists[cluster].mean(axis=0))
+			
+		label_texture[label] = np.mean(w, axis=0)
+
+
+	label_position = defaultdict(lambda: {})
+
+	for label, proposals in label_examples.iteritems():
+
+		for prop in proposals:
+			cluster, dedges, sig, stack, sec, proposal_type, username, timestamp = prop
+			
+			dms[sec].load_multiple_results(['spCoords'])
+			
+			pts = np.vstack([ dms[sec].sp_coords[sp][:, ::-1] for sp in cluster])
+			ell = fit_ellipse_to_points(pts)
+			label_position[label][sec] = ell
+			
+	label_position.default_factory=None
+
+	from shapely.geometry import Polygon
+
+	label_polygon = defaultdict(lambda: {})
+
+	for label, proposals in label_examples.iteritems():
+
+		for prop in proposals:
+			cluster, dedges, sig, stack, sec, proposal_type, username, timestamp = prop
+			vs = vertices_from_dedges(sec, dedges)
+			polygon = Polygon(vs)
+			label_polygon[label][sec] = polygon
+			
+	#         pts = np.vstack([ dms[sec].sp_coords[sp][:, ::-1] for sp in cluster])
+	#         label_coords[label][sec] = pts
+
+	label_polygon.default_factory=None
+
+	pickle.dump(label_examples, open(os.environ['GORDON_RESULT_DIR']+'/database/label_examples.pkl', 'w'))
+	pickle.dump(label_position, open(os.environ['GORDON_RESULT_DIR']+'/database/label_position.pkl', 'w'))
+	pickle.dump(label_polygon, open(os.environ['GORDON_RESULT_DIR']+'/database/label_polygon.pkl', 'w'))
+	pickle.dump(label_texture, open(os.environ['GORDON_RESULT_DIR']+'/database/label_texture.pkl', 'w'))
+
+	d = {'result': 0}
+	return jsonify(**d)
 
 # @app.route('/top_down_detect/<labels>')
 @app.route('/top_down_detect')
 def top_down_detect():
+
+	global label_examples
+	global label_position
+	global label_polygon
+	global label_texture
+
+	label_examples = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_examples.pkl', 'r'))
+	label_position = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_position.pkl', 'r'))
+	label_polygon = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_polygon.pkl', 'r'))
+	label_texture = pickle.load(open(os.environ['GORDON_RESULT_DIR']+'/database/label_texture.pkl', 'r'))
 
 	labels = request.args.getlist('labels')
 	section = request.args.get('section', type=int)
@@ -218,11 +255,17 @@ def top_down_detect():
 	for label in labels:
 
 		ks = np.array(label_position[label].keys())
+		ds = ks - section
 
-		closest_labeled_section = ks[np.argmin(np.abs(ks-section))]
-		print 'closest_labeled_section %d' % closest_labeled_section
+		next_labeled_section = ks[ds >= 0][0]
+		prev_labeled_section = ks[ds <= 0][0]
 
-		v1,v2,s1,s2,c0 = label_position[label][closest_labeled_section]
+		print 'prev_labeled_section', prev_labeled_section, 'next_labeled_section', next_labeled_section
+
+		if abs(section - prev_labeled_section) < abs(section - next_labeled_section):
+		    v1,v2,s1,s2,c0 = label_position[label][prev_labeled_section]
+		else:
+		    v1,v2,s1,s2,c0 = label_position[label][next_labeled_section]
 
 		# v1,v2,s1,s2,c0 = label_position['pontine']
 
@@ -234,9 +277,13 @@ def top_down_detect():
 		print '%d sps to look at\n' % len(sps)
 
 		all_unique_tuples = grow_clusters_from_sps(section, sps)
-		all_remaining_clusters_sorted = filter_clusters(section, all_unique_tuples, label, closest_labeled_section)
 
-		best_sps = all_remaining_clusters_sorted[0]
+		if abs(section - prev_labeled_section) < abs(section - next_labeled_section):
+		    clusters_sorted = sort_clusters(section, all_unique_tuples, label, prev_labeled_section)
+		else:
+		    clusters_sorted = sort_clusters(section, all_unique_tuples, label, next_labeled_section)
+
+		best_sps = clusters_sorted[0]
 		best_dedges = dms[section].find_boundary_dedges_ordered(best_sps)
 		best_sig = np.nan
 
@@ -245,4 +292,4 @@ def top_down_detect():
 	return jsonify(**d)	
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', use_reloader=False)
+	app.run(debug=True, host='0.0.0.0', use_reloader=False)

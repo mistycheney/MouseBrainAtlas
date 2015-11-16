@@ -25,7 +25,8 @@ from scipy.spatial.distance import cdist
 
 dm = DataManager(gabor_params_id=args.gabor_params_id, 
                  stack=args.stack_name, 
-                 section=args.slice_ind)
+                 section=args.slice_ind,
+                 result_dir='/scratch/yuncong/CSHL_data_results')
 
 #==================================================
 

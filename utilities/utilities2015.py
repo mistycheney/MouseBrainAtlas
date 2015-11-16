@@ -195,14 +195,15 @@ class DataManager(object):
         self.params_dir = os.path.join(repo_dir, 'params')
 
         self.root_labelings_dir = labeling_dir
-        self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
+
+        # self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
     
-        if os.path.isfile(self.labelnames_path):
-            with open(self.labelnames_path, 'r') as f:
-                self.labelnames = [n.strip() for n in f.readlines()]
-                self.labelnames = [n for n in self.labelnames if len(n) > 0]
-        else:
-            self.labelnames = []
+        # if os.path.isfile(self.labelnames_path):
+        #     with open(self.labelnames_path, 'r') as f:
+        #         self.labelnames = [n.strip() for n in f.readlines()]
+        #         self.labelnames = [n for n in self.labelnames if len(n) > 0]
+        # else:
+        #     self.labelnames = []
 
         self.root_results_dir = result_dir
 
@@ -235,20 +236,19 @@ class DataManager(object):
 
         self._load_mask(create_mask=load_mask)
 
+    # def add_labels(self, labels):
+    #     labelnames = list(set(self.labelnames + labels))
 
-    def add_labels(self, labels):
-        labelnames = list(set(self.labelnames + labels))
+    #     with open(self.labelnames_path, 'w') as f:
+    #         for n in labelnames:
+    #             f.write('%s\n' % n)
 
-        with open(self.labelnames_path, 'w') as f:
-            for n in labelnames:
-                f.write('%s\n' % n)
+    # def set_labelnames(self, labelnames):
+    #     self.labelnames = labelnames
 
-    def set_labelnames(self, labelnames):
-        self.labelnames = labelnames
-
-        with open(self.labelnames_path, 'w') as f:
-            for n in labelnames:
-                f.write('%s\n' % n)
+    #     with open(self.labelnames_path, 'w') as f:
+    #         for n in labelnames:
+    #             f.write('%s\n' % n)
 
     def set_stack(self, stack):
         self.stack = stack
@@ -1271,19 +1271,23 @@ class DataManager(object):
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 
+    def reload_labelings(self):
+        # if not hasattr(self, 'result_list'):
+        from collections import defaultdict
+
+        # self.result_list = defaultdict(lambda: defaultdict(list))
+        self.result_list = defaultdict(list)
+        for fn in os.listdir(self.labelings_dir):
+            st, se, us, ts, suf = fn[:-4].split('_')
+            # self.result_list[us][ts].append(suf)
+            self.result_list[us].append(ts)
+
     def load_proposal_review_result(self, username, timestamp, suffix):
 
         import datetime
 
         if not hasattr(self, 'result_list'):
-            from collections import defaultdict
-
-            # self.result_list = defaultdict(lambda: defaultdict(list))
-            self.result_list = defaultdict(list)
-            for fn in os.listdir(self.labelings_dir):
-                st, se, us, ts, suf = fn[:-4].split('_')
-                # self.result_list[us][ts].append(suf)
-                self.result_list[us].append(ts)
+            self.reload_labelings()
 
         if len(self.result_list[username]) == 0:
             return None
@@ -1574,16 +1578,22 @@ class DataManager(object):
 
 
     def visualize_cluster(self, cluster, bg='segmentationWithText', seq_text=False, highlight_seed=True,
-                         ymin=None, xmin=None, ymax=None, xmax=None):
+                         ymin=None, xmin=None, ymax=None, xmax=None, tight=False):
+
+        if tight:
+            self.load_multiple_results(['spCentroids'])
+            cs = self.sp_centroids[cluster]
+            tight_ymin, tight_xmin = cs.min(axis=0).astype(np.int) - 300
+            tight_ymax, tight_xmax = cs.max(axis=0).astype(np.int) + 300
 
         if ymin is None:
-            ymin=self.ymin
+            ymin = tight_ymin if tight else self.ymin
         if xmin is None:
-            xmin=self.xmin
+            xmin = tight_xmin if tight else self.xmin
         if ymax is None:
-            ymax=self.ymax
+            ymax = tight_ymax if tight else self.ymax
         if xmax is None:
-            xmax=self.xmax
+            xmax = tight_xmax if tight else self.xmax
         
         if not hasattr(self, 'sp_coords'):
             self.sp_coords = self.load_pipeline_result('spCoords')
@@ -1727,6 +1737,40 @@ class DataManager(object):
                                       cv2.FONT_HERSHEY_DUPLEX, 1., (0,0,0), 1)
         
         return vis.copy()
+
+
+    def vertices_from_dedges(self, dedges, sparsify=True):
+
+        self.load_multiple_results(['edgeMidpoints'])
+
+        vertices = []
+        for de_ind, de in enumerate(dedges):
+            midpt = self.edge_midpoints[frozenset(de)]
+            endpts = self.edge_endpoints[frozenset(de)]
+            endpts_next_dedge = self.edge_endpoints[frozenset(dedges[(de_ind+1)%len(dedges)])]
+
+            dij = cdist([endpts[0], endpts[-1]], [endpts_next_dedge[0], endpts_next_dedge[-1]])
+            i,j = np.unravel_index(np.argmin(dij), (2,2))
+            if i == 0:
+                vertices += [endpts[-1], midpt, endpts[0]]
+            else:
+                vertices += [endpts[0], midpt, endpts[-1]]
+    
+        if sparsify:
+            # keep only vertices that are far enough apart
+            vertices = np.array(vertices)
+            distance_to_next_point = np.sqrt(np.sum(np.r_[vertices[1:] - vertices[:-1], [vertices[0] - vertices[-1]]]**2, axis=1))
+            vertices = vertices[distance_to_next_point > 20]
+            vertices = vertices.tolist()
+
+        return vertices
+
+def scores_to_vote(scores):
+    vals = np.unique(scores)
+    d = dict(zip(vals, np.linspace(0, 1, len(vals))))
+    votes = np.array([d[s] for s in scores])
+    votes = votes/votes.sum()
+    return votes
 
 
 def display(vis, filename='tmp.jpg'):

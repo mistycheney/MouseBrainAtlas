@@ -1794,7 +1794,6 @@ class DataManager(object):
 
         return vertices
 
-
 def fit_ellipse_to_points(pts):
 
     pts = np.array(list(pts) if isinstance(pts, set) else pts)

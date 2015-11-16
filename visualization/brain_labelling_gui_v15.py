@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+import sip
+sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
+
 import sys
 import os
 import datetime
@@ -14,28 +17,29 @@ from operator import itemgetter
 
 import numpy as np
 
-from matplotlib.backend_bases import key_press_handler
+from matplotlib.backend_bases import key_press_handler, MouseEvent, KeyEvent
 from matplotlib.backends.backend_qt4agg import (
-	FigureCanvasQTAgg as FigureCanvas,
-	NavigationToolbar2QT as NavigationToolbar)
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.backends import qt4_compat
+
 use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
 if use_pyside:
-	#print 'Using PySide'
-	from PySide.QtCore import *
-	from PySide.QtGui import *
+    #print 'Using PySide'
+    from PySide.QtCore import *
+    from PySide.QtGui import *
 else:
-	#print 'Using PyQt4'
-	from PyQt4.QtCore import *
-	from PyQt4.QtGui import *
+    #print 'Using PyQt4'
+    from PyQt4.QtCore import *
+    from PyQt4.QtGui import *
 
 from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import Rectangle, Polygon, PathPatch
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+from matplotlib.text import Text
 
 from skimage.color import label2rgb
 
@@ -46,19 +50,19 @@ from utilities2015 import *
 
 from collections import defaultdict
 
-IGNORE_EXISTING_LABELNAMES = False
+import requests
 
 from enum import Enum
 class Mode(Enum):
     PLACING_VERTICES = 'placing vertices'
-    POLYGON_SELECTED = 'polygon selected'
+    # POLYGON_SELECTED = 'polygon selected'
     REVIEW_PROPOSAL = 'review proposal'
 
 class ProposalType(Enum):
-	GLOBAL = 'global'
-	LOCAL = 'local'
-	FREEFORM = 'freeform'
-	ALGORITHM = 'algorithm'
+    GLOBAL = 'global'
+    LOCAL = 'local'
+    FREEFORM = 'freeform'
+    ALGORITHM = 'algorithm'
 
 class PolygonType(Enum):
     CLOSED = 'closed'
@@ -67,1262 +71,1447 @@ class PolygonType(Enum):
     TEXTURE_WITH_CONTOUR = 'texture with contour'
     DIRECTION = 'directionality'
 
+SELECTED_POLYGON_LINEWIDTH = 5
+UNSELECTED_POLYGON_LINEWIDTH = 3
+SELECTED_CIRCLE_SIZE = 30
+UNSELECTED_CIRCLE_SIZE = 5
+CIRCLE_PICK_THRESH = 1000.
 
 class ListSelection(QDialog):
-	def __init__(self, item_ls, parent=None):
-		super(ListSelection, self).__init__(parent)
+    def __init__(self, item_ls, parent=None):
+        super(ListSelection, self).__init__(parent)
 
-		self.setWindowTitle('Detect which landmarks ?')
+        self.setWindowTitle('Detect which landmarks ?')
 
-		self.selected = set([])
+        self.selected = set([])
 
-		self.listWidget = QListWidget()
-		for item in item_ls:	
-			w_item = QListWidgetItem(item)
-			self.listWidget.addItem(w_item)
+        self.listWidget = QListWidget()
+        for item in item_ls:    
+            w_item = QListWidgetItem(item)
+            self.listWidget.addItem(w_item)
 
-			w_item.setFlags(w_item.flags() | Qt.ItemIsUserCheckable)
-			w_item.setCheckState(False)
+            w_item.setFlags(w_item.flags() | Qt.ItemIsUserCheckable)
+            w_item.setCheckState(False)
 
-		self.listWidget.itemChanged.connect(self.OnSingleClick)
+        self.listWidget.itemChanged.connect(self.OnSingleClick)
 
-		layout = QGridLayout()
-		layout.addWidget(self.listWidget,0,0,1,3)
+        layout = QGridLayout()
+        layout.addWidget(self.listWidget,0,0,1,3)
 
-		self.but_ok = QPushButton("OK")
-		layout.addWidget(self.but_ok ,1,1)
-		self.but_ok.clicked.connect(self.OnOk)
+        self.but_ok = QPushButton("OK")
+        layout.addWidget(self.but_ok ,1,1)
+        self.but_ok.clicked.connect(self.OnOk)
 
-		self.but_cancel = QPushButton("Cancel")
-		layout.addWidget(self.but_cancel ,1,2)
-		self.but_cancel.clicked.connect(self.OnCancel)
+        self.but_cancel = QPushButton("Cancel")
+        layout.addWidget(self.but_cancel ,1,2)
+        self.but_cancel.clicked.connect(self.OnCancel)
 
-		self.setLayout(layout)
-		self.setGeometry(300, 200, 460, 350)
+        self.setLayout(layout)
+        self.setGeometry(300, 200, 460, 350)
 
-	def OnSingleClick(self, item):
-		if not item.checkState():
-		# 	item.setCheckState(False)
-			self.selected = self.selected - {str(item.text())}
-		# 	print self.selected
-		else:
-		# 	item.setCheckState(True)
-			self.selected.add(str(item.text()))
+    def OnSingleClick(self, item):
+        if not item.checkState():
+        #   item.setCheckState(False)
+            self.selected = self.selected - {str(item.text())}
+        #   print self.selected
+        else:
+        #   item.setCheckState(True)
+            self.selected.add(str(item.text()))
 
-		print self.selected
+        print self.selected
+
+    def OnOk(self):
+        self.close()
+
+    def OnCancel(self):
+        self.selected = set([])
+        self.close()
 
 
-	def OnOk(self):
-		self.close()
+class CustomQCompleter(QCompleter):
+    # adapted from http://stackoverflow.com/a/26440173
+    def __init__(self, *args):#parent=None):
+        super(CustomQCompleter, self).__init__(*args)
+        self.local_completion_prefix = ""
+        self.source_model = None
+        self.filterProxyModel = QSortFilterProxyModel(self)
+        self.usingOriginalModel = False
 
-	def OnCancel(self):
-		self.selected = set([])
-		self.close()
+    def setModel(self, model):
+        self.source_model = model
+        self.filterProxyModel = QSortFilterProxyModel(self)
+        self.filterProxyModel.setSourceModel(self.source_model)
+        super(CustomQCompleter, self).setModel(self.filterProxyModel)
+        self.usingOriginalModel = True
 
+    def updateModel(self):
+        if not self.usingOriginalModel:
+            self.filterProxyModel.setSourceModel(self.source_model)
 
+        pattern = QRegExp(self.local_completion_prefix,
+                                Qt.CaseInsensitive,
+                                QRegExp.FixedString)
+
+        self.filterProxyModel.setFilterRegExp(pattern)
+
+    def splitPath(self, path):
+        self.local_completion_prefix = path
+        self.updateModel()
+        if self.filterProxyModel.rowCount() == 0:
+            self.usingOriginalModel = False
+            self.filterProxyModel.setSourceModel(QStringListModel([path]))
+            return [path]
+
+        return []
+
+class AutoCompleteComboBox(QComboBox):
+    # adapted from http://stackoverflow.com/a/26440173
+    def __init__(self, labels, *args, **kwargs):
+        super(AutoCompleteComboBox, self).__init__(*args, **kwargs)
+
+        self.setEditable(True)
+        self.setInsertPolicy(self.NoInsert)
+
+        self.comp = CustomQCompleter(self)
+        self.comp.setCompletionMode(QCompleter.PopupCompletion)
+        self.setCompleter(self.comp)#
+        self.setModel(labels)
+
+    def setModel(self, strList):
+        self.clear()
+        self.insertItems(0, strList)
+        self.comp.setModel(self.model())
+
+    def focusInEvent(self, event):
+        self.clearEditText()
+        super(AutoCompleteComboBox, self).focusInEvent(event)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == 16777220:
+            # Enter (if event.key() == QtCore.Qt.Key_Enter) does not work
+            # for some reason
+
+            # make sure that the completer does not set the
+            # currentText of the combobox to "" when pressing enter
+            text = self.currentText()
+            self.setCompleter(None)
+            self.setEditText(text)
+            self.setCompleter(self.comp)
+
+        return super(AutoCompleteComboBox, self).keyPressEvent(event)
+
+class AutoCompleteInputDialog(QDialog):
+
+    def __init__(self, labels, *args, **kwargs):
+        super(AutoCompleteInputDialog, self).__init__(*args, **kwargs)
+        self.comboBox = AutoCompleteComboBox(parent=self, labels=labels)
+        va = QVBoxLayout(self)
+        va.addWidget(self.comboBox)
+        box = QWidget(self)
+        ha = QHBoxLayout(self)
+        va.addWidget(box)
+        box.setLayout(ha)
+        self.OK = QPushButton("OK", self)
+        self.OK.setDefault(True)
+        # cancel = QPushButton("Cancel", self)
+        ha.addWidget(self.OK)
+        # ha.addWidget(cancel)
+
+    def set_test_callback(self, callback):
+        self.OK.clicked.connect(callback)
+        # OK.clicked.connect(self.accept)
+        # cancel.clicked.connect(self.reject)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
-	# def __init__(self, parent=None, parent_labeling_name=None, stack=None, section=None):
-	def __init__(self, parent=None, stack=None, section=None):
-		"""
-		Initialization of BrainLabelingGUI.
-		"""
+    def __init__(self, parent=None, stack=None):
+        """
+        Initialization of BrainLabelingGUI.
+        """
 
-		self.params_dir = '../params'
+        self.params_dir = '../params'
 
-		# self.app = QApplication(sys.argv)
-		QMainWindow.__init__(self, parent)
+        # self.app = QApplication(sys.argv)
+        QMainWindow.__init__(self, parent)
 
-		# self.parent_labeling_name = parent_labeling_name
+        # self.init_data(stack)
+        self.stack = stack
+        self.initialize_brain_labeling_gui()
 
-		self.init_data(stack, section)
-		self.initialize_brain_labeling_gui()
+        from collections import OrderedDict
+        
+        self.structure_names = {}
+        with open('structure_names.txt', 'r') as f:
+            for ln in f.readlines():
+                abbr, fullname = ln.split('\t')
+                self.structure_names[abbr] = fullname.strip()
 
-	def download_result(self, results):
-		for result_name in results:
-			filename = self.dm._get_result_filename(result_name, include_path=False)
-			cmd = "rsync -az yuncong@gcn-20-33.sdsc.edu:%(gordon_result_dir)s/%(stack)s/%(section)s/%(filename)s %(local_result_dir)s/%(stack)s/%(section)s/ " % {'gordon_result_dir':os.environ['GORDON_RESULT_DIR'],
-																				'local_result_dir':os.environ['LOCAL_RESULT_DIR'],
-																				'stack': self.stack,
-																				'section': self.dm.slice_str,
-																				'filename': filename
-																				}
-			# print cmd
-			os.system(cmd)
+        self.structure_names = OrderedDict(sorted(self.structure_names.items()))
 
+    def init_data(self, section):
 
-	def init_data(self, stack, section):
+        self.section = section
 
-		self.stack = stack
-		self.section = section
-
-		self.dm = DataManager(
-			data_dir=os.environ['LOCAL_DATA_DIR'], 
+        self.dm = DataManager(
+            data_dir=os.environ['LOCAL_DATA_DIR'], 
                  repo_dir=os.environ['LOCAL_REPO_DIR'], 
                  result_dir=os.environ['LOCAL_RESULT_DIR'], 
                  labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			stack=stack, section=section, segm_params_id='tSLIC200')
+            stack=stack, section=section, segm_params_id='tSLIC200')
 
-		print self.dm.slice_ind
+        print self.dm.slice_ind
 
-		# if (stack is None or section is None) and self.parent_labeling_name is not None:
-		# 	stack, section_str, user, timestamp = self.parent_labeling_name[:-4].split('_')
-		# 	section = int(section_str)
+        t = time.time()
+        self.dm._load_image(versions=['rgb-jpg'])
+        print 1, time.time() - t
 
-		self.dm._load_image(versions=['rgb-jpg'])
+        required_results = [
+        'segmentationTransparent', 
+        'segmentation',
+        'allSeedClusterScoreDedgeTuples',
+        'proposals',
+        'spCoveredByProposals',
+        'edgeMidpoints',
+        'edgeEndpoints',
+        'spAreas',
+        'spBbox',
+        'spCentroids'
+        ]
 
-		required_results = ['segmentationTransparent', 
-					'segmentation',
-		'segmentationWithText',
-		'allSeedClusterScoreDedgeTuples',
-		'proposals',
-		'spCoveredByProposals',
-		'edgeMidpoints',
-		'edgeEndpoints',
-		# 'spAreas',
-		# 'spBbox',
-		# 'spCentroids'
-		]
+        # t = time.time()
+        # self.dm.download_results(required_results)
+        # print 2, time.time() - t
 
-		self.download_result(required_results)
-		self.dm.load_multiple_results(required_results)
+        # t = time.time()
+        # self.dm.load_multiple_results(required_results, download_if_not_exist=True)
+        # print 3, time.time() - t
 
-		self.selected_circle = None
-		self.selected_polygon = None
+        self.segm_transparent = None
+        self.under_img = None
+        self.textonmap_vis = None
+        self.dirmap_vis = None
 
-		self.curr_polygon_vertices = []
-		self.curr_polygon_vertex_circles = []
+        self.mode = Mode.REVIEW_PROPOSAL
 
-		# self.freeform_polygons = []
-		self.polygon_types = []
+        self.boundary_colors = [(0,1,1), (1,0,0), (0,0,0),(0,0,1)] # unknown, accepted, rejected
 
-		# self.all_polygons_vertex_circles = []
-		# self.existing_polygons_vertex_circles = []
+        self.accepted_proposals = defaultdict(dict)
 
-		self.highlight_polygon = None
+        self.selected_proposal_polygon = None
+        self.alternative_global_proposal_ind = 0
+        self.alternative_local_proposal_ind = 0
 
-		self.segm_transparent = None
-		self.under_img = None
-		self.textonmap_vis = None
-		self.dirmap_vis = None
+        # self.new_labelnames = []
 
-		self.mode = Mode.REVIEW_PROPOSAL
-		self.click_on_object = False
+    def paramSettings_clicked(self):
+        pass
 
-		self.seg_loaded = False
-		self.superpixels_on = False
+    def openMenu(self, canvas_pos):
 
-		self.boundary_colors = [(0,1,1), (0,1,0), (1,0,0),(0,0,1)] # unknown, accepted, rejected
+        self.endDrawClosed_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        # self.endDrawOpen_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        # self.confirmTexture_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        # self.confirmTextureWithContour_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        # self.confirmDirectionality_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        # self.deletePolygon_Action.setVisible(self.selected_polygon is not None)
+        self.deleteVertex_Action.setVisible(self.selected_circle is not None)
+        self.addVertex_Action.setVisible(self.selected_proposal_polygon is not None and \
+            self.selected_proposal_polygon in self.accepted_proposals)
 
-		self.accepted_proposals = defaultdict(dict)
+        # self.newPolygon_Action.setVisible(self.selected_proposal_polygon is None and self.mode == Mode.REVIEW_PROPOSAL)
+        self.newPolygon_Action.setVisible(self.mode == Mode.REVIEW_PROPOSAL)
 
-		self.curr_proposal_pathPatch = None
-		self.alternative_global_proposal_ind = 0
-		self.alternative_local_proposal_ind = 0
+        self.accProp_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon not in self.accepted_proposals)
+        self.rejProp_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon in self.accepted_proposals)
+        self.changeLabel_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon in self.accepted_proposals)
 
-		# self.user_approved_local_proposals = []
-		# self.user_approved_local_pathPatches = []
+        action = self.menu.exec_(self.cursor().pos())
 
-		# self.user_approved_global_proposals = []
-		# self.user_approved_global_pathPatches = []
+        if action == self.endDrawClosed_Action:
 
-		# self.user_defined_proposals = []
-		# self.user_defined_pathPatches = []
+            self.selected_proposal_polygon = Polygon(self.selected_proposal_vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+            self.selected_proposal_polygon.set_picker(True)
 
+            self.axis.add_patch(self.selected_proposal_polygon)
 
-		# self.alg_proposal_pathPatches = {}
-		# self.alg_proposals = {}
+            # for vertex_circ in self.selected_proposal_vertexCircles:
+            #     self.axis.add_patch(vertex_circ)
 
-		# self.global_proposal_pathPatches = []
-		# self.global_proposal_labels = []
-		# self.local_proposal_pathPatches = []
-		# self.local_proposal_labels = []
+            self.selected_proposal_type = ProposalType.FREEFORM
 
+            self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
+                                                                    'subtype': PolygonType.CLOSED,
+                                                                    'vertices': self.selected_proposal_vertices,
+                                                                    'vertexPatches': self.selected_proposal_vertexCircles
+                                                                    }
 
-		self.new_labelnames = []
-		
-		# self.freeform_proposal_labels = []
+            self.mode = Mode.REVIEW_PROPOSAL
 
-		self.proposal_picked = False
+            self.selected_proposal_vertices = []
+            self.selected_proposal_vertexCircles = []
 
-		self.shuffle_global_proposals = True # instead of local proposals
+            self.acceptProposal_callback()
+            
+        elif action == self.deleteVertex_Action:
+            self.remove_selected_vertex()
 
-		self.paint_label = -1        # color of pen
-		self.pick_mode = False       # True while you hold ctrl; used to pick a color from the image
-		self.pressed = False           # related to pan (press and drag) vs. select (click)
-		self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
-		self.moved = False           # indicates whether mouse has moved while left button is pressed
+        elif action == self.addVertex_Action:
+            self.add_vertex_to_existing_polygon(canvas_pos)
 
-	
+        elif action == self.accProp_Action:
+            self.acceptProposal_callback()
 
-	def paramSettings_clicked(self):
-		pass
+        elif action == self.rejProp_Action:
+            self.rejectProposal_callback()
 
+        elif action == self.newPolygon_Action:
+            
+            self.cancel_current_selection()
 
-	# def add_polygon(self, vertices, polygon_type):
+            self.statusBar().showMessage('Left click to place vertices')
+            self.mode = Mode.PLACING_VERTICES
 
-	# 	self.all_polygons_vertex_circles.append(self.curr_polygon_vertex_circles)
+            self.selected_proposal_vertices = []
+            self.selected_proposal_vertexCircles = []
 
-	# 	if polygon_type == PolygonType.CLOSED:
-	# 		# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
-	# 		polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-	# 	elif polygon_type == PolygonType.OPEN:
-	# 		# polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
-	# 		polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-	# 	elif polygon_type == PolygonType.TEXTURE:
-	# 		# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, hatch='/')
-	# 		# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2)
-	# 		polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-			
-	# 	elif polygon_type == PolygonType.TEXTURE_WITH_CONTOUR:
-	# 		# polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, hatch='x')
-	# 		polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-	# 	elif polygon_type == PolygonType.DIRECTION:
-	# 		# polygon = Polygon(vertices, closed=False, fill=False, edgecolor=self.colors[self.curr_label + 1], linewidth=2, linestyle='dashed')
-	# 		polygon = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-	# 	else:
-	# 		raise 'polygon_type must be one of enum closed, open, texture'
+        elif action == self.changeLabel_Action:
+            self.open_label_selection_dialog()
 
-	# 	# xys = polygon.get_xy()
-	# 	# x0_y0_x1_y1 = np.r_[xys.min(axis=0), xys.max(axis=0)]
+        else:
+            # raise 'do not know how to deal with action %s' % action
+            pass
 
-	# 	self.axis.add_patch(polygon)
-	# 	polygon.set_picker(True)
 
-	# 	self.accepted_proposals.
+    def reload_brain_labeling_gui(self):
 
-		# self.freeform_polygons.append(polygon)
-		# self.polygon_bbox_list.append(x0_y0_x1_y1)
-		# self.polygon_labels.append(self.curr_label)
-		# self.polygon_types.append(polygon_type)
+        self.seg_loaded = False
+        self.superpixels_on = False
+        self.labels_on = True
+        self.object_picked = False
+        self.shuffle_global_proposals = True # instead of local proposals
 
+        self.base_scale = 1.2       # multiplication factor for zoom using scroll wheel
+        self.pressed = False           # related to pan (press and drag) vs. select (click)
+        
+        self.selected_circle = None
+        self.selected_proposal_vertices = []
+        self.selected_proposal_vertexCircles = []
 
-	def openMenu(self, canvas_pos):
+        self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', section %d' %self.section)
 
-		self.endDrawClosed_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-		self.endDrawOpen_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-		self.confirmTexture_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-		self.confirmTextureWithContour_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-		self.confirmDirectionality_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-		self.deletePolygon_Action.setVisible(self.selected_polygon is not None)
-		self.deleteVertex_Action.setVisible(self.selected_circle is not None)
-		self.addVertex_Action.setVisible(self.selected_polygon is not None)
+        if hasattr(self, 'axis'):
+            import copy
+            for p in copy.copy(self.axis.patches):
+                p.remove()
+            for p in copy.copy(self.axis.artists):
+                p.remove()
+        else:
+            self.axis = self.fig.add_subplot(111)
+            self.axis.axis('off')
 
-		# if self.proposal_mode:
+        t = time.time()
+        if hasattr(self, 'orig_image_handle'):
+            self.orig_image_handle.set_data(self.dm.image_rgb_jpg)
+        else:
+            self.orig_image_handle = self.axis.imshow(self.dm.image_rgb_jpg, cmap=plt.cm.Greys_r, aspect='equal')
+        print 4, time.time() - t
 
-		print self.proposal_picked
-		print self.curr_proposal_pathPatch not in self.accepted_proposals
+        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
 
-		self.accProp_Action.setVisible(self.curr_proposal_pathPatch is not None and self.curr_proposal_pathPatch not in self.accepted_proposals)
-		self.rejProp_Action.setVisible(self.curr_proposal_pathPatch is not None and self.curr_proposal_pathPatch in self.accepted_proposals)
-		self.changeLabel_Action.setVisible(self.curr_proposal_pathPatch is not None and self.curr_proposal_pathPatch in self.accepted_proposals)
+        self.newxmin, self.newxmax = self.axis.get_xlim()
+        self.newymin, self.newymax = self.axis.get_ylim()
 
-		action = self.menu.exec_(self.cursor().pos())
+        self.canvas.draw()
+        self.show()
 
-		if action == self.endDrawClosed_Action:
+    def initialize_brain_labeling_gui(self):
 
-			# self.all_polygons_vertex_circles.append(self.curr_polygon_vertex_circles)
+        self.menu = QMenu()
+        self.endDrawClosed_Action = self.menu.addAction("Confirm closed contour")
 
-			# self.add_polygon(self.curr_polygon_vertices, PolygonType.CLOSED)
+        # self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
+        # self.confirmTexture_Action = self.menu.addAction("Confirm textured region without contour")
+        # self.confirmTextureWithContour_Action = self.menu.addAction("Confirm textured region with contour")
+        # self.confirmDirectionality_Action = self.menu.addAction("Confirm striated region")
 
-			polygon = Polygon(self.curr_polygon_vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-			self.axis.add_patch(polygon)
-			polygon.set_picker(True)
+        # self.deletePolygon_Action = self.menu.addAction("Delete polygon")
+        self.deleteVertex_Action = self.menu.addAction("Delete vertex")
+        self.addVertex_Action = self.menu.addAction("Add vertex")
 
-			self.curr_proposal_type = ProposalType.FREEFORM
+        self.newPolygon_Action = self.menu.addAction("New polygon")
 
-			self.curr_proposal_pathPatch = polygon
+        self.accProp_Action = self.menu.addAction("Accept")
+        self.rejProp_Action = self.menu.addAction("Reject")
 
-			self.accepted_proposals[self.curr_proposal_pathPatch] = {'type': self.curr_proposal_type,
-																	'subtype': PolygonType.CLOSED,
-																	'vertices': self.curr_polygon_vertices,
-																	'vertexPatches': self.curr_polygon_vertex_circles
-																	}
+        self.changeLabel_Action = self.menu.addAction('Change label')
 
-			# self.curr_proposal_id = len(self.freeform_proposal_labels)
-			# self.curr_proposal_pathPatch = self.freeform_polygons[self.curr_proposal_id]
+        # A set of high-contrast colors proposed by Green-Armytage
+        self.colors = np.loadtxt('100colors.txt', skiprows=1)
+        self.label_cmap = ListedColormap(self.colors, name='label_cmap')
 
-			# self.freeform_proposal_labels.append('')
+        self.setupUi(self)
 
-			self.mode = Mode.REVIEW_PROPOSAL
-			# self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
-			# self.freeform_proposal_labels.append('')
+        self.fig = self.canvaswidget.fig
+        self.canvas = self.canvaswidget.canvas
 
-			self.curr_polygon_vertices = []
-			self.curr_polygon_vertex_circles = []
+        self.canvas.setFocusPolicy( Qt.ClickFocus )
+        self.canvas.setFocus()
 
-			self.accProp_callback()
-			
-		elif action == self.endDrawOpen_Action:
+        self.canvas.mpl_connect('scroll_event', self.on_zoom)
+        self.bpe_id = self.canvas.mpl_connect('button_press_event', self.on_press)
+        self.bre_id = self.canvas.mpl_connect('button_release_event', self.on_release)
+        self.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.canvas.mpl_connect('pick_event', self.on_pick)
 
-			self.add_polygon(self.curr_polygon_vertices, PolygonType.OPEN)
-			# self.statusBar().showMessage('Done drawing edge segment using label %d (%s)' % (self.curr_label,
-			# 											self.free_proposal_labels[self.curr_label]))
+        self.button_autoDetect.clicked.connect(self.autoDetect_callback)
+        self.button_updateDB.clicked.connect(self.updateDB_callback)
+        self.button_loadLabeling.clicked.connect(self.load_callback)
+        self.button_saveLabeling.clicked.connect(self.save_callback)
+        self.button_quit.clicked.connect(self.close)
+        
+        self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
+        self.img_radioButton.setChecked(True)
 
-			self.mode = Mode.REVIEW_PROPOSAL
+        for b in self.display_buttons:
+            b.toggled.connect(self.display_option_changed)
 
-			self.curr_proposal_type = ProposalType.FREEFORM
-			self.curr_proposal_id = len(self.freeform_proposal_labels)
-			self.curr_proposal_pathPatch = self.freeform_polygons[self.curr_proposal_id]
+        self.radioButton_globalProposal.toggled.connect(self.mode_changed)
+        self.radioButton_localProposal.toggled.connect(self.mode_changed)
 
-			self.freeform_proposal_labels.append('')
+        self.buttonSpOnOff.clicked.connect(self.display_option_changed)
+        self.button_labelsOnOff.clicked.connect(self.toggle_labels)
 
-			self.accProp_callback()
+        # self.thumbnail_list = QListWidget(parent=self)
+        self.thumbnail_list.setIconSize(QSize(200,200))
+        self.thumbnail_list.setResizeMode(QListWidget.Adjust)
+        self.thumbnail_list.itemDoubleClicked.connect(self.section_changed)
 
-		elif action == self.confirmTexture_Action:
-			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE)
-			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
-			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.REVIEW_PROPOSAL
 
-			self.curr_proposal_type = ProposalType.FREEFORM
-			self.curr_proposal_id = len(self.freeform_proposal_labels)
-			self.curr_proposal_pathPatch = self.freeform_polygons[self.curr_proposal_id]
+        section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589`':(49,186)}
+        first_sec, last_sec = section_range_lookup[self.stack]
+        for i in range(first_sec, last_sec):
+            item = QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/%(stack)s_lossless_cropped_preview/%(stack)s_%(sec)04d_lossless_warped_preview.jpg"%{'sec':i, 'stack': self.stack}), str(i))
+            # item.setFont(QFont())
+            self.thumbnail_list.addItem(item)
 
-			self.freeform_proposal_labels.append('')
+        self.thumbnail_list.resizeEvent = self.thumbnail_list_resized
+        self.init_thumbnail_list_width = self.thumbnail_list.width()
+        # print self.init_thumbnail_list_width
 
-			self.accProp_callback()
+    def thumbnail_list_resized(self, event):
+        new_size = 200 * event.size().width() / self.init_thumbnail_list_width
+        self.thumbnail_list.setIconSize( QSize(new_size , new_size ) )
 
-		elif action == self.confirmTextureWithContour_Action:
-			self.add_polygon(self.curr_polygon_vertices, PolygonType.TEXTURE_WITH_CONTOUR)
-			# self.statusBar().showMessage('Done drawing textured regions using label %d (%s)' % (self.curr_label,
-			# 											self.free_proposal_labels[self.curr_label]))
-			self.mode = Mode.REVIEW_PROPOSAL
+    def toggle_labels(self):
 
-			self.curr_proposal_type = ProposalType.FREEFORM
-			self.curr_proposal_id = len(self.freeform_proposal_labels)
-			self.curr_proposal_pathPatch = self.freeform_polygons[self.curr_proposal_id]
+        self.labels_on = not self.labels_on
 
-			self.freeform_proposal_labels.append('')
+        if not self.labels_on:
 
-			self.accProp_callback()
+            for patch, props in self.accepted_proposals.iteritems():
+                props['labelTextArtist'].remove()
 
-		# elif action == self.confirmDirectionality_Action:
-		# 	self.add_polygon(self.curr_polygon_vertices, PolygonType.DIRECTION)
-		# 	# self.statusBar().showMessage('Done drawing striated regions using label %d (%s)' % (self.curr_label,
-		# 	# 											self.free_proposal_labels[self.curr_label]))
-		# 	self.mode = Mode.REVIEW_GLOBAL_PROPOSAL
-		# 	self.curr_freeform_polygon_id = len(self.freeform_proposal_labels)
-		# 	self.freeform_proposal_labels.append('')
-		# 	self.accProp_callback()
-	
-		elif action == self.deletePolygon_Action:
-			self.remove_polygon()
+            self.button_labelsOnOff.setText('Turns Labels ON')
 
-		elif action == self.deleteVertex_Action:
-			self.remove_selected_vertex()
+        else:
+            for patch, props in self.accepted_proposals.iteritems():
+                self.axis.add_artist(props['labelTextArtist'])
 
-		elif action == self.addVertex_Action:
-			self.add_vertex_to_existing_polygon(canvas_pos)
+            self.button_labelsOnOff.setText('Turns Labels OFF')
 
-		# elif action == self.crossReference_Action:
-		# 	self.parent().refresh_data()
-		# 	self.parent().comboBoxBrowseMode.setCurrentIndex(self.curr_label + 1)
-		# 	self.parent().set_labelnameFilter(self.curr_label)
-		# 	self.parent().switch_to_labeling()
+        self.canvas.draw()
 
-		elif action == self.accProp_Action:
-			self.accProp_callback()
+    def updateDB_callback(self):
+        cmd = 'rsync -az --include="*/" %(local_labeling_dir)s/%(stack)s yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
+                                                                            'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
+                                                                            'stack': self.stack
+                                                                            }
+        os.system(cmd)
 
-		elif action == self.rejProp_Action:
-			self.rejProp_callback()
+        # cmd = 'rsync -az %(local_labeling_dir)s/labelnames.txt yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
+        #                                                             'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
+        #                                                             }
+        # os.system(cmd)
+        self.statusBar().showMessage('labelings synced')
 
-		elif action == self.newPolygon_Action:
-			self.statusBar().showMessage('Left click to place vertices')
-			self.mode = Mode.PLACING_VERTICES
+        # payload = {'section': self.dm.slice_ind}
+        # r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db', params=payload)
+        r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db')
+        res = r.json()
+        if res['result'] == 0:
+            self.statusBar().showMessage('Landmark database updated')
 
-		elif action == self.changeLabel_Action:
-			self.open_label_selection_dialog()
 
-		else:
-			# raise 'do not know how to deal with action %s' % action
-			pass
+    def detect_landmark(self, labels):
 
-	def initialize_brain_labeling_gui(self):
+        payload = {'labels': labels, 'section': self.dm.slice_ind}
+        r = requests.get('http://gcn-20-32.sdsc.edu:5000/top_down_detect', params=payload)
+        print r.url
+        return r.json()
 
-		self.menu = QMenu()
-		self.endDrawClosed_Action = self.menu.addAction("Confirm closed contour")
-		self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
-		self.confirmTexture_Action = self.menu.addAction("Confirm textured region without contour")
-		self.confirmTextureWithContour_Action = self.menu.addAction("Confirm textured region with contour")
-		self.confirmDirectionality_Action = self.menu.addAction("Confirm striated region")
+    def autoDetect_callback(self):
+        self.labelsToDetect = ListSelection([abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()], parent=self)
+        self.labelsToDetect.exec_()
 
-		self.deletePolygon_Action = self.menu.addAction("Delete polygon")
-		self.deleteVertex_Action = self.menu.addAction("Delete vertex")
-		self.addVertex_Action = self.menu.addAction("Add vertex")
+        if len(self.labelsToDetect.selected) > 0:
+        
+            returned_alg_proposal_dict = self.detect_landmark([x.split()[0] for x in list(self.labelsToDetect.selected)]) 
+            # list of tuples (sps, dedges, sig)
 
-		self.newPolygon_Action = self.menu.addAction("New polygon")
+            for label, (sps, dedges, sig) in returned_alg_proposal_dict.iteritems():
 
-		self.crossReference_Action = self.menu.addAction("Cross reference")
+                    props = {}
 
-		self.accProp_Action = self.menu.addAction("Accept")
-		self.rejProp_Action = self.menu.addAction("Reject")
+                    props['vertices'] = self.dm.vertices_from_dedges(dedges)
+                    patch = Polygon(props['vertices'], closed=True, edgecolor=self.boundary_colors[0], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+                    patch.set_picker(True)
+                    self.axis.add_patch(patch)
 
-		self.changeLabel_Action = self.menu.addAction('Change label')
+                    props['vertexPatches'] = []
+                    for x,y in props['vertices']:
+                        vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+                        vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+                        props['vertexPatches'].append(vertex_circle)
+                        self.axis.add_patch(vertex_circle)
+                        vertex_circle.set_picker(True)
 
-		# A set of high-contrast colors proposed by Green-Armytage
-		self.colors = np.loadtxt('100colors.txt', skiprows=1)
-		self.label_cmap = ListedColormap(self.colors, name='label_cmap')
 
-		self.curr_label = -1
+                    centroid = np.mean(props['vertices'], axis=0)
+                    props['labelTextArtist'] = Text(centroid[0], centroid[1], label, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+                    self.axis.add_artist(props['labelTextArtist'])
 
-		self.setupUi(self)
+                    self.accepted_proposals[patch] = props
 
-		self.fig = self.canvaswidget.fig
-		self.canvas = self.canvaswidget.canvas
+                    props['sps'] = sps
+                    props['dedges'] = dedges
+                    props['sig'] = sig
+                    props['type'] = ProposalType.ALGORITHM
+                    props['label'] = label
+        
+        self.canvas.draw()
 
-		self.canvas.mpl_connect('scroll_event', self.on_zoom)
-		self.bpe_id = self.canvas.mpl_connect('button_press_event', self.on_press)
-		self.bre_id = self.canvas.mpl_connect('button_release_event', self.on_release)
-		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
 
-		self.canvas.mpl_connect('pick_event', self.on_pick)
-		
-		######################################
+    def on_pick(self, event):
 
-		self.setWindowTitle(self.windowTitle() + ', stack %s'%self.stack + ', section %d' %self.section)
+        if event.mouseevent.name == 'scroll_event':
+            return
 
-		######################################
+        if self.mode == Mode.PLACING_VERTICES:
+            return
 
-		self.button_autoDetect.clicked.connect(self.autoDetect_callback)
-		self.button_loadLabeling.clicked.connect(self.load_callback)
-		self.button_saveLabeling.clicked.connect(self.save_callback)
-		self.button_quit.clicked.connect(self.close)
-		self.buttonParams.clicked.connect(self.paramSettings_clicked)
-		self.button_next.clicked.connect(self.next_callback)
-		self.button_prev.clicked.connect(self.prev_callback)
+        print 'pick callback triggered'
 
-		self.fig.clear()
-		self.fig.set_facecolor('white')
 
-		self.axis = self.fig.add_subplot(111)
-		self.axis.axis('off')
+        self.object_picked = True
 
-		self.orig_image_handle = self.axis.imshow(self.dm.image_rgb_jpg, cmap=plt.cm.Greys_r,aspect='equal')
+        patch_vertexInd_tuple = [(patch, props['vertexPatches'].index(event.artist)) for patch, props in self.accepted_proposals.iteritems() 
+                    if 'vertexPatches' in props and event.artist in props['vertexPatches']]
+        
+        if len(patch_vertexInd_tuple) == 1:
 
-		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+            self.cancel_current_selection()
 
-		self.newxmin, self.newxmax = self.axis.get_xlim()
-		self.newymin, self.newymax = self.axis.get_ylim()
+            print 'clicked on a vertex circle'
+            self.selected_proposal_polygon = patch_vertexInd_tuple[0][0]
+            self.selected_vertex_index = patch_vertexInd_tuple[0][1]
 
+            self.selected_circle = event.artist
+            self.selected_circle.set_radius(SELECTED_CIRCLE_SIZE)
+            
+            # self.selected_polygon = self.selected_proposal_polygon
 
-		##########################################
-		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton, self.labeling_radioButton]
-		self.img_radioButton.setChecked(True)
+            self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
 
-		for b in self.display_buttons:
-			b.toggled.connect(self.display_option_changed)
+            self.statusBar().showMessage('picked %s proposal (%s, %s), vertex %d' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
+                                                                     self.accepted_proposals[self.selected_proposal_polygon]['label'],
+                                                                     self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']],
+                                                                     self.selected_vertex_index))
 
-		self.radioButton_globalProposal.toggled.connect(self.mode_changed)
-		self.radioButton_localProposal.toggled.connect(self.mode_changed)
-		self.radioButton_globalProposal.setChecked(True)
+            self.selected_polygon_circle_centers_before_drag = [circ.center for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
 
-		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
-		##########################################
+        elif len(patch_vertexInd_tuple) == 0: # ignore if circle is picked
+            print 'clicked on a polygon'
 
-		self.canvas.draw()
-		self.show()
+            # if self.selected_circle is not None:
+            #     return
+            # else:
+            self.cancel_current_selection()
 
-		self.sp_rectlist = []
+            if event.artist in self.accepted_proposals:
+                print 'this polygon has been accepted'
 
+                self.selected_proposal_polygon = event.artist
+                self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
 
-	def detect_landmark(self, labels):
-		import requests
-		payload = {'labels': labels, 'section': self.dm.slice_ind}
-		r = requests.get('http://gcn-20-32.sdsc.edu:5000/top_down_detect', params=payload)
-		print r.url
-		return r.json()
+                self.selected_polygon_xy_before_drag = self.selected_proposal_polygon.get_xy()
+                self.selected_polygon_circle_centers_before_drag = [circ.center 
+                                    for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
+                self.selected_polygon_label_pos_before_drag = self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].get_position()
 
-	def autoDetect_callback(self):
-		self.labelsToDetect = ListSelection(self.dm.labelnames)
-		self.labelsToDetect.exec_()
 
-		if len(self.labelsToDetect.selected) > 0:
-		
-			returned_alg_proposal_dict = self.detect_landmark(list(self.labelsToDetect.selected)) # list of tuples (sps, dedges, sig)
+                self.statusBar().showMessage('picked %s proposal (%s, %s)' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
+                                                                         self.accepted_proposals[self.selected_proposal_polygon]['label'],
+                                                                         self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']]))
 
-			for label, (sps, dedges, sig) in returned_alg_proposal_dict.iteritems():
-				pp = self.pathPatch_from_dedges(dedges, color=self.boundary_colors[1])
-				pp.set_picker(True)
-				self.accepted_proposals[pp] = {'sps': sps, 'dedges': dedges, 'sig': sig, 'type':ProposalType.ALGORITHM,
-											'label': label}
+                self.selected_proposal_type = self.accepted_proposals[self.selected_proposal_polygon]['type']
 
-				self.axis.add_patch(pp)
-		
-		self.canvas.draw()
+        else:
+            raise 'unknown situation'
 
+        self.canvas.draw()
 
-	def on_pick(self, event):
+    def load_local_proposals(self):
 
-		self.cancel_current_proposal()
+        sys.stderr.write('loading local proposals ...\n')
+        self.statusBar().showMessage('loading local proposals ...')
+        
+        cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
+        self.local_proposal_tuples = [(cl, ed, sig) for seed, cl, sig, ed in cluster_tuples]
+        self.local_proposal_clusters = [m[0] for m in self.local_proposal_tuples]
+        self.local_proposal_dedges = [m[1] for m in self.local_proposal_tuples]
+        self.local_proposal_sigs = [m[2] for m in self.local_proposal_tuples]
 
-		patch_vertexInd_tuple = [(patch, props['vertexPatches'].index(event.artist)) for patch, props in self.accepted_proposals.iteritems() 
-					if 'vertexPatches' in props and event.artist in props['vertexPatches']]
-		
-		if len(patch_vertexInd_tuple) == 1:
-			print 'clicked on a vertex circle'
-			self.curr_proposal_pathPatch = patch_vertexInd_tuple[0][0]
-			self.selected_vertex_index = patch_vertexInd_tuple[0][1]
+        self.n_local_proposals = len(self.local_proposal_tuples)
+        
+        if not hasattr(self, 'local_proposal_pathPatches'):
+            self.local_proposal_pathPatches = [None] * self.n_local_proposals
+            self.local_proposal_vertexCircles = [None] * self.n_local_proposals
 
-			self.selected_circle = event.artist
-			self.selected_circle.set_radius(20.)
-			
-			self.selected_polygon = self.curr_proposal_pathPatch
+        self.local_proposal_indices_from_sp = defaultdict(list)
+        for i, (seed, _, _, _) in enumerate(cluster_tuples):
+            self.local_proposal_indices_from_sp[seed].append(i)
+        self.local_proposal_indices_from_sp.default_factory = None
 
-			self.curr_proposal_pathPatch.set_linewidth(5.)
+        sys.stderr.write('%d local proposals loaded.\n' % self.n_local_proposals)
+        self.statusBar().showMessage('Local proposals loaded.')
 
-			self.statusBar().showMessage('picked %s proposal (%s), vertex %d' % (self.accepted_proposals[self.curr_proposal_pathPatch]['type'].value,
-																	 self.accepted_proposals[self.curr_proposal_pathPatch]['label'],
-																	 self.selected_vertex_index))
+        self.local_proposal_labels = [None] * self.n_local_proposals
 
-		elif len(patch_vertexInd_tuple) == 0:
-			print 'clicked on a polygon'
 
-			self.click_on_object = True
+    def load_global_proposals(self):
+        
+        self.global_proposal_tuples =  self.dm.load_pipeline_result('proposals')
+        self.global_proposal_clusters = [m[0] for m in self.global_proposal_tuples]
+        self.global_proposal_dedges = [m[1] for m in self.global_proposal_tuples]
+        self.global_proposal_sigs = [m[2] for m in self.global_proposal_tuples]
 
-			if event.artist in self.accepted_proposals:
+        self.n_global_proposals = len(self.global_proposal_tuples)
 
-				self.curr_proposal_pathPatch = event.artist
-				self.curr_proposal_pathPatch.set_linewidth(5)
+        if not hasattr(self, 'global_proposal_pathPatches'):
+            self.global_proposal_pathPatches = [None] * self.n_global_proposals
+            self.global_proposal_vertexCircles = [None] * self.n_global_proposals
 
-				if self.accepted_proposals[self.curr_proposal_pathPatch]['type'] == ProposalType.FREEFORM:
-					self.selected_polygon = self.curr_proposal_pathPatch
+        self.statusBar().showMessage('%d global proposals loaded' % self.n_global_proposals)
 
-					self.selected_polygon_xy_before_drag = self.selected_polygon.get_xy()
-					self.selected_polygon_circle_centers_before_drag = [circ.center 
-										for circ in self.accepted_proposals[self.curr_proposal_pathPatch]['vertexPatches']]
+        self.sp_covered_by_proposals = self.dm.load_pipeline_result('spCoveredByProposals')
+        self.sp_covered_by_proposals = dict([(s, list(props)) for s, props in self.sp_covered_by_proposals.iteritems()])
 
-				self.statusBar().showMessage('picked %s proposal (%s)' % (self.accepted_proposals[self.curr_proposal_pathPatch]['type'].value,
-																		 self.accepted_proposals[self.curr_proposal_pathPatch]['label']))
+        self.global_proposal_labels = [None] * self.n_global_proposals
 
-		else:
-			raise 'unknown situation'
+    def load_callback(self):
 
-		self.proposal_picked = True
+        fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
+        stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
 
-		self.canvas.draw()
+        # if suffix == 'consolidated':
 
-	def pathPatch_from_dedges(self, dedges, color):
+        self.accepted_proposals = {}
 
-	 	vertices = []
- 		for de_ind, de in enumerate(dedges):
- 			midpt = self.dm.edge_midpoints[frozenset(de)]
- 			endpts = self.dm.edge_endpoints[frozenset(de)]
- 			endpts_next_dedge = self.dm.edge_endpoints[frozenset(dedges[(de_ind+1)%len(dedges)])]
+        _, _, _, accepted_proposal_props = self.dm.load_proposal_review_result(username, timestamp, suffix)
 
-			dij = cdist([endpts[0], endpts[-1]], [endpts_next_dedge[0], endpts_next_dedge[-1]])
-			i,j = np.unravel_index(np.argmin(dij), (2,2))
-			if i == 0:
-				vertices += [endpts[-1], midpt, endpts[0]]
-			else:
-				vertices += [endpts[0], midpt, endpts[-1]]
+        for props in accepted_proposal_props:
+            patch = Polygon(props['vertices'], closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+            props['vertexPatches'] = []
+            for x,y in props['vertices']:
+                vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+                vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+                props['vertexPatches'].append(vertex_circle)
+                self.axis.add_patch(vertex_circle)
+                vertex_circle.set_picker(True)
 
-		path_patch = PathPatch(Path(vertices=vertices, closed=True), color=color, fill=False, linewidth=3)
+            self.axis.add_patch(patch)
+            patch.set_picker(True)
 
-		return path_patch
+            centroid = np.mean(props['vertices'], axis=0)
+            props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+            self.axis.add_artist(props['labelTextArtist'])
 
-	def load_local_proposals(self):
+            self.accepted_proposals[patch] = props
 
-		sys.stderr.write('loading local proposals ...\n')
-		self.statusBar().showMessage('loading local proposals ...')
-		
-		cluster_tuples = self.dm.load_pipeline_result('allSeedClusterScoreDedgeTuples')
-		self.local_proposal_tuples = [(cl, ed, sig) for seed, cl, sig, ed in cluster_tuples]
-		self.local_proposal_clusters = [m[0] for m in self.local_proposal_tuples]
-		self.local_proposal_dedges = [m[1] for m in self.local_proposal_tuples]
-		self.local_proposal_sigs = [m[2] for m in self.local_proposal_tuples]
+        self.canvas.draw()
 
-		self.n_local_proposals = len(self.local_proposal_tuples)
-		
-		# if not hasattr(self, 'local_proposal_review_results'):
-		# 	self.local_proposal_review_results = [0] * self.n_local_proposals
-		if not hasattr(self, 'local_proposal_pathPatches'):
-			self.local_proposal_pathPatches = [None] * self.n_local_proposals
 
-		self.local_proposal_indices_from_sp = defaultdict(list)
-		for i, (seed, _, _, _) in enumerate(cluster_tuples):
-			self.local_proposal_indices_from_sp[seed].append(i)
-		self.local_proposal_indices_from_sp.default_factory = None
+    def open_label_selection_dialog(self):
 
-		sys.stderr.write('%d local proposals loaded.\n' % self.n_local_proposals)
-		self.statusBar().showMessage('Local proposals loaded.')
+        self.label_selection_dialog = AutoCompleteInputDialog(parent=self, labels=[abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()])
+        # self.label_selection_dialog = QInputDialog(self)
+        self.label_selection_dialog.setWindowTitle('Select landmark label')
 
-		self.local_proposal_labels = [None] * self.n_local_proposals
+        # self.label_selection_dialog.setComboBoxItems(['New label'] + sorted([abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()] + self.new_labelnames))
 
+        if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
+            self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals[self.selected_proposal_polygon]['label'])
+        else:
+            self.accepted_proposals[self.selected_proposal_polygon]['label'] = ''
 
-	def load_global_proposals(self):
-		
-		self.global_proposal_tuples = self.dm.load_pipeline_result('proposals')
-		self.global_proposal_clusters = [m[0] for m in self.global_proposal_tuples]
-		self.global_proposal_dedges = [m[1] for m in self.global_proposal_tuples]
-		self.global_proposal_sigs = [m[2] for m in self.global_proposal_tuples]
+        self.label_selection_dialog.set_test_callback(self.label_dialog_text_changed)
 
-		self.n_global_proposals = len(self.global_proposal_tuples)
+        # self.label_selection_dialog.accepted.connect(self.label_dialog_text_changed)
+        # self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
 
-		# if not hasattr(self, 'global_proposal_review_results'):
-			# self.global_proposal_review_results = [0] * self.n_global_proposals
+        self.label_selection_dialog.exec_()
 
-		if not hasattr(self, 'global_proposal_pathPatches'):
-			self.global_proposal_pathPatches = [None] * self.n_global_proposals
+    # def set_selected_proposal_label(self, label):
+    #   self.accepted_proposals[self.selected_proposal_polygon]['label'] = label
 
-		self.statusBar().showMessage('%d global proposals loaded' % self.n_global_proposals)
+    def label_dialog_text_changed(self):
 
-		self.sp_covered_by_proposals = self.dm.load_pipeline_result('spCoveredByProposals')
-		self.sp_covered_by_proposals = dict([(s, list(props)) for s, props in self.sp_covered_by_proposals.iteritems()])
+        text = str(self.label_selection_dialog.comboBox.currentText())
 
-		self.global_proposal_labels = [None] * self.n_global_proposals
+        import re
+        m = re.match('^(.+?)\s*\((.+)\)$', text)
 
-	def load_callback(self):
+        if m is None:
+            QMessageBox.warning(self, 'oops', 'structure name must be of the form "abbreviation (full description)"')
+            return
 
-		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
-		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
+        else:
+            abbr, fullname = m.groups()
+            if not (abbr in self.structure_names.keys() and fullname in self.structure_names.values()):  # new label
+                if abbr in self.structure_names:
+                    QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists: %s' % (abbr, fullname))
+                    return
+                else:
+                    self.structure_names[abbr] = fullname
 
-		if suffix == 'consolidated':
+        self.accepted_proposals[self.selected_proposal_polygon]['label'] = abbr
 
-			self.accepted_proposals = {}
+        if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon] and self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] is not None:
+            self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_text(abbr)
+        else:
+            centroid = self.selected_proposal_polygon.get_xy().mean(axis=0)
+            text_artist = Text(centroid[0], centroid[1], abbr, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+            self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] = text_artist
+            self.axis.add_artist(text_artist)
 
-			accepted_proposal_props = self.dm.load_proposal_review_result(username, timestamp, suffix)
+        self.label_selection_dialog.accept()
 
-			for props in accepted_proposal_props:
-				if props['type'] == ProposalType.GLOBAL or props['type'] == ProposalType.LOCAL or props['type'] == ProposalType.ALGORITHM:
-					patch = self.pathPatch_from_dedges(props['dedges'], color=self.boundary_colors[1])
-				elif props['type'] == ProposalType.FREEFORM:
-					patch = Polygon(vertices, closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=2)
-					props['vertexPatches'] = []
-					for x,y in props['vertices']:
-						vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
-						vertex_circle.set_picker(True)
-						props['vertexPatches'].append(vertex_circle)
-						self.axis.add_patch(vertex_circle)
 
-				self.axis.add_patch(patch)
-				patch.set_picker(True)
+    def acceptProposal_callback(self):
 
-				self.accepted_proposals[patch] = props
+        if self.selected_proposal_type == ProposalType.GLOBAL:
+            self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.global_proposal_clusters[self.selected_proposal_id],
+                                                                    'dedges': self.global_proposal_dedges[self.selected_proposal_id],
+                                                                    'sig': self.global_proposal_sigs[self.selected_proposal_id],
+                                                                    'type': self.selected_proposal_type,
+                                                                    'id': self.selected_proposal_id,
+                                                                    'vertices': self.selected_proposal_polygon.get_xy(),
+                                                                    'vertexPatches': self.selected_proposal_vertexCircles}
 
-		self.canvas.draw()
+        elif self.selected_proposal_type == ProposalType.LOCAL:
+            self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.local_proposal_clusters[self.selected_proposal_id],
+                                                                    'dedges': self.local_proposal_dedges[self.selected_proposal_id],
+                                                                    'sig': self.local_proposal_sigs[self.selected_proposal_id],
+                                                                    'type': self.selected_proposal_type,
+                                                                    'id': self.selected_proposal_id,
+                                                                    'vertices': self.selected_proposal_polygon.get_xy(),
+                                                                    'vertexPatches': self.selected_proposal_vertexCircles}
 
+        self.selected_proposal_polygon.set_color(self.boundary_colors[1])
+        self.selected_proposal_polygon.set_picker(True)
+        for circ in self.selected_proposal_vertexCircles:
+            circ.set_color(self.boundary_colors[1])
+            circ.set_picker(True)
 
-	def open_label_selection_dialog(self):
+        self.canvas.draw()
 
-		self.label_selection_dialog = QInputDialog(self)
-		self.label_selection_dialog.setLabelText('Select landmark label')
-		self.label_selection_dialog.setComboBoxItems(['New label'] + sorted(self.dm.labelnames + self.new_labelnames))
+        self.open_label_selection_dialog()
 
-		self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
+        self.cancel_current_selection()
 
-		self.label_selection_dialog.exec_()
+    def rejectProposal_callback(self):
 
-	def set_selected_proposal_label(self, label):
-		self.accepted_proposals[self.curr_proposal_pathPatch]['label'] = label
+        for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+            circ.remove()
 
-	def label_dialog_text_changed(self, text):
-		
-		if str(text) == 'New label':
-			label, okay = QInputDialog.getText(self, "New label", 
-									"Enter label:", QLineEdit.Normal, 'landmark')
-			if not okay:
-				return
-			else:
-				label = str(label)
-				self.set_selected_proposal_label(label)
+        self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+        self.selected_proposal_polygon.remove()
 
-				if label not in self.new_labelnames:
-					self.new_labelnames.append(label)
-		else:
-			self.set_selected_proposal_label(str(text))
-		
-		self.label_selection_dialog.done(0)
+        self.accepted_proposals.pop(self.selected_proposal_polygon)
 
+        # self.selected_proposal_polygon.set_color(self.boundary_colors[0])
+        # self.selected_proposal_polygon.set_picker(None)
 
-	def accProp_callback(self):
+        self.cancel_current_selection()
+        
+        self.canvas.draw()
 
-		if self.curr_proposal_type == ProposalType.GLOBAL:
-			self.accepted_proposals[self.curr_proposal_pathPatch] = {'sps': self.global_proposal_clusters[self.curr_proposal_id],
-																	'dedges': self.global_proposal_dedges[self.curr_proposal_id],
-																	'sig': self.global_proposal_sigs[self.curr_proposal_id],
-																	'type': self.curr_proposal_type,
-																	'id': self.curr_proposal_id}
+    def shuffle_proposal_from_pool(self, sp_ind):
 
-		elif self.curr_proposal_type == ProposalType.LOCAL:
-			self.accepted_proposals[self.curr_proposal_pathPatch] = {'sps': self.local_proposal_clusters[self.curr_proposal_id],
-																	'dedges': self.local_proposal_dedges[self.curr_proposal_id],
-																	'sig': self.local_proposal_sigs[self.curr_proposal_id],
-																	'type': self.curr_proposal_type,
-																	'id': self.curr_proposal_id}
+        if self.shuffle_global_proposals:   
+            if not hasattr(self, 'sp_covered_by_proposals'):
+                return
+        else:
+            if not hasattr(self, 'local_proposal_indices_from_sp'):
+                return
 
-		self.curr_proposal_pathPatch.set_color(self.boundary_colors[1])
-		self.curr_proposal_pathPatch.set_picker(True)
-			
-		self.canvas.draw()
+        if self.shuffle_global_proposals:
 
-		self.open_label_selection_dialog()
+            if sp_ind not in self.sp_covered_by_proposals or sp_ind == -1:
+                self.statusBar().showMessage('No proposal covers superpixel %d' % sp_ind)
+                return 
+        else:
+            if sp_ind == -1:
+                return
+        
+        if self.object_picked:
+            return
 
-	def rejProp_callback(self):
+        self.cancel_current_selection()
 
-		self.accepted_proposals.pop(self.curr_proposal_pathPatch)
+        if self.shuffle_global_proposals:
+            self.selected_proposal_type = ProposalType.GLOBAL
 
-		self.curr_proposal_pathPatch.remove()
-		self.curr_proposal_pathPatch.set_color(self.boundary_colors[0])
-		self.curr_proposal_pathPatch.set_picker(None)
+            self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
+            self.selected_proposal_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
 
-		self.canvas.draw()
-	
-	def show_global_proposal_covering_sp(self, sp_ind):
+            dedges = self.global_proposal_dedges[self.selected_proposal_id]
+        else:
 
-		if sp_ind not in self.sp_covered_by_proposals:
-			self.statusBar().showMessage('No proposal covers superpixel %d' % sp_ind)
-			return 
+            self.selected_proposal_type = ProposalType.LOCAL
 
-		self.cancel_current_proposal()
+            self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
+            self.selected_proposal_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
 
-		self.curr_proposal_type = ProposalType.GLOBAL
-		self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
-		self.curr_proposal_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
+            cl, dedges, sig = self.local_proposal_tuples[self.selected_proposal_id]
 
-		if self.global_proposal_pathPatches[self.curr_proposal_id] is None:
-			self.global_proposal_pathPatches[self.curr_proposal_id] = self.pathPatch_from_dedges(self.global_proposal_dedges[self.curr_proposal_id], 
-										color=self.boundary_colors[0])
-		
-		self.curr_proposal_pathPatch = self.global_proposal_pathPatches[self.curr_proposal_id]
 
-		if self.curr_proposal_pathPatch not in self.axis.patches:
-			self.axis.add_patch(self.curr_proposal_pathPatch)
+        if self.shuffle_global_proposals:
+            proposal_pathPatches = self.global_proposal_pathPatches
+            proposal_vertexCircles = self.global_proposal_vertexCircles
+        else:
+            proposal_pathPatches = self.local_proposal_pathPatches
+            proposal_vertexCircles = self.local_proposal_vertexCircles
 
-		self.curr_proposal_pathPatch.set_picker(None)
+        if proposal_pathPatches[self.selected_proposal_id] is None:  
+            vertices = self.dm.vertices_from_dedges(dedges)
 
-		if self.curr_proposal_pathPatch in self.accepted_proposals:
-			self.curr_proposal_pathPatch.set_linewidth(5.)
-			label =  self.accepted_proposals[self.curr_proposal_pathPatch]['label']
-		else:
-			label = ''			
+            proposal_pathPatches[self.selected_proposal_id] = Polygon(vertices, closed=True, 
+                                    edgecolor=self.boundary_colors[0], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+            proposal_vertexCircles[self.selected_proposal_id] = [plt.Circle(v, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[0], alpha=.8) for v in vertices]
 
-		self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.curr_proposal_id]))
-		self.canvas.draw()
+        if self.shuffle_global_proposals:
+            self.selected_proposal_polygon = self.global_proposal_pathPatches[self.selected_proposal_id]
+            self.selected_proposal_vertexCircles = self.global_proposal_vertexCircles[self.selected_proposal_id]
+        else:
+            self.selected_proposal_polygon = self.local_proposal_pathPatches[self.selected_proposal_id]
+            self.selected_proposal_vertexCircles = self.local_proposal_vertexCircles[self.selected_proposal_id]            
 
-	def show_local_proposal_from_sp(self, sp_ind):
+        if self.selected_proposal_polygon not in self.axis.patches:
+            self.axis.add_patch(self.selected_proposal_polygon)
 
-		self.cancel_current_proposal()
+            for vertex_circ in self.selected_proposal_vertexCircles:
+                self.axis.add_patch(vertex_circ)
 
-		self.curr_proposal_type = ProposalType.LOCAL
-		self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
-		self.curr_proposal_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
+        self.selected_proposal_polygon.set_picker(None)
+        for vertex_circ in self.selected_proposal_vertexCircles:
+            vertex_circ.set_picker(None)
 
-		cl, dedges, sig = self.local_proposal_tuples[self.curr_proposal_id]
+        if self.selected_proposal_polygon in self.accepted_proposals:
+            self.selected_proposal_polygon.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
+            label =  self.accepted_proposals[self.selected_proposal_polygon]['label']
+        else:
+            label = ''
 
-		if self.local_proposal_pathPatches[self.curr_proposal_id] is None:	
-			self.local_proposal_pathPatches[self.curr_proposal_id] = self.pathPatch_from_dedges(dedges, 
-																color=self.boundary_colors[0])
+        if self.shuffle_global_proposals:
+            self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.selected_proposal_id]))
+        else:
+            self.statusBar().showMessage('local proposal (%s) from seed %d, score %.4f' % (label, sp_ind, sig))
 
-		self.curr_proposal_pathPatch = self.local_proposal_pathPatches[self.curr_proposal_id]
+        self.canvas.draw()
 
-		if self.curr_proposal_pathPatch not in self.axis.patches:
-			self.axis.add_patch(self.curr_proposal_pathPatch)
 
-		self.curr_proposal_pathPatch.set_picker(None)
 
-		if  self.curr_proposal_pathPatch in self.accepted_proposals:
-			self.curr_proposal_pathPatch.set_linewidth(5.)
-			label = self.accepted_proposals[self.curr_proposal_pathPatch]['label']
-		else:
-			label = ''
 
-		self.statusBar().showMessage('local proposal (%s) from seed %d, score %.4f' % (label, sp_ind, sig))
-		self.canvas.draw()
+    def section_changed(self, item):
 
+        if hasattr(self, 'global_proposal_tuples'):
+            del self.global_proposal_tuples
+        if hasattr(self, 'global_proposal_pathPatches'):
+            for p in self.global_proposal_pathPatches:
+                if p in self.axis.patches:
+                    p.remove()
+            del self.global_proposal_pathPatches
+        if hasattr(self, 'local_proposal_tuples'):
+            del self.local_proposal_tuples
+        if hasattr(self, 'local_proposal_pathPatches'):
+            for p in self.local_proposal_pathPatches:
+                if p in self.axis.patches:
+                    p.remove()
+            del self.local_proposal_pathPatches
 
-	def next_callback(self):
+        sec = int(str(item.text()))
+        self.init_data(section=sec)
+        self.reload_brain_labeling_gui()
 
-		if hasattr(self, 'global_proposal_tuples'):
-			del self.global_proposal_tuples
-		if hasattr(self, 'global_proposal_review_results'):
-			del self.global_proposal_review_results
-		if hasattr(self, 'global_proposal_pathPatches'):
-			del self.global_proposal_pathPatches
-		if hasattr(self, 'local_proposal_tuples'):
-			del self.local_proposal_tuples
-		if hasattr(self, 'local_proposal_review_results'):
-			del self.local_proposal_review_results
-		if hasattr(self, 'local_proposal_pathPatches'):
-			del self.local_proposal_pathPatches
+        self.mode_changed()
+        # self.turn_superpixels_on()
 
-		self.init_data(self.stack, self.section+1)
-		self.initialize_brain_labeling_gui()
+        self.pixmap = QPixmap("/home/yuncong/CSHL_data_processed/%(stack)s_lossless_cropped_preview/%(stack)s_%(sec)04d_lossless_warped_preview.jpg"%{'sec':sec, 'stack':self.stack})
+        self.pixmap_scaled = self.pixmap.scaledToHeight(self.bottom_panel.sizeHint().height())
 
-		self.mode_changed()
-		
-	def prev_callback(self):
-		if hasattr(self, 'global_proposal_tuples'):
-			del self.global_proposal_tuples
-		if hasattr(self, 'global_proposal_review_results'):
-			del self.global_proposal_review_results
-		if hasattr(self, 'global_proposal_pathPatches'):
-			del self.global_proposal_pathPatches
-		if hasattr(self, 'local_proposal_tuples'):
-			del self.local_proposal_tuples
-		if hasattr(self, 'local_proposal_review_results'):
-			del self.local_proposal_review_results
-		if hasattr(self, 'local_proposal_pathPatches'):
-			del self.local_proposal_pathPatches
+        self.graphicsScene_navMap = QGraphicsScene(self.graphicsView_navMap)
+        self.graphicsScene_navMap.addPixmap(self.pixmap_scaled)
 
-		self.init_data(self.stack, self.section-1)
-		self.initialize_brain_labeling_gui()
+        self.navRect = self.graphicsScene_navMap.addRect(10,10,200,200, QPen(QColor(255,0,0), 1))
 
-		self.mode_changed()
+        self.graphicsView_navMap.setScene(self.graphicsScene_navMap)
+        self.graphicsView_navMap.show()
 
+        self.navMap_scaling_x = self.pixmap_scaled.size().width()/float(self.dm.image_width)
+        self.navMap_scaling_y = self.pixmap_scaled.size().height()/float(self.dm.image_height)
 
-	def save_callback(self):
 
-		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-		username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-		if not okay: return
+    def save_callback(self):
 
-		self.username = str(username)
+        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+        if not okay: return
 
-		accepted_proposal_props = []
-		for patch, props in self.accepted_proposals.iteritems():
-			accepted_proposal_props.append(dict([(k,v) for k, v in props.iteritems() if k != 'vertexPatches']))
+        self.username = str(username)
 
-		print accepted_proposal_props
+        accepted_proposal_props = []
+        for patch, props in self.accepted_proposals.iteritems():
+            accepted_proposal_props.append(dict([(k,v) for k, v in props.iteritems() if k != 'vertexPatches' and k != 'labelTextArtist']))
 
-		self.dm.save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+        self.dm.save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
 
-		self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+        # self.dm.add_labels(self.new_labelnames)
 
-		# cur_xlim = self.axis.get_xlim()
-		# cur_ylim = self.axis.get_ylim()
+        self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
 
-		# self.axis.set_xlim([0, self.dm.image_width])
-		# self.axis.set_ylim([self.dm.image_height, 0])
+        cur_xlim = self.axis.get_xlim()
+        cur_ylim = self.axis.get_ylim()
 
-		# self.fig.savefig('/tmp/preview.jpg', bbox_inches='tight')
+        self.axis.set_xlim([0, self.dm.image_width])
+        self.axis.set_ylim([self.dm.image_height, 0])
 
-		# self.axis.set_xlim(cur_xlim)
-		# self.axis.set_ylim(cur_ylim)
+        self.fig.savefig('/tmp/preview.jpg', bbox_inches='tight')
 
-		self.canvas.draw()
+        self.axis.set_xlim(cur_xlim)
+        self.axis.set_ylim(cur_ylim)
 
-	def labelbutton_callback(self):
-		pass
+        self.canvas.draw()
 
-	############################################
-	# matplotlib canvas CALLBACKs
-	############################################
+    def labelbutton_callback(self):
+        pass
 
-	def on_zoom(self, event):
-		# get the current x and y limits and subplot position
-		cur_pos = self.axis.get_position()
-		cur_xlim = self.axis.get_xlim()
-		cur_ylim = self.axis.get_ylim()
-		
-		xdata = event.xdata # get event x location
-		ydata = event.ydata # get event y location
+    ############################################
+    # matplotlib canvas CALLBACKs
+    ############################################
 
-		if xdata is None or ydata is None: # mouse position outside data region
-			return
+    def on_key_press(self, event):
 
-		left = xdata - cur_xlim[0]
-		right = cur_xlim[1] - xdata
-		up = ydata - cur_ylim[0]
-		down = cur_ylim[1] - ydata
+        if event.key == 'ctrl+z':
+            self.undo_drag()
 
-		# print left, right, up, down
+        if event.key == '=' or event.key == '-':
+            self.on_zoom(event)
 
-		if event.button == 'up':
-			# deal with zoom in
-			scale_factor = 1/self.base_scale
-		elif event.button == 'down':
-			# deal with zoom out
-			scale_factor = self.base_scale
-		
-		self.newxmin = xdata - left*scale_factor
-		self.newxmax = xdata + right*scale_factor
-		self.newymin = ydata - up*scale_factor
-		self.newymax = ydata + down*scale_factor
+    def on_zoom(self, event):
 
-		self.axis.set_xlim([self.newxmin, self.newxmax])
-		self.axis.set_ylim([self.newymin, self.newymax])
+        # get the current x and y limits and subplot position
+        cur_pos = self.axis.get_position()
 
-		self.canvas.draw() # force re-draw
+        cur_xlim = self.axis.get_xlim()
+        cur_ylim = self.axis.get_ylim()
+        
+        xdata = event.xdata # get mouse x location
+        ydata = event.ydata # get mouse y location
 
-	def on_press(self, event):
-		self.press_x = event.xdata
-		self.press_y = event.ydata
+        if xdata is None or ydata is None: # mouse position outside data region
+            return
 
-		self.pressed = True
-		self.press_time = time.time()
+        left = xdata - cur_xlim[0]
+        right = cur_xlim[1] - xdata
+        up = ydata - cur_ylim[0]
+        down = cur_ylim[1] - ydata
 
+        # print left, right, up, down
 
-	def on_motion(self, event):
-		
-		if self.selected_circle is not None and self.pressed: # drag vertex
+        if isinstance(event, MouseEvent):
 
-			print 'dragging vertex'
+            if event.button == 'up':
+                # deal with zoom in
+                scale_factor = 1/self.base_scale
+            elif event.button == 'down':
+                # deal with zoom out
+                scale_factor = self.base_scale
 
-			self.selected_circle.center = event.xdata, event.ydata
+        elif isinstance(event, KeyEvent):
+            if event.key == '=':
+                scale_factor = 1/self.base_scale
+            elif event.key == '-':
+                scale_factor = self.base_scale              
+        
+        self.newxmin = xdata - left*scale_factor
+        # self.newxmin = 0
+        self.newxmax = xdata + right*scale_factor
+        self.newymin = ydata - up*scale_factor
+        self.newymax = ydata + down*scale_factor
 
-			xys = self.selected_polygon.get_xy()
-			xys[self.selected_vertex_index] = self.selected_circle.center
+        # print self.newxmin, self.newxmax, self.newymin, self.newymax
 
-			if self.selected_polygon.get_closed():
-				self.selected_polygon.set_xy(xys[:-1])
-			else:
-				self.selected_polygon.set_xy(xys)
-			
-			self.canvas.draw()
+        self.axis.set_xlim([self.newxmin, self.newxmax])
+        self.axis.set_ylim([self.newymin, self.newymax])
 
-		elif self.selected_polygon is not None and self.pressed and self.proposal_picked: # drag polygon
+        self.canvas.draw() # force re-draw
 
-			print 'dragging polygon'
+        self.update_navMap()
+        
+    def update_navMap(self):
 
-			offset_x = event.xdata - self.press_x
-			offset_y = event.ydata - self.press_y
+        cur_xmin, cur_xmax = self.axis.get_xlim()
+        cur_ymin, cur_ymax = self.axis.get_ylim()
+        self.navRect.setRect(cur_xmin * self.navMap_scaling_x, cur_ymin * self.navMap_scaling_y, self.navMap_scaling_x * (cur_xmax - cur_xmin), self.navMap_scaling_y * (cur_ymax - cur_ymin))
+        self.graphicsScene_navMap.update(0, 0, self.graphicsView_navMap.size().width(), self.graphicsView_navMap.size().height())
+        self.graphicsView_navMap.setSceneRect(0, 0, self.dm.image_width*self.navMap_scaling_x, self.dm.image_height*self.navMap_scaling_y)
 
-			for c, center0 in zip(self.accepted_proposals[self.curr_proposal_pathPatch]['vertexPatches'], 
-									self.selected_polygon_circle_centers_before_drag):
-				c.center = (center0[0] + offset_x, center0[1] + offset_y)
 
-			xys = self.selected_polygon_xy_before_drag + (offset_x, offset_y)
-			
-			if self.selected_polygon.get_closed():
-				self.selected_polygon.set_xy(xys[:-1])
-			else:
-				self.selected_polygon.set_xy(xys)
-			
-			self.canvas.draw()
+    def on_press(self, event):
+        self.press_x = event.xdata
+        self.press_y = event.ydata
 
+        self.press_x_canvas = event.x
+        self.press_y_canvas = event.y
 
-		elif self.pressed and time.time() - self.press_time > .5:
-			# this is drag and move
-			cur_xlim = self.axis.get_xlim()
-			cur_ylim = self.axis.get_ylim()
-			
-			if (event.xdata==None) | (event.ydata==None):
-				#print 'either event.xdata or event.ydata is None'
-				return
+        self.pressed = True
+        self.press_time = time.time()
 
-			offset_x = self.press_x - event.xdata
-			offset_y = self.press_y - event.ydata
-			
-			self.axis.set_xlim(cur_xlim + offset_x)
-			self.axis.set_ylim(cur_ylim + offset_y)
-			self.canvas.draw()
+        # if self.selected_proposal_polygon is not None:
+        #     self.pressed_inside_polygon = bool(Path(self.selected_proposal_polygon.get_xy()).contains_point((self.press_x, self.press_y)))
+        # else:
+        #     self.pressed_inside_polygon = False
 
+    def on_motion(self, event):
 
-	def on_release(self, event):
-		"""
-		The release-button callback is responsible for picking a color or changing a color.
-		"""
+        # print self.selected_proposal_polygon
 
-		self.pressed = False
-		self.release_x = event.xdata
-		self.release_y = event.ydata
-		self.release_time = time.time()
+        if hasattr(self, 'selected_circle') and self.selected_circle is not None and self.pressed: # drag vertex
 
-		if not self.click_on_object:
-			if self.selected_circle is not None:
-				self.selected_circle.set_radius(10.)
-				self.selected_circle = None
+            if self.mode == Mode.PLACING_VERTICES:
+                return
 
-			if self.selected_polygon is not None:
-				self.selected_polygon.set_linewidth(2.)
-				self.selected_polygon = None
+            print 'dragging vertex'
 
-		self.click_on_object = False
+            self.selected_circle.center = event.xdata, event.ydata
 
-		print self.mode, 
+            xys = self.selected_proposal_polygon.get_xy()
+            xys[self.selected_vertex_index] = self.selected_circle.center
 
-		# Fixed panning issues by using the time difference between the press and release event
-		# Long times refer to a press and hold
-		if (self.release_time - self.press_time) < .21 and self.release_x > 0 and self.release_y > 0:
-			# fast click
+            if self.selected_proposal_polygon.get_closed():
+                self.selected_proposal_polygon.set_xy(xys[:-1])
+            else:
+                self.selected_proposal_polygon.set_xy(xys)
+            
+            self.canvas.draw()
 
-			if event.button == 1: # left click
-			
-				if self.mode == Mode.PLACING_VERTICES:
-					self.place_vertex(event.xdata, event.ydata)
+        elif hasattr(self, 'selected_proposal_polygon') and self.pressed and self.selected_proposal_polygon in self.accepted_proposals:
+            # drag polygon
 
-				elif self.superpixels_on:
-					if not self.proposal_picked:
-						self.handle_sp_press(event.xdata, event.ydata)
+            if self.mode == Mode.PLACING_VERTICES:
+                return
 
-			elif event.button == 3: # right click
-				canvas_pos = (event.xdata, event.ydata)
-				self.openMenu(canvas_pos)
+            print 'dragging polygon'
 
-		print self.mode
+            offset_x = event.xdata - self.press_x
+            offset_y = event.ydata - self.press_y
 
-		self.canvas.draw() # force re-draw
+            for c, center0 in zip(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'], 
+                                    self.selected_polygon_circle_centers_before_drag):
+                c.center = (center0[0] + offset_x, center0[1] + offset_y)
 
-		self.proposal_picked = False
+            xys = self.selected_polygon_xy_before_drag + (offset_x, offset_y)
+            
+            if self.selected_proposal_polygon.get_closed():
+                self.selected_proposal_polygon.set_xy(xys[:-1])
+            else:
+                self.selected_proposal_polygon.set_xy(xys)
 
-	def remove_polygon(self):
-		self.selected_polygon.remove()
-		self.freeform_polygons.remove(self.selected_polygon)
-		self.selected_polygon = None
+            self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((self.selected_polygon_label_pos_before_drag[0] + offset_x, 
+                                                                                                     self.selected_polygon_label_pos_before_drag[1] + offset_y))
 
-		del self.polygon_types[self.curr_freeform_polygon_id]
-		# del self.polygon_bbox_list[self.curr_freeform_polygon_id]
-		del self.freeform_proposal_labels[self.curr_freeform_polygon_id]
 
-		selected_vertex_circles = self.all_polygons_vertex_circles[self.curr_freeform_polygon_id]
-		for circ in selected_vertex_circles:
-			circ.remove()
-		self.all_polygons_vertex_circles.remove(selected_vertex_circles)
+            self.canvas.draw()
 
-	def add_vertex_to_existing_polygon(self, pos):
-		from scipy.spatial.distance import cdist
 
-		xys = self.selected_polygon.get_xy()
-		xys = xys[:-1] if self.selected_polygon.get_closed() else xys
-		dists = np.squeeze(cdist([pos], xys))
-		two_neighbor_inds = np.argsort(dists)[:2]
-		new_vertex_ind = max(two_neighbor_inds)
-		print 1, xys
-		xys = np.insert(xys, new_vertex_ind, pos, axis=0)
-		print 2, xys
-		self.selected_polygon.set_xy(xys)
-		print 3, self.selected_polygon.get_xy()
+        elif hasattr(self, 'pressed') and self.pressed and time.time() - self.press_time > .5:
 
-		vertex_circle = plt.Circle(pos, radius=10, color=self.colors[self.freeform_proposal_labels[self.curr_freeform_polygon_id] + 1], alpha=.8)
-		self.axis.add_patch(vertex_circle)
+            print 'panning canvas'
 
-		# self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].insert(new_vertex_ind, vertex_circle)
+            # this is drag and move
+            cur_xlim = self.axis.get_xlim()
+            cur_ylim = self.axis.get_ylim()
+            
+            if (event.xdata==None) | (event.ydata==None):
+                #print 'either event.xdata or event.ydata is None'
+                return
 
-		vertex_circle.set_picker(True)
+            offset_x = self.press_x - event.xdata
+            offset_y = self.press_y - event.ydata
+            
+            self.axis.set_xlim(cur_xlim + offset_x)
+            self.axis.set_ylim(cur_ylim + offset_y)
+            self.canvas.draw()
 
-		self.canvas.draw()
+            self.update_navMap()
 
 
-	def remove_selected_vertex(self):
-		self.selected_circle.remove()
-		# self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].remove(self.selected_circle)
-		p = self.freeform_polygons[self.curr_freeform_polygon_id]
-		xys = p.get_xy()
-		xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
-		self.freeform_polygons[self.curr_freeform_polygon_id].set_xy(xys[:-1] if p.get_closed() else xys)
+    def undo_drag(self):
 
-		self.canvas.draw()
+        for c, center0 in zip(self.accepted_proposals[self.previous_proposal_polygon]['vertexPatches'], 
+                                self.selected_polygon_circle_centers_before_drag):
+            c.center = (center0[0], center0[1])
 
+        xys = self.selected_polygon_xy_before_drag
+        
+        if self.previous_proposal_polygon.get_closed():
+            self.previous_proposal_polygon.set_xy(xys[:-1])
+        else:
+            self.previous_proposal_polygon.set_xy(xys)
 
-	def place_vertex(self, x,y):
-		self.curr_polygon_vertices.append([x, y])
+        self.accepted_proposals[self.previous_proposal_polygon]['labelTextArtist'].set_position((self.selected_polygon_label_pos_before_drag[0], 
+                                                                                                 self.selected_polygon_label_pos_before_drag[1]))
+        self.canvas.draw()
 
-		# curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[self.curr_label + 1], alpha=.8)
-		curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.boundary_colors[1], alpha=.8)
-		self.axis.add_patch(curr_vertex_circle)
-		self.curr_polygon_vertex_circles.append(curr_vertex_circle)
 
-		curr_vertex_circle.set_picker(True)
+    def on_release(self, event):
 
+        self.pressed = False
 
+        self.release_x = event.xdata
+        self.release_y = event.ydata
 
-	############################################
-	# other functions
-	############################################
+        self.release_x_canvas = event.x
+        self.release_y_canvas = event.y
 
-	def pick_color(self, selected_label):
-		pass
+        self.release_time = time.time()
 
-	def handle_sp_press(self, x, y):
-		print 'clicked'
-		self.clicked_sp = self.dm.segmentation[int(y), int(x)]
-		sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
+        self.previous_proposal_polygon = self.selected_proposal_polygon
 
-		self.cancel_current_proposal()
+        print self.mode, 
 
-		# self.cancel_curr_global()
-		# self.cancel_curr_local()
+        # print self.press_x_canvas, self.press_y_canvas, self.release_x_canvas, self.release_y_canvas
 
-		if self.mode == Mode.REVIEW_PROPOSAL:
-			if self.shuffle_global_proposals:
-				self.show_global_proposal_covering_sp(self.clicked_sp)
-			else:
-				self.show_local_proposal_from_sp(self.clicked_sp)
-			# self.show_region(self.clicked_sp)
+        if abs(self.release_x_canvas - self.press_x_canvas) < 10 and abs(self.release_y_canvas - self.press_y_canvas) < 10:
+            # short movement
 
+            print 'short movement'
 
+            if event.button == 1: # left click
+                            
+                if self.mode == Mode.PLACING_VERTICES:
+                    self.place_vertex(event.xdata, event.ydata)
 
-	def load_segmentation(self):
-		sys.stderr.write('loading segmentation...\n')
-		self.statusBar().showMessage('loading segmentation...')
-		self.dm.load_multiple_results(results=['segmentation', 'edgeEndpoints', 'edgeMidpoints'])
-		# self.segmentation = self.dm.load_pipeline_result('segmentation')
-		# self.n_superpixels = self.dm.segmentation.max() + 1
-		self.seg_loaded = True
-		sys.stderr.write('segmentation loaded.\n')
+                else:
+                    self.cancel_current_selection()
+                    # if self.superpixels_on:
+                    print 'clicked a superpixel'
+        
+                    if self.superpixels_on:
+                        self.clicked_sp = self.dm.segmentation[int(event.ydata), int(event.xdata)]
+                        sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
 
-		sys.stderr.write('loading sp props...\n')
-		self.statusBar().showMessage('loading sp properties..')
-		# self.sp_centroids = self.dm.load_pipeline_result('spCentroids')
-		# self.sp_bboxes = self.dm.load_pipeline_result('spBbox')
-		sys.stderr.write('sp properties loaded.\n')
+                        if self.mode == Mode.REVIEW_PROPOSAL:
+                            self.shuffle_proposal_from_pool(self.clicked_sp)
 
-		self.statusBar().showMessage('')
+            elif event.button == 3: # right click
+                canvas_pos = (event.xdata, event.ydata)
+                self.openMenu(canvas_pos)
 
-		self.sp_rectlist = [None for _ in range(self.dm.n_superpixels)]
+        else:
+            print 'long movement'
+            # long movement
 
+            if self.mode != Mode.PLACING_VERTICES:
+                self.cancel_current_selection()
 
-	def turn_superpixels_off(self):
-		self.statusBar().showMessage('Supepixels OFF')
+        print self.mode
 
-		self.buttonSpOnOff.setText('Turn Superpixels ON')
+        self.canvas.draw()
 
-		self.segm_handle.remove()
-		self.superpixels_on = False
-		
-		# self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
-		# self.orig_image_handle = self.axis.imshow(self.masked_img, aspect='equal')
+        self.object_picked = False
 
-	def turn_superpixels_on(self):
-		self.statusBar().showMessage('Supepixels ON')
+    # def remove_polygon(self):
+    #   # self.selected_polygon.remove()
 
-		self.buttonSpOnOff.setText('Turn Superpixels OFF')
+    #   self.selected_proposal_polygon.remove()
+    #   self.selected_polygon = None
 
-		if self.segm_transparent is None:
-			self.segm_transparent = self.dm.load_pipeline_result('segmentationTransparent')
-			self.my_cmap = plt.cm.Reds
-			self.my_cmap.set_under(color="white", alpha="0")
+    #   for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+    #       circ.remove()
 
-		if not self.seg_loaded:
-			self.load_segmentation()
+    #   self.accepted_proposals.pop(self.selected_proposal_polygon)
 
-		self.superpixels_on = True
-		
-		# self.orig_image_handle.remove()
+    def add_vertex_to_existing_polygon(self, pos):
+        from scipy.spatial.distance import cdist
 
-		self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
-								cmap=self.my_cmap, alpha=1.)
+        xys = self.selected_proposal_polygon.get_xy()
+        xys = xys[:-1] if self.selected_proposal_polygon.get_closed() else xys
+        dists = np.squeeze(cdist([pos], xys))
+        two_neighbor_inds = np.argsort(dists)[:2]
 
-		# self.axis.clear()
-		
-		# self.seg_vis = self.dm.load_pipeline_result('segmentationWithText')
-		# # self.seg_vis[~self.dm.mask] = 0
-		# self.seg_viz_handle = self.axis.imshow(self.seg_vis, aspect='equal')
+        print two_neighbor_inds
 
-		# self.canvas.draw()
+        if min(two_neighbor_inds) == 0 and max(two_neighbor_inds) != 1: # two neighbors are the first point and the last point
+            new_vertex_ind = max(two_neighbor_inds) + 1
+        else:
+            new_vertex_ind = max(two_neighbor_inds)
+        xys = np.insert(xys, new_vertex_ind, pos, axis=0)
+        self.selected_proposal_polygon.set_xy(xys)
 
-	def cancel_current_proposal(self):
-		if self.curr_proposal_pathPatch is not None:
+        vertex_circle = plt.Circle(pos, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+        self.axis.add_patch(vertex_circle)
 
-			# restore line width from 5 to 3
-			if self.curr_proposal_pathPatch.get_linewidth() != 3:
-				self.curr_proposal_pathPatch.set_linewidth(3)
+        self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].insert(new_vertex_ind, vertex_circle)
+        self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = xys
 
-			if self.curr_proposal_pathPatch in self.axis.patches:
-				if self.curr_proposal_pathPatch not in self.accepted_proposals:
-					self.curr_proposal_pathPatch.remove()
+        # self.all_polygons_vertex_circles[self.curr_freeform_polygon_id].insert(new_vertex_ind, vertex_circle)
 
-		self.curr_proposal_pathPatch = None
+        vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 
-	def mode_changed(self):
+        self.canvas.draw()
 
-		self.cancel_current_proposal()
 
-		if self.radioButton_globalProposal.isChecked():
+    def remove_selected_vertex(self):
 
-			self.shuffle_global_proposals = True
+        # print self.selected_circle
 
-			if not self.superpixels_on:
-				self.turn_superpixels_on()
+        self.selected_circle.remove()
+        self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(self.selected_circle)
+        self.selected_circle = None
 
-			if not hasattr(self, 'global_proposal_tuples'):
-				self.load_global_proposals()
+        p = self.selected_proposal_polygon
 
-		elif self.radioButton_localProposal.isChecked():
+        xys = p.get_xy()
+        xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
 
-			if not self.superpixels_on:
-				self.turn_superpixels_on()
+        vertices = xys[:-1] if p.get_closed() else xys
 
-			self.shuffle_global_proposals = False
+        self.selected_proposal_polygon.set_xy(vertices)
 
-			if not hasattr(self, 'local_proposal_tuples'):
-				self.load_local_proposals()
+        self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = vertices
 
-		self.canvas.draw()
+        self.canvas.draw()
 
-	def display_option_changed(self):
-		if self.sender() == self.buttonSpOnOff:
 
-			if not self.superpixels_on:
-				self.turn_superpixels_on()
-			else:
-				self.turn_superpixels_off()
-		else:
-			# if self.under_img is not None:
-			# 	self.under_img.remove()
+    def place_vertex(self, x,y):
+        self.selected_proposal_vertices.append([x, y])
 
-			self.axis.clear()
+        # curr_vertex_circle = plt.Circle((x, y), radius=10, color=self.colors[self.curr_label + 1], alpha=.8)
+        curr_vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+        self.axis.add_patch(curr_vertex_circle)
+        self.selected_proposal_vertexCircles.append(curr_vertex_circle)
 
-			if self.sender() == self.img_radioButton:
+        curr_vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 
-				# self.axis.clear()
-				# self.axis.axis('off')
 
-				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
-				# self.superpixels_on = False
 
-			elif self.sender() == self.textonmap_radioButton:
+    ############################################
+    # other functions
+    ############################################
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+    # def pick_color(self, selected_label):
+    #     pass
 
-				if self.textonmap_vis is None:
-					self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
+    # def handle_sp_press(self, x, y):
 
-				# if self.under_img is not None:
-				# 	self.under_img.remove()
 
-				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				# self.superpixels_on = False
+            # if self.shuffle_global_proposals:
+            #     self.show_global_proposal_covering_sp(self.clicked_sp)
+            # else:
+            #     self.show_local_proposal_from_sp(self.clicked_sp)
+            # self.show_region(self.clicked_sp)
 
-			elif self.sender() == self.dirmap_radioButton:
+    def load_segmentation(self):
+        sys.stderr.write('loading segmentation...\n')
+        self.statusBar().showMessage('loading segmentation...')
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+        self.dm.load_multiple_results(results=[
+          'segmentation', 
+          'edgeEndpoints', 'edgeMidpoints'])
+        self.segmentation = self.dm.load_pipeline_result('segmentation')
+        self.n_superpixels = self.dm.segmentation.max() + 1
 
-				if self.dirmap_vis is None:
-					self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
-					self.dirmap_vis[~self.dm.mask] = 0
+        self.seg_loaded = True
+        sys.stderr.write('segmentation loaded.\n')
 
+        sys.stderr.write('loading sp props...\n')
+        self.statusBar().showMessage('loading sp properties..')
+        # self.sp_centroids = self.dm.load_pipeline_result('spCentroids')
+        # self.sp_bboxes = self.dm.load_pipeline_result('spBbox')
+        sys.stderr.write('sp properties loaded.\n')
 
-				# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
-				self.axis.imshow(self.dirmap_vis, aspect='equal')
+        self.statusBar().showMessage('')
 
-				# if not self.seg_loaded:
-				# 	self.load_segmentation()
+        # self.sp_rectlist = [None for _ in range(self.dm.n_superpixels)]
 
-				# self.superpixels_on = False
 
-			elif self.sender() == self.labeling_radioButton:
-				pass
+    def turn_superpixels_off(self):
+        self.statusBar().showMessage('Supepixels OFF')
 
-		self.axis.axis('off')
+        self.buttonSpOnOff.setText('Turn Superpixels ON')
 
-		self.axis.set_xlim([self.newxmin, self.newxmax])
-		self.axis.set_ylim([self.newymin, self.newymax])
+        self.segm_handle.remove()
+        self.superpixels_on = False
+        
+        # self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
+        # self.orig_image_handle = self.axis.imshow(self.masked_img, aspect='equal')
 
-		self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas.draw()
+    def turn_superpixels_on(self):
+        self.statusBar().showMessage('Supepixels ON')
+
+        self.buttonSpOnOff.setText('Turn Superpixels OFF')
+
+        if self.segm_transparent is None:
+            self.segm_transparent = self.dm.load_pipeline_result('segmentationTransparent')
+            self.my_cmap = plt.cm.Reds
+            self.my_cmap.set_under(color="white", alpha="0")
+
+        if not self.seg_loaded:
+            self.load_segmentation()
+
+        self.superpixels_on = True
+        
+        if hasattr(self, 'segm_handle'):
+            self.segm_handle.set_data(self.segm_transparent)
+        else:
+            self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
+                                cmap=self.my_cmap, alpha=1.)
+
+
+    def cancel_current_selection(self):
+        if self.selected_proposal_polygon is not None:
+
+            # restore line width from 5 to 3
+            if self.selected_proposal_polygon.get_linewidth() != UNSELECTED_POLYGON_LINEWIDTH:
+                self.selected_proposal_polygon.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
+
+            if self.selected_proposal_polygon in self.axis.patches:
+                if self.selected_proposal_polygon not in self.accepted_proposals:
+                    self.selected_proposal_polygon.remove()
+                    for vertex_circ in self.selected_proposal_vertexCircles:
+                        vertex_circ.remove()
+
+        self.selected_proposal_polygon = None
+        self.selected_proposal_vertexCircles = None
+
+        if self.selected_circle is not None:
+            self.selected_circle.set_radius(UNSELECTED_CIRCLE_SIZE)
+            self.selected_circle = None
+
+
+    def mode_changed(self):
+
+        self.cancel_current_selection()
+
+        if self.radioButton_globalProposal.isChecked():
+
+            self.shuffle_global_proposals = True
+
+            if not self.superpixels_on:
+                self.turn_superpixels_on()
+
+            if not hasattr(self, 'global_proposal_tuples'):
+                self.load_global_proposals()
+
+        elif self.radioButton_localProposal.isChecked():
+
+            if not self.superpixels_on:
+                self.turn_superpixels_on()
+
+            self.shuffle_global_proposals = False
+
+            if not hasattr(self, 'local_proposal_tuples'):
+                self.load_local_proposals()
+
+        self.canvas.draw()
+
+    def display_option_changed(self):
+        if self.sender() == self.buttonSpOnOff:
+
+            if not self.superpixels_on:
+                self.turn_superpixels_on()
+            else:
+                self.turn_superpixels_off()
+        else:
+            # if self.under_img is not None:
+            #   self.under_img.remove()
+
+            self.axis.clear()
+
+            if self.sender() == self.img_radioButton:
+
+                # self.axis.clear()
+                # self.axis.axis('off')
+
+                # self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+                self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
+                # self.superpixels_on = False
+
+            elif self.sender() == self.textonmap_radioButton:
+
+                # self.axis.clear()
+                # self.axis.axis('off')
+
+                if self.textonmap_vis is None:
+                    self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
+
+                # if self.under_img is not None:
+                #   self.under_img.remove()
+
+                # self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+                self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+                # self.superpixels_on = False
+
+            elif self.sender() == self.dirmap_radioButton:
+
+                # self.axis.clear()
+                # self.axis.axis('off')
+
+                if self.dirmap_vis is None:
+                    self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
+                    self.dirmap_vis[~self.dm.mask] = 0
+
+
+                # self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
+                self.axis.imshow(self.dirmap_vis, aspect='equal')
+
+                # if not self.seg_loaded:
+                #   self.load_segmentation()
+
+                # self.superpixels_on = False
+
+            # elif self.sender() == self.labeling_radioButton:
+            #   pass
+
+        self.axis.axis('off')
+
+        self.axis.set_xlim([self.newxmin, self.newxmax])
+        self.axis.set_ylim([self.newymin, self.newymax])
+
+        self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+        self.canvas.draw()
 
                
 if __name__ == "__main__":
-	from sys import argv, exit
-	appl = QApplication(argv)
+    from sys import argv, exit
+    appl = QApplication(argv)
 
-	# if len(sys.argv) == 2:
-	stack = sys.argv[1]
-	section = int(sys.argv[2])
-	m = BrainLabelingGUI(stack=stack, section=section)
-	# elif len(sys.argv) == 3:
-	# 	section = int(sys.argv[1])
-	# 	labeling_name = sys.argv[2]
-	# 	m = BrainLabelingGUI(stack='MD593', section=section, parent_labeling_name='_'.join(labeling_name.split('_')[2:]))
+    stack = sys.argv[1]
+    m = BrainLabelingGUI(stack=stack)
 
-	# m = BrainLabelingGUI(stack='RS141', section=1)
-	# m.setWindowTitle("Brain Labeling")
-	m.showMaximized()
-	m.raise_()
-	exit(appl.exec_())
+    m.showMaximized()
+    m.raise_()
+    exit(appl.exec_())

@@ -236,19 +236,10 @@ class DataManager(object):
 
         self._load_mask(create_mask=load_mask)
 
-    # def add_labels(self, labels):
-    #     labelnames = list(set(self.labelnames + labels))
-
-    #     with open(self.labelnames_path, 'w') as f:
-    #         for n in labelnames:
-    #             f.write('%s\n' % n)
-
-    # def set_labelnames(self, labelnames):
-    #     self.labelnames = labelnames
-
-    #     with open(self.labelnames_path, 'w') as f:
-    #         for n in labelnames:
-    #             f.write('%s\n' % n)
+    def add_labelnames(self, labelnames, filename):
+        with open(filename, 'a') as f:
+            for abbr, fullname in labelnames.iteritems():
+                f.write(abbr+'\t'+fullname+'\n')
 
     def set_stack(self, stack):
         self.stack = stack
@@ -1259,6 +1250,8 @@ class DataManager(object):
             
         print 'saved %s' % result_filename
         
+
+
 
     def load_review_result_path(self, username, timestamp, stack=None, section=None, suffix=''):
         if stack is None:

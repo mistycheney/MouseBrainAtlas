@@ -48,7 +48,7 @@ from visualization_utilities import *
 sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import requests
 
@@ -58,6 +58,8 @@ class Mode(Enum):
     # POLYGON_SELECTED = 'polygon selected'
     REVIEW_PROPOSAL = 'review proposal'
     SELECTING_ROI = 'selecting roi'
+    SELECTING_CONNECTION_TARGET = 'selecting the second vertex to connect'
+    SELECTING_BREAK_TARGET = 'selecting the second vertex to break'
 
 class ProposalType(Enum):
     GLOBAL = 'global'
@@ -178,13 +180,15 @@ class AutoCompleteComboBox(QComboBox):
         self.setCompleter(self.comp)#
         self.setModel(labels)
 
+        self.clearEditText()
+
     def setModel(self, strList):
         self.clear()
         self.insertItems(0, strList)
         self.comp.setModel(self.model())
 
     def focusInEvent(self, event):
-        self.clearEditText()
+        # self.clearEditText()
         super(AutoCompleteComboBox, self).focusInEvent(event)
 
     def keyPressEvent(self, event):
@@ -239,8 +243,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.stack = stack
         self.initialize_brain_labeling_gui()
 
-        from collections import OrderedDict
-        
         self.structure_names = {}
         with open('structure_names.txt', 'r') as f:
             for ln in f.readlines():
@@ -248,6 +250,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.structure_names[abbr] = fullname.strip()
 
         self.structure_names = OrderedDict(sorted(self.structure_names.items()))
+
+        self.recent_labels = []
 
     def init_data(self, section):
 
@@ -310,7 +314,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def openMenu(self, canvas_pos):
 
         self.endDrawClosed_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
-        # self.endDrawOpen_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
+        self.endDrawOpen_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
         # self.confirmTexture_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
         # self.confirmTextureWithContour_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
         # self.confirmDirectionality_Action.setVisible(self.mode == Mode.PLACING_VERTICES)
@@ -321,10 +325,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.selected_proposal_polygon in self.accepted_proposals)
 
         self.deleteVerticesROI_Action.setVisible(hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None)
+        self.deleteVerticesROIOpen_Action.setVisible(hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None)
+        
+        self.connectTo_Action.setVisible(self.selected_circle is not None)
+        self.breakLinkWith_Action.setVisible(self.selected_circle is not None)
 
-        # self.selectROI_Action.setVisible(hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is None)
-
-        # self.newPolygon_Action.setVisible(self.selected_proposal_polygon is None and self.mode == Mode.REVIEW_PROPOSAL)
         self.newPolygon_Action.setVisible(self.mode == Mode.REVIEW_PROPOSAL)
 
         self.accProp_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon not in self.accepted_proposals)
@@ -340,9 +345,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             self.axis.add_patch(self.selected_proposal_polygon)
 
-            # for vertex_circ in self.selected_proposal_vertexCircles:
-            #     self.axis.add_patch(vertex_circ)
-
             self.selected_proposal_type = ProposalType.FREEFORM
 
             self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
@@ -357,16 +359,49 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.selected_proposal_vertexCircles = []
 
             self.acceptProposal_callback()
-            
+
+
+        elif action == self.endDrawOpen_Action:
+
+            self.selected_proposal_polygon = Polygon(self.selected_proposal_vertices, closed=False, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+            self.selected_proposal_polygon.set_picker(True)
+
+            self.axis.add_patch(self.selected_proposal_polygon)
+
+            self.selected_proposal_type = ProposalType.FREEFORM
+
+            self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
+                                                                    'subtype': PolygonType.OPEN,
+                                                                    'vertices': self.selected_proposal_vertices,
+                                                                    'vertexPatches': self.selected_proposal_vertexCircles
+                                                                    }
+
+            self.mode = Mode.REVIEW_PROPOSAL
+
+            self.selected_proposal_vertices = []
+            self.selected_proposal_vertexCircles = []
+
+
+            self.acceptProposal_callback()
+
         elif action == self.deleteVertex_Action:
             self.remove_selected_vertex()
+
+        elif action == self.connectTo_Action:
+            self.mode = Mode.SELECTING_CONNECTION_TARGET
+
+        elif action == self.breakLinkWith_Action:
+            self.mode = Mode.SELECTING_BREAK_TARGET
 
         elif action == self.selectROI_Action:
             self.mode = Mode.SELECTING_ROI
 
         elif action == self.deleteVerticesROI_Action:
-            self.remove_selected_vertices_in_region()
+            self.remove_selected_vertices_in_region(link_endpoints=True)
 
+        elif action == self.deleteVerticesROIOpen_Action:
+            self.remove_selected_vertices_in_region(link_endpoints=False)
+    
         # elif action == self.confirmROI_Action():
         #     self.mode = Mode.REVIEW_PROPOSAL
 
@@ -443,8 +478,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.menu = QMenu()
         self.endDrawClosed_Action = self.menu.addAction("Confirm closed contour")
+        self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
 
-        # self.endDrawOpen_Action = self.menu.addAction("Confirm open boundary")
         # self.confirmTexture_Action = self.menu.addAction("Confirm textured region without contour")
         # self.confirmTextureWithContour_Action = self.menu.addAction("Confirm textured region with contour")
         # self.confirmDirectionality_Action = self.menu.addAction("Confirm striated region")
@@ -452,7 +487,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.deletePolygon_Action = self.menu.addAction("Delete polygon")
         self.deleteVertex_Action = self.menu.addAction("Delete vertex")
 
-        self.deleteVerticesROI_Action = self.menu.addAction("Delete vertices in ROI")
+        self.deleteVerticesROI_Action = self.menu.addAction("Delete vertices in ROI (close)")
+        self.deleteVerticesROIOpen_Action = self.menu.addAction("Delete vertices in ROI (open)")
+
+        self.connectTo_Action = self.menu.addAction("connect vertex to another vertex")
+        self.breakLinkWith_Action = self.menu.addAction("break edge with another vertex")
+
         self.selectROI_Action = self.menu.addAction("Select ROI")
         # self.confirmROI_Action = self.menu.addAction("Confirm ROI")
 
@@ -530,12 +570,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if not self.labels_on:
 
             for patch, props in self.accepted_proposals.iteritems():
+                patch.remove()
+                for circ in props['vertexPatches']:
+                    circ.remove()
                 props['labelTextArtist'].remove()
 
             self.button_labelsOnOff.setText('Turns Labels ON')
 
         else:
             for patch, props in self.accepted_proposals.iteritems():
+                self.axis.add_patch(patch)
+                for circ in props['vertexPatches']:
+                    self.axis.add_patch(circ)
                 self.axis.add_artist(props['labelTextArtist'])
 
             self.button_labelsOnOff.setText('Turns Labels OFF')
@@ -612,6 +658,251 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.canvas.draw()
 
 
+    def connect_vertices(self):
+
+        print 'connect_vertices'
+
+        if self.selected_proposal_polygon != self.first_polygon:
+
+            if 'subtype' in self.accepted_proposals[self.selected_proposal_polygon] and \
+                'subtype' in self.accepted_proposals[self.first_polygon] and \
+                self.accepted_proposals[self.selected_proposal_polygon]['subtype'] == PolygonType.OPEN and \
+                self.accepted_proposals[self.first_polygon]['subtype'] == PolygonType.OPEN:
+
+                print self.accepted_proposals[self.first_polygon]['vertices']
+                print self.first_polygon.get_xy()
+
+                if self.selected_vertex_index == 0 and self.first_vertex_index == 0:
+                    new_vertices = np.vstack([self.accepted_proposals[self.first_polygon]['vertices'][::-1],
+                                        self.accepted_proposals[self.selected_proposal_polygon]['vertices']])
+
+                elif self.selected_vertex_index != 0 and self.first_vertex_index != 0:
+                    new_vertices = np.vstack([self.accepted_proposals[self.first_polygon]['vertices'],
+                                        self.accepted_proposals[self.selected_proposal_polygon]['vertices'][::-1]])
+
+                elif self.selected_vertex_index == 0 and self.first_vertex_index != 0:
+                    new_vertices = np.vstack([self.accepted_proposals[self.first_polygon]['vertices'],
+                                        self.accepted_proposals[self.selected_proposal_polygon]['vertices']])
+
+                elif self.selected_vertex_index != 0 and self.first_vertex_index == 0:
+                    new_vertices = np.vstack([self.accepted_proposals[self.first_polygon]['vertices'][::-1],
+                                        self.accepted_proposals[self.selected_proposal_polygon]['vertices'][::-1]])
+
+                print self.selected_vertex_index, self.first_vertex_index
+
+                props = {}
+                props['vertices'] = new_vertices
+
+                patch = Polygon(props['vertices'], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+                patch.set_picker(True)
+
+                self.axis.add_patch(patch)
+
+                props['vertexPatches'] = []
+                for x,y in props['vertices']:
+                    vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+                    vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+                    props['vertexPatches'].append(vertex_circle)
+                    self.axis.add_patch(vertex_circle)
+                    vertex_circle.set_picker(True)
+
+                props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
+                props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
+                props['subtype'] = PolygonType.OPEN
+
+                centroid = np.mean(props['vertices'], axis=0)
+                props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+
+                self.axis.add_artist(props['labelTextArtist'])
+
+                self.accepted_proposals[patch] = props
+                
+                for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+                    circ.remove()
+                
+                for circ in self.accepted_proposals[self.first_polygon]['vertexPatches']:
+                    circ.remove()
+
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+                self.accepted_proposals[self.first_polygon]['labelTextArtist'].remove()
+                
+                self.selected_proposal_polygon.remove()
+                self.first_polygon.remove()
+
+                self.accepted_proposals.pop(self.selected_proposal_polygon)
+                self.accepted_proposals.pop(self.first_polygon)
+
+        else: # connect two vertices in the same polygon
+            if self.accepted_proposals[self.selected_proposal_polygon]['subtype'] == PolygonType.OPEN:
+                if (self.selected_vertex_index == 0 and self.first_vertex_index != 0) or (self.selected_vertex_index != 0 and self.first_vertex_index == 0):
+                    self.selected_proposal_polygon.set_closed(True)
+                    self.accepted_proposals[self.selected_proposal_polygon]['subtype'] = PolygonType.CLOSED
+
+        self.canvas.draw()
+
+
+    def create_polygon(vertices, label, type, subtype=None):
+        pass
+
+
+    def break_edge(self):
+        print 'break edge'
+        n = len(self.accepted_proposals[self.selected_proposal_polygon]['vertices'])
+        if self.selected_vertex_index == self.first_vertex_index + 1:
+            if self.selected_vertex_index == n-1:
+
+                new_vertices = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][:-1]
+                self.selected_proposal_polygon.set_xy(new_vertices)
+                
+                self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
+
+                circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][self.selected_vertex_index]
+                circ.remove()
+                self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+
+                centroid = np.mean(new_vertices, axis=0)
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+
+                if self.selected_proposal_polygon.get_closed():
+                    self.selected_proposal_polygon.set_closed(False)
+
+            elif self.first_vertex_index == 0:
+                new_vertices = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][1:]
+                self.selected_proposal_polygon.set_xy(new_vertices)
+
+                self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
+
+                circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][self.first_vertex_index]
+                circ.remove()
+                self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+
+                centroid = np.mean(new_vertices, axis=0)
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+
+                if self.selected_proposal_polygon.get_closed():
+                    self.selected_proposal_polygon.set_closed(False)
+
+            else:
+                new_vertices1 = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][:self.selected_vertex_index]
+                new_vertices2 = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][self.selected_vertex_index:]
+
+                for new_vertices in [new_vertices1, new_vertices2]:
+                    props = {}
+                    props['vertices'] = new_vertices
+
+                    patch = Polygon(props['vertices'], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+
+                    patch.set_picker(True)
+                    self.axis.add_patch(patch)
+
+                    props['vertexPatches'] = []
+                    for x,y in props['vertices']:
+                        vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+                        vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+                        props['vertexPatches'].append(vertex_circle)
+                        self.axis.add_patch(vertex_circle)
+                        vertex_circle.set_picker(True)
+
+                    props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
+                    props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
+
+                    props['subtype'] = PolygonType.OPEN
+
+                    centroid = np.mean(props['vertices'], axis=0)
+                    props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+
+                    self.axis.add_artist(props['labelTextArtist'])
+
+                    self.accepted_proposals[patch] = props
+
+                for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+                    circ.remove()
+
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+
+                self.accepted_proposals.pop(self.selected_proposal_polygon)
+                self.selected_proposal_polygon.remove()
+                self.selected_proposal_polygon = None
+
+
+        elif self.selected_vertex_index == self.first_vertex_index - 1:
+            if self.selected_vertex_index == 0:
+
+                new_vertices = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][1:]
+                self.selected_proposal_polygon.set_xy(new_vertices)
+
+                self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
+
+                circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][self.selected_vertex_index]
+                circ.remove()
+                self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+
+                centroid = np.mean(new_vertices, axis=0)
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+
+                if self.selected_proposal_polygon.get_closed():
+                    self.selected_proposal_polygon.set_closed(False)
+
+            elif self.first_vertex_index == n-1:
+                new_vertices = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][:-1]
+                self.selected_proposal_polygon.set_xy(new_vertices)
+
+                self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
+
+                circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][self.first_vertex_index]
+                circ.remove()
+                self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+
+                centroid = np.mean(new_vertices, axis=0)
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+
+                if self.selected_proposal_polygon.get_closed():
+                    self.selected_proposal_polygon.set_closed(False)
+            else:
+                new_vertices1 = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][:self.selected_vertex_index]
+                new_vertices2 = self.accepted_proposals[self.selected_proposal_polygon]['vertices'][self.selected_vertex_index:]
+
+                for new_vertices in [new_vertices1, new_vertices2]:
+                    props = {}
+                    props['vertices'] = new_vertices
+
+                    patch = Polygon(props['vertices'], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+
+                    patch.set_picker(True)
+                    self.axis.add_patch(patch)
+
+                    props['vertexPatches'] = []
+                    for x,y in props['vertices']:
+                        vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+                        vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+                        props['vertexPatches'].append(vertex_circle)
+                        self.axis.add_patch(vertex_circle)
+                        vertex_circle.set_picker(True)
+
+                    props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
+                    props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
+
+                    props['subtype'] = PolygonType.OPEN
+
+                    centroid = np.mean(props['vertices'], axis=0)
+                    props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+
+                    self.axis.add_artist(props['labelTextArtist'])
+
+                    self.accepted_proposals[patch] = props
+
+                for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+                    circ.remove()
+
+                self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+
+                self.accepted_proposals.pop(self.selected_proposal_polygon)
+                self.selected_proposal_polygon.remove()
+                self.selected_proposal_polygon = None
+
+        self.canvas.draw()
+
+
     def on_pick(self, event):
 
         if event.mouseevent.name == 'scroll_event':
@@ -622,7 +913,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         print 'pick callback triggered'
 
-
         self.object_picked = True
 
         patch_vertexInd_tuple = [(patch, props['vertexPatches'].index(event.artist)) for patch, props in self.accepted_proposals.iteritems() 
@@ -630,17 +920,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         
         if len(patch_vertexInd_tuple) == 1:
 
+            if self.mode == Mode.SELECTING_CONNECTION_TARGET or self.mode == Mode.SELECTING_BREAK_TARGET:  
+
+                print self.mode
+
+                self.first_polygon = self.selected_proposal_polygon
+                self.first_vertex = self.selected_circle
+                self.first_vertex_index = self.selected_vertex_index
+
             self.cancel_current_selection()
 
             print 'clicked on a vertex circle'
             self.selected_proposal_polygon = patch_vertexInd_tuple[0][0]
             self.selected_vertex_index = patch_vertexInd_tuple[0][1]
 
+            print 'vertex index', self.selected_vertex_index
+
             self.selected_circle = event.artist
             self.selected_circle.set_radius(SELECTED_CIRCLE_SIZE)
             
-            # self.selected_polygon = self.selected_proposal_polygon
-
             self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
 
             self.statusBar().showMessage('picked %s proposal (%s, %s), vertex %d' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
@@ -650,12 +948,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             self.selected_polygon_circle_centers_before_drag = [circ.center for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
 
-        elif len(patch_vertexInd_tuple) == 0: # ignore if circle is picked
+            if self.mode == Mode.SELECTING_CONNECTION_TARGET:
+                self.connect_vertices()
+            elif self.mode == Mode.SELECTING_BREAK_TARGET:
+                self.break_edge()
+
+            self.mode = Mode.REVIEW_PROPOSAL
+
+
+        elif len(patch_vertexInd_tuple) == 0 and self.selected_circle is None:
             print 'clicked on a polygon'
 
-            # if self.selected_circle is not None:
-            #     return
-            # else:
             self.cancel_current_selection()
 
             if event.artist in self.accepted_proposals:
@@ -676,8 +979,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 self.selected_proposal_type = self.accepted_proposals[self.selected_proposal_polygon]['type']
 
-        else:
-            raise 'unknown situation'
+        # else:
+        #     pass
+            # print 'unknown situation'
 
         self.canvas.draw()
 
@@ -764,14 +1068,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def open_label_selection_dialog(self):
 
+        print 'open_label_selection_dialog'
+
+        if hasattr(self, 'recent_labels') and self.recent_labels is not None and len(self.recent_labels) > 0:
+            self.structure_names = OrderedDict([(abbr, fullname) for abbr, fullname in self.structure_names.iteritems() if abbr in self.recent_labels] + \
+                            [(abbr, fullname) for abbr, fullname in self.structure_names.iteritems() if abbr not in self.recent_labels])
+
         self.label_selection_dialog = AutoCompleteInputDialog(parent=self, labels=[abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()])
         # self.label_selection_dialog = QInputDialog(self)
         self.label_selection_dialog.setWindowTitle('Select landmark label')
 
-        # self.label_selection_dialog.setComboBoxItems(['New label'] + sorted([abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()] + self.new_labelnames))
+        # if hasattr(self, 'invalid_labelname'):
+        #     print 'invalid_labelname', self.invalid_labelname
+        # else:
+        #     print 'no labelname set'
 
         if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
-            self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals[self.selected_proposal_polygon]['label'])
+            self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals[self.selected_proposal_polygon]['label']+' ('+self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']]+')')
         else:
             self.accepted_proposals[self.selected_proposal_polygon]['label'] = ''
 
@@ -782,10 +1095,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.label_selection_dialog.exec_()
 
-    # def set_selected_proposal_label(self, label):
-    #   self.accepted_proposals[self.selected_proposal_polygon]['label'] = label
-
     def label_dialog_text_changed(self):
+
+        print 'label_dialog_text_changed'
 
         text = str(self.label_selection_dialog.comboBox.currentText())
 
@@ -794,6 +1106,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if m is None:
             QMessageBox.warning(self, 'oops', 'structure name must be of the form "abbreviation (full description)"')
+            # self.invalid_labelname = text
+            # print 'self.invalid_labelname', self.invalid_labelname
+            # self.label_selection_dialog.comboBox.setEditText(self.invalid_labelname)
             return
 
         else:
@@ -801,6 +1116,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             if not (abbr in self.structure_names.keys() and fullname in self.structure_names.values()):  # new label
                 if abbr in self.structure_names:
                     QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists: %s' % (abbr, fullname))
+                    # self.invalid_labelname = text
+                    # print 'self.invalid_labelname', self.invalid_labelname
+                    # self.label_selection_dialog.comboBox.setEditText(self.invalid_labelname)
                     return
                 else:
                     self.structure_names[abbr] = fullname
@@ -814,6 +1132,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             text_artist = Text(centroid[0], centroid[1], abbr, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
             self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] = text_artist
             self.axis.add_artist(text_artist)
+
+        self.recent_labels.insert(0, abbr)
+        # self.invalid_labelname = None
 
         self.label_selection_dialog.accept()
 
@@ -952,9 +1273,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.canvas.draw()
 
 
-
-
     def section_changed(self, item):
+
+        self.statusBar().showMessage('Loading ....')
 
         if hasattr(self, 'global_proposal_tuples'):
             del self.global_proposal_tuples
@@ -1039,6 +1360,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if event.key == '=' or event.key == '-':
             self.on_zoom(event)
+
+        cur_xmin, cur_xmax = self.axis.get_xlim()
+        cur_ymin, cur_ymax = self.axis.get_ylim()
+        
+        if event.key == 'left':
+            self.axis.set_xlim([cur_xmin - 100, cur_xmax - 100])
+        elif event.key == 'right':
+            self.axis.set_xlim([cur_xmin + 100, cur_xmax + 100])
+        elif event.key == 'up':
+            self.axis.set_ylim([cur_ymin - 100, cur_ymax - 100])
+        elif event.key == 'down':
+            self.axis.set_ylim([cur_ymin + 100, cur_ymax + 100])
+        self.canvas.draw()
+
 
     def on_zoom(self, event):
 
@@ -1190,7 +1525,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 c.center = (center0[0] + offset_x, center0[1] + offset_y)
 
             xys = self.selected_polygon_xy_before_drag + (offset_x, offset_y)
-            
+
+            self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = xys
+
+            # print 0, self.selected_polygon_xy_before_drag
+            # print 4, (offset_x, offset_y)
+            # print 1, xys
+            # print 2, self.accepted_proposals[self.selected_proposal_polygon]['vertices']
+
             if self.selected_proposal_polygon.get_closed():
                 self.selected_proposal_polygon.set_xy(xys[:-1])
             else:
@@ -1321,15 +1663,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         xys = self.selected_proposal_polygon.get_xy()
         xys = xys[:-1] if self.selected_proposal_polygon.get_closed() else xys
-        dists = np.squeeze(cdist([pos], xys))
-        two_neighbor_inds = np.argsort(dists)[:2]
 
-        print two_neighbor_inds
+        # dists = np.squeeze(cdist([pos], xys))
+        # two_neighbor_inds = np.argsort(dists)[:2]
+        # print two_neighbor_inds
+        # if min(two_neighbor_inds) == 0 and max(two_neighbor_inds) != 1: # two neighbors are the first point and the last point
+        #     new_vertex_ind = max(two_neighbor_inds) + 1
+        # else:
+        #     new_vertex_ind = max(two_neighbor_inds)
 
-        if min(two_neighbor_inds) == 0 and max(two_neighbor_inds) != 1: # two neighbors are the first point and the last point
-            new_vertex_ind = max(two_neighbor_inds) + 1
-        else:
-            new_vertex_ind = max(two_neighbor_inds)
+        n = len(xys)
+        xys_homo = np.column_stack([xys, np.ones(n,)])
+        edges = np.array([np.cross(xys_homo[i], xys_homo[(i+1)%n]) for i in range(n)])
+        edges_normalized = edges/np.sqrt(np.sum(edges[:,:2]**2, axis=1))[:, np.newaxis]
+        dists = np.abs(np.dot(edges_normalized, np.r_[pos,1]))
+        # print dists
+        nearest_edge_begins_at = np.argsort(dists)[0]
+        # print nearest_edge_begins_at
+        new_vertex_ind = (nearest_edge_begins_at + 1)%n
+
         xys = np.insert(xys, new_vertex_ind, pos, axis=0)
         self.selected_proposal_polygon.set_xy(xys)
 
@@ -1367,7 +1719,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.canvas.draw()
 
 
-    def remove_selected_vertices_in_region(self):
+    def remove_selected_vertices_in_region(self, link_endpoints=True):
 
         done = False
         for patch, props in self.accepted_proposals.iteritems():
@@ -1402,8 +1754,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             remaining_segments = [(all_gappoints[-1], all_gappoints[0])] + zip(all_gappoints[1::2], all_gappoints[2::2])
 
         vertices = self.selected_proposal_polygon.get_xy()
-
         
+        closed =self.selected_proposal_polygon.get_closed()
+        
+        if closed:
+            vertices = vertices[:-1]
+
         for start_gap, end_gap in remaining_segments:
 
             print start_gap, end_gap
@@ -1413,12 +1769,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             else:
                 new_vertices = vertices[start_gap:end_gap+1]
 
-            new_vertices = new_vertices[:-1] if self.selected_proposal_polygon.get_closed() else new_vertices
-
             props = {}
             props['vertices'] = new_vertices
 
-            patch = Polygon(props['vertices'], closed=True, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+            patch = Polygon(props['vertices'], closed=link_endpoints, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+
             patch.set_picker(True)
             self.axis.add_patch(patch)
 
@@ -1432,6 +1787,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
             props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
+
+            if link_endpoints:
+                props['subtype'] = PolygonType.CLOSED
+            else:
+                props['subtype'] = PolygonType.OPEN
 
             centroid = np.mean(props['vertices'], axis=0)
             props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
@@ -1592,6 +1952,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             else:
                 self.turn_superpixels_off()
         else:
+            print 'not implemented'
+            return
+
             # if self.under_img is not None:
             #   self.under_img.remove()
 

@@ -48,7 +48,7 @@ from visualization_utilities import *
 sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, deque
 
 import requests
 
@@ -80,6 +80,8 @@ UNSELECTED_POLYGON_LINEWIDTH = 3
 SELECTED_CIRCLE_SIZE = 30
 UNSELECTED_CIRCLE_SIZE = 5
 CIRCLE_PICK_THRESH = 1000.
+
+HISTORY_LEN = 5
 
 class ListSelection(QDialog):
     def __init__(self, item_ls, parent=None):
@@ -246,7 +248,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.recent_labels = []
 
-        self.history = []
+        self.history = deque(maxlen=HISTORY_LEN)
 
     def init_data(self, section):
 
@@ -428,8 +430,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.statusBar().showMessage('Left click to place vertices')
             self.mode = Mode.PLACING_VERTICES
 
-            self.history = []
-            
+            self.history.clear()
+
             self.selected_proposal_vertices = []
             self.selected_proposal_vertexCircles = []
 
@@ -1016,7 +1018,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.save_callback()
 
-        self.history = []
+        self.history.clear()
 
     def rejectProposal_callback(self):
 
@@ -1207,7 +1209,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if len(self.history) == 0:
             return
 
-        history_item = self.history.pop(0)
+        history_item = self.history.pop()
 
         if history_item['type'] == 'add_vertex':
 
@@ -1253,7 +1255,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.accepted_proposals[polygon]['labelTextArtist'].set_position(xys.mean(axis=0))
             self.canvas.draw()
 
-        print self.history
+        # print self.history
 
     def on_key_press(self, event):
 
@@ -1483,14 +1485,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if self.mode == Mode.MOVING_VERTEX:
             self.mode = Mode.REVIEW_PROPOSAL
-            self.history.insert(0, {'type': 'drag_vertex', 'polygon': self.selected_proposal_polygon, 'index': self.selected_vertex_index, 
+            self.history.append({'type': 'drag_vertex', 'polygon': self.selected_proposal_polygon, 'index': self.selected_vertex_index, 
                                 'circle': self.selected_circle, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
-            print self.history
+            # print self.history
 
         elif self.mode == Mode.MOVING_POLYGON:
             self.mode = Mode.REVIEW_PROPOSAL
-            self.history.insert(0, {'type': 'drag_polygon', 'polygon': self.selected_proposal_polygon, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
-            print self.history
+            self.history.append({'type': 'drag_polygon', 'polygon': self.selected_proposal_polygon, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
+            # print self.history
 
         self.release_time = time.time()
 
@@ -1860,11 +1862,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.canvas.draw()
 
-        self.history.insert(0, {'type': 'add_vertex', 'selected_proposal_vertexCircles': self.selected_proposal_vertexCircles,
+        self.history.append({'type': 'add_vertex', 'selected_proposal_vertexCircles': self.selected_proposal_vertexCircles,
             'selected_proposal_vertices': self.selected_proposal_vertices})
 
-        print self.history
-
+        # print self.history
 
 
     def load_segmentation(self):

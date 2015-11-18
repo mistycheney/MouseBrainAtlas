@@ -237,9 +237,16 @@ class DataManager(object):
         self._load_mask(create_mask=load_mask)
 
     def add_labelnames(self, labelnames, filename):
+        existing_labelnames = {}
+        with open(filename, 'r') as f:
+            for ln in f.readlines():
+                abbr, fullname = ln.split('\t')
+                existing_labelnames[abbr] = fullname.strip()
+
         with open(filename, 'a') as f:
             for abbr, fullname in labelnames.iteritems():
-                f.write(abbr+'\t'+fullname+'\n')
+                if abbr in existing_labelnames:
+                    f.write(abbr+'\t'+fullname+'\n')
 
     def set_stack(self, stack):
         self.stack = stack

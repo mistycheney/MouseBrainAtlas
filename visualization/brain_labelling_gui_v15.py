@@ -428,6 +428,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.statusBar().showMessage('Left click to place vertices')
             self.mode = Mode.PLACING_VERTICES
 
+            self.history = []
+            
             self.selected_proposal_vertices = []
             self.selected_proposal_vertexCircles = []
 

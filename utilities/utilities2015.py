@@ -245,7 +245,7 @@ class DataManager(object):
 
         with open(filename, 'a') as f:
             for abbr, fullname in labelnames.iteritems():
-                if abbr in existing_labelnames:
+                if abbr not in existing_labelnames:
                     f.write(abbr+'\t'+fullname+'\n')
 
     def set_stack(self, stack):
@@ -265,8 +265,8 @@ class DataManager(object):
 
             if self.stack == 'MD593':
                 self.mask[1848:1848+4807, 924:924+10186] = True
-            elif self.stack == 'MD594':
-                self.mask[1081:1081+6051, 552:552+12445] = True
+            # elif self.stack == 'MD594':
+            #     self.mask[1081:1081+6051, 552:552+12445] = True
             else:
                 self.mask[500:self.image_height-500, 500:self.image_width-500] = True
                 # self.mask[4500:6500, 1000:3000] = True
@@ -285,11 +285,11 @@ class DataManager(object):
             self.xmax = 924+10186-1
             self.ymin = 1848
             self.ymax = 1848+4807-1
-        elif self.stack == 'MD594':
-            self.xmin = 552
-            self.xmax = 552+12445-1
-            self.ymin = 1081
-            self.ymax = 1081+6051-1
+        # elif self.stack == 'MD594':
+        #     self.xmin = 552
+        #     self.xmax = 552+12445-1
+        #     self.ymin = 1081
+        #     self.ymax = 1081+6051-1
         else:
             self.xmin = 500
             self.ymin = 500 
@@ -472,6 +472,9 @@ class DataManager(object):
             self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
             # except:
             #     missing.append('dedgeNeighbors')
+
+        if 'dedgeVectors' in results and not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
 
     def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
@@ -1423,15 +1426,6 @@ class DataManager(object):
         import cv2
 
         self.load_multiple_results(['edgeCoords', 'edgeMidpoints', 'dedgeVectors'])
-        
-        # if not hasattr(self, 'edge_coords'):
-        #     self.edge_coords = self.load_pipeline_result('edgeCoords')
-           
-        # if not hasattr(self, 'edge_midpoints'):
-        #     self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
-            
-        # if not hasattr(self, 'dedge_vectors'):
-        #     self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if bg == 'originalImage':
             if not hasattr(self, 'image_rgb_jpg'):

@@ -22,6 +22,8 @@ args = parser.parse_args()
 
 t = time.time()
 
+exclude_nodes = [33]
+
 if args.task == 'filter':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s'%\
 								{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/gabor_filter.py', 
@@ -31,7 +33,7 @@ if args.task == 'filter':
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes) # node 32 is very very slow for gabor filtering, for unknown reason
 
 
 elif args.task == 'segment':
@@ -44,7 +46,7 @@ elif args.task == 'segment':
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes)
 
 # elif args.task == 'directionality':
 # 	arg_tuples = [(args.stack, i) for i in slide_indices]
@@ -52,17 +54,17 @@ elif args.task == 'segment':
 
 
 elif args.task == 'compute_texmap':
-	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s'%\
+	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -t %(texton_path)s'%\
 								{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/compute_texmap_bypart.py', 
 								'stack': args.stack,
-								# 'texton_path': os.environ['GORDON_RESULT_DIR'] + '/' + args.stack + '/' + args.stack + '_lossless_textons.npy',
+								'texton_path': os.environ['GORDON_RESULT_DIR'] + '/MD593/MD593_lossless_gabor-blueNisslWide-vq-blueNissl_textons.npy',
 								'gabor_p': args.gabor_params_id,
 								'vq_p': args.vq_params_id,
 								# 'segm_p': args.segm_params_id,
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes)
 
 
 elif args.task == 'compute_textons':
@@ -89,7 +91,7 @@ elif args.task == 'compute_histograms':
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes)
 
 elif args.task == 'grow_regions':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -s %(segm_p)s'%\
@@ -101,7 +103,7 @@ elif args.task == 'grow_regions':
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes)
 
 elif args.task == 'find_consensus':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -s %(segm_p)s'%\
@@ -113,7 +115,7 @@ elif args.task == 'find_consensus':
 								}, 
 					first_sec=args.b,
 					last_sec=args.e,
-					exclude_nodes=[33, 42])
+					exclude_nodes=exclude_nodes)
 
 elif args.task == 'match_landmarks':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -s %(segm_p)s'%\
@@ -125,7 +127,7 @@ elif args.task == 'match_landmarks':
 							}, 
 				first_sec=args.b,
 				last_sec=args.e,
-				exclude_nodes=[33, 42])
+				exclude_nodes=exclude_nodes)
 
 elif args.task == 'visualize_atlas':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -s %(segm_p)s'%\
@@ -137,7 +139,7 @@ elif args.task == 'visualize_atlas':
 							}, 
 				first_sec=args.b,
 				last_sec=args.e,
-				exclude_nodes=[33, 42])
+				exclude_nodes=exclude_nodes)
 
 else:
 	raise Exception('task must be one of filter, segment, compute_textons, compute_histograms, grow_regions, find_consensus, match_landmarks')

@@ -6,6 +6,7 @@ from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
 from skimage.io import imread, imsave
+from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
 import os
@@ -18,13 +19,12 @@ import cPickle as pickle
 import cv2
 from cv2 import imwrite
 
-from tables import *
+from tables import open_file, Filters, Atom
 import bloscpack as bp
 
 from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
-
 
 def create_if_not_exists(path):
     if not os.path.exists(path):
@@ -236,19 +236,17 @@ class DataManager(object):
 
         self._load_mask(create_mask=load_mask)
 
-    # def add_labels(self, labels):
-    #     labelnames = list(set(self.labelnames + labels))
+    def add_labelnames(self, labelnames, filename):
+        existing_labelnames = {}
+        with open(filename, 'r') as f:
+            for ln in f.readlines():
+                abbr, fullname = ln.split('\t')
+                existing_labelnames[abbr] = fullname.strip()
 
-    #     with open(self.labelnames_path, 'w') as f:
-    #         for n in labelnames:
-    #             f.write('%s\n' % n)
-
-    # def set_labelnames(self, labelnames):
-    #     self.labelnames = labelnames
-
-    #     with open(self.labelnames_path, 'w') as f:
-    #         for n in labelnames:
-    #             f.write('%s\n' % n)
+        with open(filename, 'a') as f:
+            for abbr, fullname in labelnames.iteritems():
+                if abbr not in existing_labelnames:
+                    f.write(abbr+'\t'+fullname+'\n')
 
     def set_stack(self, stack):
         self.stack = stack
@@ -263,40 +261,47 @@ class DataManager(object):
 
         if create_mask:
 
-            self.mask = np.zeros((self.image_height, self.image_width), np.bool)
+            # self.mask = np.zeros((self.image_height, self.image_width), np.bool)
 
-            if self.stack == 'MD593':
-                self.mask[1848:1848+4807, 924:924+10186] = True
-            elif self.stack == 'MD594':
-                self.mask[1081:1081+6051, 552:552+12445] = True
-            else:
-                self.mask[500:self.image_height-500, 500:self.image_width-500] = True
+            # if self.stack == 'MD593':
+            #     self.mask[1848:1848+4807, 924:924+10186] = True
+            # # elif self.stack == 'MD594':
+            # #     self.mask[1081:1081+6051, 552:552+12445] = True
+            # else:
+            self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
+            self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
+            self.mask[:500, :] = False
+            self.mask[:, :500] = False
+            self.mask[-500:, :] = False
+            self.mask[:, -500:] = False
+
+                # self.mask[500:self.image_height-500, 500:self.image_width-500] = True
                 # self.mask[4500:6500, 1000:3000] = True
             # else:
             #     raise 'mask is not specified'
 
-        # xs_valid = np.any(self.mask, axis=0)
-        # ys_valid = np.any(self.mask, axis=1)
-        # self.xmin = np.where(xs_valid)[0][0]
-        # self.xmax = np.where(xs_valid)[0][-1]
-        # self.ymin = np.where(ys_valid)[0][0]
-        # self.ymax = np.where(ys_valid)[0][-1]
+            xs_valid = np.any(self.mask, axis=0)
+            ys_valid = np.any(self.mask, axis=1)
+            self.xmin = np.where(xs_valid)[0][0]
+            self.xmax = np.where(xs_valid)[0][-1]
+            self.ymin = np.where(ys_valid)[0][0]
+            self.ymax = np.where(ys_valid)[0][-1]
 
-        if self.stack == 'MD593':
-            self.xmin = 924
-            self.xmax = 924+10186-1
-            self.ymin = 1848
-            self.ymax = 1848+4807-1
-        elif self.stack == 'MD594':
-            self.xmin = 552
-            self.xmax = 552+12445-1
-            self.ymin = 1081
-            self.ymax = 1081+6051-1
-        else:
-            self.xmin = 500
-            self.ymin = 500 
-            self.xmax = self.image_width - 500 - 1
-            self.ymax = self.image_height - 500 - 1
+        # if self.stack == 'MD593':
+        #     self.xmin = 924
+        #     self.xmax = 924+10186-1
+        #     self.ymin = 1848
+        #     self.ymax = 1848+4807-1
+        # elif self.stack == 'MD594':
+        #     self.xmin = 552
+        #     self.xmax = 552+12445-1
+        #     self.ymin = 1081
+        #     self.ymax = 1081+6051-1
+        # else:
+            # self.xmin = 500
+            # self.ymin = 500 
+            # self.xmax = self.image_width - 500 - 1
+            # self.ymax = self.image_height - 500 - 1
 
             # self.xmin = 1000
             # self.ymin = 4500
@@ -310,17 +315,17 @@ class DataManager(object):
         # self.ymin = rs.min()
         # self.xmax = cs.max()
         # self.xmin = cs.min()
-        self.h = self.ymax-self.ymin+1
-        self.w = self.xmax-self.xmin+1
+            self.h = self.ymax-self.ymin+1
+            self.w = self.xmax-self.xmin+1
 
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
         self.slice_str = '%04d' % slice_ind
         if self.resol == 'lossless':
-            self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_cropped')
+            self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
             self.image_name = '_'.join([self.stack, self.slice_str, self.resol])
-            self.image_path = os.path.join(self.image_dir, self.image_name + '_warped.tif')
+            self.image_path = os.path.join(self.image_dir, self.image_name + '_aligned_cropped.tif')
 
         try:
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
@@ -474,6 +479,9 @@ class DataManager(object):
             self.dedge_neighbor_graph = from_dict_of_lists(self.dedge_neighbors)
             # except:
             #     missing.append('dedgeNeighbors')
+
+        if 'dedgeVectors' in results and not hasattr(self, 'dedge_vectors'):
+            self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
 
     def compute_cluster_score(self, cluster, seed=None, seed_weight=0, verbose=False, method='rc-mean', thresh=.2):
@@ -1031,20 +1039,20 @@ class DataManager(object):
         slice_str = '%04d' % section
 
         if version == 'rgb-jpg':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_downscaled')
-            image_name = '_'.join([stack, slice_str, resol, 'warped_downscaled'])
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
         # elif version == 'gray-jpg':
         #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
         #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
         #     image_path = os.path.join(image_dir, image_name + '.jpg')
         elif version == 'gray':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale')
-            image_name = '_'.join([stack, slice_str, resol, 'warped_grayscale'])
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif version == 'rgb':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped')
-            image_name = '_'.join([stack, slice_str, resol, 'warped'])
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
             image_path = os.path.join(image_dir, image_name + '.tif')
          
         return image_path
@@ -1258,7 +1266,7 @@ class DataManager(object):
             bp.pack_ndarray_file(data, result_filename)
             
         print 'saved %s' % result_filename
-        
+
 
     def load_review_result_path(self, username, timestamp, stack=None, section=None, suffix=''):
         if stack is None:
@@ -1423,15 +1431,6 @@ class DataManager(object):
         import cv2
 
         self.load_multiple_results(['edgeCoords', 'edgeMidpoints', 'dedgeVectors'])
-        
-        # if not hasattr(self, 'edge_coords'):
-        #     self.edge_coords = self.load_pipeline_result('edgeCoords')
-           
-        # if not hasattr(self, 'edge_midpoints'):
-        #     self.edge_midpoints = self.load_pipeline_result('edgeMidpoints')
-            
-        # if not hasattr(self, 'dedge_vectors'):
-        #     self.dedge_vectors = self.load_pipeline_result('dedgeVectors')
 
         if bg == 'originalImage':
             if not hasattr(self, 'image_rgb_jpg'):

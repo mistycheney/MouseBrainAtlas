@@ -287,22 +287,6 @@ class DataManager(object):
             self.ymin = np.where(ys_valid)[0][0]
             self.ymax = np.where(ys_valid)[0][-1]
 
-        # if self.stack == 'MD593':
-        #     self.xmin = 924
-        #     self.xmax = 924+10186-1
-        #     self.ymin = 1848
-        #     self.ymax = 1848+4807-1
-        # elif self.stack == 'MD594':
-        #     self.xmin = 552
-        #     self.xmax = 552+12445-1
-        #     self.ymin = 1081
-        #     self.ymax = 1081+6051-1
-        # else:
-            # self.xmin = 500
-            # self.ymin = 500 
-            # self.xmax = self.image_width - 500 - 1
-            # self.ymax = self.image_height - 500 - 1
-
             # self.xmin = 1000
             # self.ymin = 4500
             # self.xmax = 3000-1
@@ -1266,6 +1250,8 @@ class DataManager(object):
             bp.pack_ndarray_file(data, result_filename)
             
         print 'saved %s' % result_filename
+
+
 
 
     def load_review_result_path(self, username, timestamp, stack=None, section=None, suffix=''):

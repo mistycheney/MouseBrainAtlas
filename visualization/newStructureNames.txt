@@ -1,0 +1,14 @@
+UDF	undefined nucleus
+UDFn	undefined nerve
+BC	Brachium Conjunctivum
+EmGr	Eminentia Granularis
+VMu	nucleus trigeminalis descendens, pars Muralis
+VIp	nucleus trigeminalis descendens, pars Interpolaris
+PrVd	nucleus trigeminalis principalis, pars dorsalis
+VIpp	nucleus trigeminalis descendens interpolaris, pars posterior
+VOrp	nucleus trigeminalis descendens Oralis, pars posterior
+PrVv	nucleus trigeminalis principalis, pars ventralis
+VOra	nucleus trigeminalis descendens Oralis pars anterior
+preV	nucleus pretrigeminalis??
+TrVdes	Tractus trigemini descendens
+UDFtr	Undefined Tract

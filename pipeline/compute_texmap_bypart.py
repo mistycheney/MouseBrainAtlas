@@ -30,42 +30,51 @@ dm = DataManager(gabor_params_id=args.gabor_params_id,
 
 #==================================================
 
-if dm.check_pipeline_result('texMap') and dm.check_pipeline_result('texMapViz'):
-# if False:
-    print "texMap.npy already exists, skip"
+# if dm.check_pipeline_result('texMap') and dm.check_pipeline_result('texMapViz'):
+# # if False:
+#     print "texMap.npy already exists, skip"
 
-    textonmap = dm.load_pipeline_result('texMap')
-    n_texton = textonmap.max() + 1
+#     textonmap = dm.load_pipeline_result('texMap')
+#     n_texton = textonmap.max() + 1
 
-else:
+# else:
 
 	# print 'loading centroids ...',
 	# t = time.time()
 
-	if args.texton_path == '':
-	    centroids = dm.load_pipeline_result('textons')
-	else:
-	    centroids = np.load(args.texton_path)
+if args.texton_path == '':
+    centroids = dm.load_pipeline_result('textons')
+else:
+    centroids = np.load(args.texton_path)
 
-	n_texton = len(centroids)
+n_texton = len(centroids)
 
-	# features_rotated = np.c_[np.r_[dm.load_pipeline_result('featuresRotated0'), dm.load_pipeline_result('featuresRotated1')],
-	#                         np.r_[dm.load_pipeline_result('featuresRotated2'), dm.load_pipeline_result('featuresRotated3')]]
+# features_rotated = np.c_[np.r_[dm.load_pipeline_result('featuresRotated0'), dm.load_pipeline_result('featuresRotated1')],
+#                         np.r_[dm.load_pipeline_result('featuresRotated2'), dm.load_pipeline_result('featuresRotated3')]]
 
-	# features_rotated = dm.load_pipeline_result('featuresRotated')
-	# print 'done in', time.time() - t, 'seconds'
+# features_rotated = dm.load_pipeline_result('featuresRotated')
+# print 'done in', time.time() - t, 'seconds'
 
-	# print 'assign textons ...',
-	# t = time.time()
+# print 'assign textons ...',
+# t = time.time()
 
-	textonmap = -1 * np.ones((dm.image_height, dm.image_width), dtype=np.int8)
+textonmap = -1 * np.ones((dm.image_height, dm.image_width), dtype=np.int8)
 
-	for part in range(0,4):
+block_size = 7000
+
+for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
+    for row, ymin in enumerate(range(dm.ymin, dm.ymax, block_size)):
+
+		xmax = xmin + block_size - 1
+		ymax = ymin + block_size - 1
 
 		t = time.time()
 		sys.stderr.write('load featuresRotated ...')
 
-		features_rotated = dm.load_pipeline_result('featuresRotated%d'%part)
+		if not dm.check_pipeline_result('featuresMaskedRotatedRow%dCol%d'%(row, col)):
+			continue
+		
+		features_rotated = dm.load_pipeline_result('featuresMaskedRotatedRow%dCol%d'%(row, col))
 
 		sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
@@ -92,36 +101,30 @@ else:
 		sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 
-		# labels = np.concatenate(label_list)
+	# labels = np.concatenate(label_list)
 
-		if part == 0:
-			textonmap[dm.ymin:dm.image_height/2, dm.xmin:dm.image_width/2] = labels.reshape((dm.image_height/2-dm.ymin, dm.image_width/2-dm.xmin))
-		elif part == 1:
-			textonmap[dm.ymin:dm.image_height/2, dm.image_width/2:dm.xmax+1] = labels.reshape((dm.image_height/2-dm.ymin, dm.xmax+1-dm.image_width/2))
-		elif part == 2:
-			textonmap[dm.image_height/2:dm.ymax+1, dm.xmin:dm.image_width/2] = labels.reshape((dm.ymax+1-dm.image_height/2, dm.image_width/2-dm.xmin))
-		elif part == 3:
-			textonmap[dm.image_height/2:dm.ymax+1, dm.image_width/2:dm.xmax+1] = labels.reshape((dm.ymax+1-dm.image_height/2, dm.xmax+1-dm.image_width/2))
+		mask = dm.mask[ymin:ymax+1, xmin:xmax+1]
+		textonmap[ymin:ymax+1, xmin:xmax+1][mask] = labels
+	
+	# sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
-		# sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+# print 'done in', time.time() - t, 'seconds'
 
-	# print 'done in', time.time() - t, 'seconds'
+t = time.time()
+sys.stderr.write('dumping texmap ...')
 
-	t = time.time()
-	sys.stderr.write('dumping texmap ...')
+dm.save_pipeline_result(textonmap, 'texMap')
 
-	dm.save_pipeline_result(textonmap, 'texMap')
-
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 
-	t = time.time()
-	sys.stderr.write('dumping texmap visualization ...')
+t = time.time()
+sys.stderr.write('dumping texmap visualization ...')
 
-	colors = (np.loadtxt(dm.repo_dir + '/visualization/100colors.txt') * 255).astype(np.uint8)
+colors = (np.loadtxt(dm.repo_dir + '/visualization/100colors.txt') * 255).astype(np.uint8)
 
-	textonmap_viz = np.zeros((dm.image_height, dm.image_width, 3), np.uint8)
-	textonmap_viz[dm.mask] = colors[textonmap[dm.mask]]
-	dm.save_pipeline_result(textonmap_viz, 'texMapViz')
+textonmap_viz = np.zeros((dm.image_height, dm.image_width, 3), np.uint8)
+textonmap_viz[dm.mask] = colors[textonmap[dm.mask]]
+dm.save_pipeline_result(textonmap_viz, 'texMapViz')
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+sys.stderr.write('done in %f seconds\n' % (time.time() - t))

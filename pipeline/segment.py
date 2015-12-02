@@ -77,7 +77,8 @@ except Exception as e:
 
     elif dm.segm_params_id in ['tSLIC200']:
 
-        from slic_texture import slic_texture, enforce_connectivity
+        # from slic_texture import slic_texture, enforce_connectivity
+        from slic_texture import slic_texture
         from skimage.transform import integral_image
 
         segmentation = np.zeros((dm.image_height, dm.image_width), np.int16)
@@ -85,51 +86,62 @@ except Exception as e:
         textonmap = dm.load_pipeline_result('texMap')
         n_texton = textonmap.max() + 1
 
-
         sys.stderr.write('compute texture histogram map\n')
         t = time.time()
 
         window_size = 201
         window_halfsize = (window_size-1)/2
 
-        single_channel_maps = [textonmap[dm.ymin-window_halfsize : dm.ymax+1+window_halfsize, 
-                                         dm.xmin-window_halfsize : dm.xmax+1+window_halfsize] == c
-                               for c in range(n_texton)]
+        ################################
 
-        # it is important to pad the integral image with zeros before first row and first column
-        def compute_integral_image(m):
-            return np.pad(integral_image(m), ((1,0),(1,0)), mode='constant', constant_values=0)
+        # histograms_normalized = np.empty((n_texton, dm.h, dm.w), np.int)
 
-        int_imgs = np.dstack(Parallel(n_jobs=4)(delayed(compute_integral_image)(m) for m in single_channel_maps))
+        # for c in range(n_texton):
+        #     sys.stderr.write('texton %d\n' % c)
+        #     m = textonmap[dm.ymin-window_halfsize : dm.ymax+1+window_halfsize, dm.xmin-window_halfsize : dm.xmax+1+window_halfsize] == c
+        #     int_img = np.pad(integral_image(m), ((1,0),(1,0)), mode='constant', constant_values=0)
+        #     histograms_normalized[c] = int_img[window_size:, window_size:] + \
+        #                                 int_img[:-window_size, :-window_size] - \
+        #                                 int_img[window_size:, :-window_size] - \
+        #                                 int_img[:-window_size, window_size:]
+        #     del m, int_img
 
-        histograms = int_imgs[window_size:, window_size:] + \
-                    int_imgs[:-window_size, :-window_size] - \
-                    int_imgs[window_size:, :-window_size] - \
-                    int_imgs[:-window_size, window_size:]
+        # histograms_normalized = np.rollaxis(histograms_normalized, 0, 3)
+        # print histograms_normalized.shape
 
-        histograms_normalized = histograms/histograms.sum(axis=-1)[...,None].astype(np.float)
+        # histograms_normalized = histograms_normalized/histograms_normalized.sum(axis=-1).astype(np.float, copy=False)[..., None]
+        # print histograms_normalized.shape
 
-        del single_channel_maps, histograms, int_imgs
+        # sys.stderr.write('histograms_normalized computed\n')
+
+        # dm.save_pipeline_result(histograms_normalized, 'histogramsPixelNormalized')
+
+        # sys.exit(0)
+
+        ################
+
+        histograms_normalized = dm.load_pipeline_result('histogramsPixelNormalized')
+        del textonmap
 
         sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
 
-        seg = slic_texture(histograms_normalized, max_iter=10)
-
-        sys.stderr.write('enforce connectivity\n')
+        sys.stderr.write('slic\n')
         t = time.time()
 
-        segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = enforce_connectivity(seg)
+        # seg = slic_texture(histograms_normalized, dm.mask[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1], max_iter=1)
+        segmentation[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1] = slic_texture(histograms_normalized, dm.mask[dm.ymin:dm.ymax+1, dm.xmin:dm.xmax+1], max_iter=10)
+        del histograms_normalized
+
 
         sys.stderr.write('done in %.2f seconds\n' % (time.time() - t))
 
-
     segmentation[~dm.mask] = -1
-    				
+
     # segmentation starts from 0
-    masked_segmentation_relabeled, _, _ = relabel_sequential(segmentation + 1)
+    segmentation, _, _ = relabel_sequential(segmentation + 1)
 
     # make background label -1
-    segmentation = masked_segmentation_relabeled - 1
+    segmentation = segmentation - 1
 
     dm.save_pipeline_result(segmentation.astype(np.int16), 'segmentation')
 

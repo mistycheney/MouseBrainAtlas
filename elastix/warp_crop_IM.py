@@ -45,7 +45,7 @@ for secind in range(first_secind, last_secind+1):
          'tx':T[0,2],
          'ty':T[1,2],
          'input_fn': os.path.join(input_dir, all_files[secind]),
-         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_warped.tif'),
+         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_aligned_cropped.tif'),
          'x': '+' + str(x * scale_factor) if int(x)>=0 else str(x * scale_factor),
          'y': '+' + str(y * scale_factor) if int(y)>=0 else str(y * scale_factor),
          'w': str(w * scale_factor),

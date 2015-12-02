@@ -19,13 +19,12 @@ import cPickle as pickle
 import cv2
 from cv2 import imwrite
 
-from tables import *
+from tables import open_file, Filters, Atom
 import bloscpack as bp
 
 from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
-
 
 def create_if_not_exists(path):
     if not os.path.exists(path):
@@ -1267,7 +1266,7 @@ class DataManager(object):
             bp.pack_ndarray_file(data, result_filename)
             
         print 'saved %s' % result_filename
-        
+
 
 
 

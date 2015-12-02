@@ -22,7 +22,7 @@ d = {
 
      'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_renamed'),
 	 'elastix_output_dir': os.path.join(DATAPROC_DIR, stack+'_elastix_output'),
-	 'warped_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_warped'),
+	 'warped_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned'),
 	 'suffix': 'thumbnail',
     }
 

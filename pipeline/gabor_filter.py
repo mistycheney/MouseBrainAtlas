@@ -61,7 +61,7 @@ sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 from itertools import product
 
-block_size = 7000
+block_size = 4000
 
 def convolve_per_proc(i, xmin, xmax, ymin, ymax):
 
@@ -155,7 +155,7 @@ for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
 
         # bp.pack_ndarray_file(features_masked, '/scratch/yuncong/tmp.bp')
 
-        print features_masked.shape
+        # print features_masked.shape
 
         sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
@@ -189,3 +189,5 @@ for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
         del features_masked, features_masked_rotated
 
         sys.stderr.write('done in %f seconds\n' % (time.time() - t))    
+
+        # sys.exit(0)

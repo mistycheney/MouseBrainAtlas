@@ -60,7 +60,7 @@ n_texton = len(centroids)
 
 textonmap = -1 * np.ones((dm.image_height, dm.image_width), dtype=np.int8)
 
-block_size = 7000
+block_size = 4000
 
 for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
     for row, ymin in enumerate(range(dm.ymin, dm.ymax, block_size)):

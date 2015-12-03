@@ -8,24 +8,31 @@ import numpy as np
 stack = sys.argv[1]
 input_dir = sys.argv[2]
 output_dir = sys.argv[3]
-output_jp2_dir = sys.argv[4]
-arg_file = sys.argv[5]
-suffix = sys.argv[6]
+arg_file = sys.argv[4]
+suffix = sys.argv[5]
+if suffix == 'lossless':
+        output_jp2_dir = output_dir + '_jp2'
 
 if not os.path.exists(output_dir):
 	os.makedirs(output_dir)
 
-if not os.path.exists(output_jp2_dir):
-	os.makedirs(output_jp2_dir)
+if suffix == 'lossless':
+        if not os.path.exists(output_jp2_dir):
+                os.makedirs(output_jp2_dir)
 
 with open(arg_file, 'r') as f:
         arg_tuples = map(lambda x: x.split(' '), f.readlines())
         arg_tuples = [(x[0], int(x[1])) for x in arg_tuples]
 
-d = {'input_dir': input_dir,
-'output_dir': output_dir,
-'output_jp2_dir': output_jp2_dir,
-'suffix': suffix}
+if suffix == 'lossless':
+        d = {'input_dir': input_dir,
+        'output_dir': output_dir,
+        'output_jp2_dir': output_jp2_dir,
+        'suffix': suffix}
+else:
+     d = {'input_dir': input_dir,
+        'output_dir': output_dir,
+        'suffix': suffix}   
 
 for fn, new_ind in arg_tuples:
         d['fn_base'] = fn[:-4]

@@ -9,7 +9,6 @@ import time
 
 stack = sys.argv[1]
 first_sec, last_sec = map(int, sys.argv[2:4])
-x,y,w,h = map(int, sys.argv[4:8])
 
 # hostids = detect_responsive_nodes(exclude_nodes=[33,42])
 hostids = detect_responsive_nodes()

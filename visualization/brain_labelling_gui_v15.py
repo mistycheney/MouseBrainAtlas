@@ -91,7 +91,7 @@ UNSELECTED_POLYGON_LINEWIDTH = 3
 SELECTED_CIRCLE_SIZE = 30
 UNSELECTED_CIRCLE_SIZE = 5
 CIRCLE_PICK_THRESH = 1000.
-PAN_THRESHOLD = 100
+PAN_THRESHOLD = 10
 
 HISTORY_LEN = 5
 
@@ -856,7 +856,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 						self.selected_polygon_circle_centers_before_drag = [circ.center 
 											for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
 
-						# self.selected_polygon_label_pos_before_drag = self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].get_position()
+						self.selected_polygon_label_pos_before_drag = self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].get_position()
 
 						if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
 							self.statusBar().showMessage('picked %s proposal (%s, %s)' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
@@ -1711,10 +1711,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.selected_proposal_polygon.set_xy(xys)
 
 			if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon]:
-				# self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(np.mean(xys, axis=0))
-				label_pos = self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].get_position()
-				print label_pos
-				self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((label_pos[0]+offset_x, label_pos[1]+offset_y))
+				self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((self.selected_polygon_label_pos_before_drag[0]+offset_x, 
+																										self.selected_polygon_label_pos_before_drag[1]+offset_y))
 
 			self.canvas.draw()
 

@@ -13,7 +13,15 @@ output_dir = sys.argv[3]
 first_secind = int(sys.argv[4])
 last_secind = int(sys.argv[5])
 suffix = sys.argv[6]
-x,y,w,h = map(int, sys.argv[7:11])
+crop = bool(int(sys.argv[7]))
+
+if crop:
+    x,y,w,h = map(int, sys.argv[8:12])
+else:
+    x = 0
+    y = 0
+    w = 2000
+    h = 1500
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -45,7 +53,7 @@ for secind in range(first_secind, last_secind+1):
          'tx':T[0,2],
          'ty':T[1,2],
          'input_fn': os.path.join(input_dir, all_files[secind]),
-         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_aligned_cropped.tif'),
+         'output_fn': os.path.join(output_dir, all_files[secind][:-4] + '_aligned'+ ('_cropped.tif' if crop else '.tif')),
          'x': '+' + str(x * scale_factor) if int(x)>=0 else str(x * scale_factor),
          'y': '+' + str(y * scale_factor) if int(y)>=0 else str(y * scale_factor),
          'w': str(w * scale_factor),

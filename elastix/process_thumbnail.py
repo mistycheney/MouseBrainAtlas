@@ -22,8 +22,8 @@ d = {
 
      'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_renamed'),
 	 'elastix_output_dir': os.path.join(DATAPROC_DIR, stack+'_elastix_output'),
-	 'warped_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned'),
-	 'suffix': 'thumbnail',
+	 'aligned_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned'),
+	 'suffix': 'thumbnail'
     }
 
 
@@ -63,6 +63,6 @@ print 'done in', time.time() - t, 'seconds'
 t = time.time()
 print 'warping...',
 run_distributed3('%(script_dir)s/warp_crop_IM.py'%d, 
-				[(stack, d['input_dir'], d['warped_dir'], f, l, d['suffix'], 0, 0, 2000, 1500) for f, l in first_last_tuples],
+				[(stack, d['input_dir'], d['aligned_dir'], f, l, d['suffix'], 0) for f, l in first_last_tuples],
 				stdout=open('/tmp/log', 'ab+'))
 print 'done in', time.time() - t, 'seconds'

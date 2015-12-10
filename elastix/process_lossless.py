@@ -26,7 +26,7 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify
 	'dataproc_dir': DATAPROC_DIR,
 	'w':w, 'h':h, 'x':x, 'y':y})
 
-# sys.exit(0)
+sys.exit(0)
 
 tmp_dir = DATAPROC_DIR + '/' + 'tmp'
 

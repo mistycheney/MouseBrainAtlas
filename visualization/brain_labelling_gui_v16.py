@@ -33,7 +33,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v10 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v11 import Ui_BrainLabelingGui
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon, PathPatch
@@ -66,6 +66,7 @@ class Mode(Enum):
 	REVIEW_PROPOSAL = 'review proposal'
 	SELECTING_ROI = 'selecting roi'
 	# SELECTING_CONNECTION_TARGET = 'selecting the second vertex to connect'
+	IDLE = 'idle'
 	MOVING_POLYGON = 'moving polygon'
 	MOVING_VERTEX = 'moving vertex'
 	CREATING_NEW_POLYGON = 'create new polygon'
@@ -96,6 +97,8 @@ PAN_THRESHOLD = 10
 HISTORY_LEN = 5
 
 AUTO_EXTEND_VIEW_TOLERANCE = 200
+
+NUM_NEIGHBORS_PRELOAD = 3
 
 class ListSelection(QDialog):
 	def __init__(self, item_ls, parent=None):
@@ -210,9 +213,7 @@ class AutoCompleteComboBox(QComboBox):
 
 	def keyPressEvent(self, event):
 		key = event.key()
-		if key == 16777220:
-			# Enter (if event.key() == QtCore.Qt.Key_Enter) does not work
-			# for some reason
+		if key == Qt.Key_Return:
 
 			# make sure that the completer does not set the
 			# currentText of the combobox to "" when pressing enter
@@ -245,6 +246,95 @@ class AutoCompleteInputDialog(QDialog):
 		# OK.clicked.connect(self.accept)
 		# cancel.clicked.connect(self.reject)
 
+class SignalEmitter(QObject):
+    moved = pyqtSignal(int, int, int, int)
+    clicked = pyqtSignal()
+    released = pyqtSignal()
+    
+    def __init__(self, parent):
+        super(SignalEmitter, self).__init__()
+        self.parent = parent
+
+
+class QGraphicsPathItemModified(QGraphicsPathItem):
+
+	def __init__(self, parent=None, *args, **kwargs):
+		super(self.__class__, self).__init__(parent, *args, **kwargs)
+		self.signal_emitter = SignalEmitter(parent=self)
+		self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
+								# basically, ignore the first press and release event
+
+	def mousePressEvent(self, event):
+		# if not self.just_created:
+		print 'received mousePressEvent'
+		QGraphicsPathItem.mousePressEvent(self, event)
+		self.signal_emitter.clicked.emit()
+
+		self.press_scene_x = event.scenePos().x()
+		self.press_scene_y = event.scenePos().y()
+
+		self.center_scene_x_before_move = self.scenePos().x()
+		self.center_scene_y_before_move = self.scenePos().y()
+
+		# self.just_created = False
+
+	def mouseReleaseEvent(self, event):
+		# if not self.just_created:
+		print 'received mouseReleaseEvent'
+		QGraphicsPathItem.mouseReleaseEvent(self, event)
+		self.signal_emitter.released.emit()
+
+		self.press_scene_x = None
+		self.press_scene_y = None
+
+		self.center_scene_x_before_move = None
+		self.center_scene_y_before_move = None
+
+	def mouseMoveEvent(self, event):
+		print 'received mouseMoveEvent'
+		self.signal_emitter.moved.emit(event.scenePos().x(), event.scenePos().y(), self.press_scene_x, self.press_scene_y)
+		QGraphicsPathItem.mouseMoveEvent(self, event)
+
+class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
+
+	def __init__(self, parent=None, *args, **kwargs):
+		super(self.__class__, self).__init__(parent, *args, **kwargs)
+		self.signal_emitter = SignalEmitter(parent=self)
+		self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
+								# basically, ignore the first press and release event
+
+	def mousePressEvent(self, event):
+		if not self.just_created:
+			print 'received mousePressEvent'
+			QGraphicsEllipseItem.mousePressEvent(self, event)
+			self.signal_emitter.clicked.emit()
+
+			self.press_scene_x = event.scenePos().x()
+			self.press_scene_y = event.scenePos().y()
+
+			self.center_scene_x_before_move = self.scenePos().x()
+			self.center_scene_y_before_move = self.scenePos().y()
+
+		self.just_created = False
+
+	def mouseReleaseEvent(self, event):
+		if not self.just_created:
+			print 'received mouseReleaseEvent'
+			QGraphicsEllipseItem.mouseReleaseEvent(self, event)
+			self.signal_emitter.released.emit()
+
+			self.press_scene_x = None
+			self.press_scene_y = None
+
+			self.center_scene_x_before_move = None
+			self.center_scene_y_before_move = None
+
+	def mouseMoveEvent(self, event):
+		print 'received mouseMoveEvent'
+		self.signal_emitter.moved.emit(event.scenePos().x(), event.scenePos().y(), self.press_scene_x, self.press_scene_y)
+		QGraphicsEllipseItem.mouseMoveEvent(self, event)
+	
+
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, stack=None):
 		"""
@@ -268,40 +358,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.section = section
 		self.section2 = section + 1
+		self.section3 = section - 1
 
-		self.dm = DataManager(
-			data_dir=os.environ['LOCAL_DATA_DIR'], 
-				 repo_dir=os.environ['LOCAL_REPO_DIR'], 
-				 result_dir=os.environ['LOCAL_RESULT_DIR'], 
-				 labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			stack=self.stack, section=section, segm_params_id='tSLIC200')
+		self.dms = dict([(i, DataManager(
+		    data_dir=os.environ['LOCAL_DATA_DIR'], 
+		         repo_dir=os.environ['LOCAL_REPO_DIR'], 
+		         result_dir=os.environ['LOCAL_RESULT_DIR'], 
+		         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+		    stack=stack, section=i, segm_params_id='tSLIC200')) for i in range(self.section-NUM_NEIGHBORS_PRELOAD, self.section+NUM_NEIGHBORS_PRELOAD+1)])
 
-		# self.dm2 = DataManager(
-		#     data_dir=os.environ['LOCAL_DATA_DIR'], 
-		#          repo_dir=os.environ['LOCAL_REPO_DIR'], 
-		#          result_dir=os.environ['LOCAL_RESULT_DIR'], 
-		#          labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-		#     stack=self.stack, section=section+1, segm_params_id='tSLIC200')
-		# self.dm2._load_image(versions=['rgb-jpg'])
+		self.dm = self.dms[section]
 
-		# self.dms = dict([(i, DataManager(
-		#     data_dir=os.environ['LOCAL_DATA_DIR'], 
-		#          repo_dir=os.environ['LOCAL_REPO_DIR'], 
-		#          result_dir=os.environ['LOCAL_RESULT_DIR'], 
-		#          labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-		#     stack=stack, section=i, segm_params_id='tSLIC200')) for i in range(self.section-5, self.section) + range(self.section+1, self.section+6)])
-
-		self.dms = dict([(section+1, DataManager(
-			data_dir=os.environ['LOCAL_DATA_DIR'], 
-				 repo_dir=os.environ['LOCAL_REPO_DIR'], 
-				 result_dir=os.environ['LOCAL_RESULT_DIR'], 
-				 labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			stack=self.stack, section=section+1, segm_params_id='tSLIC200'))])
-
-		for dm in self.dms.itervalues():
-			dm._load_image(versions=['rgb-jpg'])
-
-		self.dm2 = self.dms[self.section2]
+		self.pixmaps = dict([(i, QPixmap(dm._get_image_filepath(version='rgb-jpg'))) for i, dm in self.dms.iteritems()])
 
 		self.new_labelnames = {}
 		if os.path.exists(self.dm.repo_dir+'/visualization/newStructureNames.txt'):
@@ -320,22 +388,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		print self.dm.slice_ind
 
-		t = time.time()
-		self.dm._load_image(versions=['rgb-jpg'])
-		print 1, time.time() - t
+		# t = time.time()
+		# self.dm._load_image(versions=['rgb-jpg'])
+		# print 1, time.time() - t
 
-		required_results = [
-		'segmentationTransparent', 
-		'segmentation',
-		'allSeedClusterScoreDedgeTuples',
-		'proposals',
-		'spCoveredByProposals',
-		'edgeMidpoints',
-		'edgeEndpoints',
-		'spAreas',
-		'spBbox',
-		'spCentroids'
-		]
+		# required_results = ['segmentationTransparent', 
+		# 					'segmentation',
+		# 					'allSeedClusterScoreDedgeTuples',
+		# 					'proposals',
+		# 					'spCoveredByProposals',
+		# 					'edgeMidpoints',
+		# 					'edgeEndpoints',
+		# 					'spAreas',
+		# 					'spBbox',
+		# 					'spCentroids']
 
 		# t = time.time()
 		# self.dm.download_results(required_results)
@@ -350,7 +416,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.textonmap_vis = None
 		self.dirmap_vis = None
 
-		self.set_mode(Mode.REVIEW_PROPOSAL)
+		self.set_mode(Mode.IDLE)
 
 		self.boundary_colors = [(0,1,1), (1,0,0), (0,0,0),(0,0,1)] # unknown, accepted, rejected
 
@@ -364,116 +430,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def paramSettings_clicked(self):
 		pass
-
-	def openMenu(self, canvas_pos):
-
-		self.deleteVertex_Action.setVisible(self.selected_circle is not None)
-
-		self.movePolygon_Action.setVisible(self.selected_proposal_polygon is not None and \
-			self.selected_proposal_polygon in self.accepted_proposals)
-
-		# self.moveVertex_Action.setVisible(self.selected_proposal_polygon is not None and \
-		#     self.selected_proposal_polygon in self.accepted_proposals)
-
-		self.addVertex_Action.setVisible(self.selected_proposal_polygon is not None and \
-			self.selected_proposal_polygon in self.accepted_proposals and self.mode != Mode.ADDING_VERTICES_RANDOMLY)
-
-		self.extendPolygon_Action.setVisible(self.selected_circle is not None and \
-			(self.selected_vertex_index == len(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']) - 1 or \
-			self.selected_vertex_index == 0))
-
-		self.doneAddingVertex_Action.setVisible(self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY or self.mode == Mode.ADDING_VERTICES_RANDOMLY)
-
-		self.deleteVerticesROI_Action.setVisible(hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None)
-		self.deleteVerticesROIOpen_Action.setVisible(hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None)
-				
-		self.breakEdge_Action.setVisible(self.selected_proposal_polygon is not None and \
-			self.selected_proposal_polygon in self.accepted_proposals)
-
-		self.newPolygon_Action.setVisible(self.mode == Mode.REVIEW_PROPOSAL)
-
-		self.accProp_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon not in self.accepted_proposals)
-		self.rejProp_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon in self.accepted_proposals)
-		self.changeLabel_Action.setVisible(self.selected_proposal_polygon is not None and self.selected_proposal_polygon in self.accepted_proposals)
-
-		print 'open menu'
-
-		action = self.menu.exec_(self.cursor().pos())
-
-		print 'action served'
-
-		if action == self.doneAddingVertex_Action:
-
-			self.set_mode(Mode.REVIEW_PROPOSAL)
-
-			if 'label' not in self.accepted_proposals[self.selected_proposal_polygon]:
-				self.acceptProposal_callback()
-
-		elif action == self.deleteVertex_Action:
-			self.remove_selected_vertex()
-
-		# elif action == self.connectTo_Action:
-		#     self.set_mode(Mode.SELECTING_CONNECTION_TARGET)
-
-		elif action == self.selectROI_Action:
-			self.set_mode(Mode.SELECTING_ROI)
-
-		elif action == self.deleteVerticesROI_Action:
-			self.remove_selected_vertices_in_region(link_endpoints=True)
-
-		elif action == self.deleteVerticesROIOpen_Action:
-			self.remove_selected_vertices_in_region(link_endpoints=False)
-	
-		# elif action == self.addVertex_Action:
-		#     # self.add_vertex(canvas_pos)
-		#     self.set_mode(Mode.ADDING_VERTICES_RANDOMLY)
-
-		# elif action == self.keepSelection_Action:
-		#     # self.add_vertex(canvas_pos)
-		#     self.set_mode(Mode.KEEP_SELECTION)
-
-		elif action == self.breakEdge_Action:
-			self.break_edge(canvas_pos)
-
-		elif action == self.accProp_Action:
-			self.acceptProposal_callback()
-
-		elif action == self.rejProp_Action:
-			self.rejectProposal_callback()
-
-		elif action == self.newPolygon_Action:
-			
-			self.cancel_current_selection()
-
-			self.set_mode(Mode.CREATING_NEW_POLYGON)
-			self.history.clear()
-
-		elif action == self.changeLabel_Action:
-			self.open_label_selection_dialog()
-
-		elif action == self.movePolygon_Action:
-			self.set_mode(Mode.MOVING_POLYGON)
-
-		elif action == self.extendPolygon_Action:
-			self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
-			
-			if self.selected_vertex_index == 0:
-				self.extend_head = True
-
-			# self.previous_circle = self.selected_circle
-			# self.previous_vertex_index = self.selected_vertex_index
-			# self.previous_polygon = self.selected_proposal_polygon
-
-			# print 'prev is set to', self.previous_polygon, self.selected_vertex_index
-
-			# self.cancel_current_circle()
-		
-		elif action == self.addVertex_Action:
-			self.set_mode(Mode.ADDING_VERTICES_RANDOMLY)
-
-		else:
-			pass
-
 
 	def reload_brain_labeling_gui(self):
 
@@ -493,71 +449,100 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.pressed = False           # related to pan (press and drag) vs. select (click)
 		
 		self.selected_circle = None
-		# self.selected_proposal_vertices = []
-		# self.selected_proposal_vertexCircles = []
 
-		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', section %d' %self.section)
-
-		if hasattr(self, 'axis'):
-			import copy
-			for p in copy.copy(self.axis.patches):
-				p.remove()
-			for p in copy.copy(self.axis.artists):
-				p.remove()
-		else:
-			self.axis = self.fig.add_subplot(111)
-			self.axis.axis('off')
-
-			self.axis2 = self.fig2.add_subplot(111)
-			self.axis2.axis('off')
+		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
 
 		t = time.time()
 
-		if hasattr(self, 'orig_image_handle'):
-			self.orig_image_handle.set_data(self.dm.image_rgb_jpg)
-			self.orig_image_handle2.set_data(self.dm2.image_rgb_jpg)
+		self.section1_pixmap = QPixmap(self.dm._get_image_filepath(version='rgb-jpg'))
 
-			self.section_text.set_text(str(self.section))
-			self.section_text2.set_text(str(self.section2))
-		else:
+		self.mode = Mode.IDLE
 
-			img = self.dm.image_rgb_jpg
-			img[~self.dm.mask] = 0
+		self.section1_gscene = QGraphicsScene(self.section1_gview)
+		self.section1_gscene.addPixmap(self.section1_pixmap)
 
-			img2 = self.dm2.image_rgb_jpg
-			img2[~self.dm2.mask] = 0
+		self.section1_gview.setScene(self.section1_gscene)
 
-			self.orig_image_handle = self.axis.imshow(img, cmap=plt.cm.Greys_r, aspect='equal')
-			self.orig_image_handle2 = self.axis2.imshow(img2, cmap=plt.cm.Greys_r, aspect='equal')
+		self.section1_gscene.update(0, 0, self.section1_gview.width(), self.section1_gview.height())
 
-			# self.orig_image_handle = self.axis.imshow(self.dm.image_rgb_jpg, cmap=plt.cm.Greys_r, aspect='equal')
-			# self.orig_image_handle2 = self.axis2.imshow(self.dm2.image_rgb_jpg, cmap=plt.cm.Greys_r, aspect='equal')
+		self.section1_gscene.keyPressEvent = self.key_pressed
 
-			self.section_text = self.axis.text(0.01, 0.99, str(self.section), transform=self.fig.transFigure, fontsize=16, fontweight='bold', va='top', color=(1,0,0))
-			self.section_text2 = self.axis2.text(0.01, 0.99, str(self.section2), transform=self.fig2.transFigure, fontsize=16, fontweight='bold', va='top', color=(1,0,0))
+		self.section1_gview.viewport().installEventFilter(self)
+		self.section1_gscene.installEventFilter(self)
 
-			fig_right_on_display, fig_top_on_display = self.fig.transFigure.transform((1,1))
-			fig_left_on_display, fig_bottom_on_display = self.fig.transFigure.transform((0,0))
-			fig_width_on_display = fig_right_on_display - fig_left_on_display
-			fig_height_on_display = fig_top_on_display - fig_bottom_on_display
+		self.section1_gview.setMouseTracking(False)
 
-			self.axis.set_position([0,0,1,1])
-			self.axis.set_ylim([self.dm.image_height, 0])
-			self.axis.set_xlim([0, fig_width_on_display * float(self.dm.image_height) / fig_height_on_display])
+		self.section1_gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+		self.section1_gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+		
+		self.section1_gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-			self.axis2.set_position([0,0,1,1])
-			self.axis2.set_ylim([self.dm.image_height, 0])
-			self.axis2.set_xlim([0, fig_width_on_display * float(self.dm.image_height) / fig_height_on_display])
+		self.section1_gview.setInteractive(True)
+
+		self.section1_gview.show()
+
+		# self.is_moving = False
+
+
+		self.red_pen = QPen(Qt.red)
+		self.red_pen.setWidth(20)
+
+		# open_polygon.itemChange = self.vertex_moved
+
+		# self.section1_gscene.addItem(open_polygon)
+
+		self.section1_gview.setTransformationAnchor(QGraphicsView.NoAnchor)
+
+		self.section1_gview.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.section1_gview.customContextMenuRequested.connect(self.showContextMenu)
+
+		# self.vertex_circles = []
+
+		#####
+
+		self.section2_pixmap = self.pixmaps[self.section2]
+
+		self.section2_gscene = QGraphicsScene(self.section2_gview)
+		self.section2_gscene.addPixmap(self.section2_pixmap)
+
+		self.section2_gview.setScene(self.section2_gscene)
+		self.section2_gscene.update(0, 0, self.section2_gview.width(), self.section2_gview.height())
+
+		self.section2_gview.viewport().installEventFilter(self)
+
+		self.section2_gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+		self.section2_gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+		
+		self.section2_gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+		self.section2_gview.setTransformationAnchor(QGraphicsView.NoAnchor)
+
+		self.section2_gview.show()
+
+		####
+
+		self.section3_pixmap =  self.pixmaps[self.section3]
+
+		self.section3_gscene = QGraphicsScene(self.section3_gview)
+		self.section3_gscene.addPixmap(self.section3_pixmap)
+
+		self.section3_gview.setScene(self.section3_gscene)
+		self.section3_gscene.update(0, 0, self.section3_gview.width(), self.section3_gview.height())
+
+		self.section3_gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+		self.section3_gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+
+		self.section3_gview.viewport().installEventFilter(self)
+		
+		self.section3_gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+		self.section3_gview.setTransformationAnchor(QGraphicsView.NoAnchor)
+
+		self.section3_gview.show()
 
 		print 4, time.time() - t
 
-		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', section %d' %self.section + ', section %d'%self.section2)
-
-		self.newxmin, self.newxmax = self.axis.get_xlim()
-		self.newymin, self.newymax = self.axis.get_ylim()
-
-		self.canvas.draw()
-		self.canvas2.draw()
+		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
 
 		self.show()
 
@@ -593,39 +578,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.setupUi(self)
 
-		###########################
-
-		self.fig = self.canvaswidget.fig
-		self.canvas = self.canvaswidget.canvas
-
-		self.canvas.setFocusPolicy( Qt.ClickFocus )
-		self.canvas.setFocus()
-
-		self.canvas.mpl_connect('scroll_event', self.on_zoom)
-		self.bpe_id = self.canvas.mpl_connect('button_press_event', self.on_press)
-		self.bre_id = self.canvas.mpl_connect('button_release_event', self.on_release)
-		self.canvas.mpl_connect('motion_notify_event', self.on_motion)
-		self.canvas.mpl_connect('key_press_event', self.on_key_press)
-		self.canvas.mpl_connect('key_release_event', self.on_key_release)
-		self.canvas.mpl_connect('pick_event', self.on_pick)
-
-		###########################
-
-		self.fig2 = self.canvaswidget2.fig
-		self.canvas2 = self.canvaswidget2.canvas
-
-		self.canvas2.setFocusPolicy( Qt.ClickFocus )
-		self.canvas2.setFocus()
-
-		self.canvas2.mpl_connect('scroll_event', self.on_zoom)
-		self.bpe_id = self.canvas2.mpl_connect('button_press_event', self.on_press)
-		self.bre_id = self.canvas2.mpl_connect('button_release_event', self.on_release)
-		self.canvas2.mpl_connect('motion_notify_event', self.on_motion)
-		self.canvas2.mpl_connect('key_press_event', self.on_key_press)
-		self.canvas2.mpl_connect('pick_event', self.on_pick)
-
-		###########################
-
 		self.button_autoDetect.clicked.connect(self.autoDetect_callback)
 		self.button_updateDB.clicked.connect(self.updateDB_callback)
 		self.button_loadLabeling.clicked.connect(self.load_callback)
@@ -650,7 +602,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.thumbnail_list.setResizeMode(QListWidget.Adjust)
 		self.thumbnail_list.itemDoubleClicked.connect(self.section_changed)
 
-
 		section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
 		first_sec, last_sec = section_range_lookup[self.stack]
 		for i in range(first_sec, last_sec):
@@ -662,6 +613,478 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.init_thumbnail_list_width = self.thumbnail_list.width()
 		# print self.init_thumbnail_list_width
 
+
+	def showContextMenu(self, pos):
+		myMenu = QMenu(self)
+		action_newPolygon = myMenu.addAction("New polygon")
+		# action_doneDrawing = myMenu.addAction("Done drawing")
+
+		selected_action = myMenu.exec_(self.section1_gview.viewport().mapToGlobal(pos))
+		if selected_action == action_newPolygon:
+			print 'new polygon'
+
+			self.close_curr_polygon = False
+
+			curr_polygon_path = QPainterPath()
+
+			self.selected_polygon = QGraphicsPathItemModified(curr_polygon_path)
+			self.selected_polygon.setPen(self.red_pen)
+			self.selected_polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+			# self.curr_polygon_closed = False
+
+			self.selected_polygon.signal_emitter.clicked.connect(self.polygon_pressed)
+			self.selected_polygon.signal_emitter.moved.connect(self.polygon_moved)
+			self.selected_polygon.signal_emitter.released.connect(self.polygon_released)
+
+			self.accepted_proposals[self.selected_polygon] = {'polygonPath': curr_polygon_path, 'vertexCircles': []}
+
+			self.section1_gscene.addItem(self.selected_polygon)
+
+			self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
+
+		# elif selected_action == action_doneDrawing:
+			# self.set_mode(Mode.IDLE)
+
+
+	def add_vertex(self, x, y):
+		
+		ellipse = QGraphicsEllipseItemModified(-50, -50, 100, 100)
+		ellipse.setPos(x,y)
+		
+		ellipse.setPen(Qt.red)
+		ellipse.setBrush(Qt.red)
+
+		ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+		ellipse.signal_emitter.moved.connect(self.vertex_moved)
+		ellipse.signal_emitter.clicked.connect(self.vertex_clicked)
+		ellipse.signal_emitter.released.connect(self.vertex_released)
+
+		self.section1_gscene.addItem(ellipse)
+
+		ellipse.setZValue(1)
+
+		self.accepted_proposals[self.selected_polygon]['vertexCircles'].append(ellipse)
+
+		self.auto_extend_view(x, y)
+
+
+	@pyqtSlot()
+	def polygon_pressed(self):
+		pass
+
+	@pyqtSlot(int, int, int, int)
+	def polygon_moved(self, x, y, x0, y0):
+
+		offset_scene_x = x - x0
+		offset_scene_y = y - y0
+
+		self.selected_polygon = self.sender().parent
+
+		for i, circ in enumerate(self.accepted_proposals[self.selected_polygon]['vertexCircles']):
+			elem = self.accepted_proposals[self.selected_polygon]['polygonPath'].elementAt(i)
+			scene_pt = self.selected_polygon.mapToScene(elem.x, elem.y)
+			circ.setPos(scene_pt)
+			
+	@pyqtSlot()
+	def polygon_released(self):
+		
+		self.selected_polygon = self.sender().parent
+
+		curr_polygon_path = self.accepted_proposals[self.selected_polygon]['polygonPath']
+
+		for i in range(curr_polygon_path.elementCount()):
+			elem = curr_polygon_path.elementAt(i)
+			scene_pt = self.selected_polygon.mapToScene(elem.x, elem.y)
+			
+			curr_polygon_path.setElementPositionAt(i, scene_pt.x(), scene_pt.y())
+		
+		self.selected_polygon.setPath(curr_polygon_path)
+		self.selected_polygon.setPos(0,0)
+		
+				
+	@pyqtSlot(int, int, int, int)
+	def vertex_moved(self, x, y, x0, y0):
+
+		offset_scene_x = x - x0
+		offset_scene_y = y - y0
+
+		self.selected_vertex_circle = self.sender().parent
+		
+		self.selected_vertex_center_x_new = self.selected_vertex_circle.center_scene_x_before_move + offset_scene_x
+		self.selected_vertex_center_y_new = self.selected_vertex_circle.center_scene_y_before_move + offset_scene_y
+
+		for p, props in self.accepted_proposals.iteritems():
+			if self.selected_vertex_circle in props['vertexCircles']:
+				self.selected_polygon = p
+				break
+
+		vertex_index = self.accepted_proposals[self.selected_polygon]['vertexCircles'].index(self.selected_vertex_circle)
+
+		curr_polygon_path = self.accepted_proposals[self.selected_polygon]['polygonPath']
+
+		if vertex_index == 0 and self.accepted_proposals[self.selected_polygon]['subtype'] == PolygonType.CLOSED: # closed
+
+			curr_polygon_path.setElementPositionAt(0, self.selected_vertex_center_x_new, self.selected_vertex_center_y_new)
+			curr_polygon_path.setElementPositionAt(len(self.accepted_proposals[self.selected_polygon]['vertexCircles']), \
+											self.selected_vertex_center_x_new, self.selected_vertex_center_y_new)
+
+		else:
+			curr_polygon_path.setElementPositionAt(vertex_index, self.selected_vertex_center_x_new, self.selected_vertex_center_y_new)
+
+		self.selected_polygon.setPath(curr_polygon_path)
+
+
+	@pyqtSlot()
+	def vertex_clicked(self):
+		print self.sender().parent, 'clicked'
+		if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+			self.close_curr_polygon = True
+
+	@pyqtSlot()
+	def vertex_released(self):
+		print self.sender().parent, 'released'
+		if self.mode == Mode.MOVING_VERTEX:
+			pass
+
+
+	def eventFilter(self, obj, event):
+
+		if obj == self.section1_gview.viewport() and event.type() == QEvent.Wheel:
+			self.zoom_scene(event)
+			return True
+
+		if (obj == self.section2_gview.viewport() or obj == self.section3_gview.viewport()) and event.type() == QEvent.Wheel:
+			return True
+
+		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMousePress:
+
+			if self.mode == Mode.MOVING_VERTEX or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+				obj.mousePressEvent(event) # let gscene handle the event (i.e. determine which item or whether an item receives it)
+
+				if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+
+					x = event.scenePos().x()
+					y = event.scenePos().y()
+
+					if self.close_curr_polygon:
+
+						self.accepted_proposals[self.selected_polygon]['polygonPath'].closeSubpath()
+						self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.CLOSED
+
+					else:
+
+						self.add_vertex(x, y)
+
+						if len(self.accepted_proposals[self.selected_polygon]['vertexCircles']) == 1:
+							self.accepted_proposals[self.selected_polygon]['polygonPath'].moveTo(x,y)
+						else:
+							self.accepted_proposals[self.selected_polygon]['polygonPath'].lineTo(x,y)
+
+					self.selected_polygon.setPath(self.accepted_proposals[self.selected_polygon]['polygonPath'])
+
+			elif self.mode == Mode.IDLE:
+
+				self.press_x = event.pos().x()
+				self.press_y = event.pos().y()
+
+				self.press_screen_x = event.screenPos().x()
+				self.press_screen_y = event.screenPos().y()
+
+				self.pressed = True
+
+				return True
+				
+			return False
+
+		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseMove:
+
+			# print 'event filter: mouse move'
+
+			if self.mode == Mode.MOVING_VERTEX:
+				obj.mouseMoveEvent(event)
+
+			elif self.mode == Mode.IDLE:
+				if hasattr(self, 'event_caused_by_panning') and self.event_caused_by_panning:
+					# self.event_caused_by_panning = False
+					return True
+
+				if self.pressed:
+
+					self.event_caused_by_panning = True
+
+					self.curr_scene_x = event.scenePos().x()
+					self.curr_scene_y = event.scenePos().y()
+
+					self.last_scene_x = event.lastScenePos().x()
+					self.last_scene_y = event.lastScenePos().y()
+
+					self.section1_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+					self.section2_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+					self.section3_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+					# these move canvas and trigger GraphicsSceneMouseMove event again, causing recursion
+
+					self.event_caused_by_panning = False
+					return True
+
+			return False
+
+		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseRelease:
+
+			if self.mode == Mode.MOVING_VERTEX or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+				obj.mouseReleaseEvent(event)
+
+				if self.close_curr_polygon:
+					self.set_mode(Mode.IDLE)
+					self.close_curr_polygon = False
+					self.open_label_selection_dialog()
+					self.save_callback()
+
+			elif self.mode == Mode.IDLE:
+				self.release_scene_x = event.scenePos().x()
+				self.release_scene_y = event.scenePos().y()
+
+				self.pressed = False
+
+				return True
+
+			return False
+
+		return False
+
+	def zoom_scene(self, event):
+
+		pos = self.section1_gview.mapToScene(event.pos())
+
+		out_factor = .9
+		in_factor = 1./out_factor
+		
+		if event.delta() < 0: # negative means towards user
+
+			offset_x = (1 - out_factor) * pos.x()
+			offset_y = (1 - out_factor) * pos.y()
+
+			# self.section1_gview.translate(-pos.x(), -pos.y())
+			self.section1_gview.scale(out_factor, out_factor)
+			self.section1_gview.translate(in_factor * offset_x, in_factor * offset_y)
+
+			# self.section2_gview.translate(pos.x(), pos.y())
+			self.section2_gview.scale(out_factor, out_factor)
+			self.section2_gview.translate(in_factor * offset_x, in_factor * offset_y)
+			# self.section2_gview.translate(-pos.x(), -pos.y())
+
+			self.section3_gview.scale(out_factor, out_factor)
+			self.section3_gview.translate(in_factor * offset_x, in_factor * offset_y)
+
+		else:
+			offset_x = (in_factor - 1) * pos.x()
+			offset_y = (in_factor - 1) * pos.y()
+
+			# self.section1_gview.translate(-pos.x(), -pos.y())
+			self.section1_gview.scale(in_factor, in_factor)
+			self.section1_gview.translate(-out_factor * offset_x, -out_factor * offset_y)
+			# self.section1_gview.translate(pos.x(), pos.y())
+
+			# self.section2_gview.translate(pos.x(), pos.y())
+			self.section2_gview.scale(in_factor, in_factor)
+			self.section2_gview.translate(-out_factor * offset_x, -out_factor * offset_y)
+			# self.section2_gview.translate(-pos.x(), -pos.y())
+
+			self.section3_gview.scale(in_factor, in_factor)
+			self.section3_gview.translate(-out_factor * offset_x, -out_factor * offset_y)
+
+	def key_pressed(self, event):
+
+		if event.key() == Qt.Key_Left:
+			# print 'left'
+			self.section1_gview.translate(200, 0)
+			self.section2_gview.translate(200, 0)
+			self.section3_gview.translate(200, 0)
+		elif event.key() == Qt.Key_Right:
+			# print 'right'
+			self.section1_gview.translate(-200, 0)
+			self.section2_gview.translate(-200, 0)
+			self.section3_gview.translate(-200, 0)
+		elif event.key() == Qt.Key_Up:
+			# print 'up'
+			self.section1_gview.translate(0, 200)
+			self.section2_gview.translate(0, 200)
+			self.section3_gview.translate(0, 200)
+		elif event.key() == Qt.Key_Down:
+			# print 'down'
+			self.section1_gview.translate(0, -200)
+			self.section2_gview.translate(0, -200)
+			self.section3_gview.translate(0, -200)
+
+		elif event.key() == Qt.Key_Equal:
+			pos = self.section1_gview.mapToScene(self.section1_gview.mapFromGlobal(QCursor.pos()))
+			
+			out_factor = .9
+			in_factor = 1./out_factor
+
+			offset_x = (1-out_factor) * pos.x()
+			offset_y = (1-out_factor) * pos.y()
+		
+			self.section1_gview.scale(out_factor, out_factor)
+			self.section1_gview.translate(in_factor * offset_x, in_factor * offset_y)
+
+		elif event.key() == Qt.Key_Minus:
+			pos = self.section1_gview.mapToScene(self.section1_gview.mapFromGlobal(QCursor.pos()))
+
+			out_factor = .9
+			in_factor = 1./out_factor
+
+			offset_x = (in_factor - 1) * pos.x()
+			offset_y = (in_factor - 1) * pos.y()
+			
+			self.section1_gview.scale(in_factor, in_factor)
+			self.section1_gview.translate(-out_factor * offset_x, -out_factor * offset_y)
+
+		elif event.key() == Qt.Key_Space:
+			if self.mode == Mode.IDLE:
+				self.set_mode(Mode.MOVING_VERTEX)
+			else:
+			# elif self.mode == Mode.MOVING_VERTEX:
+				self.set_mode(Mode.IDLE)
+
+		elif event.key() == Qt.Key_Return:
+			print 'enter pressed'
+			self.open_label_selection_dialog()
+			self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.OPEN
+			self.set_mode(Mode.IDLE)
+			self.save_callback()
+
+		elif event.key() == Qt.Key_3:
+
+			# if not hasattr(self, 'section2'):
+			# 	self.section2 = self.section - 1
+			# else:
+			if self.section2 == self.section - NUM_NEIGHBORS_PRELOAD:
+				return
+			else:
+				self.section2 = self.section2 - 1
+			
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+
+			self.section2_pixmap = self.pixmaps[self.section2]
+
+			self.section2_gscene = QGraphicsScene(self.section2_gview)
+			self.section2_gscene.addPixmap(self.section2_pixmap)
+
+			self.section2_gview.setScene(self.section2_gscene)
+			# self.section2_gscene.update(0, 0, self.section2_gview.width(), self.section2_gview.height())
+
+		elif event.key() == Qt.Key_4:
+			# if not hasattr(self, 'section2'):
+			# 	self.section2 = self.section + 1
+			# else:
+			if self.section2 == self.section + NUM_NEIGHBORS_PRELOAD:
+				return
+			else:
+				self.section2 = self.section2 + 1
+
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+
+			self.section2_pixmap = self.pixmaps[self.section2]
+
+			self.section2_gscene = QGraphicsScene(self.section2_gview)
+			self.section2_gscene.addPixmap(self.section2_pixmap)
+
+			self.section2_gview.setScene(self.section2_gscene)
+			# self.section2_gscene.update(0, 0, self.section2_gview.width(), self.section2_gview.height())
+
+		elif event.key() == Qt.Key_1:
+
+			# if not hasattr(self, 'section2'):
+			# 	self.section2 = self.section - 1
+			# else:
+			if self.section3 == self.section - NUM_NEIGHBORS_PRELOAD:
+				return
+			else:
+				self.section3 = self.section3 - 1
+			
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+
+			self.section3_pixmap = self.pixmaps[self.section3]
+
+			self.section3_gscene = QGraphicsScene(self.section3_gview)
+			self.section3_gscene.addPixmap(self.section3_pixmap)
+
+			self.section3_gview.setScene(self.section3_gscene)
+			# self.section3_gscene.update(0, 0, self.section2_gview.width(), self.section2_gview.height())
+			
+			# self.section3_gview.show()
+
+		elif event.key() == Qt.Key_2:
+			# if not hasattr(self, 'section2'):
+			# 	self.section2 = self.section + 1
+			# else:
+			if self.section3 == self.section + NUM_NEIGHBORS_PRELOAD:
+				return
+			else:
+				self.section3 = self.section3 + 1
+
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+
+			self.section3_pixmap = self.pixmaps[self.section3]
+
+			self.section3_gscene = QGraphicsScene(self.section3_gview)
+			self.section3_gscene.addPixmap(self.section3_pixmap)
+
+			self.section3_gview.setScene(self.section3_gscene)
+
+	# def move_scene(self, event):
+
+	# 	if self.mode == Mode.IDLE:
+
+	# 		if self.is_moving:
+	# 			return
+
+	# 		if self.pressed:
+
+	# 			self.is_moving = True
+
+	# 			self.curr_scene_x = event.scenePos().x()
+	# 			self.curr_scene_y = event.scenePos().y()
+
+	# 			self.last_scene_x = event.lastScenePos().x()
+	# 			self.last_scene_y = event.lastScenePos().y()
+
+	# 			self.section1_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+	# 			self.section2_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+	# 			self.section3_gview.translate(self.curr_scene_x - self.last_scene_x, self.curr_scene_y - self.last_scene_y)
+
+	# 			self.is_moving = False
+
+
+	# def press_scene(self, event):
+
+	# 	print 'press_scene called'
+
+	# 	if self.mode == Mode.IDLE:
+
+	# 		self.press_x = event.pos().x()
+	# 		self.press_y = event.pos().y()
+
+	# 		self.press_screen_x = event.screenPos().x()
+	# 		self.press_screen_y = event.screenPos().y()
+
+	# 		self.pressed = True
+
+	# 	elif self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+	# 		self.add_vertex(event.scenePos().x(), event.scenePos().y())
+
+
+	# def release_scene(self, event):
+
+	# 	if self.mode == Mode.IDLE:
+	# 		self.release_scene_x = event.scenePos().x()
+	# 		self.release_scene_y = event.scenePos().y()
+
+	# 		self.pressed = False
+
+
+	##########################
+
 	def thumbnail_list_resized(self, event):
 		new_size = 200 * event.size().width() / self.init_thumbnail_list_width
 		self.thumbnail_list.setIconSize( QSize(new_size , new_size ) )
@@ -672,14 +1095,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if not self.labels_on:
 
-			for patch, props in self.accepted_proposals.iteritems():
-				props['labelTextArtist'].remove()
+			for polygon, props in self.accepted_proposals.iteritems():
+				props['labelTextArtist'].setVisible(False)
 
 			self.button_labelsOnOff.setText('Turns Labels ON')
 
 		else:
-			for patch, props in self.accepted_proposals.iteritems():
-				self.axis.add_artist(props['labelTextArtist'])
+			for polygon, props in self.accepted_proposals.iteritems():
+				props['labelTextArtist'].setVisible(True)
 
 			self.button_labelsOnOff.setText('Turns Labels OFF')
 
@@ -691,18 +1114,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if not self.contours_on:
 
-			for patch, props in self.accepted_proposals.iteritems():
-				patch.remove()
-				for circ in props['vertexPatches']:
-					circ.remove()
+			for polygon, props in self.accepted_proposals.iteritems():
+				polygon.setVisible(False)
+				for circ in props['vertexCircles']:
+					circ.setVisible(False)
 
 			self.button_contoursOnOff.setText('Turns Contours ON')
 
 		else:
-			for patch, props in self.accepted_proposals.iteritems():
-				self.axis.add_patch(patch)
-				for circ in props['vertexPatches']:
-					self.axis.add_patch(circ)
+			for polygon, props in self.accepted_proposals.iteritems():
+				polygon.setVisible(True)
+				for circ in props['vertexCircles']:
+					circ.setVisible(True)
 
 			self.button_contoursOnOff.setText('Turns Contours OFF')
 
@@ -922,43 +1345,79 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
 		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
 
-		self.accepted_proposals = {}
+		# self.accepted_proposals = {}
 
 		_, _, _, accepted_proposal_props = self.dm.load_proposal_review_result(username, timestamp, suffix)
 
 		for props in accepted_proposal_props:
+			
+			curr_polygon_path = QPainterPath()
+			props['polygonPath'] = curr_polygon_path
+
+			for i, (x, y) in enumerate(props['vertices']):
+				if i == 0:
+					props['polygonPath'].moveTo(x,y)
+				else:
+					props['polygonPath'].lineTo(x,y)
+
 			if props['subtype'] == PolygonType.CLOSED:
-				patch = Polygon(props['vertices'], closed=True, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-			elif props['subtype'] == PolygonType.OPEN:
-				patch = Polygon(props['vertices'], closed=False, fill=False, edgecolor=self.boundary_colors[1], linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-			else:
-				raise 'unknown polygon type'
+				curr_polygon_path.closeSubpath()
 
-			props['vertexPatches'] = []
-			for x,y in props['vertices']:
-				vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-				vertex_circle.set_picker(CIRCLE_PICK_THRESH)
-				props['vertexPatches'].append(vertex_circle)
-				self.axis.add_patch(vertex_circle)
-				vertex_circle.set_picker(True)
+			polygon = QGraphicsPathItemModified(curr_polygon_path)
+			polygon.setPen(self.red_pen)
+			polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
 
-			self.axis.add_patch(patch)
-			patch.set_picker(True)
+			polygon.signal_emitter.clicked.connect(self.polygon_pressed)
+			polygon.signal_emitter.moved.connect(self.polygon_moved)
+			polygon.signal_emitter.released.connect(self.polygon_released)
+
+			polygon.setPath(curr_polygon_path)
+
+			self.section1_gscene.addItem(polygon)
+
+			# elif props['subtype'] == PolygonType.OPEN:
+			# else:
+			# 	raise 'unknown polygon type'
+
+			props['vertexCircles'] = []
+			for x, y in props['vertices']:
+
+				ellipse = QGraphicsEllipseItemModified(-50, -50, 100, 100)
+				ellipse.setPos(x,y)
+				
+				ellipse.setPen(Qt.red)
+				ellipse.setBrush(Qt.red)
+
+				ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+				ellipse.signal_emitter.moved.connect(self.vertex_moved)
+				ellipse.signal_emitter.clicked.connect(self.vertex_clicked)
+				ellipse.signal_emitter.released.connect(self.vertex_released)
+
+				self.section1_gscene.addItem(ellipse)
+
+				ellipse.setZValue(1)
+
+				props['vertexCircles'].append(ellipse)
+
+			textItem = QGraphicsSimpleTextItem(QString(props['label']))
 
 			if 'labelPos' not in props:
-				centroid = np.mean(props['vertices'], axis=0)
-				props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+				centroid = np.mean([(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']], axis=0)
+				textItem.setPos(centroid[0], centroid[1])
 			else:
-				props['labelTextArtist'] = Text(props['labelPos'][0], props['labelPos'][1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+				textItem.setPos(props['labelPos'][0], props['labelPos'][1])
 
-			self.axis.add_artist(props['labelTextArtist'])
-			props['labelTextArtist'].set_picker(True)
+			textItem.setScale(1.5)
+
+			textItem.setFlags(QGraphicsItem.ItemIgnoresTransformations | QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+
+			props['labelTextArtist'] = textItem
+
+			self.section1_gscene.addItem(textItem)
 
 			props.pop('vertices')
 
-			self.accepted_proposals[patch] = props
-
-		self.canvas.draw()
+			self.accepted_proposals[polygon] = props
 
 
 	def open_label_selection_dialog(self):
@@ -978,10 +1437,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# else:
 		#     print 'no labelname set'
 
-		if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
-			self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals[self.selected_proposal_polygon]['label']+' ('+self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']]+')')
+		if 'label' in self.accepted_proposals[self.selected_polygon]:
+			self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals[self.selected_polygon]['label']+' ('+self.structure_names[self.accepted_proposals[self.selected_polygon]['label']]+')')
 		else:
-			self.accepted_proposals[self.selected_proposal_polygon]['label'] = ''
+			self.accepted_proposals[self.selected_polygon]['label'] = ''
 
 		self.label_selection_dialog.set_test_callback(self.label_dialog_text_changed)
 
@@ -1013,17 +1472,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.structure_names[abbr] = fullname
 					self.new_labelnames[abbr] = fullname
 
-		self.accepted_proposals[self.selected_proposal_polygon]['label'] = abbr
+		self.accepted_proposals[self.selected_polygon]['label'] = abbr
 
-		if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon] and self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] is not None:
-			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_text(abbr)
+		if 'labelTextArtist' in self.accepted_proposals[self.selected_polygon] and self.accepted_proposals[self.selected_polygon]['labelTextArtist'] is not None:
+			self.accepted_proposals[self.selected_polygon]['labelTextArtist'].setText(abbr)
 		else:
-			vertices = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-			centroid = np.mean(vertices, axis=0)
-			text_artist = Text(centroid[0], centroid[1], abbr, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
-			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] = text_artist
-			self.axis.add_artist(text_artist)
-			text_artist.set_picker(True)
+			textItem = QGraphicsSimpleTextItem(QString(abbr))
+			self.section1_gscene.addItem(textItem)
+
+			centroid = np.mean([(v.scenePos().x(), v.scenePos().y()) for v in self.accepted_proposals[self.selected_polygon]['vertexCircles']], axis=0)
+			textItem.setPos(centroid[0], centroid[1])
+			textItem.setScale(1.5)
+
+			textItem.setFlags(QGraphicsItem.ItemIgnoresTransformations | QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+
+			self.accepted_proposals[self.selected_polygon]['labelTextArtist'] = textItem
+
+			# vertices = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
+			# centroid = np.mean(vertices, axis=0)
+			# text_artist = Text(centroid[0], centroid[1], abbr, style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+			# self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'] = text_artist
+			# self.axis.add_artist(text_artist)
+			# text_artist.set_picker(True)
 
 		self.recent_labels.insert(0, abbr)
 		# self.invalid_labelname = None
@@ -1031,59 +1501,59 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.label_selection_dialog.accept()
 
 
-	def acceptProposal_callback(self):
+	# def acceptProposal_callback(self):
 
-		if self.selected_proposal_type == ProposalType.GLOBAL:
-			self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.global_proposal_clusters[self.selected_proposal_id],
-																	'dedges': self.global_proposal_dedges[self.selected_proposal_id],
-																	'sig': self.global_proposal_sigs[self.selected_proposal_id],
-																	'type': self.selected_proposal_type,
-																	'id': self.selected_proposal_id,
-																	# 'vertices': self.selected_proposal_polygon.get_xy(),
-																	'vertexPatches': self.selected_proposal_vertexCircles}
+	# 	if self.selected_proposal_type == ProposalType.GLOBAL:
+	# 		self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.global_proposal_clusters[self.selected_proposal_id],
+	# 																'dedges': self.global_proposal_dedges[self.selected_proposal_id],
+	# 																'sig': self.global_proposal_sigs[self.selected_proposal_id],
+	# 																'type': self.selected_proposal_type,
+	# 																'id': self.selected_proposal_id,
+	# 																# 'vertices': self.selected_proposal_polygon.get_xy(),
+	# 																'vertexPatches': self.selected_proposal_vertexCircles}
 
-		elif self.selected_proposal_type == ProposalType.LOCAL:
-			self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.local_proposal_clusters[self.selected_proposal_id],
-																	'dedges': self.local_proposal_dedges[self.selected_proposal_id],
-																	'sig': self.local_proposal_sigs[self.selected_proposal_id],
-																	'type': self.selected_proposal_type,
-																	'id': self.selected_proposal_id,
-																	# 'vertices': self.selected_proposal_polygon.get_xy(),
-																	'vertexPatches': self.selected_proposal_vertexCircles}
+	# 	elif self.selected_proposal_type == ProposalType.LOCAL:
+	# 		self.accepted_proposals[self.selected_proposal_polygon] = {'sps': self.local_proposal_clusters[self.selected_proposal_id],
+	# 																'dedges': self.local_proposal_dedges[self.selected_proposal_id],
+	# 																'sig': self.local_proposal_sigs[self.selected_proposal_id],
+	# 																'type': self.selected_proposal_type,
+	# 																'id': self.selected_proposal_id,
+	# 																# 'vertices': self.selected_proposal_polygon.get_xy(),
+	# 																'vertexPatches': self.selected_proposal_vertexCircles}
 
-		# self.selected_proposal_polygon.set_color(self.boundary_colors[1])
-		# self.selected_proposal_polygon.set_picker(True)
-		# for circ in self.selected_proposal_vertexCircles:
-		# for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
-			# circ.set_color(self.boundary_colors[1])
-			# circ.set_picker(True)
+	# 	# self.selected_proposal_polygon.set_color(self.boundary_colors[1])
+	# 	# self.selected_proposal_polygon.set_picker(True)
+	# 	# for circ in self.selected_proposal_vertexCircles:
+	# 	# for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+	# 		# circ.set_color(self.boundary_colors[1])
+	# 		# circ.set_picker(True)
 
-		self.canvas.draw()
+	# 	self.canvas.draw()
 
-		self.open_label_selection_dialog()
+	# 	self.open_label_selection_dialog()
 
-		self.cancel_current_selection()
+	# 	self.cancel_current_selection()
 
-		self.save_callback()
+	# 	self.save_callback()
 
-		self.history.clear()
+		# self.history.clear()
 
-	def rejectProposal_callback(self):
+	# def rejectProposal_callback(self):
 
-		for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
-			circ.remove()
+	# 	for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+	# 		circ.remove()
 
-		self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
-		self.selected_proposal_polygon.remove()
+	# 	self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+	# 	self.selected_proposal_polygon.remove()
 
-		self.accepted_proposals.pop(self.selected_proposal_polygon)
+	# 	self.accepted_proposals.pop(self.selected_proposal_polygon)
 
-		# self.selected_proposal_polygon.set_color(self.boundary_colors[0])
-		# self.selected_proposal_polygon.set_picker(None)
+	# 	# self.selected_proposal_polygon.set_color(self.boundary_colors[0])
+	# 	# self.selected_proposal_polygon.set_picker(None)
 
-		self.cancel_current_selection()
+	# 	self.cancel_current_selection()
 		
-		self.canvas.draw()
+	# 	self.canvas.draw()
 
 	def shuffle_proposal_from_pool(self, sp_ind):
 
@@ -1193,29 +1663,29 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.init_data(section=sec)
 		self.reload_brain_labeling_gui()
 
-		self.mode_changed()
+		# self.mode_changed()
 		# self.turn_superpixels_on()
 
-		self.pixmap = QPixmap("/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif"%{'sec':sec, 'stack':self.stack})
-		self.pixmap_scaled = self.pixmap.scaledToHeight(self.bottom_panel.sizeHint().height())
+		# self.pixmap = QPixmap("/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif"%{'sec':sec, 'stack':self.stack})
+		# self.pixmap_scaled = self.pixmap.scaledToHeight(self.bottom_panel.sizeHint().height())
 
-		self.graphicsScene_navMap = QGraphicsScene(self.graphicsView_navMap)
-		self.graphicsScene_navMap.addPixmap(self.pixmap_scaled)
+		# self.graphicsScene_navMap = QGraphicsScene(self.graphicsView_navMap)
+		# self.graphicsScene_navMap.addPixmap(self.pixmap_scaled)
 
-		self.navRect = self.graphicsScene_navMap.addRect(10,10,200,200, QPen(QColor(255,0,0), 1))
+		# self.navRect = self.graphicsScene_navMap.addRect(10,10,200,200, QPen(QColor(255,0,0), 1))
 
-		self.graphicsView_navMap.setScene(self.graphicsScene_navMap)
-		self.graphicsView_navMap.show()
+		# self.graphicsView_navMap.setScene(self.graphicsScene_navMap)
+		# self.graphicsView_navMap.show()
 
-		self.navMap_scaling_x = self.pixmap_scaled.size().width()/float(self.dm.image_width)
-		print self.navMap_scaling_x
-		self.navMap_scaling_y = self.pixmap_scaled.size().height()/float(self.dm.image_height)
+		# self.navMap_scaling_x = self.pixmap_scaled.size().width()/float(self.dm.image_width)
+		# print self.navMap_scaling_x
+		# self.navMap_scaling_y = self.pixmap_scaled.size().height()/float(self.dm.image_height)
 
-		self.update_navMap()
+		# self.update_navMap()
 
-		self.graphicsScene_navMap.mousePressEvent = self.clicked_navMap
+		# self.graphicsScene_navMap.mousePressEvent = self.clicked_navMap
 
-		self.statusBar().showMessage('Loading complete.')
+		# self.statusBar().showMessage('Loading complete.')
 
 	def clicked_navMap(self, event):
 		# print event.scenePos()
@@ -1272,20 +1742,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.username = str(username)
 
 		accepted_proposal_props = []
-		for patch, props in self.accepted_proposals.iteritems():
+		for polygon, props in self.accepted_proposals.iteritems():
 
 			props_saved = props.copy()
 
-			props_saved['vertices'] = self.vertices_from_vertexPatches(patch)
-			if patch.get_closed():
-				props_saved['subtype'] = PolygonType.CLOSED
-			else:
-				props_saved['subtype'] = PolygonType.OPEN
+			props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-			props_saved['labelPos'] = props['labelTextArtist'].get_position()
+			label_pos = props['labelTextArtist'].scenePos()
+			props_saved['labelPos'] = (label_pos.x(), label_pos.y())
 
-			props_saved.pop('vertexPatches')
+			props_saved.pop('vertexCircles')
 			props_saved.pop('labelTextArtist')
+			props_saved.pop('polygonPath')
 
 			accepted_proposal_props.append(props_saved)
 
@@ -1296,18 +1764,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
 
-		cur_xlim = self.axis.get_xlim()
-		cur_ylim = self.axis.get_ylim()
+		# cur_xlim = self.axis.get_xlim()
+		# cur_ylim = self.axis.get_ylim()
 
 		# self.axis.set_xlim([0, self.dm.image_width])
 		# self.axis.set_ylim([self.dm.image_height, 0])
 
-		self.fig.savefig('/tmp/preview.jpg', bbox_inches='tight')
+		# self.fig.savefig('/tmp/preview.jpg', bbox_inches='tight')
 
 		# self.axis.set_xlim(cur_xlim)
 		# self.axis.set_ylim(cur_ylim)
 
-		self.canvas.draw()
+		# self.canvas.draw()
 
 	def labelbutton_callback(self):
 		pass
@@ -1378,6 +1846,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
 	def set_mode(self, mode):
+
 		if hasattr(self, 'mode'):
 			if self.mode != mode:
 				print self.mode, '=>', mode
@@ -1386,174 +1855,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.mode = mode
 
 
-	def on_key_release(self, event):
-		pass
-
-		# if event.key == 'control':
-		#     if self.mode == Mode.ADDING_VERTICES_RANDOMLY:
-		#         self.statusBar().showMessage('Done adding vertices.')
-		#         self.set_mode(Mode.REVIEW_PROPOSAL)
-
-		# if event.key == 'shift':
-		#     if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
-		#         self.statusBar().showMessage('Done adding vertices.')
-		#         self.set_mode(Mode.REVIEW_PROPOSAL)
-
-	def on_key_press(self, event):
-
-		if event.key == ' ':
-			print 'esc pressed'
-			self.cancel_current_selection()
-
-		if event.key == '[' or event.key == ']':
-			if event.key == '[':
-				if not hasattr(self, 'section2'):
-					self.section2 = self.section - 1
-				else:
-					if self.section2 == self.section - 3:
-						return
-					else:
-						self.section2 = self.section2 - 1
-			else:
-				if not hasattr(self, 'section2'):
-					self.section2 = self.section + 1
-				else:
-					if self.section2 == self.section + 3:
-						return
-					else:
-						self.section2 = self.section2 + 1
-
-			self.section_text2.set_text(str(self.section2))
-
-			print self.section, self.section2
-			
-			self.dm2 = self.dms[self.section2]
-
-			t = time.time()
-			self.dm2._load_image(versions=['rgb-jpg'])
-			print 'load image', time.time() - t
-
-			t = time.time()
-			self.orig_image_handle2.set_data(self.dm2.image_rgb_jpg)
-			print 'set data', time.time() - t
-
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', section %d' %self.section + ', section %d'%self.section2)
-
-		# if event.key == 'control':
-
-		#     self.set_mode(Mode.ADDING_VERTICES_RANDOMLY)
-
-		#     if self.selected_proposal_polygon is None:
-		#         self.statusBar().showMessage('you must select a marking first')
-		#     else:
-		#         self.statusBar().showMessage('Random Mode: Left click to add vertices ...')
-			
-
-		# if event.key == 'shift':
-
-		#     self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
-
-		#     if self.selected_circle is None:
-		#         self.statusBar().showMessage('you must select a vertex first')
-		#     else:
-		#         self.statusBar().showMessage('Consecutive Mode: Left click to add vertices ...')
-						
-
-		if event.key == 'ctrl+z':
-			self.undo()
-
-		if event.key == '=' or event.key == '-':
-			self.on_zoom(event)
-
-		self.cur_xlim = self.axis.get_xlim()
-		cur_xmin, cur_xmax = self.cur_xlim
-		
-		self.cur_ylim = self.axis.get_ylim()
-		cur_ybottom, cur_ytop = self.cur_ylim
-
-		if event.key == 'left' or event.key == 'right' or event.key == 'up' or event.key == 'down':
-
-			if event.key == 'left':
-				offset_x, offset_y = self.find_proper_offset(100, 0)
-			elif event.key == 'right':
-				offset_x, offset_y = self.find_proper_offset(-100, 0)
-			elif event.key == 'down':
-				offset_x, offset_y = self.find_proper_offset(0, -100)
-			elif event.key == 'up':
-				offset_x, offset_y = self.find_proper_offset(0, 100)
-
-			print offset_x, offset_y
-
-
-			t = time.time()
-			self.axis.set_xlim([cur_xmin - offset_x, cur_xmax - offset_x])
-			self.axis.set_ylim([cur_ybottom - offset_y, cur_ytop - offset_y])
-
-			self.axis2.set_xlim([cur_xmin - offset_x, cur_xmax - offset_x])
-			self.axis2.set_ylim([cur_ybottom - offset_y, cur_ytop - offset_y])
-			sys.stderr.write('set lim in %f\n' % (time.time()-t))
-
-		t = time.time()
-		# if int(t) % 100 < 20:
-		self.canvas.draw()
-		self.canvas2.draw()
-		sys.stderr.write('draw in %f\n' % (time.time()-t))
-
-		t = time.time()
-		self.update_navMap()
-		sys.stderr.write('update %f\n' % (time.time()-t))
-
-	def on_zoom(self, event):
-
-		data_left, data_right = self.axis.get_xlim()
-		data_bottom, data_top = self.axis.get_ylim()
-
-		mouse_distance_to_left_data = event.xdata - data_left
-		mouse_distance_to_right_data = data_right - event.xdata
-		mouse_distance_to_bottom_data = data_bottom - event.ydata
-		mouse_distance_to_top_data = event.ydata - data_top
-
-		if event.xdata is None or event.ydata is None: # mouse position outside data region
-			return
-
-		if isinstance(event, MouseEvent):
-
-			if event.button == 'up':
-				# deal with zoom in
-				scale_factor = 1/self.base_scale
-			elif event.button == 'down':
-				# deal with zoom out
-				scale_factor = self.base_scale
-
-		elif isinstance(event, KeyEvent):
-			if event.key == '=':
-				scale_factor = 1/self.base_scale
-			elif event.key == '-':
-				scale_factor = self.base_scale
-
-		if event.xdata - mouse_distance_to_left_data * scale_factor < 0 or \
-			event.xdata + mouse_distance_to_right_data * scale_factor > self.dm.image_width or \
-			event.ydata - mouse_distance_to_top_data * scale_factor < 0 or \
-			event.ydata + mouse_distance_to_bottom_data * scale_factor > self.dm.image_height:
-			return
-
-		new_left_data = max(0, event.xdata - mouse_distance_to_left_data * scale_factor)
-		new_right_data = min(self.dm.image_width, event.xdata + mouse_distance_to_right_data * scale_factor)
-		new_top_data = max(0, event.ydata - mouse_distance_to_top_data * scale_factor)
-		new_bottom_data = min(self.dm.image_height, event.ydata + mouse_distance_to_bottom_data * scale_factor)
-
-		# print new_left_data, new_right_data, new_bottom_data, new_top_data
-
-		self.axis.set_xlim([new_left_data, new_right_data])
-		self.axis.set_ylim([new_bottom_data, new_top_data])
-
-		self.axis2.set_xlim([new_left_data, new_right_data])
-		self.axis2.set_ylim([new_bottom_data, new_top_data])
-
-		self.canvas.draw() # force re-draw
-		self.canvas2.draw() # force re-draw
-
-		self.update_navMap()
 		
 	def update_navMap(self):
 
@@ -1564,201 +1865,201 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.graphicsView_navMap.setSceneRect(0, 0, self.dm.image_width*self.navMap_scaling_x, self.dm.image_height*self.navMap_scaling_y)
 
 
-	def on_press(self, event):
+	# def on_press(self, event):
 
-		if len(self.picked_artists) > 0:
+	# 	if len(self.picked_artists) > 0:
 
-			print self.picked_artists
+	# 		print self.picked_artists
 
-			picked_artist = None
+	# 		picked_artist = None
 
-			for artist in self.picked_artists:
+	# 		for artist in self.picked_artists:
 
-				for patch, props in self.accepted_proposals.iteritems():
-					if 'labelTextArtist' in props and artist == props['labelTextArtist']:
-						print 'clicked on a label'
-						picked_artist = artist
-						self.picked_object_type = 'label'
-						break
+	# 			for patch, props in self.accepted_proposals.iteritems():
+	# 				if 'labelTextArtist' in props and artist == props['labelTextArtist']:
+	# 					print 'clicked on a label'
+	# 					picked_artist = artist
+	# 					self.picked_object_type = 'label'
+	# 					break
 
-				if picked_artist is not None: 
-					break
+	# 			if picked_artist is not None: 
+	# 				break
 
-				for patch, props in self.accepted_proposals.iteritems():
-					if 'vertexPatches' in props and artist in props['vertexPatches']:
-						print 'clicked on a vertex'
-						picked_artist = artist
-						self.picked_object_type = 'vertex'
-						break
+	# 			for patch, props in self.accepted_proposals.iteritems():
+	# 				if 'vertexPatches' in props and artist in props['vertexPatches']:
+	# 					print 'clicked on a vertex'
+	# 					picked_artist = artist
+	# 					self.picked_object_type = 'vertex'
+	# 					break
 
-			if picked_artist is None: 
+	# 		if picked_artist is None: 
 
-				matched_polygons = [artist for artist in self.picked_artists if artist in self.accepted_proposals]
+	# 			matched_polygons = [artist for artist in self.picked_artists if artist in self.accepted_proposals]
 
-				picked_artist = matched_polygons[np.argmin([(ShapelyLineString(self.vertices_from_vertexPatches(p) \
-									if not p.get_closed() else ShapelyLineRing(self.vertices_from_vertexPatches(p)))).distance(\
-										ShapelyPoint(event.xdata, event.ydata))
-					for p in matched_polygons])]
+	# 			picked_artist = matched_polygons[np.argmin([(ShapelyLineString(self.vertices_from_vertexPatches(p) \
+	# 								if not p.get_closed() else ShapelyLineRing(self.vertices_from_vertexPatches(p)))).distance(\
+	# 									ShapelyPoint(event.xdata, event.ydata))
+	# 				for p in matched_polygons])]
 
-				self.picked_object_type = 'polygon'
+	# 			self.picked_object_type = 'polygon'
 
-			print picked_artist
+	# 		print picked_artist
 
-			if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
-				if self.picked_object_type == 'vertex':
-					self.previous_circle = self.selected_circle
-					if hasattr(self, 'selected_vertex_index'):
-						self.previous_vertex_index = self.selected_vertex_index
-					else:
-						self.previous_vertex_index = None
+	# 		if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+	# 			if self.picked_object_type == 'vertex':
+	# 				self.previous_circle = self.selected_circle
+	# 				if hasattr(self, 'selected_vertex_index'):
+	# 					self.previous_vertex_index = self.selected_vertex_index
+	# 				else:
+	# 					self.previous_vertex_index = None
 
-					self.previous_polygon = self.selected_proposal_polygon
+	# 				self.previous_polygon = self.selected_proposal_polygon
 
-					print 'prev is set to', self.previous_polygon, self.previous_vertex_index
+	# 				print 'prev is set to', self.previous_polygon, self.previous_vertex_index
 
-					self.connecting_vertices = True
-					print 'self.connecting_vertices set to', self.connecting_vertices
+	# 				self.connecting_vertices = True
+	# 				print 'self.connecting_vertices set to', self.connecting_vertices
 
-			self.handle_picked_object(picked_artist)
-
-
-		self.picked_artists = []
-
-		self.press_x = event.xdata
-		self.press_y = event.ydata
-
-		self.press_x_canvas = event.x
-		self.press_y_canvas = event.y
-
-		print 'press'
-		self.pressed = True
-		self.press_time = time.time()
-
-		self.cur_xlim = self.axis.get_xlim()
-		self.cur_ylim = self.axis.get_ylim()
-
-		if event.button == 1:
-
-			if self.mode == Mode.SELECTING_ROI:
-				print event.xdata, event.ydata
-				self.roi_xmin = event.xdata
-				self.roi_ymin = event.ydata
-
-			else:
-				if hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None and self.roi_rectPatch in self.axis.patches:
-					self.roi_rectPatch.remove()
-					self.roi_rectPatch = None
-					self.roi_xmin = None
-					self.roi_xmax = None
-					self.roi_ymin = None
-					self.roi_ymax = None
-					self.canvas.draw()
-
-	def on_motion(self, event):
-
-		if not hasattr(self, 'mode'):
-			return
-
-		if self.mode == Mode.SELECTING_ROI and hasattr(self, 'roi_xmin') and self.roi_xmin is not None:
-
-			self.roi_xmax = event.xdata
-			self.roi_ymax = event.ydata
-
-			if hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None and self.roi_rectPatch in self.axis.patches:
-
-				self.roi_rectPatch.set_width(self.roi_xmax-self.roi_xmin)
-				self.roi_rectPatch.set_height(self.roi_ymax-self.roi_ymin)
-			else:
-				self.roi_rectPatch = Rectangle((self.roi_xmin, self.roi_ymin), self.roi_xmax-self.roi_xmin, self.roi_ymax-self.roi_ymin, edgecolor=(1,0,0), fill=False, linestyle='dashed')
-				self.axis.add_patch(self.roi_rectPatch)
-
-			self.canvas.draw()
-
-			return
-
-		if self.mode != Mode.ADDING_VERTICES_CONSECUTIVELY and self.mode != Mode.ADDING_VERTICES_RANDOMLY \
-					and hasattr(self, 'selected_circle') and self.selected_circle is not None and self.pressed: # drag vertex
-		# if self.mode == Mode.MOVING_VERTEX \
+	# 		self.handle_picked_object(picked_artist)
 
 
-			self.set_mode(Mode.MOVING_VERTEX)
+	# 	self.picked_artists = []
 
-			print 'dragging vertex'
+	# 	self.press_x = event.xdata
+	# 	self.press_y = event.ydata
 
-			self.selected_circle.center = event.xdata, event.ydata
+	# 	self.press_x_canvas = event.x
+	# 	self.press_y_canvas = event.y
 
-			xys = self.selected_proposal_polygon.get_xy()
-			xys[self.selected_vertex_index] = self.selected_circle.center
+	# 	print 'press'
+	# 	self.pressed = True
+	# 	self.press_time = time.time()
 
-			if self.selected_proposal_polygon.get_closed():
-				self.selected_proposal_polygon.set_xy(xys[:-1])
-			else:
-				self.selected_proposal_polygon.set_xy(xys)
+	# 	self.cur_xlim = self.axis.get_xlim()
+	# 	self.cur_ylim = self.axis.get_ylim()
 
-			# self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = xys
+	# 	if event.button == 1:
 
-			# if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon]:
-			#     self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(xys.mean(axis=0))
+	# 		if self.mode == Mode.SELECTING_ROI:
+	# 			print event.xdata, event.ydata
+	# 			self.roi_xmin = event.xdata
+	# 			self.roi_ymin = event.ydata
+
+	# 		else:
+	# 			if hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None and self.roi_rectPatch in self.axis.patches:
+	# 				self.roi_rectPatch.remove()
+	# 				self.roi_rectPatch = None
+	# 				self.roi_xmin = None
+	# 				self.roi_xmax = None
+	# 				self.roi_ymin = None
+	# 				self.roi_ymax = None
+	# 				self.canvas.draw()
+
+	# def on_motion(self, event):
+
+	# 	if not hasattr(self, 'mode'):
+	# 		return
+
+	# 	if self.mode == Mode.SELECTING_ROI and hasattr(self, 'roi_xmin') and self.roi_xmin is not None:
+
+	# 		self.roi_xmax = event.xdata
+	# 		self.roi_ymax = event.ydata
+
+	# 		if hasattr(self, 'roi_rectPatch') and self.roi_rectPatch is not None and self.roi_rectPatch in self.axis.patches:
+
+	# 			self.roi_rectPatch.set_width(self.roi_xmax-self.roi_xmin)
+	# 			self.roi_rectPatch.set_height(self.roi_ymax-self.roi_ymin)
+	# 		else:
+	# 			self.roi_rectPatch = Rectangle((self.roi_xmin, self.roi_ymin), self.roi_xmax-self.roi_xmin, self.roi_ymax-self.roi_ymin, edgecolor=(1,0,0), fill=False, linestyle='dashed')
+	# 			self.axis.add_patch(self.roi_rectPatch)
+
+	# 		self.canvas.draw()
+
+	# 		return
+
+	# 	if self.mode != Mode.ADDING_VERTICES_CONSECUTIVELY and self.mode != Mode.ADDING_VERTICES_RANDOMLY \
+	# 				and hasattr(self, 'selected_circle') and self.selected_circle is not None and self.pressed: # drag vertex
+	# 	# if self.mode == Mode.MOVING_VERTEX \
+
+
+	# 		self.set_mode(Mode.MOVING_VERTEX)
+
+	# 		print 'dragging vertex'
+
+	# 		self.selected_circle.center = event.xdata, event.ydata
+
+	# 		xys = self.selected_proposal_polygon.get_xy()
+	# 		xys[self.selected_vertex_index] = self.selected_circle.center
+
+	# 		if self.selected_proposal_polygon.get_closed():
+	# 			self.selected_proposal_polygon.set_xy(xys[:-1])
+	# 		else:
+	# 			self.selected_proposal_polygon.set_xy(xys)
+
+	# 		# self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = xys
+
+	# 		# if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon]:
+	# 		#     self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(xys.mean(axis=0))
 			
-			self.canvas.draw()
+	# 		self.canvas.draw()
 
-		elif self.mode == Mode.MOVING_POLYGON and hasattr(self, 'selected_proposal_polygon') and \
-			self.pressed and self.selected_proposal_polygon in self.accepted_proposals:
-			# drag polygon
+	# 	elif self.mode == Mode.MOVING_POLYGON and hasattr(self, 'selected_proposal_polygon') and \
+	# 		self.pressed and self.selected_proposal_polygon in self.accepted_proposals:
+	# 		# drag polygon
 
-			print 'dragging polygon'
+	# 		print 'dragging polygon'
 
-			offset_x = event.xdata - self.press_x
-			offset_y = event.ydata - self.press_y
+	# 		offset_x = event.xdata - self.press_x
+	# 		offset_y = event.ydata - self.press_y
 
-			for c, center0 in zip(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'], self.selected_polygon_circle_centers_before_drag):
-				c.center = (center0[0] + offset_x, center0[1] + offset_y)
+	# 		for c, center0 in zip(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'], self.selected_polygon_circle_centers_before_drag):
+	# 			c.center = (center0[0] + offset_x, center0[1] + offset_y)
 
-			xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-			self.selected_proposal_polygon.set_xy(xys)
+	# 		xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
+	# 		self.selected_proposal_polygon.set_xy(xys)
 
-			if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon]:
-				self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((self.selected_polygon_label_pos_before_drag[0]+offset_x, 
-																										self.selected_polygon_label_pos_before_drag[1]+offset_y))
+	# 		if 'labelTextArtist' in self.accepted_proposals[self.selected_proposal_polygon]:
+	# 			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((self.selected_polygon_label_pos_before_drag[0]+offset_x, 
+	# 																									self.selected_polygon_label_pos_before_drag[1]+offset_y))
 
-			self.canvas.draw()
+	# 		self.canvas.draw()
 
-		elif hasattr(self, 'picked_object_type') and self.picked_object_type == 'label':
+	# 	elif hasattr(self, 'picked_object_type') and self.picked_object_type == 'label':
 
-			print 'dragging label'
-			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((event.xdata, event.ydata))
-			self.canvas.draw()
+	# 		print 'dragging label'
+	# 		self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position((event.xdata, event.ydata))
+	# 		self.canvas.draw()
 
 
-		elif hasattr(self, 'pressed') and self.pressed and (event.x - self.press_x_canvas) ** 2 + (event.y - self.press_y_canvas) ** 2 > PAN_THRESHOLD ** 2:
-			# canvas move distance constraint is to prevent accidental panning caused by draggin stylus while clicking
-			# and time.time() - self.press_time > .1:
+	# 	elif hasattr(self, 'pressed') and self.pressed and (event.x - self.press_x_canvas) ** 2 + (event.y - self.press_y_canvas) ** 2 > PAN_THRESHOLD ** 2:
+	# 		# canvas move distance constraint is to prevent accidental panning caused by draggin stylus while clicking
+	# 		# and time.time() - self.press_time > .1:
 
-			print 'panning canvas'
+	# 		print 'panning canvas'
 			
-			if (event.xdata is None) | (event.ydata is None):
-				return
+	# 		if (event.xdata is None) | (event.ydata is None):
+	# 			return
 
-			offset_x, offset_y = self.axis.transData.inverted().transform((event.x,event.y)) - self.axis.transData.inverted().transform((self.press_x_canvas,self.press_y_canvas))
-			# offset_x > 0 move right
-			# offset_y > 0 move up
+	# 		offset_x, offset_y = self.axis.transData.inverted().transform((event.x,event.y)) - self.axis.transData.inverted().transform((self.press_x_canvas,self.press_y_canvas))
+	# 		# offset_x > 0 move right
+	# 		# offset_y > 0 move up
 			
-			offset_x, offset_y = self.find_proper_offset(offset_x, offset_y)
+	# 		offset_x, offset_y = self.find_proper_offset(offset_x, offset_y)
 
-			t = time.time()
+	# 		t = time.time()
 
-			self.axis.set_ylim(bottom=self.cur_ylim[0] - offset_y, top=self.cur_ylim[1] - offset_y)
-			self.axis.set_xlim(left=self.cur_xlim[0] - offset_x, right=self.cur_xlim[1] - offset_x)
+	# 		self.axis.set_ylim(bottom=self.cur_ylim[0] - offset_y, top=self.cur_ylim[1] - offset_y)
+	# 		self.axis.set_xlim(left=self.cur_xlim[0] - offset_x, right=self.cur_xlim[1] - offset_x)
 
-			self.axis2.set_ylim(bottom=self.cur_ylim[0] - offset_y, top=self.cur_ylim[1] - offset_y)
-			self.axis2.set_xlim(left=self.cur_xlim[0] - offset_x, right=self.cur_xlim[1] - offset_x)
+	# 		self.axis2.set_ylim(bottom=self.cur_ylim[0] - offset_y, top=self.cur_ylim[1] - offset_y)
+	# 		self.axis2.set_xlim(left=self.cur_xlim[0] - offset_x, right=self.cur_xlim[1] - offset_x)
 
-			self.canvas.draw()
-			self.canvas2.draw()
+	# 		self.canvas.draw()
+	# 		self.canvas2.draw()
 
-			sys.stderr.write('draw in %f\n' % (time.time()-t))
+	# 		sys.stderr.write('draw in %f\n' % (time.time()-t))
 
-			self.update_navMap()
+	# 		self.update_navMap()
 
 	def find_proper_offset(self, offset_x, offset_y):
 
@@ -1774,101 +2075,101 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		return offset_x, offset_y
 
-	def on_release(self, event):
-		print 'release'
+	# def on_release(self, event):
+	# 	print 'release'
 
-		self.pressed = False
+	# 	self.pressed = False
 
-		self.release_x = event.xdata
-		self.release_y = event.ydata
+	# 	self.release_x = event.xdata
+	# 	self.release_y = event.ydata
 
-		self.release_x_canvas = event.x
-		self.release_y_canvas = event.y
+	# 	self.release_x_canvas = event.x
+	# 	self.release_y_canvas = event.y
 
-		if self.mode == Mode.MOVING_VERTEX:
-			self.set_mode(Mode.REVIEW_PROPOSAL)
-			self.history.append({'type': 'drag_vertex', 'polygon': self.selected_proposal_polygon, 'index': self.selected_vertex_index, 
-								'circle': self.selected_circle, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
+	# 	if self.mode == Mode.MOVING_VERTEX:
+	# 		self.set_mode(Mode.REVIEW_PROPOSAL)
+	# 		self.history.append({'type': 'drag_vertex', 'polygon': self.selected_proposal_polygon, 'index': self.selected_vertex_index, 
+	# 							'circle': self.selected_circle, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
 
-		elif self.mode == Mode.MOVING_POLYGON:
-			self.set_mode(Mode.REVIEW_PROPOSAL) 
-			self.history.append({'type': 'drag_polygon', 'polygon': self.selected_proposal_polygon, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
+	# 	elif self.mode == Mode.MOVING_POLYGON:
+	# 		self.set_mode(Mode.REVIEW_PROPOSAL) 
+	# 		self.history.append({'type': 'drag_polygon', 'polygon': self.selected_proposal_polygon, 'mouse_moved': (self.release_x - self.press_x, self.release_y - self.press_y)})
 
-		self.release_time = time.time()
+	# 	self.release_time = time.time()
 
-		if event.button == 1:
+	# 	if event.button == 1:
 
-			if self.mode == Mode.SELECTING_ROI:
-				self.set_mode(Mode.REVIEW_PROPOSAL)
+	# 		if self.mode == Mode.SELECTING_ROI:
+	# 			self.set_mode(Mode.REVIEW_PROPOSAL)
 
-		if abs(self.release_x_canvas - self.press_x_canvas) < 10 and abs(self.release_y_canvas - self.press_y_canvas) < 10:
-			# short movement
+	# 	if abs(self.release_x_canvas - self.press_x_canvas) < 10 and abs(self.release_y_canvas - self.press_y_canvas) < 10:
+	# 		# short movement
 
-			print 'short movement'
+	# 		print 'short movement'
 
-			if event.button == 1: # left click
+	# 		if event.button == 1: # left click
 							
-				if self.mode == Mode.CREATING_NEW_POLYGON:
-					self.add_vertex([event.xdata, event.ydata], create_if_no_selected=True, 
-										consecutive=True)
+	# 			if self.mode == Mode.CREATING_NEW_POLYGON:
+	# 				self.add_vertex([event.xdata, event.ydata], create_if_no_selected=True, 
+	# 									consecutive=True)
 
-				elif self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+	# 			elif self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 
-					# print 'prev', self.previous_polygon, self.previous_vertex_index, 'curr', self.selected_proposal_polygon, self.selected_vertex_index
+	# 				# print 'prev', self.previous_polygon, self.previous_vertex_index, 'curr', self.selected_proposal_polygon, self.selected_vertex_index
 
-					print 'self.connecting_vertices', self.connecting_vertices
-					if self.connecting_vertices:
+	# 				print 'self.connecting_vertices', self.connecting_vertices
+	# 				if self.connecting_vertices:
 
-						if self.previous_polygon == self.selected_proposal_polygon:
-							self.connect_two_vertices(self.selected_proposal_polygon)
-							self.cancel_current_selection()
-							self.set_mode(Mode.REVIEW_PROPOSAL)
+	# 					if self.previous_polygon == self.selected_proposal_polygon:
+	# 						self.connect_two_vertices(self.selected_proposal_polygon)
+	# 						self.cancel_current_selection()
+	# 						self.set_mode(Mode.REVIEW_PROPOSAL)
 
-						else:
-							self.connect_two_vertices(self.selected_proposal_polygon, self.previous_polygon, 
-														self.selected_vertex_index, self.previous_vertex_index)
-							self.cancel_current_selection()
-							self.set_mode(Mode.REVIEW_PROPOSAL)
+	# 					else:
+	# 						self.connect_two_vertices(self.selected_proposal_polygon, self.previous_polygon, 
+	# 													self.selected_vertex_index, self.previous_vertex_index)
+	# 						self.cancel_current_selection()
+	# 						self.set_mode(Mode.REVIEW_PROPOSAL)
 
-						self.connecting_vertices = False
-					else:
-						self.add_vertex([event.xdata, event.ydata], consecutive=True)
+	# 					self.connecting_vertices = False
+	# 				else:
+	# 					self.add_vertex([event.xdata, event.ydata], consecutive=True)
 				
-				elif self.mode == Mode.ADDING_VERTICES_RANDOMLY:
-					self.add_vertex([event.xdata, event.ydata], consecutive=False)
+	# 			elif self.mode == Mode.ADDING_VERTICES_RANDOMLY:
+	# 				self.add_vertex([event.xdata, event.ydata], consecutive=False)
 
-				else:
+	# 			else:
 
-					self.cancel_current_selection()
+	# 				self.cancel_current_selection()
 
-					# if self.superpixels_on:
-					print 'clicked a superpixel'
+	# 				# if self.superpixels_on:
+	# 				print 'clicked a superpixel'
 		
-					if self.superpixels_on:
-						self.clicked_sp = self.dm.segmentation[int(event.ydata), int(event.xdata)]
-						sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
+	# 				if self.superpixels_on:
+	# 					self.clicked_sp = self.dm.segmentation[int(event.ydata), int(event.xdata)]
+	# 					sys.stderr.write('clicked sp %d\n'%self.clicked_sp)
 
-						if self.mode == Mode.REVIEW_PROPOSAL:
-							self.shuffle_proposal_from_pool(self.clicked_sp)
+	# 					if self.mode == Mode.REVIEW_PROPOSAL:
+	# 						self.shuffle_proposal_from_pool(self.clicked_sp)
 
-			elif event.button == 3: # right click
-				canvas_pos = (event.xdata, event.ydata)
-				self.openMenu(canvas_pos)
+	# 		elif event.button == 3: # right click
+	# 			canvas_pos = (event.xdata, event.ydata)
+	# 			self.openMenu(canvas_pos)
 
-		else:
-			print 'long movement'
-			# long movement
+	# 	else:
+	# 		print 'long movement'
+	# 		# long movement
 
-			if self.mode != Mode.ADDING_VERTICES_CONSECUTIVELY and self.mode != Mode.ADDING_VERTICES_RANDOMLY:
-				self.cancel_current_selection()        
+	# 		if self.mode != Mode.ADDING_VERTICES_CONSECUTIVELY and self.mode != Mode.ADDING_VERTICES_RANDOMLY:
+	# 			self.cancel_current_selection()        
 
-		self.canvas.draw()
+	# 	self.canvas.draw()
 
-		print 'release finished'
-		self.object_picked = False
-		self.picked_object_type = None
+	# 	print 'release finished'
+	# 	self.object_picked = False
+	# 	self.picked_object_type = None
 
-		print self.selected_proposal_polygon, self.selected_circle, self.selected_vertex_index if hasattr(self, 'selected_vertex_index') else ''
+	# 	print self.selected_proposal_polygon, self.selected_circle, self.selected_vertex_index if hasattr(self, 'selected_vertex_index') else ''
 
 
 	def find_vertex_insert_position(self, xys, pos, closed=True):
@@ -1916,74 +2217,74 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		return new_vertex_ind
 
 
-	def add_vertex(self, pos, create_if_no_selected=False, consecutive=False):
-		print 'add vertex'
+	# def add_vertex(self, pos, create_if_no_selected=False, consecutive=False):
+	# 	print 'add vertex'
 
-		# self.cancel_current_circle()
-		self.auto_extend_view(pos[0], pos[1])
+	# 	# self.cancel_current_circle()
+	# 	self.auto_extend_view(pos[0], pos[1])
 
-		if (not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None) and not create_if_no_selected:
-			print 'no proposal selected'
-			return
+	# 	if (not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None) and not create_if_no_selected:
+	# 		print 'no proposal selected'
+	# 		return
 
-		vertex_circle = plt.Circle(pos, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-		self.axis.add_patch(vertex_circle)
-		vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+	# 	vertex_circle = plt.Circle(pos, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+	# 	self.axis.add_patch(vertex_circle)
+	# 	vertex_circle.set_picker(CIRCLE_PICK_THRESH)
 
-		if not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None:
+	# 	if not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None:
 			
-			self.selected_proposal_polygon = Polygon([pos], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+	# 		self.selected_proposal_polygon = Polygon([pos], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
 
-			self.selected_proposal_polygon.set_picker(True)
-			self.axis.add_patch(self.selected_proposal_polygon)
+	# 		self.selected_proposal_polygon.set_picker(True)
+	# 		self.axis.add_patch(self.selected_proposal_polygon)
 
-			self.selected_proposal_type = ProposalType.FREEFORM
-			self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
-																	# 'subtype': PolygonType.OPEN,
-																	'vertexPatches': []
-																	}
+	# 		self.selected_proposal_type = ProposalType.FREEFORM
+	# 		self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
+	# 																# 'subtype': PolygonType.OPEN,
+	# 																'vertexPatches': []
+	# 																}
 
-			new_vertex_ind = 0
+	# 		new_vertex_ind = 0
 
-			self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
-			# self.set_mode(Mode.REVIEW_PROPOSAL)
+	# 		self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
+	# 		# self.set_mode(Mode.REVIEW_PROPOSAL)
 
-			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = [vertex_circle]
+	# 		self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = [vertex_circle]
 
-		else:
+	# 	else:
 
-			xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
+	# 		xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
 
-			n = len(xys)
+	# 		n = len(xys)
 
-			if consecutive:
-				if hasattr(self, 'selected_vertex_index') and self.extend_head: # if a circle is selected, add after this vertex
-					xys = np.vstack([xys[::-1], pos])
-					self.selected_proposal_polygon.set_xy(xys)
-					self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][::-1] + [vertex_circle]
-				else:
+	# 		if consecutive:
+	# 			if hasattr(self, 'selected_vertex_index') and self.extend_head: # if a circle is selected, add after this vertex
+	# 				xys = np.vstack([xys[::-1], pos])
+	# 				self.selected_proposal_polygon.set_xy(xys)
+	# 				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][::-1] + [vertex_circle]
+	# 			else:
 
-					xys = np.vstack([xys, pos])
-					self.selected_proposal_polygon.set_xy(xys)
-					self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].append(vertex_circle)
+	# 				xys = np.vstack([xys, pos])
+	# 				self.selected_proposal_polygon.set_xy(xys)
+	# 				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].append(vertex_circle)
 				
-				new_vertex_ind = n
+	# 			new_vertex_ind = n
 
-			else:
+	# 		else:
 
-				new_vertex_ind = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
-				xys = np.insert(xys, new_vertex_ind, pos, axis=0)
-				self.selected_proposal_polygon.set_xy(xys)
-				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].insert(new_vertex_ind, vertex_circle)
+	# 			new_vertex_ind = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
+	# 			xys = np.insert(xys, new_vertex_ind, pos, axis=0)
+	# 			self.selected_proposal_polygon.set_xy(xys)
+	# 			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].insert(new_vertex_ind, vertex_circle)
 
-		self.history.append({'type': 'add_vertex', 'polygon': self.selected_proposal_polygon, 'index': new_vertex_ind, 
-					'circle': vertex_circle})
+	# 	self.history.append({'type': 'add_vertex', 'polygon': self.selected_proposal_polygon, 'index': new_vertex_ind, 
+	# 				'circle': vertex_circle})
 
-		self.cancel_current_circle()
+	# 	self.cancel_current_circle()
 
-		self.extend_head = False
+	# 	self.extend_head = False
 
-		self.canvas.draw()
+	# 	self.canvas.draw()
 
 
 	def connect_two_vertices(self, polygon1, polygon2=None, index1=None, index2=None):
@@ -2068,18 +2369,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.canvas.draw()
 
 
-	def vertices_from_vertexPatches(self, polygon):
-		if polygon not in self.accepted_proposals:
-			assert 'polygon does not exist'
-			return None
-		else:
-			xys = map(attrgetter('center'), self.accepted_proposals[polygon]['vertexPatches'])
-			return xys
+	# def vertices_from_vertexPatches(self, polygon):
+	# 	if polygon not in self.accepted_proposals:
+	# 		assert 'polygon does not exist'
+	# 		return None
+	# 	else:
+	# 		xys = map(attrgetter('center'), self.accepted_proposals[polygon]['vertexPatches'])
+	# 		return xys
 
 
-	def set_polygon_vertices(self, polygon, vertices):
-		self.selected_proposal_polygon.set_xy(new_vertices)
-		self.selected_proposal_polygon['vertexPatches'] = self.selected_proposal_polygon['vertexPatches'][v2:] + self.selected_proposal_polygon['vertexPatches'][:v2]
+	# def set_polygon_vertices(self, polygon, vertices):
+	# 	self.selected_proposal_polygon.set_xy(new_vertices)
+	# 	self.selected_proposal_polygon['vertexPatches'] = self.selected_proposal_polygon['vertexPatches'][v2:] + self.selected_proposal_polygon['vertexPatches'][:v2]
 
 
 	def break_edge(self, pos):
@@ -2310,25 +2611,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def auto_extend_view(self, x, y):
 		# always make just placed vertex at the center of the view
-		cur_xmin, cur_xmax = self.axis.get_xlim()
-		cur_ybottom, cur_ytop = self.axis.get_ylim()
+
+		viewport_scene_rect = self.section1_gview.viewport().rect()	# NOT UPDATING!!! WEIRD!!!
+		cur_xmin = viewport_scene_rect.x()
+		cur_ymin = viewport_scene_rect.y()
+		cur_xmax = cur_xmin + viewport_scene_rect.width()
+		cur_ymax = cur_ymin + viewport_scene_rect.height()
+
+		print cur_xmin, cur_ymin, cur_xmax, cur_ymax
 
 		if abs(x - cur_xmin) < AUTO_EXTEND_VIEW_TOLERANCE or abs(x - cur_xmax) < AUTO_EXTEND_VIEW_TOLERANCE:
 			cur_xcenter = cur_xmin * .6 + cur_xmax * .4 if abs(x - cur_xmin) < AUTO_EXTEND_VIEW_TOLERANCE else cur_xmin * .4 + cur_xmax * .6
 			translation_x = cur_xcenter - x
 
-			self.axis.set_xlim([cur_xmin-translation_x, cur_xmax-translation_x])
-			self.axis2.set_xlim([cur_xmin-translation_x, cur_xmax-translation_x])
+			self.section1_gview.translate(-translation_x, 0)
+			self.section2_gview.translate(-translation_x, 0)
+			self.section3_gview.translate(-translation_x, 0)
 
-		if abs(y - cur_ybottom) < AUTO_EXTEND_VIEW_TOLERANCE or abs(y - cur_ytop) < AUTO_EXTEND_VIEW_TOLERANCE:
-			cur_ycenter = cur_ybottom * .6 + cur_ytop * .4 if abs(y - cur_ybottom) < AUTO_EXTEND_VIEW_TOLERANCE else cur_ybottom * .4 + cur_ytop * .6
+		if abs(y - cur_ymin) < AUTO_EXTEND_VIEW_TOLERANCE or abs(y - cur_ymax) < AUTO_EXTEND_VIEW_TOLERANCE:
+			cur_ycenter = cur_ymin * .6 + cur_ymax * .4 if abs(y - cur_ymin) < AUTO_EXTEND_VIEW_TOLERANCE else cur_ymin * .4 + cur_ymax * .6
 			translation_y = cur_ycenter - y
 
-			self.axis.set_ylim([cur_ybottom-translation_y, cur_ytop-translation_y])
-			self.axis2.set_ylim([cur_ybottom-translation_y, cur_ytop-translation_y])
+			self.section1_gview.translate(0, -translation_y)
+			self.section2_gview.translate(0, -translation_y)
+			self.section3_gview.translate(0, -translation_y)
 
-		self.canvas.draw()
-		self.canvas2.draw()
 
 	# def place_vertex(self, x, y):
 	#     self.selected_proposal_vertices.append([x, y])

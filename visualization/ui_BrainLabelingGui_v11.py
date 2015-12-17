@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'BrainLabelingGui_v10.ui'
+# Form implementation generated from reading ui file 'BrainLabelingGui_v11.ui'
 #
-# Created: Tue Dec 15 03:24:11 2015
+# Created: Tue Dec 15 03:36:35 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_BrainLabelingGui(object):
     def setupUi(self, BrainLabelingGui):
         BrainLabelingGui.setObjectName(_fromUtf8("BrainLabelingGui"))
-        BrainLabelingGui.resize(1041, 915)
+        BrainLabelingGui.resize(1298, 915)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -50,28 +50,6 @@ class Ui_BrainLabelingGui(object):
         self.thumbnail_list.setMinimumSize(QtCore.QSize(256, 773))
         self.thumbnail_list.setObjectName(_fromUtf8("thumbnail_list"))
         self.gridLayout.addWidget(self.thumbnail_list, 0, 0, 2, 1)
-        self.splitter = QtGui.QSplitter(self.centralwidget)
-        self.splitter.setOrientation(QtCore.Qt.Horizontal)
-        self.splitter.setObjectName(_fromUtf8("splitter"))
-        self.canvaswidget = MplWidget(self.splitter)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.canvaswidget.sizePolicy().hasHeightForWidth())
-        self.canvaswidget.setSizePolicy(sizePolicy)
-        self.canvaswidget.setMinimumSize(QtCore.QSize(500, 571))
-        self.canvaswidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.canvaswidget.setObjectName(_fromUtf8("canvaswidget"))
-        self.canvaswidget2 = MplWidget(self.splitter)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.canvaswidget2.sizePolicy().hasHeightForWidth())
-        self.canvaswidget2.setSizePolicy(sizePolicy)
-        self.canvaswidget2.setMinimumSize(QtCore.QSize(500, 571))
-        self.canvaswidget2.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.canvaswidget2.setObjectName(_fromUtf8("canvaswidget2"))
-        self.gridLayout.addWidget(self.splitter, 0, 1, 1, 1)
         self.bottom_panel = QtGui.QHBoxLayout()
         self.bottom_panel.setObjectName(_fromUtf8("bottom_panel"))
         self.graphicsView_navMap = QtGui.QGraphicsView(self.centralwidget)
@@ -150,12 +128,25 @@ class Ui_BrainLabelingGui(object):
         self.verticalLayout.addItem(spacerItem3)
         self.bottom_panel.addLayout(self.verticalLayout)
         self.gridLayout.addLayout(self.bottom_panel, 1, 1, 1, 1)
+        self.splitter = QtGui.QSplitter(self.centralwidget)
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter.setObjectName(_fromUtf8("splitter"))
+        self.section3_gview = QtGui.QGraphicsView(self.splitter)
+        self.section3_gview.setMinimumSize(QtCore.QSize(333, 1000))
+        self.section3_gview.setObjectName(_fromUtf8("section3_gview"))
+        self.section1_gview = QtGui.QGraphicsView(self.splitter)
+        self.section1_gview.setMinimumSize(QtCore.QSize(333, 1000))
+        self.section1_gview.setObjectName(_fromUtf8("section1_gview"))
+        self.section2_gview = QtGui.QGraphicsView(self.splitter)
+        self.section2_gview.setMinimumSize(QtCore.QSize(333, 1000))
+        self.section2_gview.setObjectName(_fromUtf8("section2_gview"))
+        self.gridLayout.addWidget(self.splitter, 0, 1, 1, 1)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
         self.statusbar = QtGui.QStatusBar(BrainLabelingGui)
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
         BrainLabelingGui.setStatusBar(self.statusbar)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1041, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1298, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         BrainLabelingGui.setMenuBar(self.menubar)
         self.toolBar = QtGui.QToolBar(BrainLabelingGui)
@@ -185,7 +176,6 @@ class Ui_BrainLabelingGui(object):
         self.button_quit.setText(_translate("BrainLabelingGui", "Quit", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 
-from mplwidget import MplWidget
 
 if __name__ == "__main__":
     import sys

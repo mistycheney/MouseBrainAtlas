@@ -75,8 +75,23 @@ else:
 		dm.set_slice(i)
 		dm._load_image()
 
-		features_rotated_one_image = dm.load_pipeline_result('featuresRotated')
-		features_rotated_list.append(features_rotated_one_image[np.random.randint(features_rotated_one_image.shape[0], size=1000000), :])
+		block_size = 4000
+
+		for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
+		    for row, ymin in enumerate(range(dm.ymin, dm.ymax, block_size)):
+
+				xmax = xmin + block_size - 1
+				ymax = ymin + block_size - 1
+
+				t = time.time()
+				sys.stderr.write('load featuresRotated ...')
+
+				if not dm.check_pipeline_result('featuresMaskedRotatedRow%dCol%d'%(row, col)):
+					continue
+
+			features_rotated_one_image = dm.load_pipeline_result('featuresMaskedRotatedRow%dCol%d'%(row, col))
+
+		features_rotated_list.append(features_rotated_one_image[np.random.randint(features_rotated_one_image.shape[0], size=10000), :])
 	
 	features_rotated = np.vstack(features_rotated_list)
 

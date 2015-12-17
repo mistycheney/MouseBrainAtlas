@@ -30,33 +30,12 @@ dm = DataManager(gabor_params_id=args.gabor_params_id,
 
 #==================================================
 
-# if dm.check_pipeline_result('texMap') and dm.check_pipeline_result('texMapViz'):
-# # if False:
-#     print "texMap.npy already exists, skip"
-
-#     textonmap = dm.load_pipeline_result('texMap')
-#     n_texton = textonmap.max() + 1
-
-# else:
-
-	# print 'loading centroids ...',
-	# t = time.time()
-
 if args.texton_path == '':
     centroids = dm.load_pipeline_result('textons')
 else:
     centroids = np.load(args.texton_path)
 
 n_texton = len(centroids)
-
-# features_rotated = np.c_[np.r_[dm.load_pipeline_result('featuresRotated0'), dm.load_pipeline_result('featuresRotated1')],
-#                         np.r_[dm.load_pipeline_result('featuresRotated2'), dm.load_pipeline_result('featuresRotated3')]]
-
-# features_rotated = dm.load_pipeline_result('featuresRotated')
-# print 'done in', time.time() - t, 'seconds'
-
-# print 'assign textons ...',
-# t = time.time()
 
 textonmap = -1 * np.ones((dm.image_height, dm.image_width), dtype=np.int8)
 
@@ -118,13 +97,15 @@ dm.save_pipeline_result(textonmap, 'texMap')
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 
+# dm.load_pipeline_result('texMap')
+
 t = time.time()
 sys.stderr.write('dumping texmap visualization ...')
 
 colors = (np.loadtxt(dm.repo_dir + '/visualization/100colors.txt') * 255).astype(np.uint8)
 
 textonmap_viz = np.zeros((dm.image_height, dm.image_width, 3), np.uint8)
-textonmap_viz[dm.mask] = colors[textonmap[dm.mask]]
+textonmap_viz[dm.mask] = colors[textonmap[dm.mask]%len(colors)]
 dm.save_pipeline_result(textonmap_viz, 'texMapViz')
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))

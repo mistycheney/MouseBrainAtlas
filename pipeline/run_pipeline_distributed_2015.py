@@ -57,7 +57,7 @@ elif args.task == 'compute_texmap':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -t %(texton_path)s'%\
 								{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/compute_texmap_bypart.py', 
 								'stack': args.stack,
-								'texton_path': os.environ['GORDON_RESULT_DIR'] + '/MD593/MD593_lossless_gabor-blueNisslWide-vq-blueNissl_textons.npy',
+								'texton_path': os.environ['GORDON_RESULT_DIR'] + '/MD594_lossless_gabor-blueNisslWide-vq-blueNissl_textons.npy',
 								'gabor_p': args.gabor_params_id,
 								'vq_p': args.vq_params_id,
 								# 'segm_p': args.segm_params_id,
@@ -67,18 +67,29 @@ elif args.task == 'compute_texmap':
 					exclude_nodes=exclude_nodes)
 
 
+# elif args.task == 'compute_textons':
+# 	cmd = "ssh yuncong@gcn-20-34.sdsc.edu '%(script_path)s %(stack)s %(first_sec)d %(last_sec)d %(interval)d -g %(gabor_p)s -v %(vq_p)s'" %\
+# 					{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/compute_textons.py', 
+# 					'first_sec': args.b,
+# 					'last_sec': args.e,
+# 					'stack': args.stack,
+# 					'interval': 5,
+# 					'gabor_p': args.gabor_params_id,
+# 					'vq_p': args.vq_params_id,
+# 					}
+# 	print cmd
+# 	call(cmd, shell=True)
+
 elif args.task == 'compute_textons':
-	cmd = "ssh yuncong@gcn-20-34.sdsc.edu '%(script_path)s %(stack)s %(first_sec)d %(last_sec)d %(interval)d -g %(gabor_p)s -v %(vq_p)s'" %\
-					{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/compute_textons.py', 
-					'first_sec': args.b,
-					'last_sec': args.e,
-					'stack': args.stack,
-					'interval': 5,
-					'gabor_p': args.gabor_params_id,
-					'vq_p': args.vq_params_id,
-					}
-	print cmd
-	call(cmd, shell=True)
+	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s'%\
+								{'script_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR']+'/compute_texton_section.py', 
+								'stack': args.stack,
+								'gabor_p': args.gabor_params_id,
+								'vq_p': args.vq_params_id
+								}, 
+					first_sec=args.b,
+					last_sec=args.e,
+					exclude_nodes=exclude_nodes)
 
 elif args.task == 'compute_histograms':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s -v %(vq_p)s -s %(segm_p)s'%\

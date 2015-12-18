@@ -234,7 +234,23 @@ class DataManager(object):
         if section is not None:
             self.set_slice(section)
 
-        self._load_mask(create_mask=load_mask)
+        if load_mask:
+            self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
+            self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
+            self.mask[:500, :] = False
+            self.mask[:, :500] = False
+            self.mask[-500:, :] = False
+            self.mask[:, -500:] = False
+
+            xs_valid = np.any(self.mask, axis=0)
+            ys_valid = np.any(self.mask, axis=1)
+            self.xmin = np.where(xs_valid)[0][0]
+            self.xmax = np.where(xs_valid)[0][-1]
+            self.ymin = np.where(ys_valid)[0][0]
+            self.ymax = np.where(ys_valid)[0][-1]
+
+            self.h = self.ymax-self.ymin+1
+            self.w = self.xmax-self.xmin+1
 
     def add_labelnames(self, labelnames, filename):
         existing_labelnames = {}
@@ -256,68 +272,6 @@ class DataManager(object):
     def set_resol(self, resol):
         self.resol = resol
     
-
-    def _load_mask(self, create_mask=True):
-
-        if create_mask:
-
-            # self.mask = np.zeros((self.image_height, self.image_width), np.bool)
-
-            # if self.stack == 'MD593':
-            #     self.mask[1848:1848+4807, 924:924+10186] = True
-            # # elif self.stack == 'MD594':
-            # #     self.mask[1081:1081+6051, 552:552+12445] = True
-            # else:
-            self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
-            self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
-            self.mask[:500, :] = False
-            self.mask[:, :500] = False
-            self.mask[-500:, :] = False
-            self.mask[:, -500:] = False
-
-                # self.mask[500:self.image_height-500, 500:self.image_width-500] = True
-                # self.mask[4500:6500, 1000:3000] = True
-            # else:
-            #     raise 'mask is not specified'
-
-            xs_valid = np.any(self.mask, axis=0)
-            ys_valid = np.any(self.mask, axis=1)
-            self.xmin = np.where(xs_valid)[0][0]
-            self.xmax = np.where(xs_valid)[0][-1]
-            self.ymin = np.where(ys_valid)[0][0]
-            self.ymax = np.where(ys_valid)[0][-1]
-
-        # if self.stack == 'MD593':
-        #     self.xmin = 924
-        #     self.xmax = 924+10186-1
-        #     self.ymin = 1848
-        #     self.ymax = 1848+4807-1
-        # elif self.stack == 'MD594':
-        #     self.xmin = 552
-        #     self.xmax = 552+12445-1
-        #     self.ymin = 1081
-        #     self.ymax = 1081+6051-1
-        # else:
-            # self.xmin = 500
-            # self.ymin = 500 
-            # self.xmax = self.image_width - 500 - 1
-            # self.ymax = self.image_height - 500 - 1
-
-            # self.xmin = 1000
-            # self.ymin = 4500
-            # self.xmax = 3000-1
-            # self.ymax = 6500-1
-        # else:
-        #     raise 'mask is not specified'
-
-        # rs, cs = np.where(self.mask)
-        # self.ymax = rs.max()
-        # self.ymin = rs.min()
-        # self.xmax = cs.max()
-        # self.xmin = cs.min()
-            self.h = self.ymax-self.ymin+1
-            self.w = self.xmax-self.xmin+1
-
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'
         self.slice_ind = slice_ind
@@ -327,17 +281,17 @@ class DataManager(object):
             self.image_name = '_'.join([self.stack, self.slice_str, self.resol])
             self.image_path = os.path.join(self.image_dir, self.image_name + '_aligned_cropped.tif')
 
-        try:
+        if os.path.exists(self.image_path):
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
-        except:
+        else:
             sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
-            
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
+        
         self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
-        if not os.path.exists(self.labelings_dir):
-            os.makedirs(self.labelings_dir)
+        # if not os.path.exists(self.labelings_dir):
+        #     os.makedirs(self.labelings_dir)
         
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
         

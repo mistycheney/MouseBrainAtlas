@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v11.ui'
 #
-# Created: Tue Dec 15 03:36:35 2015
+# Created: Thu Dec 17 16:03:19 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -103,6 +103,9 @@ class Ui_BrainLabelingGui(object):
         self.button_contoursOnOff = QtGui.QPushButton(self.displayOption_panel)
         self.button_contoursOnOff.setObjectName(_fromUtf8("button_contoursOnOff"))
         self.verticalLayout_3.addWidget(self.button_contoursOnOff)
+        self.button_verticesOnOff = QtGui.QPushButton(self.displayOption_panel)
+        self.button_verticesOnOff.setObjectName(_fromUtf8("button_verticesOnOff"))
+        self.verticalLayout_3.addWidget(self.button_verticesOnOff)
         spacerItem2 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem2)
         self.bottom_panel.addWidget(self.displayOption_panel)
@@ -169,6 +172,7 @@ class Ui_BrainLabelingGui(object):
         self.buttonSpOnOff.setText(_translate("BrainLabelingGui", "Turn Superpixels On", None))
         self.button_labelsOnOff.setText(_translate("BrainLabelingGui", "Turn Labels Off", None))
         self.button_contoursOnOff.setText(_translate("BrainLabelingGui", "Turn Contours Off", None))
+        self.button_verticesOnOff.setText(_translate("BrainLabelingGui", "Turn Vertices Off", None))
         self.button_autoDetect.setText(_translate("BrainLabelingGui", "Auto Detect", None))
         self.button_updateDB.setText(_translate("BrainLabelingGui", "Update DB", None))
         self.button_loadLabeling.setText(_translate("BrainLabelingGui", "Load", None))

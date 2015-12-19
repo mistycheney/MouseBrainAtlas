@@ -12,3 +12,6 @@ VOra	nucleus trigeminalis descendens Oralis pars anterior
 preV	nucleus pretrigeminalis??
 TrVdes	Tractus trigemini descendens
 UDFtr	Undefined Tract
+VOri	nucleus trigeminalis descendens Oralis, pars intermedius
+Vcd	nucleus trigemini descendens, pars caudalis/spinialis
+CereNuc	Deep cerebellar nuclei

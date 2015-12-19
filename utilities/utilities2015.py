@@ -1234,6 +1234,12 @@ class DataManager(object):
 
     def save_proposal_review_result(self, result, username, timestamp, suffix):
         path = self.load_review_result_path(username, timestamp, suffix=suffix)
+
+
+        path_to_dir = os.path.dirname(path)
+        if not os.path.exists(path_to_dir):
+            os.makedirs(path_to_dir)
+
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 

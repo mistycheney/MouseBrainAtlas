@@ -75,6 +75,7 @@ class Mode(Enum):
 	SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
 	DELETE_ROI_MERGE = 'delete roi (merge)'
 	DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
+	DELETE_BETWEEN = 'delete edges between two vertices'
 
 class ProposalType(Enum):
 	GLOBAL = 'global'
@@ -659,6 +660,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		action_setUncertain = myMenu.addAction("Set uncertain segment")
 		action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
 		action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
+		action_deleteBetween = myMenu.addAction("Delete edges between two vertices")
 		# action_doneDrawing = myMenu.addAction("Done drawing")
 
 		selected_action = myMenu.exec_(self.section1_gview.viewport().mapToGlobal(pos))
@@ -722,6 +724,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		
 		elif selected_action == action_deleteROIMerge:
 			self.set_mode(Mode.DELETE_ROI_MERGE)
+
+		elif selected_action == action_deleteBetween:
+			self.set_mode(Mode.DELETE_BETWEEN)
 
 		# elif selected_action == action_doneDrawing:
 			# self.set_mode(Mode.IDLE)
@@ -865,6 +870,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			len(self.accepted_proposals[self.selected_polygon]['vertexCircles']) > 2 and \
 			self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 			self.close_curr_polygon = True
+
+
 		else:
 			self.ignore_click = True
 
@@ -882,6 +889,35 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.vertex_is_moved = False
 
 			print 'history:', [h['type'] for h in self.history]
+
+		elif self.mode == Mode.DELETE_BETWEEN:
+			vertex_index = self.accepted_proposals[self.selected_polygon]['vertexCircles'].index(clicked_vertex)
+			print 'vertex_index', vertex_index 
+
+			rect = clicked_vertex.rect()
+			clicked_vertex.setRect(rect.x()-100, rect.y()-100, 200, 200)
+
+			if hasattr(self, 'first_vertex_index_to_delete') and self.first_vertex_index_to_delete is not None:
+				self.second_vertex_index_to_delete = vertex_index
+
+				self.delete_between(self.selected_polygon, self.first_vertex_index_to_delete, self.second_vertex_index_to_delete)
+				
+				# first_vertex = self.accepted_proposals[self.selected_polygon]['vertexCircles'][self.first_vertex_index_to_delete]
+				# rect = first_vertex.rect()
+				# first_vertex.setRect(rect.x()-50, rect.y()-50, 100, 100)
+				
+				self.first_vertex_index_to_delete = None
+
+				# second_vertex = self.accepted_proposals[self.selected_polygon]['vertexCircles'][self.second_vertex_index_to_delete]
+				# rect = second_vertex.rect()
+				# second_vertex.setRect(rect.x()-50, rect.y()-50, 100, 100)
+
+				self.second_vertex_index_to_delete = None
+
+				self.set_mode(Mode.IDLE)
+
+			else:
+				self.first_vertex_index_to_delete = vertex_index
 
 
 	def set_flag_all(self, flag, enabled):
@@ -1596,85 +1632,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.picked_artists.append(event.artist)
 
 
-	def handle_picked_object(self, artist):
-
-		matches = [patch for patch, props in self.accepted_proposals.iteritems() if 'labelTextArtist' in props and artist == props['labelTextArtist']]
-		
-		if len(matches) > 0:
-
-			print 'clicked on a label'
-			self.selected_proposal_polygon = matches[0]
-			self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
-
-			if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
-				self.statusBar().showMessage('picked %s proposal (%s, %s)' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
-																	 self.accepted_proposals[self.selected_proposal_polygon]['label'],
-																	 self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']]))
-
-		else:
-
-			patch_vertexInd_tuple = [(patch, props['vertexPatches'].index(artist)) for patch, props in self.accepted_proposals.iteritems() 
-						if 'vertexPatches' in props and artist in props['vertexPatches']]
-			
-			if len(patch_vertexInd_tuple) == 1:
-
-				# if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY or self.mode == Mode.ADDING_VERTICES_RANDOMLY:
-				#     if patch_vertexInd_tuple[0][0] != self.selected_proposal_polygon:
-				#         return
-
-				self.cancel_current_selection()
-
-				print 'clicked on a vertex circle'
-				self.selected_proposal_polygon = patch_vertexInd_tuple[0][0]
-				self.selected_vertex_index = patch_vertexInd_tuple[0][1]
-
-				print 'vertex index', self.selected_vertex_index
-
-				self.selected_circle = artist
-				self.selected_circle.set_radius(SELECTED_CIRCLE_SIZE)
-				
-				self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
-
-				if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
-					self.statusBar().showMessage('picked %s proposal (%s, %s), vertex %d' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
-																		 self.accepted_proposals[self.selected_proposal_polygon]['label'],
-																		 self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']],
-																		 self.selected_vertex_index))
-
-				self.selected_polygon_circle_centers_before_drag = [circ.center for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
-
-			elif len(patch_vertexInd_tuple) == 0 and self.selected_circle is None:
-
-				print 'clicked on a polygon'
-
-				if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY or self.mode == Mode.ADDING_VERTICES_RANDOMLY:
-					return
-				else:
-					self.cancel_current_selection()
-
-					if artist in self.accepted_proposals:
-						print 'this polygon has been accepted'
-
-						self.selected_proposal_polygon = artist
-						self.selected_proposal_polygon.set_linewidth(SELECTED_POLYGON_LINEWIDTH)
-
-						# self.selected_polygon_xy_before_drag = self.selected_proposal_polygon.get_xy()
-						self.selected_polygon_circle_centers_before_drag = [circ.center 
-											for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']]
-
-						self.selected_polygon_label_pos_before_drag = self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].get_position()
-
-						if 'label' in self.accepted_proposals[self.selected_proposal_polygon]:
-							self.statusBar().showMessage('picked %s proposal (%s, %s)' % (self.accepted_proposals[self.selected_proposal_polygon]['type'].value,
-																				 self.accepted_proposals[self.selected_proposal_polygon]['label'],
-																				 self.structure_names[self.accepted_proposals[self.selected_proposal_polygon]['label']]))
-
-						self.selected_proposal_type = self.accepted_proposals[self.selected_proposal_polygon]['type']
-
-		self.object_picked = True
-
-		self.canvas.draw()
-
 	def load_local_proposals(self):
 
 		sys.stderr.write('loading local proposals ...\n')
@@ -2121,6 +2078,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if 'labelTextArtist' in self.accepted_proposals[polygon]:
 			self.section1_gscene.removeItem(self.accepted_proposals[polygon]['labelTextArtist'])
+
 		self.section1_gscene.removeItem(polygon)
 
 		self.accepted_proposals.pop(polygon)
@@ -2341,291 +2299,85 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		return new_vertex_ind
 
 
-	# def add_vertex(self, pos, create_if_no_selected=False, consecutive=False):
-	# 	print 'add vertex'
 
-	# 	# self.cancel_current_circle()
-	# 	self.auto_extend_view(pos[0], pos[1])
+	# def connect_two_vertices(self, polygon1, polygon2=None, index1=None, index2=None):
 
-	# 	if (not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None) and not create_if_no_selected:
-	# 		print 'no proposal selected'
-	# 		return
+	# 	vertices1 = self.vertices_from_vertexPatches(polygon1)
+	# 	n1 = len(vertices1)
 
-	# 	vertex_circle = plt.Circle(pos, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-	# 	self.axis.add_patch(vertex_circle)
-	# 	vertex_circle.set_picker(CIRCLE_PICK_THRESH)
-
-	# 	if not hasattr(self, 'selected_proposal_polygon') or self.selected_proposal_polygon is None:
+	# 	if polygon2 is None: # connect two ends of a single polygon   
 			
-	# 		self.selected_proposal_polygon = Polygon([pos], closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-
-	# 		self.selected_proposal_polygon.set_picker(True)
-	# 		self.axis.add_patch(self.selected_proposal_polygon)
-
-	# 		self.selected_proposal_type = ProposalType.FREEFORM
-	# 		self.accepted_proposals[self.selected_proposal_polygon] = {'type': ProposalType.FREEFORM,
-	# 																# 'subtype': PolygonType.OPEN,
-	# 																'vertexPatches': []
-	# 																}
-
-	# 		new_vertex_ind = 0
-
-	# 		self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
-	# 		# self.set_mode(Mode.REVIEW_PROPOSAL)
-
-	# 		self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = [vertex_circle]
-
-	# 	else:
-
-	# 		xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-
-	# 		n = len(xys)
-
-	# 		if consecutive:
-	# 			if hasattr(self, 'selected_vertex_index') and self.extend_head: # if a circle is selected, add after this vertex
-	# 				xys = np.vstack([xys[::-1], pos])
-	# 				self.selected_proposal_polygon.set_xy(xys)
-	# 				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][::-1] + [vertex_circle]
-	# 			else:
-
-	# 				xys = np.vstack([xys, pos])
-	# 				self.selected_proposal_polygon.set_xy(xys)
-	# 				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].append(vertex_circle)
-				
-	# 			new_vertex_ind = n
-
-	# 		else:
-
-	# 			new_vertex_ind = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
-	# 			xys = np.insert(xys, new_vertex_ind, pos, axis=0)
-	# 			self.selected_proposal_polygon.set_xy(xys)
-	# 			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].insert(new_vertex_ind, vertex_circle)
-
-	# 	self.history.append({'type': 'add_vertex', 'polygon': self.selected_proposal_polygon, 'index': new_vertex_ind, 
-	# 				'circle': vertex_circle})
-
-	# 	self.cancel_current_circle()
-
-	# 	self.extend_head = False
-
-	# 	self.canvas.draw()
-
-
-	def connect_two_vertices(self, polygon1, polygon2=None, index1=None, index2=None):
-
-		vertices1 = self.vertices_from_vertexPatches(polygon1)
-		n1 = len(vertices1)
-
-		if polygon2 is None: # connect two ends of a single polygon   
-			
-			print 'index1', index1, 'index2', index2
-			assert not polygon1.get_closed()
-			 # and ((index1 == 0 and index2 == n2-1) or (index1 == n1-1 and index2 == 0))
-			polygon1.set_closed(True)
-			if 'label' not in self.accepted_proposals[polygon1]:
-				self.acceptProposal_callback()
+	# 		print 'index1', index1, 'index2', index2
+	# 		assert not polygon1.get_closed()
+	# 		 # and ((index1 == 0 and index2 == n2-1) or (index1 == n1-1 and index2 == 0))
+	# 		polygon1.set_closed(True)
+	# 		if 'label' not in self.accepted_proposals[polygon1]:
+	# 			self.acceptProposal_callback()
 		
-		else:
-
-			vertices2 = self.vertices_from_vertexPatches(polygon2)
-			n2 = len(vertices2)
-			print 'index1', index1, 'index2', index2
-			assert not polygon1.get_closed() and index1 in [0, n1-1] and index2 in [0, n2-1]
-
-			if index1 == 0 and index2 == 0:
-				new_vertices = np.vstack([vertices1[::-1], vertices2])
-			elif index1 != 0 and index2 != 0:
-				new_vertices = np.vstack([vertices1, vertices2[::-1]])
-			elif index1 != 0 and index2 == 0:
-				new_vertices = np.vstack([vertices1, vertices2])
-			elif index1 == 0 and index2 != 0:
-				new_vertices = np.vstack([vertices1[::-1], vertices2[::-1]])
-
-			props = {}
-
-			patch = Polygon(new_vertices, closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-			patch.set_picker(True)
-
-			self.axis.add_patch(patch)
-
-			props['vertexPatches'] = []
-			for x,y in new_vertices:
-				vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-				vertex_circle.set_picker(CIRCLE_PICK_THRESH)
-				props['vertexPatches'].append(vertex_circle)
-				self.axis.add_patch(vertex_circle)
-				vertex_circle.set_picker(True)
-
-			if self.accepted_proposals[polygon1]['label'] == self.accepted_proposals[polygon2]['label']:
-				props['label'] = self.accepted_proposals[polygon1]['label']
-			else:
-				props['label'] = self.accepted_proposals[polygon1]['label']
-			# else:
-				# self.acceptProposal_callback()
-
-			props['type'] = self.accepted_proposals[polygon1]['type']
-
-			centroid = np.mean(new_vertices, axis=0)
-			props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
-
-			self.axis.add_artist(props['labelTextArtist'])
-			props['labelTextArtist'].set_picker(True)
-
-			self.accepted_proposals[patch] = props
-			
-			for circ in self.accepted_proposals[polygon1]['vertexPatches']:
-				circ.remove()
-			
-			for circ in self.accepted_proposals[polygon2]['vertexPatches']:
-				circ.remove()
-
-			self.accepted_proposals[polygon1]['labelTextArtist'].remove()
-			self.accepted_proposals[polygon2]['labelTextArtist'].remove()
-			
-			polygon1.remove()
-			polygon2.remove()
-
-			self.accepted_proposals.pop(polygon1)
-			self.accepted_proposals.pop(polygon2)
-
-		self.cancel_current_selection()
-
-		self.canvas.draw()
-
-
-	# def vertices_from_vertexPatches(self, polygon):
-	# 	if polygon not in self.accepted_proposals:
-	# 		assert 'polygon does not exist'
-	# 		return None
 	# 	else:
-	# 		xys = map(attrgetter('center'), self.accepted_proposals[polygon]['vertexPatches'])
-	# 		return xys
 
+	# 		vertices2 = self.vertices_from_vertexPatches(polygon2)
+	# 		n2 = len(vertices2)
+	# 		print 'index1', index1, 'index2', index2
+	# 		assert not polygon1.get_closed() and index1 in [0, n1-1] and index2 in [0, n2-1]
 
-	# def set_polygon_vertices(self, polygon, vertices):
-	# 	self.selected_proposal_polygon.set_xy(new_vertices)
-	# 	self.selected_proposal_polygon['vertexPatches'] = self.selected_proposal_polygon['vertexPatches'][v2:] + self.selected_proposal_polygon['vertexPatches'][:v2]
+	# 		if index1 == 0 and index2 == 0:
+	# 			new_vertices = np.vstack([vertices1[::-1], vertices2])
+	# 		elif index1 != 0 and index2 != 0:
+	# 			new_vertices = np.vstack([vertices1, vertices2[::-1]])
+	# 		elif index1 != 0 and index2 == 0:
+	# 			new_vertices = np.vstack([vertices1, vertices2])
+	# 		elif index1 == 0 and index2 != 0:
+	# 			new_vertices = np.vstack([vertices1[::-1], vertices2[::-1]])
 
+	# 		props = {}
 
-	# def break_edge(self, pos):
+	# 		patch = Polygon(new_vertices, closed=False, edgecolor=self.boundary_colors[1], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+	# 		patch.set_picker(True)
 
-	# 	print 'break edge'
+	# 		self.axis.add_patch(patch)
 
-	# 	xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-	# 	v2 = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
+	# 		props['vertexPatches'] = []
+	# 		for x,y in new_vertices:
+	# 			vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+	# 			vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+	# 			props['vertexPatches'].append(vertex_circle)
+	# 			self.axis.add_patch(vertex_circle)
+	# 			vertex_circle.set_picker(True)
 
-	# 	print v2
-
-	# 	n = len(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'])
-
-	# 	vertices = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-	# 	print 'vertices', vertices
-
-	# 	if self.selected_proposal_polygon.get_closed():
-
-	# 		self.selected_proposal_polygon.set_closed(False)
-
-	# 		if v2 == 0 or v2 == n:
-	# 			new_vertices = vertices
+	# 		if self.accepted_proposals[polygon1]['label'] == self.accepted_proposals[polygon2]['label']:
+	# 			props['label'] = self.accepted_proposals[polygon1]['label']
 	# 		else:
-	# 			new_vertices = np.vstack([vertices[v2:], vertices[:v2]])
+	# 			props['label'] = self.accepted_proposals[polygon1]['label']
+	# 		# else:
+	# 			# self.acceptProposal_callback()
 
-	# 		self.selected_proposal_polygon.set_xy(new_vertices)
-	# 		self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2:] + \
-	# 															self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][:v2]
+	# 		props['type'] = self.accepted_proposals[polygon1]['type']
 
-	# 		self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(np.mean(new_vertices, axis=0))
+	# 		centroid = np.mean(new_vertices, axis=0)
+	# 		props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+
+	# 		self.axis.add_artist(props['labelTextArtist'])
+	# 		props['labelTextArtist'].set_picker(True)
+
+	# 		self.accepted_proposals[patch] = props
 			
-	# 	else:
-
-	# 		if v2 == 1 or v2 == n-1:
-
-	# 			if v2 == n-1:
-	# 				new_vertices = vertices[:-1]
-	# 				circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
-	# 			else:
-	# 				new_vertices = vertices[1:]
-	# 				circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
-
-	# 			self.selected_proposal_polygon.set_xy(new_vertices)
-				
-	# 			# self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
-				
+	# 		for circ in self.accepted_proposals[polygon1]['vertexPatches']:
 	# 			circ.remove()
-	# 			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+			
+	# 		for circ in self.accepted_proposals[polygon2]['vertexPatches']:
+	# 			circ.remove()
 
-	# 			centroid = np.mean(new_vertices, axis=0)
-	# 			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+	# 		self.accepted_proposals[polygon1]['labelTextArtist'].remove()
+	# 		self.accepted_proposals[polygon2]['labelTextArtist'].remove()
+			
+	# 		polygon1.remove()
+	# 		polygon2.remove()
 
-	# 			if self.selected_proposal_polygon.get_closed():
-	# 				self.selected_proposal_polygon.set_closed(False)
+	# 		self.accepted_proposals.pop(polygon1)
+	# 		self.accepted_proposals.pop(polygon2)
 
-	# 		else:
-	# 			new_vertices1 = vertices[:v2]
-	# 			new_vertices2 = vertices[v2:]
-
-	# 			for new_vertices in [new_vertices1, new_vertices2]:
-	# 				props = {}
-	# 				# props['vertices'] = new_vertices
-
-	# 				print v2
-	# 				print new_vertices
-
-	# 				patch = Polygon(new_vertices, closed=False, edgecolor=self.boundary_colors[1], 
-	# 						fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-
-	# 				patch.set_picker(True)
-	# 				self.axis.add_patch(patch)
-
-	# 				props['vertexPatches'] = []
-	# 				for x,y in new_vertices:
-	# 					vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-	# 					vertex_circle.set_picker(CIRCLE_PICK_THRESH)
-	# 					props['vertexPatches'].append(vertex_circle)
-	# 					self.axis.add_patch(vertex_circle)
-	# 					vertex_circle.set_picker(True)
-
-	# 				props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
-	# 				props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
-
-	# 				# props['subtype'] = PolygonType.OPEN
-
-	# 				centroid = np.mean(new_vertices, axis=0)
-	# 				props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
-
-	# 				self.axis.add_artist(props['labelTextArtist'])
-	# 				props['labelTextArtist'].set_picker(True)
-
-	# 				self.accepted_proposals[patch] = props
-
-	# 			for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
-	# 				circ.remove()
-
-	# 			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
-
-	# 			self.accepted_proposals.pop(self.selected_proposal_polygon)
-	# 			self.selected_proposal_polygon.remove()
-	# 			self.selected_proposal_polygon = None
-
-
-	# 	self.canvas.draw()
-
-	# def remove_selected_vertex(self):
-
-	# 	self.selected_circle.remove()
-	# 	self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(self.selected_circle)
-	# 	self.selected_circle = None
-
-	# 	p = self.selected_proposal_polygon
-
-	# 	xys = p.get_xy()
-	# 	xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
-
-	# 	vertices = xys[:-1] if p.get_closed() else xys
-
-	# 	self.selected_proposal_polygon.set_xy(vertices)
-
-	# 	self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = vertices
+	# 	self.cancel_current_selection()
 
 	# 	self.canvas.draw()
 
@@ -2747,6 +2499,36 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.add_polygon_vertices_label(path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])
 
 			self.remove_polygon(polygon)
+
+
+	def delete_between(self, polygon, first_index, second_index):
+
+		print first_index, second_index
+
+		if second_index < first_index:	# ensure first_index is smaller than second_index
+			temp = first_index
+			first_index = second_index
+			second_index = temp
+
+		path = polygon.path()
+		is_closed = self.is_path_closed(path) 
+		n = path.elementCount() - 1 if is_closed else path.elementCount()
+
+		if (second_index - first_index > first_index + n - second_index):
+			indices_to_remove = range(second_index, n+1) + range(0, first_index+1)
+		else:
+			indices_to_remove = range(first_index, second_index+1)
+
+		print indices_to_remove
+
+		paths_to_remove, paths_to_keep = self.split_path(path, indices_to_remove)
+
+		for new_path in paths_to_keep:
+
+			self.add_polygon_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])	
+
+		self.remove_polygon(polygon)
+
 
 	def delete_vertices_merge(self, polygon, indices_to_remove):
 

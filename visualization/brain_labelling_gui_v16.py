@@ -661,6 +661,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
 		action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
 		action_deleteBetween = myMenu.addAction("Delete edges between two vertices")
+		action_closePolygon = myMenu.addAction("Close polygon")
 		# action_doneDrawing = myMenu.addAction("Done drawing")
 
 		selected_action = myMenu.exec_(self.section1_gview.viewport().mapToGlobal(pos))
@@ -705,13 +706,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			print self.selected_polygon
 
-			for circ in self.accepted_proposals[self.selected_polygon]['vertexCircles']:
-				self.section1_gscene.removeItem(circ)
+			self.remove_polygon(self.selected_polygon)
 
-			if 'labelTextArtist' in self.accepted_proposals[self.selected_polygon]:
-				self.section1_gscene.removeItem(self.accepted_proposals[self.selected_polygon]['labelTextArtist'])
-			self.section1_gscene.removeItem(self.selected_polygon)
-			self.accepted_proposals.pop(self.selected_polygon)
+			# for circ in self.accepted_proposals[self.selected_polygon]['vertexCircles']:
+			# 	self.section1_gscene.removeItem(circ)
+
+			# if 'labelTextArtist' in self.accepted_proposals[self.selected_polygon]:
+			# 	self.section1_gscene.removeItem(self.accepted_proposals[self.selected_polygon]['labelTextArtist'])
+			# self.section1_gscene.removeItem(self.selected_polygon)
+			# self.accepted_proposals.pop(self.selected_polygon)
 
 		elif selected_action == action_setLabel:
 			self.open_label_selection_dialog()
@@ -727,6 +730,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif selected_action == action_deleteBetween:
 			self.set_mode(Mode.DELETE_BETWEEN)
+
+		elif selected_action == action_closePolygon:
+			new_path = self.selected_polygon.path()
+			new_path.closeSubpath()
+			self.selected_polygon.setPath(new_path)
 
 		# elif selected_action == action_doneDrawing:
 			# self.set_mode(Mode.IDLE)

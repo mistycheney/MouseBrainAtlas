@@ -75,7 +75,6 @@ class Mode(Enum):
 	SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
 	DELETE_ROI_MERGE = 'delete roi (merge)'
 	DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
-	DELETE_ROI_BREAK = 'delete roi (break)'
 
 class ProposalType(Enum):
 	GLOBAL = 'global'
@@ -658,7 +657,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		action_deletePolygon = myMenu.addAction("Delete polygon")
 		action_setLabel = myMenu.addAction("Set label")
 		action_setUncertain = myMenu.addAction("Set uncertain segment")
-		action_deleteROIBreak = myMenu.addAction("Delete vertices in ROI (break)")
 		action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
 		action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
 		# action_doneDrawing = myMenu.addAction("Done drawing")
@@ -719,9 +717,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif selected_action == action_setUncertain:
 			self.set_mode(Mode.SELECT_UNCERTAIN_SEGMENT)
 
-		elif selected_action == action_deleteROIBreak:
-			self.set_mode(Mode.DELETE_ROI_BREAK)
-		
 		elif selected_action == action_deleteROIDup:
 			self.set_mode(Mode.DELETE_ROI_DUPLICATE)
 		
@@ -1027,44 +1022,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				return True
 
-			elif self.mode == Mode.DELETE_ROI_MERGE or self.mode == Mode.DELETE_ROI_DUPLICATE or self.mode == Mode.DELETE_ROI_BREAK:
+			elif self.mode == Mode.DELETE_ROI_MERGE or self.mode == Mode.DELETE_ROI_DUPLICATE:
 
-				items = self.section1_gscene.selectedItems()
+				selected_polygons = self.analyze_rubberband_selection()
 
-				vertices_selected = [i for i in items if i not in self.accepted_proposals and isinstance(i, QGraphicsEllipseItemModified)]
-				print vertices_selected
-
-				polygons = defaultdict(list)
-				for v in vertices_selected:
-					for p, props in self.accepted_proposals.iteritems():
-						if v in props['vertexCircles']:
-							polygons[p].append(props['vertexCircles'].index(v))
-
-				for p, vs in polygons.iteritems():
+				for p, vs in selected_polygons.iteritems():
 					print p, vs
-					if self.mode == Mode.DELETE_ROI_BREAK:
-						self.remove_selected_vertices_in_region(p, vs, delete_mode='break')
-					elif self.mode == Mode.DELETE_ROI_DUPLICATE:
-						self.remove_selected_vertices_in_region(p, vs, delete_mode='duplicate')
+					if self.mode == Mode.DELETE_ROI_DUPLICATE:
+						self.delete_vertices(p, vs)
 					elif self.mode == Mode.DELETE_ROI_MERGE:
-						self.remove_selected_vertices_in_region(p, vs, delete_mode='merge')
+						self.delete_vertices(p, vs, merge=True)
 
 				self.set_mode(Mode.IDLE)
 
 			elif self.mode == Mode.SELECT_UNCERTAIN_SEGMENT:
-				# selection_rect = self.section1_gscene.rubberBandRect()
-				items = self.section1_gscene.selectedItems()
 
-				vertices_selected = [i for i in items if i not in self.accepted_proposals and isinstance(i, QGraphicsEllipseItemModified)]
-				print vertices_selected
+				selected_polygons = self.analyze_rubberband_selection()
 
-				polygons = defaultdict(list)
-				for v in vertices_selected:
-					for p, props in self.accepted_proposals.iteritems():
-						if v in props['vertexCircles']:
-							polygons[p].append(props['vertexCircles'].index(v))
-				
-				for polygon, vertex_indices in polygons.iteritems():
+				for polygon, vertex_indices in selected_polygons.iteritems():
 					self.set_uncertain(polygon, vertex_indices)
 
 				self.set_mode(Mode.IDLE)
@@ -1074,78 +1049,58 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		return False
 
 
+	def analyze_rubberband_selection(self):
+
+		items = self.section1_gscene.selectedItems()
+
+		vertices_selected = [i for i in items if i not in self.accepted_proposals and isinstance(i, QGraphicsEllipseItemModified)]
+
+		polygons = defaultdict(list)
+		for v in vertices_selected:
+			for p, props in self.accepted_proposals.iteritems():
+				if v in props['vertexCircles']:
+					polygons[p].append(props['vertexCircles'].index(v))
+
+		return polygons # {polygon: vertex_indices}
+
+
+	def subpath(self, path, begin, end):
+
+		new_path = QPainterPath()
+
+		is_closed = self.is_path_closed(path)
+		n = path.elementCount() - 1 if is_closed else path.elementCount()
+
+		if not is_closed:
+			assert end >= begin
+			begin = max(0, begin)
+			end = min(n-1, end)
+		else:
+			if end < begin: end = end + n
+
+		for i in range(begin, end + 1):
+			elem = path.elementAt(i % n)
+			if new_path.elementCount() == 0:
+				new_path.moveTo(elem.x, elem.y)
+			else:
+				new_path.lineTo(elem.x, elem.y)
+
+		return new_path
+
 	def set_uncertain(self, polygon, vertex_indices):
 
-		n = len(self.accepted_proposals[polygon]['vertexCircles'])
-		cache = np.zeros(int(np.floor(n*1.5)), np.bool)
-		
-		print polygon, vertex_indices
+		uncertain_paths, certain_paths = self.split_path(polygon.path(), vertex_indices)
 
-		for i in vertex_indices:
-			cache[i] = True
-			if i + n < len(cache):
-				cache[i+n] = True
+		for path in uncertain_paths:
+			new_uncertain_polygon = self.add_polygon_vertices_label(path, self.green_pen, self.accepted_proposals[polygon]['label'])
 
-		started = False
-		b = []
-		e = []
-		print cache
-		for i in range(len(cache)):
-			if cache[i]:
-				if not started:
-					started = True
-					b.append(i)
-			else:
-				if started:
-					started = False
-					e.append(i-1)
+		for path in certain_paths:
+			new_certain_polygon = self.add_polygon_vertices_label(path, self.red_pen, self.accepted_proposals[polygon]['label'])
 
-		ss = sorted([(ee-bb+1, bb%n, ee%n) for bb,ee in zip(b,e)], reverse=True)
-		if len(ss) > 1 and ss[0][0] == ss[1][0] and ss[0][1] >= ss[1][1]:
-			t1 = ss[1]
-		else:
-			t1 = ss[0]
-		print t1[1], t1[2]
-		if t1[1] == t1[2]:
-			return
-
-		new_uncertain_path = QPainterPath()
-		i = t1[1]
-		while i != (t1[2]+1)%n:
-			v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-			if i == t1[1]:
-				new_uncertain_path.moveTo(v.x(), v.y())
-			else:
-				new_uncertain_path.lineTo(v.x(), v.y())
-			i = (i+1)%n
-		
-		new_uncertain_polygon = self.add_polygon(new_uncertain_path, self.green_pen, uncertain=True)
-
-		new_certain_path = QPainterPath()
-		i = t1[2]
-		v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-		new_certain_path.moveTo(v.x(), v.y())
-		i = (i+1)%n
-		while i != (t1[1] + 1)%n:
-			v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-			new_certain_path.lineTo(v.x(), v.y())
-			i = (i+1)%n
-
-		new_certain_polygon = self.add_polygon(new_certain_path, self.red_pen)
-
-		label = self.accepted_proposals[polygon]['label']
 		self.remove_polygon(polygon)
-		
-		overlap_polygons = self.add_vertices_to_polygon(new_uncertain_polygon)
-		self.restack_polygons(new_uncertain_polygon, overlap_polygons)
-		self.add_label_to_polygon(new_uncertain_polygon, label=label)
 
-		overlap_polygons = self.add_vertices_to_polygon(new_certain_polygon)
-		self.restack_polygons(new_certain_polygon, overlap_polygons)
-		self.add_label_to_polygon(new_certain_polygon, label=label)
-
-		self.history.append({'type': 'set_uncertain_segment', 'old_polygon': polygon, 'new_certain_polygon': new_certain_polygon, 'new_uncertain_polygon': new_uncertain_polygon})
-		print 'history:', [h['type'] for h in self.history]
+		# self.history.append({'type': 'set_uncertain_segment', 'old_polygon': polygon, 'new_certain_polygon': new_certain_polygon, 'new_uncertain_polygon': new_uncertain_polygon})
+		# print 'history:', [h['type'] for h in self.history]
 
 
 	def add_polygon(self, path, pen, z_value=50, uncertain=False):
@@ -1252,6 +1207,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				new_z = min(polygon.zValue(), p.zValue()-1)
 				print polygon, '=>', new_z
 				polygon.setZValue(new_z)
+
 
 	def complete_polygon(self):
 
@@ -2307,7 +2263,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		else:
 			self.set_flag_all(QGraphicsItem.ItemIsMovable, False)
 
-		if mode == Mode.SELECT_UNCERTAIN_SEGMENT or mode == Mode.DELETE_ROI_MERGE or mode == Mode.DELETE_ROI_DUPLICATE or mode == Mode.DELETE_ROI_BREAK:
+		if mode == Mode.SELECT_UNCERTAIN_SEGMENT or mode == Mode.DELETE_ROI_MERGE or mode == Mode.DELETE_ROI_DUPLICATE:
 			self.section1_gview.setDragMode(QGraphicsView.RubberBandDrag)
 		else:
 			self.section1_gview.setDragMode(QGraphicsView.NoDrag)
@@ -2551,142 +2507,153 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# 	self.selected_proposal_polygon['vertexPatches'] = self.selected_proposal_polygon['vertexPatches'][v2:] + self.selected_proposal_polygon['vertexPatches'][:v2]
 
 
-	def break_edge(self, pos):
+	# def break_edge(self, pos):
 
-		print 'break edge'
+	# 	print 'break edge'
 
-		xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-		v2 = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
+	# 	xys = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
+	# 	v2 = self.find_vertex_insert_position(xys, pos, self.selected_proposal_polygon.get_closed())
 
-		print v2
+	# 	print v2
 
-		n = len(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'])
+	# 	n = len(self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'])
 
-		vertices = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
-		print 'vertices', vertices
+	# 	vertices = self.vertices_from_vertexPatches(self.selected_proposal_polygon)
+	# 	print 'vertices', vertices
 
-		if self.selected_proposal_polygon.get_closed():
+	# 	if self.selected_proposal_polygon.get_closed():
 
-			self.selected_proposal_polygon.set_closed(False)
+	# 		self.selected_proposal_polygon.set_closed(False)
 
-			if v2 == 0 or v2 == n:
-				new_vertices = vertices
-			else:
-				new_vertices = np.vstack([vertices[v2:], vertices[:v2]])
+	# 		if v2 == 0 or v2 == n:
+	# 			new_vertices = vertices
+	# 		else:
+	# 			new_vertices = np.vstack([vertices[v2:], vertices[:v2]])
 
-			self.selected_proposal_polygon.set_xy(new_vertices)
-			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2:] + \
-																self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][:v2]
+	# 		self.selected_proposal_polygon.set_xy(new_vertices)
+	# 		self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'] = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2:] + \
+	# 															self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][:v2]
 
-			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(np.mean(new_vertices, axis=0))
+	# 		self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(np.mean(new_vertices, axis=0))
 			
-		else:
+	# 	else:
 
-			if v2 == 1 or v2 == n-1:
+	# 		if v2 == 1 or v2 == n-1:
 
-				if v2 == n-1:
-					new_vertices = vertices[:-1]
-					circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
-				else:
-					new_vertices = vertices[1:]
-					circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
+	# 			if v2 == n-1:
+	# 				new_vertices = vertices[:-1]
+	# 				circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
+	# 			else:
+	# 				new_vertices = vertices[1:]
+	# 				circ = self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'][v2]
 
-				self.selected_proposal_polygon.set_xy(new_vertices)
+	# 			self.selected_proposal_polygon.set_xy(new_vertices)
 				
-				# self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
+	# 			# self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = new_vertices
 				
-				circ.remove()
-				self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
+	# 			circ.remove()
+	# 			self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(circ)
 
-				centroid = np.mean(new_vertices, axis=0)
-				self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
+	# 			centroid = np.mean(new_vertices, axis=0)
+	# 			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].set_position(centroid)
 
-				if self.selected_proposal_polygon.get_closed():
-					self.selected_proposal_polygon.set_closed(False)
+	# 			if self.selected_proposal_polygon.get_closed():
+	# 				self.selected_proposal_polygon.set_closed(False)
 
-			else:
-				new_vertices1 = vertices[:v2]
-				new_vertices2 = vertices[v2:]
+	# 		else:
+	# 			new_vertices1 = vertices[:v2]
+	# 			new_vertices2 = vertices[v2:]
 
-				for new_vertices in [new_vertices1, new_vertices2]:
-					props = {}
-					# props['vertices'] = new_vertices
+	# 			for new_vertices in [new_vertices1, new_vertices2]:
+	# 				props = {}
+	# 				# props['vertices'] = new_vertices
 
-					print v2
-					print new_vertices
+	# 				print v2
+	# 				print new_vertices
 
-					patch = Polygon(new_vertices, closed=False, edgecolor=self.boundary_colors[1], 
-							fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+	# 				patch = Polygon(new_vertices, closed=False, edgecolor=self.boundary_colors[1], 
+	# 						fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
 
-					patch.set_picker(True)
-					self.axis.add_patch(patch)
+	# 				patch.set_picker(True)
+	# 				self.axis.add_patch(patch)
 
-					props['vertexPatches'] = []
-					for x,y in new_vertices:
-						vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
-						vertex_circle.set_picker(CIRCLE_PICK_THRESH)
-						props['vertexPatches'].append(vertex_circle)
-						self.axis.add_patch(vertex_circle)
-						vertex_circle.set_picker(True)
+	# 				props['vertexPatches'] = []
+	# 				for x,y in new_vertices:
+	# 					vertex_circle = plt.Circle((x, y), radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[1], alpha=.8)
+	# 					vertex_circle.set_picker(CIRCLE_PICK_THRESH)
+	# 					props['vertexPatches'].append(vertex_circle)
+	# 					self.axis.add_patch(vertex_circle)
+	# 					vertex_circle.set_picker(True)
 
-					props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
-					props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
+	# 				props['label'] = self.accepted_proposals[self.selected_proposal_polygon]['label']
+	# 				props['type'] = self.accepted_proposals[self.selected_proposal_polygon]['type']
 
-					# props['subtype'] = PolygonType.OPEN
+	# 				# props['subtype'] = PolygonType.OPEN
 
-					centroid = np.mean(new_vertices, axis=0)
-					props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
+	# 				centroid = np.mean(new_vertices, axis=0)
+	# 				props['labelTextArtist'] = Text(centroid[0], centroid[1], props['label'], style='italic', bbox={'facecolor':'white', 'alpha':0.5, 'pad':10})
 
-					self.axis.add_artist(props['labelTextArtist'])
-					props['labelTextArtist'].set_picker(True)
+	# 				self.axis.add_artist(props['labelTextArtist'])
+	# 				props['labelTextArtist'].set_picker(True)
 
-					self.accepted_proposals[patch] = props
+	# 				self.accepted_proposals[patch] = props
 
-				for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
-					circ.remove()
+	# 			for circ in self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches']:
+	# 				circ.remove()
 
-				self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
+	# 			self.accepted_proposals[self.selected_proposal_polygon]['labelTextArtist'].remove()
 
-				self.accepted_proposals.pop(self.selected_proposal_polygon)
-				self.selected_proposal_polygon.remove()
-				self.selected_proposal_polygon = None
-
-
-		self.canvas.draw()
-
-	def remove_selected_vertex(self):
-
-		# print self.selected_circle
-
-		self.selected_circle.remove()
-		self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(self.selected_circle)
-		self.selected_circle = None
-
-		p = self.selected_proposal_polygon
-
-		xys = p.get_xy()
-		xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
-
-		vertices = xys[:-1] if p.get_closed() else xys
-
-		self.selected_proposal_polygon.set_xy(vertices)
-
-		self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = vertices
-
-		self.canvas.draw()
+	# 			self.accepted_proposals.pop(self.selected_proposal_polygon)
+	# 			self.selected_proposal_polygon.remove()
+	# 			self.selected_proposal_polygon = None
 
 
-	def split_polygon(self, polygon, vertex_indices):
+	# 	self.canvas.draw()
 
-		is_closed = self.is_closed(polygon)
-		print is_closed
-		n = polygon.path().elementCount() - 1 if is_closed else polygon.path().elementCount()
+	# def remove_selected_vertex(self):
+
+	# 	self.selected_circle.remove()
+	# 	self.accepted_proposals[self.selected_proposal_polygon]['vertexPatches'].remove(self.selected_circle)
+	# 	self.selected_circle = None
+
+	# 	p = self.selected_proposal_polygon
+
+	# 	xys = p.get_xy()
+	# 	xys = np.vstack([xys[:self.selected_vertex_index], xys[self.selected_vertex_index+1:]])
+
+	# 	vertices = xys[:-1] if p.get_closed() else xys
+
+	# 	self.selected_proposal_polygon.set_xy(vertices)
+
+	# 	self.accepted_proposals[self.selected_proposal_polygon]['vertices'] = vertices
+
+	# 	self.canvas.draw()
+
+	def split_path(self, path, vertex_indices):
+
+		is_closed = self.is_path_closed(path)
+		n = path.elementCount() - 1 if is_closed else path.elementCount()
+		segs_in, segs_out = self.split_array(vertex_indices, n, is_closed)
+
+		in_paths = []
+		out_paths = []
+
+		for b, e in segs_in:
+			in_path = self.subpath(path, b, e)
+			in_paths.append(in_path)
+
+		for b, e in segs_out:
+			out_path = self.subpath(path, b-1, e+1)
+			out_paths.append(out_path)
+
+		return in_paths, out_paths
+
+	def split_array(self, vertex_indices, n, is_closed):
 
 		cache = [i in vertex_indices for i in range(n)]
 
-		print cache
-
 		i = 0
+
 		sec_outs = []
 		sec_ins = []
 
@@ -2761,91 +2728,49 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			return sec_ins, sec_outs
 
 
-	def is_closed(self, polygon):
+	def is_path_closed(self, path):
 
-		path = polygon.path()
 		elem_first = path.elementAt(0)
 		elem_last = path.elementAt(path.elementCount()-1)
 		is_closed = (elem_first.x == elem_last.x) & (elem_first.y == elem_last.y)
 
 		return is_closed
 
-	def remove_selected_vertices_in_region(self, polygon, indices_to_remove, delete_mode='break'):
+	def delete_vertices(self, polygon, indices_to_remove, merge=False):
 
-		secs_remove, secs_keep = self.split_polygon(polygon, indices_to_remove)
+		if merge:
+			self.delete_vertices_merge(polygon, indices_to_remove)
+		else:
+			paths_to_remove, paths_to_keep = self.split_path(polygon.path(), indices_to_remove)
 
-		print secs_remove, secs_keep
+			for path in paths_to_keep:
+				self.add_polygon_vertices_label(path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])
 
-		is_closed = self.is_closed(polygon) 
-		n = polygon.path().elementCount() - 1 if is_closed else polygon.path().elementCount()
+			self.remove_polygon(polygon)
 
-		if delete_mode == 'duplicate' or delete_mode == 'break':
+	def delete_vertices_merge(self, polygon, indices_to_remove):
 
-			for b, e in secs_keep:
+		path = polygon.path()
+		is_closed = self.is_path_closed(path) 
+		n = path.elementCount() - 1 if is_closed else path.elementCount()
 
-				new_path = QPainterPath()
+		segs_to_remove, segs_to_keep = self.split_array(indices_to_remove, n, is_closed)
+		print segs_to_remove, segs_to_keep
 
-				if is_closed:
-					if delete_mode == 'break':
-						i = b % n
-					else:
-						i = (b - 1) % n
-					v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-					new_path.moveTo(v.x(), v.y())
-
-					i = (i + 1) % n
-
-					if delete_mode == 'break':
-						while i != (e + 1) % n:
-							v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-							new_path.lineTo(v.x(), v.y())						
-							i = (i + 1) % n
-					else:
-						while i != (e + 2) % n:
-							v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-							new_path.lineTo(v.x(), v.y())						
-							i = (i + 1) % n						
-
+		new_path = QPainterPath()
+		for b, e in sorted(segs_to_keep):
+			if e < b: e = e + n
+			for i in range(b, e + 1):
+				elem = path.elementAt(i % n)
+				if new_path.elementCount() == 0:
+					new_path.moveTo(elem.x, elem.y)
 				else:
-					if delete_mode == 'break':						
-						i = max(0, b)
-					else:
-						i = max(0, b - 1)
+					new_path.lineTo(elem.x, elem.y)
 
-					v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-					new_path.moveTo(v.x(), v.y())
-					i = i + 1
-
-					if delete_mode == 'break':
-						while i != min(e + 1, n):
-							v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-							new_path.lineTo(v.x(), v.y())
-							i = i + 1
-					else:
-						while i != min(e + 2, n):
-							v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-							new_path.lineTo(v.x(), v.y())
-							i = i + 1
-
-				self.add_polygon_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])
-
-		elif delete_mode == 'merge':
-			
-			new_path = QPainterPath()
-			for b, e in sorted(secs_keep):
-				i = b
-				while i != (e + 1) % n:
-					v = self.accepted_proposals[polygon]['vertexCircles'][i].scenePos()
-					if new_path.elementCount() == 0:
-						new_path.moveTo(v.x(), v.y())
-					else:
-						new_path.lineTo(v.x(), v.y())
-					i = (i + 1) % n
-
-			if is_closed:
-				new_path.closeSubpath()
-					
-			self.add_polygon_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])
+		if is_closed:
+			new_path.closeSubpath()
+				
+		self.add_polygon_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals[polygon]['label'])
 		
 		self.remove_polygon(polygon)
 
@@ -2853,9 +2778,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def add_polygon_vertices_label(self, path, pen, label):
 		new_polygon = self.add_polygon(path, pen)
 		overlap_polygons = self.add_vertices_to_polygon(new_polygon)
+		print overlap_polygons
 		self.restack_polygons(new_polygon, overlap_polygons)
 		self.add_label_to_polygon(new_polygon, label=label)
 
+		return new_polygon
 
 	def auto_extend_view(self, x, y):
 		# always make just placed vertex at the center of the view

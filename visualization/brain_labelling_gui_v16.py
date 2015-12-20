@@ -76,6 +76,7 @@ class Mode(Enum):
 	DELETE_ROI_MERGE = 'delete roi (merge)'
 	DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
 	DELETE_BETWEEN = 'delete edges between two vertices'
+	CONNECT_VERTICES = 'connect two vertices'
 
 class ProposalType(Enum):
 	GLOBAL = 'global'
@@ -272,7 +273,7 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 	def mousePressEvent(self, event):
 
 	# if not self.just_created:
-		print self, 'received mousePressEvent'
+		# print self, 'received mousePressEvent'
 
 		self.press_scene_x = event.scenePos().x()
 		self.press_scene_y = event.scenePos().y()
@@ -323,51 +324,53 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 	def __init__(self, x, y, w, h, gui=None, parent=None):
 		super(self.__class__, self).__init__(x,y,w,h, parent=parent)
 		self.signal_emitter = SignalEmitter(parent=self)
-		self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
+
+		# self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
 								# basically, ignore the first press and release event
 
 		self.gui = gui
 
 	def mousePressEvent(self, event):
-		if not self.just_created:
-			print self, 'received mousePressEvent'
-			QGraphicsEllipseItem.mousePressEvent(self, event)
-			self.signal_emitter.clicked.emit()
+	# if not self.just_created:
+		print self, 'received mousePressEvent'
+		QGraphicsEllipseItem.mousePressEvent(self, event)
+		self.signal_emitter.clicked.emit()
 
-			self.press_scene_x = event.scenePos().x()
-			self.press_scene_y = event.scenePos().y()
+		self.press_scene_x = event.scenePos().x()
+		self.press_scene_y = event.scenePos().y()
 
-			self.center_scene_x_before_move = self.scenePos().x()
-			self.center_scene_y_before_move = self.scenePos().y()
+		self.center_scene_x_before_move = self.scenePos().x()
+		self.center_scene_y_before_move = self.scenePos().y()
 
-			self.gui.selected_vertex = self
+		self.gui.selected_vertex = self
 
-			for p, props in self.gui.accepted_proposals.iteritems():
-				if self in props['vertexCircles']:
-					self.gui.selected_polygon = p
-					break
+		for p, props in self.gui.accepted_proposals.iteritems():
+			if self in props['vertexCircles']:
+				self.gui.selected_polygon = p
+				break
 
-		self.just_created = False
+		# self.just_created = False
+		# print 'just created UNSET'
 
 	def mouseReleaseEvent(self, event):
-		if not self.just_created:
-			print self, 'received mouseReleaseEvent'
+		# if not self.just_created:
+		print self, 'received mouseReleaseEvent'
 
-			release_scene_pos = event.scenePos()
-			self.release_scene_x = release_scene_pos.x()
-			self.release_scene_y = release_scene_pos.y()
+		release_scene_pos = event.scenePos()
+		self.release_scene_x = release_scene_pos.x()
+		self.release_scene_y = release_scene_pos.y()
 
-			QGraphicsEllipseItem.mouseReleaseEvent(self, event)
-			self.signal_emitter.released.emit()
+		QGraphicsEllipseItem.mouseReleaseEvent(self, event)
+		self.signal_emitter.released.emit()
 
-			self.press_scene_x = None
-			self.press_scene_y = None
+		self.press_scene_x = None
+		self.press_scene_y = None
 
-			self.center_scene_x_before_move = None
-			self.center_scene_y_before_move = None
+		self.center_scene_x_before_move = None
+		self.center_scene_y_before_move = None
 
 	def mouseMoveEvent(self, event):
-		print self, 'received mouseMoveEvent'
+		# print self, 'received mouseMoveEvent'
 		self.signal_emitter.moved.emit(event.scenePos().x(), event.scenePos().y(), self.press_scene_x, self.press_scene_y)
 		QGraphicsEllipseItem.mouseMoveEvent(self, event)
 
@@ -673,6 +676,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		action_closePolygon = myMenu.addAction("Close polygon")
 		action_insertVertex = myMenu.addAction("Insert vertex")
 		action_appendVertex = myMenu.addAction("Append vertex")
+		action_connectVertex = myMenu.addAction("Connect vertex")
 		
 		action_doneDrawing = myMenu.addAction("Done drawing")
 
@@ -748,9 +752,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
 
+		elif selected_action == action_connectVertex:
+			self.set_mode(Mode.CONNECT_VERTICES)
+
 		elif selected_action == action_doneDrawing:
 			self.set_mode(Mode.IDLE)
-			self.selected_polygon = None
+			# self.selected_polygon = None
 
 	def add_vertex(self, polygon, x, y, new_index=-1):
 		
@@ -792,8 +799,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	@pyqtSlot(int, int, int, int)
 	def polygon_moved(self, x, y, x0, y0):
-
-		print x, y, x0, y0
 
 		offset_scene_x = x - x0
 		offset_scene_y = y - y0
@@ -853,13 +858,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				break
 
 		vertex_index = self.accepted_proposals[self.selected_polygon]['vertexCircles'].index(self.selected_vertex_circle)
-		print 'vertex_index', vertex_index
+		# print 'vertex_index', vertex_index
 
 		curr_polygon_path = self.selected_polygon.path()
 
-		if vertex_index == 0 and self.accepted_proposals[self.selected_polygon]['subtype'] == PolygonType.CLOSED: # closed
+		if vertex_index == 0 and self.is_path_closed(curr_polygon_path): # closed
 
-			print self.selected_vertex_center_x_new, self.selected_vertex_center_y_new
+			# print self.selected_vertex_center_x_new, self.selected_vertex_center_y_new
 
 			curr_polygon_path.setElementPositionAt(0, self.selected_vertex_center_x_new, self.selected_vertex_center_y_new)
 			curr_polygon_path.setElementPositionAt(len(self.accepted_proposals[self.selected_polygon]['vertexCircles']), \
@@ -891,6 +896,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if self.accepted_proposals[self.selected_polygon]['vertexCircles'].index(clicked_vertex) == 0 and \
 			len(self.accepted_proposals[self.selected_polygon]['vertexCircles']) > 2 and \
 			self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+			print 'close curr polygon SET'
 			self.close_curr_polygon = True
 
 		else:
@@ -916,7 +922,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'vertex_index', vertex_index 
 
 			rect = clicked_vertex.rect()
-			clicked_vertex.setRect(rect.x()-1.5*VERTEX_CIRCLE_RADIUS, rect.y()-1.5*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS)
+			clicked_vertex.setRect(rect.x()-.5*VERTEX_CIRCLE_RADIUS, rect.y()-.5*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS)
 
 			if hasattr(self, 'first_vertex_index_to_delete') and self.first_vertex_index_to_delete is not None:
 				self.second_vertex_index_to_delete = vertex_index
@@ -939,6 +945,42 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			else:
 				self.first_vertex_index_to_delete = vertex_index
+
+		elif self.mode == Mode.CONNECT_VERTICES:
+			vertex_index = self.accepted_proposals[self.selected_polygon]['vertexCircles'].index(clicked_vertex)
+
+			print 'vertex_index', vertex_index 
+
+			rect = clicked_vertex.rect()
+			clicked_vertex.setRect(rect.x()-.5*VERTEX_CIRCLE_RADIUS, rect.y()-.5*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS)
+
+			if hasattr(self, 'first_vertex_index_to_connect') and self.first_vertex_index_to_connect is not None:
+				self.second_polygon = self.selected_polygon
+				self.second_vertex_index_to_connect = vertex_index
+
+				self.connect_vertices(self.first_polygon, self.first_vertex_index_to_connect, self.second_polygon, self.second_vertex_index_to_connect)
+				
+				if self.first_polygon == self.second_polygon: # not creating new polygon, so need to restore the vertex circle sizes
+
+					first_vertex = self.accepted_proposals[self.first_polygon]['vertexCircles'][self.first_vertex_index_to_connect]
+					rect = first_vertex.rect()
+					first_vertex.setRect(rect.x()+.5*VERTEX_CIRCLE_RADIUS, rect.y()+.5*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS)
+				
+					second_vertex = self.accepted_proposals[self.second_polygon]['vertexCircles'][self.second_vertex_index_to_connect]
+					rect = second_vertex.rect()
+					second_vertex.setRect(rect.x()+.5*VERTEX_CIRCLE_RADIUS, rect.y()+.5*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS)
+
+				self.first_polygon = None
+				self.first_vertex_index_to_connect = None
+
+				self.second_polygon = None
+				self.second_vertex_index_to_connect = None
+
+				self.set_mode(Mode.IDLE)
+
+			else:
+				self.first_polygon = self.selected_polygon
+				self.first_vertex_index_to_connect = vertex_index
 
 
 	def set_flag_all(self, flag, enabled):
@@ -974,12 +1016,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# if self.mode == Mode.MOVING_VERTEX or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 			obj.mousePressEvent(event) # let gscene handle the event (i.e. determine which item or whether an item receives it)
 
+
+			print 'close curr polygon', self.close_curr_polygon
+
 			if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 
 				x = event.scenePos().x()
 				y = event.scenePos().y()
 
 				if hasattr(self, 'close_curr_polygon') and self.close_curr_polygon:
+
+					print 'close contour'
 
 					path = self.selected_polygon.path()
 					path.closeSubpath()
@@ -1008,6 +1055,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals[self.selected_polygon]['vertexCircles'])-1})
 					print 'history:', [h['type'] for h in self.history]
 
+				return True
 
 			elif self.mode == Mode.ADDING_VERTICES_RANDOMLY:
 
@@ -1033,6 +1081,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': new_index})
 				print 'history:', [h['type'] for h in self.history]
+
+				return True
 
 			elif self.mode == Mode.IDLE:
 
@@ -1088,12 +1138,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				if hasattr(self, 'close_curr_polygon') and self.close_curr_polygon:
 
+					print 'close curr polygon UNSET'
 					self.close_curr_polygon = False
 					
 					self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.CLOSED
 					self.complete_polygon()
 
-					self.selected_polygon = None
+					# self.selected_polygon = None
 
 					self.set_mode(Mode.IDLE)
 
@@ -1159,7 +1210,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			begin = max(0, begin)
 			end = min(n-1, end)
 		else:
-			if end < begin: end = end + n
+			assert end != begin # cannot handle this, because there is no way a path can have the same first and last points but is not closed
+			if end < begin: 
+				end = end + n
 
 		for i in range(begin, end + 1):
 			elem = path.elementAt(i % n)
@@ -1167,6 +1220,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				new_path.moveTo(elem.x, elem.y)
 			else:
 				new_path.lineTo(elem.x, elem.y)
+
+		assert new_path.elementCount() > 0
 
 		return new_path
 
@@ -1185,6 +1240,56 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.history.append({'type': 'set_uncertain_segment', 'old_polygon': polygon, 'new_certain_polygon': new_certain_polygon, 'new_uncertain_polygon': new_uncertain_polygon})
 		# print 'history:', [h['type'] for h in self.history]
 
+
+	def connect_vertices(self, polygon1, vertex_ind1, polygon2, vertex_ind2):
+		if polygon1 == polygon2:
+			path = polygon1.path()
+			is_closed = self.is_path_closed(path)
+			n = path.elementCount() -1 if is_closed else path.elementCount()
+			assert (vertex_ind1 == 0 and vertex_ind2 == n-1) or (vertex_ind1 == n-1 and vertex_ind2 == 0)
+			path.closeSubpath()
+			polygon1.setPath(path)
+
+		else:
+			path1 = polygon1.path()
+			is_closed = self.is_path_closed(path1)
+			n1 = path1.elementCount() -1 if is_closed else path1.elementCount()
+
+			path2 = polygon2.path()
+			is_closed2 = self.is_path_closed(path2)
+			n2 = path2.elementCount() -1 if is_closed2 else path2.elementCount()
+
+			assert not is_closed and not is_closed2 and vertex_ind1 in [0, n1-1] and vertex_ind2 in [0, n2-1]
+
+			if vertex_ind1 == 0 and vertex_ind2 == 0:
+				reversed_path1 = path1.toReversed()
+				for i in range(path2.elementCount()):
+					elem = path2.elementAt(i)
+					reversed_path1.lineTo(elem.x, elem.y)
+				new_polygon = self.add_polygon_vertices_label(reversed_path1, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
+				
+			elif vertex_ind1 == n1-1 and vertex_ind2 == n2-1:
+
+				reversed_path2 = path2.toReversed()
+				for i in range(reversed_path2.elementCount()):
+					elem = reversed_path2.elementAt(i)
+					path1.lineTo(elem.x, elem.y)
+				new_polygon = self.add_polygon_vertices_label(path1, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
+				
+			elif vertex_ind1 == 0 and vertex_ind2 == n2-1:
+				for i in range(path1.elementCount()):
+					elem = path1.elementAt(i)
+					path2.lineTo(elem.x, elem.y)
+				new_polygon = self.add_polygon_vertices_label(path2, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
+
+			elif vertex_ind1 == n1-1 and vertex_ind2 == 0:
+				for i in range(path2.elementCount()):
+					elem = path2.elementAt(i)
+					path1.lineTo(elem.x, elem.y)
+				new_polygon = self.add_polygon_vertices_label(path1, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
+
+			self.remove_polygon(polygon1)
+			self.remove_polygon(polygon2)
 
 	def add_polygon(self, path, pen, z_value=50, uncertain=False):
 
@@ -1237,10 +1342,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elem_last = path.elementAt(path.elementCount()-1)
 		is_closed = (elem_first.x == elem_last.x) & (elem_first.y == elem_last.y)
 
-		if is_closed:
-			self.accepted_proposals[polygon]['subtype'] = PolygonType.CLOSED
-		else:
-			self.accepted_proposals[polygon]['subtype'] = PolygonType.OPEN
+		# if is_closed:
+		# 	self.accepted_proposals[polygon]['subtype'] = PolygonType.CLOSED
+		# else:
+		# 	self.accepted_proposals[polygon]['subtype'] = PolygonType.OPEN
 
 		n = path.elementCount() - 1 if is_closed else path.elementCount()
 		print n
@@ -1414,19 +1519,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			else:
 			# elif self.mode == Mode.MOVING_VERTEX:
 				self.set_mode(Mode.IDLE)
-				self.selected_polygon = None
+				# self.selected_polygon = None
 
 		elif event.key() == Qt.Key_Return:
 			print 'enter pressed'
 
 			if self.selected_polygon is not None:
-				self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.OPEN
+				# self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.OPEN
 
 				if 'label' not in self.accepted_proposals[self.selected_polygon] or self.accepted_proposals[self.selected_polygon]['label'] == '':
 					self.complete_polygon()
 
 			self.set_mode(Mode.IDLE)
-			self.selected_polygon = None
+			# self.selected_polygon = None
 
 		elif event.key() == Qt.Key_C:
 			path = self.selected_polygon.path()
@@ -1438,10 +1543,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.close_curr_polygon = False
 					
-			self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.CLOSED
+			# self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.CLOSED
 			self.complete_polygon()
 
-			self.selected_polygon = None
+			# self.selected_polygon = None
 
 			self.set_mode(Mode.IDLE)
 
@@ -2490,6 +2595,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		is_closed = self.is_path_closed(path)
 		n = path.elementCount() - 1 if is_closed else path.elementCount()
 		segs_in, segs_out = self.split_array(vertex_indices, n, is_closed)
+
+		print segs_in, segs_out
 
 		in_paths = []
 		out_paths = []

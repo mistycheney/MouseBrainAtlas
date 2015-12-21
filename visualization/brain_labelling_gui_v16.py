@@ -1016,8 +1016,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# if self.mode == Mode.MOVING_VERTEX or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 			obj.mousePressEvent(event) # let gscene handle the event (i.e. determine which item or whether an item receives it)
 
-
-			print 'close curr polygon', self.close_curr_polygon
+			# print 'close curr polygon', self.close_curr_polygon
 
 			if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 
@@ -1264,7 +1263,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if vertex_ind1 == 0 and vertex_ind2 == 0:
 				reversed_path1 = path1.toReversed()
 				for i in range(path2.elementCount()):
-					elem = path2.elementAt(i)
+					elem = path2.elementAt(i) 
 					reversed_path1.lineTo(elem.x, elem.y)
 				new_polygon = self.add_polygon_vertices_label(reversed_path1, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
 				
@@ -2202,7 +2201,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			props_saved = props.copy()
 
-			props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+			# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+
+			path = polygon.path()
+
+			if self.is_path_closed(polygon.path()):
+				props_saved['subtype'] = PolygonType.CLOSED
+				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+			else:
+				props_saved['subtype'] = PolygonType.OPEN
+				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
 
 			label_pos = props['labelTextArtist'].scenePos()
 			props_saved['labelPos'] = (label_pos.x(), label_pos.y())
@@ -2373,6 +2381,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if mode == Mode.MOVING_VERTEX:
 			self.set_flag_all(QGraphicsItem.ItemIsMovable, True)
 		else:
+			# if hasattr(self, 'accepted_proposals'):
+			# 	for p, props in self.accepted_proposals.iteritems():
+			# 		if p is None or 'vertexCircles' not in props or 'label' not in props:
+			# 			self.remove_polygon(p)
+
 			self.set_flag_all(QGraphicsItem.ItemIsMovable, False)
 
 		if mode == Mode.SELECT_UNCERTAIN_SEGMENT or mode == Mode.DELETE_ROI_MERGE or mode == Mode.DELETE_ROI_DUPLICATE:

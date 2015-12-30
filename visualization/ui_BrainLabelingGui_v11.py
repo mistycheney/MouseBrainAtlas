@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v11.ui'
 #
-# Created: Thu Dec 17 16:03:19 2015
+# Created: Tue Dec 29 15:10:56 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -49,7 +49,7 @@ class Ui_BrainLabelingGui(object):
         self.thumbnail_list.setSizePolicy(sizePolicy)
         self.thumbnail_list.setMinimumSize(QtCore.QSize(256, 773))
         self.thumbnail_list.setObjectName(_fromUtf8("thumbnail_list"))
-        self.gridLayout.addWidget(self.thumbnail_list, 0, 0, 2, 1)
+        self.gridLayout.addWidget(self.thumbnail_list, 0, 0, 3, 1)
         self.bottom_panel = QtGui.QHBoxLayout()
         self.bottom_panel.setObjectName(_fromUtf8("bottom_panel"))
         self.graphicsView_navMap = QtGui.QGraphicsView(self.centralwidget)
@@ -130,7 +130,19 @@ class Ui_BrainLabelingGui(object):
         spacerItem3 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem3)
         self.bottom_panel.addLayout(self.verticalLayout)
-        self.gridLayout.addLayout(self.bottom_panel, 1, 1, 1, 1)
+        self.gridLayout.addLayout(self.bottom_panel, 2, 1, 1, 1)
+        self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
+        self.button_loadLabelingSec3 = QtGui.QPushButton(self.centralwidget)
+        self.button_loadLabelingSec3.setObjectName(_fromUtf8("button_loadLabelingSec3"))
+        self.horizontalLayout.addWidget(self.button_loadLabelingSec3)
+        self.button_loadLabelingSec1 = QtGui.QPushButton(self.centralwidget)
+        self.button_loadLabelingSec1.setObjectName(_fromUtf8("button_loadLabelingSec1"))
+        self.horizontalLayout.addWidget(self.button_loadLabelingSec1)
+        self.button_loadLabelingSec2 = QtGui.QPushButton(self.centralwidget)
+        self.button_loadLabelingSec2.setObjectName(_fromUtf8("button_loadLabelingSec2"))
+        self.horizontalLayout.addWidget(self.button_loadLabelingSec2)
+        self.gridLayout.addLayout(self.horizontalLayout, 1, 1, 1, 1)
         self.splitter = QtGui.QSplitter(self.centralwidget)
         self.splitter.setOrientation(QtCore.Qt.Horizontal)
         self.splitter.setObjectName(_fromUtf8("splitter"))
@@ -178,6 +190,9 @@ class Ui_BrainLabelingGui(object):
         self.button_loadLabeling.setText(_translate("BrainLabelingGui", "Load", None))
         self.button_saveLabeling.setText(_translate("BrainLabelingGui", "Save", None))
         self.button_quit.setText(_translate("BrainLabelingGui", "Quit", None))
+        self.button_loadLabelingSec3.setText(_translate("BrainLabelingGui", "Load", None))
+        self.button_loadLabelingSec1.setText(_translate("BrainLabelingGui", "Load", None))
+        self.button_loadLabelingSec2.setText(_translate("BrainLabelingGui", "Load", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 
 

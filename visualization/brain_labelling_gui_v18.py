@@ -28,7 +28,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v11 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v12 import Ui_BrainLabelingGui
 
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
@@ -119,7 +119,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.recent_labels = []
 
-		self.history = deque(maxlen=HISTORY_LEN)
+		# self.history = deque(maxlen=HISTORY_LEN)
+
+		deque(maxlen=HISTORY_LEN)
+
+		self.history_allSections = defaultdict(list)
 
 		self.new_labelnames = {}
 		if os.path.exists(os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt'):
@@ -197,7 +201,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# def paramSettings_clicked(self):
 	# 	pass
 
-	def paint_panel(self, panel_id, sec):
+	def paint_panel(self, panel_id, sec, labeling_username=None):
 
 		gview = self.gviews[panel_id]
 
@@ -225,6 +229,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.section3_gscene = gscene
 
 		gview.setScene(gscene)
+
+		if labeling_username is None and hasattr(self, 'username_toLoad') and self.username_toLoad is not None:
+			labeling_username = self.username_toLoad
+
+		try:
+			usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(labeling_username, 'latest', 'consolidated')
+			self.load_labelings(result, gscene, sec)
+		except:
+			sys.stderr.write('Labeling from %s does not exist for section %d' % (labeling_username, sec))
+
 		gview.show()
 
 		# self.section1_gview.setInteractive(True)
@@ -244,9 +258,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.button_autoDetect.clicked.connect(self.autoDetect_callback)
 		self.button_updateDB.clicked.connect(self.updateDB_callback)
-		self.button_loadLabeling.clicked.connect(self.load_callback)
+		# self.button_loadLabeling.clicked.connect(self.load_callback)
 		self.button_saveLabeling.clicked.connect(self.save_callback)
 		self.button_quit.clicked.connect(self.close)
+
+		self.lineEdit_username.returnPressed.connect(self.username_changed)
 
 		self.button_loadLabelingSec1.clicked.connect(self.load_callback1)
 		self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
@@ -284,6 +300,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section3_gscene = None
 
 
+	def username_changed(self):
+		self.username = str(self.sender().text())
+		print 'username changed to', self.username
+
 	def showContextMenu(self, pos):
 		myMenu = QMenu(self)
 		action_newPolygon = myMenu.addAction("New polygon")
@@ -307,11 +327,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'accepted'
 			print self.accepted_proposals_allSections[self.selected_section].keys()
 
+			invalid_proposals = []
 			for p, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
 				p.setEnabled(False)
-				for circ in props['vertexCircles']:
-					circ.setEnabled(False)
-				props['labelTextArtist'].setEnabled(False)
+
+				if 'vertexCircles' not in props:
+					invalid_proposals.append(p)
+				else:
+					for circ in props['vertexCircles']:
+						circ.setEnabled(False)
+
+				if 'labelTextArtist' not in props:
+					invalid_proposals.append(p)
+				else:
+					props['labelTextArtist'].setEnabled(False)
+
+			print 'invalid_proposals', invalid_proposals
+
 
 			self.close_curr_polygon = False
 			self.ignore_click = False
@@ -454,11 +486,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.selected_polygon.setPos(0,0)
 
 		if self.mode == Mode.MOVING_VERTEX and self.polygon_is_moved:
-			self.history.append({'type': 'drag_polygon', 'polygon': self.selected_polygon, 'mouse_moved': (self.selected_polygon.release_scene_x - self.selected_polygon.press_scene_x, \
+			self.history_allSections[self.selected_section].append({'type': 'drag_polygon', 'polygon': self.selected_polygon, 'mouse_moved': (self.selected_polygon.release_scene_x - self.selected_polygon.press_scene_x, \
 																										self.selected_polygon.release_scene_y - self.selected_polygon.press_scene_y)})
 			self.polygon_is_moved = False
 
-			print 'history:', [h['type'] for h in self.history]
+			print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 				
 	@pyqtSlot(int, int, int, int)
@@ -529,13 +561,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		clicked_vertex = self.sender().parent
 
 		if self.mode == Mode.MOVING_VERTEX and self.vertex_is_moved:
-			self.history.append({'type': 'drag_vertex', 'polygon': self.selected_polygon, 'vertex': clicked_vertex, \
+			self.history_allSections[self.selected_section].append({'type': 'drag_vertex', 'polygon': self.selected_polygon, 'vertex': clicked_vertex, \
 								 'mouse_moved': (clicked_vertex.release_scene_x - clicked_vertex.press_scene_x, \
 								 	clicked_vertex.release_scene_y - clicked_vertex.press_scene_y)})
 
 			self.vertex_is_moved = False
 
-			print 'history:', [h['type'] for h in self.history]
+			print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 		elif self.mode == Mode.DELETE_BETWEEN:
 			vertex_index = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'].index(clicked_vertex)
@@ -693,8 +725,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.selected_polygon.setPath(path)
 
 					# self.history.append({'type': 'close_contour', 'polygon': self.selected_polygon})
-					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
-					print 'history:', [h['type'] for h in self.history]
+					self.history_allSections[self.selected_section].append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
+					print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 				elif self.ignore_click:
 					self.ignore_click = False
@@ -712,8 +744,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					self.selected_polygon.setPath(path)
 
-					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
-					print 'history:', [h['type'] for h in self.history]
+					self.history_allSections[self.selected_section].append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
+					print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 				return True
 
@@ -739,8 +771,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				self.add_vertex(self.selected_polygon, x, y, new_index)
 
-				self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': new_index})
-				print 'history:', [h['type'] for h in self.history]
+				self.history_allSections[self.selected_section].append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': new_index})
+				print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 				return True
 
@@ -1090,9 +1122,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			p.setEnabled(True)
 			for circ in props['vertexCircles']:
 				circ.setEnabled(True)
-			props['labelTextArtist'].setEnabled(True)
+			if 'labelTextArtist' in props:
+				props['labelTextArtist'].setEnabled(True)
 
-		self.save_callback()
+		self.save_selected_section(self.selected_section)
 
 	def zoom_scene(self, event):
 
@@ -1219,8 +1252,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			path.closeSubpath()
 			self.selected_polygon.setPath(path)
 
-			self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
-			print 'history:', [h['type'] for h in self.history]
+			self.history_allSections[self.selected_section].append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'])-1})
+			print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 			self.close_curr_polygon = False
 					
@@ -1234,9 +1267,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_Backspace:
 			self.undo()
 
-		elif event.key() == Qt.Key_1 or event.key() == Qt.Key_2:
+		elif event.key() == Qt.Key_3 or event.key() == Qt.Key_4:
 
-			if event.key() == Qt.Key_1:
+			if event.key() == Qt.Key_3:
 				if self.section == self.first_sec:
 					return
 				else:
@@ -1252,9 +1285,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.paint_panel(0, self.section)
 
 
-		elif event.key() == Qt.Key_3 or event.key() == Qt.Key_4:
+		elif event.key() == Qt.Key_5 or event.key() == Qt.Key_6:
 
-			if event.key() == Qt.Key_3:
+			if event.key() == Qt.Key_5:
 				if self.section2 == self.first_sec:
 					return
 				else:
@@ -1270,9 +1303,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.paint_panel(1, self.section2)
 
 
-		elif event.key() == Qt.Key_5 or event.key() == Qt.Key_6:
+		elif event.key() == Qt.Key_1 or event.key() == Qt.Key_2:
 
-			if event.key() == Qt.Key_5:
+			if event.key() == Qt.Key_1:
 				if self.section3 == self.first_sec:
 					return
 				else:
@@ -1493,29 +1526,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def load_callback3(self):
 		self.load_callback(panel=3)
 
-	def load_callback(self, panel=1):
-
-		if panel == 1:
-			gscene = self.section1_gscene
-			gview = self.section1_gview
-			self.selected_section = self.section
-		elif panel == 2:
-			gscene = self.section2_gscene
-			gview = self.section2_gview
-			self.selected_section = self.section2
-		elif panel == 3:
-			gscene = self.section3_gscene
-			gview = self.section3_gview
-			self.selected_section = self.section3
-
-		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dms[section].labelings_dir))
-		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
-
-		self.accepted_proposals_allSections[self.selected_section] = defaultdict(dict)
-
-		# self.accepted_proposals = {}
-
-		_, _, _, accepted_proposal_props = self.dms[section].load_proposal_review_result(username, timestamp, suffix)
+	def load_labelings(self, accepted_proposal_props, gscene, sec):
 
 		for props in accepted_proposal_props:
 			
@@ -1588,7 +1599,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			props.pop('vertices')
 
 			# self.accepted_proposals[polygon] = props
-			self.accepted_proposals_allSections[self.selected_section][polygon] = props
+			# self.accepted_proposals_allSections[self.selected_section][polygon] = props
+			self.accepted_proposals_allSections[sec][polygon] = props
+
+
+	def load_callback(self, panel=None):
+
+		if panel == 1:
+			gscene = self.section1_gscene
+			# gview = self.section1_gview
+			self.selected_section = self.section
+		elif panel == 2:
+			gscene = self.section2_gscene
+			# gview = self.section2_gview
+			self.selected_section = self.section2
+		elif panel == 3:
+			gscene = self.section3_gscene
+			# gview = self.section3_gview
+			self.selected_section = self.section3
+		else:
+			return
+
+		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dms[self.selected_section].labelings_dir))
+		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
+		_, _, _, accepted_proposal_props = self.dms[self.selected_section].load_proposal_review_result(username, timestamp, suffix)
+
+		self.accepted_proposals_allSections[self.selected_section] = defaultdict(dict)
+
+		self.load_labelings(accepted_proposal_props, gscene, self.selected_section)
 			
 
 	def open_label_selection_dialog(self):
@@ -1678,89 +1716,89 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.label_selection_dialog.accept()
 
-	def shuffle_proposal_from_pool(self, sp_ind):
+	# def shuffle_proposal_from_pool(self, sp_ind):
 
-		if self.shuffle_global_proposals:   
-			if not hasattr(self, 'sp_covered_by_proposals'):
-				return
-		else:
-			if not hasattr(self, 'local_proposal_indices_from_sp'):
-				return
+	# 	if self.shuffle_global_proposals:   
+	# 		if not hasattr(self, 'sp_covered_by_proposals'):
+	# 			return
+	# 	else:
+	# 		if not hasattr(self, 'local_proposal_indices_from_sp'):
+	# 			return
 
-		if self.shuffle_global_proposals:
+	# 	if self.shuffle_global_proposals:
 
-			if sp_ind not in self.sp_covered_by_proposals or sp_ind == -1:
-				self.statusBar().showMessage('No proposal covers superpixel %d' % sp_ind)
-				return 
-		else:
-			if sp_ind == -1:
-				return
+	# 		if sp_ind not in self.sp_covered_by_proposals or sp_ind == -1:
+	# 			self.statusBar().showMessage('No proposal covers superpixel %d' % sp_ind)
+	# 			return 
+	# 	else:
+	# 		if sp_ind == -1:
+	# 			return
 		
-		if self.object_picked:
-			return
+	# 	if self.object_picked:
+	# 		return
 
-		self.cancel_current_selection()
+	# 	self.cancel_current_selection()
 
-		if self.shuffle_global_proposals:
-			self.selected_proposal_type = ProposalType.GLOBAL
+	# 	if self.shuffle_global_proposals:
+	# 		self.selected_proposal_type = ProposalType.GLOBAL
 
-			self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
-			self.selected_proposal_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
+	# 		self.alternative_global_proposal_ind = (self.alternative_global_proposal_ind + 1) % len(self.sp_covered_by_proposals[sp_ind])
+	# 		self.selected_proposal_id = self.sp_covered_by_proposals[sp_ind][self.alternative_global_proposal_ind]
 
-			dedges = self.global_proposal_dedges[self.selected_proposal_id]
-		else:
+	# 		dedges = self.global_proposal_dedges[self.selected_proposal_id]
+	# 	else:
 
-			self.selected_proposal_type = ProposalType.LOCAL
+	# 		self.selected_proposal_type = ProposalType.LOCAL
 
-			self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
-			self.selected_proposal_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
+	# 		self.alternative_local_proposal_ind = (self.alternative_local_proposal_ind + 1) % len(self.local_proposal_indices_from_sp[sp_ind])
+	# 		self.selected_proposal_id = self.local_proposal_indices_from_sp[sp_ind][self.alternative_local_proposal_ind]
 
-			cl, dedges, sig = self.local_proposal_tuples[self.selected_proposal_id]
+	# 		cl, dedges, sig = self.local_proposal_tuples[self.selected_proposal_id]
 
 
-		if self.shuffle_global_proposals:
-			proposal_pathPatches = self.global_proposal_pathPatches
-			proposal_vertexCircles = self.global_proposal_vertexCircles
-		else:
-			proposal_pathPatches = self.local_proposal_pathPatches
-			proposal_vertexCircles = self.local_proposal_vertexCircles
+	# 	if self.shuffle_global_proposals:
+	# 		proposal_pathPatches = self.global_proposal_pathPatches
+	# 		proposal_vertexCircles = self.global_proposal_vertexCircles
+	# 	else:
+	# 		proposal_pathPatches = self.local_proposal_pathPatches
+	# 		proposal_vertexCircles = self.local_proposal_vertexCircles
 
-		if proposal_pathPatches[self.selected_proposal_id] is None:  
-			vertices = self.dm.vertices_from_dedges(dedges)
+	# 	if proposal_pathPatches[self.selected_proposal_id] is None:  
+	# 		vertices = self.dm.vertices_from_dedges(dedges)
 
-			proposal_pathPatches[self.selected_proposal_id] = Polygon(vertices, closed=True, 
-									edgecolor=self.boundary_colors[0], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
-			proposal_vertexCircles[self.selected_proposal_id] = [plt.Circle(v, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[0], alpha=.8) for v in vertices]
+	# 		proposal_pathPatches[self.selected_proposal_id] = Polygon(vertices, closed=True, 
+	# 								edgecolor=self.boundary_colors[0], fill=False, linewidth=UNSELECTED_POLYGON_LINEWIDTH)
+	# 		proposal_vertexCircles[self.selected_proposal_id] = [plt.Circle(v, radius=UNSELECTED_CIRCLE_SIZE, color=self.boundary_colors[0], alpha=.8) for v in vertices]
 
-		if self.shuffle_global_proposals:
-			self.selected_proposal_polygon = self.global_proposal_pathPatches[self.selected_proposal_id]
-			self.selected_proposal_vertexCircles = self.global_proposal_vertexCircles[self.selected_proposal_id]
-		else:
-			self.selected_proposal_polygon = self.local_proposal_pathPatches[self.selected_proposal_id]
-			self.selected_proposal_vertexCircles = self.local_proposal_vertexCircles[self.selected_proposal_id]            
+	# 	if self.shuffle_global_proposals:
+	# 		self.selected_proposal_polygon = self.global_proposal_pathPatches[self.selected_proposal_id]
+	# 		self.selected_proposal_vertexCircles = self.global_proposal_vertexCircles[self.selected_proposal_id]
+	# 	else:
+	# 		self.selected_proposal_polygon = self.local_proposal_pathPatches[self.selected_proposal_id]
+	# 		self.selected_proposal_vertexCircles = self.local_proposal_vertexCircles[self.selected_proposal_id]            
 
-		if self.selected_proposal_polygon not in self.axis.patches:
-			self.axis.add_patch(self.selected_proposal_polygon)
+	# 	if self.selected_proposal_polygon not in self.axis.patches:
+	# 		self.axis.add_patch(self.selected_proposal_polygon)
 
-			for vertex_circ in self.selected_proposal_vertexCircles:
-				self.axis.add_patch(vertex_circ)
+	# 		for vertex_circ in self.selected_proposal_vertexCircles:
+	# 			self.axis.add_patch(vertex_circ)
 
-		self.selected_proposal_polygon.set_picker(None)
-		for vertex_circ in self.selected_proposal_vertexCircles:
-			vertex_circ.set_picker(None)
+	# 	self.selected_proposal_polygon.set_picker(None)
+	# 	for vertex_circ in self.selected_proposal_vertexCircles:
+	# 		vertex_circ.set_picker(None)
 
-		if self.selected_proposal_polygon in self.accepted_proposals_allSections[self.selected_section]:
-			self.selected_proposal_polygon.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
-			label =  self.accepted_proposals_allSections[self.selected_section][self.selected_proposal_polygon]['label']
-		else:
-			label = ''
+	# 	if self.selected_proposal_polygon in self.accepted_proposals_allSections[self.selected_section]:
+	# 		self.selected_proposal_polygon.set_linewidth(UNSELECTED_POLYGON_LINEWIDTH)
+	# 		label =  self.accepted_proposals_allSections[self.selected_section][self.selected_proposal_polygon]['label']
+	# 	else:
+	# 		label = ''
 
-		if self.shuffle_global_proposals:
-			self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.selected_proposal_id]))
-		else:
-			self.statusBar().showMessage('local proposal (%s) from seed %d, score %.4f' % (label, sp_ind, sig))
+	# 	if self.shuffle_global_proposals:
+	# 		self.statusBar().showMessage('global proposal (%s) covering seed %d, score %.4f' % (label, sp_ind, self.global_proposal_sigs[self.selected_proposal_id]))
+	# 	else:
+	# 		self.statusBar().showMessage('local proposal (%s) from seed %d, score %.4f' % (label, sp_ind, sig))
 
-		self.canvas.draw()
+	# 	self.canvas.draw()
 
 
 	def init_section_selected(self, item):
@@ -1771,7 +1809,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section2 = sec + 1
 		self.section3 = sec - 1
 
-		self.load_active_set(sections=range(sec-1, sec+2))
+		# self.load_active_set(sections=range(sec-1, sec+2))
+		self.load_active_set(sections=range(sec-NUM_NEIGHBORS_PRELOAD, sec+NUM_NEIGHBORS_PRELOAD+1))
 		
 		self.extend_head = False
 		self.connecting_vertices = False
@@ -1797,6 +1836,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			gview.viewport().installEventFilter(self)
 
+		if not hasattr(self, 'username') or self.username is None:
+			username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')
+			if not okay: return
+			self.username_toLoad = str(username)
+
 		self.paint_panel(0, self.section)
 		self.paint_panel(1, self.section2)
 		self.paint_panel(2, self.section3)
@@ -1809,27 +1853,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.statusBar().showMessage('Loaded')
 
-	# def section_changed(self, item):
-
-	# 	self.statusBar().showMessage('Loading ....')
-
-	# 	sec = int(str(item.text()))
-
-	# 	if hasattr(self, 'pixmaps'):
-	# 		# del self.pixmaps
-	# 		del self.dms
-	# 		del self.section1_pixmap
-	# 		del self.section2_pixmap
-	# 		del self.section3_pixmap
-	# 		del self.section1_gscene
-	# 		del self.section2_gscene
-	# 		del self.section3_gscene
-
-	# 	self.init_data(section=sec)
-	# 	self.reload_brain_labeling_gui()
 
 	def clicked_navMap(self, event):
-		# print event.scenePos()
 
 		scene_x = event.scenePos().x()
 		scene_y = event.scenePos().y()
@@ -1873,6 +1898,51 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw()
 
+
+	def save_selected_section(self, sec=None):
+
+		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+
+		if not hasattr(self, 'username') or self.username is None:
+			username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+			if not okay: return
+			self.username = str(username)
+			self.lineEdit_username.setText(self.username)
+
+		if sec is not None:
+
+			accepted_proposal_props = []
+			for polygon, props in self.accepted_proposals_allSections[sec].iteritems():
+
+				props_saved = props.copy()
+
+				# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+
+				path = polygon.path()
+
+				if self.is_path_closed(polygon.path()):
+					props_saved['subtype'] = PolygonType.CLOSED
+					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+				else:
+					props_saved['subtype'] = PolygonType.OPEN
+					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+
+				label_pos = props['labelTextArtist'].scenePos()
+				props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+
+				props_saved.pop('vertexCircles')
+				props_saved.pop('labelTextArtist')
+
+				accepted_proposal_props.append(props_saved)
+
+			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+
+			print self.new_labelnames
+			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+
+			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+
+
 	def save_callback(self):
 
 		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
@@ -1881,37 +1951,44 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
 			if not okay: return
 			self.username = str(username)
+			self.lineEdit_username.setText(self.username)
 
-		accepted_proposal_props = []
-		for polygon, props in self.accepted_proposals.iteritems():
 
-			props_saved = props.copy()
+		for sec, ac in self.accepted_proposals_allSections.iteritems():
 
-			# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+			if len(ac.keys()) == 0:
+				continue
 
-			path = polygon.path()
+			accepted_proposal_props = []
+			for polygon, props in ac.iteritems():
 
-			if self.is_path_closed(polygon.path()):
-				props_saved['subtype'] = PolygonType.CLOSED
-				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
-			else:
-				props_saved['subtype'] = PolygonType.OPEN
-				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+				props_saved = props.copy()
 
-			label_pos = props['labelTextArtist'].scenePos()
-			props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+				# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-			props_saved.pop('vertexCircles')
-			props_saved.pop('labelTextArtist')
+				path = polygon.path()
 
-			accepted_proposal_props.append(props_saved)
+				if self.is_path_closed(polygon.path()):
+					props_saved['subtype'] = PolygonType.CLOSED
+					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+				else:
+					props_saved['subtype'] = PolygonType.OPEN
+					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
 
-		self.dm.save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+				label_pos = props['labelTextArtist'].scenePos()
+				props_saved['labelPos'] = (label_pos.x(), label_pos.y())
 
-		print self.new_labelnames
-		self.dm.add_labelnames(self.new_labelnames, self.dm.repo_dir+'/visualization/newStructureNames.txt')
+				props_saved.pop('vertexCircles')
+				props_saved.pop('labelTextArtist')
 
-		self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+				accepted_proposal_props.append(props_saved)
+
+			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+
+			print self.new_labelnames
+			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+
+			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
 
 	def labelbutton_callback(self):
 		pass
@@ -1923,10 +2000,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def undo(self):
 
-		if len(self.history) == 0:
+		if len(self.history_allSections[self.selected_section]) == 0:
 			return
 
-		history_item = self.history.pop()
+		history_item = self.history_allSections[self.selected_section].pop()
 
 		if history_item['type'] == 'drag_polygon':
 
@@ -1949,7 +2026,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				curr_label_pos = self.accepted_proposals_allSections[self.selected_section][polygon]['labelTextArtist'].scenePos()
 				self.accepted_proposals_allSections[self.selected_section][polygon]['labelTextArtist'].setPos(curr_label_pos.x() - moved_x, curr_label_pos.y() - moved_y)
 
-			self.section1_gscene.update(0, 0, self.section1_gview.width(), self.section1_gview.height())
+			# self.section1_gscene.update(0, 0, self.section1_gview.width(), self.section1_gview.height())
+			self.gscenes[self.selected_section].update(0, 0, self.gviews[self.selected_panel_id].width(), self.gviews[self.selected_panel_id].height())
 
 		elif history_item['type'] == 'drag_vertex':
 
@@ -1975,7 +2053,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			polygon.setPath(path)
 
-			self.section1_gscene.update(0, 0, self.section1_gview.width(), self.section1_gview.height())
+			# self.section1_gscene.update(0, 0, self.section1_gview.width(), self.section1_gview.height())
+			self.gscenes[self.selected_section].update(0, 0, self.gviews[self.selected_panel_id].width(), self.gviews[self.selected_panel_id].height())
+
 
 		elif history_item['type'] == 'add_vertex':
 			polygon = history_item['polygon']
@@ -1996,11 +2076,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			if n == 1:
 				# if only one vertex in polygon, then undo removes the entire polygon
-				self.section1_gscene.removeItem(polygon)
+				# self.section1_gscene.removeItem(polygon)
+				self.gscenes[self.selected_section].removeItem(polygon)
 				if 'labelTextArtist' in self.accepted_proposals_allSections[self.selected_section][polygon]:
-					self.section1_gscene.removeItem(self.accepted_proposals_allSections[self.selected_section][polygon]['labelTextArtist'])
+					# self.section1_gscene.removeItem(self.accepted_proposals_allSections[self.selected_section][polygon]['labelTextArtist'])
+					self.gscenes[self.selected_section].removeItem(self.accepted_proposals_allSections[self.selected_section][polygon]['labelTextArtist'])
 				self.accepted_proposals_allSections[self.selected_section].pop(polygon)
-				self.section1_gscene.removeItem(vertex)
+				# self.section1_gscene.removeItem(vertex)
+				self.gscenes[self.selected_section].removeItem(vertex)
 
 				self.set_mode(Mode.IDLE)
 			else:
@@ -2008,7 +2091,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				if not is_closed:
 					# if it is open, then undo removes the last vertex
 					self.accepted_proposals_allSections[self.selected_section][polygon]['vertexCircles'].remove(vertex)
-					self.section1_gscene.removeItem(vertex)
+					# self.section1_gscene.removeItem(vertex)
+					self.gscenes[self.selected_section].removeItem(vertex)
 
 					for i in range(n-1):
 						elem = polygon.path().elementAt(i)
@@ -2038,7 +2122,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.remove_polygon(new_certain_polygon)
 			self.remove_polygon(new_uncertain_polygon)
 
-			self.section1_gscene.addItem(old_polygon)
+			# self.section1_gscene.addItem(old_polygon)
+			self.gscenes[self.selected_section].removeItem(vertex)
 			overlap_polygons = self.add_vertices_to_polygon(old_polygon)
 			self.restack_polygons(old_polygon, overlap_polygons)
 			self.add_label_to_polygon(old_polygon, label=label)

@@ -410,7 +410,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section2 = section + 1
 		self.section3 = section - 1
 
-		sections = range(self.section-NUM_NEIGHBORS_PRELOAD, self.section+NUM_NEIGHBORS_PRELOAD+1)
+		sections = range(max(49, self.section-NUM_NEIGHBORS_PRELOAD), min(185, self.section+NUM_NEIGHBORS_PRELOAD+1))
 
 		# t = time.time()
 		# self.dms = dict(zip(sections, Parallel(n_jobs=4)(delayed(load_dms)(i) for i in sections)))

@@ -196,6 +196,20 @@
          <enum>QLayout::SetMinAndMaxSize</enum>
         </property>
         <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Username:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEdit_username">
+          <property name="text">
+           <string>anon</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="button_autoDetect">
           <property name="text">
            <string>Auto Detect</string>
@@ -206,13 +220,6 @@
          <widget class="QPushButton" name="button_updateDB">
           <property name="text">
            <string>Update DB</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="button_loadLabeling">
-          <property name="text">
-           <string>Load</string>
           </property>
          </widget>
         </item>

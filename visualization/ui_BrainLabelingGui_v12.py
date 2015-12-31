@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'BrainLabelingGui_v11.ui'
+# Form implementation generated from reading ui file 'BrainLabelingGui_v12.ui'
 #
-# Created: Tue Dec 29 15:10:56 2015
+# Created: Wed Dec 30 15:35:11 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -106,21 +106,27 @@ class Ui_BrainLabelingGui(object):
         self.button_verticesOnOff = QtGui.QPushButton(self.displayOption_panel)
         self.button_verticesOnOff.setObjectName(_fromUtf8("button_verticesOnOff"))
         self.verticalLayout_3.addWidget(self.button_verticesOnOff)
+        self.checkBox_linkPanels = QtGui.QCheckBox(self.displayOption_panel)
+        self.checkBox_linkPanels.setObjectName(_fromUtf8("checkBox_linkPanels"))
+        self.verticalLayout_3.addWidget(self.checkBox_linkPanels)
         spacerItem2 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem2)
         self.bottom_panel.addWidget(self.displayOption_panel)
         self.verticalLayout = QtGui.QVBoxLayout()
         self.verticalLayout.setSizeConstraint(QtGui.QLayout.SetMinAndMaxSize)
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
+        self.label = QtGui.QLabel(self.centralwidget)
+        self.label.setObjectName(_fromUtf8("label"))
+        self.verticalLayout.addWidget(self.label)
+        self.lineEdit_username = QtGui.QLineEdit(self.centralwidget)
+        self.lineEdit_username.setObjectName(_fromUtf8("lineEdit_username"))
+        self.verticalLayout.addWidget(self.lineEdit_username)
         self.button_autoDetect = QtGui.QPushButton(self.centralwidget)
         self.button_autoDetect.setObjectName(_fromUtf8("button_autoDetect"))
         self.verticalLayout.addWidget(self.button_autoDetect)
         self.button_updateDB = QtGui.QPushButton(self.centralwidget)
         self.button_updateDB.setObjectName(_fromUtf8("button_updateDB"))
         self.verticalLayout.addWidget(self.button_updateDB)
-        self.button_loadLabeling = QtGui.QPushButton(self.centralwidget)
-        self.button_loadLabeling.setObjectName(_fromUtf8("button_loadLabeling"))
-        self.verticalLayout.addWidget(self.button_loadLabeling)
         self.button_saveLabeling = QtGui.QPushButton(self.centralwidget)
         self.button_saveLabeling.setObjectName(_fromUtf8("button_saveLabeling"))
         self.verticalLayout.addWidget(self.button_saveLabeling)
@@ -185,9 +191,11 @@ class Ui_BrainLabelingGui(object):
         self.button_labelsOnOff.setText(_translate("BrainLabelingGui", "Turn Labels Off", None))
         self.button_contoursOnOff.setText(_translate("BrainLabelingGui", "Turn Contours Off", None))
         self.button_verticesOnOff.setText(_translate("BrainLabelingGui", "Turn Vertices Off", None))
+        self.checkBox_linkPanels.setText(_translate("BrainLabelingGui", "Link panels", None))
+        self.label.setText(_translate("BrainLabelingGui", "Username:", None))
+        self.lineEdit_username.setText(_translate("BrainLabelingGui", "anon", None))
         self.button_autoDetect.setText(_translate("BrainLabelingGui", "Auto Detect", None))
         self.button_updateDB.setText(_translate("BrainLabelingGui", "Update DB", None))
-        self.button_loadLabeling.setText(_translate("BrainLabelingGui", "Load", None))
         self.button_saveLabeling.setText(_translate("BrainLabelingGui", "Save", None))
         self.button_quit.setText(_translate("BrainLabelingGui", "Quit", None))
         self.button_loadLabelingSec3.setText(_translate("BrainLabelingGui", "Load", None))

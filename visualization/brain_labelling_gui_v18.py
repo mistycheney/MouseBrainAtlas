@@ -160,20 +160,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def load_active_set(self, sections=None):
 
 		if sections is None:
-			sections = [self.section, self.section2, self.section3]
+			self.sections = [self.section, self.section2, self.section3]
 		else:
 
 			minsec = min(sections)
 			maxsec = max(sections)
 
-			sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
+			self.sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
 
 			self.dms = dict([(i, DataManager(
 			    data_dir=os.environ['LOCAL_DATA_DIR'], 
 			         repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			         result_dir=os.environ['LOCAL_RESULT_DIR'], 
 			         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) for i in sections])
+			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) for i in self.sections])
 
 			t = time.time()
 
@@ -198,16 +198,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'load image', time.time() - t
 
 
-	# def paramSettings_clicked(self):
-	# 	pass
-
 	def paint_panel(self, panel_id, sec, labeling_username=None):
 
 		gview = self.gviews[panel_id]
 
 		if sec in self.gscenes:
+			print 'gscene exists'
 			gscene = self.gscenes[sec]
 		else:
+			print 'new gscene'
 			pixmap = self.pixmaps[sec]
 			gscene = QGraphicsScene(gview)
 			gscene.addPixmap(pixmap)
@@ -221,6 +220,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.gscenes[sec] = gscene
 
+			# if labeling_username is None and hasattr(self, 'username_toLoad') and self.username_toLoad is not None:
+			# 	labeling_username = self.username_toLoad
+
+			# try:
+			# 	usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(labeling_username, 'latest', 'consolidated')
+			# 	self.load_labelings(result, gscene, sec)
+			# except:
+			# 	sys.stderr.write('Labeling from %s does not exist for section %d' % (labeling_username, sec))
+
+			try:
+				usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(None, 'latest', 'consolidated')
+				self.load_labelings(result, gscene, sec)
+			except:
+				sys.stderr.write('There is no labeling for section %d\n' % sec)
+
 		if panel_id == 0:
 			self.section1_gscene = gscene
 		elif panel_id == 1:
@@ -229,15 +243,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.section3_gscene = gscene
 
 		gview.setScene(gscene)
-
-		if labeling_username is None and hasattr(self, 'username_toLoad') and self.username_toLoad is not None:
-			labeling_username = self.username_toLoad
-
-		try:
-			usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(labeling_username, 'latest', 'consolidated')
-			self.load_labelings(result, gscene, sec)
-		except:
-			sys.stderr.write('Labeling from %s does not exist for section %d' % (labeling_username, sec))
 
 		gview.show()
 
@@ -1270,17 +1275,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_3 or event.key() == Qt.Key_4:
 
 			if event.key() == Qt.Key_3:
-				if self.section == self.first_sec:
+				if self.section == self.first_sec or self.section - 1 not in self.sections:
 					return
 				else:
 					self.section = self.section - 1
 			else:
-				if self.section == self.last_sec:
+				if self.section == self.last_sec or self.section + 1 not in self.sections:
 					return
 				else:
 					self.section = self.section + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
 
 			self.paint_panel(0, self.section)
 
@@ -1288,35 +1293,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_5 or event.key() == Qt.Key_6:
 
 			if event.key() == Qt.Key_5:
-				if self.section2 == self.first_sec:
+				if self.section2 == self.first_sec or self.section2 - 1 not in self.sections:
 					return
 				else:
 					self.section2 = self.section2 - 1
 			else:
-				if self.section2 == self.last_sec:
+				if self.section2 == self.last_sec or self.section2 + 1 not in self.sections:
 					return
 				else:
 					self.section2 = self.section2 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
-
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
 			self.paint_panel(1, self.section2)
 
 
 		elif event.key() == Qt.Key_1 or event.key() == Qt.Key_2:
 
 			if event.key() == Qt.Key_1:
-				if self.section3 == self.first_sec:
+				if self.section3 == self.first_sec or self.section3 - 1 not in self.sections:
 					return
 				else:
 					self.section3 = self.section3 - 1
 			else:
-				if self.section3 == self.last_sec:
+				if self.section3 == self.last_sec or self.section3 + 1 not in self.sections:
 					return
 				else:
 					self.section3 = self.section3 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
 
 			self.paint_panel(2, self.section3)
 
@@ -1836,10 +1840,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			gview.viewport().installEventFilter(self)
 
-		if not hasattr(self, 'username') or self.username is None:
-			username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')
-			if not okay: return
-			self.username_toLoad = str(username)
+		# if not hasattr(self, 'username') or self.username is None:
+		# 	username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')
+		# 	if not okay: return
+		# 	self.username_toLoad = str(username)
 
 		self.paint_panel(0, self.section)
 		self.paint_panel(1, self.section2)
@@ -1847,7 +1851,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.show()
 
-		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
 
 		self.set_mode(Mode.IDLE)
 
@@ -1935,60 +1939,84 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				accepted_proposal_props.append(props_saved)
 
-			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+			labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
 
-			print self.new_labelnames
+			# print self.new_labelnames
 			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
 
 			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+
+			if sec in self.gscenes:
+				pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+				painter = QPainter(pix)
+				
+				self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
+										QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+				pix.save(labeling_path[:-4] + '.jpg', "JPG")
+				del painter
+
 
 
 	def save_callback(self):
 
-		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-
-		if not hasattr(self, 'username') or self.username is None:
-			username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-			if not okay: return
-			self.username = str(username)
-			self.lineEdit_username.setText(self.username)
-
-
 		for sec, ac in self.accepted_proposals_allSections.iteritems():
+			self.save_selected_section(sec)
 
-			if len(ac.keys()) == 0:
-				continue
 
-			accepted_proposal_props = []
-			for polygon, props in ac.iteritems():
+		# timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
-				props_saved = props.copy()
+		# if not hasattr(self, 'username') or self.username is None:
+		# 	username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+		# 	if not okay: return
+		# 	self.username = str(username)
+		# 	self.lineEdit_username.setText(self.username)
 
-				# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-				path = polygon.path()
+		# for sec, ac in self.accepted_proposals_allSections.iteritems():
 
-				if self.is_path_closed(polygon.path()):
-					props_saved['subtype'] = PolygonType.CLOSED
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
-				else:
-					props_saved['subtype'] = PolygonType.OPEN
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+		# 	if len(ac.keys()) == 0:
+		# 		continue
 
-				label_pos = props['labelTextArtist'].scenePos()
-				props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+		# 	accepted_proposal_props = []
+		# 	for polygon, props in ac.iteritems():
 
-				props_saved.pop('vertexCircles')
-				props_saved.pop('labelTextArtist')
+		# 		props_saved = props.copy()
 
-				accepted_proposal_props.append(props_saved)
+		# 		# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+		# 		path = polygon.path()
 
-			print self.new_labelnames
-			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+		# 		if self.is_path_closed(polygon.path()):
+		# 			props_saved['subtype'] = PolygonType.CLOSED
+		# 			props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+		# 		else:
+		# 			props_saved['subtype'] = PolygonType.OPEN
+		# 			props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
 
-			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+		# 		label_pos = props['labelTextArtist'].scenePos()
+		# 		props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+
+		# 		props_saved.pop('vertexCircles')
+		# 		props_saved.pop('labelTextArtist')
+
+		# 		accepted_proposal_props.append(props_saved)
+
+		# 	labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+
+		# 	# print self.new_labelnames
+		# 	self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+
+		# 	self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+
+		# 	if sec in self.gscenes:
+		# 		pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+		# 		painter = QPainter(pix)
+				
+		# 		self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
+		# 								QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+		# 		pix.save(labeling_path[:-4] + '.jpg', "JPG")
+		# 		del painter
+
 
 	def labelbutton_callback(self):
 		pass

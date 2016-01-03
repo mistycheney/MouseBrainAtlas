@@ -1243,6 +1243,8 @@ class DataManager(object):
         pickle.dump(result, open(path, 'w'))
         print 'Proposal review result saved to', path
 
+        return path
+
     def reload_labelings(self):
         # if not hasattr(self, 'result_list'):
         from collections import defaultdict
@@ -1261,12 +1263,27 @@ class DataManager(object):
         if not hasattr(self, 'result_list'):
             self.reload_labelings()
 
-        if len(self.result_list[username]) == 0:
-            return None
+        if username is not None:
+            if len(self.result_list[username]) == 0:
+                return None
+        else:
+            # self.result_list_flatten = [fn for usr, fn in self.result_list.iteritems()]
+            self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
+            if len(self.result_list_flatten) == 0:
+                return None
 
         if timestamp == 'latest':
-            timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
-            timestamp = timestamps_sorted[0]
+            if username is not None:
+                timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
+                timestamp = timestamps_sorted[0]
+            else:
+                ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
+                # timestamps_sorted = map(itemgetter(1), ts_str_usr_sorted)
+                # usernames_sorted = map(itemgetter(2), ts_str_usr_sorted)        
+                # timestamp = timestamps_sorted[0]
+                # username = usernames_sorted[0]
+                timestamp = ts_str_usr_sorted[0][1]
+                username = ts_str_usr_sorted[0][2]
 
         if suffix == 'all':
             results = []

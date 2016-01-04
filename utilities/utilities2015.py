@@ -15,6 +15,7 @@ import sys
 from operator import itemgetter
 import json
 import cPickle as pickle
+import datetime
 
 import cv2
 from cv2 import imwrite
@@ -1223,6 +1224,35 @@ class DataManager(object):
 
 
 
+    # def load_review_result_paths(self, username, timestamp, stack=None, section=None, suffix=''):
+
+    #     if stack is None:
+    #         stack = self.stack
+    #     if section is None:
+    #         section = self.slice_ind
+
+    #     if not hasattr(self, 'result_list'):
+    #         self.reload_labelings()
+
+    #     if username is not None:
+    #         if len(self.result_list[username]) == 0:
+    #             return None
+    #     else: # search labelings of any user
+    #         self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
+    #         if len(self.result_list_flatten) == 0:
+    #             return None
+
+    #     if timestamp == 'latest':
+    #         if username is not None:
+    #             timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
+    #             timestamp = timestamps_sorted[0]
+    #         else:
+    #             ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
+    #             timestamp = ts_str_usr_sorted[0][1]
+    #             username = ts_str_usr_sorted[0][2]
+
+    #     return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl')
+
 
     def load_review_result_path(self, username, timestamp, stack=None, section=None, suffix=''):
         if stack is None:
@@ -1230,18 +1260,45 @@ class DataManager(object):
         if section is None:
             section = self.slice_ind
 
+        if not hasattr(self, 'result_list'):
+            self.reload_labelings()
+
+        if username is None: # search labelings of any user
+            self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
+            if len(self.result_list_flatten) == 0:
+                sys.stderr.write('username is empty\n')
+                return None
+
+        if timestamp == 'latest':
+            if username is not None:
+                timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
+                timestamp = timestamps_sorted[0]
+            else:
+                ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
+                timestamp = ts_str_usr_sorted[0][1]
+                username = ts_str_usr_sorted[0][2]
+
         return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl')
 
-    def save_proposal_review_result(self, result, username, timestamp, suffix):
-        path = self.load_review_result_path(username, timestamp, suffix=suffix)
 
+    def save_proposal_review_result(self, result, username, timestamp, suffix, stack=None, section=None):
+
+        if stack is None:
+            stack = self.stack
+
+        if section is None:
+            section = self.slice_ind
+
+        path = os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl')
+
+        # path = self.load_review_result_path(username, timestamp, suffix=suffix)
 
         path_to_dir = os.path.dirname(path)
         if not os.path.exists(path_to_dir):
             os.makedirs(path_to_dir)
 
         pickle.dump(result, open(path, 'w'))
-        print 'Proposal review result saved to', path
+        print 'Labeling saved to', path
 
         return path
 
@@ -1258,32 +1315,13 @@ class DataManager(object):
 
     def load_proposal_review_result(self, username, timestamp, suffix):
 
-        import datetime
-
         if not hasattr(self, 'result_list'):
             self.reload_labelings()
 
         if username is not None:
             if len(self.result_list[username]) == 0:
+                sys.stderr.write('username %s does not have any labelings\n' % username)
                 return None
-        else:
-            # self.result_list_flatten = [fn for usr, fn in self.result_list.iteritems()]
-            self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
-            if len(self.result_list_flatten) == 0:
-                return None
-
-        if timestamp == 'latest':
-            if username is not None:
-                timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
-                timestamp = timestamps_sorted[0]
-            else:
-                ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
-                # timestamps_sorted = map(itemgetter(1), ts_str_usr_sorted)
-                # usernames_sorted = map(itemgetter(2), ts_str_usr_sorted)        
-                # timestamp = timestamps_sorted[0]
-                # username = usernames_sorted[0]
-                timestamp = ts_str_usr_sorted[0][1]
-                username = ts_str_usr_sorted[0][2]
 
         if suffix == 'all':
             results = []

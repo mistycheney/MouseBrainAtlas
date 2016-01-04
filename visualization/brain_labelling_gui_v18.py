@@ -167,33 +167,40 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			maxsec = max(sections)
 
 			self.sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
+			
+			print self.sections
 
 			self.dms = dict([(i, DataManager(
 			    data_dir=os.environ['LOCAL_DATA_DIR'], 
 			         repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			         result_dir=os.environ['LOCAL_RESULT_DIR'], 
 			         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) for i in self.sections])
+			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) 
+			for i in self.sections])
+				# for i in range(self.first_sec, self.last_sec+1)])
 
 			t = time.time()
 
-			# if hasattr(self, 'pixmaps'):
-			# 	for i in sections:
-			# 		if i not in self.pixmaps:
-			# 			print 'new load', i
-			# 			self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+			if hasattr(self, 'pixmaps'):
+				for i in self.sections:
+					if i not in self.pixmaps:
+						print 'new load', i
+						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
 
-			# 	to_remove = []
-			# 	for i in self.pixmaps:
-			# 		if i not in sections:
-			# 			print 'pop', i
-			# 			to_remove.append(i)
+				to_remove = []
+				for i in self.pixmaps:
+					if i not in self.sections:
+						print 'pop', i
+						to_remove.append(i)
 				
-			# 	for i in to_remove:
-			# 		self.pixmaps.pop(i)
-			# else:
+				for i in to_remove:
+					del self.pixmaps[i]
+					# self.pixmaps.pop(i)
+					del self.gscenes[i]
+					# self.gscenes.pop(i)
+			else:	
 			
-			self.pixmaps = dict([(i, QPixmap(dm._get_image_filepath(version='rgb-jpg'))) for i, dm in self.dms.iteritems()])
+				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
 
 			print 'load image', time.time() - t
 
@@ -1915,6 +1922,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if sec is not None:
 
+			# print self.accepted_proposals_allSections[sec]
+
 			accepted_proposal_props = []
 			for polygon, props in self.accepted_proposals_allSections[sec].iteritems():
 
@@ -1924,7 +1933,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				path = polygon.path()
 
-				if self.is_path_closed(polygon.path()):
+				if path.elementCount() > 1 and self.is_path_closed(path):
 					props_saved['subtype'] = PolygonType.CLOSED
 					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
 				else:
@@ -1938,6 +1947,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				props_saved.pop('labelTextArtist')
 
 				accepted_proposal_props.append(props_saved)
+
+			# print '#############'
+			# print accepted_proposal_props
 
 			labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
 
@@ -1953,14 +1965,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
 										QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
 				pix.save(labeling_path[:-4] + '.jpg', "JPG")
+				print 'Preview image saved to', labeling_path[:-4] + '.jpg'
 				del painter
-
+				del pix
 
 
 	def save_callback(self):
 
 		for sec, ac in self.accepted_proposals_allSections.iteritems():
-			self.save_selected_section(sec)
+			if sec in self.gscenes and sec in self.dms:
+				print sec
+				self.save_selected_section(sec)
 
 
 		# timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")

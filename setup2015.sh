@@ -1,3 +1,5 @@
+#! /bin/bash
+
 CSD181=/oasis/projects/nsf/csd181/yuncong
 CSD395=/oasis/projects/nsf/csd395/yuncong
 
@@ -32,6 +34,22 @@ export LOCAL_DATA_DIR=$HOME/CSHL_data_processed
 export LOCAL_REPO_DIR=$HOME/Brain
 export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
 export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
+
+hostname=`hostname`
+
+if [ "$hostname"=="yuncong-MacbookPro" ]; then 
+	export DATA_DIR=$HOME/CSHL_data_processed
+	export REPO_DIR=$HOME/Brain
+	export RESULT_DIR=$HOME/CSHL_data_results
+	export LABELING_DIR=$HOME/CSHL_data_labelings
+else
+	export DATA_DIR=$CSD395/CSHL_data_processed
+	export REPO_DIR=$CSD395/Brain
+	export PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
+	export RESULT_DIR=$CSD395/CSHL_data_results
+	export LABELING_DIR=$CSD395/CSHL_data_labelings
+fi
+
 
 alias sync_result='function _sr(){ cd $LOCAL_RESULT_DIR; rsync -azP --delete --include="*/" --include="0*/*$2*" --exclude="*" -m  yuncong@gordon.sdsc.edu:$GORDON_RESULT_DIR/$1 . ; cd - ;}; _sr'
 alias extract_result='function _er(){ mkdir $3; find $LOCAL_RESULT_DIR/$1 -regex .*/.*$2.* -type f -print0 | xargs -0 cp -t $3; }; _er'

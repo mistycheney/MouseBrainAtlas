@@ -375,15 +375,25 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 		QGraphicsEllipseItem.mouseMoveEvent(self, event)
 
 
-def load_dms(i):
-	return DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
-		         repo_dir=os.environ['LOCAL_REPO_DIR'], 
-		         result_dir=os.environ['LOCAL_RESULT_DIR'], 
-		         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-		    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)
+# def load_dms(i):
+# 	return DataManager(data_dir=os.environ['LOCAL_DATA_DIR'], 
+# 		         repo_dir=os.environ['LOCAL_REPO_DIR'], 
+# 		         result_dir=os.environ['LOCAL_RESULT_DIR'], 
+# 		         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+# 		    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)
 	
-def load_pixmap(dm):
-	return QPixmap(dm._get_image_filepath(version='rgb-jpg'))
+# def load_pixmap(dm):
+def load_pixmap(img_path):
+	# return QPixmap(dm._get_image_filepath(version='rgb-jpg'))
+	
+	# return QImage(dm._get_image_filepath(version='rgb-jpg'))
+
+	# dm._load_image(versions=['rgb-jpg'])
+
+	return imread(img_path)
+
+	# return dm.image_rgb_jpg
+	
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, stack=None):
@@ -410,7 +420,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section2 = section + 1
 		self.section3 = section - 1
 
-		sections = range(self.section-NUM_NEIGHBORS_PRELOAD, self.section+NUM_NEIGHBORS_PRELOAD+1)
+		sections = range(max(self.section_range_lookup[self.stack][0], self.section-NUM_NEIGHBORS_PRELOAD), min(self.section_range_lookup[self.stack][1], self.section+NUM_NEIGHBORS_PRELOAD+1))
 
 		# t = time.time()
 		# self.dms = dict(zip(sections, Parallel(n_jobs=4)(delayed(load_dms)(i) for i in sections)))
@@ -446,7 +456,32 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			for i in to_remove:
 				self.pixmaps.pop(i)
 		else:
+
+			# t = time.time()
 			self.pixmaps = dict([(i, QPixmap(dm._get_image_filepath(version='rgb-jpg'))) for i, dm in self.dms.iteritems()])
+			# print time.time() - t
+
+			# t = time.time()
+			# images = Parallel(n_jobs=4, backend='threading')(delayed(load_pixmap)(dm._get_image_filepath(version='rgb-jpg')) for i, dm in self.dms.iteritems())
+			# print time.time() - t
+
+			# self.pixmaps = {}
+			# for i, im in zip(self.dms.keys(), images):
+
+			# 	t = time.time()
+
+			# 	im = im.astype(np.uint32)
+
+			# 	b = (im[:,:,0] << 16 | im[:,:,1] << 8 | im[:,:,2]) # pack RGB values
+			# 	h, w = im.shape[:2]
+			# 	qim = QImage(b, w, h, QImage.Format_RGB888)
+			# 	qpix = QPixmap(w, h)
+			# 	r = qpix.convertFromImage(qim)
+			# 	assert r
+			# 	self.pixmaps[i] = qpix
+
+			# 	print time.time() - t
+
 		print 'load image', time.time() - t
 
 		self.new_labelnames = {}
@@ -593,35 +628,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.set_mode(Mode.IDLE)
 
+		self.labeling_painters[0] = LabelingPainter(self.section1_gview, self.section1_gscene)
+		self.labeling_painters[1] = LabelingPainter(self.section2_gview, self.section2_gscene)
+		self.labeling_painters[2] = LabelingPainter(self.section3_gview, self.section3_gscene)
+
 		self.show()
 
 	def initialize_brain_labeling_gui(self):
 
-		# self.menu = QMenu()
-
-		# self.addVertex_Action = self.menu.addAction("Insert vertices")
-		# self.extendPolygon_Action = self.menu.addAction("Extend from this vertex")
-		# self.doneAddingVertex_Action = self.menu.addAction("Done adding vertex")
-
-		# self.movePolygon_Action = self.menu.addAction("Move")
-
-		# self.deleteVertex_Action = self.menu.addAction("Delete vertex")
-
-		# self.deleteVerticesROI_Action = self.menu.addAction("Delete vertices in ROI (close)")
-		# self.deleteVerticesROIOpen_Action = self.menu.addAction("Delete vertices in ROI (open)")
-
-		# self.selectROI_Action = self.menu.addAction("Select ROI")
-
-		# self.breakEdge_Action = self.menu.addAction("break edge")
-
-		# self.newPolygon_Action = self.menu.addAction("New polygon")
-
-		# self.accProp_Action = self.menu.addAction("Accept")
-		# self.rejProp_Action = self.menu.addAction("Reject")
-
-		# self.changeLabel_Action = self.menu.addAction('Change label')
-
-		# A set of high-contrast colors proposed by Green-Armytage
 		self.colors = np.loadtxt('100colors.txt', skiprows=1)
 		self.label_cmap = ListedColormap(self.colors, name='label_cmap')
 
@@ -632,7 +646,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.button_loadLabeling.clicked.connect(self.load_callback)
 		self.button_saveLabeling.clicked.connect(self.save_callback)
 		self.button_quit.clicked.connect(self.close)
-		
+
+		self.button_loadLabelingSec1.clicked.connect(self.load_callback1)
+		self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
+		self.button_loadLabelingSec3.clicked.connect(self.load_callback3)
+
 		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
 		self.img_radioButton.setChecked(True)
 
@@ -652,8 +670,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.thumbnail_list.setResizeMode(QListWidget.Adjust)
 		self.thumbnail_list.itemDoubleClicked.connect(self.section_changed)
 
-		section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-		first_sec, last_sec = section_range_lookup[self.stack]
+		self.section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
+		first_sec, last_sec = self.section_range_lookup[self.stack]
 		for i in range(first_sec, last_sec):
 			item = QListWidgetItem(QIcon("/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif"%{'sec':i, 'stack': self.stack}), str(i))
 			# item.setFont(QFont())
@@ -662,6 +680,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.thumbnail_list.resizeEvent = self.thumbnail_list_resized
 		self.init_thumbnail_list_width = self.thumbnail_list.width()
 		# print self.init_thumbnail_list_width
+
+		self.accepted_proposals_allPanels = {}
 
 
 	def showContextMenu(self, pos):
@@ -1001,23 +1021,49 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.zoom_scene(event)
 			return True
 
-		if (obj == self.section2_gview.viewport() or obj == self.section3_gview.viewport()) and event.type() == QEvent.Wheel:
+		if obj == self.section2_gview.viewport() and event.type() == QEvent.Wheel:
+			self.zoom_scene(event)
 			return True
 
-		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMousePress:
+		if obj == self.section3_gview.viewport() and event.type() == QEvent.Wheel:
+			self.zoom_scene(event)
+			return True
+
+		# if (obj == self.section2_gview.viewport() or obj == self.section3_gview.viewport()) and event.type() == QEvent.Wheel:
+		# 	return True
+
+		if obj == self.section1_gscene:
+			obj_type = 'gscene'
+			gscene = self.section1_gscene
+			gview = self.section1_gview
+			section = self.section
+		elif obj == self.section2_gscene:
+			obj_type = 'gscene'
+			gscene = self.section2_gscene
+			gview = self.section2_gview
+			section = self.section2
+		elif obj == self.section3_gscene:
+			obj_type = 'gscene'
+			gscene = self.section3_gscene
+			gview = self.section3_gview
+			section = self.section3
+
+		# if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMousePress:
+		if obj_type == 'gscene' and event.type() == QEvent.GraphicsSceneMousePress:
 
 			### with this, single click can select an item; without this only double click can select an item (WEIRD !!!)
-			self.section1_gview.translate(0.1, 0.1)
-			self.section1_gview.translate(-0.1, -0.1)
+			# self.section1_gview.translate(0.1, 0.1)
+			# self.section1_gview.translate(-0.1, -0.1)
+			gview.translate(0.1, 0.1)
+			gview.translate(-0.1, -0.1)
 			##########################################
 
-			print 'enabled', [p.isEnabled() for p, props in self.accepted_proposals.iteritems()]
+			print 'enabled', [p.isEnabled() for p, props in self.accepted_proposals_allPanels[section].iteritems()]
 
 			# if self.mode == Mode.MOVING_VERTEX or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 			obj.mousePressEvent(event) # let gscene handle the event (i.e. determine which item or whether an item receives it)
 
-
-			print 'close curr polygon', self.close_curr_polygon
+			# print 'close curr polygon', self.close_curr_polygon
 
 			if self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
 
@@ -1033,7 +1079,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.selected_polygon.setPath(path)
 
 					# self.history.append({'type': 'close_contour', 'polygon': self.selected_polygon})
-					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals[self.selected_polygon]['vertexCircles'])-1})
+					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allPanels[section][self.selected_polygon]['vertexCircles'])-1})
 					print 'history:', [h['type'] for h in self.history]
 
 				elif self.ignore_click:
@@ -1052,7 +1098,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					self.selected_polygon.setPath(path)
 
-					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals[self.selected_polygon]['vertexCircles'])-1})
+					self.history.append({'type': 'add_vertex', 'polygon': self.selected_polygon, 'index': len(self.accepted_proposals_allPanels[section][self.selected_polygon]['vertexCircles'])-1})
 					print 'history:', [h['type'] for h in self.history]
 
 				return True
@@ -1098,7 +1144,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				
 			return False
 
-		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseMove:
+
+
+
+
+		# if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseMove:
+		if obj_type == 'gscene' and event.type() == QEvent.GraphicsSceneMouseMove:
 
 			# print 'event filter: mouse move'
 
@@ -1130,7 +1181,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			return False
 
-		if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseRelease:
+
+
+
+		# if obj == self.section1_gscene and event.type() == QEvent.GraphicsSceneMouseRelease:
+		if obj_type == 'gscene' and event.type() == QEvent.GraphicsSceneMouseRelease:
 
 			obj.mouseReleaseEvent(event)
 
@@ -1142,6 +1197,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					self.close_curr_polygon = False
 					
 					self.accepted_proposals[self.selected_polygon]['subtype'] = PolygonType.CLOSED
+					# self.accepted_proposals_allPanels[section][self.selected_polygon]['subtype'] = PolygonType.CLOSED
+					self.accepted_proposals_allPanels[section] = self.accepted_proposals
 					self.complete_polygon()
 
 					# self.selected_polygon = None
@@ -1264,7 +1321,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if vertex_ind1 == 0 and vertex_ind2 == 0:
 				reversed_path1 = path1.toReversed()
 				for i in range(path2.elementCount()):
-					elem = path2.elementAt(i)
+					elem = path2.elementAt(i) 
 					reversed_path1.lineTo(elem.x, elem.y)
 				new_polygon = self.add_polygon_vertices_label(reversed_path1, pen=self.red_pen, label=self.accepted_proposals[polygon1]['label'])
 				
@@ -1290,6 +1347,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.remove_polygon(polygon1)
 			self.remove_polygon(polygon2)
+
+
+	def remove_polygon(self, polygon):
+		for circ in self.accepted_proposals[polygon]['vertexCircles']:
+			self.section1_gscene.removeItem(circ)
+
+		if 'labelTextArtist' in self.accepted_proposals[polygon]:
+			self.section1_gscene.removeItem(self.accepted_proposals[polygon]['labelTextArtist'])
+
+		self.section1_gscene.removeItem(polygon)
+
+		self.accepted_proposals.pop(polygon)
+
 
 	def add_polygon(self, path, pen, z_value=50, uncertain=False):
 
@@ -1834,14 +1904,39 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.global_proposal_labels = [None] * self.n_global_proposals
 
-	def load_callback(self):
 
-		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dm.labelings_dir))
+	def load_callback1(self):
+		self.load_callback(panel=1)
+
+	def load_callback2(self):
+		self.load_callback(panel=2)
+
+	def load_callback3(self):
+		self.load_callback(panel=3)
+
+	def load_callback(self, panel=1):
+
+		if panel == 1:
+			gscene = self.section1_gscene
+			gview = self.section1_gview
+			section = self.section
+		elif panel == 2:
+			gscene = self.section2_gscene
+			gview = self.section2_gview
+			section = self.section2
+		elif panel == 3:
+			gscene = self.section3_gscene
+			gview = self.section3_gview
+			section = self.section3
+
+		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dms[section].labelings_dir))
 		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
+
+		self.accepted_proposals_allPanels[panel] = {}
 
 		# self.accepted_proposals = {}
 
-		_, _, _, accepted_proposal_props = self.dm.load_proposal_review_result(username, timestamp, suffix)
+		_, _, _, accepted_proposal_props = self.dms[section].load_proposal_review_result(username, timestamp, suffix)
 
 		for props in accepted_proposal_props:
 			
@@ -1868,7 +1963,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			polygon.setPath(curr_polygon_path)
 
-			self.section1_gscene.addItem(polygon)
+			gscene.addItem(polygon)
 
 			# elif props['subtype'] == PolygonType.OPEN:
 			# else:
@@ -1888,7 +1983,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				ellipse.signal_emitter.clicked.connect(self.vertex_clicked)
 				ellipse.signal_emitter.released.connect(self.vertex_released)
 
-				self.section1_gscene.addItem(ellipse)
+				gscene.addItem(ellipse)
 
 				ellipse.setZValue(99)
 
@@ -1909,12 +2004,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			textItem.setZValue(99)
 			props['labelTextArtist'] = textItem
 
-			self.section1_gscene.addItem(textItem)
+			gscene.addItem(textItem)
 
 			props.pop('vertices')
 
-			self.accepted_proposals[polygon] = props
-
+			# self.accepted_proposals[polygon] = props
+			self.accepted_proposals_allPanels[polygon] = props
+			
 
 	def open_label_selection_dialog(self):
 
@@ -2202,7 +2298,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			props_saved = props.copy()
 
-			props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+			# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+
+			path = polygon.path()
+
+			if self.is_path_closed(polygon.path()):
+				props_saved['subtype'] = PolygonType.CLOSED
+				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+			else:
+				props_saved['subtype'] = PolygonType.OPEN
+				props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
 
 			label_pos = props['labelTextArtist'].scenePos()
 			props_saved['labelPos'] = (label_pos.x(), label_pos.y())
@@ -2226,16 +2331,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# matplotlib canvas CALLBACKs
 	############################################
 
-	def remove_polygon(self, polygon):
-		for circ in self.accepted_proposals[polygon]['vertexCircles']:
-			self.section1_gscene.removeItem(circ)
-
-		if 'labelTextArtist' in self.accepted_proposals[polygon]:
-			self.section1_gscene.removeItem(self.accepted_proposals[polygon]['labelTextArtist'])
-
-		self.section1_gscene.removeItem(polygon)
-
-		self.accepted_proposals.pop(polygon)
 
 	def undo(self):
 
@@ -2373,6 +2468,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if mode == Mode.MOVING_VERTEX:
 			self.set_flag_all(QGraphicsItem.ItemIsMovable, True)
 		else:
+			# if hasattr(self, 'accepted_proposals'):
+			# 	for p, props in self.accepted_proposals.iteritems():
+			# 		if p is None or 'vertexCircles' not in props or 'label' not in props:
+			# 			self.remove_polygon(p)
+
 			self.set_flag_all(QGraphicsItem.ItemIsMovable, False)
 
 		if mode == Mode.SELECT_UNCERTAIN_SEGMENT or mode == Mode.DELETE_ROI_MERGE or mode == Mode.DELETE_ROI_DUPLICATE:

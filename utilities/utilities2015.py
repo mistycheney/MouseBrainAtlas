@@ -176,13 +176,14 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness    
 
 
+section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
 
 class DataManager(object):
 
-    def __init__(self, data_dir=os.environ['GORDON_DATA_DIR'], 
-                 repo_dir=os.environ['GORDON_REPO_DIR'], 
-                 result_dir=os.environ['GORDON_RESULT_DIR'], 
-                 labeling_dir=os.environ['GORDON_LABELING_DIR'],
+    def __init__(self, data_dir=os.environ['DATA_DIR'], 
+                 repo_dir=os.environ['REPO_DIR'], 
+                 result_dir=os.environ['RESULT_DIR'], 
+                 labeling_dir=os.environ['LABELING_DIR'],
                  gabor_params_id=None, 
                  segm_params_id=None, 
                  vq_params_id=None,
@@ -285,7 +286,7 @@ class DataManager(object):
         if os.path.exists(self.image_path):
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
         else:
-            sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
+            # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
             self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
@@ -1266,7 +1267,7 @@ class DataManager(object):
         if username is None: # search labelings of any user
             self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
             if len(self.result_list_flatten) == 0:
-                sys.stderr.write('username is empty\n')
+                # sys.stderr.write('username is empty\n')
                 return None
 
         if timestamp == 'latest':
@@ -1278,7 +1279,7 @@ class DataManager(object):
                 timestamp = ts_str_usr_sorted[0][1]
                 username = ts_str_usr_sorted[0][2]
 
-        return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl')
+        return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl'), username, timestamp
 
 
     def save_proposal_review_result(self, result, username, timestamp, suffix, stack=None, section=None):
@@ -1308,10 +1309,12 @@ class DataManager(object):
 
         # self.result_list = defaultdict(lambda: defaultdict(list))
         self.result_list = defaultdict(list)
-        for fn in os.listdir(self.labelings_dir):
-            st, se, us, ts, suf = fn[:-4].split('_')
-            # self.result_list[us][ts].append(suf)
-            self.result_list[us].append(ts)
+
+        if os.path.exists(self.labelings_dir):
+            for fn in os.listdir(self.labelings_dir):
+                st, se, us, ts, suf = fn[:-4].split('_')
+                # self.result_list[us][ts].append(suf)
+                self.result_list[us].append(ts)
 
     def load_proposal_review_result(self, username, timestamp, suffix):
 
@@ -1326,12 +1329,20 @@ class DataManager(object):
         if suffix == 'all':
             results = []
             for suf in self.result_list[username][timestamp]:
-                path = open(self.load_review_result_path(username, timestamp, suffix=suf), 'r')
-                results.append((username, timestamp, suf, pickle.load(path)))
+                ret = self.load_review_result_path(username=username, timestamp=timestamp, suffix=suf)
+                if ret is None:
+                    return None
+                else:
+                    path, usr, ts = ret
+                    results.append((username, timestamp, suf, pickle.load(open(path, 'r'))))
             return results
         else:
-            path = open(self.load_review_result_path(username, timestamp, suffix=suffix), 'r')
-            return (username, timestamp, suffix, pickle.load(path))
+            ret = self.load_review_result_path(username=username, timestamp=timestamp, suffix=suffix)
+            if ret is None:
+                return None
+            else:
+                path, usr, ts = ret
+                return (usr, ts, suffix, pickle.load( open(path, 'r')))
 
 
     def load_labeling(self, stack=None, section=None, labeling_name=None):

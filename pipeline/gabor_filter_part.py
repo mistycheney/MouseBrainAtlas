@@ -39,8 +39,8 @@ dm = DataManager(gabor_params_id=args.gabor_params_id,
                  # segm_params_id=args.segm_params_id, 
                  # vq_params_id=args.vq_params_id,
                  stack=args.stack_name, 
-                 section=args.slice_ind,
-                 result_dir='/scratch/yuncong/CSHL_data_results')
+                 section=args.slice_ind)
+                 # result_dir='/scratch/yuncong/CSHL_data_results')
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
@@ -58,67 +58,6 @@ import numpy as np
 from joblib import Parallel, delayed
 from scipy.signal import fftconvolve
 import bloscpack as bp
-
-# try:
-#     raise
-#     features_rotated = dm.load_pipeline_result('featuresRotated')
-# # if dm.check_pipeline_result('featuresRotated'):
-#     print "features_rotated.npy already exists, skip"
-# # else:
-# except:
-    
-    # if dm.check_pipeline_result('features'):
-    # # if False:
-    #     print "features.npy already exists, load"
-    #     features = dm.load_pipeline_result('features')
-    # else:
-
-# if args.part == 0:
-#     xmin = dm.xmin
-#     xmax = dm.image_width/2-1
-#     ymin = dm.ymin
-#     ymax = dm.image_height/2-1
-# elif args.part == 1:
-#     xmin = dm.image_width/2
-#     xmax = dm.xmax
-#     ymin = dm.ymin
-#     ymax = dm.image_height/2-1
-# elif args.part == 2:
-#     xmin = dm.xmin
-#     xmax = dm.image_width/2-1
-#     ymin = dm.image_height/2
-#     ymax = dm.ymax
-# elif args.part == 3:
-#     xmin = dm.image_width/2
-#     xmax = dm.xmax
-#     ymin = dm.image_height/2
-#     ymax = dm.ymax
-
-# if args.part == 0:
-#     xmin = dm.xmin
-#     xmax = dm.xmin+dm.w/2-1
-#     ymin = dm.ymin
-#     ymax = dm.ymin+dm.h/2-1
-# elif args.part == 1:
-#     xmin = dm.xmin+dm.w/2
-#     xmax = dm.xmax
-#     ymin = dm.ymin
-#     ymax = dm.ymin+dm.h/2-1
-# elif args.part == 2:
-#     xmin = dm.xmin
-#     xmax = dm.xmin+dm.w/2-1
-#     ymin = dm.ymin+dm.h/2
-#     ymax = dm.ymax
-# elif args.part == 3:
-#     xmin = dm.xmin+dm.w/2
-#     xmax = dm.xmax
-#     ymin = dm.ymin+dm.h/2
-#     ymax = dm.ymax
-
-# xmin = dm.xmin
-# xmax = dm.xmax
-# ymin = dm.ymin
-# ymax = dm.ymax
 
 xmin = args.xmin
 xmax = args.xmax

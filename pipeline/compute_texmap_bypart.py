@@ -25,8 +25,8 @@ from scipy.spatial.distance import cdist
 
 dm = DataManager(gabor_params_id=args.gabor_params_id, 
                  stack=args.stack_name, 
-                 section=args.slice_ind,
-                 result_dir='/scratch/yuncong/CSHL_data_results')
+                 section=args.slice_ind)
+                 # result_dir='/scratch/yuncong/CSHL_data_results')
 
 #==================================================
 
@@ -78,7 +78,6 @@ for col, xmin in enumerate(range(dm.xmin, dm.xmax, block_size)):
 		    #     label_list.append(np.argmin(D, axis=1))
 
 		sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-
 
 	# labels = np.concatenate(label_list)
 

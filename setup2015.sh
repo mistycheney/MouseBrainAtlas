@@ -42,12 +42,16 @@ if [ "$hostname"=="yuncong-MacbookPro" ]; then
 	export REPO_DIR=$HOME/Brain
 	export RESULT_DIR=$HOME/CSHL_data_results
 	export LABELING_DIR=$HOME/CSHL_data_labelings
+	export MXNET_DIR=$HOME/mxnet
+	export MODEL_DIR=$HOME/mxnet_models
 else
 	export DATA_DIR=$CSD395/CSHL_data_processed
 	export REPO_DIR=$CSD395/Brain
 	export PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
 	export RESULT_DIR=$CSD395/CSHL_data_results
 	export LABELING_DIR=$CSD395/CSHL_data_labelings
+	export MXNET_DIR=$CSD395/mxnet
+	export MODEL_DIR=/oasis/projects/nsf/csd395/jiaxuzhu/model/
 fi
 
 

@@ -1,6 +1,8 @@
+import sys
+import os
+sys.path.append(os.environ['MXNET_DIR']+'/python')
 import mxnet as mx
 import numpy as np
-import os
 
 
 class FeatureExtractor:

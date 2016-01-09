@@ -35,10 +35,8 @@ export LOCAL_REPO_DIR=$HOME/Brain
 export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
 export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
 
-hostname=`hostname`
-
-if [ "$hostname"=="yuncong-MacbookPro" ]; then 
-	export DATA_DIR=$HOME/CSHL_data_processed
+if [[ $(hostname) = "yuncong-MacbookPro" ]]; then 
+        export DATA_DIR=$HOME/CSHL_data_processed
 	export REPO_DIR=$HOME/Brain
 	export RESULT_DIR=$HOME/CSHL_data_results
 	export LABELING_DIR=$HOME/CSHL_data_labelings

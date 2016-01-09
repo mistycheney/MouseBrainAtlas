@@ -1,3 +1,5 @@
+.npy
+
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 *.h5

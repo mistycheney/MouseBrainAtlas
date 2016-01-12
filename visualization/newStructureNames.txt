@@ -16,3 +16,6 @@ VOri	nucleus trigeminalis descendens Oralis, pars intermedius
 Vcd	nucleus trigemini descendens, pars caudalis/spinialis
 CereNuc	Deep cerebellar nuclei
 9N	glossopharyngeal nucleus
+RtTgD	reticulotegmental nucleus of the pons, dorsal part
+Nuc1	undefined nucleus 1
+Nuc2	undefined nucleus 2

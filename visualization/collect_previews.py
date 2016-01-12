@@ -26,7 +26,7 @@ for sec in range(first_sec, last_sec+1):
 			         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
 			         stack=stack, section=sec, load_mask=False)
 	try:
-		path = dm.load_review_result_path(username=None, timestamp='latest', suffix='consolidated')
+		path, usr, ts = dm.load_review_result_path(username=None, timestamp='latest', suffix='consolidated')
 		preview_img_path = path[:-4] + '.jpg'
 		print preview_img_path
 		shutil.copy(preview_img_path, new_dir)

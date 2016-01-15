@@ -28,7 +28,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v12 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v13 import Ui_BrainLabelingGui
 
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
@@ -141,6 +141,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.structure_names = OrderedDict(self.new_labelnames.items() + sorted(self.structure_names.items()))
 
 		self.first_sec, self.last_sec = section_range_lookup[self.stack]
+		self.midline_sec = midline_section_lookup[self.stack]
 
 		self.red_pen = QPen(Qt.red)
 		self.red_pen.setWidth(20)
@@ -156,6 +157,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.gviews = [self.section1_gview, self.section2_gview, self.section3_gview] # exactly one for each section {section: gscene}
 
 		self.accepted_proposals_allSections = {}
+
+		self.lateral_position_lookup = dict(zip(range(self.first_sec, self.midline_sec+1), -np.linspace(2.64, 0, self.midline_sec-self.first_sec+1)) + \
+											zip(range(self.midline_sec, self.last_sec+1), np.linspace(0, 2.64, self.last_sec-self.midline_sec+1)))
 
 	def load_active_set(self, sections=None):
 
@@ -185,7 +189,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				for i in self.sections:
 					if i not in self.pixmaps:
 						print 'new load', i
-						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
 
 				to_remove = []
 				for i in self.pixmaps:
@@ -200,12 +205,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					# self.gscenes.pop(i)
 			else:	
 			
-				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
+				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
+				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
+			
 
 			print 'load image', time.time() - t
 
 
 	def paint_panel(self, panel_id, sec, labeling_username=None):
+
+		if not hasattr(self, 'grid_pixmap'):
+			self.grid_pixmap = QPixmap('/home/yuncong/CSHL_data_processed/MD594_lossless_aligned_cropped_stereotacticGrids.png')
 
 		gview = self.gviews[panel_id]
 
@@ -217,6 +227,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			pixmap = self.pixmaps[sec]
 			gscene = QGraphicsScene(gview)
 			gscene.addPixmap(pixmap)
+			gscene.addPixmap(self.grid_pixmap)
 
 			self.accepted_proposals_allSections[sec] = {}
 
@@ -280,16 +291,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
 		self.button_loadLabelingSec3.clicked.connect(self.load_callback3)
 
-		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
-		self.img_radioButton.setChecked(True)
+		# self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
+		# self.img_radioButton.setChecked(True)
 
-		for b in self.display_buttons:
-			b.toggled.connect(self.display_option_changed)
+		# for b in self.display_buttons:
+		# 	b.toggled.connect(self.display_option_changed)
 
 		self.radioButton_globalProposal.toggled.connect(self.mode_changed)
 		self.radioButton_localProposal.toggled.connect(self.mode_changed)
 
-		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
+		# self.buttonSpOnOff.clicked.connect(self.display_option_changed)
 		self.button_labelsOnOff.clicked.connect(self.toggle_labels)
 		self.button_contoursOnOff.clicked.connect(self.toggle_contours)
 		self.button_verticesOnOff.clicked.connect(self.toggle_vertices)
@@ -310,7 +321,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section1_gscene = None
 		self.section2_gscene = None
 		self.section3_gscene = None
-
 
 	def username_changed(self):
 		self.username = str(self.sender().text())
@@ -1291,8 +1301,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					return
 				else:
 					self.section = self.section + 1
-			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
+
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+														', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+														', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 			self.paint_panel(0, self.section)
 
@@ -1310,7 +1322,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				else:
 					self.section2 = self.section2 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
+
 			self.paint_panel(1, self.section2)
 
 
@@ -1327,7 +1342,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				else:
 					self.section3 = self.section3 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
+			
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 			self.paint_panel(2, self.section3)
 
@@ -1843,7 +1861,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 			gview.setTransformationAnchor(QGraphicsView.NoAnchor)
 			gview.setContextMenuPolicy(Qt.CustomContextMenu)
+
 			gview.customContextMenuRequested.connect(self.showContextMenu)
+
+			# if not hasattr(self, 'contextMenu_set') or (hasattr(self, 'contextMenu_set') and not self.contextMenu_set):
+			# 	gview.customContextMenuRequested.connect(self.showContextMenu)
+			# 	self.contextMenu_set = True
 
 			gview.viewport().installEventFilter(self)
 
@@ -1858,7 +1881,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.show()
 
-		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ', middle %d'%self.section + ', right %d'%self.section2)
+		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 		self.set_mode(Mode.IDLE)
 
@@ -2762,78 +2787,78 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw()
 
-	def display_option_changed(self):
-		if self.sender() == self.buttonSpOnOff:
+	# def display_option_changed(self):
+	# 	if self.sender() == self.buttonSpOnOff:
 
-			if not self.superpixels_on:
-				self.turn_superpixels_on()
-			else:
-				self.turn_superpixels_off()
-		else:
-			print 'not implemented'
-			return
+	# 		if not self.superpixels_on:
+	# 			self.turn_superpixels_on()
+	# 		else:
+	# 			self.turn_superpixels_off()
+	# 	else:
+	# 		print 'not implemented'
+	# 		return
 
-			# if self.under_img is not None:
-			#   self.under_img.remove()
+	# 		# if self.under_img is not None:
+	# 		#   self.under_img.remove()
 
-			self.axis.clear()
+	# 		self.axis.clear()
 
-			if self.sender() == self.img_radioButton:
+	# 		if self.sender() == self.img_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
-				# self.superpixels_on = False
+	# 			# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+	# 			self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
+	# 			# self.superpixels_on = False
 
-			elif self.sender() == self.textonmap_radioButton:
+	# 		elif self.sender() == self.textonmap_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				if self.textonmap_vis is None:
-					self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
+	# 			if self.textonmap_vis is None:
+	# 				self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
 
-				# if self.under_img is not None:
-				#   self.under_img.remove()
+	# 			# if self.under_img is not None:
+	# 			#   self.under_img.remove()
 
-				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				# self.superpixels_on = False
+	# 			# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+	# 			self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+	# 			# self.superpixels_on = False
 
-			elif self.sender() == self.dirmap_radioButton:
+	# 		elif self.sender() == self.dirmap_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				if self.dirmap_vis is None:
-					self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
-					self.dirmap_vis[~self.dm.mask] = 0
+	# 			if self.dirmap_vis is None:
+	# 				self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
+	# 				self.dirmap_vis[~self.dm.mask] = 0
 
 
-				# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
-				self.axis.imshow(self.dirmap_vis, aspect='equal')
+	# 			# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
+	# 			self.axis.imshow(self.dirmap_vis, aspect='equal')
 
-				# if not self.seg_loaded:
-				#   self.load_segmentation()
+	# 			# if not self.seg_loaded:
+	# 			#   self.load_segmentation()
 
-				# self.superpixels_on = False
+	# 			# self.superpixels_on = False
 
-			# elif self.sender() == self.labeling_radioButton:
-			#   pass
+	# 		# elif self.sender() == self.labeling_radioButton:
+	# 		#   pass
 
-		self.axis.axis('off')
-		# self.axis.set_xlim([self.newxmin, self.newxmax])
-		# self.axis.set_ylim([self.newymin, self.newymax])
-		# self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas.draw()
+	# 	self.axis.axis('off')
+	# 	# self.axis.set_xlim([self.newxmin, self.newxmax])
+	# 	# self.axis.set_ylim([self.newymin, self.newymax])
+	# 	# self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+	# 	self.canvas.draw()
 
-		self.axis2.axis('off')
-		# self.axis2.set_xlim([self.newxmin, self.newxmax])
-		# self.axis2.set_ylim([self.newymin, self.newymax])
-		# self.fig2.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas2.draw()
+	# 	self.axis2.axis('off')
+	# 	# self.axis2.set_xlim([self.newxmin, self.newxmax])
+	# 	# self.axis2.set_ylim([self.newymin, self.newymax])
+	# 	# self.fig2.subplots_adjust(left=0, bottom=0, right=1, top=1)
+	# 	self.canvas2.draw()
 
 			   
 if __name__ == "__main__":

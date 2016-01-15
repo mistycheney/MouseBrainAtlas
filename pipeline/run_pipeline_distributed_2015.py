@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 t = time.time()
 
-exclude_nodes = [33]
+exclude_nodes = [33, 41]
 
 if args.task == 'filter':
 	run_distributed3(command='%(script_path)s %(stack)s %%(secind)d -g %(gabor_p)s'%\

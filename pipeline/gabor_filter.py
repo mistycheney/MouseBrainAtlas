@@ -43,8 +43,8 @@ dm = DataManager(gabor_params_id=args.gabor_params_id,
                  # segm_params_id=args.segm_params_id, 
                  # vq_params_id=args.vq_params_id,
                  stack=args.stack_name, 
-                 section=args.slice_ind,
-                result_dir='/scratch/yuncong/CSHL_data_results')
+                 section=args.slice_ind)
+                # result_dir='/scratch/yuncong/CSHL_data_results')
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 

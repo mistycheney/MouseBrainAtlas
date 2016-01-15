@@ -28,7 +28,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v12 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v13 import Ui_BrainLabelingGui
 
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
@@ -141,6 +141,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.structure_names = OrderedDict(self.new_labelnames.items() + sorted(self.structure_names.items()))
 
 		self.first_sec, self.last_sec = section_range_lookup[self.stack]
+		self.midline_sec = midline_section_lookup[self.stack]
 
 		self.red_pen = QPen(Qt.red)
 		self.red_pen.setWidth(20)
@@ -157,60 +158,76 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.accepted_proposals_allSections = {}
 
+		self.lateral_position_lookup = dict(zip(range(self.first_sec, self.midline_sec+1), -np.linspace(2.64, 0, self.midline_sec-self.first_sec+1)) + \
+											zip(range(self.midline_sec, self.last_sec+1), np.linspace(0, 2.64, self.last_sec-self.midline_sec+1)))
+
 	def load_active_set(self, sections=None):
 
 		if sections is None:
-			sections = [self.section, self.section2, self.section3]
+			self.sections = [self.section, self.section2, self.section3]
 		else:
 
 			minsec = min(sections)
 			maxsec = max(sections)
 
-			sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
+			self.sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
+			
+			print self.sections
 
 			self.dms = dict([(i, DataManager(
 			    data_dir=os.environ['LOCAL_DATA_DIR'], 
 			         repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			         result_dir=os.environ['LOCAL_RESULT_DIR'], 
 			         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) for i in sections])
+			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) 
+			for i in self.sections])
+				# for i in range(self.first_sec, self.last_sec+1)])
 
 			t = time.time()
 
-			# if hasattr(self, 'pixmaps'):
-			# 	for i in sections:
-			# 		if i not in self.pixmaps:
-			# 			print 'new load', i
-			# 			self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+			if hasattr(self, 'pixmaps'):
+				for i in self.sections:
+					if i not in self.pixmaps:
+						print 'new load', i
+						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
 
-			# 	to_remove = []
-			# 	for i in self.pixmaps:
-			# 		if i not in sections:
-			# 			print 'pop', i
-			# 			to_remove.append(i)
+				to_remove = []
+				for i in self.pixmaps:
+					if i not in self.sections:
+						print 'pop', i
+						to_remove.append(i)
 				
-			# 	for i in to_remove:
-			# 		self.pixmaps.pop(i)
-			# else:
+				for i in to_remove:
+					del self.pixmaps[i]
+					# self.pixmaps.pop(i)
+					del self.gscenes[i]
+					# self.gscenes.pop(i)
+			else:	
 			
-			self.pixmaps = dict([(i, QPixmap(dm._get_image_filepath(version='rgb-jpg'))) for i, dm in self.dms.iteritems()])
+				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
+				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
+			
 
 			print 'load image', time.time() - t
 
 
-	# def paramSettings_clicked(self):
-	# 	pass
-
 	def paint_panel(self, panel_id, sec, labeling_username=None):
+
+		if not hasattr(self, 'grid_pixmap'):
+			self.grid_pixmap = QPixmap('/home/yuncong/CSHL_data_processed/MD594_lossless_aligned_cropped_stereotacticGrids.png')
 
 		gview = self.gviews[panel_id]
 
 		if sec in self.gscenes:
+			print 'gscene exists'
 			gscene = self.gscenes[sec]
 		else:
+			print 'new gscene'
 			pixmap = self.pixmaps[sec]
 			gscene = QGraphicsScene(gview)
 			gscene.addPixmap(pixmap)
+			gscene.addPixmap(self.grid_pixmap)
 
 			self.accepted_proposals_allSections[sec] = {}
 
@@ -221,6 +238,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.gscenes[sec] = gscene
 
+			# if labeling_username is None and hasattr(self, 'username_toLoad') and self.username_toLoad is not None:
+			# 	labeling_username = self.username_toLoad
+
+			# try:
+			# 	usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(labeling_username, 'latest', 'consolidated')
+			# 	self.load_labelings(result, gscene, sec)
+			# except:
+			# 	sys.stderr.write('Labeling from %s does not exist for section %d' % (labeling_username, sec))
+
+			try:
+				usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(None, 'latest', 'consolidated')
+				self.load_labelings(result, gscene, sec)
+			except:
+				sys.stderr.write('There is no labeling for section %d\n' % sec)
+
 		if panel_id == 0:
 			self.section1_gscene = gscene
 		elif panel_id == 1:
@@ -229,15 +261,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.section3_gscene = gscene
 
 		gview.setScene(gscene)
-
-		if labeling_username is None and hasattr(self, 'username_toLoad') and self.username_toLoad is not None:
-			labeling_username = self.username_toLoad
-
-		try:
-			usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(labeling_username, 'latest', 'consolidated')
-			self.load_labelings(result, gscene, sec)
-		except:
-			sys.stderr.write('Labeling from %s does not exist for section %d' % (labeling_username, sec))
 
 		gview.show()
 
@@ -268,16 +291,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
 		self.button_loadLabelingSec3.clicked.connect(self.load_callback3)
 
-		self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
-		self.img_radioButton.setChecked(True)
+		# self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
+		# self.img_radioButton.setChecked(True)
 
-		for b in self.display_buttons:
-			b.toggled.connect(self.display_option_changed)
+		# for b in self.display_buttons:
+		# 	b.toggled.connect(self.display_option_changed)
 
 		self.radioButton_globalProposal.toggled.connect(self.mode_changed)
 		self.radioButton_localProposal.toggled.connect(self.mode_changed)
 
-		self.buttonSpOnOff.clicked.connect(self.display_option_changed)
+		# self.buttonSpOnOff.clicked.connect(self.display_option_changed)
 		self.button_labelsOnOff.clicked.connect(self.toggle_labels)
 		self.button_contoursOnOff.clicked.connect(self.toggle_contours)
 		self.button_verticesOnOff.clicked.connect(self.toggle_vertices)
@@ -298,7 +321,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.section1_gscene = None
 		self.section2_gscene = None
 		self.section3_gscene = None
-
 
 	def username_changed(self):
 		self.username = str(self.sender().text())
@@ -1270,17 +1292,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_3 or event.key() == Qt.Key_4:
 
 			if event.key() == Qt.Key_3:
-				if self.section == self.first_sec:
+				if self.section == self.first_sec or self.section - 1 not in self.sections:
 					return
 				else:
 					self.section = self.section - 1
 			else:
-				if self.section == self.last_sec:
+				if self.section == self.last_sec or self.section + 1 not in self.sections:
 					return
 				else:
 					self.section = self.section + 1
-			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+														', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+														', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 			self.paint_panel(0, self.section)
 
@@ -1288,17 +1312,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_5 or event.key() == Qt.Key_6:
 
 			if event.key() == Qt.Key_5:
-				if self.section2 == self.first_sec:
+				if self.section2 == self.first_sec or self.section2 - 1 not in self.sections:
 					return
 				else:
 					self.section2 = self.section2 - 1
 			else:
-				if self.section2 == self.last_sec:
+				if self.section2 == self.last_sec or self.section2 + 1 not in self.sections:
 					return
 				else:
 					self.section2 = self.section2 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 			self.paint_panel(1, self.section2)
 
@@ -1306,17 +1332,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif event.key() == Qt.Key_1 or event.key() == Qt.Key_2:
 
 			if event.key() == Qt.Key_1:
-				if self.section3 == self.first_sec:
+				if self.section3 == self.first_sec or self.section3 - 1 not in self.sections:
 					return
 				else:
 					self.section3 = self.section3 - 1
 			else:
-				if self.section3 == self.last_sec:
+				if self.section3 == self.last_sec or self.section3 + 1 not in self.sections:
 					return
 				else:
 					self.section3 = self.section3 + 1
 			
-			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+			
+			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 			self.paint_panel(2, self.section3)
 
@@ -1832,14 +1861,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 			gview.setTransformationAnchor(QGraphicsView.NoAnchor)
 			gview.setContextMenuPolicy(Qt.CustomContextMenu)
+
 			gview.customContextMenuRequested.connect(self.showContextMenu)
+
+			# if not hasattr(self, 'contextMenu_set') or (hasattr(self, 'contextMenu_set') and not self.contextMenu_set):
+			# 	gview.customContextMenuRequested.connect(self.showContextMenu)
+			# 	self.contextMenu_set = True
 
 			gview.viewport().installEventFilter(self)
 
-		if not hasattr(self, 'username') or self.username is None:
-			username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')
-			if not okay: return
-			self.username_toLoad = str(username)
+		# if not hasattr(self, 'username') or self.username is None:
+		# 	username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')
+		# 	if not okay: return
+		# 	self.username_toLoad = str(username)
 
 		self.paint_panel(0, self.section)
 		self.paint_panel(1, self.section2)
@@ -1847,7 +1881,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.show()
 
-		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', middle section %d' %self.section + ', left %d'%self.section3 + ', right %d'%self.section2)
+		self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
+											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
+											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
 
 		self.set_mode(Mode.IDLE)
 
@@ -1911,6 +1947,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if sec is not None:
 
+			# print self.accepted_proposals_allSections[sec]
+
 			accepted_proposal_props = []
 			for polygon, props in self.accepted_proposals_allSections[sec].iteritems():
 
@@ -1920,7 +1958,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				path = polygon.path()
 
-				if self.is_path_closed(polygon.path()):
+				if path.elementCount() > 1 and self.is_path_closed(path):
 					props_saved['subtype'] = PolygonType.CLOSED
 					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
 				else:
@@ -1935,60 +1973,90 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				accepted_proposal_props.append(props_saved)
 
-			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+			# print '#############'
+			# print accepted_proposal_props
 
-			print self.new_labelnames
+			labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+
+			# print self.new_labelnames
 			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
 
 			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+
+			if sec in self.gscenes:
+				pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+				painter = QPainter(pix)
+				
+				self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
+										QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+				pix.save(labeling_path[:-4] + '.jpg', "JPG")
+				print 'Preview image saved to', labeling_path[:-4] + '.jpg'
+				del painter
+				del pix
 
 
 	def save_callback(self):
 
-		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-
-		if not hasattr(self, 'username') or self.username is None:
-			username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-			if not okay: return
-			self.username = str(username)
-			self.lineEdit_username.setText(self.username)
-
-
 		for sec, ac in self.accepted_proposals_allSections.iteritems():
+			if sec in self.gscenes and sec in self.dms:
+				print sec
+				self.save_selected_section(sec)
 
-			if len(ac.keys()) == 0:
-				continue
 
-			accepted_proposal_props = []
-			for polygon, props in ac.iteritems():
+		# timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
-				props_saved = props.copy()
+		# if not hasattr(self, 'username') or self.username is None:
+		# 	username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+		# 	if not okay: return
+		# 	self.username = str(username)
+		# 	self.lineEdit_username.setText(self.username)
 
-				# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-				path = polygon.path()
+		# for sec, ac in self.accepted_proposals_allSections.iteritems():
 
-				if self.is_path_closed(polygon.path()):
-					props_saved['subtype'] = PolygonType.CLOSED
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
-				else:
-					props_saved['subtype'] = PolygonType.OPEN
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+		# 	if len(ac.keys()) == 0:
+		# 		continue
 
-				label_pos = props['labelTextArtist'].scenePos()
-				props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+		# 	accepted_proposal_props = []
+		# 	for polygon, props in ac.iteritems():
 
-				props_saved.pop('vertexCircles')
-				props_saved.pop('labelTextArtist')
+		# 		props_saved = props.copy()
 
-				accepted_proposal_props.append(props_saved)
+		# 		# props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
 
-			self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+		# 		path = polygon.path()
 
-			print self.new_labelnames
-			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+		# 		if self.is_path_closed(polygon.path()):
+		# 			props_saved['subtype'] = PolygonType.CLOSED
+		# 			props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+		# 		else:
+		# 			props_saved['subtype'] = PolygonType.OPEN
+		# 			props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
 
-			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+		# 		label_pos = props['labelTextArtist'].scenePos()
+		# 		props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+
+		# 		props_saved.pop('vertexCircles')
+		# 		props_saved.pop('labelTextArtist')
+
+		# 		accepted_proposal_props.append(props_saved)
+
+		# 	labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+
+		# 	# print self.new_labelnames
+		# 	self.dms[sec].add_labelnames(self.new_labelnames, os.environ['LOCAL_REPO_DIR']+'/visualization/newStructureNames.txt')
+
+		# 	self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+
+		# 	if sec in self.gscenes:
+		# 		pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+		# 		painter = QPainter(pix)
+				
+		# 		self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
+		# 								QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+		# 		pix.save(labeling_path[:-4] + '.jpg', "JPG")
+		# 		del painter
+
 
 	def labelbutton_callback(self):
 		pass
@@ -2719,78 +2787,78 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.canvas.draw()
 
-	def display_option_changed(self):
-		if self.sender() == self.buttonSpOnOff:
+	# def display_option_changed(self):
+	# 	if self.sender() == self.buttonSpOnOff:
 
-			if not self.superpixels_on:
-				self.turn_superpixels_on()
-			else:
-				self.turn_superpixels_off()
-		else:
-			print 'not implemented'
-			return
+	# 		if not self.superpixels_on:
+	# 			self.turn_superpixels_on()
+	# 		else:
+	# 			self.turn_superpixels_off()
+	# 	else:
+	# 		print 'not implemented'
+	# 		return
 
-			# if self.under_img is not None:
-			#   self.under_img.remove()
+	# 		# if self.under_img is not None:
+	# 		#   self.under_img.remove()
 
-			self.axis.clear()
+	# 		self.axis.clear()
 
-			if self.sender() == self.img_radioButton:
+	# 		if self.sender() == self.img_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
-				self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
-				# self.superpixels_on = False
+	# 			# self.under_img = self.axis.imshow(self.masked_img, aspect='equal', cmap=plt.cm.Greys_r)
+	# 			self.axis.imshow(self.dm.image_rgb_jpg, aspect='equal', cmap=plt.cm.Greys_r)
+	# 			# self.superpixels_on = False
 
-			elif self.sender() == self.textonmap_radioButton:
+	# 		elif self.sender() == self.textonmap_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				if self.textonmap_vis is None:
-					self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
+	# 			if self.textonmap_vis is None:
+	# 				self.textonmap_vis = self.dm.load_pipeline_result('texMapViz')
 
-				# if self.under_img is not None:
-				#   self.under_img.remove()
+	# 			# if self.under_img is not None:
+	# 			#   self.under_img.remove()
 
-				# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
-				# self.superpixels_on = False
+	# 			# self.under_img = self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+	# 			self.axis.imshow(self.textonmap_vis, cmap=plt.cm.Greys_r, aspect='equal')
+	# 			# self.superpixels_on = False
 
-			elif self.sender() == self.dirmap_radioButton:
+	# 		elif self.sender() == self.dirmap_radioButton:
 
-				# self.axis.clear()
-				# self.axis.axis('off')
+	# 			# self.axis.clear()
+	# 			# self.axis.axis('off')
 
-				if self.dirmap_vis is None:
-					self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
-					self.dirmap_vis[~self.dm.mask] = 0
+	# 			if self.dirmap_vis is None:
+	# 				self.dirmap_vis = self.dm.load_pipeline_result('dirMap', 'jpg')
+	# 				self.dirmap_vis[~self.dm.mask] = 0
 
 
-				# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
-				self.axis.imshow(self.dirmap_vis, aspect='equal')
+	# 			# self.under_img = self.axis.imshow(self.dirmap_vis, aspect='equal')
+	# 			self.axis.imshow(self.dirmap_vis, aspect='equal')
 
-				# if not self.seg_loaded:
-				#   self.load_segmentation()
+	# 			# if not self.seg_loaded:
+	# 			#   self.load_segmentation()
 
-				# self.superpixels_on = False
+	# 			# self.superpixels_on = False
 
-			# elif self.sender() == self.labeling_radioButton:
-			#   pass
+	# 		# elif self.sender() == self.labeling_radioButton:
+	# 		#   pass
 
-		self.axis.axis('off')
-		# self.axis.set_xlim([self.newxmin, self.newxmax])
-		# self.axis.set_ylim([self.newymin, self.newymax])
-		# self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas.draw()
+	# 	self.axis.axis('off')
+	# 	# self.axis.set_xlim([self.newxmin, self.newxmax])
+	# 	# self.axis.set_ylim([self.newymin, self.newymax])
+	# 	# self.fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
+	# 	self.canvas.draw()
 
-		self.axis2.axis('off')
-		# self.axis2.set_xlim([self.newxmin, self.newxmax])
-		# self.axis2.set_ylim([self.newymin, self.newymax])
-		# self.fig2.subplots_adjust(left=0, bottom=0, right=1, top=1)
-		self.canvas2.draw()
+	# 	self.axis2.axis('off')
+	# 	# self.axis2.set_xlim([self.newxmin, self.newxmax])
+	# 	# self.axis2.set_ylim([self.newymin, self.newymax])
+	# 	# self.fig2.subplots_adjust(left=0, bottom=0, right=1, top=1)
+	# 	self.canvas2.draw()
 
 			   
 if __name__ == "__main__":

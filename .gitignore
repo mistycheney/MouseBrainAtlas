@@ -1,9 +1,11 @@
+.npy
+
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 *.h5
 *.png
 *.tif
-*.jpg
+tmp.jpg
 .metadata/
 
 # Byte-compiled / optimized / DLL files

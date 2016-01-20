@@ -88,7 +88,7 @@
 // If the mask serves as region of interest, set it to false.
 // If the mask indicates which pixels are valid, then set it to true.
 // If you do not use a mask, the option doesn't matter.
-(ErodeMask "false")
+(ErodeMask "true")
 
 // ******************** Multiresolution **********************
 
@@ -165,6 +165,6 @@
 
 // The pixel type and format of the resulting deformed moving image
 (ResultImagePixelType "unsigned char")
-(ResultImageFormat "jpg")
+(ResultImageFormat "tif")
 
 

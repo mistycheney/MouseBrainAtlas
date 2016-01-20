@@ -177,6 +177,7 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
 
 
 section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
+midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
 class DataManager(object):
 
@@ -1010,6 +1011,11 @@ class DataManager(object):
             image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped')
             image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
             image_path = os.path.join(image_dir, image_name + '.tif')
+
+        elif version == 'stereotactic-rgb-jpg':
+            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
+            image_path = os.path.join(image_dir, image_name + '.jpg')
          
         return image_path
     

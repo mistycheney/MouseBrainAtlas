@@ -7,9 +7,8 @@ import sys
 sys.path.append(os.environ['LOCAL_REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
-section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-
-stack = 'MD589'
+stack = sys.argv[1]
+# stack = 'MD589'
 
 first_sec, last_sec = section_range_lookup[stack]
 

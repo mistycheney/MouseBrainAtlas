@@ -3,45 +3,60 @@
 import sys
 import os
 import shutil
-import numpy as np
+import argparse
 
-stack = sys.argv[1]
-input_dir = sys.argv[2]
-output_dir = sys.argv[3]
-arg_file = sys.argv[4]
-suffix = sys.argv[5]
-if suffix == 'lossless':
-        output_jp2_dir = output_dir + '_jp2'
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description='Rename thumbnail images according to our naming format with consecutive section numbers')
 
+parser.add_argument("stack_name", type=str, help="stack name")
+args = parser.parse_args()
+
+stack = args.stack_name
+input_dir = '/home/yuncong/CSHL_data/' + stack
+
+output_dir = os.environ['DATA_DIR'] + '/' + stack + '_thumbnail_renamed'
 if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+    os.makedirs(output_dir)
 
-if suffix == 'lossless':
-        if not os.path.exists(output_jp2_dir):
-                os.makedirs(output_jp2_dir)
+output_jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
+if not os.path.exists(output_jp2_dir):
+    os.makedirs(output_jp2_dir)
 
-with open(arg_file, 'r') as f:
-        arg_tuples = map(lambda x: x.split(' '), f.readlines())
-        arg_tuples = [(x[0], int(x[1])) for x in arg_tuples]
+# filenames = os.listdir(input_dir)
+# tuple_sorted = sorted(sorted([fn[:-4] for fn in filenames if fn.endswith('tif')], key=lambda fn: len(fn.split('-')[1])), key=lambda fn: int(fn.split('_')[-1]))
 
-if suffix == 'lossless':
-        d = {'input_dir': input_dir,
-        'output_dir': output_dir,
-        'output_jp2_dir': output_jp2_dir,
-        'suffix': suffix}
-else:
-     d = {'input_dir': input_dir,
-        'output_dir': output_dir,
-        'suffix': suffix}   
+# with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
+#     f.write('\n'.join([fn + ' ' + str(ind) for ind, fn in enumerate(tuple_sorted)]))
 
-for fn, new_ind in arg_tuples:
-        d['fn_base'] = fn[:-4]
-        d['new_fn_base'] = stack + '_%04d'%new_ind
+# d = {'input_dir': input_dir,
+#     'output_dir': output_dir,
+#     'output_jp2_dir': output_jp2_dir}
 
-        if suffix == 'thumbnail':
-                shutil.copy(input_dir + '/' + fn, output_dir + '/' + d['new_fn_base'] + '_thumbnail.tif')
-        elif suffix == 'lossy' or suffix == 'lossless':
-                os.system('kdu_expand_patched -i %(input_dir)s/%(fn_base)s_%(suffix)s.jp2 -o %(output_dir)s/%(new_fn_base)s_%(suffix)s.tif' % d)
-                os.system('ln -s %(input_dir)s/%(fn_base)s_%(suffix)s.jp2 %(output_jp2_dir)s/%(new_fn_base)s_%(suffix)s.jp2' % d)
+# for new_ind, fn in enumerate(tuple_sorted):
+#     d['fn_base'] = fn
+#     d['new_fn_base'] = stack + '_%04d'%(new_ind+1)
 
-f.close()
+#     shutil.copy(input_dir + '/' + fn + '.tif', output_dir + '/' + d['new_fn_base'] + '_thumbnail.tif')
+
+#     # os.system('kdu_expand_patched -i %(input_dir)s/%(fn_base)s_lossless.jp2 -o %(output_dir)s/%(new_fn_base)s_lossless.tif' % d)
+#     os.system('ln -s %(input_dir)s/%(fn_base)s_lossless.jp2 %(output_jp2_dir)s/%(new_fn_base)s_lossless.jp2' % d)
+
+
+from preprocess_utility import run_distributed3
+
+expanded_tif_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed'
+if not os.path.exists(expanded_tif_dir):
+    os.makedirs(expanded_tif_dir)
+
+run_distributed3('kdu_expand_patched -i %(output_jp2_dir)s/%(stack)s_%%(secind)04d_lossless.jp2 -o %(expanded_tif_dir)s/%(stack)s_%%(secind)04d_lossless.tif' % \
+                    {'output_jp2_dir': output_jp2_dir,
+                    'stack': stack,
+                    'expanded_tif_dir': expanded_tif_dir},
+                first_sec=1,
+                # last=len(tuple_sorted),
+                last_sec=5,
+                stdout=open('/tmp/log', 'ab+'),
+                take_one_section=True)
+
+

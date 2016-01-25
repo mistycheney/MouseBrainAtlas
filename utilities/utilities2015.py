@@ -255,6 +255,9 @@ class DataManager(object):
             self.h = self.ymax-self.ymin+1
             self.w = self.xmax-self.xmin+1
 
+    def load_thumbnail_mask(self):
+        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
+
     def add_labelnames(self, labelnames, filename):
         existing_labelnames = {}
         with open(filename, 'r') as f:

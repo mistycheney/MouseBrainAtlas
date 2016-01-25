@@ -16,12 +16,26 @@ from skimage import img_as_float
 
 from sklearn import mixture
 
-stack = sys.argv[1]
-input_dir = sys.argv[2]
-mask_dir = sys.argv[3]
-masked_tb_dir = sys.argv[4]
-first_secind = int(sys.argv[5])
-last_secind = int(sys.argv[6])
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description='Generate mask for thumbnail images')
+parser.add_argument("stack_name", type=str, help="stack name")
+parser.add_argument("input_dir", type=int, help="input dir")
+parser.add_argument("first_sec", type=int, help="first section")
+parser.add_argument("last_sec", type=int, help="last section")
+args = parser.parse_args()
+
+stack = args.stack_name
+input_dir = args.input_dir
+first_secind = args.first_sec
+last_secind = args.last_sec
+
+# stack = sys.argv[1]
+# input_dir = sys.argv[2]
+# # mask_dir = sys.argv[3]
+# # masked_tb_dir = sys.argv[4]
+# first_secind = int(sys.argv[3])
+# last_secind = int(sys.argv[4])
 
 def generate_mask(img):
 
@@ -72,7 +86,8 @@ def generate_mask(img):
 
 
 def f(stack, sec):
-    img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_thumbnail_aligned_cropped.tif'%sec))
+
+    img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_'%sec + suffix + '.tif'))
     
     try:
         mask = generate_mask(img)
@@ -82,12 +97,17 @@ def f(stack, sec):
     img2 = img.copy()
     img2[~mask] = 0
 
-    imsave(mask_dir+'/'+stack+'_%04d_thumbnail_aligned_cropped_mask.png'%sec, img_as_float(mask))
-    imsave(masked_tb_dir+'/'+stack+'_%04d_thumbnail_aligned_cropped_masked.png'%sec, img2)
+    imsave(mask_dir+'/'+stack+'_%04d_'%sec + suffix + '_mask.png', img_as_float(mask))
+    imsave(masked_img_dir+'/'+stack+'_%04d_'%sec + suffix + '_masked.png', img2)
+
+
+suffix = '_'.join(os.path.split(input_dir)[-1].split('_')[1:])
+mask_dir = os.environ['DATA_DIR'] + '/' + stack + '_' + suffix + '_mask'
+masked_img_dir = os.environ['DATA_DIR'] + '/' + stack + '_' + suffix + '_masked'
 
 if not os.path.exists(mask_dir):
     os.makedirs(mask_dir)
-if not os.path.exists(masked_tb_dir):
-    os.makedirs(masked_tb_dir)
+if not os.path.exists(masked_img_dir):
+    os.makedirs(masked_img_dir)
     
 _ = Parallel(n_jobs=16)(delayed(f)(stack, sec) for sec in range(first_secind, last_secind+1))

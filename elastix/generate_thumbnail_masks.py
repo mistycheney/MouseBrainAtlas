@@ -4,6 +4,7 @@ import sys
 import os
 import numpy as np
 import cPickle as pickle
+import argparse
 
 from joblib import Parallel, delayed
 
@@ -20,7 +21,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Generate mask for thumbnail images')
 parser.add_argument("stack_name", type=str, help="stack name")
-parser.add_argument("input_dir", type=int, help="input dir")
+parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("first_sec", type=int, help="first section")
 parser.add_argument("last_sec", type=int, help="last section")
 args = parser.parse_args()

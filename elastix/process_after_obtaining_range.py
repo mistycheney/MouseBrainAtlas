@@ -45,9 +45,6 @@ first_last_tuples = first_last_tuples_distribute_over(first_sec, last_sec, n_hos
 # elastix has built-in parallelism
 t = time.time()
 print 'aligning...',
-# run_distributed3('%(script_dir)s/align_consecutive.py'%d, 
-# 				[(stack, d['input_dir'], d['elastix_output_dir'], f, l) for f, l in first_last_tuples],
-# 				stdout=open('/tmp/log', 'ab+'))
 
 run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d, 
                 first_sec=first_sec,
@@ -80,11 +77,8 @@ print 'done in', time.time() - t, 'seconds'
 # no parallelism
 t = time.time()
 print 'warping...',
-# run_distributed3('%(script_dir)s/warp_crop_IM.py'%d, 
-# 				[(stack, d['input_dir'], d['aligned_dir'], f, l, d['suffix'], 0) for f, l in first_last_tuples],
-# 				stdout=open('/tmp/log', 'ab+'))
 
-run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0'%d, 
+run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0 0 2000 1500'%d, 
                 first_sec=first_sec,
                 last_sec=last_sec,
                 take_one_section=False,

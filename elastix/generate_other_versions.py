@@ -45,7 +45,7 @@ def f(secind):
         'output_grayscale_fn': os.path.join(output_grayscale_dir, stack + '_%04d'%secind + '_lossless_aligned_cropped_grayscale.tif')
         }
 
-    # os.system("convert %(input_fn)s -format jpg %(output_downscaled_fn)s"%d)
+    os.system("convert %(input_fn)s -format jpg %(output_downscaled_fn)s"%d)
     os.system("convert %(input_fn)s -type grayscale %(output_grayscale_fn)s"%d)
 
 Parallel(n_jobs=8)(delayed(f)(secind) for secind in range(first_secind, last_secind+1))

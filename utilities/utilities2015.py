@@ -256,7 +256,7 @@ class DataManager(object):
             self.w = self.xmax-self.xmin+1
 
     def load_thumbnail_mask(self):
-        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
+        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack, 'slice_str': self.slice_str})
 
     def add_labelnames(self, labelnames, filename):
         existing_labelnames = {}
@@ -287,11 +287,15 @@ class DataManager(object):
             self.image_name = '_'.join([self.stack, self.slice_str, self.resol])
             self.image_path = os.path.join(self.image_dir, self.image_name + '_aligned_cropped.tif')
 
-        if os.path.exists(self.image_path):
-            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
-        else:
-            # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
-            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
+        try:
+            if os.path.exists(self.image_path):
+
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
+            else:
+                # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
+        except:
+            sys.stderr.write('cannot find image')
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
         

@@ -176,8 +176,8 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness    
 
 
-section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-midline_section_lookup = {'MD589': 114, 'MD594': 119}
+section_range_lookup = {'MD585': (79, 344), 'MD593': (81,349), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
+# midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
 class DataManager(object):
 

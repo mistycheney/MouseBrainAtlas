@@ -28,9 +28,7 @@ class TextureClassifier:
         self.symbol = mx.symbol.SoftmaxOutput(data=symbol, name='softmax')
         self.net = None
 
-    def mx_init(self, data_dir, b_size):
-        sets = ['train', 'eval', 'test']
-
+    def mx_init(self, data_dir, b_size, sets = ['train', 'eval', 'test']):
         for dataset in sets:
             rec_file = os.path.join(data_dir, '%s.rec' % dataset)
             if not os.path.exists(rec_file):

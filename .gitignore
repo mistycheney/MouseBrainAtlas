@@ -1,4 +1,4 @@
-.npy
+cross-brain/*.npy
 
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/

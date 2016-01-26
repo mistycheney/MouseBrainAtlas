@@ -68,8 +68,12 @@ def detect_responsive_nodes(exclude_nodes=[]):
 
 # 	return up_hostids
 
-
 def run_distributed3(command, first_sec, last_sec, stdout=None, exclude_nodes=[], take_one_section=True):
+	"""
+	if take_one_section is True, command must contain %(secind)d;
+	otherwise, command must contain %(f)d %(l)d
+	"""
+
 
 	hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes)
 	n_hosts = len(hostids)
@@ -80,9 +84,7 @@ def run_distributed3(command, first_sec, last_sec, stdout=None, exclude_nodes=[]
 	# each line is a job that processes several sections
 	with open(temp_script, 'w') as temp_f:
 		for i, (f, l) in enumerate(first_last_tuples_distribute_over(first_sec, last_sec, n_hosts)):
-
 			if take_one_section:
-
 				line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command)s\' %(f)d %(l)d\" &" % \
 						{'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
 						'generic_launcher_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR'] + '/generic_controller.py',
@@ -90,12 +92,9 @@ def run_distributed3(command, first_sec, last_sec, stdout=None, exclude_nodes=[]
 						'f': f, 
 						'l': l
 						}
-
 			else:
-
 				line = "ssh yuncong@%(hostname)s %(command)s &" % \
-						{
-						'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+						{'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
 						'command': command % {'f': f, 'l': l}
 						}
 

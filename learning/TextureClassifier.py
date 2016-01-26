@@ -20,7 +20,8 @@ class TextureClassifier:
         self.n_class = n_class
         self.iter = {}
         self.model_dir = model_dir
-        self.init_model = mx.model.FeedForward.load(os.path.join(model_dir, prefix), n_iter, ctx=mx.gpu())
+        #self.init_model = mx.model.FeedForward.load(os.path.join(model_dir, prefix), n_iter, ctx=mx.gpu())
+        self.init_model = mx.model.FeedForward.load(os.path.join(model_dir, prefix), n_iter, ctx=[mx.cpu(i) for i in range(16)])
         internals = self.init_model.symbol.get_internals()
         symbol = internals['flatten_output']
         symbol = mx.symbol.FullyConnected(data=symbol, name='fullc', num_hidden=n_class)
@@ -41,7 +42,9 @@ class TextureClassifier:
 
     def mx_training(self, n_epoch, l_rate, b_size, dst_prefix):
         opt = mx.optimizer.SGD(learning_rate=l_rate)
-        self.net = mx.model.FeedForward(ctx=mx.gpu(), symbol=self.symbol, num_epoch=n_epoch, optimizer=opt,
+        
+        #self.net = mx.model.FeedForward(ctx=mx.gpu(), symbol=self.symbol, num_epoch=n_epoch, optimizer=opt,
+        self.net = mx.model.FeedForward(ctx=[mx.cpu(i) for i in range(16)], symbol=self.symbol, num_epoch=n_epoch, optimizer=opt,
                                         arg_params=self.init_model.arg_params, aux_params=self.init_model.aux_params,
                                         allow_extra_params=True)
         self.net.fit(self.iter['train'], eval_data=self.iter['eval'],

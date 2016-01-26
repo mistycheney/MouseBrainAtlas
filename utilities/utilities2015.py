@@ -176,8 +176,8 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness    
 
 
-section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-midline_section_lookup = {'MD589': 114, 'MD594': 119}
+section_range_lookup = {'MD585': (79, 344), 'MD593': (81,349), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
+# midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
 class DataManager(object):
 
@@ -254,6 +254,9 @@ class DataManager(object):
 
             self.h = self.ymax-self.ymin+1
             self.w = self.xmax-self.xmin+1
+
+    def load_thumbnail_mask(self):
+        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
 
     def add_labelnames(self, labelnames, filename):
         existing_labelnames = {}

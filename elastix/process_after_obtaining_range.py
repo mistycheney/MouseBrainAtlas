@@ -12,8 +12,6 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Process after identifying the first and last sections in the stack that contain brainstem: 1) align thumbnails')
 
-# DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
-# DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 DATAPROC_DIR = os.environ['DATA_DIR']
 
 parser.add_argument("stack_name", type=str, help="stack name")
@@ -38,22 +36,18 @@ d = {
     }
 
 
-hostids = detect_responsive_nodes()
-n_hosts = len(hostids)
-first_last_tuples = first_last_tuples_distribute_over(first_sec, last_sec, n_hosts)
+exclude_nodes = [33]
 
 # elastix has built-in parallelism
 t = time.time()
 print 'aligning...',
-# run_distributed3('%(script_dir)s/align_consecutive.py'%d, 
-# 				[(stack, d['input_dir'], d['elastix_output_dir'], f, l) for f, l in first_last_tuples],
-# 				stdout=open('/tmp/log', 'ab+'))
 
 run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d, 
                 first_sec=first_sec,
                 last_sec=last_sec,
                 stdout=open('/tmp/log', 'ab+'),
-                take_one_section=False)
+                take_one_section=False,
+                exclude_nodes=exclude_nodes)
 
 print 'done in', time.time() - t, 'seconds'
 
@@ -74,19 +68,34 @@ print 'largest section is ', largest_sec
 t = time.time()
 print 'composing transform...',
 os.system("ssh gcn-20-33.sdsc.edu %(script_dir)s/compose_transform_thumbnail.py %(stack)s %(elastix_output_dir)s %(first_sec)d %(last_sec)d"%d + ' ' + str(largest_sec))
-# os.system("ssh gcn-20-33.sdsc.edu %(script_dir)s/compose_transform_thumbnail.py %(stack)s %(elastix_output_dir)s %(first_sec)d %(last_sec)d"%d)
 print 'done in', time.time() - t, 'seconds'
 
 # no parallelism
 t = time.time()
 print 'warping...',
-# run_distributed3('%(script_dir)s/warp_crop_IM.py'%d, 
-# 				[(stack, d['input_dir'], d['aligned_dir'], f, l, d['suffix'], 0) for f, l in first_last_tuples],
-# 				stdout=open('/tmp/log', 'ab+'))
 
-run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0'%d, 
+run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0 0 2000 1500'%d, 
                 first_sec=first_sec,
                 last_sec=last_sec,
                 take_one_section=False,
-                stdout=open('/tmp/log', 'ab+'))
+                stdout=open('/tmp/log', 'ab+'),
+                exclude_nodes=exclude_nodes)
+
 print 'done in', time.time() - t, 'seconds'
+
+
+# t = time.time()
+# sys.stderr.write('generating mask ...')
+
+# run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
+#                             {'script_path': os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
+#                             'stack': stack,
+#                             # 'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned_cropped')
+#                             'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
+#                             }, 
+#                 first_sec=first_sec,
+#                 last_sec=last_sec,
+#                 exclude_nodes=exclude_nodes,
+#                 take_one_section=False)
+
+# sys.stderr.write('done in %f seconds\n' % (time.time() - t))

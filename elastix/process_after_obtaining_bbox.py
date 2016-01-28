@@ -11,7 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Process after having bounding box')
+    description='Crop the brainstem')
 
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("first_sec", type=int, help="first section")
@@ -29,12 +29,12 @@ h = args.h
 
 exclude_nodes = [33]
 
-hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes)
-# hostids = detect_responsive_nodes()
+# hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes)
+# # hostids = detect_responsive_nodes()
 
-print hostids
+# print hostids
 
-n_hosts = len(hostids)
+# n_hosts = len(hostids)
 
 # DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 # DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
@@ -53,17 +53,45 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify
 	'dataproc_dir': DATAPROC_DIR,
 	'w':w, 'h':h, 'x':x, 'y':y})
 
+
 os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
     {'stack': args.stack_name, 
     'dataproc_dir': DATAPROC_DIR,
     'w':w, 'h':h, 'x':x, 'y':y})
 
 
-# sys.exit(0)
-
-# tmp_dir = DATAPROC_DIR + '/' + 'tmp'
+sys.exit(0)
 
 script_dir = os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix')
+
+# os.system('%(script_dir)s/expand_jp2.py %(stack)s %(first_sec)s %(last_sec)s' % \
+#            {'script_dir': script_dir, 
+#            'stack': args.stack_name,
+                # first_sec=args.first_sec,
+                # last_sec=args.last_sec,
+#            })
+
+t = time.time()
+sys.stderr.write('expanding...')
+
+# expanded_tif_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed'
+# if not os.path.exists(expanded_tif_dir):
+#     os.makedirs(expanded_tif_dir)
+
+# jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
+
+# run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_lossless.jp2 -o %(expanded_tif_dir)s/%(stack)s_%%(secind)04d_lossless.tif' % \
+#                     {'jp2_dir': jp2_dir,
+#                     'stack': stack,
+#                     'expanded_tif_dir': expanded_tif_dir},
+#                 first_sec=args.first_sec,
+#                 last_sec=args.last_sec,
+#                 # last_sec=5,
+#                 stdout=open('/tmp/log', 'ab+'),
+#                 take_one_section=True)
+
+sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
 
 t = time.time()
 sys.stderr.write('warping and cropping...')
@@ -80,7 +108,7 @@ run_distributed3(command='%(script_path)s %(stack)s %(lossless_renamed_dir)s %(l
                             }, 
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                exclude_nodes=exclude_nodes,
+                exclude_nodes=[33,35,41,42],
                 take_one_section=False)
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))

@@ -5,6 +5,8 @@ import os
 import shutil
 import argparse
 
+import numpy as np
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Rename thumbnail images according to our naming format with consecutive section numbers')
@@ -26,16 +28,97 @@ if os.path.exists(output_jp2_dir):
 os.makedirs(output_jp2_dir)
 
 filenames = os.listdir(input_dir)
-tuple_sorted = sorted(sorted([fn[:-4] for fn in filenames if fn.endswith('tif')], key=lambda fn: len(fn.split('-')[1])), key=lambda fn: int(fn.split('_')[-1]))
+
+from collections import defaultdict
+
+d = defaultdict(dict)
+for fn in filenames:
+    if fn.endswith('tif'):
+        if fn[:-4].split('-')[1].startswith('N'):
+            d[int(fn[:-4].split('_')[-1])]['N'] = fn[:-4]
+        else:
+            d[int(fn[:-4].split('_')[-1])]['IHC'] = fn[:-4]
+d.default_factory = None
+
+complete_set = []
+last_label = 'IHC'
+for i in sorted(d.keys()):
+    # if last_label == 'IHC':
+    if 'N' in d[i]:
+        complete_set.append(d[i]['N'])
+        last_label = 'N'
+        if 'IHC' in d[i]:
+            complete_set.append(d[i]['IHC'])
+            last_label = 'IHC'
+    else:
+        complete_set.append(d[i]['IHC'])
+        last_label = 'IHC'
+    # else:
+    #     if 'N' in d[i]:
+    #         complete_set.append(d[i]['N'])
+    #         last_label = 'N'
+    #         if 'IHC' in d[i]:
+    #             complete_set.append(d[i]['IHC'])
+    #             last_label = 'IHC'
+    #     else:
+    #         complete_set.append(d[i]['IHC'])
+    #         last_label = 'IHC'
+
+# print '\n'.join(complete_set)
+
+# complete_set = sorted([ fn[:-4] for fn in filenames if fn.endswith('tif')], key=lambda x: int(x.split('_')[-1]))
+# print '\n'.join(complete_set)
+
+# N_set = sorted([ fn[:-4] for fn in filenames if fn.endswith('tif') if fn[:-4].split('-')[1].startswith('N')], key=lambda x: int(x.split('_')[-1]))
+
+# if stack == 'MD595':
+#     N_set = [x for x in N_set if x not in ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] ]
+
+if stack == 'MD595':
+    complete_set = [x for x in complete_set if x not in ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] ]
+    swap = []
+elif stack == 'MD598':
+    swap = [(145,146), (147,148), (226,227)]
+    
+elif stack == 'MD589':
+    # swap = []
+    swap = [(300,301), (302,303), (323,324), (325,326)]
+
+else:
+    swap = []
+
+for a,b in swap:
+    tmp = complete_set[a-1]
+    complete_set[a-1] = complete_set[b-1]
+    complete_set[b-1] = tmp
+
+if stack in ['MD589', 'MD594']:
+
+    old_set = sorted([ fn for fn in complete_set if fn[:-4].split('-')[1].startswith('IHC')], key=lambda a: int(a.split('_')[-1]))
+    map_old_to_new = [ (i+1, complete_set.index(fn)+1) for i, fn in enumerate(old_set)]
+    with open(os.environ['DATA_DIR']  + '/' + stack+'_indexMapOldToNew.txt', 'w') as f:
+        for o, n in map_old_to_new:
+            f.write('%d %d\n'%(o, n))
+
+# ICH_set = sorted([ fn[:-4] for fn in filenames if fn.endswith('tif') if fn[:-4].split('-')[1].startswith('IHC')], key=lambda x: int(x.split('_')[-1]))
+# complete_set = [None for _ in range(len(N_set)+len(ICH_set))]
+
+# print len(complete_set), len(N_set), len(ICH_set)
+
+# for i, x in enumerate(N_set):
+#     complete_set[i*2] = x
+# for i, x in enumerate(ICH_set):
+#     complete_set[i*2+1] = x
+
 
 with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
-    f.write('\n'.join([fn + ' ' + str(ind) for ind, fn in enumerate(tuple_sorted)]))
+    f.write('\n'.join([fn + ' ' + str(ind+1) for ind, fn in enumerate(complete_set)]))
 
 d = {'input_dir': input_dir,
     'output_dir': output_dir,
     'output_jp2_dir': output_jp2_dir}
 
-for new_ind, fn in enumerate(tuple_sorted):
+for new_ind, fn in enumerate(complete_set):
     d['fn_base'] = fn
     d['new_fn_base'] = stack + '_%04d'%(new_ind+1)
 

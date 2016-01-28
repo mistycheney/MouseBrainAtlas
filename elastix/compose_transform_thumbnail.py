@@ -53,7 +53,8 @@ first_sec = int(sys.argv[3])
 last_sec = int(sys.argv[4])
 anchor_sec = int(sys.argv[5])
 
-DATAPROC_DIR = '/home/yuncong/csd395/CSHL_data_processed'
+# DATAPROC_DIR = '/home/yuncong/csd395/CSHL_data_processed'
+DATAPROC_DIR = os.environ['DATA_DIR']
 
 final_tranf_filename = os.path.join(DATAPROC_DIR, stack + '_finalTransfParams.pkl')
 

@@ -24,7 +24,7 @@ first_sec = args.first_sec
 last_sec = args.last_sec
 
 d = {
-     'script_dir': os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix'),
+     'script_dir': os.path.join(os.environ['REPO_DIR'], 'elastix'),
      'stack': stack,
      'first_sec': first_sec,
      'last_sec': last_sec,
@@ -84,18 +84,18 @@ run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(align
 print 'done in', time.time() - t, 'seconds'
 
 
-# t = time.time()
-# sys.stderr.write('generating mask ...')
+t = time.time()
+sys.stderr.write('generating mask ...')
 
-# run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
-#                             {'script_path': os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
-#                             'stack': stack,
-#                             # 'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned_cropped')
-#                             'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
-#                             }, 
-#                 first_sec=first_sec,
-#                 last_sec=last_sec,
-#                 exclude_nodes=exclude_nodes,
-#                 take_one_section=False)
+run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
+                            {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
+                            'stack': stack,
+                            # 'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned_cropped')
+                            'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
+                            }, 
+                first_sec=first_sec,
+                last_sec=last_sec,
+                exclude_nodes=exclude_nodes,
+                take_one_section=False)
 
-# sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+sys.stderr.write('done in %f seconds\n' % (time.time() - t))

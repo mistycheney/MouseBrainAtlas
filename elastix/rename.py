@@ -71,22 +71,22 @@ for i in sorted(d.keys()):
 
 # N_set = sorted([ fn[:-4] for fn in filenames if fn.endswith('tif') if fn[:-4].split('-')[1].startswith('N')], key=lambda x: int(x.split('_')[-1]))
 
-# if stack == 'MD595':
-#     N_set = [x for x in N_set if x not in ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] ]
-
+remove = []
+swap = []
 if stack == 'MD595':
-    complete_set = [x for x in complete_set if x not in ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] ]
-    swap = []
+    remove = ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] 
 elif stack == 'MD598':
     swap = [(145,146), (147,148), (226,227)]
-    
 elif stack == 'MD589':
-    # swap = []
     swap = [(300,301), (302,303), (323,324), (325,326)]
+elif stack == 'MD594':
+    remove = [
+    'MD594-IHC30-2015.08.26-17.00.29_MD594_2_0089',
+    'MD594-IHC31-2015.08.26-17.04.03_MD594_2_0092',
+    'MD594-IHC32-2015.08.26-17.07.31_MD594_2_0095'
+    ] 
 
-else:
-    swap = []
-
+complete_set = [x for x in complete_set if x not in remove]
 for a,b in swap:
     tmp = complete_set[a-1]
     complete_set[a-1] = complete_set[b-1]

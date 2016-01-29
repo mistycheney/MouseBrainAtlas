@@ -187,7 +187,7 @@ class DataManager(object):
                  result_dir=os.environ['RESULT_DIR'], 
                  labeling_dir=os.environ['LABELING_DIR'],
                  gabor_params_id=None, 
-                 segm_params_id=None, 
+                 segm_params_id='tSLIC200', 
                  vq_params_id=None,
                  stack=None,
                  resol='lossless',

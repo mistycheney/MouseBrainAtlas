@@ -22,6 +22,7 @@ parser.add_argument("w", type=int, help="w on thumbnail")
 parser.add_argument("h", type=int, help="h on thumbnail")
 args = parser.parse_args()
 
+stack = args.stack_name
 x = args.x
 y = args.y
 w = args.w
@@ -37,21 +38,21 @@ DATAPROC_DIR = os.environ['DATA_DIR']
 #     'x2': x+w-1,
 #     'y2': y+h-1}) 
 
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
-	{'stack': args.stack_name, 
-	'dataproc_dir': DATAPROC_DIR,
-	'w':w, 'h':h, 'x':x, 'y':y})
+# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
+# 	{'stack': args.stack_name, 
+# 	'dataproc_dir': DATAPROC_DIR,
+# 	'w':w, 'h':h, 'x':x, 'y':y})
 
 
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
-    {'stack': args.stack_name, 
-    'dataproc_dir': DATAPROC_DIR,
-    'w':w, 'h':h, 'x':x, 'y':y})
+# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
+#     {'stack': args.stack_name, 
+#     'dataproc_dir': DATAPROC_DIR,
+#     'w':w, 'h':h, 'x':x, 'y':y})
 
 
 # sys.exit(0)
 
-script_dir = os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix')
+script_dir = os.path.join(os.environ['REPO_DIR'], 'elastix')
 
 # os.system('%(script_dir)s/expand_jp2.py %(stack)s %(first_sec)s %(last_sec)s' % \
 #            {'script_dir': script_dir, 
@@ -71,11 +72,11 @@ jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
 
 run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_lossless.jp2 -o %(expanded_tif_dir)s/%(stack)s_%%(secind)04d_lossless.tif' % \
                     {'jp2_dir': jp2_dir,
-                    'stack': stack,
+                    'stack': args.stack_name,
                     'expanded_tif_dir': expanded_tif_dir},
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                # last_sec=5,
+                exclude_nodes=[33,35,41,42],
                 stdout=open('/tmp/log', 'ab+'),
                 take_one_section=True)
 

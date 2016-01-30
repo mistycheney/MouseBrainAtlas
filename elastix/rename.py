@@ -31,70 +31,72 @@ filenames = os.listdir(input_dir)
 
 from collections import defaultdict
 
+### Alex's rule ###  
 
-d = defaultdict(lambda: defaultdict(list))
-for fn in filenames:
-    if fn.endswith('tif'):
-        slide_str = fn[:-4].split('-')[1]
-        if slide_str.startswith('N'):
-            d[int(slide_str[1:])]['N'].append(fn[:-4])
-        else:
-            d[int(slide_str[3:])]['IHC'].append(fn[:-4])
-d.default_factory = None
-
-complete_set = []
-for i in sorted(d.keys()):
-    if 'N' in d[i]:
-        N_set = sorted(d[i]['N'], key=lambda x: int(x.split('_')[-1]))
-    else:
-        N_set = []
-
-    if 'IHC' in d[i]:
-        IHC_set = sorted(d[i]['IHC'], key=lambda x: int(x.split('_')[-1]))
-    else:
-        IHC_set = []
-
-    for i in range(max(len(N_set), len(IHC_set))):
-        if i < len(N_set):
-            complete_set.append(N_set[i])
-        if i < len(IHC_set):
-            complete_set.append(IHC_set[i])
-
-# print complete_set
-
-# d = defaultdict(dict)
+# d = defaultdict(lambda: defaultdict(list))
 # for fn in filenames:
 #     if fn.endswith('tif'):
-#         if fn[:-4].split('-')[1].startswith('N'):
-#             d[int(fn[:-4].split('_')[-1])]['N'] = fn[:-4]
+#         slide_str = fn[:-4].split('-')[1]
+#         if slide_str.startswith('N'):
+#             d[int(slide_str[1:])]['N'].append(fn[:-4])
 #         else:
-#             d[int(fn[:-4].split('_')[-1])]['IHC'] = fn[:-4]
+#             d[int(slide_str[3:])]['IHC'].append(fn[:-4])
 # d.default_factory = None
 
 # complete_set = []
-# last_label = 'IHC'
 # for i in sorted(d.keys()):
-#     # if last_label == 'IHC':
 #     if 'N' in d[i]:
-#         complete_set.append(d[i]['N'])
-#         last_label = 'N'
-#         if 'IHC' in d[i]:
-#             complete_set.append(d[i]['IHC'])
-#             last_label = 'IHC'
+#         N_set = sorted(d[i]['N'], key=lambda x: int(x.split('_')[-1]))
 #     else:
-#         complete_set.append(d[i]['IHC'])
-#         last_label = 'IHC'
+#         N_set = []
+
+#     if 'IHC' in d[i]:
+#         IHC_set = sorted(d[i]['IHC'], key=lambda x: int(x.split('_')[-1]))
+#     else:
+#         IHC_set = []
+
+#     for i in range(max(len(N_set), len(IHC_set))):
+#         if i < len(N_set):
+#             complete_set.append(N_set[i])
+#         if i < len(IHC_set):
+#             complete_set.append(IHC_set[i])
+
+
+### My rule ###
+
+d = defaultdict(dict)
+for fn in filenames:
+    if fn.endswith('tif'):
+        if fn[:-4].split('-')[1].startswith('N'):
+            d[int(fn[:-4].split('_')[-1])]['N'] = fn[:-4]
+        else:
+            d[int(fn[:-4].split('_')[-1])]['IHC'] = fn[:-4]
+d.default_factory = None
+
+complete_set = []
+last_label = 'IHC'
+for i in sorted(d.keys()):
+    # if last_label == 'IHC':
+    if 'N' in d[i]:
+        complete_set.append(d[i]['N'])
+        last_label = 'N'
+        if 'IHC' in d[i]:
+            complete_set.append(d[i]['IHC'])
+            last_label = 'IHC'
+    else:
+        complete_set.append(d[i]['IHC'])
+        last_label = 'IHC'
 
 remove = []
 swap = []
 if stack == 'MD595':
     remove = ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] 
 elif stack == 'MD598':
-    # swap = [(145,146), (147,148), (226,227)]
-    pass
+    swap = [(145,146), (147,148), (226,227)]
+    # pass
 elif stack == 'MD589':
-    # swap = [(300,301), (302,303), (323,324), (325,326)]
-    pass
+    swap = [(300,301), (302,303), (323,324), (325,326)]
+    # pass
 elif stack == 'MD594':
     remove = [
     'MD594-IHC30-2015.08.26-17.00.29_MD594_2_0089',

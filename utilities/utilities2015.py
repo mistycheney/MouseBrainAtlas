@@ -1042,7 +1042,6 @@ class DataManager(object):
 
         if 'rgb-jpg' in versions and not hasattr(self, 'image_rgb_jpg'):
             image_filename = self._get_image_filepath(version='rgb-jpg')
-            print image_filename
             # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
             self.image_rgb_jpg = self._read_image(image_filename)
         

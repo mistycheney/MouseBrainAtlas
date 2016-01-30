@@ -87,7 +87,7 @@ def run_distributed3(command, first_sec, last_sec, stdout=None, exclude_nodes=[]
 			if take_one_section:
 				line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command)s\' %(f)d %(l)d\" &" % \
 						{'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-						'generic_launcher_path': os.environ['GORDON_PIPELINE_SCRIPT_DIR'] + '/generic_controller.py',
+						'generic_launcher_path': os.environ['REPO_DIR'] + '/pipeline/generic_controller.py',
 						'command': command,
 						'f': f, 
 						'l': l

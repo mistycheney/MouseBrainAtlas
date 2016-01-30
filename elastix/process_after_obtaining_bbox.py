@@ -27,17 +27,6 @@ y = args.y
 w = args.w
 h = args.h
 
-exclude_nodes = [33]
-
-# hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes)
-# # hostids = detect_responsive_nodes()
-
-# print hostids
-
-# n_hosts = len(hostids)
-
-# DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
-# DATAPROC_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 DATAPROC_DIR = os.environ['DATA_DIR']
 
 # os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox; mogrify -path %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox -fill none -stroke black -draw "stroke-width 2 fill-opacity 0 rectangle %(x1)d,%(y1)d %(x2)d,%(y2)d" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*"""% \
@@ -60,7 +49,7 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mo
     'w':w, 'h':h, 'x':x, 'y':y})
 
 
-sys.exit(0)
+# sys.exit(0)
 
 script_dir = os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix')
 
@@ -74,21 +63,21 @@ script_dir = os.path.join(os.environ['GORDON_REPO_DIR'], 'elastix')
 t = time.time()
 sys.stderr.write('expanding...')
 
-# expanded_tif_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed'
-# if not os.path.exists(expanded_tif_dir):
-#     os.makedirs(expanded_tif_dir)
+expanded_tif_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed'
+if not os.path.exists(expanded_tif_dir):
+    os.makedirs(expanded_tif_dir)
 
-# jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
+jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
 
-# run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_lossless.jp2 -o %(expanded_tif_dir)s/%(stack)s_%%(secind)04d_lossless.tif' % \
-#                     {'jp2_dir': jp2_dir,
-#                     'stack': stack,
-#                     'expanded_tif_dir': expanded_tif_dir},
-#                 first_sec=args.first_sec,
-#                 last_sec=args.last_sec,
-#                 # last_sec=5,
-#                 stdout=open('/tmp/log', 'ab+'),
-#                 take_one_section=True)
+run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_lossless.jp2 -o %(expanded_tif_dir)s/%(stack)s_%%(secind)04d_lossless.tif' % \
+                    {'jp2_dir': jp2_dir,
+                    'stack': stack,
+                    'expanded_tif_dir': expanded_tif_dir},
+                first_sec=args.first_sec,
+                last_sec=args.last_sec,
+                # last_sec=5,
+                stdout=open('/tmp/log', 'ab+'),
+                take_one_section=True)
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
@@ -123,7 +112,7 @@ run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
                             }, 
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                exclude_nodes=exclude_nodes,
+                exclude_nodes=[33,35,41,42],
                 take_one_section=False)
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))

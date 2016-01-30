@@ -36,7 +36,7 @@ d = {
     }
 
 
-exclude_nodes = [33]
+exclude_nodes = [33, 35]
 
 # elastix has built-in parallelism
 t = time.time()
@@ -90,7 +90,6 @@ sys.stderr.write('generating mask ...')
 run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
                             {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
                             'stack': stack,
-                            # 'input_dir': os.path.join(DATAPROC_DIR, stack+'_thumbnail_aligned_cropped')
                             'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
                             }, 
                 first_sec=first_sec,

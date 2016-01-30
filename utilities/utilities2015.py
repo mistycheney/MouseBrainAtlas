@@ -187,7 +187,7 @@ class DataManager(object):
                  result_dir=os.environ['RESULT_DIR'], 
                  labeling_dir=os.environ['LABELING_DIR'],
                  gabor_params_id=None, 
-                 segm_params_id=None, 
+                 segm_params_id='tSLIC200', 
                  vq_params_id=None,
                  stack=None,
                  resol='lossless',
@@ -1042,6 +1042,7 @@ class DataManager(object):
 
         if 'rgb-jpg' in versions and not hasattr(self, 'image_rgb_jpg'):
             image_filename = self._get_image_filepath(version='rgb-jpg')
+            print image_filename
             # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
             self.image_rgb_jpg = self._read_image(image_filename)
         

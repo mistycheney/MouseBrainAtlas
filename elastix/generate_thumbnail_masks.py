@@ -45,7 +45,7 @@ def generate_mask(img):
     e = entropy(img, disk(5))
     
     clf = mixture.GMM(n_components=2, covariance_type='full')
-    clf.fit(e[e > 0.1])
+    clf.fit(np.atleast_2d(e[e > 0.1]).T)
 
     means = np.squeeze(clf.means_)
 

@@ -129,6 +129,9 @@
 (NewSamplesEveryIteration "true")
 (ImageSampler "Random")
 
+(RequiredRatioOfValidSamples 0.05)
+
+
 // ************* Interpolation and Resampling ****************
 
 // Order of B-Spline interpolation used during registration/optimisation.

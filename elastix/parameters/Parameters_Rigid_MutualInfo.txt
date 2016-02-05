@@ -47,8 +47,8 @@
 // and need to be chosen careful for each application. See manual.
 (Optimizer "AdaptiveStochasticGradientDescent")
 (Transform "EulerTransform")
-//(Metric "AdvancedMattesMutualInformation")
-(Metric "AdvancedNormalizedCorrelation")
+(Metric "AdvancedMattesMutualInformation")
+//(Metric "AdvancedNormalizedCorrelation")
 
 // ***************** Transformation **************************
 

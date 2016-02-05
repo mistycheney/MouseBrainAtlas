@@ -23,13 +23,30 @@ if not os.path.exists(output_dir):
 
 n_sections = len(os.listdir(input_dir))
 
-rg_param = os.environ['REPO_DIR'] + "/elastix/parameters/Parameters_Rigid.txt"
+parameter_dir = os.path.join(os.environ['REPO_DIR'], "elastix/parameters")
+
+rg_param = os.path.join(parameter_dir, "Parameters_Rigid.txt") 
+
+print rg_param
+
+rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.txt")
+rg_param_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_noNumberOfSpatialSamples.txt")
+rg_param_requiredRatioOfValidSamples = os.path.join(parameter_dir, "Parameters_Rigid_RequiredRatioOfValidSamples.txt")
 
 for moving_secind in range(first_moving_secind, last_moving_secind+1):
 	if moving_secind - 1 in all_files:
 
+		if stack == 'MD598' and moving_secind == 347:
+			param = rg_param_mutualinfo
+		elif stack == 'MD581' and moving_secind == 33:
+			param = rg_param_noNumberOfSamples
+		elif stack == 'MD595' and moving_secind == 441:
+			param = rg_param_requiredRatioOfValidSamples
+		else:
+			param = rg_param
+
 		d = {'elastix_bin': os.environ['GORDON_ELASTIX'], 
-			'rg_param': rg_param,
+			'rg_param': param,
 			'output_subdir': os.path.join(output_dir, 'output%dto%d'%(moving_secind, moving_secind-1)),
 			'fixed_fn': os.path.join(input_dir, all_files[moving_secind-1]),
 			'moving_fn': os.path.join(input_dir, all_files[moving_secind])

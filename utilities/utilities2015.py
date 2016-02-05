@@ -177,7 +177,7 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
 
 
 # section_range_lookup = {'MD585': (79, 344), 'MD593': (81,349), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-section_range_lookup = {'MD589': (93, 368)}
+section_range_lookup = {'MD589': (93, 368), 'MD594': (93, 364)}
 # midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
 class DataManager(object):
@@ -235,16 +235,22 @@ class DataManager(object):
         if resol is not None:
             self.set_resol(resol)
 
+        if self.resol == 'lossless':
+            self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
+
         if section is not None:
             self.set_slice(section)
+        else:
+            random_image_fn = os.listdir(self.image_dir)[0]
+            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
 
         if load_mask:
             self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
             self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
-            self.mask[:500, :] = False
-            self.mask[:, :500] = False
-            self.mask[-500:, :] = False
-            self.mask[:, -500:] = False
+            # self.mask[:500, :] = False
+            # self.mask[:, :500] = False
+            # self.mask[-500:, :] = False
+            # self.mask[:, -500:] = False
 
             xs_valid = np.any(self.mask, axis=0)
             ys_valid = np.any(self.mask, axis=1)
@@ -255,6 +261,8 @@ class DataManager(object):
 
             self.h = self.ymax-self.ymin+1
             self.w = self.xmax-self.xmin+1
+
+
 
     def load_thumbnail_mask(self):
         self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack, 'slice_str': self.slice_str}).astype(np.bool)
@@ -291,12 +299,12 @@ class DataManager(object):
 
         try:
             if os.path.exists(self.image_path):
-
                 self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
             else:
                 # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
                 self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
-        except:
+        except Exception as e:
+            print e
             sys.stderr.write('Cannot find image\n')
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
@@ -1036,34 +1044,28 @@ class DataManager(object):
             img = imread(image_filename)
         return img
 
-    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg']):
+    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg'], force_reload=False):
         
         assert self.image_name is not None, 'Image is not specified'
 
-        if 'rgb-jpg' in versions and not hasattr(self, 'image_rgb_jpg'):
-            image_filename = self._get_image_filepath(version='rgb-jpg')
-            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-            self.image_rgb_jpg = self._read_image(image_filename)
+        if 'rgb-jpg' in versions:
+            if force_reload or not hasattr(self, 'image_rgb_jpg'):
+                image_filename = self._get_image_filepath(version='rgb-jpg')
+                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+                self.image_rgb_jpg = self._read_image(image_filename)
         
-        if 'rgb' in versions and not hasattr(self, 'image_rgb'):
-            image_filename = self._get_image_filepath(version='rgb')
-            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-            self.image_rgb = self._read_image(image_filename)
+        if 'rgb' in versions:
+            if force_reload or not hasattr(self, 'image_rgb'):
+                image_filename = self._get_image_filepath(version='rgb')
+                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+                self.image_rgb = self._read_image(image_filename)
 
         if 'gray' in versions and not hasattr(self, 'image'):
-            image_filename = self._get_image_filepath(version='gray')
-            # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-            self.image = self._read_image(image_filename)
+            if force_reload or not hasattr(self, 'gray'):
+                image_filename = self._get_image_filepath(version='gray')
+                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
+                self.image = self._read_image(image_filename)
 
-        # elif format == 'gray-rgb':
-        #     self.image = rgb2gray(self.image_rgb)
-
-        # self.image_rgb = imread(image_filename, as_grey=False)
-#         self.image = rgb2gray(self.image_rgb)
-        
-#         mask_filename = os.path.join(self.image_dir, self.image_name + '_mask.png')
-#         self.mask = imread(mask_filename, as_grey=True) > 0
-        
     def set_gabor_params(self, gabor_params_id):
         
         self.gabor_params_id = gabor_params_id

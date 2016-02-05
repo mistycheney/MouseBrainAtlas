@@ -1,4 +1,4 @@
-// Example parameter file for affine registration
+// Example parameter file for rotation registration
 // C-style comments: //
 
 // The internal pixel type, used for internal computations
@@ -36,24 +36,23 @@
 
 // These may be changed to Fixed/MovingSmoothingImagePyramid.
 // See the manual.
-(FixedImagePyramid "FixedRecursiveImagePyramid")
-(MovingImagePyramid "MovingRecursiveImagePyramid")
-//(FixedImagePyramid "FixedSmoothingImagePyramid")
-//(MovingImagePyramid "MovingSmoothingImagePyramid")
+//(FixedImagePyramid "FixedRecursiveImagePyramid")
+//(MovingImagePyramid "MovingRecursiveImagePyramid")
+(FixedImagePyramid "FixedSmoothingImagePyramid")
+(MovingImagePyramid "MovingSmoothingImagePyramid")
 
 // The following components are most important:
 // The optimizer AdaptiveStochasticGradientDescent (ASGD) works
 // quite ok in general. The Transform and Metric are important
 // and need to be chosen careful for each application. See manual.
 (Optimizer "AdaptiveStochasticGradientDescent")
-(Transform "AffineTransform")
+(Transform "EulerTransform")
 //(Metric "AdvancedMattesMutualInformation")
 (Metric "AdvancedNormalizedCorrelation")
 
-
 // ***************** Transformation **************************
 
-// Scales the affine matrix elements compared to the translations, to make
+// Scales the rotations compared to the translations, to make
 // sure they are in the same range. In general, it's best to  
 // use automatic scales estimation:
 (AutomaticScalesEstimation "true")
@@ -61,8 +60,6 @@
 // Automatically guess an initial translation by aligning the
 // geometric centers of the fixed and moving.
 (AutomaticTransformInitialization "true")
-//(AutomaticTransformInitializationMethod "GeometricalCenter")
-(AutomaticTransformInitializationMethod "CenterOfGravity")
 
 // Whether transforms are combined by composition or by addition.
 // In generally, Compose is the best option in most cases.
@@ -96,7 +93,7 @@
 // By default, the images are downsampled by a factor of 2
 // compared to the next resolution.
 // So, in 2D, with 4 resolutions, the following schedule is used:
-//(ImagePyramidSchedule 8 8  4 4  2 2  1 1 )
+//(ImagePyramidSchedule 4 4  2 2  1 1 )
 // And in 3D:
 //(ImagePyramidSchedule 8 8 8  4 4 4  2 2 2  1 1 1 )
 // You can specify any schedule, for example:
@@ -107,7 +104,7 @@
 // ******************* Optimizer ****************************
 
 // Maximum number of iterations in each resolution level:
-// 200-500 works usually fine for affine registration.
+// 200-500 works usually fine for rigid registration.
 // For more robustness, you may increase this to 1000-2000.
 (MaximumNumberOfIterations 2000)
 
@@ -115,7 +112,7 @@
 // which usually works well. In case of unusual high-resolution images
 // (eg histology) it is necessary to increase this value a bit, to the size
 // of the "smallest visible structure" in the image:
-(MaximumStepLength 4)
+//(MaximumStepLength 4)
 
 // **************** Image sampling **********************
 
@@ -124,15 +121,12 @@
 // With an AdaptiveStochasticGradientDescent optimizer,
 // in combination with the two options below, around 2000
 // samples may already suffice.
-(NumberOfSpatialSamples 2048)
-//(NumberOfSpatialSamples 64)
-//(MaximumNumberOfSamplingAttempts 10)
-//(RequiredRatioOfValidSamples 0.02)
+//(NumberOfSpatialSamples 2048)
 
 // Refresh these spatial samples in every iteration, and select
 // them randomly. See the manual for information on other sampling
 // strategies.
-(NewSamplesEveryIteration "false")
+(NewSamplesEveryIteration "true")
 (ImageSampler "Random")
 
 // ************* Interpolation and Resampling ****************

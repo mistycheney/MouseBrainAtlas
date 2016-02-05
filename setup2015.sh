@@ -6,7 +6,19 @@ CSD395=/oasis/projects/nsf/csd395/yuncong
 export DATASET_VERSION=2015
 
 export PYTHONPATH=$CSD181/opencv-2.4.9/release/lib/python2.7/site-packages:$PYTHONPATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CSD181/opencv-2.4.9/release/lib
+export LD_LIBRARY_PATH=$CSD181/opencv-2.4.9/release/lib:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=$CSD181/opencv-2.4.9/release/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# opencv
+#export PYTHONPATH=$CSD395/opencv-3.1.0/release/lib/python2.7/site-packages:$PYTHONPATH
+#export LD_LIBRARY_PATH=$CSD395/opencv-3.1.0/release/lib:$LD_LIBRARY_PATH
+#export PKG_CONFIG_PATH=$CSD395/opencv-3.1.0/release/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# mxnet
+export PYTHONPATH=/oasis/projects/nsf/csd395/yuncong/mxnet/python:$PYTHONPATH
+
+# openblas
+export LD_LIBRARY_PATH=$CSD395/OpenBLAS-release/lib:$LD_LIBRARY_PATH
 
 export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$PATH
 export LD_LIBRARY_PATH=/opt/python/lib:$LD_LIBRARY_PATH
@@ -16,11 +28,11 @@ export GORDON_ELASTIX=$CSD395/elastix_linux64_v4.7/bin/elastix
 
 export LD_LIBRARY_PATH=/home/yuncong/csd395/geos-svn/release/lib/:$LD_LIBRARY_PATH
 
-export GORDON_DATA_DIR=$CSD395/CSHL_data_processed
-export GORDON_REPO_DIR=$CSD395/Brain
-export GORDON_PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
-export GORDON_RESULT_DIR=$CSD395/CSHL_data_results
-export GORDON_LABELING_DIR=$CSD395/CSHL_data_labelings
+#export GORDON_DATA_DIR=$CSD395/CSHL_data_processed
+#export GORDON_REPO_DIR=$CSD395/Brain
+#export GORDON_PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
+#export GORDON_RESULT_DIR=$CSD395/CSHL_data_results
+#export GORDON_LABELING_DIR=$CSD395/CSHL_data_labelings
 #export GORDON_SLIDEDATA_DIR=$CSD181/DavidData2014slides
 #export GORDON_NDPI_DIR=$CSD181/DavidData2014ndpi
 
@@ -28,18 +40,18 @@ export GORDON_LABELING_DIR=$CSD395/CSHL_data_labelings
 
 #export MSNAKES_PATH=$GORDON_REPO_DIR/pipeline_scripts/preprocess/morphsnakes
 
-export LOCAL_DATA_DIR=$HOME/CSHL_data_processed
+#export LOCAL_DATA_DIR=$HOME/CSHL_data_processed
 #export LOCAL_SLIDEDATA_DIR=$HOME/DavidData2014slides/
 #export LOCAL_SECTIONDATA_DIR=$HOME/DavidData2014sections/
-export LOCAL_REPO_DIR=$HOME/Brain
-export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
-export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
+#export LOCAL_REPO_DIR=$HOME/Brain
+#export LOCAL_RESULT_DIR=$HOME/CSHL_data_results
+#export LOCAL_LABELING_DIR=$HOME/CSHL_data_labelings
 
 if [[ $(hostname) = "yuncong-MacbookPro" ]]; then 
         export DATA_DIR=$HOME/CSHL_data_processed
 	export REPO_DIR=$HOME/Brain
 	export RESULT_DIR=$HOME/CSHL_data_results
-	export LABELING_DIR=$HOME/CSHL_data_labelings
+	export LABELING_DIR=$HOME/CSHL_data_labelings_losslessAlignCropped
 	export MXNET_DIR=$HOME/mxnet
 	export MODEL_DIR=$HOME/mxnet_models
 else
@@ -47,7 +59,7 @@ else
 	export REPO_DIR=$CSD395/Brain
 	export PIPELINE_SCRIPT_DIR=$GORDON_REPO_DIR/pipeline
 	export RESULT_DIR=$CSD395/CSHL_data_results
-	export LABELING_DIR=$CSD395/CSHL_data_labelings
+	export LABELING_DIR=$CSD395/CSHL_data_labelings_losslessAlignCropped
 	export MXNET_DIR=$CSD395/mxnet
 	export MODEL_DIR=/oasis/projects/nsf/csd395/jiaxuzhu/model/
 fi

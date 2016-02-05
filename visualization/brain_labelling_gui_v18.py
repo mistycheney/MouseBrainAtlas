@@ -101,8 +101,6 @@ AUTO_EXTEND_VIEW_TOLERANCE = 200
 # NUM_NEIGHBORS_PRELOAD = 1 # preload neighbor sections before and after this number
 VERTEX_CIRCLE_RADIUS = 10
 	
-section_range_lookup = {'MD593': (41,176), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, stack=None):
 		"""
@@ -141,7 +139,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.structure_names = OrderedDict(self.new_labelnames.items() + sorted(self.structure_names.items()))
 
 		self.first_sec, self.last_sec = section_range_lookup[self.stack]
-		self.midline_sec = midline_section_lookup[self.stack]
+		# self.midline_sec = midline_section_lookup[self.stack]
+		self.midline_sec = (self.first_sec + self.last_sec)/2
 
 		self.red_pen = QPen(Qt.red)
 		self.red_pen.setWidth(20)
@@ -178,7 +177,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			    data_dir=os.environ['LOCAL_DATA_DIR'], 
 			         repo_dir=os.environ['LOCAL_REPO_DIR'], 
 			         result_dir=os.environ['LOCAL_RESULT_DIR'], 
-			         labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+			         # labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+			         labeling_dir='/home/yuncong/CSHL_data_labelings_losslessAlignCropped',
 			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) 
 			for i in self.sections])
 				# for i in range(self.first_sec, self.last_sec+1)])
@@ -189,8 +189,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				for i in self.sections:
 					if i not in self.pixmaps:
 						print 'new load', i
-						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
-						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
+						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
 
 				to_remove = []
 				for i in self.pixmaps:
@@ -205,8 +205,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					# self.gscenes.pop(i)
 			else:	
 			
-				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
-				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
+				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
+				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
 			
 
 			print 'load image', time.time() - t
@@ -214,8 +214,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def paint_panel(self, panel_id, sec, labeling_username=None):
 
-		if not hasattr(self, 'grid_pixmap'):
-			self.grid_pixmap = QPixmap('/home/yuncong/CSHL_data_processed/MD594_lossless_aligned_cropped_stereotacticGrids.png')
+		# if not hasattr(self, 'grid_pixmap'):
+		# 	self.grid_pixmap = QPixmap('/home/yuncong/CSHL_data_processed/MD594_lossless_aligned_cropped_stereotacticGrids.png')
 
 		gview = self.gviews[panel_id]
 
@@ -227,7 +227,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			pixmap = self.pixmaps[sec]
 			gscene = QGraphicsScene(gview)
 			gscene.addPixmap(pixmap)
-			gscene.addPixmap(self.grid_pixmap)
+			# gscene.addPixmap(self.grid_pixmap)
 
 			self.accepted_proposals_allSections[sec] = {}
 
@@ -280,7 +280,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.setupUi(self)
 
 		self.button_autoDetect.clicked.connect(self.autoDetect_callback)
-		self.button_updateDB.clicked.connect(self.updateDB_callback)
+		# self.button_updateDB.clicked.connect(self.updateDB_callback)
 		# self.button_loadLabeling.clicked.connect(self.load_callback)
 		self.button_saveLabeling.clicked.connect(self.save_callback)
 		self.button_quit.clicked.connect(self.close)
@@ -1415,25 +1415,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.button_verticesOnOff.setText('Turns Vertices OFF')
 
-	def updateDB_callback(self):
-		cmd = 'rsync -az --include="*/" %(local_labeling_dir)s/%(stack)s yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
-																			'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
-																			'stack': self.stack
-																			}
-		os.system(cmd)
+	# def updateDB_callback(self):
+	# 	cmd = 'rsync -az --include="*/" %(local_labeling_dir)s/%(stack)s yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
+	# 																		'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
+	# 																		'stack': self.stack
+	# 																		}
+	# 	os.system(cmd)
 
-		# cmd = 'rsync -az %(local_labeling_dir)s/labelnames.txt yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
-		#                                                             'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
-		#                                                             }
-		# os.system(cmd)
-		self.statusBar().showMessage('labelings synced')
+	# 	# cmd = 'rsync -az %(local_labeling_dir)s/labelnames.txt yuncong@gcn-20-33.sdsc.edu:%(gordon_labeling_dir)s' % {'gordon_labeling_dir':os.environ['GORDON_LABELING_DIR'],
+	# 	#                                                             'local_labeling_dir':os.environ['LOCAL_LABELING_DIR'],
+	# 	#                                                             }
+	# 	# os.system(cmd)
+	# 	self.statusBar().showMessage('labelings synced')
 
-		# payload = {'section': self.dm.slice_ind}
-		# r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db', params=payload)
-		r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db')
-		res = r.json()
-		if res['result'] == 0:
-			self.statusBar().showMessage('Landmark database updated')
+	# 	# payload = {'section': self.dm.slice_ind}
+	# 	# r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db', params=payload)
+	# 	r = requests.get('http://gcn-20-32.sdsc.edu:5000/update_db')
+	# 	res = r.json()
+	# 	if res['result'] == 0:
+	# 		self.statusBar().showMessage('Landmark database updated')
 
 
 	def detect_landmark(self, labels):

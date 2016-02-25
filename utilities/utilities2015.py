@@ -192,7 +192,7 @@ class DataManager(object):
                  stack=None,
                  resol='lossless',
                  section=None,
-                 load_mask=True):
+                 load_mask=False):
 
         self.data_dir = data_dir
         self.repo_dir = repo_dir
@@ -265,7 +265,8 @@ class DataManager(object):
 
 
     def load_thumbnail_mask(self):
-        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack, 'slice_str': self.slice_str}).astype(np.bool)
+        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack, 
+            'slice_str': self.slice_str}).astype(np.bool)
         return self.thumbmail_mask
 
     def add_labelnames(self, labelnames, filename):

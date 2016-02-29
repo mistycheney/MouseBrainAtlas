@@ -33,10 +33,16 @@ first_secind = args.first_secind
 last_secind = args.last_secind
 
 if not os.path.exists(output_downscaled_dir):
-    os.makedirs(output_downscaled_dir)
+    try:
+        os.makedirs(output_downscaled_dir)
+    except:
+        pass
 
-if not os.path.exists(output_grayscale_dir):
-    os.makedirs(output_grayscale_dir)
+# if not os.path.exists(output_grayscale_dir):
+#     try:
+#         os.makedirs(output_grayscale_dir)
+#     except:
+#         pass
 
 def f(secind):
     d = {
@@ -46,6 +52,6 @@ def f(secind):
         }
 
     os.system("convert %(input_fn)s -format jpg %(output_downscaled_fn)s"%d)
-    os.system("convert %(input_fn)s -type grayscale %(output_grayscale_fn)s"%d)
+    # os.system("convert %(input_fn)s -type grayscale %(output_grayscale_fn)s"%d)
 
 Parallel(n_jobs=8)(delayed(f)(secind) for secind in range(first_secind, last_secind+1))

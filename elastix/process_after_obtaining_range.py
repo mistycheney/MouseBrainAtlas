@@ -10,7 +10,7 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Process after identifying the first and last sections in the stack that contain brainstem: 1) align thumbnails')
+    description='Process after identifying the first and last sections in the stack that contain brainstem (if desired, can be whole stack): 1) align thumbnails 2) warp thumbnail images 3) generate mask')
 
 DATAPROC_DIR = os.environ['DATA_DIR']
 
@@ -87,17 +87,17 @@ run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(align
 print 'done in', time.time() - t, 'seconds'
 
 
-# t = time.time()
-# sys.stderr.write('generating mask ...')
+t = time.time()
+sys.stderr.write('generating mask ...')
 
-# run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
-#                             {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
-#                             'stack': stack,
-#                             'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
-#                             }, 
-#                 first_sec=first_sec,
-#                 last_sec=last_sec,
-#                 exclude_nodes=exclude_nodes,
-#                 take_one_section=False)
+run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
+                            {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
+                            'stack': stack,
+                            'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
+                            }, 
+                first_sec=first_sec,
+                last_sec=last_sec,
+                exclude_nodes=exclude_nodes,
+                take_one_section=False)
 
-# sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+sys.stderr.write('done in %f seconds\n' % (time.time() - t))

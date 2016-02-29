@@ -107,8 +107,15 @@ mask_dir = os.environ['DATA_DIR'] + '/' + stack + '_' + suffix + '_mask'
 masked_img_dir = os.environ['DATA_DIR'] + '/' + stack + '_' + suffix + '_masked'
 
 if not os.path.exists(mask_dir):
-    os.makedirs(mask_dir)
+    try:
+        os.makedirs(mask_dir)
+    except:
+        pass
+
 if not os.path.exists(masked_img_dir):
-    os.makedirs(masked_img_dir)
+    try:
+        os.makedirs(masked_img_dir)
+    except:
+        pass
     
 _ = Parallel(n_jobs=16)(delayed(f)(stack, sec) for sec in range(first_secind, last_secind+1))

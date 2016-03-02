@@ -249,12 +249,17 @@ class DataManager(object):
 
         if self.resol == 'lossless':
             self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
+            self.image_rgb_jpg_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped_downscaled')
 
         if section is not None:
             self.set_slice(section)
         else:
-            random_image_fn = os.listdir(self.image_dir)[0]
-            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
+            try:
+                random_image_fn = os.listdir(self.image_dir)[0]
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
+            except:           
+                random_image_fn = os.listdir(self.image_rgb_jpg_dir)[0]
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_rgb_jpg_dir, random_image_fn), shell=True).split('x'))
 
         if load_mask:
             self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
@@ -329,8 +334,8 @@ class DataManager(object):
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
         
         self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
-        if not os.path.exists(self.results_dir):
-            os.makedirs(self.results_dir)
+        # if not os.path.exists(self.results_dir):
+        #     os.makedirs(self.results_dir)
 
     # def set_image(self, stack, slice_ind):
     #     self.set_stack(stack)

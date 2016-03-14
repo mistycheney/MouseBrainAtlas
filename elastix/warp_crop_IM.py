@@ -62,10 +62,13 @@ crop = not (x == 0 and y == 0 and w == 2000 and h == 1500)
 #     w = 2000
 #     h = 1500
 
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
 
-# DATAPROC_DIR = '/home/yuncong/csd395/CSHL_data_processed'
+if not os.path.exists(output_dir):
+    try:
+        os.makedirs(output_dir)
+    except:
+        pass
+
 
 all_files = dict(sorted([(int(img_fn[:-4].split('_')[1]), img_fn) for img_fn in os.listdir(input_dir) if suffix in img_fn]))
 
@@ -76,7 +79,6 @@ elif suffix == 'lossy':
 elif suffix == 'lossless':
     scale_factor = 32
 
-# with open(os.path.join(DATAPROC_DIR, stack + '_finalTransfParams.pkl'), 'r') as f:
 with open(os.path.join(os.environ['DATA_DIR'], stack + '_finalTransfParams.pkl'), 'r') as f:
     Ts = pickle.load(f)
     

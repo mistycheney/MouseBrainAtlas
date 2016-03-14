@@ -28,7 +28,7 @@ y = args.y
 w = args.w
 h = args.h
 
-DATAPROC_DIR = os.environ['DATA_DIR']
+# DATAPROC_DIR = os.environ['DATA_DIR']
 
 # os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox; mogrify -path %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox -fill none -stroke black -draw "stroke-width 2 fill-opacity 0 rectangle %(x1)d,%(y1)d %(x2)d,%(y2)d" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*"""% \
 #     {'stack': args.stack_name,
@@ -38,28 +38,22 @@ DATAPROC_DIR = os.environ['DATA_DIR']
 #     'x2': x+w-1,
 #     'y2': y+h-1}) 
 
-# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
-# 	{'stack': args.stack_name, 
-# 	'dataproc_dir': DATAPROC_DIR,
-# 	'w':w, 'h':h, 'x':x, 'y':y})
+os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
+	{'stack': args.stack_name, 
+	'dataproc_dir': os.environ['DATA_DIR'],
+	'w':w, 'h':h, 'x':x, 'y':y})
 
 
-# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
-#     {'stack': args.stack_name, 
-#     'dataproc_dir': DATAPROC_DIR,
-#     'w':w, 'h':h, 'x':x, 'y':y})
+os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
+    {'stack': args.stack_name, 
+    'dataproc_dir': os.environ['DATA_DIR'],
+    'w':w, 'h':h, 'x':x, 'y':y})
 
 
 # sys.exit(0)
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'elastix')
 
-# os.system('%(script_dir)s/expand_jp2.py %(stack)s %(first_sec)s %(last_sec)s' % \
-#            {'script_dir': script_dir, 
-#            'stack': args.stack_name,
-                # first_sec=args.first_sec,
-                # last_sec=args.last_sec,
-#            })
 
 t = time.time()
 sys.stderr.write('expanding...')
@@ -89,8 +83,8 @@ sys.stderr.write('warping and cropping...')
 run_distributed3(command='%(script_path)s %(stack)s %(lossless_renamed_dir)s %(lossless_aligned_cropped_dir)s %%(f)d %%(l)d lossless %(x)d %(y)d %(w)d %(h)d'%\
                             {'script_path': script_dir + '/warp_crop_IM.py', 
                             'stack': args.stack_name,
-                            'lossless_renamed_dir': os.path.join(DATAPROC_DIR, args.stack_name + '_lossless_renamed'),
-                            'lossless_aligned_cropped_dir': os.path.join(DATAPROC_DIR, args.stack_name + '_lossless_aligned_cropped'),
+                            'lossless_renamed_dir': os.path.join( os.environ['DATA_DIR'] , args.stack_name + '_lossless_renamed'),
+                            'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'] , args.stack_name + '_lossless_aligned_cropped'),
                             'x': x,
                             'y': y,
                             'w': w,

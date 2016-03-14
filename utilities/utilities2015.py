@@ -176,15 +176,26 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness    
 
 
-# section_range_lookup = {'MD585': (79, 344), 'MD593': (81,349), 'MD594': (47,186), 'MD595': (35,164), 'MD592': (46,185), 'MD589':(49,186)}
-section_range_lookup = {'MD589': (93, 368), 'MD594': (93, 364)}
+
+section_number_lookup = {'MD589': 445, 'MD594': 432, 'MD593': 448, 'MD585': 440, 'MD592': 454, \
+                        'MD590': 419, 'MD591': 452, 'MD589': 445, 'MD595': 441, 'MD598': 430, 'MD602': 420}
+section_range_lookup = {'MD589': (93, 368), 'MD594': (93, 364), 'MD593': (69,350), 'MD585': (78, 347), 'MD592':(91,371), \
+                        'MD590':(80,336), 'MD591': (98,387), 'MD589':(93,368), 'MD595': (67,330), 'MD598': (95,354), 'MD602':(96,352)}
+
+brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD593': (645,128,571,500), 'MD592': (807,308,626,407), 'MD590': (652,156,601,536), 'MD591': (697,194,550,665), \
+                        'MD594': (616,144,451,362), 'MD595': (645,170,735,519), 'MD598': (680,107,695,459), 'MD602': (641,76,761,474), 'MD589':(643,145,419,367)}
+
+detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \
+                        'MD594': (29,120,422,243), 'MD595': (60,143,437,236), 'MD598': (48,118,450,231), 'MD602': (56,117,468,219), 'MD589': (38,137,355,221)}
+
+detect_bbox_range_lookup = {'MD585': (132,292), 'MD593': (127,294), 'MD592': (147,319), 'MD590': (135,280), 'MD591': (150,315), \
+                        'MD594': (143,305), 'MD595': (115,279), 'MD598': (150,300), 'MD602': (147,302), 'MD589': (150,316)}
 # midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
 class DataManager(object):
 
     def __init__(self, data_dir=os.environ['DATA_DIR'], 
                  repo_dir=os.environ['REPO_DIR'], 
-                 result_dir=os.environ['RESULT_DIR'], 
                  labeling_dir=os.environ['LABELING_DIR'],
                  gabor_params_id=None, 
                  segm_params_id='tSLIC200', 
@@ -209,7 +220,7 @@ class DataManager(object):
         # else:
         #     self.labelnames = []
 
-        self.root_results_dir = result_dir
+        # self.root_results_dir = result_dir
 
         self.slice_ind = None
         self.image_name = None
@@ -237,12 +248,17 @@ class DataManager(object):
 
         if self.resol == 'lossless':
             self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
+            self.image_rgb_jpg_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped_downscaled')
 
         if section is not None:
             self.set_slice(section)
         else:
-            random_image_fn = os.listdir(self.image_dir)[0]
-            self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
+            try:
+                random_image_fn = os.listdir(self.image_dir)[0]
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
+            except:           
+                random_image_fn = os.listdir(self.image_rgb_jpg_dir)[0]
+                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_rgb_jpg_dir, random_image_fn), shell=True).split('x'))
 
         if load_mask:
             self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
@@ -316,9 +332,9 @@ class DataManager(object):
         
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
         
-        self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
-        if not os.path.exists(self.results_dir):
-            os.makedirs(self.results_dir)
+        # self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
+        # if not os.path.exists(self.results_dir):
+        #     os.makedirs(self.results_dir)
 
     # def set_image(self, stack, slice_ind):
     #     self.set_stack(stack)

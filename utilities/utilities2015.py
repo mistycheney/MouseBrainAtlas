@@ -196,7 +196,6 @@ class DataManager(object):
 
     def __init__(self, data_dir=os.environ['DATA_DIR'], 
                  repo_dir=os.environ['REPO_DIR'], 
-                 result_dir=os.environ['RESULT_DIR'], 
                  labeling_dir=os.environ['LABELING_DIR'],
                  gabor_params_id=None, 
                  segm_params_id='tSLIC200', 
@@ -221,7 +220,7 @@ class DataManager(object):
         # else:
         #     self.labelnames = []
 
-        self.root_results_dir = result_dir
+        # self.root_results_dir = result_dir
 
         self.slice_ind = None
         self.image_name = None
@@ -333,7 +332,7 @@ class DataManager(object):
         
 #         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
         
-        self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
+        # self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
         # if not os.path.exists(self.results_dir):
         #     os.makedirs(self.results_dir)
 

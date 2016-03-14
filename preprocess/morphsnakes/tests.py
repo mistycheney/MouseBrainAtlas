@@ -1,4 +1,3 @@
-
 import morphsnakes
 
 import numpy as np
@@ -60,7 +59,7 @@ def test_lakes():
     
     # Visual evolution.
     ppl.figure()
-    morphsnakes.evolve_visual(macwe, num_iters=190, background=imgcolor)
+    morphsnakes.evolve_visual(macwe, num_iters=2000, background=imgcolor)
 
 def test_confocal3d():
     
@@ -77,7 +76,7 @@ def test_confocal3d():
 if __name__ == '__main__':
     print """"""
     test_nodule()
-    test_starfish()
+    #test_starfish()
     test_lakes()
     test_confocal3d()
     ppl.show()

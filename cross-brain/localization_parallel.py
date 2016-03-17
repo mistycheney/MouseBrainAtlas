@@ -25,9 +25,9 @@ if args.task == 'snake':
 	t = time.time()
 	sys.stderr.write('warping and cropping...')
 
-	run_distributed3(command='%(script_path)s %(stack)s %(lossless_renamed_dir)s %(lossless_aligned_cropped_dir)s %%(f)d %%(l)d lossless %(x)d %(y)d %(w)d %(h)d'%\
+	run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
 	                            {'script_path': '/home/yuncong/Brain/cross-brain/localization.py',
-	                            'stack': args.stack_name}, 
+	                            'stack': args.stack}, 
 	                first_sec=args.b,
 	                last_sec=args.e,
 	                exclude_nodes=[35,41,42],

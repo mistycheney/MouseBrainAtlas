@@ -325,7 +325,10 @@ class DataManager(object):
             sys.stderr.write('Cannot find image\n')
 
         # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
-        
+
+        if hasattr(self, 'result_list'):
+            del self.result_list
+
         self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
         # if not os.path.exists(self.labelings_dir):
         #     os.makedirs(self.labelings_dir)
@@ -1061,7 +1064,7 @@ class DataManager(object):
             img = imread(image_filename)
         return img
 
-    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg'], force_reload=False):
+    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg'], force_reload=True):
         
         assert self.image_name is not None, 'Image is not specified'
 
@@ -1295,7 +1298,7 @@ class DataManager(object):
         if section is None:
             section = self.slice_ind
 
-        if not hasattr(self, 'result_list'):
+        if not hasattr(self, 'result_list') or len(self.result_list[username]) == 0:
             self.reload_labelings()
 
         if username is None: # search labelings of any user
@@ -1304,8 +1307,14 @@ class DataManager(object):
                 # sys.stderr.write('username is empty\n')
                 return None
 
+
+        
         if timestamp == 'latest':
             if username is not None:
+                
+                if len(self.result_list[username]) == 0:
+                    return None
+
                 timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
                 timestamp = timestamps_sorted[0]
             else:
@@ -1352,12 +1361,12 @@ class DataManager(object):
 
     def load_proposal_review_result(self, username, timestamp, suffix):
 
-        if not hasattr(self, 'result_list'):
+        if not hasattr(self, 'result_list') or len(self.result_list[username]) == 0:
             self.reload_labelings()
 
         if username is not None:
             if len(self.result_list[username]) == 0:
-                sys.stderr.write('username %s does not have any labelings\n' % username)
+                sys.stderr.write('username %s does not have any annotations for current section %d \n' % (username, self.slice_ind))
                 return None
 
         if suffix == 'all':

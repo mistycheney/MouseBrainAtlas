@@ -1962,10 +1962,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				if path.elementCount() > 1 and self.is_path_closed(path):
 					props_saved['subtype'] = PolygonType.CLOSED
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+					props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount()-1)]
 				else:
 					props_saved['subtype'] = PolygonType.OPEN
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+					props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount())]
 
 				label_pos = props['labelTextArtist'].scenePos()
 				props_saved['labelPos'] = (label_pos.x(), label_pos.y())

@@ -19,3 +19,6 @@ CereNuc	Deep cerebellar nuclei
 RtTgD	reticulotegmental nucleus of the pons, dorsal part
 Nuc1	undefined nucleus 1
 Nuc2	undefined nucleus 2
+LM1	moderate sized dense area, at 4th ventricle floor and frontal to sp5
+LM1C	LM1, caudal part
+LM1R	LM1, rostral part

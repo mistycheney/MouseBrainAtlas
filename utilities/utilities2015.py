@@ -27,6 +27,15 @@ from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
 
+from enum import Enum
+    
+class PolygonType(Enum):
+    CLOSED = 'closed'
+    OPEN = 'open'
+    TEXTURE = 'textured'
+    TEXTURE_WITH_CONTOUR = 'texture with contour'
+    DIRECTION = 'directionality'
+
 def create_if_not_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)

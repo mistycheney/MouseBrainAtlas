@@ -27,6 +27,9 @@ from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
 
+from IPython.html.widgets import FloatProgress
+from IPython.display import display
+
 from enum import Enum
     
 class PolygonType(Enum):
@@ -1898,7 +1901,7 @@ def scores_to_vote(scores):
     return votes
 
 
-def display(vis, filename='tmp.jpg'):
+def display_image(vis, filename='tmp.jpg'):
     
     if vis.dtype != np.uint8:
         imsave(filename, img_as_ubyte(vis))

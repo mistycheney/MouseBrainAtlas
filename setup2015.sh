@@ -15,6 +15,8 @@ if [[ $(hostname) = "yuncong-MacbookPro" ]]; then
 	export PYTHONPATH=$MXNET_DIR/python:$PYTHONPATH
 	export ELASTIX_DIR=$HOME/elastix_linux64_v4.7
 	export OPENCV_DIR=$HOME/opencv-2.4.11
+        export OPENCV_LIBDIR=$OPENCV_DIR/release/lib/python2.7/dist-packages
+
 
 elif [[ $(hostname) = "yuncong-Precision-WorkStation-T7500" ]]; then
         export DATA_DIR=$HOME/CSHL_data_processed
@@ -24,6 +26,7 @@ elif [[ $(hostname) = "yuncong-Precision-WorkStation-T7500" ]]; then
         export MXNET_DIR=$HOME/mxnet
         export MODEL_DIR=$HOME/mxnet_models
         export OPENCV_DIR=$HOME/opencv-2.4.11
+        export OPENCV_LIBDIR=$OPENCV_DIR/release/lib/python2.7/dist-packages
         export CAFFE_DIR=$HOME/caffe-rc3
 
 else
@@ -47,9 +50,10 @@ else
 	export ELASTIX_DIR=$CSD395/elastix_linux64_v4.7
 	
 	# geos-svn
-	export LD_LIBRARY_PATH=/home/yuncong/csd395/geos-svn/release/lib/:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=$HOME/csd395/geos-svn/release/lib/:$LD_LIBRARY_PATH
 	
-	export OPENCV_DIR=$HOME/opencv-2.4.9
+	export OPENCV_DIR=$HOME/csd181/opencv-2.4.9
+	export OPENCV_LIBDIR=$OPENCV_DIR/release/lib/python2.7/site-packages
 fi
 
 # mxnet
@@ -58,7 +62,7 @@ export PYTHONPATH=$MXNET/python:$PYTHONPATH
 export ELASTIX_BIN=$ELASTIX_DIR/bin/elastix
 # opencv
 export LD_LIBRARY_PATH=$OPENCV_DIR/release/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$OPENCV_DIR/release/lib/python2.7/dist-packages:$PYTHONPATH
+export PYTHONPATH=$OPENCV_LIBDIR:$PYTHONPATH
 export PKG_CONFIG_PATH=$OPENCV_DIR/release/lib/pkgconfig/:$PKG_CONFIG_PATH
 # caffe
 export PYTHONPATH=$CAFFE_DIR/python:$PYTHONPATH

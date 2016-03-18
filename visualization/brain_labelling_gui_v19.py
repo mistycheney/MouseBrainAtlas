@@ -174,11 +174,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print self.sections
 
 			self.dms = dict([(i, DataManager(
-			    data_dir=os.environ['DATA_DIR'], 
+			    # data_dir=os.environ['DATA_DIR'], 
+			    data_dir='/media/yuncong/MyPassport', 
 			         repo_dir=os.environ['REPO_DIR'], 
-			         result_dir=os.environ['RESULT_DIR'], 
+			         # result_dir=os.environ['RESULT_DIR'], 
 			         # labeling_dir=os.environ['LOCAL_LABELING_DIR'],
 			         labeling_dir='/home/yuncong/CSHL_data_labelings_losslessAlignCropped',
+			         # labeling_dir='/home/yuncong/CSHL_autoAnnotations_snake',
 			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) 
 			for i in self.sections])
 				# for i in range(self.first_sec, self.last_sec+1)])
@@ -250,8 +252,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			try:
 				usr, ts, suffix, result = self.dms[sec].load_proposal_review_result(None, 'latest', 'consolidated')
+				# usr, ts, suffix, result = self.dms[sec].load_proposal_review_result('autoAnnotate', 'latest', 'consolidated')
 				self.load_labelings(result, gscene, sec)
-			except:
+			except Exception as e:
+				print e.message, e.args
 				sys.stderr.write('There is no labeling for section %d\n' % sec)
 
 		if panel_id == 0:
@@ -280,7 +284,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.setupUi(self)
 
-		self.button_autoDetect.clicked.connect(self.autoDetect_callback)
+		# self.button_autoDetect.clicked.connect(self.autoDetect_callback)
 		# self.button_updateDB.clicked.connect(self.updateDB_callback)
 		# self.button_loadLabeling.clicked.connect(self.load_callback)
 		self.button_saveLabeling.clicked.connect(self.save_callback)
@@ -288,9 +292,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.lineEdit_username.returnPressed.connect(self.username_changed)
 
-		self.button_loadLabelingSec1.clicked.connect(self.load_callback1)
-		self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
-		self.button_loadLabelingSec3.clicked.connect(self.load_callback3)
+		# self.button_loadLabelingSec1.clicked.connect(self.load_callback1)
+		# self.button_loadLabelingSec2.clicked.connect(self.load_callback2)
+		# self.button_loadLabelingSec3.clicked.connect(self.load_callback3)
 
 		# self.display_buttons = [self.img_radioButton, self.textonmap_radioButton, self.dirmap_radioButton]
 		# self.img_radioButton.setChecked(True)
@@ -298,13 +302,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# for b in self.display_buttons:
 		# 	b.toggled.connect(self.display_option_changed)
 
-		self.radioButton_globalProposal.toggled.connect(self.mode_changed)
-		self.radioButton_localProposal.toggled.connect(self.mode_changed)
+		# self.radioButton_globalProposal.toggled.connect(self.mode_changed)
+		# self.radioButton_localProposal.toggled.connect(self.mode_changed)
 
 		# self.buttonSpOnOff.clicked.connect(self.display_option_changed)
-		self.button_labelsOnOff.clicked.connect(self.toggle_labels)
-		self.button_contoursOnOff.clicked.connect(self.toggle_contours)
-		self.button_verticesOnOff.clicked.connect(self.toggle_vertices)
+		# self.button_labelsOnOff.clicked.connect(self.toggle_labels)
+		# self.button_contoursOnOff.clicked.connect(self.toggle_contours)
+		# self.button_verticesOnOff.clicked.connect(self.toggle_vertices)
 
 		# self.thumbnail_list = QListWidget(parent=self)
 		self.thumbnail_list.setIconSize(QSize(200,200))
@@ -513,6 +517,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 																										self.selected_polygon.release_scene_y - self.selected_polygon.press_scene_y)})
 			self.polygon_is_moved = False
 
+			print np.sqrt((self.selected_polygon.release_scene_x - self.selected_polygon.press_scene_x) ** 2 + (self.selected_polygon.release_scene_y - self.selected_polygon.press_scene_y) ** 2)
+
 			print 'history:', [h['type'] for h in self.history_allSections[self.selected_section]]
 
 				
@@ -587,6 +593,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.history_allSections[self.selected_section].append({'type': 'drag_vertex', 'polygon': self.selected_polygon, 'vertex': clicked_vertex, \
 								 'mouse_moved': (clicked_vertex.release_scene_x - clicked_vertex.press_scene_x, \
 								 	clicked_vertex.release_scene_y - clicked_vertex.press_scene_y)})
+
+			print (clicked_vertex.release_scene_x - clicked_vertex.press_scene_x, \
+								 	clicked_vertex.release_scene_y - clicked_vertex.press_scene_y)
+			print np.sqrt((clicked_vertex.release_scene_x - clicked_vertex.press_scene_x)**2 + (clicked_vertex.release_scene_y - clicked_vertex.press_scene_y)**2)
 
 			self.vertex_is_moved = False
 
@@ -1024,6 +1034,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.accepted_proposals_allSections[self.selected_section].pop(polygon)
 
+		# self.history_allSections.append({'type': 'remove_polygon', 'polygon': polygon})
+
 
 	def add_polygon(self, path, pen, z_value=50, uncertain=False):
 
@@ -1135,7 +1147,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.open_label_selection_dialog()
 
-		self.restack_polygons(self.selected_polygon, self.overlap_with)
+		if hasattr(self, 'overlap_with'):
+			self.restack_polygons(self.selected_polygon, self.overlap_with)
 
 		print 'accepted', self.accepted_proposals_allSections[self.selected_section].keys()
 
@@ -1962,10 +1975,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				if path.elementCount() > 1 and self.is_path_closed(path):
 					props_saved['subtype'] = PolygonType.CLOSED
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount()-1)]
+					props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount()-1)]
 				else:
 					props_saved['subtype'] = PolygonType.OPEN
-					props_saved['vertices'] = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+					props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount())]
 
 				label_pos = props['labelTextArtist'].scenePos()
 				props_saved['labelPos'] = (label_pos.x(), label_pos.y())
@@ -1996,13 +2009,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				del painter
 				del pix
 
-
 	def save_callback(self):
 
 		for sec, ac in self.accepted_proposals_allSections.iteritems():
 			if sec in self.gscenes and sec in self.dms:
 				print sec
 				self.save_selected_section(sec)
+
+
+		timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+
+		h = {}
+		for sec, history_items in self.history_allSections.iteritems():
+			new_history_items = []
+			for hist_item in history_items:
+				new_hist_item = {}
+				for k, v in hist_item.iteritems():
+					if k == 'type':
+						new_hist_item[k] = v
+					elif k == 'mouse_moved':
+						new_hist_item[k] = v
+				new_history_items.append(new_hist_item)
+			h[sec] = new_history_items
+
+		pickle.dump(h, open('/home/yuncong/CSHL_labelingHistory/%(stack)s_%(timestamp)s.pkl' % {'stack': self.stack, 'timestamp': timestamp}, 'w'))
 
 
 		# timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")

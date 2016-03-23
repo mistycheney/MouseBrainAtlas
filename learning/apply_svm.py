@@ -1,15 +1,22 @@
 #! /usr/bin/env python
 
+import numpy as np
+
 import sys, os
 from sklearn.svm import SVC
 from sklearn.externals import joblib
 import time
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import *
 
 from joblib import Parallel, delayed
 
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
 last_sec = int(sys.argv[3])
+
+####################################################
 
 # input
 features_dir = '/home/yuncong/csd395/CSHL_patch_features'
@@ -24,7 +31,7 @@ labels = ['BackG', '5N', '7n', '7N', '12N', 'Pn', 'VLL',
 
 svc_allClasses = {}
 for label_ind, label in enumerate(labels[1:]):
-    svc_allClasses[label] = joblib.load('svm/%(label)s_svm.pkl' % {'label': label})
+    svc_allClasses[label] = joblib.load(os.environ['REPO_DIR']+'/learning/svm/%(label)s_svm.pkl' % {'label': label})
     
 def f(stack, sec):
     

@@ -43,7 +43,7 @@ def func(sec):
 
     dataset = '%(stack)s_%(sec)04d_roi1' % {'stack': stack, 'sec': sec}
 
-    for l in labels_to_detect:
+    for l in labels[1:]:
         
         scoremap_bp_filepath = scoremaps_rootdir + '/%(stack)s/%(slice)04d/%(stack)s_%(slice)04d_roi1_denseScoreMapLossless_%(label)s.hdf' \
             % {'stack': stack, 'slice': sec, 'label': l}

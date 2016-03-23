@@ -18,7 +18,6 @@ import cPickle as pickle
 import datetime
 
 import cv2
-from cv2 import imwrite
 
 from tables import open_file, Filters, Atom
 import bloscpack as bp
@@ -27,7 +26,7 @@ from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
 
-from IPython.html.widgets import FloatProgress
+from ipywidgets import FloatProgress
 from IPython.display import display
 
 from enum import Enum
@@ -78,8 +77,8 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
 
-def save_hdf(data, fn):
-    filters = Filters(complevel=9, complib='blosc')
+def save_hdf(data, fn, complevel=9):
+    filters = Filters(complevel=complevel, complib='blosc')
     with open_file(fn, mode="w") as f:
         _ = f.create_carray('/', 'data', Atom.from_dtype(data.dtype), filters=filters, obj=data)
 
@@ -1271,7 +1270,7 @@ class DataManager(object):
             imsave(result_filename, data)
         elif ext == 'png': # cv2
             data = self._regulate_image(data, is_rgb)
-            imwrite(result_filename, data)
+            cv2.imwrite(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
         elif ext == 'hdf':

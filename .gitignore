@@ -1,7 +1,6 @@
-cross-brain/*.npy
-
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
+learning/svm/
 *.h5
 *.png
 *.tif

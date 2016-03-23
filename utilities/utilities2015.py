@@ -18,7 +18,6 @@ import cPickle as pickle
 import datetime
 
 import cv2
-from cv2 import imwrite
 
 from tables import open_file, Filters, Atom
 import bloscpack as bp
@@ -27,7 +26,7 @@ from subprocess import check_output, call
 
 import matplotlib.pyplot as plt
 
-from IPython.html.widgets import FloatProgress
+from ipywidgets import FloatProgress
 from IPython.display import display
 
 from enum import Enum
@@ -76,6 +75,17 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     int(q[1] + arrow_magnitude * np.sin(angle - np.pi/4)))
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
+
+
+def save_hdf(data, fn, complevel=9):
+    filters = Filters(complevel=complevel, complib='blosc')
+    with open_file(fn, mode="w") as f:
+        _ = f.create_carray('/', 'data', Atom.from_dtype(data.dtype), filters=filters, obj=data)
+
+def load_hdf(fn):
+    with open_file(fn, mode="r") as f:
+        data = f.get_node('/data').read()
+    return data
 
 
 def order_nodes(sps, neighbor_graph, verbose=False):
@@ -197,6 +207,7 @@ section_range_lookup = {'MD589': (93, 368), 'MD594': (93, 364), 'MD593': (69,350
 brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD593': (645,128,571,500), 'MD592': (807,308,626,407), 'MD590': (652,156,601,536), 'MD591': (697,194,550,665), \
                         'MD594': (616,144,451,362), 'MD595': (645,170,735,519), 'MD598': (680,107,695,459), 'MD602': (641,76,761,474), 'MD589':(643,145,419,367)}
 
+# xmin, ymin, w, h
 detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \
                         'MD594': (29,120,422,243), 'MD595': (60,143,437,236), 'MD598': (48,118,450,231), 'MD602': (56,117,468,219), 'MD589': (38,137,355,221)}
 
@@ -1260,7 +1271,7 @@ class DataManager(object):
             imsave(result_filename, data)
         elif ext == 'png': # cv2
             data = self._regulate_image(data, is_rgb)
-            imwrite(result_filename, data)
+            cv2.imwrite(result_filename, data)
         elif ext == 'pkl':
             pickle.dump(data, open(result_filename, 'w'))
         elif ext == 'hdf':

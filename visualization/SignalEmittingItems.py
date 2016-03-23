@@ -18,6 +18,8 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
+import time
+
 from enum import Enum
 
 class Mode(Enum):
@@ -111,13 +113,13 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 
 		# self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
 								# basically, ignore the first press and release event
-
 		self.gui = gui
 
 	def mousePressEvent(self, event):
-	# if not self.just_created:
+
 		print self, 'received mousePressEvent'
 		QGraphicsEllipseItem.mousePressEvent(self, event)
+
 		self.signal_emitter.clicked.emit()
 
 		self.press_scene_x = event.scenePos().x()
@@ -128,10 +130,12 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 
 		self.gui.selected_vertex = self
 
-		for p, props in self.gui.accepted_proposals_allSections[self.gui.selected_section].iteritems():
-			if self in props['vertexCircles']:
-				self.gui.selected_polygon = p
-				break
+		self.gui.selected_polygon = self.gui.inverse_lookup[self]
+
+		# for p, props in self.gui.accepted_proposals_allSections[self.gui.selected_section].iteritems():
+		# 	if self in props['vertexCircles']:
+		# 		self.gui.selected_polygon = p
+		# 		break
 
 		# self.just_created = False
 		# print 'just created UNSET'

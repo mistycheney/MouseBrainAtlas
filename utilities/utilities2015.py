@@ -78,6 +78,17 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
 
+def save_hdf(data, fn):
+    filters = Filters(complevel=9, complib='blosc')
+    with open_file(fn, mode="w") as f:
+        _ = f.create_carray('/', 'data', Atom.from_dtype(data.dtype), filters=filters, obj=data)
+
+def load_hdf(fn):
+    with open_file(fn, mode="r") as f:
+        data = f.get_node('/data').read()
+    return data
+
+
 def order_nodes(sps, neighbor_graph, verbose=False):
 
     from networkx.algorithms import dfs_successors, dfs_postorder_nodes

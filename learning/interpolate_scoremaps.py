@@ -28,15 +28,17 @@ label_dict = dict([(l,i) for i, l in enumerate(labels)])
 
 patches_rootdir = '/home/yuncong/CSHL_data_patches'
 
-# scoremaps_rootdir = '/home/yuncong/CSHL_scoremaps_lossless_inceptionModel'
-scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm'
-if not os.path.exists(scoremaps_rootdir):
-    os.makedirs(scoremaps_rootdir)
-    
-# predictions_rootdir = '/home/yuncong/CSHL_patch_predictions_inceptionModel'
-predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm'
-if not os.path.exists(predictions_rootdir):
-    os.makedirs(predictions_rootdir)
+# input
+# predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned/'
+# predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned_v2/'
+predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned_v3/'
+create_if_not_exists(predictions_rootdir)
+
+# output
+# scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned/'
+# scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v2/'
+scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'
+create_if_not_exists(scoremaps_rootdir)
 
     
 first_bs_sec, last_bs_sec = section_range_lookup[stack]
@@ -72,8 +74,6 @@ for sec in range(first_sec, last_sec+1):
 
     ## define grid, generate patches
 
-    t = time.time()
-
     sample_locations_roi = sample_locations[indices_roi]
 
     ## interpolate
@@ -106,11 +106,9 @@ for sec in range(first_sec, last_sec+1):
 
     dataset = '%(stack)s_%(sec)04d_roi1' % {'stack': stack, 'sec': sec}
 
-    probs_allClasses = dict([(label, np.load(predictions_dir + '/%(dataset)s_%(label)s_scores.npy' % \
+    probs_allClasses = dict([(label, np.load(predictions_dir + '/%(dataset)s_%(label)s_sparseScores.npy' % \
                                              {'dataset': dataset, 'label': label}))
                              for label in labels[1:]])
-
-    sys.stderr.write('preprocess: %.2f seconds\n' % (time.time() - t))
 
     def generate_score_map(label):
 

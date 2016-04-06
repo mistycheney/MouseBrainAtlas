@@ -1,0 +1,9 @@
+#ssh gcn-20-31.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD594 &
+ssh gcn-20-32.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD585 &
+#ssh gcn-20-34.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD593 & 
+#ssh gcn-20-35.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD592 &
+ssh gcn-20-36.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD590 &
+#ssh gcn-20-37.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD591 &
+#ssh gcn-20-38.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD595 &
+#ssh gcn-20-41.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD598 &
+#ssh gcn-20-42.sdsc.edu /home/yuncong/Brain/cross-brain/align_individual_landmarks.py MD602 &

@@ -88,6 +88,21 @@ def load_hdf(fn):
     return data
 
 
+def unique_rows(a, return_index=True):
+    # http://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array   
+    b = np.ascontiguousarray(a).view(np.dtype((np.void, a.dtype.itemsize * a.shape[1])))
+    _, idx = np.unique(b, return_index=True)
+    unique_a = a[idx]
+    if return_index:
+        return unique_a, idx
+    else:
+        return unique_a
+    
+def unique_rows2(a):
+    ind = np.lexsort(a.T)
+    return a[np.concatenate(([True],np.any(a[ind[1:]]!=a[ind[:-1]],axis=1)))]
+    
+
 def order_nodes(sps, neighbor_graph, verbose=False):
 
     from networkx.algorithms import dfs_successors, dfs_postorder_nodes

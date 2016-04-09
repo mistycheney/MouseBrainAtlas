@@ -22,3 +22,16 @@ Nuc2	undefined nucleus 2
 LM1	moderate sized dense area, at 4th ventricle floor and frontal to sp5
 LM1C	LM1, caudal part
 LM1R	LM1, rostral part
+7N2	facial nucleus, anterior subpart
+bv1	Blood Vessel 1
+bv2	Blood Vessel 2
+bv3	Blood Vessel 3
+bv4	Blood Vessel 4
+bv5	Blood Vessel 5
+bv6	Blood Vessel 6
+bv7	Blood Vessel 7
+bv8	Blood Vessel 8
+bv9	Blood Vessel 9
+bv10	Blood Vessel 10
+bv11	Blood Vessel 11
+bv12	Blood Vessel 12

@@ -86,12 +86,14 @@ class PolygonType(Enum):
 	TEXTURE_WITH_CONTOUR = 'texture with contour'
 	DIRECTION = 'directionality'
 
-SELECTED_POLYGON_LINEWIDTH = 5
-UNSELECTED_POLYGON_LINEWIDTH = 3
+SELECTED_POLYGON_LINEWIDTH = 2
+UNSELECTED_POLYGON_LINEWIDTH = 2
 SELECTED_CIRCLE_SIZE = 30
 UNSELECTED_CIRCLE_SIZE = 5
 CIRCLE_PICK_THRESH = 1000.
 PAN_THRESHOLD = 10
+
+PEN_WIDTH = 10
 
 HISTORY_LEN = 20
 
@@ -142,11 +144,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.midline_sec = (self.first_sec + self.last_sec)/2
 
 		self.red_pen = QPen(Qt.red)
-		self.red_pen.setWidth(20)
+		self.red_pen.setWidth(PEN_WIDTH)
 		self.blue_pen = QPen(Qt.blue)
-		self.blue_pen.setWidth(20)
+		self.blue_pen.setWidth(PEN_WIDTH)
 		self.green_pen = QPen(Qt.green)
-		self.green_pen.setWidth(20)
+		self.green_pen.setWidth(PEN_WIDTH)
 
 		self.initialize_brain_labeling_gui()
 		# self.labeling_painters = {}
@@ -188,6 +190,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			t = time.time()
 
+			print 'self.sections', self.sections
+
 			if hasattr(self, 'pixmaps'):
 				for i in self.sections:
 					if i not in self.pixmaps:
@@ -198,15 +202,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				to_remove = []
 				for i in self.pixmaps:
 					if i not in self.sections:
-						print 'pop', i
 						to_remove.append(i)
 				
+				print 'to_remove', to_remove
+
 				for i in to_remove:
-					del self.pixmaps[i]
-					# self.pixmaps.pop(i)
+					m = self.pixmaps.pop(i)
+					del m
+
 					if i in self.gscenes:
-						del self.gscenes[i]
-					# self.gscenes.pop(i)
+						s = self.gscenes.pop(i)
+						del s
+					
 			else:	
 			
 				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
@@ -373,7 +380,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
 
-
 		elif selected_action == action_deletePolygon:
 			self.remove_polygon(self.selected_polygon)
 
@@ -413,7 +419,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif selected_action == action_doneDrawing:
 			self.set_mode(Mode.IDLE)
-			# self.selected_polygon = None
 
 
 	@pyqtSlot()
@@ -696,6 +701,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if obj_type == 'gscene' and event.type() == QEvent.GraphicsSceneMouseMove:
 
 			# print 'event filter: mouse move'
+
+			if self.mode == Mode.ADDING_VERTICES_RANDOMLY or self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY:
+				return True
 
 			if self.mode == Mode.MOVING_VERTEX:
 				obj.mouseMoveEvent(event)
@@ -1044,6 +1052,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			sec = self.selected_section
 
 		polygon = QGraphicsPathItemModified(path, gui=self)
+		
 		polygon.setPen(pen)
 		polygon.setZValue(z_value)
 		polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
@@ -1104,6 +1113,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			'label': label
 			})
 
+
+
 	def add_vertex_to_polygon(self, polygon, x, y, new_index=-1, sec=None):
 		'''
 		Add vertex circle to polygon.
@@ -1124,13 +1135,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		ellipse = QGraphicsEllipseItemModified(-VERTEX_CIRCLE_RADIUS, -VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, gui=self)
 		ellipse.setPos(x,y)
 
-		# find polygons that overlap with `polygon`
-		# for p in self.accepted_proposals_allSections[self.selected_section]:
-		# 	if p != self.selected_polygon:
-		# 		if p.path().contains(QPointF(x,y)) or p.path().intersects(polygon.path()):
-		# 			print 'overlap_with', self.overlap_with
-		# 			self.overlap_with.add(p)
-
 		ellipse.setPen(Qt.blue)
 		ellipse.setBrush(Qt.blue)
 
@@ -1146,8 +1150,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if new_index == -1:
 			self.accepted_proposals_allSections[sec][polygon]['vertexCircles'].append(ellipse)
 		else:
-			# self.accepted_proposals_allSections[self.selected_section][polygon]['vertexCircles'] = self.accepted_proposals_allSections[self.selected_section][polygon]['vertexCircles'][:new_index] + \
-			# 													[ellipse] + self.accepted_proposals_allSections[self.selected_section][polygon]['vertexCircles'][new_index:]
 			self.accepted_proposals_allSections[sec][polygon]['vertexCircles'].insert(new_index, ellipse)
 
 		self.auto_extend_view(x, y)
@@ -1175,6 +1177,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		path = polygon.path()
 		is_closed = polygon_is_closed(path=path)
+
 		# if is_closed:
 		# 	self.accepted_proposals[polygon]['subtype'] = PolygonType.CLOSED
 		# else:
@@ -1185,6 +1188,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		for i in range(n):
 			elem = path.elementAt(i)
 			circ = self.add_vertex_to_polygon(polygon, elem.x, elem.y, new_index=-1)
+
 
 	def restack_polygons(self, polygon):
 		'''
@@ -1453,7 +1457,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				if self.section2 == self.last_sec or self.section2 + 1 not in self.sections:
 					return
 				else:
-					for s2 in range(self.section3+1, max(self.sections)):
+					for s2 in range(self.section2+1, max(self.sections)):
 						if s2 != self.section and s2 != self.section3:
 							self.section2 = s2
 							break
@@ -1640,7 +1644,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		for props in annotations:
 			path = vertices_to_path(props['vertices'])
-			polygon = self.add_polygon_by_vertices_label(path, label=props['label'], sec=sec)
+			polygon = self.add_polygon_by_vertices_label(path=path, label=props['label'], sec=sec)
 
 	# def resolve_gscene_section(self, gscene=None, sec=None):
 	# 	if gscene is None:

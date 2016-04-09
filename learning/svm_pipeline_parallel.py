@@ -13,8 +13,8 @@ from utilities2015 import *
 parser = argparse.ArgumentParser(description="Run pipeline for different instances on different servers")
 parser.add_argument("task", type=str, help="task to perform (svm, interpolate, visualize)")
 parser.add_argument("stack", help="stack name, e.g. MD593")
-parser.add_argument("-b", type=int, help="beginning slide (default: %(default)s)", default=0)
-parser.add_argument("-e", type=int, help="ending slide (default: %(default)s)", default=-1)
+parser.add_argument("-b", type=int, help="beginning slide (default: first_detect_sec)", default=0)
+parser.add_argument("-e", type=int, help="ending slide (default: last_detect_sec)", default=-1)
 
 args = parser.parse_args()
 
@@ -40,7 +40,7 @@ if args.task == 'svm':
 	                exclude_nodes=exclude_nodes,
 	                take_one_section=False)
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~ 1000 seconds
     
 elif args.task == 'interpolate':
 
@@ -55,7 +55,7 @@ elif args.task == 'interpolate':
 	                exclude_nodes=exclude_nodes,
 	                take_one_section=False)
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~240 seconds 
 
 elif args.task == 'visualize':
 
@@ -70,7 +70,7 @@ elif args.task == 'visualize':
 	                exclude_nodes=exclude_nodes,
 	                take_one_section=False)
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ～40 seconds
+	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~ 40 seconds
 
     
 print args.task, time.time() - t, 'seconds'

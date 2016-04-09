@@ -64,6 +64,7 @@ def polygon_to_shapely(polygon=None, path=None):
 
 
 def polygon_is_closed(polygon=None, path=None):
+
     if path is None:
         path = polygon.path()
 
@@ -98,7 +99,7 @@ def vertices_to_path(vertices, closed=True):
 
     Args:
         vertices (n x 2 numpy array): vertices
-        closed (bool): whether the polygon is closed
+        closed (bool): whether the polygon is closed; if polygon has only one vertex, count as open
 
     Returns:
         QPainterPath: the output path
@@ -111,6 +112,9 @@ def vertices_to_path(vertices, closed=True):
             path.moveTo(x,y)
         else:
             path.lineTo(x,y)
+
+    if len(vertices) == 1:
+        closed = False  # if polygon has only one vertex, count as open
 
     if closed:
         path.closeSubpath()

@@ -50,16 +50,15 @@ class SignalEmitter(QObject):
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
 	def __init__(self, path, parent=None, gui=None):
+
 		super(self.__class__, self).__init__(path, parent=parent)
+
+		self.setPath(path)
+
 		self.signal_emitter = SignalEmitter(parent=self)
-		# self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
-								# basically, ignore the first press and release event
 		self.gui = gui
 
 	def mousePressEvent(self, event):
-
-	# if not self.just_created:
-		# print self, 'received mousePressEvent'
 
 		self.press_scene_x = event.scenePos().x()
 		self.press_scene_y = event.scenePos().y()
@@ -78,10 +77,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 			self.label_pos_before_move_x = label_pos_before_move.x()
 			self.label_pos_before_move_y = label_pos_before_move.y()
 
-		# self.just_created = False
 
 	def mouseReleaseEvent(self, event):
-		# if not self.just_created:
+
 		print self, 'received mouseReleaseEvent'
 		
 		release_scene_pos = event.scenePos()
@@ -111,8 +109,6 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 		super(self.__class__, self).__init__(x,y,w,h, parent=parent)
 		self.signal_emitter = SignalEmitter(parent=self)
 
-		# self.just_created = True # this flag is used to make sure a click is not emitted right after item creation
-								# basically, ignore the first press and release event
 		self.gui = gui
 
 	def mousePressEvent(self, event):
@@ -132,16 +128,8 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 
 		self.gui.selected_polygon = self.gui.inverse_lookup[self]
 
-		# for p, props in self.gui.accepted_proposals_allSections[self.gui.selected_section].iteritems():
-		# 	if self in props['vertexCircles']:
-		# 		self.gui.selected_polygon = p
-		# 		break
-
-		# self.just_created = False
-		# print 'just created UNSET'
-
 	def mouseReleaseEvent(self, event):
-		# if not self.just_created:
+
 		print self, 'received mouseReleaseEvent'
 
 		release_scene_pos = event.scenePos()

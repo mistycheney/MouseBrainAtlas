@@ -1,11 +1,14 @@
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
-learning/svm/
+learning/svm*/
+learning/sift*/
 *.h5
 *.png
 *.tif
 tmp.jpg
 .metadata/
+*.npy
+*.bp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

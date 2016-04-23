@@ -11,6 +11,96 @@ import pandas as pd
 from collections import defaultdict
 
 
+# def annotation_on_sections():
+    
+#     label_polygons = load_label_polygons_if_exists(stack, username)
+
+#     annotation_on_section = defaultdict(list)
+    
+#     for l in label_polygons.index:
+#         list(label_polygons.loc[l].dropna())
+    
+#     for sec, lms in section_contains_annotation.iteritems():
+#         for l in lms:
+#             annotation_on_section[l].append(sec)
+
+#     annotation_on_section.default_factory = None
+#     return annotation_on_section
+    
+
+def get_landmark_range_limits(stack):
+    
+    label_polygons = load_label_polygons_if_exists(stack, username)
+    
+    section_bs_begin, section_bs_end = section_range_lookup[stack]
+    mid_sec = (section_bs_begin + section_bs_end + 1)/2
+
+    landmark_limits = {}
+
+    for l in set(label_polygons.keys()) & set(labels):
+        secs = label_polygons[l].dropna().keys()
+        if len(secs) < 2: 
+            continue
+
+        print l
+        diffs = np.diff(secs)
+        peak = np.argmax(diffs)
+        if diffs[peak] > 5:
+            befores = secs[np.where(secs - mid_sec < 0)[0]]
+            afters = secs[np.where(secs - mid_sec > 0)[0]]
+            print secs.min(), befores.max()
+            print afters.min(), secs.max()
+            landmark_limits[l] = [(secs.min(), befores.max()), (afters.min(), secs.max())]
+        else:
+            print secs.min(), secs.max()
+            landmark_limits[l] = [(secs.min(), secs.max())]
+            
+    return landmark_limits
+    
+    
+#     section_bs_begin, section_bs_end = section_range_lookup[stack]
+#     mid_sec = (section_bs_begin + section_bs_end + 1)/2
+
+#     interpolated_contours = [{} for _ in range(int(z_xy_ratio_downsampled*section_number_lookup[stack]))]
+#     interpolation_limits = {}
+
+#     for l in set(label_polygons.keys()) & set(labels):
+#         secs = label_polygons[l].dropna().keys()
+#         if len(secs) < 2: continue
+
+#         print l
+#     #         print secs.min(), secs.max()
+#         diffs = np.diff(secs)
+#         peak = np.argmax(diffs)
+#         if diffs[peak] > 5:
+#             befores = secs[np.where(secs - mid_sec < 0)[0]]
+#             afters = secs[np.where(secs - mid_sec > 0)[0]]
+#             print secs.min(), befores.max()
+#             print afters.min(), secs.max()
+#     #             plt.plot(np.diff(secs))
+#     #             plt.show();
+#             interpolation_limits[l] = [(secs.min(), befores.max()), (afters.min(), secs.max())]
+#         else:
+#             print secs.min(), secs.max()
+#             interpolation_limits[l] = [(secs.min(), secs.max())]
+
+#         for lims in interpolation_limits[l]:
+#             considered_secs = sorted(set(range(lims[0], lims[1]+1)) & set(secs))
+#             n = len(considered_secs)
+#             for i in range(n):
+#                 sec = considered_secs[i]
+#                 z0 = int(z_xy_ratio_downsampled*sec)
+#                 interpolated_contours[z0][l] = label_polygons.loc[sec][l]            
+#                 if i + 1 < n:
+#                     next_sec = considered_secs[i+1]
+#                     z1 = int(z_xy_ratio_downsampled*next_sec)
+#                     interp_cnts = interpolate_contours(label_polygons.loc[sec][l], 
+#                                                        label_polygons.loc[next_sec][l],
+#                                                        z1-z0+1)
+#                     for zi, z in enumerate(range(z0+1, z1)):
+#                         interpolated_contours[z][l] = interp_cnts[zi+1]
+
+
 def generate_annotaion_list(stack, username, filepath=None):
 
     if filepath is None:

@@ -88,6 +88,21 @@ def load_hdf(fn):
     return data
 
 
+def unique_rows(a, return_index=True):
+    # http://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array   
+    b = np.ascontiguousarray(a).view(np.dtype((np.void, a.dtype.itemsize * a.shape[1])))
+    _, idx = np.unique(b, return_index=True)
+    unique_a = a[idx]
+    if return_index:
+        return unique_a, idx
+    else:
+        return unique_a
+    
+def unique_rows2(a):
+    ind = np.lexsort(a.T)
+    return a[np.concatenate(([True],np.any(a[ind[1:]]!=a[ind[:-1]],axis=1)))]
+    
+
 def order_nodes(sps, neighbor_graph, verbose=False):
 
     from networkx.algorithms import dfs_successors, dfs_postorder_nodes
@@ -209,7 +224,7 @@ brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD593': (645,128,571,500),
 
 # xmin, ymin, w, h
 detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \
-                        'MD594': (29,120,422,243), 'MD595': (60,143,437,236), 'MD598': (48,118,450,231), 'MD602': (56,117,468,219), 'MD589': (38,137,355,221)}
+                        'MD594': (29,120,422,242), 'MD595': (60,143,437,236), 'MD598': (48,118,450,231), 'MD602': (56,117,468,219), 'MD589': (38,137,355,221)}
 
 detect_bbox_range_lookup = {'MD585': (132,292), 'MD593': (127,294), 'MD592': (147,319), 'MD590': (135,280), 'MD591': (150,315), \
                         'MD594': (143,305), 'MD595': (115,279), 'MD598': (150,300), 'MD602': (147,302), 'MD589': (150,316)}
@@ -1922,6 +1937,28 @@ def display_image(vis, filename='tmp.jpg'):
     from IPython.display import FileLink
     return FileLink(filename)
 
+def display_images_in_grids(vizs, nc, titles):
+
+    n = len(vizs)
+    nr = int(np.ceil(n/float(nc)))
+    aspect_ratio = vizs[0].shape[1]/float(vizs[0].shape[0]) # width / height
+
+    fig, axes = plt.subplots(nr, nc, figsize=(nc*5*aspect_ratio, nr*5))
+    axes = axes.flatten()
+
+    for i in range(len(axes)):
+        if i >= n:
+            axes[i].axis('off');
+        else:
+            axes[i].imshow(vizs[i]);
+            axes[i].set_title(titles[i]);
+            axes[i].set_xticks([]);
+            axes[i].set_yticks([]);
+            
+    fig.tight_layout();
+            
+    plt.show();
+
 # <codecell>
 
 # import numpy as np
@@ -2078,3 +2115,24 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
     out[..., 3] = out_alpha
     
     return out
+
+
+def bbox_2d(img):
+    rows = np.any(img, axis=1)
+    cols = np.any(img, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+
+    return cmin, cmax, rmin, rmax
+
+def bbox_3d(img):
+
+    r = np.any(img, axis=(1, 2))
+    c = np.any(img, axis=(0, 2))
+    z = np.any(img, axis=(0, 1))
+
+    rmin, rmax = np.where(r)[0][[0, -1]]
+    cmin, cmax = np.where(c)[0][[0, -1]]
+    zmin, zmax = np.where(z)[0][[0, -1]]
+
+    return cmin, cmax, rmin, rmax, zmin, zmax

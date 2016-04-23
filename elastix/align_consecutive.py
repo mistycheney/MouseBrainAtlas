@@ -18,8 +18,11 @@ suffix = 'thumbnail'
 
 all_files = dict(sorted([(int(img_fn[:-4].split('_')[1]), img_fn) for img_fn in os.listdir(input_dir) if suffix in img_fn]))
 
-if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+
+# This causes race condition that all processes will have error
+# Current workaround is to create this folder manually e.g. ~/csd395/CSHL_data_processed/MD603_elastix_output
+# if not os.path.exists(output_dir):
+# 	os.makedirs(output_dir)
 
 n_sections = len(os.listdir(input_dir))
 
@@ -45,7 +48,7 @@ for moving_secind in range(first_moving_secind, last_moving_secind+1):
 		else:
 			param = rg_param
 
-		d = {'elastix_bin': os.environ['GORDON_ELASTIX'], 
+		d = {'elastix_bin': os.environ['ELASTIX_BIN'], 
 			'rg_param': param,
 			'output_subdir': os.path.join(output_dir, 'output%dto%d'%(moving_secind, moving_secind-1)),
 			'fixed_fn': os.path.join(input_dir, all_files[moving_secind-1]),

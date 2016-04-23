@@ -12,7 +12,7 @@ from preprocess_utility import *
 from utilities2015 import *
 
 parser = argparse.ArgumentParser(description="Run pipeline for different instances on different servers")
-parser.add_argument("task", type=str, help="task to perform (must be one of filter, segment, rotate_features)")
+parser.add_argument("task", type=str, help="task to perform (must be one of snake)")
 parser.add_argument("stack", help="stack name, e.g. MD593")
 parser.add_argument("-b", type=int, help="beginning slide (default: %(default)s)", default=0)
 parser.add_argument("-e", type=int, help="ending slide (default: %(default)s)", default=-1)
@@ -31,7 +31,7 @@ exclude_nodes = []
 if args.task == 'snake':
 
 	t = time.time()
-	sys.stderr.write('snake localizing ...')
+	sys.stderr.write('individual landmark localizing ...')
 
 	run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
 	                            {'script_path': '/home/yuncong/Brain/cross-brain/localization.py',

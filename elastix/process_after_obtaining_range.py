@@ -36,7 +36,7 @@ d = {
     }
 
 
-exclude_nodes = [33, 35]
+exclude_nodes = [33]
 
 # elastix has built-in parallelism
 t = time.time()
@@ -60,6 +60,7 @@ def identify_shape(img_fn):
     return map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(d['input_dir'], img_fn), shell=True).split('x'))
 
 all_files = dict(sorted([(int(img_fn[:-4].split('_')[1]), img_fn) for img_fn in os.listdir(d['input_dir']) if d['suffix'] in img_fn]))
+
 all_files = dict([(i, all_files[i]) for i in range(first_sec, last_sec+1)])
 shapes = Parallel(n_jobs=16)(delayed(identify_shape)(img_fn) for img_fn in all_files.values())
 img_shapes_map = dict(zip(all_files.keys(), shapes))

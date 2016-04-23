@@ -11,54 +11,64 @@ import os
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
+from registration_utilities import *
+
 
 from joblib import Parallel, delayed
 import time
 
 import logging
 
-from registration_utilities import *
+from collections import defaultdict
+
+volume_dir = '/home/yuncong/csd395/CSHL_volumes/'
+
+labels_twoSides = []
+labels_twoSides_indices = {}
+with open(volume_dir + '/MD589/volume_MD589_annotation_withOuterContour_labelIndices.txt', 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        name, index = line.split()
+        labels_twoSides.append(name)
+        labels_twoSides_indices[name] = int(index)
+        
+labelMap_sidedToUnsided = {name: name if '_' not in name else name[:-2] for name in labels_twoSides_indices.keys()}
+labels_unsided = ['BackG'] + sorted(set(labelMap_sidedToUnsided.values()) - {'BackG', 'outerContour'}) + ['outerContour']
+labels_unsided_indices = dict((j, i) for i, j in enumerate(labels_unsided))
 
 from collections import defaultdict
 
-labels = ['BackG', '5N', '7n', '7N', '12N', 'Pn', 'VLL', 
-          '6N', 'Amb', 'R', 'Tz', 'RtTg', 'LRt', 'LC', 'AP', 'sp5']
+labelMap_unsidedToSided = defaultdict(list)
+for name_sided, name_unsided in labelMap_sidedToUnsided.iteritems():
+    labelMap_unsidedToSided[name_unsided].append(name_sided)
+labelMap_unsidedToSided.default_factory = None
 
-n_labels = len(labels)
 
-labels_index = dict((j, i) for i, j in enumerate(labels))
+stack = sys.argv[1]
 
-labels_from_surround = dict( (l+'_surround', l) for l in labels[1:])
+atlasProjected_volume = bp.unpack_ndarray_file(os.path.join(volume_dir, '%(stack)s/%(stack)s_volume_atlasProjected.bp' % {'stack': stack}))
 
-labels_surroundIncluded_list = labels[1:] + [l+'_surround' for l in labels[1:]]
-labels_surroundIncluded = set(labels_surroundIncluded_list)
 
-labels_surroundIncluded_index = dict((j, i) for i, j in enumerate(labels_surroundIncluded_list))
-
-# colors = np.random.randint(0, 255, (len(labels_index), 3))
-colors = np.loadtxt(os.environ['REPO_DIR'] + '/visualization/100colors.txt')
-colors[labels_index['BackG']] = 1.
-
-volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/'
-
-volume1 = bp.unpack_ndarray_file(os.path.join(volume_dir, 'volume_MD589_annotation.bp'))
-
-def parallel_where(l):
-    w = np.where(volume1 == l)
-    return np.array([w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]).T
+def parallel_where(name, num_samples=None):
+    
+    w = np.where(atlasProjected_volume == labels_twoSides_indices[name])
+    
+    if num_samples is not None:
+        n = len(w[0])
+        sample_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
+        return np.c_[w[1][sample_indices].astype(np.int16), 
+                     w[0][sample_indices].astype(np.int16), 
+                     w[2][sample_indices].astype(np.int16)]
+    else:
+        return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
 t = time.time()
 
-atlas_nzs = Parallel(n_jobs=16)(delayed(parallel_where)(l) for l in range(1, n_labels))
+atlasProjected_nzs = Parallel(n_jobs=16)(delayed(parallel_where)(name, num_samples=int(1e5)) 
+                                for name in labels_twoSides[1:])
+atlasProjected_nzs = {name: nzs for name, nzs in zip(labels_twoSides[1:], atlasProjected_nzs)}
 
-sys.stderr.write('load atlas: %f seconds\n' % (time.time() - t))
-
-atlas_ydim, atlas_xdim, atlas_zdim = volume1.shape
-atlas_centroid = (.5*atlas_xdim, .5*atlas_ydim, .5*atlas_zdim)
-print atlas_centroid
-
-atlas_vol_xmin, atlas_vol_xmax, atlas_vol_ymin, atlas_vol_ymax, atlas_vol_zmin, atlas_vol_zmax = \
-np.loadtxt(os.path.join(volume_dir, 'volume_MD589_annotation_limits.txt'))
+sys.stderr.write('load atlas: %f seconds\n' % (time.time() - t)) #~ 4s, sometime 13s
 
 
 downsample_factor = 16
@@ -66,148 +76,52 @@ downsample_factor = 16
 section_thickness = 20 # in um
 xy_pixel_distance_lossless = 0.46
 xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
-# factor = section_thickness/xy_pixel_distance_lossless
 
 xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
 z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
 
-from annotation_utilities import *
-label_polygons = load_label_polygons_if_exists(stack='MD589', username='yuncong', force=False)
 
-annotation_on_sections = get_annotation_on_sections(label_polygons=label_polygons, 
-                                                    filtered_labels=labels_surroundIncluded)
-
-landmark_range_limits = get_landmark_range_limits(stack='MD589', label_polygons=label_polygons, 
-                                                  filtered_labels=labels_surroundIncluded)
-
-landmark_zlimits = {l: [(int(z_xy_ratio_downsampled*e1) - atlas_vol_zmin, 
-                         int(z_xy_ratio_downsampled*e2) -1 - atlas_vol_zmin) for e1, e2 in ranges] 
-                    for l, ranges in landmark_range_limits.iteritems()}
-
-landmark_zlimits_twoSides = {}
-for l in range(1, n_labels):
-    zlimits = landmark_zlimits[labels[l]]
-    if len(zlimits) == 2:
-        landmark_zlimits_twoSides[labels[l] + '_L'] = zlimits[0]
-        landmark_zlimits_twoSides[labels[l] + '_R'] = zlimits[1]
-    elif len(zlimits) == 1:
-        landmark_zlimits_twoSides[labels[l]] = zlimits[0]
-        
-atlas_nzs_twoSides = {}
-for name, (z_begin, z_end) in landmark_zlimits_twoSides.iteritems():
-    
-    if '_' in name:
-        l = labels_index[name[:-2]]
-    else:
-        l = labels_index[name]
-    
-    nzs = atlas_nzs[l-1]
-    atlas_nzs_twoSides[name] = nzs[(nzs[:,2] >= z_begin) & (nzs[:,2] <= z_end)]
-    
-############### Load test volume ###############
-
-stack = sys.argv[1]
-
+# Load test volume
 atlasAlignParams_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams'
+params_dir = create_if_not_exists(atlasAlignParams_dir + '/' + stack)
 
-with open(atlasAlignParams_dir + '/%(stack)s/%(stack)s_3dAlignParams.txt' % {'stack': stack}, 'r') as f:
-    lines = f.readlines()
+volume2_allLabels = {}
+
+for name in labels_unsided:
     
-T_final = np.array(map(float, lines[1].strip().split()))
+    if name == 'BackG':
+        continue
 
-(volume_xmin, volume_xmax, volume_ymin, volume_ymax, volume_zmin, volume_zmax) = \
-np.loadtxt(os.path.join(volume_dir, 'volume_%(stack)s_scoreMap_limits.txt' % {'stack': stack}), dtype=np.int)
+    volume2_roi = bp.unpack_ndarray_file(os.path.join(volume_dir, '%(stack)s/%(stack)s_scoreVolume_%(label)s.bp' % \
+                                                      {'stack': stack, 'label': name})).astype(np.float16)
+    volume2_allLabels[name] = volume2_roi
+    del volume2_roi
 
-global volume2_allLabels
-# volume2_allLabels = []
-volume2_allLabels = np.empty((n_labels-1, volume_ymax-volume_ymin+1, volume_xmax-volume_xmin+1, volume_zmax-volume_zmin+1), 
-         dtype=np.float16) # use float32 is faster than float16 (2.5s/landmark), maybe because bp files are stored using float32
-
-for l in range(1, n_labels):
-
-    t = time.time()
-
-    volume2 = bp.unpack_ndarray_file(os.path.join(volume_dir, 'volume_%(stack)s_scoreMap_%(label)s.bp' % \
-                                                  {'stack': stack, 'label': labels[l]}))
-
-    volume2_cropped = volume2[volume_ymin:volume_ymax+1, volume_xmin:volume_xmax+1]
-    # copy is important, because then you can delete the large array
-
-    volume2_allLabels[l-1] = volume2_cropped.copy()
-    
-#     volume2_allLabels.append(volume2_cropped.copy())
-
-    del volume2, volume2_cropped
-    
-    sys.stderr.write('load scoremap %s: %f seconds\n' % (labels[l], time.time() - t)) # ~2.5s
-
-test_ydim, test_xdim, test_zdim = volume2_allLabels[0].shape
-test_centroid = (.5*test_xdim, .5*test_ydim, .5*test_ydim)
-test_cx, test_cy, test_cz = test_centroid
+test_ydim, test_xdim, test_zdim = volume2_allLabels.values()[0].shape
 
 print test_xdim, test_ydim, test_zdim
-print test_centroid
 
-dSdxyz = np.empty((n_labels-1, 3) + volume2_allLabels[0].shape, dtype=np.float16) 
 
-# if memory is not limited, using float32 is faster, because the output of np.gradient is of type float32
-# time for storing output: float16 4s (due to dtype conversion overhead), float32 1s
+########### Load Gradient ###########
 
-# using float16 avoids memory issues that make gradient computation utterly slow, 30s vs. 4s
-
-################# COMPUTE GRADIENTS ######################
-
-# dSdxyz = {}
-# DO NOT use python list because python will use contiguous memory for it
-# http://stackoverflow.com/questions/12274060/does-python-use-linked-lists-for-lists-why-is-inserting-slow  
+dSdxyz = {name: np.empty((3, test_ydim, test_xdim, test_zdim), dtype=np.float16) for name in labels_unsided[1:]}
 
 t1 = time.time()
 
-for l in range(1, n_labels):
+for name in labels_unsided:
+    
+    if name == 'BackG':
+        continue
 
     t = time.time()
     
-    gy, gx, gz = np.gradient(volume2_allLabels[l-1], 3, 3, 3) # 3.3 second, much faster than loading
-    # if memory is limited, this will be very slow
+    dSdxyz[name][0] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_scoreVolume_%(label)s_gx.bp' % {'stack':stack, 'label':name})
+    dSdxyz[name][1] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_scoreVolume_%(label)s_gy.bp' % {'stack':stack, 'label':name})
+    dSdxyz[name][2] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_scoreVolume_%(label)s_gz.bp' % {'stack':stack, 'label':name})
     
-    sys.stderr.write('gradient %s: %f seconds\n' % (labels[l], time.time() - t))
-    
-    t = time.time()
-    
-    dSdxyz[l-1, 0] = gx
-    dSdxyz[l-1, 1] = gy
-    dSdxyz[l-1, 2] = gz
-    
-#     dSdxyz[labels[l]] = np.array([gx, gy, gz]) # use np.array is better; using python list also causes contiguous memory overhead
-    
-#     del gx, gy, gz # does not make a difference
-    
-    sys.stderr.write('store %s: %f seconds\n' % (labels[l], time.time() - t))
-    
-sys.stderr.write('overall: %f seconds\n' % (time.time() - t1))
+    sys.stderr.write('load gradient %s: %f seconds\n' % (name, time.time() - t)) # ~7s
 
-def transform_points(T, pts=None, c=None, pts_centered=None, c_prime=0):
-    '''
-    T: 1x12 vector
-    c: center of volume 1
-    c_prime: center of volume 2
-    pts: nx3
-    '''
-    
-    if pts_centered is None:
-        pts_centered = pts - c
-    
-    Tm = np.reshape(T, (3,4))
-    t = Tm[:, 3]
-    A = Tm[:, :3]
-        
-    pts_prime = np.dot(A, pts_centered.T) + (t + c_prime)[:,None]
-        
-    return pts_prime.T
-
-atlas_nzs2_twoSides = {name: transform_points(T_final, pts=nzs, c=atlas_centroid, 
-                                              c_prime=test_centroid).astype(np.int16) 
-                       for name, nzs in atlas_nzs_twoSides.iteritems()}
+sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # 140s
 
 def matrix_exp(w):
     
@@ -239,17 +153,12 @@ def step(T, name, lr, verbose=False, num_samples=1000):
     l: landmark class label
     '''
     
-    pts_prime = transform_points(T, pts_centered=pts2_centered[name], c_prime=test_centroid2)
+    name_unsided = labelMap_sidedToUnsided[name]
+        
+    pts_prime = transform_points(T, pts_centered=atlasProjected_pts_centered[name], c_prime=test_centroid2).astype(np.int16)
     
-    if '_' in name:
-        l = labels_index[name[:-2]]
-    else:
-        l = labels_index[name]
-    
-    xs_prime = pts_prime[:,0]
-    ys_prime = pts_prime[:,1]
-    zs_prime = pts_prime[:,2]
-    
+    xs_prime, ys_prime, zs_prime = pts_prime.T
+        
     valid = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
             (xs_prime < test_xdim) & (ys_prime < test_ydim) & (zs_prime < test_zdim)
     
@@ -258,43 +167,44 @@ def step(T, name, lr, verbose=False, num_samples=1000):
         
     assert np.count_nonzero(valid) > 0, 'No valid pixel after transform: %s' % name
     
-    xs_prime_valid = xs_prime[valid].astype(np.int16)
-    ys_prime_valid = ys_prime[valid].astype(np.int16)
-    zs_prime_valid = zs_prime[valid].astype(np.int16)
-    
-    voxel_probs_valid = volume2_allLabels[l-1, ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+    xs_prime_valid, ys_prime_valid, zs_prime_valid = pts_prime[valid].T
+        
+    voxel_probs_valid = volume2_allLabels[name_unsided][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
     score = voxel_probs_valid.sum()
     
     if num_samples is not None:
         # sample some voxels # this seems to make optimization more stable than using all voxels
     
-        ii = np.random.choice(range(np.count_nonzero(valid)), num_samples, replace=False)
-
-        dSdx = dSdxyz[l-1, 0, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]
-        dSdy = dSdxyz[l-1, 1, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]
-        dSdz = dSdxyz[l-1, 2, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]
-
-        xss = xs_prime[valid].astype(np.float)[ii]
-        yss = ys_prime[valid].astype(np.float)[ii]
-        zss = zs_prime[valid].astype(np.float)[ii]
+        ii = np.random.choice(range(np.count_nonzero(valid)), 
+                              min(num_samples, np.count_nonzero(valid)), 
+                              replace=False)
+        
+        dSdx = dSdxyz[name_unsided][0, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]        
+        dSdy = dSdxyz[name_unsided][1, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]
+        dSdz = dSdxyz[name_unsided][2, ys_prime_valid, xs_prime_valid, zs_prime_valid][ii]
+        
+        xss = xs_prime_valid.astype(np.float)[ii]
+        yss = ys_prime_valid.astype(np.float)[ii]
+        zss = zs_prime_valid.astype(np.float)[ii]
+        
     else:
         # use all voxels    
-        dSdx = dSdxyz[l-1, 0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
-        dSdy = dSdxyz[l-1, 1, ys_prime_valid, xs_prime_valid, zs_prime_valid]
-        dSdz = dSdxyz[l-1, 2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+        dSdx = dSdxyz[name_unsided][0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+        dSdy = dSdxyz[name_unsided][1, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+        dSdz = dSdxyz[name_unsided][2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
 
-        xss = xs_prime[valid].astype(np.float)
-        yss = ys_prime[valid].astype(np.float)
-        zss = zs_prime[valid].astype(np.float)
+        xss = xs_prime_valid.astype(np.float)
+        yss = ys_prime_valid.astype(np.float)
+        zss = zs_prime_valid.astype(np.float)
 
     #############################################
     
-    dMdv = np.c_[dSdx, dSdy, dSdz, 
-                 -dSdy*zss + dSdz*yss, 
-                 dSdx*zss - dSdz*xss,
-                 -dSdx*yss + dSdy*xss].sum(axis=0)
+    q = np.c_[dSdx, dSdy, dSdz, -dSdy*zss + dSdz*yss, dSdx*zss - dSdz*xss, -dSdx*yss + dSdy*xss]
+    
+    dMdv = q.sum(axis=0)
 
     if verbose:
+        print 'q:', q
         print 'dMdv:', dMdv
         print 'score:', score
 
@@ -334,23 +244,24 @@ def step(T, name, lr, verbose=False, num_samples=1000):
 
     return np.column_stack([R_new, t_new]).flatten(), score
 
-############ align all landmarks ###########
-
-params_dir = create_if_not_exists(atlasAlignParams_dir + '/' + stack)
-
-history_len = 100
+history_len = 200
 T0 = np.array([1,0,0,0,0,1,0,0,0,0,1,0])
-# max_iter = 100
 max_iter = 5000
 
-# for name_of_interest in ['Pn_R']:
-for name_of_interest in atlas_nzs_twoSides.keys():
+for name_of_interest in labels_twoSides:
+
+    if name_of_interest == 'BackG' or name_of_interest == 'outerContour':
+        continue
+    
+    print name_of_interest
     
     # set the rotation center of both atlas and test volume to the landmark centroid after affine projection
     
-    atlas_centroid2 = atlas_nzs2_twoSides[name_of_interest].mean(axis=0)
-    test_centroid2 = atlas_centroid2.copy()
-    pts2_centered = {name: nzs - atlas_centroid2 for name, nzs in atlas_nzs2_twoSides.iteritems()}
+    global atlasProjected_centroid, test_centroid2, atlasProjected_pts_centered
+    
+    atlasProjected_centroid = atlasProjected_nzs[name_of_interest].mean(axis=0)
+    test_centroid2 = atlasProjected_centroid.copy()
+    atlasProjected_pts_centered = {name: nzs - atlasProjected_centroid for name, nzs in atlasProjected_nzs.iteritems()}
     
     ############ gradient descent ############
 
@@ -373,102 +284,21 @@ for name_of_interest in atlas_nzs_twoSides.keys():
                 success = True
             except:
                 pass
-            
+        
         scores.append(s)
 
         if iteration > 2*history_len:
             if np.abs(np.mean(scores[iteration-history_len:iteration]) - \
-                      np.mean(scores[iteration-2*history_len:iteration-history_len])) < 1e-4:
+                      np.mean(scores[iteration-2*history_len:iteration-history_len])) < 1e-5:
                 break
 
         if s > score_best:
             best_gradient_descent_params = T
             score_best = s
-            
+    
     with open(params_dir + '/%(stack)s_%(name)s_transformUponAffineProjection.txt' % {'stack': stack, 'name': name_of_interest}, 
               'w') as f:
         f.write((' '.join(['%f']*12)+'\n') % tuple(best_gradient_descent_params))
-        f.write((' '.join(['%f']*3)+'\n') % tuple(atlas_centroid2))
-        f.write((' '.join(['%f']*3)+'\n') % tuple(test_centroid2))
-        
-
-############ Visualize ##############
-        
-parameters_allLandmarks = {}
-atlas_centroid_allLandmarks = {}
-test_centroid_allLandmarks = {}
-
-for name in atlas_nzs_twoSides.keys():
-    
-    with open(atlasAlignParams_dir + '/%(stack)s/%(stack)s_%(name)s_transformUponAffineProjection.txt' % \
-                        {'stack': stack, 'name': name}, 'r') as f:
-        lines = f.readlines()
-        params = np.array(map(float, lines[0].strip().split()))
-        atlas_c = np.array(map(float, lines[1].strip().split()))
-        test_c = np.array(map(float, lines[2].strip().split()))
-    
-    parameters_allLandmarks[name] = params
-    atlas_centroid_allLandmarks[name] = atlas_c
-    test_centroid_allLandmarks[name] = test_c
-    
-
-    
-atlas_nzs_projected_to_test = {name: transform_points(parameters_allLandmarks[name], pts=nzs, 
-                                                      c=atlas_centroid_allLandmarks[name], 
-                                                      c_prime=test_centroid_allLandmarks[name]).astype(np.int16)
-                               for name, nzs in atlas_nzs2_twoSides.iteritems()}
-
-test_volume_atlas_projected = np.zeros(volume2_allLabels.shape[1:], np.int16)
-
-for name in atlas_nzs_twoSides.keys():
-
-    test_xs = atlas_nzs_projected_to_test[name][:,0]
-    test_ys = atlas_nzs_projected_to_test[name][:,1]
-    test_zs = atlas_nzs_projected_to_test[name][:,2]
-
-    valid = (test_xs >= 0) & (test_ys >= 0) & (test_zs >= 0) & \
-            (test_xs < test_xdim) & (test_ys < test_ydim) & (test_zs < test_zdim)
-
-    atlas_xs = atlas_nzs_twoSides[name][:,0]
-    atlas_ys = atlas_nzs_twoSides[name][:,1]
-    atlas_zs = atlas_nzs_twoSides[name][:,2]
-        
-    test_volume_atlas_projected[test_ys[valid], test_xs[valid], test_zs[valid]] = \
-    volume1[atlas_ys[valid], atlas_xs[valid], atlas_zs[valid]]
-    
-    
-dm = DataManager(stack=stack)
-
-section_bs_begin, section_bs_end = section_range_lookup[stack]
-print section_bs_begin, section_bs_end
-
-map_z_to_section = {}
-for s in range(section_bs_begin, section_bs_end+1):
-    for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin, int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
-        map_z_to_section[z] = s
-        
-annotationsViz_rootdir = '/home/yuncong/csd395/CSHL_annotaionsIndividual3DShiftedViz/'
-annotationsViz_dir = create_if_not_exists(annotationsViz_rootdir + '/' + stack)
-
-
-for z in range(0, test_zdim, 10):
-
-    dm.set_slice(map_z_to_section[z])
-    dm._load_image(versions=['rgb-jpg'])
-    viz = dm.image_rgb_jpg[::downsample_factor, ::downsample_factor][volume_ymin:volume_ymax+1, 
-                                                                     volume_xmin:volume_xmax+1].copy()
-
-    projected_cnts = find_contour_points(test_volume_atlas_projected[...,z])
-
-    for label_ind, cnts in projected_cnts.iteritems():
-        for cnt in cnts:
-            cv2.polylines(viz, [cnt.astype(np.int)], True, tuple((colors[label_ind]*255).astype(np.int)), 2)
-
-#     plt.figure(figsize=(10, 10));
-#     plt.title('z = %d' % z)
-#     plt.imshow(viz)
-#     plt.show()
-    
-    cv2.imwrite(annotationsViz_dir + '/%(stack)s_%(sec)04d_annotaionsIndividual3DShiftedViz_z%(z)04d.jpg' % \
-                {'stack': stack, 'sec': map_z_to_section[z], 'z': z}, 
-                img_as_ubyte(viz[..., [2,1,0]]))
+        f.write((' '.join(['%d']*3)+'\n') % tuple(np.r_[test_xdim, test_ydim, test_zdim]))
+        f.write((' '.join(['%.1f']*3)+'\n') % tuple(atlasProjected_centroid))
+        f.write((' '.join(['%.1f']*3)+'\n') % tuple(test_centroid2))

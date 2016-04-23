@@ -112,9 +112,13 @@ if bool(args.infer_order):
                 d[int(fn[:-4].split('_')[-1])]['IHC'] = fn[:-4]
     d.default_factory = None
 
+    a = set([f[:-4] for f in filenames if f.endswith('tif')])
+
     complete_set = []
     last_label = 'IHC'
     for i in sorted(d.keys()):
+        # if i == 231:
+        #     print d[i]
         # if last_label == 'IHC':
         if 'N' in d[i]:
             complete_set.append(d[i]['N'])
@@ -125,6 +129,9 @@ if bool(args.infer_order):
         else:
             complete_set.append(d[i]['IHC'])
             last_label = 'IHC'
+
+    # print a - set(complete_set)
+    # print set(complete_set) - a 
 
     with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
         f.write('\n'.join([fn + ' ' + str(ind+1) for ind, fn in enumerate(complete_set)]))

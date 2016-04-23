@@ -31,13 +31,6 @@ input_dir = args.input_dir
 first_secind = args.first_sec
 last_secind = args.last_sec
 
-# stack = sys.argv[1]
-# input_dir = sys.argv[2]
-# # mask_dir = sys.argv[3]
-# # masked_tb_dir = sys.argv[4]
-# first_secind = int(sys.argv[3])
-# last_secind = int(sys.argv[4])
-
 def generate_mask(img):
 
     h, w = img.shape

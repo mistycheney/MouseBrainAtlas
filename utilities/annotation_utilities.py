@@ -10,8 +10,36 @@ import pandas as pd
 
 from collections import defaultdict
 
+from skimage.measure import grid_points_in_poly
+
+def points_inside_contour(cnt, num_samples=None):
+    xmin, ymin = cnt.min(axis=0)
+    xmax, ymax = cnt.max(axis=0)
+    h, w = (ymax-ymin+1, xmax-xmin+1)
+    inside_ys, inside_xs = np.where(grid_points_in_poly((h, w), cnt[:, ::-1]-(ymin,xmin))) 
+
+    if num_samples is None:
+        inside_points = np.c_[inside_xs, inside_ys] + (xmin, ymin)
+    else:    
+        n = inside_ys.size
+        random_indices = np.random.choice(range(n), min(1000, n), replace=False)
+        inside_points = np.c_[inside_xs[random_indices], inside_ys[random_indices]]
+    
+    return inside_points
+
 
 def get_annotation_on_sections(stack=None, username=None, label_polygons=None, filtered_labels=None):
+    """
+    Get a dictionary, whose keys are landmark names and 
+    values are indices of sections containing particular landmarks.
+    
+    Parameters
+    ----------
+    stack : str
+    username : str
+    label_polygon : pandas.DataFrame, optional
+    filtered_labels : list of str, optional
+    """
     
     assert stack is not None or label_polygons is not None
     
@@ -23,7 +51,7 @@ def get_annotation_on_sections(stack=None, username=None, label_polygons=None, f
     if filtered_labels is None:
         labels = set(label_polygons.columns)
     else:
-        labels = set(label_polygons.columns) & filtered_labels
+        labels = set(label_polygons.columns) & set(filtered_labels)
     
     for l in labels:
         annotation_on_sections[l] = list(label_polygons[l].dropna().keys())
@@ -32,6 +60,17 @@ def get_annotation_on_sections(stack=None, username=None, label_polygons=None, f
 
 
 def get_landmark_range_limits(stack=None, username=None, label_polygons=None, filtered_labels=None):
+    """
+    Get a dictionary, whose keys are landmark names and 
+    values are tuples specifying the first and last sections that have the particular landmarks.
+    
+    Parameters
+    ----------
+    stack : str
+    username : str
+    label_polygon : pandas.DataFrame, optional
+    filtered_labels : list of str, optional
+    """
     
     assert stack is not None or label_polygons is not None
     
@@ -185,8 +224,6 @@ def generate_label_polygons(stack, username, output_path = None, labels_merge_ma
 
         if ret is None:
             continue
-
-#         print sec
 
         usr, ts, suffix, annotations = ret
 

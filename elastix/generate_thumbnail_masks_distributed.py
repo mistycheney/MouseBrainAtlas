@@ -27,7 +27,7 @@ last_sec = args.last_sec
 t = time.time()
 sys.stderr.write('generating mask ...')
 
-exclude_nodes = [33, 41]
+exclude_nodes = [33]
 
 run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
                             {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 

@@ -13,6 +13,47 @@ import cv2
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
+
+from scipy.optimize import approx_fprime
+
+def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
+    """
+    A numerical approximation to the Hessian matrix of cost function at
+    location x0 (hopefully, the minimum)
+    
+    Parameters
+    ----------
+    x0 :
+        point
+    f : 
+        cost function
+    
+    """
+    # ``calculate_cost_function`` is the cost function implementation
+    # The next line calculates an approximation to the first
+    # derivative
+    f1 = approx_fprime( x0, f, epsilon, *args) 
+
+    # This is a linear approximation. Obviously much more efficient
+    # if cost function is linear
+    if linear_approx:
+        f1 = np.matrix(f1)
+        return f1.transpose() * f1    
+    # Allocate space for the hessian
+    n = x0.shape[0]
+    hessian = np.zeros ( ( n, n ) )
+    # The next loop fill in the matrix
+    xx = x0
+    for j in xrange( n ):
+        xx0 = xx[j] # Store old value
+        xx[j] = xx0 + epsilon[j] # Perturb with finite difference
+        # Recalculate the partial derivatives for this new point
+        f2 = approx_fprime( x0, f, epsilon, *args) 
+        hessian[:, j] = (f2 - f1)/epsilon[j] # scale...
+        xx[j] = xx0 # Restore initial value of x0        
+    return hessian
+
+
 def find_contour_points(labelmap):
     '''
     return is (x,y)
@@ -361,3 +402,42 @@ def pts_arr_setdiff(nz1, nz2):
     a2_rows = nz2.view([('', nz2.dtype)] * nz2.shape[1])
     surr_nzs = np.setdiff1d(a1_rows, a2_rows).view(nz1.dtype).reshape(-1, nz1.shape[1])
     return surr_nzs
+
+
+def transform_points(T, pts=None, c=None, pts_centered=None, c_prime=0):
+    '''
+    T: 1x12 vector
+    c: center of volume 1
+    c_prime: center of volume 2
+    pts: nx3
+    '''
+    
+    if pts_centered is None:
+        pts_centered = pts - c
+    
+    Tm = np.reshape(T, (3,4))
+    t = Tm[:, 3]
+    A = Tm[:, :3]
+        
+    pts_prime = np.dot(A, pts_centered.T) + (t + c_prime)[:,None]
+        
+    return pts_prime.T
+
+def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered=None, c=0):
+    '''
+    T: 1x12 vector, transform that maps pts to pts_prime
+    c: center of volume 1
+    c_prime: center of volume 2
+    pts_prime: nx3
+    '''
+    
+    Tm = np.reshape(T, (3,4))
+    t = Tm[:, 3]
+    A = Tm[:, :3]
+
+    if pts_prime_centered is None:
+        pts_prime_centered = pts_prime - c_prime
+
+    pts = np.dot(np.linalg.inv(A), (pts_prime_centered-t).T) + c[:,None]
+        
+    return pts.T

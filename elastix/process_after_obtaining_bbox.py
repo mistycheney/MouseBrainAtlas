@@ -38,10 +38,10 @@ h = args.h
 #     'x2': x+w-1,
 #     'y2': y+h-1}) 
 
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
-	{'stack': args.stack_name, 
-	'dataproc_dir': os.environ['DATA_DIR'],
-	'w':w, 'h':h, 'x':x, 'y':y})
+# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
+# 	{'stack': args.stack_name, 
+# 	'dataproc_dir': os.environ['DATA_DIR'],
+# 	'w':w, 'h':h, 'x':x, 'y':y})
 
 
 os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
@@ -50,7 +50,7 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mo
     'w':w, 'h':h, 'x':x, 'y':y})
 
 
-# sys.exit(0)
+sys.exit(0)
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'elastix')
 
@@ -70,7 +70,7 @@ run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_loss
                     'expanded_tif_dir': expanded_tif_dir},
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                exclude_nodes=[33,35,41,42],
+                exclude_nodes=[33],
                 stdout=open('/tmp/log', 'ab+'),
                 take_one_section=True)
 
@@ -92,7 +92,7 @@ run_distributed3(command='%(script_path)s %(stack)s %(lossless_renamed_dir)s %(l
                             }, 
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                exclude_nodes=[33,35,41,42],
+                exclude_nodes=[33],
                 take_one_section=False)
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))
@@ -107,7 +107,7 @@ run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
                             }, 
                 first_sec=args.first_sec,
                 last_sec=args.last_sec,
-                exclude_nodes=[33,35,41,42],
+                exclude_nodes=[33],
                 take_one_section=False)
 
 sys.stderr.write('done in %f seconds\n' % (time.time() - t))

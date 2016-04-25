@@ -70,7 +70,7 @@ elif args.task == 'visualize':
 	                exclude_nodes=exclude_nodes,
 	                take_one_section=False)
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ～40 seconds
+	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) #~40 seconds
 
     
 print args.task, time.time() - t, 'seconds'

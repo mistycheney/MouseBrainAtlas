@@ -38,10 +38,10 @@ h = args.h
 #     'x2': x+w-1,
 #     'y2': y+h-1}) 
 
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
-	{'stack': args.stack_name, 
-	'dataproc_dir': os.environ['DATA_DIR'],
-	'w':w, 'h':h, 'x':x, 'y':y})
+# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
+# 	{'stack': args.stack_name, 
+# 	'dataproc_dir': os.environ['DATA_DIR'],
+# 	'w':w, 'h':h, 'x':x, 'y':y})
 
 
 os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
@@ -50,7 +50,7 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mo
     'w':w, 'h':h, 'x':x, 'y':y})
 
 
-# sys.exit(0)
+sys.exit(0)
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'elastix')
 

@@ -23,35 +23,50 @@ from collections import defaultdict
 
 volume_dir = '/home/yuncong/csd395/CSHL_volumes/'
 
-labels_twoSides = []
-labels_twoSides_indices = {}
-with open(volume_dir + '/MD589/volume_MD589_annotation_withOuterContour_labelIndices.txt', 'r') as f:
-    lines = f.readlines()
-    for line in lines:
-        name, index = line.split()
-        labels_twoSides.append(name)
-        labels_twoSides_indices[name] = int(index)
-        
-labelMap_sidedToUnsided = {name: name if '_' not in name else name[:-2] for name in labels_twoSides_indices.keys()}
-labels_unsided = ['BackG'] + sorted(set(labelMap_sidedToUnsided.values()) - {'BackG', 'outerContour'}) + ['outerContour']
-labels_unsided_indices = dict((j, i) for i, j in enumerate(labels_unsided))
+atlasAlignOptLogs_dir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas')
+atlasAlignParams_dir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas')
 
-from collections import defaultdict
+volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
+                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
+linear_landmark_names_unsided = ['outerContour']
 
-labelMap_unsidedToSided = defaultdict(list)
-for name_sided, name_unsided in labelMap_sidedToUnsided.iteritems():
-    labelMap_unsidedToSided[name_unsided].append(name_sided)
-labelMap_unsidedToSided.default_factory = None
+labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
+labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
+
+labelMap_unsidedToSided = {'12N': ['12N'],
+                            '5N': ['5N_L', '5N_R'],
+                            '6N': ['6N_L', '6N_R'],
+                            '7N': ['7N_L', '7N_R'],
+                            '7n': ['7n_L', '7n_R'],
+                            'AP': ['AP'],
+                            'Amb': ['Amb_L', 'Amb_R'],
+                            'LC': ['LC_L', 'LC_R'],
+                            'LRt': ['LRt_L', 'LRt_R'],
+                            'Pn': ['Pn_L', 'Pn_R'],
+                            'R': ['R_L', 'R_R'],
+                            'RtTg': ['RtTg'],
+                            'Tz': ['Tz_L', 'Tz_R'],
+                            'VLL': ['VLL_L', 'VLL_R'],
+                            'sp5': ['sp5'],
+                           'outerContour': ['outerContour']}
+
+labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
+
+from itertools import chain
+labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
+labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
 
 
 stack = sys.argv[1]
 
-atlasProjected_volume = bp.unpack_ndarray_file(os.path.join(volume_dir, '%(stack)s/%(stack)s_volume_atlasProjected.bp' % {'stack': stack}))
+atlasProjected_volume = bp.unpack_ndarray_file(os.path.join(volume_dir, '%(stack)s/%(stack)s_atlasProjectedVolume.bp' % {'stack': stack}))
 
+available_labels_sided = [labels_sided[i-1] for i in np.unique(atlasProjected_volume) if i > 0]
+available_labels_unsided = set([labelMap_sidedToUnsided[name] for name in available_labels_sided ])
 
 def parallel_where(name, num_samples=None):
     
-    w = np.where(atlasProjected_volume == labels_twoSides_indices[name])
+    w = np.where(atlasProjected_volume == labels_sided_indices[name])
     
     if num_samples is not None:
         n = len(w[0])
@@ -64,11 +79,10 @@ def parallel_where(name, num_samples=None):
 
 t = time.time()
 
-atlasProjected_nzs = Parallel(n_jobs=16)(delayed(parallel_where)(name, num_samples=int(1e5)) 
-                                for name in labels_twoSides[1:])
-atlasProjected_nzs = {name: nzs for name, nzs in zip(labels_twoSides[1:], atlasProjected_nzs)}
+atlasProjected_nzs = Parallel(n_jobs=16)(delayed(parallel_where)(name_s, num_samples=int(1e5)) for name_s in available_labels_sided)
+atlasProjected_nzs = dict(zip(available_labels_sided, atlasProjected_nzs))
 
-sys.stderr.write('load atlas: %f seconds\n' % (time.time() - t)) #~ 4s, sometime 13s
+sys.stderr.write('load atlas: %f seconds\n' % (time.time() - t)) #~ 7s
 
 
 downsample_factor = 16
@@ -82,12 +96,13 @@ z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
 
 
 # Load test volume
-atlasAlignParams_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams'
 params_dir = create_if_not_exists(atlasAlignParams_dir + '/' + stack)
+
+t = time.time()
 
 volume2_allLabels = {}
 
-for name in labels_unsided:
+for name in available_labels_unsided:
     
     if name == 'BackG':
         continue
@@ -101,14 +116,20 @@ test_ydim, test_xdim, test_zdim = volume2_allLabels.values()[0].shape
 
 print test_xdim, test_ydim, test_zdim
 
+# test_xdim = volume_xmax - volume_xmin + 1
+# test_ydim = volume_ymax - volume_ymin + 1
+# test_zdim = volume_zmax - volume_zmin + 1
+
+sys.stderr.write('load score volumes: %f seconds\n' % (time.time() - t))
+
 
 ########### Load Gradient ###########
 
-dSdxyz = {name: np.empty((3, test_ydim, test_xdim, test_zdim), dtype=np.float16) for name in labels_unsided[1:]}
+dSdxyz = {name: np.empty((3, test_ydim, test_xdim, test_zdim), dtype=np.float16) for name in available_labels_unsided}
 
 t1 = time.time()
 
-for name in labels_unsided:
+for name in available_labels_unsided:
     
     if name == 'BackG':
         continue
@@ -248,7 +269,7 @@ history_len = 200
 T0 = np.array([1,0,0,0,0,1,0,0,0,0,1,0])
 max_iter = 5000
 
-for name_of_interest in labels_twoSides:
+for name_of_interest in available_labels_sided:
 
     if name_of_interest == 'BackG' or name_of_interest == 'outerContour':
         continue
@@ -295,6 +316,10 @@ for name_of_interest in labels_twoSides:
         if s > score_best:
             best_gradient_descent_params = T
             score_best = s
+    
+        
+    np.save(atlasAlignOptLogs_dir + '/%(stack)s_%(name)s_scoreEvolutions_transformUponAffineProjection.npy' % \
+            {'stack':stack, 'name': name_of_interest}, scores)
     
     with open(params_dir + '/%(stack)s_%(name)s_transformUponAffineProjection.txt' % {'stack': stack, 'name': name_of_interest}, 
               'w') as f:

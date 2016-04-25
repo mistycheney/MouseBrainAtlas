@@ -9,7 +9,7 @@ import argparse
 from joblib import Parallel, delayed
 
 from skimage.filters.rank import entropy
-from skimage.morphology import remove_small_objects, disk
+from skimage.morphology import remove_small_objects, disk, remove_small_holes
 from skimage.measure import label, regionprops
 from skimage.color import rgb2gray
 from skimage.io import imread, imsave
@@ -34,47 +34,62 @@ last_secind = args.last_sec
 def generate_mask(img):
 
     h, w = img.shape
-    
     e = entropy(img, disk(5))
-    
-    clf = mixture.GMM(n_components=2, covariance_type='full')
-    clf.fit(np.atleast_2d(e[e > 0.1]).T)
+
+#     plt.figure();
+#     plt.title('distribution');
+#     plt.hist(e.flatten(), bins=100);
+
+    x = np.atleast_2d(e[e > .1]).T
+
+    bics = []
+    clfs = []
+    # for nc in [2]:
+    for nc in [2,3]:
+        clf = mixture.GMM(n_components=nc, covariance_type='full')
+        clf.fit(x)
+        bic = clf.bic(x)
+        bics.append(bic)
+        clfs.append(clf)
+
+    # print 'num. components', np.argsort(bics)[0] + 2
+
+    clf = clfs[np.argsort(bics)[0]]
 
     means = np.squeeze(clf.means_)
 
     order = np.argsort(means)
     means = means[order]
 
-    covars =np.squeeze(clf.covars_)
+    covars = np.squeeze(clf.covars_)
     covars = covars[order]
-                
+
     weights = clf.weights_
     weights = weights[order]
 
+    # consider only the largest two components
+    if nc > 2:
+        order = sorted(np.argsort(weights)[-2:])
+        weights = weights[order]
+        covars = covars[order]
+        means = means[order]
+
     counts, bins = np.histogram(e.flat, bins=100, density=True);
 
+    # ignore small components
     gs = np.array([w * 1./np.sqrt(2*np.pi*c) * np.exp(-(bins-m)**2/(2*c)) for m, c, w in zip(means, covars, weights)])
 
+#     plt.figure();
+#     plt.title('fitted guassians');
+#     plt.plot(bins, gs.T);
+
     thresh = bins[np.where(gs[-1] - gs[-2] < 0)[0][-1]]
+    # print thresh
 
-    v = e > thresh
+    mask = e > thresh
 
-    l = label(v, background=0)
-    mask = l == np.argmax([p.area for p in regionprops(l+1)])
-    
-    mask = ~remove_small_objects(~mask, min_size=10000, connectivity=8)
-    
-    l = label(v)
-    l[v > 0] = -1
-    props = regionprops(l)
-    
-    border_holes = np.where([np.any(p.coords[:,0] == 0) or np.any(p.coords[:,1] == 0) \
-                             or np.any(p.coords[:,0] == h-1) or np.any(p.coords[:,1] == w-1) 
-                             for p in props])[0]
-
-    for i in border_holes:
-        c = props[i].coords
-        mask[c[:,0], c[:,1]] = 0
+    mask = remove_small_objects(mask, min_size=10000, connectivity=8)
+    mask = remove_small_holes(mask, min_size=10000, connectivity=8)
     
     return mask
 

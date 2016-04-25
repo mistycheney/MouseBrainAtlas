@@ -106,14 +106,17 @@ def show_contours(cnts, bg, title):
     plt.show();
     
 def show_levelset(levelset, bg, title):
-    viz = bg.copy()
+    if bg.ndim == 3:
+        viz = bg.copy()
+    elif bg.ndim == 2:
+        viz = gray2rgb(bg)
     cnts = find_contours(levelset, .5)
     for cnt in cnts:
         for c in cnt[:,::-1]:
             cv2.circle(viz, tuple(c.astype(np.int)), 1, (0,255,0), -1)
     plt.figure(figsize=(10,10));
-    plt.imshow(viz);
-#     plt.title(title);
+    plt.imshow(viz, cmap=plt.cm.gray);
+    plt.title(title);
     plt.axis('off');
     plt.show();
     

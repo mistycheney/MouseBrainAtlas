@@ -214,6 +214,28 @@ def polydata_to_volume(polydata):
     return b, origin, im
 
 
+def vectormap_to_imagedata(arr, colors):
+    
+    vm = arr.reshape((-1, arr.shape[-1]))
+    
+    if np.array(colors).ndim == 1:
+        colors = [colors] * len(vm)
+
+    imagedata = vtk.vtkImageData()
+    imagedata.SetDimensions([arr.shape[1], arr.shape[0], arr.shape[2]])
+    imagedata.SetSpacing([1., 1., 1.])
+    imagedata.AllocateScalars(vtk.VTK_FLOAT, arr.shape[3])
+
+    imagedata.GetPointData().SetVectors(numpy_support.numpy_to_vtk(vm, deep=True, array_type=vtk.VTK_FLOAT))
+
+    imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(colors, deep=True, array_type=vtk.VTK_UNSIGNED_CHAR))
+    
+#     numpy_support.vtk_to_numpy(imagedata.GetPointData().GetScalars())
+#     numpy_support.vtk_to_numpy(imagedata.GetPointData().GetVectors())
+    
+    return imagedata
+
+
 def volume_to_imagedata(arr):
     
     imagedata = vtk.vtkImageData()

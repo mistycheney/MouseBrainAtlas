@@ -8,8 +8,37 @@ from skimage.measure import marching_cubes, correct_mesh_orientation, mesh_surfa
 
 from itertools import izip
 
+import os
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import *
+
 import time
 import mcubes # https://github.com/pmneila/PyMCubes
+    
+#######################################################################
+
+def download_volume(stack, what, dest_dir, name_u=None):
+        
+    create_if_not_exists(dest_dir)
+
+    if what == 'atlasProjected':
+        os.system('scp gcn:/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/%(stack)s/%(stack)s_atlasProjectedVolume.bp %(volume_d)s/' % \
+                  {'stack': stack, 'volume_d':dest_dir})
+        
+    elif what == 'localAdjusted':
+        os.system('scp gcn:/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/%(stack)s/%(stack)s_localAdjustedVolume.bp %(volume_d)s/' % \
+                  {'stack': stack, 'volume_d':dest_dir})
+    
+    elif what == 'score':        
+        assert name_u is not None, 'Class name is not provided'
+        os.system('scp gcn:/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/%(stack)s/%(stack)s_scoreVolume_%(name_u)s.bp %(volume_d)s/' % \
+                      {'stack': stack, 'volume_d':dest_dir, 'name_u': name_u})
+        
+        print 'scp gcn:/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/%(stack)s/%(stack)s_scoreVolume_%(name_u)s.bp %(volume_d)s/' % \
+                      {'stack': stack, 'volume_d':dest_dir, 'name_u': name_u}
+            
+
+################ Conversion between volume representations #################
 
 def polydata_to_mesh(polydata):
     
@@ -252,6 +281,23 @@ def volume_to_imagedata(arr):
     imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(v3.flat, deep=True, array_type=t)) # deep copy must be true
     return imagedata
 
+############################### VTK Utils #####################################
+
+def take_screenshot(win, file_path):
+
+    windowToImageFilter = vtk.vtkWindowToImageFilter()
+        
+    windowToImageFilter.SetInput(win);
+    windowToImageFilter.SetMagnification(3); 
+    windowToImageFilter.SetInputBufferTypeToRGBA();
+    windowToImageFilter.ReadFrontBufferOff();
+    windowToImageFilter.Update();
+
+    writer = vtk.vtkPNGWriter()
+    writer.SetFileName(file_path);
+    writer.SetInputConnection(windowToImageFilter.GetOutputPort());
+    writer.Write();
+
 def add_axes(iren):
     axes = vtk.vtkAxesActor()
 
@@ -285,4 +331,190 @@ def save_mesh_stl(polydata, fn):
     stlWriter = vtk.vtkSTLWriter()
     stlWriter.SetFileName(fn)
     stlWriter.SetInputData(polydata)
-    stlWriter.Write()   
+    stlWriter.Write()
+
+    
+    
+################## functions for generating actors #######################
+
+def actor_volume(volume, what):
+    
+    imagedata = volume_to_imagedata(volume)
+    
+    volumeMapper = vtk.vtkSmartVolumeMapper()
+    #     volumeMapper.SetBlendModeToComposite()
+    volumeMapper.SetInputData(imagedata)
+
+    volumeProperty = vtk.vtkVolumeProperty()
+    #     volumeProperty.ShadeOff()
+    # volumeProperty.SetInterpolationType(vtk.VTK_LINEAR_INTERPOLATION)
+
+    if what == 'tb':
+    
+        compositeOpacity = vtk.vtkPiecewiseFunction()
+        compositeOpacity.AddPoint(0.0, 0.0)
+        compositeOpacity.AddPoint(0.9, 1.)
+        compositeOpacity.AddPoint(1., 1.)
+        compositeOpacity.AddPoint(1.1, 0.)
+        compositeOpacity.AddPoint(240., 0.05)
+        compositeOpacity.AddPoint(255.0, 0.05)
+
+        color = vtk.vtkColorTransferFunction()
+        color.AddRGBPoint(0.0, 0,0,0)
+        color.AddRGBPoint(.9, 1,0,0)
+        color.AddRGBPoint(1., 1,0,0)
+        color.AddRGBPoint(1.1, 0,0,0)
+        color.AddRGBPoint(200.0, .5,.5,.5)
+        color.AddRGBPoint(255.0, 1,1,1)
+
+    elif what == 'score':
+        
+        compositeOpacity = vtk.vtkPiecewiseFunction()
+        compositeOpacity.AddPoint(0.0, 0.0)
+        compositeOpacity.AddPoint(0.95, 0.01)
+        compositeOpacity.AddPoint(1.0, 1.0)
+        volumeProperty.SetScalarOpacity(compositeOpacity)
+
+        color = vtk.vtkColorTransferFunction()
+        c = (1., 1., 1.)
+        color.AddRGBPoint(0.0, c[0], c[1], c[2])
+        color.AddRGBPoint(255.0, c[0], c[1], c[2])
+    
+    else:
+        sys.stderr.write('Color/opacity profile not recognized.\n')
+            
+    volumeProperty.SetScalarOpacity(compositeOpacity)
+    volumeProperty.SetColor(color)
+
+    volume = vtk.vtkVolume()
+    volume.SetMapper(volumeMapper)
+    volume.SetProperty(volumeProperty)
+
+    return volume
+
+    
+def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=False):
+    
+    tb_volume = bp.unpack_ndarray_file(volume_dir + "/%(stack)s/%(stack)s_thumbnailVolume.bp" % {'stack': stack})
+    
+    if convert_to_scoreSpace:
+        
+        # from scipy.ndimage.interpolation import zoom
+        # tb_volume_scaledToScoreVolume = img_as_ubyte(zoom(tb_volume, 2)[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1])
+    
+        tb_xdim, tb_ydim, tb_zdim = tb_volume.shape
+
+        if scoreVol_limit is None:
+
+            xmin, xmax, ymin, ymax, zmin, zmax = np.loadtxt(volume_dir + "/%(stack)s/%(stack)s_scoreVolume_limits.txt" % {'stack': stack}, np.int)
+
+        else:
+            xmin, xmax, ymin, ymax, zmin, zmax = scoreVol_limit
+
+        m = np.zeros((tb_xdim*2, tb_ydim*2, tb_zdim*2), np.uint8)
+        m[::2,::2,::2] = img_as_ubyte(tb_volume)
+        m[1::2,1::2,1::2] = img_as_ubyte(tb_volume)
+        tb_volume_scaledToScoreVolume = m[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1].copy()
+
+        return tb_volume_scaledToScoreVolume
+
+    else:
+        return tb_volume
+    
+
+def load_score_volume(stack, name_u):
+    
+    vol_fn = volume_dir + '/%(stack)s/%(stack)s_scoreVolume_%(name)s.bp' % {'stack':stack, 'name':name_u}
+
+    if not os.path.exists(vol_fn):
+        download_volume(stack, 'score', dest_dir=volume_dir + '/%(stack)s' % {'stack': stack}, name_u=name_u)
+
+    score_volume = bp.unpack_ndarray_file(vol_fn)
+    
+    return score_volume
+
+def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1.):
+        
+    m = vtk.vtkPolyDataMapper()
+    m.SetInputData(polydata)
+
+    a = vtk.vtkActor()
+    a.SetMapper(m)
+    if wireframe:
+        a.GetProperty().SetRepresentationToWireframe()
+        
+    a.GetProperty().SetColor(color)
+    a.GetProperty().SetOpacity(opacity)
+
+    return a
+
+
+def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True):
+    
+    ren1 = vtk.vtkRenderer()
+    renWin = vtk.vtkRenderWindow()
+    renWin.AddRenderer(ren1)
+
+    for actor in actors:
+        ren1.AddActor(actor)
+
+    camera = vtk.vtkCamera()
+
+    if init_angle == '30':
+        
+        # 30 degree
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-10, -5, -5)
+        camera.SetFocalPoint(1, 1, 1)
+        
+    elif init_angle == '45':
+       
+        # 45 degree
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-20, -30, -10)
+        camera.SetFocalPoint(1, 1, 1)
+
+    elif init_angle == 'saggittal':
+        
+        # saggital
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(0, 0, -2)
+        camera.SetFocalPoint(0, 0, 1)
+        
+    elif init_angle == 'coronal':
+
+        # coronal
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-2, 0, 0)
+        camera.SetFocalPoint(-1, 0, 0)
+
+    elif init_angle == 'horizontal':
+        
+        # horizontal
+        camera.SetViewUp(0, 0, -1)
+        camera.SetPosition(0, 1, 0)
+        camera.SetFocalPoint(0, -1, 0)
+    
+    ren1.SetActiveCamera(camera)
+
+    ren1.ResetCamera()
+    
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renWin)
+
+    if axes:
+        axes = add_axes(iren)
+        
+    renWin.Render()
+    
+    if window_name is not None:
+        renWin.SetWindowName(window_name)
+    
+    if window_size is not None:
+        renWin.SetSize(window_size)
+
+    if interactive:
+        iren.Start()
+    else:
+        take_screenshot(renWin, snapshot_fn)
+        

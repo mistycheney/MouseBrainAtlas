@@ -29,6 +29,46 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+########################################
+
+volume_dir = '/home/yuncong/CSHL_volumes/'
+mesh_rootdir = '/home/yuncong/CSHL_meshes'
+
+#######################################
+
+volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
+                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
+linear_landmark_names_unsided = ['outerContour']
+
+labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
+labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
+
+labelMap_unsidedToSided = {'12N': ['12N'],
+                            '5N': ['5N_L', '5N_R'],
+                            '6N': ['6N_L', '6N_R'],
+                            '7N': ['7N_L', '7N_R'],
+                            '7n': ['7n_L', '7n_R'],
+                            'AP': ['AP'],
+                            'Amb': ['Amb_L', 'Amb_R'],
+                            'LC': ['LC_L', 'LC_R'],
+                            'LRt': ['LRt_L', 'LRt_R'],
+                            'Pn': ['Pn_L', 'Pn_R'],
+                            'R': ['R_L', 'R_R'],
+                            'RtTg': ['RtTg'],
+                            'Tz': ['Tz_L', 'Tz_R'],
+                            'VLL': ['VLL_L', 'VLL_R'],
+                            'sp5': ['sp5'],
+                           'outerContour': ['outerContour']}
+
+labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
+
+from itertools import chain
+labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
+labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
+
+#######################################
+
+
 from enum import Enum
     
 class PolygonType(Enum):
@@ -231,6 +271,29 @@ detect_bbox_range_lookup = {'MD585': (132,292), 'MD593': (127,294), 'MD592': (14
                         'MD594': (143,305), 'MD595': (115,279), 'MD598': (150,300), 'MD602': (147,302), 'MD589': (150,316), 'MD603': (130,290)}
 # midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
+def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
+
+    section_thickness = 20 # in um
+    xy_pixel_distance_lossless = 0.46
+    xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
+    # factor = section_thickness/xy_pixel_distance_lossless
+
+    xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
+    z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
+
+    # build annotation volume
+    section_bs_begin, section_bs_end = section_range_lookup[stack]
+    print section_bs_begin, section_bs_end
+
+    map_z_to_section = {}
+    for s in range(section_bs_begin, section_bs_end+1):
+        for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin, 
+                       int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
+            map_z_to_section[z] = s
+            
+    return map_z_to_section
+
+
 class DataManager(object):
 
     def __init__(self, data_dir=os.environ['DATA_DIR'], 
@@ -295,9 +358,10 @@ class DataManager(object):
             try:
                 random_image_fn = os.listdir(self.image_dir)[0]
                 self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
-            except:           
-                random_image_fn = os.listdir(self.image_rgb_jpg_dir)[0]
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_rgb_jpg_dir, random_image_fn), shell=True).split('x'))
+            except:
+                if os.path.exists(self.image_rgb_jpg_dir):
+                    random_image_fn = os.listdir(self.image_rgb_jpg_dir)[0]
+                    self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_rgb_jpg_dir, random_image_fn), shell=True).split('x'))
 
         if load_mask:
             self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})

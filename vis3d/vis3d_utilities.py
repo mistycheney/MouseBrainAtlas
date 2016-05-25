@@ -334,8 +334,128 @@ def save_mesh_stl(polydata, fn):
     stlWriter.Write()
 
     
+
+def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True):
     
-################## functions for generating actors #######################
+    ren1 = vtk.vtkRenderer()
+    renWin = vtk.vtkRenderWindow()
+    renWin.AddRenderer(ren1)
+
+    for actor in actors:
+        ren1.AddActor(actor)
+
+    camera = vtk.vtkCamera()
+
+    if init_angle == '30':
+        
+        # 30 degree
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-10, -5, -5)
+        camera.SetFocalPoint(1, 1, 1)
+        
+    elif init_angle == '45':
+       
+        # 45 degree
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-20, -30, -10)
+        camera.SetFocalPoint(1, 1, 1)
+
+    elif init_angle == 'saggittal':
+        
+        # saggital
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(0, 0, -2)
+        camera.SetFocalPoint(0, 0, 1)
+        
+    elif init_angle == 'coronal':
+
+        # coronal
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-2, 0, 0)
+        camera.SetFocalPoint(-1, 0, 0)
+
+    elif init_angle == 'horizontal':
+        
+        # horizontal
+        camera.SetViewUp(0, 0, -1)
+        camera.SetPosition(0, 1, 0)
+        camera.SetFocalPoint(0, -1, 0)
+    
+    ren1.SetActiveCamera(camera)
+
+    ren1.ResetCamera()
+    
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renWin)
+
+    if axes:
+        axes = add_axes(iren)
+        
+    renWin.Render()
+    
+    if window_name is not None:
+        renWin.SetWindowName(window_name)
+    
+    if window_size is not None:
+        renWin.SetSize(window_size)
+
+    if interactive:
+        iren.Start()
+    else:
+        take_screenshot(renWin, snapshot_fn)
+        
+    
+################## Functions for generating actors #######################
+
+def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
+                 color=(1.,0.,0.), wireframe=False, opacity=1.):
+    
+    length0 = np.linalg.norm(anchor_vector0)
+    normalizedX = anchor_vector0/length0
+    
+    length1 = np.linalg.norm(anchor_vector1)
+    normalizedY = anchor_vector1/length1
+    
+    length2 = np.linalg.norm(anchor_vector2)
+    normalizedZ = anchor_vector2/length2
+    
+    matrix = vtk.vtkMatrix4x4()
+
+    # Create the direction cosine matrix
+    matrix.Identity()
+    for i in range(3):
+        matrix.SetElement(i, 0, normalizedX[i])
+        matrix.SetElement(i, 1, normalizedY[i])
+        matrix.SetElement(i, 2, normalizedZ[i])
+
+    # Apply the transforms
+    transform = vtk.vtkTransform()
+    transform.Translate(anchor_point)
+    transform.Concatenate(matrix)
+    transform.Scale(length0, length1, length2)
+
+    # Transform the polydata
+    transformPD = vtk.vtkTransformPolyDataFilter()
+    transformPD.SetTransform(transform)
+    
+    sphereSource = vtk.vtkSphereSource()
+    transformPD.SetInputConnection(sphereSource.GetOutputPort())
+
+    #Create a mapper and actor for the arrow
+    m = vtk.vtkPolyDataMapper()
+    m.SetInputConnection(transformPD.GetOutputPort())
+    
+    a = vtk.vtkActor()
+    a.SetMapper(m)
+    
+    if wireframe:
+        a.GetProperty().SetRepresentationToWireframe()
+        
+    a.GetProperty().SetColor(color)
+    a.GetProperty().SetOpacity(opacity)
+    
+    return a
+
 
 def actor_volume(volume, what):
     
@@ -449,72 +569,30 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1.):
     return a
 
 
-def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True):
+def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vmin=None, vmax=None):
     
-    ren1 = vtk.vtkRenderer()
-    renWin = vtk.vtkRenderWindow()
-    renWin.AddRenderer(ren1)
-
-    for actor in actors:
-        ren1.AddActor(actor)
-
-    camera = vtk.vtkCamera()
-
-    if init_angle == '30':
-        
-        # 30 degree
-        camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(-10, -5, -5)
-        camera.SetFocalPoint(1, 1, 1)
-        
-    elif init_angle == '45':
-       
-        # 45 degree
-        camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(-20, -30, -10)
-        camera.SetFocalPoint(1, 1, 1)
-
-    elif init_angle == 'saggittal':
-        
-        # saggital
-        camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(0, 0, -2)
-        camera.SetFocalPoint(0, 0, 1)
-        
-    elif init_angle == 'coronal':
-
-        # coronal
-        camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(-2, 0, 0)
-        camera.SetFocalPoint(-1, 0, 0)
-
-    elif init_angle == 'horizontal':
-        
-        # horizontal
-        camera.SetViewUp(0, 0, -1)
-        camera.SetPosition(0, 1, 0)
-        camera.SetFocalPoint(0, -1, 0)
+    sphereSource = vtk.vtkSphereSource()
+    sphereSource.SetCenter(loc[0], loc[1], loc[2]);
+    sphereSource.SetPhiResolution(phi_resol);
+    sphereSource.SetThetaResolution(theta_resol);
+    sphereSource.SetRadius(radius);
+    sphereSource.Update()
     
-    ren1.SetActiveCamera(camera)
+    sphere_polydata = sphereSource.GetOutput()
 
-    ren1.ResetCamera()
-    
-    iren = vtk.vtkRenderWindowInteractor()
-    iren.SetRenderWindow(renWin)
+    pts = (numpy_support.vtk_to_numpy(sphere_polydata.GetPoints().GetData()) - loc) / radius
 
-    if axes:
-        axes = add_axes(iren)
-        
-    renWin.Render()
-    
-    if window_name is not None:
-        renWin.SetWindowName(window_name)
-    
-    if window_size is not None:
-        renWin.SetSize(window_size)
+    values = np.array([func(pt) for pt in pts])
 
-    if interactive:
-        iren.Start()
-    else:
-        take_screenshot(renWin, snapshot_fn)
-        
+    if vmin is None:
+        vmin = values.min()
+    if vmax is None:
+        vmax = values.max()
+    values = (np.maximum(np.minimum(values, vmax), vmin) - vmin) / (vmax - vmin)
+    
+    val_arr = numpy_support.numpy_to_vtk(np.array(values), deep=1, array_type=vtk.VTK_FLOAT)
+    sphere_polydata.GetPointData().SetScalars(val_arr)
+    
+    # default color: 0 = red, 1 = blue
+    
+    return sphere_polydata

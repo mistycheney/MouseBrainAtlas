@@ -7,6 +7,9 @@ import cPickle as pickle
 from preprocess_utility import *
 import time
 
+sys.path.append(os.environ['REPO_DIR'] + '/utilities/')
+from utilities2015 import *
+
 import argparse
 
 parser = argparse.ArgumentParser(
@@ -14,19 +17,25 @@ parser = argparse.ArgumentParser(
     description='Crop the brainstem')
 
 parser.add_argument("stack_name", type=str, help="stack name")
-parser.add_argument("first_sec", type=int, help="first section")
-parser.add_argument("last_sec", type=int, help="last section")
-parser.add_argument("x", type=int, help="x on thumbnail")
-parser.add_argument("y", type=int, help="y on thumbnail")
-parser.add_argument("w", type=int, help="w on thumbnail")
-parser.add_argument("h", type=int, help="h on thumbnail")
+parser.add_argument("-first_sec", type=int, help="first section")
+parser.add_argument("-last_sec", type=int, help="last section")
+parser.add_argument("-x", type=int, help="x on thumbnail")
+parser.add_argument("-y", type=int, help="y on thumbnail")
+parser.add_argument("-w", type=int, help="w on thumbnail")
+parser.add_argument("-H", type=int, help="h on thumbnail") # -h is reserved for --help
 args = parser.parse_args()
 
 stack = args.stack_name
-x = args.x
-y = args.y
-w = args.w
-h = args.h
+
+x0, y0, w0, h0 = brainstem_bbox_lookup[stack]
+f0, l0 = section_range_lookup[stack]
+
+x = args.x if args.x is not None else x0
+y = args.y if args.y is not None else y0
+w = args.w if args.w is not None else w0
+h = args.H if args.H is not None else h0
+l = args.last_sec if args.last_sec is not None else l0
+f = args.first_sec if args.first_sec is not None else f0
 
 # DATAPROC_DIR = os.environ['DATA_DIR']
 
@@ -44,11 +53,16 @@ h = args.h
 # 	'w':w, 'h':h, 'x':x, 'y':y})
 
 
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
+# os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_mask/*.png"""%\
+#     {'stack': args.stack_name, 
+#     'dataproc_dir': os.environ['DATA_DIR'],
+#     'w':w, 'h':h, 'x':x, 'y':y})
+
+
+os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_masked_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_masked_cropped/%%[filename:name]_cropped.png" %(dataproc_dir)s/%(stack)s_thumbnail_aligned_masked/*.png"""%\
     {'stack': args.stack_name, 
     'dataproc_dir': os.environ['DATA_DIR'],
     'w':w, 'h':h, 'x':x, 'y':y})
-
 
 sys.exit(0)
 
@@ -68,8 +82,8 @@ run_distributed3('kdu_expand_patched -i %(jp2_dir)s/%(stack)s_%%(secind)04d_loss
                     {'jp2_dir': jp2_dir,
                     'stack': args.stack_name,
                     'expanded_tif_dir': expanded_tif_dir},
-                first_sec=args.first_sec,
-                last_sec=args.last_sec,
+                first_sec=f,
+                last_sec=l,
                 exclude_nodes=[33],
                 stdout=open('/tmp/log', 'ab+'),
                 take_one_section=True)
@@ -90,8 +104,8 @@ run_distributed3(command='%(script_path)s %(stack)s %(lossless_renamed_dir)s %(l
                             'w': w,
                             'h': h
                             }, 
-                first_sec=args.first_sec,
-                last_sec=args.last_sec,
+                first_sec=f,
+                last_sec=l,
                 exclude_nodes=[33],
                 take_one_section=False)
 
@@ -105,8 +119,8 @@ run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
                             {'script_path': script_dir + '/generate_other_versions.py', 
                             'stack': args.stack_name
                             }, 
-                first_sec=args.first_sec,
-                last_sec=args.last_sec,
+                first_sec=f,
+                last_sec=l,
                 exclude_nodes=[33],
                 take_one_section=False)
 

@@ -1,0 +1,11 @@
+ssh gcn-20-31.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD594 &
+ssh gcn-20-43.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD589 &
+ssh gcn-20-32.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD585 &
+ssh gcn-20-34.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD593 & 
+ssh gcn-20-35.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD592 &
+ssh gcn-20-36.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD590 &
+ssh gcn-20-37.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD591 &
+ssh gcn-20-38.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD595 &
+ssh gcn-20-41.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD598 &
+ssh gcn-20-42.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD602 &
+ssh gcn-20-44.sdsc.edu /home/yuncong/Brain/cross-brain/snake_localization.py MD603 &

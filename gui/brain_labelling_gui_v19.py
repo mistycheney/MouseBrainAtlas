@@ -56,6 +56,8 @@ from joblib import Parallel, delayed
 from custom_widgets import *
 from SignalEmittingItems import *
 
+from skimage.transform import rescale
+
 from enum import Enum
 
 class Mode(Enum):
@@ -101,7 +103,40 @@ AUTO_EXTEND_VIEW_TOLERANCE = 200
 
 # NUM_NEIGHBORS_PRELOAD = 1 # preload neighbor sections before and after this number
 VERTEX_CIRCLE_RADIUS = 10
-	
+
+
+volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
+                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
+linear_landmark_names_unsided = ['outerContour']
+
+labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
+labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
+
+labelMap_unsidedToSided = {'12N': ['12N'],
+                            '5N': ['5N_L', '5N_R'],
+                            '6N': ['6N_L', '6N_R'],
+                            '7N': ['7N_L', '7N_R'],
+                            '7n': ['7n_L', '7n_R'],
+                            'AP': ['AP'],
+                            'Amb': ['Amb_L', 'Amb_R'],
+                            'LC': ['LC_L', 'LC_R'],
+                            'LRt': ['LRt_L', 'LRt_R'],
+                            'Pn': ['Pn_L', 'Pn_R'],
+                            'R': ['R_L', 'R_R'],
+                            'RtTg': ['RtTg'],
+                            'Tz': ['Tz_L', 'Tz_R'],
+                            'VLL': ['VLL_L', 'VLL_R'],
+                            'sp5': ['sp5'],
+                           'outerContour': ['outerContour']}
+
+labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
+
+from itertools import chain
+labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
+labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
+
+#######################################################################
+
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, stack=None):
 		"""
@@ -162,6 +197,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.lateral_position_lookup = dict(zip(range(self.first_sec, self.midline_sec+1), -np.linspace(2.64, 0, self.midline_sec-self.first_sec+1)) + \
 											zip(range(self.midline_sec, self.last_sec+1), np.linspace(0, 2.64, self.last_sec-self.midline_sec+1)))
+		
+
 
 	def load_active_set(self, sections=None):
 
@@ -208,17 +245,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 				for i in to_remove:
 					m = self.pixmaps.pop(i)
+					print 'del', m
 					del m
 
 					if i in self.gscenes:
 						s = self.gscenes.pop(i)
+						print 'del', s
+						del s
+
+					if i in self.gscenePixmapItems:
+						s = self.gscenePixmapItems.pop(i)
+						print 'del', s
 						del s
 					
 			else:	
-			
+				# the very beginning
+
 				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
 				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
 			
+				self.gscenePixmapItems = {}
 
 			print 'load image', time.time() - t
 
@@ -245,7 +291,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'new gscene'
 			pixmap = self.pixmaps[sec]
 			gscene = QGraphicsScene(gview)
-			gscene.addPixmap(pixmap)
+			self.gscenePixmapItems[sec] = gscene.addPixmap(pixmap)
 			# gscene.addPixmap(self.grid_pixmap)
 
 			self.accepted_proposals_allSections[sec] = {}
@@ -349,7 +395,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		action_insertVertex = myMenu.addAction("Insert vertex")
 		action_appendVertex = myMenu.addAction("Append vertex")
 		action_connectVertex = myMenu.addAction("Connect vertex")
-		
+
+		action_showScoremap = myMenu.addAction("Show scoremap")
+		action_showHistology = myMenu.addAction("Show histology")
+
 		action_doneDrawing = myMenu.addAction("Done drawing")
 
 		selected_action = myMenu.exec_(self.gviews[self.selected_panel_id].viewport().mapToGlobal(pos))
@@ -419,6 +468,27 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif selected_action == action_doneDrawing:
 			self.set_mode(Mode.IDLE)
+
+		elif selected_action == action_showScoremap:
+			# replace histology image with scoremap
+
+			# self.gscenes[self.selected_section].removeItem(self.gscenePixmapItems[self.selected_section])
+			name_s = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']
+			name_u = labelMap_sidedToUnsided[name_s]
+
+			scoremap_viz_fn = '/home/yuncong/CSHL_scoremapViz_svm_Sat16ClassFinetuned_v3/%(stack)s/%(sec)04d/%(stack)s_%(sec)04d_roi1_scoremapViz_%(name)s.jpg' % \
+			{'sec': self.selected_section, 'stack': self.stack, 'name': name_u}
+
+			dm = self.dms[self.selected_section]
+
+			scoremap_pixmap = QPixmap(scoremap_viz_fn).scaled(dm.image_width, dm.image_height)
+			# self.gscenes[self.selected_section].addPixmap(scoremap_pixmap)
+
+			self.gscenePixmapItems[self.selected_section].setPixmap(scoremap_pixmap)
+
+		elif selected_action == action_showHistology:
+
+			self.gscenePixmapItems[self.selected_section].setPixmap(self.pixmaps[self.selected_section])
 
 
 	@pyqtSlot()
@@ -1687,7 +1757,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 							[(abbr, fullname) for abbr, fullname in self.structure_names.iteritems() if abbr not in self.recent_labels])
 
 		self.label_selection_dialog = AutoCompleteInputDialog(parent=self, labels=[abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()])
-		# self.label_selection_dialog = QInputDialog(self)
+		
 		self.label_selection_dialog.setWindowTitle('Select landmark label')
 
 		# if hasattr(self, 'invalid_labelname'):
@@ -1696,7 +1766,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		#     print 'no labelname set'
 
 		if 'label' in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]:
-			self.label_selection_dialog.comboBox.setEditText(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']+' ('+self.structure_names[self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']]+')')
+
+			abbr = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']
+			abbr_unsided = abbr[:-2] if '_L' in abbr or '_R' in abbr else abbr
+			
+			self.label_selection_dialog.comboBox.setEditText( abbr_unsided + ' (' + self.structure_names[abbr_unsided] + ')')
+
 		else:
 			self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label'] = ''
 
@@ -1706,6 +1781,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.label_selection_dialog.textValueSelected.connect(self.label_dialog_text_changed)
 
 		self.label_selection_dialog.exec_()
+
+		# choose left or right side
+		self.left_right_selection_dialog = QInputDialog(self)
+		self.left_right_selection_dialog.setLabelText('Enter L or R, or leave blank for single structure')
+		self.left_right_selection_dialog.exec_()
+
+		left_right = str(self.left_right_selection_dialog.textValue())
+
+		if left_right == 'L' or left_right == 'R':
+			abbr = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']
+			abbr_sided = abbr + '_' + left_right
+			self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label'] = abbr_sided
+			self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'].setText(abbr_sided)
+
 
 	def label_dialog_text_changed(self):
 
@@ -1772,7 +1861,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.pressed = False           # related to pan (press and drag) vs. select (click)
 
-		for gview in [self.section1_gview, self.section2_gview, self.section3_gview]:
+		for i, gview in enumerate([self.section1_gview, self.section2_gview, self.section3_gview]):
 			gview.setMouseTracking(False)
 			gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
 			gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
@@ -1780,13 +1869,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			gview.setTransformationAnchor(QGraphicsView.NoAnchor)
 			gview.setContextMenuPolicy(Qt.CustomContextMenu)
 			# gview.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-			gview.customContextMenuRequested.connect(self.showContextMenu)
 
-			# if not hasattr(self, 'contextMenu_set') or (hasattr(self, 'contextMenu_set') and not self.contextMenu_set):
-			# 	gview.customContextMenuRequested.connect(self.showContextMenu)
-			# 	self.contextMenu_set = True
+			if not hasattr(self, 'contextMenu_set') or (hasattr(self, 'contextMenu_set') and not self.contextMenu_set):
+				gview.customContextMenuRequested.connect(self.showContextMenu)
 
 			gview.viewport().installEventFilter(self)
+		
+		self.contextMenu_set = True
 
 		# if not hasattr(self, 'username') or self.username is None:
 		# 	username, okay = QInputDialog.getText(self, "Username", "Please enter username of the labelings you want to load:", QLineEdit.Normal, 'yuncong')

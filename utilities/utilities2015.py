@@ -81,7 +81,6 @@ from itertools import chain
 labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
 labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
 
-
 ############ Physical Dimension #############
 
 section_thickness = 20 # in um
@@ -89,7 +88,6 @@ xy_pixel_distance_lossless = 0.46
 xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
-
 
 from enum import Enum
 
@@ -295,6 +293,29 @@ detect_bbox_range_lookup = {'MD585': (132,292), 'MD593': (127,294), 'MD592': (14
                         'MD594': (143,305), 'MD595': (115,279), 'MD598': (150,300), 'MD602': (147,302), 'MD589': (150,316), 'MD603': (130,290)}
 # midline_section_lookup = {'MD589': 114, 'MD594': 119}
 
+def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
+
+    section_thickness = 20 # in um
+    xy_pixel_distance_lossless = 0.46
+    xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
+    # factor = section_thickness/xy_pixel_distance_lossless
+
+    xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
+    z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
+
+    # build annotation volume
+    section_bs_begin, section_bs_end = section_range_lookup[stack]
+    print section_bs_begin, section_bs_end
+
+    map_z_to_section = {}
+    for s in range(section_bs_begin, section_bs_end+1):
+        for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin,
+                       int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
+            map_z_to_section[z] = s
+
+    return map_z_to_section
+
+
 class DataManager(object):
 
     @staticmethod
@@ -395,7 +416,6 @@ class DataManager(object):
                 random_image_fn = os.listdir(self.image_dir)[0]
                 self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
             except:
-
                 d = os.path.join(self.data_dir, 'MD589_lossless_aligned_cropped_downscaled')
                 if os.path.exists(d):
                     random_image_fn = os.listdir(d)[0]
@@ -883,10 +903,10 @@ def chi2(u,v):
 
 
 def chi2s(h1s, h2s):
-    '''
+    """
     h1s is n x n_texton
     MUST be float type
-    '''
+    """
     return np.sum((h1s-h2s)**2/(h1s+h2s+1e-10), axis=1)
 
 # def chi2s(h1s, h2s):

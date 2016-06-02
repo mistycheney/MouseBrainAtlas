@@ -9,6 +9,7 @@ tmp.jpg
 .metadata/
 *.npy
 *.bp
+*.hdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

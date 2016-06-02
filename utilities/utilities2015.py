@@ -34,8 +34,6 @@ from IPython.display import display
 import subprocess
 hostname = subprocess.check_output("hostname", shell=True).strip()
 
-#random comments2
-
 if hostname.endswith('sdsc.edu'):
     print 'Setting environment for Gordon'
     atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'

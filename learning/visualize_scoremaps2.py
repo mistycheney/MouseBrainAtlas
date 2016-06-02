@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+"""Visualize scoremaps, with annotation overlays."""
+
 import argparse
 
 parser = argparse.ArgumentParser(description="Generate visualizations of score maps.")

@@ -12,6 +12,19 @@ from collections import defaultdict
 
 from skimage.measure import grid_points_in_poly
 
+def fill_sparse_volume(volume_sparse):
+
+    from registration_utilities import find_contour_points
+
+    volume = np.zeros_like(volume_sparse, np.int8)
+
+    for z in range(volume_sparse.shape[-1]):
+        for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
+            cnt = cnts[np.argsort(map(len, cnts))[-1]]
+            pts = points_inside_contour(cnt)
+            volume[pts[:,1], pts[:,0], z] = ind
+    return volume
+
 def points_inside_contour(cnt, num_samples=None):
     xmin, ymin = cnt.min(axis=0)
     xmax, ymax = cnt.max(axis=0)

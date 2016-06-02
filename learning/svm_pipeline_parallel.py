@@ -1,14 +1,6 @@
 #! /usr/bin/env python
 
 import argparse
-from subprocess import check_output, call
-import os
-import time
-import sys
-
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from preprocess_utility import *
-from utilities2015 import *
 
 parser = argparse.ArgumentParser(description="Run pipeline for different instances on different servers")
 parser.add_argument("task", type=str, help="task to perform (svm, interpolate, visualize)")
@@ -18,6 +10,15 @@ parser.add_argument("-e", type=int, help="ending slide (default: last_detect_sec
 
 args = parser.parse_args()
 
+from subprocess import check_output, call
+import os
+import time
+import sys
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from preprocess_utility import *
+from utilities2015 import *
+
 first_detect_sec, last_detect_sec = detect_bbox_range_lookup[args.stack]
 
 args.b = first_detect_sec if args.b == 0 else args.b
@@ -25,7 +26,7 @@ args.e = last_detect_sec if args.e == -1 else args.e
 
 t = time.time()
 
-exclude_nodes = [33]
+exclude_nodes = [33, 48] # 33 is yuncong's ipython notebook server; 48 is weitang's ipython notebook server
 
 if args.task == 'svm':
 
@@ -62,8 +63,8 @@ elif args.task == 'visualize':
 	t = time.time()
 	sys.stderr.write('visualize scoremaps ...')
 
-	run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
-	                            {'script_path': '/home/yuncong/Brain/learning/visualize_scoremaps.py',
+	run_distributed3(command='%(script_path)s %(stack)s -b %%(f)d -e %%(l)d -a'%\
+	                            {'script_path': '/home/yuncong/Brain/learning/visualize_scoremaps2.py',
 	                            'stack': args.stack}, 
 	                first_sec=args.b,
 	                last_sec=args.e,

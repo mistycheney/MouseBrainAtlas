@@ -25,8 +25,7 @@ features_dir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned/'
 
 # predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned'
 # predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned_v2'
-predictions_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned_v3'
-create_if_not_exists(predictions_rootdir)
+predictions_rootdir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_patch_predictions_svm_Sat16ClassFinetuned_v3')
 
 # svm_dir = 'svm_Sat16ClassFinetuned'
 # svm_dir = 'svm_Sat16ClassFinetuned_v2'

@@ -37,6 +37,7 @@ hostname = subprocess.check_output("hostname", shell=True).strip()
 if hostname.endswith('sdsc.edu'):
     print 'Setting environment for Gordon'
     atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
+    atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
     volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'

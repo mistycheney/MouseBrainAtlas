@@ -1,3 +1,5 @@
+"""Functions related to registration."""
+
 import numpy as np
 import sys
 import os
@@ -419,8 +421,8 @@ def extract_contours_from_labeled_volume(stack, volume,
     return init_cnts_allSecs
 
 
-def surr_points(arr):
-    poly = Polygon(arr)
+def surr_points(vertices):
+    poly = Polygon(vertices)
     p1 = points_in_polygon(list(poly.buffer(10, resolution=2).exterior.coords))
     p2 = points_in_polygon(list(poly.exterior.coords))
     surr_pts = pts_arr_setdiff(p1, p2)
@@ -429,8 +431,8 @@ def surr_points(arr):
 def points_in_polygon(polygon):
     pts = np.array(polygon, np.int)
     xmin, ymin = pts.min(axis=0)
-    ymax, ymax = pts.max(axis=0)
-    nz_ys, nz_xs =np.where(grid_points_in_poly((ymax-ymin+1, xmax-xmin+1), pts-[xmin, ymin]))
+    xmax, ymax = pts.max(axis=0)
+    nz_ys, nz_xs =np.where(grid_points_in_poly((ymax-ymin+1, xmax-xmin+1), pts[:, ::-1]-[ymin, xmin]))
     nz2 = np.c_[nz_xs + xmin, nz_ys + ymin]
     return nz2
 
@@ -439,6 +441,32 @@ def pts_arr_setdiff(nz1, nz2):
     a1_rows = nz1.view([('', nz1.dtype)] * nz1.shape[1])
     a2_rows = nz2.view([('', nz2.dtype)] * nz2.shape[1])
     surr_nzs = np.setdiff1d(a1_rows, a2_rows).view(nz1.dtype).reshape(-1, nz1.shape[1])
+    return surr_nzs
+
+
+def get_surround_voxels(volume, fill=False):
+
+    if fill:
+        from annotation_utilities import fill_sparse_volume
+        volume = fill_sparse_volume(volume)
+
+    from collections import defaultdict
+
+    surr_volume = defaultdict(list)
+    for z in range(volume.shape[2]):
+        cnts = find_contour_points(volume[..., z])
+        for l, cnt_parts in cnts.iteritems():
+            cnt = cnt_parts[0]
+            if len(cnt) < 5:
+                continue
+            surr_p = surr_points(cnt)
+            surr_volume[l].append(np.c_[surr_p, z*np.ones(len(surr_p),)])
+    surr_volume.default_factory = None
+
+    surr_nzs = {l: np.concatenate(arr_list).astype(np.int16) for l, arr_list in surr_volume.iteritems()}
+    # surr_nzs = [np.concatenate(surr_volume[l]).T.astype(np.int16) for l in range(1, n_labels)]
+    del surr_volume, surr_p, cnts
+
     return surr_nzs
 
 

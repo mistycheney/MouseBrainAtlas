@@ -19,7 +19,7 @@ The *registration* folder contains code for volume-to-volume registration. This 
 
 Final version of the notebook is `align_atlas_global.ipynb`
 
-## Align two annotated Volumes
+### Align two annotated Volumes
 - `align_3d_v2_affine_annotations.ipynb`
 
 ### Individual Structure Alignment

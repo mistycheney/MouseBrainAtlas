@@ -444,7 +444,7 @@ def pts_arr_setdiff(nz1, nz2):
     return surr_nzs
 
 
-def get_surround_voxels(volume, fill=False):
+def get_surround_voxels(volume, fill=False, num_samples=10000):
 
     if fill:
         from annotation_utilities import fill_sparse_volume
@@ -460,6 +460,10 @@ def get_surround_voxels(volume, fill=False):
             if len(cnt) < 5:
                 continue
             surr_p = surr_points(cnt)
+            if num_samples is not None:
+                n = len(surr_p)
+                sample_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
+                surr_p = surr_p[sample_indices]
             surr_volume[l].append(np.c_[surr_p, z*np.ones(len(surr_p),)])
     surr_volume.default_factory = None
 

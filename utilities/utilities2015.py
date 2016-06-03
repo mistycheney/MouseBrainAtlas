@@ -965,3 +965,8 @@ def bbox_3d(img):
     zmin, zmax = np.where(z)[0][[0, -1]]
 
     return cmin, cmax, rmin, rmax, zmin, zmax
+
+# def sample(points, num_samples):
+#     n = len(points)
+#     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
+#     return points[sampled_indices]

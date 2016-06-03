@@ -1,11 +1,5 @@
 The *registration* folder contains code for volume-to-volume registration. This includes global alignment and individual structure alignment.
 
-
-## Construct Volumes
-- `compute_score_volume.ipynb`: generates `[stack]_scoreVolume_[label].bp` and `[stack]_scoreVolume_limits.txt`.
-- `compute_thumbnail_volume.ipynb`:
-- `compute_score_volume.ipynb`:
-
 ## Compute Gradients
 - `compute_gradient.py`: compute gradients, save as `[stack]_scoreVolume_[label]_[gx|gy|gz].bp` files.
 

@@ -183,7 +183,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.dms = dict([(i, DataManager(
 			    # data_dir=os.environ['DATA_DIR'],
 				# data_dir='/media/yuncong/MyPassport',
-				data_dir='/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8',
+				data_dir=data_dir,
 				repo_dir=os.environ['REPO_DIR'],
 				# result_dir=os.environ['RESULT_DIR'],
 				# labeling_dir=os.environ['LOCAL_LABELING_DIR'],

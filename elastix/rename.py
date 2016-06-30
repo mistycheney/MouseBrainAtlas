@@ -1,11 +1,6 @@
 #! /usr/bin/env python
 
-import sys
-import os
-import shutil
 import argparse
-
-import numpy as np
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -13,7 +8,15 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("infer_order", type=int, help="whether to infer order", default=0)
+parser.add_argument("-f", "--thumbnail_fmt", type=str, help="thumbnail format", default='tif')
 args = parser.parse_args()
+
+import sys
+import os
+import shutil
+import numpy as np
+
+thumbnail_fmt = args.thumbnail_fmt
 
 stack = args.stack_name
 input_dir = '/home/yuncong/CSHL_data/' + stack
@@ -68,7 +71,7 @@ from collections import defaultdict
 # remove = []
 # swap = []
 # if stack == 'MD595':
-#     remove = ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251'] 
+#     remove = ['MD595-N1-2015.09.14-19.07.48_MD595_1_0001', 'MD595-N84-2015.09.15-00.45.35_MD595_2_0251']
 # elif stack == 'MD598':
 #     swap = [(1,2), (3,4), (145,146), (147,148), (226,227)]
 #     # pass
@@ -80,7 +83,7 @@ from collections import defaultdict
 #     'MD594-IHC30-2015.08.26-17.00.29_MD594_2_0089',
 #     'MD594-IHC31-2015.08.26-17.04.03_MD594_2_0092',
 #     'MD594-IHC32-2015.08.26-17.07.31_MD594_2_0095'
-#     ] 
+#     ]
 # elif stack == 'MD585':
 #     pass
 
@@ -105,14 +108,14 @@ if bool(args.infer_order):
 
     d = defaultdict(dict)
     for fn in filenames:
-        if fn.endswith('tif'):
-            if fn[:-4].split('-')[1].startswith('N'):
-                d[int(fn[:-4].split('_')[-1])]['N'] = fn[:-4]
+        if fn.endswith(thumbnail_fmt):
+            if fn[:-4].split('-')[1].startswith('F'):
+                d[int(fn[:-4].split('_')[-1])]['F'] = fn[:-4]
             else:
                 d[int(fn[:-4].split('_')[-1])]['IHC'] = fn[:-4]
     d.default_factory = None
 
-    a = set([f[:-4] for f in filenames if f.endswith('tif')])
+    a = set([f[:-4] for f in filenames if f.endswith(thumbnail_fmt)])
 
     complete_set = []
     last_label = 'IHC'
@@ -120,9 +123,9 @@ if bool(args.infer_order):
         # if i == 231:
         #     print d[i]
         # if last_label == 'IHC':
-        if 'N' in d[i]:
-            complete_set.append(d[i]['N'])
-            last_label = 'N'
+        if 'F' in d[i]:
+            complete_set.append(d[i]['F'])
+            last_label = 'F'
             if 'IHC' in d[i]:
                 complete_set.append(d[i]['IHC'])
                 last_label = 'IHC'
@@ -131,7 +134,7 @@ if bool(args.infer_order):
             last_label = 'IHC'
 
     # print a - set(complete_set)
-    # print set(complete_set) - a 
+    # print set(complete_set) - a
 
     with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
         f.write('\n'.join([fn + ' ' + str(ind+1) for ind, fn in enumerate(complete_set)]))
@@ -150,8 +153,6 @@ for fn, new_ind in complete_set.iteritems():
     d['fn_base'] = fn
     d['new_fn_base'] = stack + '_%04d'%(new_ind)
 
-    shutil.copy(input_dir + '/' + fn + '.tif', output_dir + '/' + d['new_fn_base'] + '_thumbnail.tif')
+    shutil.copy(input_dir + '/' + fn + '.'+thumbnail_fmt, output_dir + '/' + d['new_fn_base'] + '_thumbnail.'+thumbnail_fmt)
 
     os.system('ln -s %(input_dir)s/%(fn_base)s_lossless.jp2 %(output_jp2_dir)s/%(new_fn_base)s_lossless.jp2' % d)
-
-

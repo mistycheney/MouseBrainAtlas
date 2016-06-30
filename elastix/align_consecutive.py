@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os 
+import os
 import numpy as np
 import sys
 from skimage.io import imread, imsave
@@ -28,7 +28,7 @@ n_sections = len(os.listdir(input_dir))
 
 parameter_dir = os.path.join(os.environ['REPO_DIR'], "elastix/parameters")
 
-rg_param = os.path.join(parameter_dir, "Parameters_Rigid.txt") 
+rg_param = os.path.join(parameter_dir, "Parameters_Rigid.txt")
 
 print rg_param
 
@@ -45,10 +45,12 @@ for moving_secind in range(first_moving_secind, last_moving_secind+1):
 			param = rg_param_noNumberOfSamples
 		elif stack == 'MD595' and moving_secind == 441:
 			param = rg_param_requiredRatioOfValidSamples
+		elif stack == 'MD635' and moving_secind == 416:
+			param = rg_param_requiredRatioOfValidSamples
 		else:
 			param = rg_param
 
-		d = {'elastix_bin': os.environ['ELASTIX_BIN'], 
+		d = {'elastix_bin': os.environ['ELASTIX_BIN'],
 			'rg_param': param,
 			'output_subdir': os.path.join(output_dir, 'output%dto%d'%(moving_secind, moving_secind-1)),
 			'fixed_fn': os.path.join(input_dir, all_files[moving_secind-1]),

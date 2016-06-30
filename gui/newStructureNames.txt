@@ -35,3 +35,9 @@ bv9	Blood Vessel 9
 bv10	Blood Vessel 10
 bv11	Blood Vessel 11
 bv12	Blood Vessel 12
+LC2	Locus Coeruleus, long cell part
+Pn2	Pontine nuclei, sparse part
+7n1	facial nerve, small 1
+7n2	facial nerve, small 2
+7n3	facial nerve, small 3
+DDGC	Dorsal Deiters Gigantocellular Nucleus

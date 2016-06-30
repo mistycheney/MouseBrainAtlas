@@ -39,10 +39,12 @@ from shapely.geometry import LinearRing as ShapelyLineRing
 
 from skimage.color import label2rgb
 
-from visualization_utilities import *
+from gui_utilities import *
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
+from data_manager import DataManager
+from metadata import *
 
 from collections import defaultdict, OrderedDict, deque
 
@@ -88,52 +90,17 @@ class PolygonType(Enum):
 	TEXTURE_WITH_CONTOUR = 'texture with contour'
 	DIRECTION = 'directionality'
 
-SELECTED_POLYGON_LINEWIDTH = 2
-UNSELECTED_POLYGON_LINEWIDTH = 2
+SELECTED_POLYGON_LINEWIDTH = 10
+UNSELECTED_POLYGON_LINEWIDTH = 5
 SELECTED_CIRCLE_SIZE = 30
 UNSELECTED_CIRCLE_SIZE = 5
 CIRCLE_PICK_THRESH = 1000.
 PAN_THRESHOLD = 10
-
 PEN_WIDTH = 10
-
 HISTORY_LEN = 20
-
 AUTO_EXTEND_VIEW_TOLERANCE = 200
-
 # NUM_NEIGHBORS_PRELOAD = 1 # preload neighbor sections before and after this number
 VERTEX_CIRCLE_RADIUS = 10
-
-
-volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
-                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
-linear_landmark_names_unsided = ['outerContour']
-
-labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
-labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
-
-labelMap_unsidedToSided = {'12N': ['12N'],
-                            '5N': ['5N_L', '5N_R'],
-                            '6N': ['6N_L', '6N_R'],
-                            '7N': ['7N_L', '7N_R'],
-                            '7n': ['7n_L', '7n_R'],
-                            'AP': ['AP'],
-                            'Amb': ['Amb_L', 'Amb_R'],
-                            'LC': ['LC_L', 'LC_R'],
-                            'LRt': ['LRt_L', 'LRt_R'],
-                            'Pn': ['Pn_L', 'Pn_R'],
-                            'R': ['R_L', 'R_R'],
-                            'RtTg': ['RtTg'],
-                            'Tz': ['Tz_L', 'Tz_R'],
-                            'VLL': ['VLL_L', 'VLL_R'],
-                            'sp5': ['sp5'],
-                           'outerContour': ['outerContour']}
-
-labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
-
-from itertools import chain
-labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
-labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
 
 #######################################################################
 
@@ -160,15 +127,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.history_allSections = defaultdict(list)
 
 		self.new_labelnames = {}
-		if os.path.exists(os.environ['REPO_DIR']+'/visualization/newStructureNames.txt'):
-			with open(os.environ['REPO_DIR']+'/visualization/newStructureNames.txt', 'r') as f:
+		if os.path.exists(os.environ['REPO_DIR']+'/gui/newStructureNames.txt'):
+			with open(os.environ['REPO_DIR']+'/gui/newStructureNames.txt', 'r') as f:
 				for ln in f.readlines():
 					abbr, fullname = ln.split('\t')
 					self.new_labelnames[abbr] = fullname.strip()
 			self.new_labelnames = OrderedDict(sorted(self.new_labelnames.items()))
 
 		self.structure_names = {}
-		with open(os.environ['REPO_DIR']+'/visualization/structure_names.txt', 'r') as f:
+		with open(os.environ['REPO_DIR']+'/gui/structure_names.txt', 'r') as f:
 			for ln in f.readlines():
 				abbr, fullname = ln.split('\t')
 				self.structure_names[abbr] = fullname.strip()
@@ -197,7 +164,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.lateral_position_lookup = dict(zip(range(self.first_sec, self.midline_sec+1), -np.linspace(2.64, 0, self.midline_sec-self.first_sec+1)) + \
 											zip(range(self.midline_sec, self.last_sec+1), np.linspace(0, 2.64, self.last_sec-self.midline_sec+1)))
-		
+
 
 
 	def load_active_set(self, sections=None):
@@ -210,18 +177,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			maxsec = max(sections)
 
 			self.sections = range(max(self.first_sec, minsec), min(self.last_sec, maxsec+1))
-			
+
 			print self.sections
 
 			self.dms = dict([(i, DataManager(
-			    # data_dir=os.environ['DATA_DIR'], 
-			    data_dir='/media/yuncong/MyPassport', 
-			         repo_dir=os.environ['REPO_DIR'], 
-			         # result_dir=os.environ['RESULT_DIR'], 
-			         # labeling_dir=os.environ['LOCAL_LABELING_DIR'],
-			         labeling_dir='/home/yuncong/CSHL_data_labelings_losslessAlignCropped',
-			         # labeling_dir='/home/yuncong/CSHL_autoAnnotations_snake',
-			    stack=stack, section=i, segm_params_id='tSLIC200', load_mask=False)) 
+			    # data_dir=os.environ['DATA_DIR'],
+				# data_dir='/media/yuncong/MyPassport',
+				data_dir='/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8',
+				repo_dir=os.environ['REPO_DIR'],
+				# result_dir=os.environ['RESULT_DIR'],
+				# labeling_dir=os.environ['LOCAL_LABELING_DIR'],
+				# labeling_dir='/home/yuncong/CSHL_data_labelings_losslessAlignCropped',
+				# labeling_dir='/home/yuncong/CSHL_autoAnnotations_snake',
+				stack=stack, section=i, load_mask=False))
 			for i in self.sections])
 				# for i in range(self.first_sec, self.last_sec+1)])
 
@@ -240,7 +208,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				for i in self.pixmaps:
 					if i not in self.sections:
 						to_remove.append(i)
-				
+
 				print 'to_remove', to_remove
 
 				for i in to_remove:
@@ -257,13 +225,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 						s = self.gscenePixmapItems.pop(i)
 						print 'del', s
 						del s
-					
-			else:	
+
+			else:
 				# the very beginning
 
 				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
 				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
-			
+
 				self.gscenePixmapItems = {}
 
 			print 'load image', time.time() - t
@@ -303,9 +271,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.gscenes[sec] = gscene
 
-			ret = self.dms[sec].load_proposal_review_result(None, 'latest', 'consolidated')
+			# ret = self.dms[sec].load_annotation()
+			ret = DataManager.load_annotation(stack=self.stack, section=sec,
+								annotation_rootdir=annotation_midbrainIncluded_rootdir)
+
 			if ret is not None:
-				usr, ts, suffix, annotations = ret
+				annotations, usr, ts = ret
 				self.load_labelings(annotations, sec=sec)
 
 		if panel_id == 0:
@@ -322,7 +293,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.section1_gview.setInteractive(True)
 		# self.section1_gview.setDragMode(QGraphicsView.RubberBandDrag)
 		# self.section1_gview.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-		
+
 		# self.labeling_painters[panel_id] = LabelingPainter(gview, gscene, pixmap)
 
 	# def reload_brain_labeling_gui(self):
@@ -440,7 +411,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif selected_action == action_deleteROIDup:
 			self.set_mode(Mode.DELETE_ROI_DUPLICATE)
-		
+
 		elif selected_action == action_deleteROIMerge:
 			self.set_mode(Mode.DELETE_ROI_MERGE)
 
@@ -510,14 +481,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			scene_pt = self.selected_polygon.mapToScene(elem.x, elem.y)
 			circ.setPos(scene_pt)
 
-		self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'].setPos(self.selected_polygon.label_pos_before_move_x + offset_scene_x, 
+		self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'].setPos(self.selected_polygon.label_pos_before_move_x + offset_scene_x,
 										self.selected_polygon.label_pos_before_move_y + offset_scene_y)
 
 		self.polygon_is_moved = True
-			
+
 	@pyqtSlot()
 	def polygon_released(self):
-		
+
 		self.selected_polygon = self.sender().parent
 
 		curr_polygon_path = self.selected_polygon.path()
@@ -525,9 +496,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		for i in range(curr_polygon_path.elementCount()):
 			elem = curr_polygon_path.elementAt(i)
 			scene_pt = self.selected_polygon.mapToScene(elem.x, elem.y)
-			
+
 			curr_polygon_path.setElementPositionAt(i, scene_pt.x(), scene_pt.y())
-		
+
 		self.selected_polygon.setPath(curr_polygon_path)
 		self.selected_polygon.setPos(0,0)
 
@@ -537,7 +508,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 																	'label': self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']})
 			self.polygon_is_moved = False
 
-			
+
 	@pyqtSlot(int, int, int, int)
 	def vertex_moved(self, x, y, x0, y0):
 
@@ -545,7 +516,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		offset_scene_y = y - y0
 
 		self.selected_vertex_circle = self.sender().parent
-		
+
 		self.selected_vertex_center_x_new = self.selected_vertex_circle.center_scene_x_before_move + offset_scene_x
 		self.selected_vertex_center_y_new = self.selected_vertex_circle.center_scene_y_before_move + offset_scene_y
 
@@ -592,7 +563,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'].index(clicked_vertex) == 0 and \
 			len(self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles']) > 2 and \
-			(self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY or self.mode == Mode.ADDING_VERTICES_RANDOMLY): 
+			(self.mode == Mode.ADDING_VERTICES_CONSECUTIVELY or self.mode == Mode.ADDING_VERTICES_RANDOMLY):
 			# the last condition is to prevent setting the flag when one clicks vertex 0 in idle mode.
 			print 'close curr polygon SET'
 			self.close_curr_polygon = True
@@ -611,10 +582,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.vertex_is_moved = False
 			self.print_history()
-		
+
 		elif self.mode == Mode.DELETE_BETWEEN:
 			vertex_index = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'].index(clicked_vertex)
-			print 'vertex_index', vertex_index 
+			print 'vertex_index', vertex_index
 
 			rect = clicked_vertex.rect()
 			clicked_vertex.setRect(rect.x()-.5*VERTEX_CIRCLE_RADIUS, rect.y()-.5*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS)
@@ -623,11 +594,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.second_vertex_index_to_delete = vertex_index
 
 				self.delete_between(self.selected_polygon, self.first_vertex_index_to_delete, self.second_vertex_index_to_delete)
-				
+
 				# first_vertex = self.accepted_proposals[self.selected_polygon]['vertexCircles'][self.first_vertex_index_to_delete]
 				# rect = first_vertex.rect()
 				# first_vertex.setRect(rect.x()-50, rect.y()-50, 100, 100)
-				
+
 				self.first_vertex_index_to_delete = None
 
 				# second_vertex = self.accepted_proposals[self.selected_polygon]['vertexCircles'][self.second_vertex_index_to_delete]
@@ -644,7 +615,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif self.mode == Mode.CONNECT_VERTICES:
 			vertex_index = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['vertexCircles'].index(clicked_vertex)
 
-			print 'vertex_index', vertex_index 
+			print 'vertex_index', vertex_index
 
 			rect = clicked_vertex.rect()
 			clicked_vertex.setRect(rect.x()-.5*VERTEX_CIRCLE_RADIUS, rect.y()-.5*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS, 3*VERTEX_CIRCLE_RADIUS)
@@ -654,13 +625,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.second_vertex_index_to_connect = vertex_index
 
 				self.connect_vertices(self.first_polygon, self.first_vertex_index_to_connect, self.second_polygon, self.second_vertex_index_to_connect)
-				
+
 				if self.first_polygon == self.second_polygon: # not creating new polygon, so need to restore the vertex circle sizes
 
 					first_vertex = self.accepted_proposals_allSections[self.selected_section][self.first_polygon]['vertexCircles'][self.first_vertex_index_to_connect]
 					rect = first_vertex.rect()
 					first_vertex.setRect(rect.x()+.5*VERTEX_CIRCLE_RADIUS, rect.y()+.5*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS)
-				
+
 					second_vertex = self.accepted_proposals_allSections[self.selected_section][self.second_polygon]['vertexCircles'][self.second_vertex_index_to_connect]
 					rect = second_vertex.rect()
 					second_vertex.setRect(rect.x()+.5*VERTEX_CIRCLE_RADIUS, rect.y()+.5*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS)
@@ -765,7 +736,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				self.pressed = True
 
 				return True
-				
+
 			return False
 
 		if obj_type == 'gscene' and event.type() == QEvent.GraphicsSceneMouseMove:
@@ -816,14 +787,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					print 'close curr polygon UNSET'
 					self.close_curr_polygon = False
-					
+
 					self.close_polygon()
 
 					if 'label' not in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]:
 						self.open_label_selection_dialog()
 
 					self.set_mode(Mode.IDLE)
-				
+
 				else:
 
 					polygon_goto(self.selected_polygon, x, y)
@@ -839,7 +810,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 					print 'close curr polygon UNSET'
 					self.close_curr_polygon = False
-					
+
 					self.close_polygon()
 
 					self.set_mode(Mode.IDLE)
@@ -847,7 +818,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				elif self.selected_polygon.path().elementCount() == 0: # just created a new polygon, no vertices yet; in this case, just use self.selected_polygon
 					pass
 				else:
-					# self.selected_polygon is pre-selected. This is not ideal. 
+					# self.selected_polygon is pre-selected. This is not ideal.
 					# Should determine which polygon is selected based on location of the click.
 
 					pt = Point(x, y)
@@ -943,7 +914,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			end = min(n-1, end)
 		else:
 			assert end != begin # cannot handle this, because there is no way a path can have the same first and last points but is not closed
-			if end < begin: 
+			if end < begin:
 				end = end + n
 
 		for i in range(begin, end + 1):
@@ -1014,10 +985,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			if vertex_ind1 == 0 and vertex_ind2 == 0:
 				reversed_path1 = path1.toReversed()
 				for i in range(path2.elementCount()):
-					elem = path2.elementAt(i) 
+					elem = path2.elementAt(i)
 					reversed_path1.lineTo(elem.x, elem.y)
 				new_polygon = self.add_polygon_by_vertices_label(reversed_path1, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon1]['label'])
-				
+
 			elif vertex_ind1 == n1-1 and vertex_ind2 == n2-1:
 
 				reversed_path2 = path2.toReversed()
@@ -1025,7 +996,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					elem = reversed_path2.elementAt(i)
 					path1.lineTo(elem.x, elem.y)
 				new_polygon = self.add_polygon_by_vertices_label(path1, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon1]['label'])
-				
+
 			elif vertex_ind1 == 0 and vertex_ind2 == n2-1:
 				for i in range(path1.elementCount()):
 					elem = path1.elementAt(i)
@@ -1067,7 +1038,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if log:
 			self.history_allSections[self.selected_section].append({
-				'type': 'remove_polygon', 
+				'type': 'remove_polygon',
 				'polygon': self.selected_polygon
 				})
 
@@ -1122,7 +1093,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			sec = self.selected_section
 
 		polygon = QGraphicsPathItemModified(path, gui=self)
-		
+
 		polygon.setPen(pen)
 		polygon.setZValue(z_value)
 		polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
@@ -1138,7 +1109,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.polygon_inverse_lookup[polygon] = sec
 
 		self.history_allSections[sec].append({
-			'type': 'add_polygon', 
+			'type': 'add_polygon',
 			'polygon': polygon
 			})
 
@@ -1178,7 +1149,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.gscenes[sec].addItem(textItem)
 
 		self.history_allSections[sec].append({
-			'type': 'set_label', 
+			'type': 'set_label',
 			'polygon': polygon,
 			'label': label
 			})
@@ -1227,7 +1198,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.inverse_lookup[ellipse] = polygon
 
 		self.history_allSections[sec].append({
-			'type': 'add_vertex', 
+			'type': 'add_vertex',
 			'polygon': polygon,
 			'new_index': new_index if new_index != -1 else len(self.accepted_proposals_allSections[sec][polygon]['vertexCircles'])-1,
 			'pos': (x,y)
@@ -1239,7 +1210,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def populate_polygon_with_vertex_circles(self, polygon):
 		'''
 		Add vertex circles to polygon
-		
+
 		Args:
 			polygon (QGraphicsPathItemModified): the polygon
 
@@ -1284,7 +1255,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				for i in range(n):
 					elem = path.elementAt(i)
 					if p.path().contains(QPointF(elem.x, elem.y)) or p.path().intersects(path):
-						print 'overlap_with', overlap_polygons
+						# print 'overlap_with', overlap_polygons
 						overlap_polygons.add(p)
 
 		for p in overlap_polygons:
@@ -1324,7 +1295,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				props['labelTextArtist'].setEnabled(True)
 
 		self.history_allSections[self.selected_section].append({
-			'type': 'close_polygon', 
+			'type': 'close_polygon',
 			'polygon': polygon
 			})
 
@@ -1340,7 +1311,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		out_factor = .9
 		in_factor = 1./out_factor
-		
+
 		if event.delta() < 0: # negative means towards user
 
 			offset_x = (1 - out_factor) * pos.x()
@@ -1411,7 +1382,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.section1_gview.translate(0, 200)
 			self.section2_gview.translate(0, 200)
 			self.section3_gview.translate(0, 200)
-			
+
 		elif event.key() == Qt.Key_Down:
 			# print 'down'
 			self.section1_gview.translate(0, -200)
@@ -1420,13 +1391,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		elif event.key() == Qt.Key_Equal:
 			pos = self.gviews[self.selected_panel_id].mapToScene(self.gviews[self.selected_panel_id].mapFromGlobal(QCursor.pos()))
-			
+
 			out_factor = .9
 			in_factor = 1./out_factor
 
 			offset_x = (1-out_factor) * pos.x()
 			offset_y = (1-out_factor) * pos.y()
-		
+
 			self.section1_gview.scale(out_factor, out_factor)
 			self.section1_gview.translate(in_factor * offset_x, in_factor * offset_y)
 
@@ -1444,7 +1415,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			offset_x = (in_factor - 1) * pos.x()
 			offset_y = (in_factor - 1) * pos.y()
-			
+
 			self.section1_gview.scale(in_factor, in_factor)
 			self.section1_gview.translate(-out_factor * offset_x, -out_factor * offset_y)
 
@@ -1558,7 +1529,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 						if s3 != self.section and s3 != self.section2:
 							self.section3 = s3
 							break
-			
+
 			self.setWindowTitle('BrainLabelingGUI, stack %s'%self.stack + ', Left %d' %self.section3 + ' (%.3f)' % self.lateral_position_lookup[self.section3] + \
 											', middle %d'%self.section + ' (%.3f)' % self.lateral_position_lookup[self.section] + \
 											', right %d'%self.section2 + ' (%.3f)' % self.lateral_position_lookup[self.section2])
@@ -1645,8 +1616,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.labelsToDetect.exec_()
 
 		if len(self.labelsToDetect.selected) > 0:
-		
-			returned_alg_proposal_dict = self.detect_landmark([x.split()[0] for x in list(self.labelsToDetect.selected)]) 
+
+			returned_alg_proposal_dict = self.detect_landmark([x.split()[0] for x in list(self.labelsToDetect.selected)])
 			# list of tuples (sps, dedges, sig)
 
 			for label, (sps, dedges, sig) in returned_alg_proposal_dict.iteritems():
@@ -1679,7 +1650,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				props['sig'] = sig
 				props['type'] = ProposalType.ALGORITHM
 				props['label'] = label
-		
+
 		self.canvas.draw()
 
 	def on_pick(self, event):
@@ -1742,11 +1713,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		fname = str(QFileDialog.getOpenFileName(self, 'Open file', self.dms[sec].labelings_dir))
 		stack, sec, username, timestamp, suffix = os.path.basename(fname[:-4]).split('_')
-		ret = self.dms[sec].load_proposal_review_result(username, timestamp, suffix)
+		# ret = self.dms[sec]._load_annotation(username=username, timestamp=timestamp)
+		ret = DataManager.load_annotation(stack=stack, section=sec, username=username, timestamp=timestamp,
+										annotation_rootdir=annotation_midbrainIncluded_rootdir)
 		if ret is not None:
-			annotations = ret[3]
+			annotations = ret[0]
 			self.load_labelings(annotations, sec=sec)
-			
+
 
 	def open_label_selection_dialog(self):
 
@@ -1757,7 +1730,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 							[(abbr, fullname) for abbr, fullname in self.structure_names.iteritems() if abbr not in self.recent_labels])
 
 		self.label_selection_dialog = AutoCompleteInputDialog(parent=self, labels=[abbr + ' (' + fullname + ')' for abbr, fullname in self.structure_names.iteritems()])
-		
+
 		self.label_selection_dialog.setWindowTitle('Select landmark label')
 
 		# if hasattr(self, 'invalid_labelname'):
@@ -1769,7 +1742,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			abbr = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']
 			abbr_unsided = abbr[:-2] if '_L' in abbr or '_R' in abbr else abbr
-			
+
 			self.label_selection_dialog.comboBox.setEditText( abbr_unsided + ' (' + self.structure_names[abbr_unsided] + ')')
 
 		else:
@@ -1847,7 +1820,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.load_active_set(sections=range(sec-1, sec+2))
 		self.load_active_set(sections=range(sec-NUM_NEIGHBORS_PRELOAD, sec+NUM_NEIGHBORS_PRELOAD+1))
-		
+
 		self.extend_head = False
 		self.connecting_vertices = False
 
@@ -1863,7 +1836,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		for i, gview in enumerate([self.section1_gview, self.section2_gview, self.section3_gview]):
 			gview.setMouseTracking(False)
-			gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff ) 
+			gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
 			gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
 			gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 			gview.setTransformationAnchor(QGraphicsView.NoAnchor)
@@ -1874,7 +1847,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				gview.customContextMenuRequested.connect(self.showContextMenu)
 
 			gview.viewport().installEventFilter(self)
-		
+
 		self.contextMenu_set = True
 
 		# if not hasattr(self, 'username') or self.username is None:
@@ -1929,8 +1902,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if new_data_top < 0:
 			return
 
-		self.navRect.setRect(new_data_left * self.navMap_scaling_x, new_data_top * self.navMap_scaling_y, 
-			self.navMap_scaling_x * (new_data_right - new_data_left), 
+		self.navRect.setRect(new_data_left * self.navMap_scaling_x, new_data_top * self.navMap_scaling_y,
+			self.navMap_scaling_x * (new_data_right - new_data_left),
 			self.navMap_scaling_y * (new_data_bottom - new_data_top))
 
 		self.graphicsScene_navMap.update(0, 0, self.graphicsView_navMap.size().width(), self.graphicsView_navMap.size().height())
@@ -1983,23 +1956,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			# print '#############'
 			# print accepted_proposal_props
 
-			labeling_path = self.dms[sec].save_proposal_review_result(accepted_proposal_props, self.username, timestamp, suffix='consolidated')
+			# labeling_path = self.dms[sec].save_annotation(accepted_proposal_props, self.username, timestamp)
+			labeling_path = DataManager.save_annotation(accepted_proposal_props, self.stack, sec, self.username, timestamp,
+			annotation_rootdir=annotation_midbrainIncluded_rootdir)
 
 			# print self.new_labelnames
-			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['REPO_DIR']+'/visualization/newStructureNames.txt')
+			self.dms[sec].add_labelnames(self.new_labelnames, os.environ['REPO_DIR']+'/gui/newStructureNames.txt')
 
 			self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
 
-			# if sec in self.gscenes:
-			# 	pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
-			# 	painter = QPainter(pix)
-				
-			# 	self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8), 
-			# 							QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
-			# 	pix.save(labeling_path[:-4] + '.jpg', "JPG")
-			# 	print 'Preview image saved to', labeling_path[:-4] + '.jpg'
-			# 	del painter
-			# 	del pix
+			if sec in self.gscenes:
+				pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+				painter = QPainter(pix)
+
+				self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8),
+										QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+				pix.save(labeling_path[:-4] + '.jpg', "JPG")
+				print 'Preview image saved to', labeling_path[:-4] + '.jpg'
+				del painter
+				del pix
 
 
 	def print_history(self, num_entries=5):
@@ -2094,7 +2069,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			new_vs = vs[1:]
 		else:
 			new_vs = np.r_[vs[:index], vs[index+1:]]
-		
+
 		print index
 		print vs
 		print new_vs
@@ -2272,7 +2247,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		elif history_item['type'] == 'delete_vertices_merge':
 			self.remove_polygon(history_item['new_polygon'])
 			self.add_polygon_by_vertices_label(history_item['polygon'])
-			
+
 		self.print_history()
 
 	def set_mode(self, mode):
@@ -2298,7 +2273,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.statusBar().showMessage(self.mode.value)
 
-		
+
 	def update_navMap(self):
 
 		cur_xmin, cur_xmax = self.axis.get_xlim()
@@ -2384,7 +2359,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				sec_out = [None,None]
 
 				sec_in[0] = (i+1)%n
-			
+
 			i += 1
 
 		if sec_in[0] is not None or sec_in[1] is not None:
@@ -2502,7 +2477,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		for new_path in paths_to_keep:
 
-			self.add_polygon_by_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon]['label'])	
+			self.add_polygon_by_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon]['label'])
 
 		self.remove_polygon(polygon)
 
@@ -2529,13 +2504,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		if is_closed:
 			new_path.closeSubpath()
-				
+
 		new_polygon = self.add_polygon_by_vertices_label(new_path, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon]['label'])
-		
+
 		self.remove_polygon(polygon)
 
 		return new_polygon
-			
+
 
 	def auto_extend_view(self, x, y):
 		# always make just placed vertex at the center of the view
@@ -2574,7 +2549,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.segm_handle.remove()
 		self.superpixels_on = False
-		
+
 		# self.axis.imshow(self.masked_img, cmap=plt.cm.Greys_r,aspect='equal')
 		# self.orig_image_handle = self.axis.imshow(self.masked_img, aspect='equal')
 
@@ -2592,11 +2567,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			self.load_segmentation()
 
 		self.superpixels_on = True
-		
+
 		if hasattr(self, 'segm_handle'):
 			self.segm_handle.set_data(self.segm_transparent)
 		else:
-			self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal', 
+			self.segm_handle = self.axis.imshow(self.segm_transparent, aspect='equal',
 								cmap=self.my_cmap, alpha=1.)
 
 
@@ -2735,10 +2710,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	# 	# self.fig2.subplots_adjust(left=0, bottom=0, right=1, top=1)
 	# 	self.canvas2.draw()
 
-			   
+
 if __name__ == "__main__":
-	from sys import argv, exit
-	appl = QApplication(argv)
 
 	import argparse
 	import sys
@@ -2746,11 +2719,14 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(
 	    formatter_class=argparse.RawDescriptionHelpFormatter,
-	    description='Compute texton map')
+	    description='Launch brain labeling GUI.')
 
 	parser.add_argument("stack_name", type=str, help="stack name")
 	parser.add_argument("-n", "--num_neighbors", type=int, help="number of neighbor sections to preload, default %(default)d", default=1)
 	args = parser.parse_args()
+
+	from sys import argv, exit
+	appl = QApplication(argv)
 
 	stack = args.stack_name
 	NUM_NEIGHBORS_PRELOAD = args.num_neighbors

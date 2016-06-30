@@ -31,6 +31,8 @@ input_dir = args.input_dir
 first_secind = args.first_sec
 last_secind = args.last_sec
 
+thumbnail_fmt = 'tif'
+
 def generate_mask(img):
 
     h, w = img.shape
@@ -90,25 +92,24 @@ def generate_mask(img):
 
     mask = remove_small_objects(mask, min_size=10000, connectivity=8)
     mask = remove_small_holes(mask, min_size=10000, connectivity=8)
-    
+
     return mask
 
 
 def f(stack, sec):
 
-    img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_'%sec + suffix + '.tif'))
-    
+    img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_'%sec + suffix + '.' + thumbnail_fmt))
+
     try:
         mask = generate_mask(img)
     except:
         raise Exception('%d'%sec)
-    
+
     img2 = img.copy()
     img2[~mask] = 0
 
     imsave(mask_dir+'/'+stack+'_%04d_'%sec + suffix + '_mask.png', img_as_float(mask))
     imsave(masked_img_dir+'/'+stack+'_%04d_'%sec + suffix + '_masked.png', img2)
-
 
 suffix = '_'.join(os.path.split(input_dir)[-1].split('_')[1:])
 mask_dir = os.environ['DATA_DIR'] + '/' + stack + '_' + suffix + '_mask'
@@ -125,5 +126,5 @@ if not os.path.exists(masked_img_dir):
         os.makedirs(masked_img_dir)
     except:
         pass
-    
+
 _ = Parallel(n_jobs=16)(delayed(f)(stack, sec) for sec in range(first_secind, last_secind+1))

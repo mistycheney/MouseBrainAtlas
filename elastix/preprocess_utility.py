@@ -2,7 +2,6 @@ from subprocess import call
 import os
 import sys
 
-
 # def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
 # 	hostids = detect_responsive_nodes()
 # 	n_host = len(hostids)
@@ -89,7 +88,7 @@ def run_distributed3(command, first_sec, last_sec, stdout=None, exclude_nodes=[]
 						{'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
 						'generic_launcher_path': os.environ['REPO_DIR'] + '/pipeline/generic_controller.py',
 						'command': command,
-						'f': f, 
+						'f': f,
 						'l': l
 						}
 			else:

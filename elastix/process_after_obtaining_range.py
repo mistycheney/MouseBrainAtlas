@@ -1,27 +1,32 @@
 #! /usr/bin/env python
 
-import os
-import sys
-from preprocess_utility import *
-from subprocess import check_output
-import time
-import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Process after identifying the first and last sections in the stack that contain brainstem (if desired, can be whole stack): 1) align thumbnails 2) warp thumbnail images 3) generate mask')
 
-DATAPROC_DIR = os.environ['DATA_DIR']
-
 parser.add_argument("stack_name", type=str, help="stack name")
-parser.add_argument("first_sec", type=int, help="first section")
-parser.add_argument("last_sec", type=int, help="last section")
+parser.add_argument("-f", "--first_sec", type=int, help="first section", default=1)
+parser.add_argument("-l", "--last_sec", type=int, help="last section", default=None)
 args = parser.parse_args()
+
+import os
+import sys
+
+sys.path.append(os.environ['REPO_DIR'] + '/utilities/')
+from preprocess_utility import *
+from metadata import *
 
 stack = args.stack_name
 first_sec = args.first_sec
-last_sec = args.last_sec
+last_sec = section_number_lookup[stack] if args.last_sec is None else args.last_sec
+
+from subprocess import check_output
+import time
+import numpy as np
+
+DATAPROC_DIR = os.environ['DATA_DIR']
 
 d = {
      'script_dir': os.path.join(os.environ['REPO_DIR'], 'elastix'),
@@ -36,7 +41,7 @@ d = {
     }
 
 
-exclude_nodes = [33]
+exclude_nodes = [33, 38]
 
 # elastix has built-in parallelism
 t = time.time()
@@ -45,7 +50,7 @@ print 'aligning...',
 if os.path.exists(d['elastix_output_dir']):
     os.system('rm -r ' + d['elastix_output_dir'])
 
-run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d, 
+run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d,
                 first_sec=first_sec,
                 last_sec=last_sec,
                 stdout=open('/tmp/log', 'ab+'),
@@ -53,6 +58,8 @@ run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(
                 exclude_nodes=exclude_nodes)
 
 print 'done in', time.time() - t, 'seconds'
+
+###################################
 
 from joblib import Parallel, delayed
 
@@ -78,7 +85,7 @@ print 'done in', time.time() - t, 'seconds'
 t = time.time()
 print 'warping...',
 
-run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0 0 2000 1500'%d, 
+run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0 0 2000 1500'%d,
                 first_sec=first_sec,
                 last_sec=last_sec,
                 take_one_section=False,
@@ -92,10 +99,10 @@ t = time.time()
 sys.stderr.write('generating mask ...')
 
 run_distributed3(command='%(script_path)s %(stack)s %(input_dir)s %%(f)d %%(l)d'%\
-                            {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py', 
+                            {'script_path': os.path.join(os.environ['REPO_DIR'], 'elastix') + '/generate_thumbnail_masks.py',
                             'stack': stack,
                             'input_dir': os.path.join(os.environ['DATA_DIR'], stack+'_thumbnail_aligned')
-                            }, 
+                            },
                 first_sec=first_sec,
                 last_sec=last_sec,
                 exclude_nodes=exclude_nodes,

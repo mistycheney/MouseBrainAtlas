@@ -25,7 +25,7 @@ elif [[ $(hostname) = "yuncong-Precision-WorkStation-T7500" ]]; then
         export LABELING_DIR=$HOME/CSHL_data_labelings_losslessAlignCropped
         export MXNET_DIR=$HOME/mxnet
         export MODEL_DIR=$HOME/mxnet_models
-        export OPENCV_DIR=$HOME/opencv-2.4.11
+        export OPENCV_DIR=$HOME/opencv
         export OPENCV_LIBDIR=$OPENCV_DIR/release/lib/python2.7/dist-packages
         export CAFFE_DIR=$HOME/caffe-rc3
 

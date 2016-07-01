@@ -21,7 +21,7 @@ from metadata import *
 # This script is supposed to be run on the local machine
 
 # stack = 'MD594'
-stack = args.stack
+stack = args.stack_name
 first_bs_sec, last_bs_sec = section_range_lookup[stack]
 
 annotations_rootdir_local = args.local_dir if hasattr(args, 'local_dir') else '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
@@ -43,7 +43,7 @@ for sec in range(first_bs_sec, last_bs_sec+1):
     username = 'yuncong'
 
     try:
-        fn_path = DataManager.get_annotation_path(stack=stack, section=sec, username=username)[0]
+        fn_path = DataManager.get_annotation_path(stack=stack, section=sec, username=username, annotation_rootdir=annotations_rootdir_local)[0]
         cmd = 'ssh yuncong@oasis-dm.sdsc.edu mkdir %(annotations_dir_gordon)s; \
         scp %(fn)s yuncong@oasis-dm.sdsc.edu:%(annotations_dir_gordon)s' % \
         {'fn': fn_path, 'annotations_dir_gordon': annotations_dir_gordon}

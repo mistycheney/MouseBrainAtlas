@@ -229,8 +229,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			else:
 				# the very beginning
 
+				# sequential load
 				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
 				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
+
+				# parallel load - does not work
 
 				self.gscenePixmapItems = {}
 
@@ -2026,7 +2029,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		for sec, ac in self.accepted_proposals_allSections.iteritems():
 			if sec in self.gscenes and sec in self.dms:
 				print sec
-				self.save_selected_section(sec)
+				try:
+					self.save_selected_section(sec)
+				except Exception as e:
+					sys.stderr.write(e)
 
 		self.save_history()
 

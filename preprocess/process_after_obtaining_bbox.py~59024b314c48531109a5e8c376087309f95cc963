@@ -38,17 +38,9 @@ h = args.H if args.H is not None else h0
 l = args.last_sec if args.last_sec is not None else l0
 f = args.first_sec if args.first_sec is not None else f0
 
-<<<<<<< HEAD:preprocess/process_after_obtaining_bbox.py
 os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox; mogrify -path %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox -fill none -stroke black -draw "stroke-width 2 fill-opacity 0 rectangle %(x1)d,%(y1)d %(x2)d,%(y2)d" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*"""% \
     {'stack': args.stack_name,
     'dataproc_dir': os.environ['DATA_DIR'],
-=======
-DATAPROC_DIR = os.environ['DATA_DIR']
-
-os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox; mogrify -path %(dataproc_dir)s/%(stack)s_thumbnail_aligned_bbox -fill none -stroke black -draw "stroke-width 2 fill-opacity 0 rectangle %(x1)d,%(y1)d %(x2)d,%(y2)d" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*"""% \
-    {'stack': args.stack_name,
-    'dataproc_dir': DATAPROC_DIR,
->>>>>>> 59024b314c48531109a5e8c376087309f95cc963:elastix/process_after_obtaining_bbox.py
     'x1': x,
     'y1': y,
     'x2': x+w-1,
@@ -74,11 +66,7 @@ os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_masked_cropped; 
 
 exclude_nodes = [33, 38]
 
-<<<<<<< HEAD:preprocess/process_after_obtaining_bbox.py
 script_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess')
-=======
-script_dir = os.path.join(os.environ['REPO_DIR'], 'elastix')
->>>>>>> 59024b314c48531109a5e8c376087309f95cc963:elastix/process_after_obtaining_bbox.py
 #
 t = time.time()
 sys.stderr.write('expanding...')

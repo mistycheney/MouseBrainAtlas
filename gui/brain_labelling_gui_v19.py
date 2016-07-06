@@ -104,6 +104,8 @@ VERTEX_CIRCLE_RADIUS = 10
 
 #######################################################################
 
+stack_global = None
+
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 	def __init__(self, parent=None, stack=None):
 		"""
@@ -117,6 +119,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		# self.init_data(stack)
 		self.stack = stack
+
+		global stack_global
+		stack_global = stack
 
 		self.recent_labels = []
 
@@ -229,11 +234,50 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			else:
 				# the very beginning
 
-				# sequential load
-				self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))) for i in self.sections])
-				# self.pixmaps = dict([(i, QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))) for i in self.sections])
+				t = time.time()
 
-				# parallel load - does not work
+				# sequential load  ~ 30s for 10 sections; 60s for 20; 126s for 40; 
+				# self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/'))
+				# 				for i in self.sections}
+				#
+				# parallel load ~ 26s for 10 sections; 40s for 20; 107s for 40; 350s for 80
+				f = lambda i: imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/'))
+
+				from multiprocess import Pool
+				from itertools import izip
+
+				# self.pixmaps = {}
+				# pool = Pool(processes=16)
+				# simul_workload = 16
+				# simul_workload = len(self.sections)
+				# for start in range(0, len(self.sections), simul_workload):
+				# 	images = pool.map(f, self.sections[start:start+simul_workload])
+				# 	for sec_ind, im in izip(self.sections[start:start+simul_workload], images):
+				# 		self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+					# del images
+
+				# for sec_ind, im in izip(self.sections, images):
+				# 	self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+
+				pool = Pool(processes=16)
+				images = pool.map(f, self.sections)
+				# self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				# 				for sec_ind, im in izip(self.sections, images)}
+				self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+								for sec_ind, im in zip(self.sections, images)}
+				pool.close()
+				pool.join()
+
+				# def f(i):
+				# 	im = imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/'))
+				# 	return QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				# from multiprocess import Pool
+				# pool = Pool(processes=15)
+				# self.pixmaps = dict(zip(self.sections, pool.map(f, self.sections)))
+				# pool.close()
+				# pool.join()
+
+				print time.time() - t, 'seconds.'
 
 				self.gscenePixmapItems = {}
 
@@ -1761,6 +1805,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# choose left or right side
 		self.left_right_selection_dialog = QInputDialog(self)
 		self.left_right_selection_dialog.setLabelText('Enter L or R, or leave blank for single structure')
+
+		if self.selected_section < (self.first_sec + self.last_sec)/2:
+			self.left_right_selection_dialog.setTextValue(QString('L'))
+		else:
+			self.left_right_selection_dialog.setTextValue(QString('R'))
+
 		self.left_right_selection_dialog.exec_()
 
 		left_right = str(self.left_right_selection_dialog.textValue())

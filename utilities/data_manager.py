@@ -4,9 +4,9 @@ from metadata import *
 class DataManager(object):
 
     @staticmethod
-    def get_image_filepath(stack, section, version, resol=None):
-
-        data_dir = os.environ['DATA_DIR']
+    def get_image_filepath(stack, section, version, resol=None, data_dir=None):
+        if data_dir is None:
+            data_dir = os.environ['DATA_DIR']
 
         if resol is None:
             resol = 'lossless'

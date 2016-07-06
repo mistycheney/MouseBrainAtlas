@@ -29,65 +29,6 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
-########### Data Directories #############
-
-import subprocess
-hostname = subprocess.check_output("hostname", shell=True).strip()
-
-if hostname.endswith('sdsc.edu'):
-    print 'Setting environment for Gordon'
-    atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
-    atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
-    volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/'
-    labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-    scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'
-    scoremapViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremapViz_svm_Sat16ClassFinetuned_v3'
-    annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-else:
-    print 'Setting environment for Brainstem workstation or Local'
-    volume_dir = '/home/yuncong/CSHL_volumes/'
-    mesh_rootdir = '/home/yuncong/CSHL_meshes'
-
-############ Class Labels #############
-
-volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
-                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
-linear_landmark_names_unsided = ['outerContour']
-
-labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
-labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
-
-labelMap_unsidedToSided = {'12N': ['12N'],
-                            '5N': ['5N_L', '5N_R'],
-                            '6N': ['6N_L', '6N_R'],
-                            '7N': ['7N_L', '7N_R'],
-                            '7n': ['7n_L', '7n_R'],
-                            'AP': ['AP'],
-                            'Amb': ['Amb_L', 'Amb_R'],
-                            'LC': ['LC_L', 'LC_R'],
-                            'LRt': ['LRt_L', 'LRt_R'],
-                            'Pn': ['Pn_L', 'Pn_R'],
-                            'R': ['R_L', 'R_R'],
-                            'RtTg': ['RtTg'],
-                            'Tz': ['Tz_L', 'Tz_R'],
-                            'VLL': ['VLL_L', 'VLL_R'],
-                            'sp5': ['sp5'],
-                           'outerContour': ['outerContour']}
-
-labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
-
-from itertools import chain
-labels_sided = list(chain(*(labelMap_unsidedToSided[name_u] for name_u in labels_unsided)))
-labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # BackG always 0
-
-############ Physical Dimension #############
-
-section_thickness = 20 # in um
-xy_pixel_distance_lossless = 0.46
-xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
-
-#######################################
-
 from enum import Enum
 
 class PolygonType(Enum):
@@ -272,26 +213,6 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness
 
 
-
-all_stacks = ['MD589', 'MD594', 'MD593', 'MD585', 'MD592', 'MD590', 'MD591', 'MD589', 'MD595', 'MD598', 'MD602', 'MD603']
-
-section_number_lookup = {'MD589': 445, 'MD594': 432, 'MD593': 448, 'MD585': 440, 'MD592': 454, \
-                        'MD590': 419, 'MD591': 452, 'MD589': 445, 'MD595': 441, 'MD598': 430, 'MD602': 420, 'MD603': 432}
-section_range_lookup = {'MD589': (93, 368), 'MD594': (93, 364), 'MD593': (69,350), 'MD585': (78, 347), 'MD592':(91,371), \
-                        'MD590':(80,336), 'MD591': (98,387), 'MD589':(93,368), 'MD595': (67,330), 'MD598': (95,354), 'MD602':(96,352), 'MD603':(60,347)}
-
-# xmin, ymin, w, h
-brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD593': (645,128,571,500), 'MD592': (807,308,626,407), 'MD590': (652,156,601,536), 'MD591': (697,194,550,665), \
-                        'MD594': (616,144,451,362), 'MD595': (645,170,735,519), 'MD598': (680,107,695,459), 'MD602': (641,76,761,474), 'MD589':(643,145,419,367), 'MD603':(621,189,528,401)}
-
-# xmin, ymin, w, h
-detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \
-                        'MD594': (29,120,422,242), 'MD595': (60,143,437,236), 'MD598': (48,118,450,231), 'MD602': (56,117,468,219), 'MD589': (0,137,419,230), 'MD603': (0,165,528,236)}
-
-detect_bbox_range_lookup = {'MD585': (132,292), 'MD593': (127,294), 'MD592': (147,319), 'MD590': (135,280), 'MD591': (150,315), \
-                        'MD594': (143,305), 'MD595': (115,279), 'MD598': (150,300), 'MD602': (147,302), 'MD589': (150,316), 'MD603': (130,290)}
-# midline_section_lookup = {'MD589': 114, 'MD594': 119}
-
 def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
     section_thickness = 20 # in um
@@ -313,419 +234,6 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
             map_z_to_section[z] = s
 
     return map_z_to_section
-
-
-class DataManager(object):
-
-    @staticmethod
-    def get_image_filepath(stack, section, version, resol=None):
-
-        data_dir = os.environ['DATA_DIR']
-
-        if resol is None:
-            resol = 'lossless'
-
-        slice_str = '%04d' % section
-
-        if version == 'rgb-jpg':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
-        # elif version == 'gray-jpg':
-        #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
-        #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
-        #     image_path = os.path.join(image_dir, image_name + '.jpg')
-        elif version == 'gray':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-        elif version == 'rgb':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-
-        elif version == 'stereotactic-rgb-jpg':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
-
-        return image_path
-
-    def __init__(self, data_dir=os.environ['DATA_DIR'],
-                 repo_dir=os.environ['REPO_DIR'],
-                 labeling_dir=os.environ['LABELING_DIR'],
-                 gabor_params_id=None,
-                 segm_params_id='tSLIC200',
-                 vq_params_id=None,
-                 stack=None,
-                 resol='lossless',
-                 section=None,
-                 load_mask=False):
-
-        self.data_dir = data_dir
-        self.repo_dir = repo_dir
-        self.params_dir = os.path.join(repo_dir, 'params')
-
-        self.root_labelings_dir = labeling_dir
-
-        # self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
-
-        # if os.path.isfile(self.labelnames_path):
-        #     with open(self.labelnames_path, 'r') as f:
-        #         self.labelnames = [n.strip() for n in f.readlines()]
-        #         self.labelnames = [n for n in self.labelnames if len(n) > 0]
-        # else:
-        #     self.labelnames = []
-
-        # self.root_results_dir = result_dir
-
-        self.slice_ind = None
-        self.image_name = None
-
-        if gabor_params_id is None:
-            self.set_gabor_params('blueNisslWide')
-        else:
-            self.set_gabor_params(gabor_params_id)
-
-        if segm_params_id is None:
-            self.set_segmentation_params('blueNisslRegular')
-        else:
-            self.set_segmentation_params(segm_params_id)
-
-        if vq_params_id is None:
-            self.set_vq_params('blueNissl')
-        else:
-            self.set_vq_params(vq_params_id)
-
-        if stack is not None:
-            self.set_stack(stack)
-
-        if resol is not None:
-            self.set_resol(resol)
-
-        if self.resol == 'lossless':
-            if hasattr(self, 'stack') and self.stack is not None:
-                self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
-                self.image_rgb_jpg_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped_downscaled')
-
-        if section is not None:
-            self.set_slice(section)
-        else:
-            try:
-                random_image_fn = os.listdir(self.image_dir)[0]
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
-            except:
-                d = os.path.join(self.data_dir, 'MD589_lossless_aligned_cropped_downscaled')
-                if os.path.exists(d):
-                    random_image_fn = os.listdir(d)[0]
-                    self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(d, random_image_fn), shell=True).split('x'))
-
-        if load_mask:
-            self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
-            self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
-            # self.mask[:500, :] = False
-            # self.mask[:, :500] = False
-            # self.mask[-500:, :] = False
-            # self.mask[:, -500:] = False
-
-            xs_valid = np.any(self.mask, axis=0)
-            ys_valid = np.any(self.mask, axis=1)
-            self.xmin = np.where(xs_valid)[0][0]
-            self.xmax = np.where(xs_valid)[0][-1]
-            self.ymin = np.where(ys_valid)[0][0]
-            self.ymax = np.where(ys_valid)[0][-1]
-
-            self.h = self.ymax-self.ymin+1
-            self.w = self.xmax-self.xmin+1
-
-
-    def load_thumbnail_mask(self):
-        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack,
-            'slice_str': self.slice_str}).astype(np.bool)
-        return self.thumbmail_mask
-
-    def add_labelnames(self, labelnames, filename):
-        existing_labelnames = {}
-        with open(filename, 'r') as f:
-            for ln in f.readlines():
-                abbr, fullname = ln.split('\t')
-                existing_labelnames[abbr] = fullname.strip()
-
-        with open(filename, 'a') as f:
-            for abbr, fullname in labelnames.iteritems():
-                if abbr not in existing_labelnames:
-                    f.write(abbr+'\t'+fullname+'\n')
-
-    def set_stack(self, stack):
-        self.stack = stack
-        self.get_image_dimension()
-#         self.stack_path = os.path.join(self.data_dir, self.stack)
-#         self.slice_ind = None
-
-    def set_resol(self, resol):
-        self.resol = resol
-
-    def get_image_dimension(self):
-
-        try:
-            if hasattr(self, 'image_path') and os.path.exists(self.image_path):
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
-            else:
-                # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
-
-                # if section is specified, use that section; otherwise use a random section in the brainstem range
-                if hasattr(self, 'slice_ind') and self.slice_ind is not None:
-                    sec = self.slice_ind
-                else:
-                    sec = section_range_lookup[self.stack][0]
-
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(section=sec, version='rgb-jpg'), shell=True).split('x'))
-
-        except Exception as e:
-            print e
-            sys.stderr.write('Cannot find image\n')
-
-        return self.image_height, self.image_width
-
-    def set_slice(self, slice_ind):
-        assert self.stack is not None and self.resol is not None, 'Stack is not specified'
-        self.slice_ind = slice_ind
-        self.slice_str = '%04d' % slice_ind
-        if self.resol == 'lossless':
-            self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
-            self.image_name = '_'.join([self.stack, self.slice_str, self.resol])
-            self.image_path = os.path.join(self.image_dir, self.image_name + '_aligned_cropped.tif')
-
-        try:
-            if os.path.exists(self.image_path):
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self.image_path, shell=True).split('x'))
-            else:
-                # sys.stderr.write('original TIFF image is not available. Loading downscaled jpg instead...')
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % self._get_image_filepath(version='rgb-jpg'), shell=True).split('x'))
-        except Exception as e:
-            print e
-            sys.stderr.write('Cannot find image\n')
-
-        # self.labelings_dir = os.path.join(self.image_dir, 'labelings')
-
-        if hasattr(self, 'result_list'):
-            del self.result_list
-
-        self.labelings_dir = os.path.join(self.root_labelings_dir, self.stack, self.slice_str)
-        # if not os.path.exists(self.labelings_dir):
-        #     os.makedirs(self.labelings_dir)
-
-#         self.results_dir = os.path.join(self.image_dir, 'pipelineResults')
-
-        # self.results_dir = os.path.join(self.root_results_dir, self.stack, self.slice_str)
-        # if not os.path.exists(self.results_dir):
-        #     os.makedirs(self.results_dir)
-
-
-    def _get_image_filepath(self, stack=None, resol='lossless', section=None, version='rgb-jpg'):
-        if stack is None:
-            stack = self.stack
-        if resol is None:
-            resol = self.resol
-        if section is None:
-            section = self.slice_ind
-
-        slice_str = '%04d' % section
-
-        if version == 'rgb-jpg':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
-        # elif version == 'gray-jpg':
-        #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
-        #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
-        #     image_path = os.path.join(image_dir, image_name + '.jpg')
-        elif version == 'gray':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-        elif version == 'rgb':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-
-        elif version == 'stereotactic-rgb-jpg':
-            image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
-
-        return image_path
-
-    def _read_image(self, image_filename):
-        if image_filename.endswith('tif') or image_filename.endswith('tiff'):
-            from PIL.Image import open
-            img = np.array(open(image_filename))/255.
-        else:
-            img = imread(image_filename)
-        return img
-
-    def _load_image(self, versions=['rgb', 'gray', 'rgb-jpg'], force_reload=True):
-
-        assert self.image_name is not None, 'Image is not specified'
-
-        if 'rgb-jpg' in versions:
-            if force_reload or not hasattr(self, 'image_rgb_jpg'):
-                image_filename = self._get_image_filepath(version='rgb-jpg')
-                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-                self.image_rgb_jpg = self._read_image(image_filename)
-
-        if 'rgb' in versions:
-            if force_reload or not hasattr(self, 'image_rgb'):
-                image_filename = self._get_image_filepath(version='rgb')
-                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-                self.image_rgb = self._read_image(image_filename)
-
-        if 'gray' in versions and not hasattr(self, 'image'):
-            if force_reload or not hasattr(self, 'gray'):
-                image_filename = self._get_image_filepath(version='gray')
-                # assert os.path.exists(image_filename), "Image '%s' does not exist" % (self.image_name + '.tif')
-                self.image = self._read_image(image_filename)
-
-
-    # def get_labeling_path(stack, section, username, timestamp, suffix='consolidated', labeling_list):
-
-
-
-
-    #     if len(labeling_list[username]) == 0:
-    #         self.reload_labelings()
-
-    #     if username is None: # search labelings of any user
-    #         self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
-    #         if len(self.result_list_flatten) == 0:
-    #             # sys.stderr.write('username is empty\n')
-    #             return None
-
-    #     if timestamp == 'latest':
-    #         if username is not None:
-
-    #             if len(self.result_list[username]) == 0:
-    #                 return None
-
-    #             timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
-    #             timestamp = timestamps_sorted[0]
-    #         else:
-    #             ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
-    #             timestamp = ts_str_usr_sorted[0][1]
-    #             username = ts_str_usr_sorted[0][2]
-
-    #     return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl'), username, timestamp
-
-
-    # def get_labeling_path(self, username, timestamp, stack=None, section=None, suffix='consolidated'):
-
-    #     if stack is None:
-    #         stack = self.stack
-    #     if section is None:
-    #         section = self.slice_ind
-
-    #     if not hasattr(self, 'result_list') or len(self.result_list[username]) == 0:
-    #         self.reload_labelings()
-
-    #     if username is None: # search labelings of any user
-    #         self.result_list_flatten = [(usr, ts) for usr, timestamps in self.result_list.iteritems() for ts in timestamps ] # [(username, timestamp)..]
-    #         if len(self.result_list_flatten) == 0:
-    #             # sys.stderr.write('username is empty\n')
-    #             return None
-
-    #     if timestamp == 'latest':
-    #         if username is not None:
-
-    #             if len(self.result_list[username]) == 0:
-    #                 return None
-
-    #             timestamps_sorted = map(itemgetter(1), sorted(map(lambda s: (datetime.datetime.strptime(s, "%m%d%Y%H%M%S"), s), self.result_list[username]), reverse=True))
-    #             timestamp = timestamps_sorted[0]
-    #         else:
-    #             ts_str_usr_sorted = sorted([(datetime.datetime.strptime(ts, "%m%d%Y%H%M%S"), ts, usr) for usr, ts in self.result_list_flatten], reverse=True)
-    #             timestamp = ts_str_usr_sorted[0][1]
-    #             username = ts_str_usr_sorted[0][2]
-
-    #     return os.path.join(self.labelings_dir, '_'.join([stack, '%04d'%section, username, timestamp]) + '_'+suffix+'.pkl'), username, timestamp
-
-
-    # def reload_labelings(self):
-    #     # if not hasattr(self, 'result_list'):
-    #     from collections import defaultdict
-    #     import pandas as pd
-
-    #     pd.DataFrame()
-
-
-    #     # self.result_list = defaultdict(lambda: defaultdict(list))
-    #     self.result_list = defaultdict(list)
-
-    #     if os.path.exists(self.labelings_dir):
-    #         for fn in os.listdir(self.labelings_dir):
-    #             st, se, us, ts, suf = fn[:-4].split('_')
-    #             # self.result_list[us][ts].append(suf)
-    #             self.result_list[us].append(ts)
-
-
-    # def load_labeling(self, username, timestamp, suffix, stack=None, section=None):
-
-    #     ret = self.get_labeling_path(username=username, timestamp=timestamp, stack=stack, section=section)
-    #     if ret is not None:
-    #         path, usr, timestmp
-    #         return (usr, ts, suffix, pickle.load( open(path, 'r')))
-
-        # if stack is None:
-        #     stack = self.stack
-        # if section is None:
-        #     section = self.slice_ind
-
-        # if not hasattr(self, 'result_list') or len(self.result_list[username]) == 0:
-        #     self.reload_labelings()
-
-        # if username is not None:
-        #     if len(self.result_list[username]) == 0:
-        #         sys.stderr.write('username %s does not have any annotations for current section %d \n' % (username, self.slice_ind))
-        #         return None
-
-        # if suffix == 'all':
-        #     results = []
-        #     for suf in self.result_list[username][timestamp]:
-        #         ret = self.load_review_result_path(username=username, timestamp=timestamp, suffix=suf, stack=stack, section=section)
-        #         if ret is None:
-        #             return None
-        #         else:
-        #             path, usr, ts = ret
-        #             results.append((username, timestamp, suf, pickle.load(open(path, 'r'))))
-        #     return results
-        # else:
-        #     ret = self.load_review_result_path(username=username, timestamp=timestamp, suffix=suffix, stack=stack, section=section)
-        #     if ret is None:
-        #         return None
-        #     else:
-        #         path, usr, ts = ret
-        #         return (usr, ts, suffix, pickle.load( open(path, 'r')))
-
-
-    def _regulate_image(self, img, is_rgb=None):
-        """
-        Ensure the image is of type uint8.
-        """
-
-        if not np.issubsctype(img, np.uint8):
-            try:
-                img = img_as_ubyte(img)
-            except:
-                img_norm = (img-img.min()).astype(np.float)/(img.max() - img.min())
-                img = img_as_ubyte(img_norm)
-
-        if is_rgb is not None:
-            if img.ndim == 2 and is_rgb:
-                img = gray2rgb(img)
-            elif img.ndim == 3 and not is_rgb:
-                img = rgb2gray(img)
-
-        return img
-
 
 def fit_ellipse_to_points(pts):
 
@@ -762,7 +270,23 @@ def display_image(vis, filename='tmp.jpg'):
     from IPython.display import FileLink
     return FileLink(filename)
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None):
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True):
+
+    if maintain_shape:
+
+        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+        if np.issubdtype(vizs[0].dtype, np.integer):
+            common_box = 255*np.ones((common_shape[0], common_shape[1], 3), np.uint8)
+        else:
+            common_box = np.ones((common_shape[0], common_shape[1], 3))
+
+        patches_padded = []
+        for p in vizs:
+            patch_padded = common_box.copy()
+            patch_padded[:p.shape[0], :p.shape[1]] = p
+            patches_padded.append(patch_padded)
+
+        vizs = patches_padded
 
     n = len(vizs)
     nr = int(np.ceil(n/float(nc)))
@@ -785,8 +309,9 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None):
 
     if export_fn is not None:
         plt.savefig(export_fn);
-
-    plt.show();
+        plt.close(fig)
+    else:
+        plt.show();
 
 # <codecell>
 
@@ -970,3 +495,11 @@ def bbox_3d(img):
 #     n = len(points)
 #     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
 #     return points[sampled_indices]
+
+import randomcolor
+
+def random_colors(count):
+    rand_color = randomcolor.RandomColor()
+    random_colors = [map(int, rgb_str[4:-1].replace(',', ' ').split())
+                     for rgb_str in rand_color.generate(luminosity="bright", count=count, format_='rgb')]
+    return random_colors

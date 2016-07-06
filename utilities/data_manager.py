@@ -41,9 +41,10 @@ class DataManager(object):
     def get_annotation_path(stack, section, username=None, timestamp='latest', annotation_rootdir=annotation_rootdir):
         """Return the path to annotation."""
 
-        d = annotation_rootdir + '%(stack)s/%(sec)04d/' % {'stack':stack, 'sec':section}
+        d = os.path.join(annotation_rootdir, '%(stack)s/%(sec)04d/' % {'stack':stack, 'sec':section})
 
         if not os.path.exists(d):
+            sys.stderr.write('Directory %s does not exist.\n' % d)
             return None
 
         fns = [(f, f.split('_')) for f in os.listdir(d) if f.endswith('pkl')]
@@ -79,7 +80,7 @@ class DataManager(object):
 
     @staticmethod
     def save_annotation(obj, stack, section, username=None, timestamp='now', suffix='consolidated', annotation_rootdir=annotation_rootdir):
-        d = create_if_not_exists(annotation_rootdir + '%(stack)s/%(sec)04d/' % {'stack':stack, 'sec':section})
+        d = create_if_not_exists(os.path.join(annotation_rootdir, '%(stack)s/%(sec)04d/' % {'stack':stack, 'sec':section}))
         fn = '_'.join([stack, '%04d'%section, username, timestamp, suffix]) + '.pkl'
         fp = os.path.join(d, fn)
         obj = pickle.dump(obj, open(fp, 'w'))

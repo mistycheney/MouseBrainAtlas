@@ -24,8 +24,8 @@ from metadata import *
 stack = args.stack_name
 first_bs_sec, last_bs_sec = section_range_lookup[stack]
 
-annotations_rootdir_local = args.local_dir if hasattr(args, 'local_dir') else '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
-annotations_rootdir_gordon = args.remote_dir if hasattr(args, 'remote_dir') else '/home/yuncong/csd395/CSHL_data_labelings_losslessAlignCropped'
+annotations_rootdir_local = args.local_dir if args.local_dir is not None else '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+annotations_rootdir_gordon = args.remote_dir if args.remote_dir is not None else '/home/yuncong/csd395/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
 
 cmd = 'ssh yuncong@oasis-dm.sdsc.edu mkdir %(annotations_rootdir)s/%(stack)s' % \
 {'stack': stack, 'annotations_rootdir': annotations_rootdir_gordon}
@@ -36,7 +36,6 @@ import time
 t = time.time()
 
 for sec in range(first_bs_sec, last_bs_sec+1):
-    print sec
 
     annotations_dir_gordon = os.path.join(annotations_rootdir_gordon, stack, '%04d'%sec)
 

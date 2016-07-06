@@ -270,7 +270,23 @@ def display_image(vis, filename='tmp.jpg'):
     from IPython.display import FileLink
     return FileLink(filename)
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None):
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True):
+
+    if maintain_shape:
+
+        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+        if np.issubdtype(vizs[0].dtype, np.integer):
+            common_box = 255*np.ones((common_shape[0], common_shape[1], 3), np.uint8)
+        else:
+            common_box = np.ones((common_shape[0], common_shape[1], 3))
+
+        patches_padded = []
+        for p in vizs:
+            patch_padded = common_box.copy()
+            patch_padded[:p.shape[0], :p.shape[1]] = p
+            patches_padded.append(patch_padded)
+
+        vizs = patches_padded
 
     n = len(vizs)
     nr = int(np.ceil(n/float(nc)))
@@ -293,8 +309,9 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None):
 
     if export_fn is not None:
         plt.savefig(export_fn);
-
-    plt.show();
+        plt.close(fig)
+    else:
+        plt.show();
 
 # <codecell>
 

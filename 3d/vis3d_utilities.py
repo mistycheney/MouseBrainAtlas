@@ -115,7 +115,7 @@ def volume_to_polydata(volume, origin, num_simplify_iter=0, smooth=False):
     t = time.time()
     area = mesh_surface_area(vs, fs)
 
-    print 'area: %.2f' % area
+    # print 'area: %.2f' % area
 
     sys.stderr.write('compute surface area: %.2f seconds\n' % (time.time() - t)) #
 

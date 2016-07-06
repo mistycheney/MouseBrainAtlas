@@ -43,6 +43,553 @@ nzvoxels_m = None
 nzvoxels_centered_m = None
 grad_f = None
 
+#########################################################################
+
+class Aligner3(object):
+    def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
+                label_weights=None, labelIndexMap_m2f=None, considered_indices_m=None):
+        """
+        Find the optimal transform of volume2 that aligns it with volume1.
+
+        Args:
+            volume_f (dict of 3d float array): the fixed volume(s) - subjects' score volumes, a probabilistic volume.
+            volume_m (3d integer array): the moving volume - the atlas, an annotation volume. alternative is to provide `nzvoxels_m`.
+            nzvoxels_m ((n,3) array): indices of active voxels in the moving volume
+        """
+
+        self.labelIndexMap_m2f = labelIndexMap_m2f
+        self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & set(np.unique(volume_m_)))
+        self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
+
+        # If use self.logger, Pool will incur "illegal seek" error
+        # self.logger = logging.getLogger(__name__)
+        # self.logger.setLevel(logging.INFO)
+        #
+        global volume_f
+
+        if isinstance(volume_f_, dict): # probabilistic volume
+            volume_f = volume_f_
+        else: # annotation volume
+            volume_f = {i: np.zeros_like(volume_f_) for i in self.all_indices_f}
+            for i in self.all_indices_f:
+                mask = volume_f_ == i
+                volume_f[i][mask] = volume_f_[mask]
+                del mask
+
+        global volume_m
+        volume_m = volume_m_
+
+        # self.volume_f = volume_f
+        # self.volume_m = volume_m
+
+        assert volume_f is not None, 'Template volume is not specified.'
+        assert volume_m is not None or nzvoxels_m_ is not None, 'Moving volume is not specified.'
+
+        self.ydim_m, self.xdim_m, self.zdim_m = volume_m.shape
+        self.ydim_f, self.xdim_f, self.zdim_f = volume_f.values()[0].shape
+
+        # if considered_indices_m is None:
+        #     self.considered_indices_m = all_indices_m
+        # else:
+        #     self.considered_indices_m = considered_indices_m
+
+        # self.considered_indices_f = [self.labelIndexMap_m2f[ind_m] for ind_m in self.considered_indices_m]
+
+        global nzvoxels_m
+        if nzvoxels_m_ is None:
+            # nzvoxels_m_ = Parallel(n_jobs=16)(delayed(parallel_where)(volume_m, i, num_samples=int(1e5))
+            #                             for i in self.all_indices_m)
+
+            pool = Pool(16)
+            nzvoxels_m_ = pool.map(lambda i: parallel_where(volume_m, i, num_samples=int(1e5)),
+                                    self.all_indices_m)
+            pool.close()
+            pool.join()
+
+            nzvoxels_m = dict(zip(self.all_indices_m, nzvoxels_m_))
+        else:
+            nzvoxels_m = nzvoxels_m_
+
+        # self.set_centroid(centroid_m=centroid_m, centroid_f=centroid_f, indices_m=self.considered_indices_m)
+
+    def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        if isinstance(centroid_m, basestring):
+            if centroid_m == 'structure_centroid':
+                self.centroid_m = np.concatenate([nzvoxels_m[i] for i in indices_m]).mean(axis=0)
+            elif centroid_m == 'volume_centroid':
+                self.centroid_m = np.r_[.5*self.xdim_m, .5*self.ydim_m, .5*self.zdim_m]
+            else:
+                raise Exception('centroid_m not recognized.')
+
+        if isinstance(centroid_f, basestring):
+            if centroid_f == 'centroid_m':
+                self.centroid_f = self.centroid_m
+            elif centroid_f == 'volume_centroid':
+                self.centroid_f = np.r_[.5*self.xdim_f, .5*self.ydim_f, .5*self.zdim_f]
+            else:
+                raise Exception('centroid_f not recognized.')
+
+        global nzvoxels_centered_m
+        nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
+
+    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None):
+        """Load gradients.
+
+        Args:
+            gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
+            If None, gradients will be computed.
+        """
+
+        if indices_f is None:
+            indices_f = self.all_indices_f
+
+        global grad_f
+        grad_f = {ind_f: np.empty((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
+
+        t1 = time.time()
+
+        for ind_f in indices_f:
+
+            t = time.time()
+
+            if gradient_filepath_map_f is None:
+                gy_gx_gz = np.gradient(volume_f[ind_f].astype(np.float32), 3, 3, 3)
+                grad_f[ind_f][0] = gy_gx_gz[1]
+                grad_f[ind_f][1] = gy_gx_gz[0]
+                grad_f[ind_f][2] = gy_gx_gz[2]
+
+            else:
+
+                assert gradient_filepath_map_f is not None
+                grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+                grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+                grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+
+            sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
+
+        sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
+
+    def get_valid_voxels_after_transform(self, T, ind_m, return_valid):
+
+        pts_prime = transform_points(np.array(T), pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f).astype(np.int16)
+        xs_prime, ys_prime, zs_prime = pts_prime.T
+        valid = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
+                (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
+
+        if np.any(valid):
+            xs_prime_valid = xs_prime[valid]
+            ys_prime_valid = ys_prime[valid]
+            zs_prime_valid = zs_prime[valid]
+
+            if return_valid:
+                return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid
+            else:
+                return xs_prime_valid, ys_prime_valid, zs_prime_valid
+
+    def compute_score_and_gradient(self, T, num_samples=None, wrt_v=False, indices_m=None):
+        """
+        Compute score and gradient.
+
+        Args:
+            T ((12,) vector): transform parameters
+            num_samples (int): Number of sample points to compute gradient.
+            wrt_v (bool): if true, compute gradient with respect to (tx,ty,tz,w1,w2,w3);
+                            otherwise, compute gradient with respect to 12 parameters.
+            indices_m (integer list):
+
+        Returns:
+            (tuple): tuple containing:
+
+            - score (int): score
+            - grad (float): gradient
+        """
+
+        score = 0
+
+        if wrt_v:
+            grad = np.zeros((6,))
+        else:
+            grad = np.zeros((12,))
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        for ind_m in indices_m:
+
+            s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid = self.compute_score_one(T, ind_m, return_valid=True)
+
+            # score += label_weights[name] * voxel_probs_valid.sum()
+            score += s
+
+            ind_f = self.labelIndexMap_m2f[ind_m]
+            Sx = grad_f[ind_f][0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+            Sy = grad_f[ind_f][1, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+            Sz = grad_f[ind_f][2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
+            dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid].T
+
+            xs_prime_valid = xs_prime_valid.astype(np.float)
+            ys_prime_valid = ys_prime_valid.astype(np.float)
+            zs_prime_valid = zs_prime_valid.astype(np.float)
+
+            if num_samples is not None:
+                n = np.count_nonzero(valid)
+                ii = np.random.choice(range(n), min(int(num_samples), n), replace=False)
+                Sx = Sx[ii]
+                Sy = Sy[ii]
+                Sz = Sz[ii]
+                xs_prime_valid = xs_prime_valid[ii]
+                ys_prime_valid = ys_prime_valid[ii]
+                zs_prime_valid = zs_prime_valid[ii]
+                dxs = dxs[ii]
+                dys = dys[ii]
+                dzs = dzs[ii]
+
+            if wrt_v:
+                q = np.c_[Sx, Sy, Sz,
+                -Sy*zs_prime_valid + Sz*ys_prime_valid,
+                Sx*zs_prime_valid - Sz*xs_prime_valid,
+                -Sx*ys_prime_valid + Sy*xs_prime_valid]
+            else:
+                q = np.c_[Sx*dxs, Sx*dys, Sx*dzs, Sx, Sy*dxs, Sy*dys, Sy*dzs, Sy, Sz*dxs, Sz*dys, Sz*dzs, Sz]
+
+            # dMdA += label_weights[name] * q.sum(axis=0)
+            grad += q.sum(axis=0)
+
+            del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
+
+        return score, grad
+
+    def compute_score_one(self, T, ind_m, return_valid=False):
+        """
+        Compute score for one label.
+        Notice that raw overlap score is divided by 1e6 before returned.
+
+        Args:
+            T ((12,) vector): transform parameters
+            ind_m (int): label on the moving volume
+            return_valid (bool): whether to return valid voxels
+
+        Returns:
+            (float or tuple): if `return_valid` is true, return a tuple containing:
+
+            - score (int): score
+            - xs_prime_valid (array):
+            - ys_prime_valid (array):
+            - zs_prime_valid (array):
+            - valid (boolean array):
+        """
+
+        res = self.get_valid_voxels_after_transform(T, ind_m, return_valid)
+
+        if res is None:
+            return 0
+
+        if return_valid:
+            xs_prime_valid, ys_prime_valid, zs_prime_valid, valid = res
+        else:
+            xs_prime_valid, ys_prime_valid, zs_prime_valid = res
+
+        ind_f = self.labelIndexMap_m2f[ind_m]
+
+        voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+        s = voxel_probs_valid.sum()
+
+        if return_valid:
+            return s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid
+        else:
+            return s
+
+    def compute_score(self, T, indices_m=None, return_individual_score=False):
+        """Compute score.
+
+        Returns:
+            pass
+        """
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        score_all_landmarks = {}
+        for ind_m in indices_m:
+            score_all_landmarks[ind_m] = self.compute_score_one(T, ind_m, return_valid=False)
+
+        score = np.sum(score_all_landmarks.values())
+
+        if return_individual_score:
+            return score, score_all_landmarks
+        else:
+            return score
+
+
+    def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, indices_m=None):
+
+        from itertools import product
+
+        # scores = np.reshape([self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m)
+        #                     for dx, dy, dz in product(dxs, dys, dzs)],
+        #                     (dxs.size, dys.size, dzs.size))
+
+        #parallel
+        pool = Pool(processes=12)
+        scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m),
+                        product(dxs, dys, dzs))
+        pool.close()
+        pool.join()
+
+        # scores = np.reshape(Parallel(n_jobs=12)(delayed(compute_score)(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz))
+        #                                         for dx, dy, dz in product(dxs, dys, dzs)),
+        #                     (dxs.size, dys.size, dzs.size))
+
+        return scores
+
+    def compute_scores_neighborhood_random(self, params, n, stds, indices_m=None):
+
+        dparams = np.random.uniform(-1., 1., (n, len(stds))) * stds
+        # scores = [self.compute_score(params + dp, indices_m=indices_m) for dp in dparams]
+
+        #parallel
+        pool = Pool(processes=12)
+        scores = pool.map(lambda dp: self.compute_score(params + dp, indices_m=indices_m), dparams)
+        pool.close()
+        pool.join()
+
+        # parallelism not working yet, unless put large instance members in global variable
+    #     scores = Parallel(n_jobs=12)(delayed(aligner.compute_score)(params + dp) for dp in dparams)
+
+        return scores
+
+    def compute_hessian(self, T, indices_m=None, step=None):
+        """Compute Hessian."""
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        import numdifftools as nd
+
+        if step is None:
+            step = np.r_[1e-1, 1e-1, 1e-1, 10, 1e-1, 1e-1, 1e-1, 10, 1e-1, 1e-1, 1e-1, 10]
+
+        h = nd.Hessian(self.compute_score, step=step)
+        H = h(T.flatten())
+        return H
+
+    def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True):
+        """Grid search.
+
+        Args:
+            grid_search_iteration_number (int): number of iteration
+
+        Returns:
+            params_best_upToNow ((12,) float array): found parameters
+
+        """
+        params_best_upToNow = (0, 0, 0)
+        score_best_upToNow = 0
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        for iteration in range(grid_search_iteration_number):
+
+            # self.logger.info('grid search iteration %d', iteration)
+
+            init_tx, init_ty, init_tz  = params_best_upToNow
+
+            n = int(init_n*np.exp(-iteration/3.))
+
+            sigma_tx = 300*np.exp(-iteration/3.)
+            sigma_ty = 300*np.exp(-iteration/3.)
+            sigma_tz = 100*np.exp(-iteration/3.)
+
+            tx_grid = init_tx + sigma_tx * (2 * np.random.random(n) - 1)
+            ty_grid = init_ty + sigma_ty * (2 * np.random.random(n) - 1)
+            tz_grid = init_tz + sigma_tz * (2 * np.random.random(n) - 1)
+
+            samples = np.c_[tx_grid, ty_grid, tz_grid]
+
+            t = time.time()
+
+            # empirical speedup 7x
+            # parallel
+            if parallel:
+                pool = Pool(processes=12)
+                scores = pool.map(lambda (tx, ty, tz): self.compute_score(np.r_[1, 0, 0, tx, 0, 1, 0, ty, 0, 0, 1, tz], indices_m=indices_m), samples)
+                pool.close()
+                pool.join()
+            else:
+            # serial
+                scores = [self.compute_score(np.r_[1, 0, 0, tx, 0, 1, 0, ty, 0, 0, 1, tz], indices_m=indices_m)
+                            for tx, ty, tz in samples]
+
+            sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
+
+            score_best = np.max(scores)
+
+            tx_best, ty_best, tz_best = samples[np.argmax(scores)]
+
+            if score_best > score_best_upToNow:
+                # self.logger.info('%f %f', score_best_upToNow, score_best)
+
+                score_best_upToNow = score_best
+                params_best_upToNow = tx_best, ty_best, tz_best
+
+                # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
+
+        return params_best_upToNow
+
+
+    def optimize(self, type='rigid', init_T=None, label_weights=None, \
+                grid_search_iteration_number=0, grid_search_sample_number=1000,
+                grad_computation_sample_number=10000,
+                max_iter_num=1000, history_len=200, terminate_thresh=.1, \
+                indices_m=None):
+        """Optimize"""
+
+        if type == 'rigid':
+            grad_historical = np.zeros((6,))
+        elif type == 'affine':
+            grad_historical = np.zeros((12,))
+        else:
+            raise Exception('Type must be either rigid or affine.')
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        if grid_search_iteration_number > 0:
+            tx_best, ty_best, tz_best = self.grid_search(grid_search_iteration_number, indices_m=indices_m, init_n=grid_search_sample_number)
+            T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
+        elif init_T is None:
+            T = np.r_[1,0,0,0,0,1,0,0,0,0,1,0]
+        else:
+            T = init_T
+
+        score_best = 0
+        scores = []
+
+        for iteration in range(max_iter_num):
+
+            # self.logger.info('iteration %d', iteration)
+
+            if type == 'rigid':
+                lr1, lr2 = (1., 1e-2)
+                T, s, grad_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
+                    grad_historical=grad_historical, verbose=False, num_samples=grad_computation_sample_number,
+                    indices_m=indices_m)
+            elif type == 'affine':
+                lr1, lr2 = (10., 1e-1)
+                T, s, grad_historical = self.step_gd(T, lr=np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1], \
+                                                grad_historical=grad_historical,
+                                                indices_m=indices_m)
+            else:
+                raise Exception('Type must be either rigid or affine.')
+
+            # self.logger.info('score: %f', s)
+            scores.append(s)
+
+            if iteration > 2*history_len:
+                if np.abs(np.mean(scores[iteration-history_len:iteration]) - \
+                          np.mean(scores[iteration-2*history_len:iteration-history_len])) < terminate_thresh:
+                    break
+
+            if s > score_best:
+                best_gradient_descent_params = T
+                score_best = s
+
+        return best_gradient_descent_params, scores
+
+    def step_lie(self, T, lr, grad_historical, verbose=False, num_samples=1000, indices_m=None):
+        """
+        One optimization step over Lie group SE(3).
+
+        Args:
+            T ((12,) vector): flattened vector of 3x4 transform matrix
+            lr ((12,) vector): learning rate
+            grad_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad
+
+        Returns:
+            (tuple): tuple containing:
+
+                new_T ((12,) vector): the new parameters
+                score (float): current score
+                grad_historical ((12,) vector): new accumulated gradient magnitude, used for Adagrad
+        """
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        score, grad = self.compute_score_and_gradient(T, num_samples=num_samples, wrt_v=True, indices_m=indices_m)
+
+        grad_historical += grad**2
+        grad_adjusted = grad / (1e-10 + np.sqrt(grad_historical))
+        v_opt = lr * grad_adjusted # no minus sign because maximizing
+
+        if verbose:
+            print 'v_opt:', v_opt
+
+        theta = np.sqrt(np.sum(v_opt[3:]**2))
+        if verbose:
+            print 'theta:', theta
+        assert theta < np.pi
+
+        exp_w, Vt = matrix_exp_v(v_opt)
+
+        if verbose:
+            print 'Vt:' , Vt
+
+        Tm = np.reshape(T, (3,4))
+        t = Tm[:, 3]
+        R = Tm[:, :3]
+
+        R_new = np.dot(exp_w, R)
+        t_new = np.dot(exp_w, t) + Vt
+
+        if verbose:
+            print '\n'
+
+        return np.column_stack([R_new, t_new]).flatten(), score, grad_historical
+
+    def step_gd(self, T, lr, dMdA_historical, surround=False, surround_weight=2., num_samples=None, indices_m=None):
+        """
+        One optimization step using gradient descent with Adagrad.
+
+        Args:
+            T ((12,) vector): flattened vector of 3x4 transform matrix.
+            lr ((12,) vector): learning rate
+            dMdA_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad
+
+        Returns:
+            (tuple): tuple containing:
+
+                new_T ((12,) vector): the new parameters
+                score (float): current score
+                dMdv_historical ((12,) vector): new accumulated gradient magnitude, used for Adagrad
+
+        """
+
+        if indices_m is None:
+            indices_m = self.all_indices_m
+
+        score, grad = self.compute_score_and_gradient(T, num_samples=num_samples, indices_m=indices_m)
+
+        # if surround:
+        #     s_surr, dMdA_surr = compute_score_and_gradient(T, name, surround=True, num_samples=num_samples)
+        #     dMdA -= surround_weight * dMdA_surr
+        #     score -= surround_weight * s_surr
+
+        grad_historical += grad**2
+        grad_adjusted = grad / (1e-10 + np.sqrt(grad_historical))
+
+        new_T = T + lr*grad_adjusted
+
+        return new_T, score, grad_historical
+
+
+#######################################################
+
 class Aligner2(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
                 label_weights=None, labelIndexMap_m2f=None, considered_indices_m=None):
@@ -1483,7 +2030,7 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
     return hessian
 
 
-def find_contour_points(labelmap):
+def find_contour_points(labelmap, sample_every=10):
     '''
     return is (x,y)
     '''
@@ -1506,7 +2053,7 @@ def find_contour_points(labelmap):
 
             contours = sorted(contours, key=lambda c: len(c), reverse=True)
             contours_list = [c-(5,5) for c in contours]
-            contour_points[r.label] = sorted([c[np.arange(0, c.shape[0], 10)][:, ::-1] + (min_col, min_row)
+            contour_points[r.label] = sorted([c[np.arange(0, c.shape[0], sample_every)][:, ::-1] + (min_col, min_row)
                                 for c in contours_list], key=lambda c: len(c), reverse=True)
 
         elif len(contours) == 0:

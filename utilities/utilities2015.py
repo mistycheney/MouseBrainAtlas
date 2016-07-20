@@ -270,23 +270,51 @@ def display_image(vis, filename='tmp.jpg'):
     from IPython.display import FileLink
     return FileLink(filename)
 
+
+def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
+
+    common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+    dt = vizs[0].dtype
+    ndim = vizs[0].ndim
+
+    if ndim == 2:
+        common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
+    elif ndim == 3:
+        common_box = (pad_value*np.ones((common_shape[0], common_shape[1], 3))).astype(dt)
+
+    patches_padded = []
+    for p in vizs:
+        patch_padded = common_box.copy()
+
+        if keep_center:
+            top_margin = (common_shape[0] - p.shape[0])/2
+            left_margin = (common_shape[1] - p.shape[1])/2
+            patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
+        else:
+            patch_padded[:p.shape[0], :p.shape[1]] = p
+        patches_padded.append(patch_padded)
+
+    return patches_padded
+
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True):
 
     if maintain_shape:
 
-        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
-        if np.issubdtype(vizs[0].dtype, np.integer):
-            common_box = 255*np.ones((common_shape[0], common_shape[1], 3), np.uint8)
-        else:
-            common_box = np.ones((common_shape[0], common_shape[1], 3))
+        vizs = pad_patches_to_same_size(vizs)
 
-        patches_padded = []
-        for p in vizs:
-            patch_padded = common_box.copy()
-            patch_padded[:p.shape[0], :p.shape[1]] = p
-            patches_padded.append(patch_padded)
+        # common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+        # if np.issubdtype(vizs[0].dtype, np.integer):
+        #     common_box = 255*np.ones((common_shape[0], common_shape[1], 3), np.uint8)
+        # else:
+        #     common_box = np.ones((common_shape[0], common_shape[1], 3))
+        #
+        # patches_padded = []
+        # for p in vizs:
+        #     patch_padded = common_box.copy()
+        #     patch_padded[:p.shape[0], :p.shape[1]] = p
+        #     patches_padded.append(patch_padded)
 
-        vizs = patches_padded
+        # vizs = patches_padded
 
     n = len(vizs)
     nr = int(np.ceil(n/float(nc)))

@@ -244,9 +244,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# sequential load  ~ 30s for 10 sections; 60s for 20; 126s for 40;
 				self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir=data_dir))
 								for i in self.sections}
-
+				#
 				# parallel load ~ 26s for 10 sections; 40s for 20; 107s for 40; 350s for 80
-
 				# f = lambda i: imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir=data_dir))
 				# from multiprocess import Pool
 				# from itertools import izip

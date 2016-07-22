@@ -4,11 +4,41 @@ import os
 import sys
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+from data_manager import *
 
 from joblib import Parallel, delayed
 import time
 
 from skimage.transform import rescale
+
+def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None):
+    """
+    Assume bg has the specified downscale_factor.
+    """
+
+    if bg == 'original':
+        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))[::downscale_factor, ::downscale_factor]
+
+    viz = bg.copy()
+    half_size = patch_size/2/downscale_factor
+    if isinstance(locs[0], list):
+        if colors is None:
+            colors = random_colors(len(locs))
+        for i, locs_oneColor in enumerate(locs):
+            for x, y in locs_oneColor:
+                x = x / downscale_factor
+                y = y / downscale_factor
+                cv2.rectangle(viz, (x-half_size, y-half_size), (x+half_size, y+half_size), colors[i], 2)
+    else:
+        if colors is None:
+            colors = (255,0,0)
+        for x, y in locs:
+            x = x / downscale_factor
+            y = y / downscale_factor
+            cv2.rectangle(viz, (x-half_size, y-half_size), (x+half_size, y+half_size), colors, 2)
+
+    return viz
+
 
 def scoremap_overlay(stack, sec, name, downscale_factor, image_shape=None, return_mask=True):
     '''

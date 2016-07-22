@@ -82,8 +82,8 @@ def compute_vocabulary():
 
 def compute_labelmap(stack, sec, force=False):
 
-    output_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/'
-    labelmap_fp = output_dir + 'sift_wordmap/%(stack)s/%(stack)s_%(sec)04d_labelmap.hdf' % {'stack': stack, 'sec': sec}
+    output_dir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/sift_wordmap/%(stack)s' % {'stack': stack})
+    labelmap_fp = os.path.join(output_dir, '%(stack)s_%(sec)04d_labelmap.hdf' % {'stack': stack, 'sec': sec})
 
     if os.path.exists(labelmap_fp) and not force:
 

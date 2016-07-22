@@ -228,7 +228,7 @@ def get_section_contains_labels(label_polygons, filtered_labels=None):
     return section_contains_labels
 
 
-def load_label_polygons_if_exists(stack, username, output_path=None, force=False, annotation_rootdir=annotation_rootdir):
+def load_label_polygons_if_exists(stack, username, output_path=None, force=False, annotation_rootdir=annotation_midbrainIncluded_rootdir):
 
     label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons.h5' % {'stack': stack, 'username': username})
 
@@ -247,7 +247,7 @@ def load_label_polygons_if_exists(stack, username, output_path=None, force=False
 
 def generate_label_polygons(stack, username, output_path=None,
                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
-                            annotation_rootdir=annotation_rootdir):
+                            annotation_rootdir=annotation_midbrainIncluded_rootdir):
     """Convert annotation files to polygon objects.
     """
 
@@ -268,7 +268,7 @@ def generate_label_polygons(stack, username, output_path=None,
             label = ann['label']
             if label in labels_merge_map:
                 label = labels_merge_map[label]
-            elif '_' in label and label[:-2] in labels_merge_map:
+            elif '_' in label and label[:-2] in labels_merge_map: # strip off sideness suffix
                 label = labels_merge_map[label[:-2]] + label[-2:]
 
             if label not in labels_unsided + labels_sided: # 12N_L -> 12N

@@ -82,14 +82,14 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
 
-def save_hdf(data, fn, complevel=9):
+def save_hdf(data, fn, complevel=9, key='data'):
     filters = Filters(complevel=complevel, complib='blosc')
     with open_file(fn, mode="w") as f:
-        _ = f.create_carray('/', 'data', Atom.from_dtype(data.dtype), filters=filters, obj=data)
+        _ = f.create_carray('/', key, Atom.from_dtype(data.dtype), filters=filters, obj=data)
 
-def load_hdf(fn):
+def load_hdf(fn, key='data'):
     with open_file(fn, mode="r") as f:
-        data = f.get_node('/data').read()
+        data = f.get_node('/'+key).read()
     return data
 
 

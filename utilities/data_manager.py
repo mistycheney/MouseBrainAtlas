@@ -10,7 +10,7 @@ class DataManager(object):
         return thumbmail_mask
 
     @staticmethod
-    def get_image_filepath(stack, section, version, resol=None, data_dir=None):
+    def get_image_filepath(stack, section, version='rgb-jpg', resol=None, data_dir=None):
         if data_dir is None:
             data_dir = os.environ['DATA_DIR']
 

@@ -57,8 +57,8 @@ if args.train:
     else:
         sys.stderr.write('Section %d has no labelings.\n' % sec)
 
-indices_roi_aggregated = np.concatenate([indices_roi] + indices_allLandmarks.values())
-sample_locs_aggregated = sample_locations[indices_roi_aggregated]
+indices_aggregated = np.concatenate([indices_roi] + indices_allLandmarks.values())
+sample_locs_aggregated = sample_locations[indices_aggregated]
 hists_arr0, hists_arr1, hists_arr2 = compute_spm_histograms(labelmap, sample_locs_aggregated, patch_size=patch_size, M=M)
 
 component_lengths = [len(indices_roi)] + map(len, indices_allLandmarks.values())

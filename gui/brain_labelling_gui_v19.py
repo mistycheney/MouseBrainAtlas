@@ -203,11 +203,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 			print 'self.sections', self.sections
 
 			if hasattr(self, 'pixmaps'):
-				for i in self.sections:
-					if i not in self.pixmaps:
-						print 'new load', i
-						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
-						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
 
 				to_remove = []
 				for i in self.pixmaps:
@@ -231,42 +226,62 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 						print 'del', s
 						del s
 
+
+				for i in self.sections:
+					if i not in self.pixmaps:
+						print 'new load', i
+						self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='rgb-jpg'))
+						# self.pixmaps[i] = QPixmap(self.dms[i]._get_image_filepath(version='stereotactic-rgb-jpg'))
+
+
 			else:
 				# the very beginning
 
 				t = time.time()
 
+				# n=60; 104G used, 21G free; n = 70, 125G used; n=80, 125G used, buffer 120G, cache 5.1G, 496s; n=90, 125 used, buffer 121, cached 3, 557s
+
 				# sequential load  ~ 30s for 10 sections; 60s for 20; 126s for 40;
-				# self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/'))
-				# 				for i in self.sections}
+				self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir=data_dir))
+								for i in self.sections}
 				#
 				# parallel load ~ 26s for 10 sections; 40s for 20; 107s for 40; 350s for 80
-				f = lambda i: imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir=data_dir))
-
-				from multiprocess import Pool
-				from itertools import izip
-
-				# self.pixmaps = {}
+				# f = lambda i: imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir=data_dir))
+				# from multiprocess import Pool
+				# from itertools import izip
 				# pool = Pool(processes=16)
-				# simul_workload = 16
-				# simul_workload = len(self.sections)
-				# for start in range(0, len(self.sections), simul_workload):
-				# 	images = pool.map(f, self.sections[start:start+simul_workload])
-				# 	for sec_ind, im in izip(self.sections[start:start+simul_workload], images):
-				# 		self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
-					# del images
-
-				# for sec_ind, im in izip(self.sections, images):
-				# 	self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
-
-				pool = Pool(processes=16)
-				images = pool.map(f, self.sections)
+				# images = pool.map(f, self.sections)
 				# self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
-				# 				for sec_ind, im in izip(self.sections, images)}
-				self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
-								for sec_ind, im in zip(self.sections, images)}
-				pool.close()
-				pool.join()
+				# 				for sec_ind, im in zip(self.sections, images)}
+				# pool.close()
+				# pool.join()
+
+				# f = lambda i: imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir=data_dir))
+				#
+				# from multiprocess import Pool
+				# from itertools import izip
+				#
+				# # self.pixmaps = {}
+				# # pool = Pool(processes=16)
+				# # simul_workload = 16
+				# # simul_workload = len(self.sections)
+				# # for start in range(0, len(self.sections), simul_workload):
+				# # 	images = pool.map(f, self.sections[start:start+simul_workload])
+				# # 	for sec_ind, im in izip(self.sections[start:start+simul_workload], images):
+				# # 		self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				# 	# del images
+				#
+				# # for sec_ind, im in izip(self.sections, images):
+				# # 	self.pixmaps[sec_ind] = QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				#
+				# pool = Pool(processes=16)
+				# images = pool.map(f, self.sections)
+				# # self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				# # 				for sec_ind, im in izip(self.sections, images)}
+				# self.pixmaps = {sec_ind: QPixmap(QImage(im, im.shape[1], im.shape[0], im.shape[1]*3, QImage.Format_RGB888))
+				# 				for sec_ind, im in zip(self.sections, images)}
+				# pool.close()
+				# pool.join()
 
 				# def f(i):
 				# 	im = imread(DataManager.get_image_filepath(stack=stack_global, section=i, version='rgb-jpg', data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/'))
@@ -1092,7 +1107,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.save_selected_section(self.selected_section)
 
 
-	def add_polygon_by_vertices_label(self, path, pen=None, label='unknown', sec=None):
+	def add_polygon_by_vertices_label(self, path, pen=None, label='unknown', sec=None, label_pos=None):
 		'''
 		Function for adding polygon, along with vertex circles.
 		Step 1: create polygon
@@ -1108,7 +1123,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		new_polygon = self.add_polygon(path, pen, sec=sec)
 		self.populate_polygon_with_vertex_circles(new_polygon)
 		self.restack_polygons(new_polygon)
-		self.add_label_to_polygon(new_polygon, label=label)
+		self.add_label_to_polygon(new_polygon, label=label, label_pos=label_pos)
 
 		self.history_allSections[sec].append({
 			'type': 'add_polygon_by_vertices_label_end'
@@ -1583,6 +1598,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 			self.paint_panel(2, self.section3)
 
+
+		elif event.key() == Qt.Key_O:
+			self.toggle_contours()
+			self.toggle_labels()
+			self.toggle_vertices()
+
 	##########################
 
 	def thumbnail_list_resized(self, event):
@@ -1593,61 +1614,80 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		self.labels_on = not self.labels_on
 
-		if not self.labels_on:
+		# if not self.labels_on:
 
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				props['labelTextArtist'].setVisible(False)
+			# turn off labels on current section
+			# for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+			# 	props['labelTextArtist'].setVisible(False)
 
-			self.button_labelsOnOff.setText('Turns Labels ON')
+		# toggle labels on all sections
+		for sec, annotations in self.accepted_proposals_allSections.iteritems():
+			for polygon, properties in annotations.iteritems():
+				properties['labelTextArtist'].setVisible(self.labels_on)
 
-		else:
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				props['labelTextArtist'].setVisible(True)
+			# self.button_labelsOnOff.setText('Turns Labels ON')
 
-			self.button_labelsOnOff.setText('Turns Labels OFF')
+		# else:
+		# 	for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+		# 		props['labelTextArtist'].setVisible(True)
+
+			# self.button_labelsOnOff.setText('Turns Labels OFF')
 
 	def toggle_contours(self):
 
 		self.contours_on = not self.contours_on
 
-		if not self.contours_on:
+		for sec, annotations in self.accepted_proposals_allSections.iteritems():
+			for polygon, properties in annotations.iteritems():
+				polygon.setVisible(self.contours_on)
 
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				polygon.setVisible(False)
-				if self.vertices_on:
-					for circ in props['vertexCircles']:
-						circ.setVisible(False)
+				# if self.vertices_on:
+				# 	for circ in props['vertexCircles']:
+				# 		circ.setVisible(False)
 
-			self.button_contoursOnOff.setText('Turns Contours ON')
+		# if not self.contours_on:
+		#
+		# 	for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+		# 		polygon.setVisible(False)
+		# 		if self.vertices_on:
+		# 			for circ in props['vertexCircles']:
+		# 				circ.setVisible(False)
+		#
+		# 	# self.button_contoursOnOff.setText('Turns Contours ON')
+		#
+		# else:
+		# 	for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+		# 		polygon.setVisible(True)
+		# 		if self.vertices_on:
+		# 			for circ in props['vertexCircles']:
+		# 				circ.setVisible(True)
 
-		else:
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				polygon.setVisible(True)
-				if self.vertices_on:
-					for circ in props['vertexCircles']:
-						circ.setVisible(True)
-
-			self.button_contoursOnOff.setText('Turns Contours OFF')
+			# self.button_contoursOnOff.setText('Turns Contours OFF')
 
 
 	def toggle_vertices(self):
 
 		self.vertices_on = not self.vertices_on
 
-		if not self.vertices_on:
+		for sec, annotations in self.accepted_proposals_allSections.iteritems():
+			for polygon, properties in annotations.iteritems():
+				for circ in properties['vertexCircles']:
+					circ.setVisible(self.vertices_on)
 
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				for circ in props['vertexCircles']:
-					circ.setVisible(False)
+		# if not self.vertices_on:
+		#
+		# 	for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+		# 		for circ in props['vertexCircles']:
+		# 			circ.setVisible(False)
+		#
+		# 	# self.button_verticesOnOff.setText('Turns Vertices ON')
+		#
+		# else:
+		# 	for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
+		# 		for circ in props['vertexCircles']:
+		# 			circ.setVisible(True)
 
-			self.button_verticesOnOff.setText('Turns Vertices ON')
-
-		else:
-			for polygon, props in self.accepted_proposals_allSections[self.selected_section].iteritems():
-				for circ in props['vertexCircles']:
-					circ.setVisible(True)
-
-			self.button_verticesOnOff.setText('Turns Vertices OFF')
+			# self.button_verticesOnOff.setText('Turns Vertices OFF')
 
 
 
@@ -1732,7 +1772,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 		for props in annotations:
 			path = vertices_to_path(props['vertices'])
-			polygon = self.add_polygon_by_vertices_label(path=path, label=props['label'], sec=sec)
+			polygon = self.add_polygon_by_vertices_label(path=path, label=props['label'], sec=sec, label_pos=props['labelPos'])
 
 	# def resolve_gscene_section(self, gscene=None, sec=None):
 	# 	if gscene is None:
@@ -1788,6 +1828,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		if 'label' in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]:
 
 			abbr = self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label']
+			if '_' in abbr: # if side has been set
+				abbr = abbr[:-2]
 			abbr_unsided = abbr[:-2] if '_L' in abbr or '_R' in abbr else abbr
 
 			self.label_selection_dialog.comboBox.setEditText( abbr_unsided + ' (' + self.structure_names[abbr_unsided] + ')')

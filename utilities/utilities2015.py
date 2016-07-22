@@ -29,6 +29,11 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def show_progress_bar(min, max):
+    bar = FloatProgress(min=min, max=max)
+    display(bar)
+    return bar
+
 from enum import Enum
 
 class PolygonType(Enum):

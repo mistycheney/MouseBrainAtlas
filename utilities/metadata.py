@@ -7,6 +7,7 @@ hostname = subprocess.check_output("hostname", shell=True).strip()
 
 if hostname.endswith('sdsc.edu'):
     print 'Setting environment for Gordon'
+    data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
     atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
     volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes/'
@@ -16,6 +17,7 @@ if hostname.endswith('sdsc.edu'):
     annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+    patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
     data_dir = '/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8/'

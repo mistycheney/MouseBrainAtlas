@@ -35,4 +35,4 @@ run_distributed3(command='%(script_path)s %(stack)s %%(secind)d'%\
                 exclude_nodes=exclude_nodes,
                 take_one_section=True)
 
-sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # 500s / stack

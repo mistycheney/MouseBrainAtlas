@@ -29,7 +29,7 @@ def detect_responsive_nodes(exclude_nodes=[]):
     n_hosts = len(hostids)
 
     import paramiko
-    paramiko.util.log_to_file("filename.log")
+    # paramiko.util.log_to_file("filename.log")
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

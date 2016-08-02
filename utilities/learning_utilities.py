@@ -24,8 +24,6 @@ from collections import defaultdict
 from visualization_utilities import *
 from annotation_utilities import *
 
-<<<<<<< HEAD
-=======
 def compute_accuracy(predictions, true_labels, exclude_abstained=True, abstain_label=-1):
 
     n = len(predictions)
@@ -106,7 +104,6 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
                              horizontalalignment='center',
                              verticalalignment='center');
 
->>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
 def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
     """
     fn_template: a str including argument %stack and %sec

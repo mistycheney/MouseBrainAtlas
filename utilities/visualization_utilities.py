@@ -4,11 +4,41 @@ import os
 import sys
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+from data_manager import *
 
 from joblib import Parallel, delayed
 import time
 
 from skimage.transform import rescale
+
+def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None):
+    """
+    Assume bg has the specified downscale_factor.
+    """
+
+    if bg == 'original':
+        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))[::downscale_factor, ::downscale_factor]
+
+    viz = bg.copy()
+    half_size = patch_size/2/downscale_factor
+    if isinstance(locs[0], list):
+        if colors is None:
+            colors = random_colors(len(locs))
+        for i, locs_oneColor in enumerate(locs):
+            for x, y in locs_oneColor:
+                x = x / downscale_factor
+                y = y / downscale_factor
+                cv2.rectangle(viz, (x-half_size, y-half_size), (x+half_size, y+half_size), colors[i], 2)
+    else:
+        if colors is None:
+            colors = (255,0,0)
+        for x, y in locs:
+            x = x / downscale_factor
+            y = y / downscale_factor
+            cv2.rectangle(viz, (x-half_size, y-half_size), (x+half_size, y+half_size), colors, 2)
+
+    return viz
+
 
 def scoremap_overlay(stack, sec, name, downscale_factor, image_shape=None, return_mask=True):
     '''
@@ -120,8 +150,8 @@ def export_scoremapPlusAnnotationVizs_worker(bg, stack, sec, names, downscale_fa
 def export_scoremapPlusAnnotationVizs(bg, stack, sections, names, downscale_factor, users=None, export_filepath_fmt=None):
 
     Parallel(n_jobs=4)(delayed(export_scoremapPlusAnnotationVizs_worker)(bg, stack, sec, names, downscale_factor,
-                                                        export_filepath_fmt=export_filepath_fmt, users=users)
-                       for sec in sections)
+                                export_filepath_fmt=export_filepath_fmt, users=users)
+                                for sec in sections)
 
 #     for sec in sections:
 #         export_scoremapPlusAnnotationVizs_worker(bg, stack, sec, names, downscale_factor,
@@ -129,8 +159,11 @@ def export_scoremapPlusAnnotationVizs(bg, stack, sections, names, downscale_fact
 
 def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_factor=8,
                           users=None, colors=None, show_labels=True,
-                         export_filepath_fmt=None):
-
+                         export_filepath_fmt=None, annotation_rootdir=annotation_midbrainIncluded_rootdir):
+    """
+    export_filepath_fmt should include stack, sec, name, annofn as arguments.
+    annofn is a concatenation of username-timestamp tuples joined by hyphens.
+    """
     annotations = {}
     timestamps = {}
 
@@ -141,10 +174,11 @@ def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_fa
         colors = [(0,0,255), (255,0,0), (0,255,0), (0, 255, 255)]
 
     for user in users:
-        ret = load_annotation(stack=stack, section=section, username=user)
+        ret = DataManager.load_annotation(stack=stack, section=section, username=user, annotation_rootdir=annotation_rootdir)
+        # ret = load_annotation()
         if ret is not None:
             annotations[user] = ret[0]
-            timestamps[user] = ret[1]
+            timestamps[user] = ret[2]
 
     if len(annotations) == 0:
         return
@@ -163,8 +197,6 @@ def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_fa
             if structure_names is not None and ann['label'] not in structure_names:
                 continue
 
-#             vertices_ref = np.array(ann['vertices']) / downscale_factor
-
             vertices = np.array(ann['vertices']) / downscale_factor
 
         #     for x,y in vertices:
@@ -182,9 +214,10 @@ def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_fa
 
 
     if export_filepath_fmt is not None:
-        if len(structure_names) == 1:
-            export_filepath = export_filepath_fmt % {'stack': stack, 'sec': section, 'name': structure_names[0],
-                                                 'annofn': '_'.join(usr+'_'+ts for usr, ts in timestamps.iteritems())}
+        if structure_names is not None:
+            if len(structure_names) == 1:
+                export_filepath = export_filepath_fmt % {'stack': stack, 'sec': section, 'name': structure_names[0],
+                                                     'annofn': '_'.join(usr+'_'+ts for usr, ts in timestamps.iteritems())}
         else:
             export_filepath = export_filepath_fmt % {'stack': stack, 'sec': section,
                                                  'annofn': '_'.join(usr+'_'+ts for usr, ts in timestamps.iteritems())}
@@ -195,34 +228,34 @@ def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_fa
     return viz
 
 
-def load_annotation(stack, section, username=None, timestamp='latest', path_only=False):
-
-    import cPickle as pickle
-    from itertools import chain
-
-    try:
-        if timestamp == 'latest':
-            if username is None:
-                annotation_names = list(chain.from_iterable(labeling_list[stack][section].dropna().__iter__()))
-                annotation_name = sorted(annotation_names)[-1]
-            else:
-                annotation_name = sorted(labeling_list[stack][section][username])[-1]
-
-            _, _, _, timestamp, _ = annotation_name.split('_')
-        else:
-            sys.stderr.write('Timestamp is not latest, not implemented.\n')
-            return
-
-    except Exception as e:
-        sys.stderr.write('Annotation does not exist: %s, %d, %s, %s\n' % (stack, section, username, timestamp))
-        return
-
-    annotation_filepath = os.path.join(os.environ['LABELING_DIR'], stack, '%04d'%section, annotation_name)
-
-    if path_only:
-        return annotation_filepath
-    else:
-        return pickle.load(open(annotation_filepath, 'r')), timestamp
+# def load_annotation(stack, section, username=None, timestamp='latest', path_only=False):
+#
+#     import cPickle as pickle
+#     from itertools import chain
+#
+#     try:
+#         if timestamp == 'latest':
+#             if username is None:
+#                 annotation_names = list(chain.from_iterable(labeling_list[stack][section].dropna().__iter__()))
+#                 annotation_name = sorted(annotation_names)[-1]
+#             else:
+#                 annotation_name = sorted(labeling_list[stack][section][username])[-1]
+#
+#             _, _, _, timestamp, _ = annotation_name.split('_')
+#         else:
+#             sys.stderr.write('Timestamp is not latest, not implemented.\n')
+#             return
+#
+#     except Exception as e:
+#         sys.stderr.write('Annotation does not exist: %s, %d, %s, %s\n' % (stack, section, username, timestamp))
+#         return
+#
+#     annotation_filepath = os.path.join(os.environ['LABELING_DIR'], stack, '%04d'%section, annotation_name)
+#
+#     if path_only:
+#         return annotation_filepath
+#     else:
+#         return pickle.load(open(annotation_filepath, 'r')), timestamp
 
 
 def get_labeling_list():

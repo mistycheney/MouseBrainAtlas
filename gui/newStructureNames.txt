@@ -41,3 +41,5 @@ Pn2	Pontine nuclei, sparse part
 7n2	facial nerve, small 2
 7n3	facial nerve, small 3
 DDGC	Dorsal Deiters Gigantocellular Nucleus
+IC	inferior colliculus
+SOC	Superior Olivary Complex

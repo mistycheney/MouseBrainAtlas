@@ -4,7 +4,13 @@ from metadata import *
 class DataManager(object):
 
     @staticmethod
-    def get_image_filepath(stack, section, version, resol=None, data_dir=None):
+    def load_thumbnail_mask(stack, section):
+        thumbmail_mask = imread(data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
+                        {'stack': stack, 'sec': section}).astype(np.bool)
+        return thumbmail_mask
+
+    @staticmethod
+    def get_image_filepath(stack, section, version='rgb-jpg', resol=None, data_dir=None):
         if data_dir is None:
             data_dir = os.environ['DATA_DIR']
 
@@ -85,6 +91,17 @@ class DataManager(object):
         fp = os.path.join(d, fn)
         obj = pickle.dump(obj, open(fp, 'w'))
         return fp
+
+    @staticmethod
+    def get_image_dimension(stack):
+        try:
+            sec = section_range_lookup[stack][0]
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'), shell=True).split('x'))
+        except Exception as e:
+            print e
+            # sys.stderr.write('Cannot find image.\n')
+
+        return image_width, image_height
 
     def __init__(self, data_dir=os.environ['DATA_DIR'],
                  repo_dir=os.environ['REPO_DIR'],
@@ -174,10 +191,10 @@ class DataManager(object):
             self.w = self.xmax-self.xmin+1
 
 
-    def load_thumbnail_mask(self):
-        self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack,
+    def _load_thumbnail_mask(self):
+        thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack,
             'slice_str': self.slice_str}).astype(np.bool)
-        return self.thumbmail_mask
+        return thumbmail_mask
 
     def add_labelnames(self, labelnames, filename):
         existing_labelnames = {}
@@ -200,7 +217,7 @@ class DataManager(object):
     def set_resol(self, resol):
         self.resol = resol
 
-    def get_image_dimension(self):
+    def _get_image_dimension(self):
 
         try:
             if hasattr(self, 'image_path') and os.path.exists(self.image_path):
@@ -220,7 +237,7 @@ class DataManager(object):
             print e
             sys.stderr.write('Cannot find image\n')
 
-        return self.image_height, self.image_width
+        return self.image_width, self.image_height
 
     def set_slice(self, slice_ind):
         assert self.stack is not None and self.resol is not None, 'Stack is not specified'

@@ -24,6 +24,89 @@ from collections import defaultdict
 from visualization_utilities import *
 from annotation_utilities import *
 
+<<<<<<< HEAD
+=======
+def compute_accuracy(predictions, true_labels, exclude_abstained=True, abstain_label=-1):
+
+    n = len(predictions)
+    if exclude_abstained:
+        predicted_indices = predictions != abstain_label
+        acc = np.count_nonzero(predictions[predicted_indices] == true_labels[predicted_indices]) / float(len(predicted_indices))
+    else:
+        acc = np.count_nonzero(predictions == true_labels) / float(n)
+
+    return acc
+
+def compute_predictions(H, abstain_label=-1):
+    predictions = np.argmax(H, axis=1)
+    no_decision_indices = np.where(np.all(H == 0, axis=1))[0]
+
+    if abstain_label == 'random':
+        predictions[no_decision_indices] = np.random.randint(0, H.shape[1], len(no_decision_indices)).astype(np.int)
+    else:
+        predictions[no_decision_indices] = abstain_label
+
+    return predictions, no_decision_indices
+
+def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1):
+
+    n_labels = len(np.unique(labels))
+
+    pred_is_hard = np.array(probs).ndim == 1
+
+    if pred_is_hard:
+        soft = False
+
+    M = np.zeros((n_labels, n_labels))
+    for probs0, tl in zip(probs, labels):
+        if soft:
+            M[tl] += probs0
+        else:
+            if pred_is_hard:
+                if probs0 != abstain_label:
+                    M[tl, probs0] += 1
+            else:
+                hard = np.zeros((n_labels, ))
+                hard[np.argmax(probs0)] = 1.
+                M[tl] += hard
+
+    if normalize:
+        M_normalized = M.astype(np.float)/M.sum(axis=1)[:, np.newaxis]
+        return M_normalized
+    else:
+        return M
+
+def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blues, figsize=(4,4), text=True, axis=None, **kwargs):
+
+    if axis is None:
+        fig = plt.figure(figsize=figsize)
+        axis = fig.add_subplot(1,1,1)
+
+    axis.imshow(cm, interpolation='nearest', cmap=cmap, **kwargs)
+    axis.set_title(title)
+#     plt.colorbar()
+    axis.set_xticks(np.arange(len(labels)))
+    axis.set_yticks(np.arange(len(labels)))
+    axis.set_xticklabels(labels)
+    axis.set_yticklabels(labels)
+
+    axis.set_ylabel('True label')
+    axis.set_xlabel('Predicted label')
+
+    if cm.dtype.type is np.int_:
+        fmt = '%d'
+    else:
+        fmt = '%.2f'
+
+    if text:
+        for x in xrange(len(labels)):
+            for y in xrange(len(labels)):
+                if not np.isnan(cm[y,x]):
+                    axis.text(x,y, fmt % cm[y,x],
+                             horizontalalignment='center',
+                             verticalalignment='center');
+
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
 def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
     """
     fn_template: a str including argument %stack and %sec

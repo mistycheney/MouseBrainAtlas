@@ -281,6 +281,7 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
     common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
     dt = vizs[0].dtype
     ndim = vizs[0].ndim
+<<<<<<< HEAD
 
     if ndim == 2:
         common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
@@ -291,6 +292,18 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
     for p in vizs:
         patch_padded = common_box.copy()
 
+=======
+
+    if ndim == 2:
+        common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
+    elif ndim == 3:
+        common_box = (pad_value*np.ones((common_shape[0], common_shape[1], 3))).astype(dt)
+
+    patches_padded = []
+    for p in vizs:
+        patch_padded = common_box.copy()
+
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
         if keep_center:
             top_margin = (common_shape[0] - p.shape[0])/2
             left_margin = (common_shape[1] - p.shape[1])/2
@@ -301,6 +314,7 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
 
     return patches_padded
 
+<<<<<<< HEAD
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True):
 
     if maintain_shape:
@@ -319,6 +333,26 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         #     patch_padded[:p.shape[0], :p.shape[1]] = p
         #     patches_padded.append(patch_padded)
 
+=======
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray):
+
+    if maintain_shape:
+
+        vizs = pad_patches_to_same_size(vizs)
+
+        # common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+        # if np.issubdtype(vizs[0].dtype, np.integer):
+        #     common_box = 255*np.ones((common_shape[0], common_shape[1], 3), np.uint8)
+        # else:
+        #     common_box = np.ones((common_shape[0], common_shape[1], 3))
+        #
+        # patches_padded = []
+        # for p in vizs:
+        #     patch_padded = common_box.copy()
+        #     patch_padded[:p.shape[0], :p.shape[1]] = p
+        #     patches_padded.append(patch_padded)
+
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
         # vizs = patches_padded
 
     n = len(vizs)
@@ -332,15 +366,16 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
-            axes[i].imshow(vizs[i]);
+            axes[i].imshow(vizs[i], cmap=cmap);
             if titles is not None:
-                axes[i].set_title(titles[i], fontsize=20);
+                axes[i].set_title(titles[i], fontsize=30);
             axes[i].set_xticks([]);
             axes[i].set_yticks([]);
 
     fig.tight_layout();
 
     if export_fn is not None:
+        create_if_not_exists(os.path.dirname(export_fn))
         plt.savefig(export_fn);
         plt.close(fig)
     else:

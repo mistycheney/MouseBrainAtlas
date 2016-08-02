@@ -16,7 +16,23 @@ from sklearn.externals import joblib
 import re
 
 
+<<<<<<< HEAD
 def load_spm_histograms_train(stack, names, name_to_label, n_sample_per_class=1000, use_level0_only=False):
+=======
+def compute_test_accuracy(weak_clfs, weak_clf_weights):
+
+    H_test = np.zeros((n_test, n_classes))
+    for weight, (center_index, radius, predictions, center_label) in zip(weak_clf_weights, weak_clfs):
+        dist = np.minimum(test_data_normalized, train_data_normalized[center_index]).sum(axis=1)
+        H_test[dist > radius, predictions] += weight
+
+    strong_pred_test = np.argmax(H_test, axis=1)
+
+    test_acc = np.count_nonzero(strong_pred_test == test_labels_clf) / float(n_test)
+    return test_acc
+
+def load_spm_histograms_train(stack, names, name_to_label, n_sample_per_class=1000, use_level0_only=False, secs=None, shuffle=True):
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
 
     train_data = []
     train_addresses = []
@@ -24,17 +40,35 @@ def load_spm_histograms_train(stack, names, name_to_label, n_sample_per_class=10
 
     for name in names:
         data, address = load_spm_histograms(stack, name, n_sample=n_sample_per_class,
+<<<<<<< HEAD
                                             use_level0_only=use_level0_only, remove_blank_patches=True)
+=======
+                                            use_level0_only=use_level0_only, remove_blank_patches=True,
+                                            secs=secs)
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
         train_data.append(data)
         train_addresses += address
         train_labels += [name_to_label[name] for _ in range(len(data))]
 
     train_data = np.concatenate(train_data)
 
+<<<<<<< HEAD
     return train_data, train_labels, train_addresses
 
 
 def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_level0_only=False, remove_blank_patches=True):
+=======
+    if shuffle:
+        shuffled_indices = np.random.permutation(range(len(train_data)))
+        train_data = train_data[shuffled_indices]
+        train_addresses = [train_addresses[i] for i in shuffled_indices]
+        train_labels = np.array([train_labels[i] for i in shuffled_indices])
+
+    return train_data, train_labels, train_addresses
+
+
+def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_level0_only=False, remove_blank_patches=True, secs=None):
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
 
     sift_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features'
 
@@ -56,10 +90,19 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
 
         prefix = res[0][0]
         sec = int(res[0][1])
+<<<<<<< HEAD
         filenames.append((prefix, sec))
 
     if n_sample_per_sec is None:
         n_sample_per_sec = n_sample / len(filenames)
+=======
+        if secs is not None and sec not in secs:
+            continue
+        filenames.append((prefix, sec))
+
+    if n_sample_per_sec is None:
+        n_sample_per_sec = n_sample / len(filenames) + 1
+>>>>>>> d1e59223bb450687f697f207925c8ce91dea28b3
 
     data = []
     addresses = []

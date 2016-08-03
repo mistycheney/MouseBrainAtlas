@@ -210,7 +210,7 @@ class DataManager(object):
 
     def set_stack(self, stack):
         self.stack = stack
-        self.get_image_dimension()
+        self._get_image_dimension()
 #         self.stack_path = os.path.join(self.data_dir, self.stack)
 #         self.slice_ind = None
 

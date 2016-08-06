@@ -117,7 +117,14 @@ var tip = d3.tip()
 
 
 var dataset = 'random100';
-var datadir = '../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+
+var datadir;
+
+if (location.hostname == 'localhost') {
+  datadir = '../../../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+} else {
+  datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+}
 
 var show_blob = true;
 

@@ -95,11 +95,13 @@ function create_data(data) {
   .data(data).
   enter().append("svg:image")
   .attr('class', 'image')
-  .attr("width", 30)
-  .attr("height", 30)
+  .attr("width", function(d) {return d.width;})
+  .attr("height", function(d) {return d.height;})
   .attr("transform", transform)
   .on("mouseover", tip.show)
   .on("mouseout", tip.hide);
+
+  // console.log(d)
 
   return dd
 }

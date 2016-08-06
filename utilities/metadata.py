@@ -28,6 +28,7 @@ elif hostname == 'yuncong-MacbookPro':
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
+    volume_dir = '/home/yuncong/CSHL_volumes/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
 else:

@@ -43,9 +43,15 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         # self.sagittal_gscene = QGraphicsScene(self.sagittal_gview)
 
         self.stack = stack
-        # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-        self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down4Volume.bp' % {'stack':stack})
-        # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
+        if hostname == 'yuncong-MacbookPro':
+            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
+            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
+            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down1Volume.bp' % {'stack':stack})
+        elif hostname == 'yuncong-Precision-WorkStation-T7500':
+            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down4Volume.bp' % {'stack':stack})
+        else:
+            raise Exception('Unknown machine.')
+
         self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
         self.coronal_gscene = QGraphicsScene()
@@ -56,7 +62,6 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
         self.sagittal_gscene = QGraphicsScene()
         self.sagittal_gview.setScene(self.sagittal_gscene)
-
 
         self.coronal_gscene.installEventFilter(self)
         self.horizontal_gscene.installEventFilter(self)
@@ -152,8 +157,8 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         print self.cross_x, self.cross_y, self.cross_z
         self.coronal_hline.setLine(0, self.cross_y, self.z_dim-1, self.cross_y)
         self.coronal_vline.setLine(self.z_dim-1-self.cross_z, 0, self.z_dim-1-self.cross_z, self.y_dim-1)
-        self.horizontal_hline.setLine(0, self.cross_x, self.z_dim-1, self.cross_x)
-        self.horizontal_vline.setLine(self.z_dim-1-self.cross_z, 0, self.z_dim-1-self.cross_z, self.x_dim-1)
+        self.horizontal_hline.setLine(0, self.z_dim-1-self.cross_z, self.x_dim-1, self.z_dim-1-self.cross_z)
+        self.horizontal_vline.setLine(self.cross_x, 0, self.cross_x, self.z_dim-1)
         self.sagittal_hline.setLine(0, self.cross_y, self.x_dim-1, self.cross_y)
         self.sagittal_vline.setLine(self.cross_x, 0, self.cross_x, self.y_dim-1)
 
@@ -178,8 +183,10 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
             # color http://stackoverflow.com/questions/9794019/convert-numpy-array-to-pyside-qpixmap color comes out wrong
             # gray https://gist.github.com/smex/5287589 works fine; Must specify bytesPerLine, see http://doc.qt.io/qt-4.8/qimage.html#QImage-6
 
-            self.horizontal_data = self.volume[self.cross_y, :, :].flatten()
-            self.horizontal_image = QImage(self.horizontal_data, self.z_dim, self.x_dim, self.z_dim, QImage.Format_Indexed8)
+            # self.horizontal_data = self.volume[self.cross_y, :, :].flatten()
+            # self.horizontal_image = QImage(self.horizontal_data, self.z_dim, self.x_dim, self.z_dim, QImage.Format_Indexed8)
+            self.horizontal_data = self.volume[self.cross_y, :, ::-1].T.flatten()
+            self.horizontal_image = QImage(self.horizontal_data, self.x_dim, self.z_dim, self.x_dim, QImage.Format_Indexed8)
             self.horizontal_image.setColorTable(gray_color_table)
 
             # a = gray2rgb(self.volume[self.cross_y, :, :])
@@ -203,7 +210,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
             # self.coronal_data = (255 << 24 | a[:,:,0] << 16 | a[:,:,1] << 8 | a[:,:,2]).flatten().copy() # pack RGB values
             # self.coronal_image = QImage(self.coronal_data, self.z_dim, self.y_dim, QImage.Format_RGB32)
 
-            self.coronal_data = self.volume[:, self.cross_x, :].flatten()
+            self.coronal_data = self.volume[:, self.cross_x, ::-1].flatten()
             self.coronal_image = QImage(self.coronal_data, self.z_dim, self.y_dim, self.z_dim, QImage.Format_Indexed8)
             self.coronal_image.setColorTable(gray_color_table)
 
@@ -222,6 +229,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
             # self.sagittal_image = QImage(self.sagittal_data, self.x_dim, self.y_dim, QImage.Format_RGB32)
 
             self.sagittal_data = self.volume[:, :, self.cross_z].flatten()
+
             self.sagittal_image = QImage(self.sagittal_data, self.x_dim, self.y_dim, self.x_dim, QImage.Format_Indexed8)
             self.sagittal_image.setColorTable(gray_color_table)
 
@@ -252,9 +260,9 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
             y = gscene_y
             z = self.z_dim - 1 - gscene_x
         elif which == 'horizontal':
-            x = gscene_y
+            x = gscene_x
             y = self.cross_y
-            z = self.z_dim - 1 - gscene_x
+            z = self.z_dim - 1 - gscene_y
         elif which == 'sagittal':
             x = gscene_x
             y = gscene_y
@@ -323,11 +331,11 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
                 if obj == self.sagittal_gscene:
                     x, y, z = self.translate_gsceneCoord_to_3d('sagittal', gscene_x, gscene_y)
-                    self.update_cross(x, y, z)
                 elif obj == self.coronal_gscene:
-                    self.update_cross(z=self.z_dim - 1 - gscene_x, y=gscene_y)
+                    x, y, z = self.translate_gsceneCoord_to_3d('coronal', gscene_x, gscene_y)
                 elif obj == self.horizontal_gscene:
-                    self.update_cross(x=gscene_y, z=self.z_dim - 1 - gscene_x)
+                    x, y, z = self.translate_gsceneCoord_to_3d('horizontal', gscene_x, gscene_y)
+                self.update_cross(x, y, z)
                 return True
 
             else:

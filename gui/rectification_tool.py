@@ -44,8 +44,8 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
         self.stack = stack
         if hostname == 'yuncong-MacbookPro':
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
+            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
+            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
             # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down1Volume.bp' % {'stack':stack})
         elif hostname == 'yuncong-Precision-WorkStation-T7500':
             self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
@@ -129,9 +129,12 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         # self.sagittal_hline = self.coronal_gscene.addLine(0, self.y, self.coronal_gscene.width(), self.y)
         # self.sagittal_vline = self.coronal_gscene.addLine(0, self.y, self.coronal_gscene.width(), self.y)
 
-        self.button_sameX.clicked.connect(self.sameX_clicked)
-        self.button_sameY.clicked.connect(self.sameY_clicked)
-        self.button_sameZ.clicked.connect(self.sameZ_clicked)
+        # self.button_sameX.clicked.connect(self.sameX_clicked)
+        # self.button_sameY.clicked.connect(self.sameY_clicked)
+        # self.button_sameZ.clicked.connect(self.sameZ_clicked)
+        self.button_symmetric.clicked.connect(self.symmetric_clicked)
+        self.button_midline.clicked.connect(self.midline_clicked)
+        self.button_cancel.clicked.connect(self.cancel_clicked)
 
         self.slider_hxy.valueChanged.connect(self.slider_hxy_changed)
         self.slider_hxz.valueChanged.connect(self.slider_hxz_changed)
@@ -144,7 +147,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
         self.first_point_done = False
         self.mode = None
-        self.recorded_pairs = {'sameX': [], 'sameY': [], 'sameZ': []}
+        self.recorded_points = {'symmetric': [], 'midline': []}
 
         self.update_cross(0,0,0)
 
@@ -165,16 +168,26 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.sagittal_vline.setLine(self.cross_x, 0, self.cross_x, self.y_dim-1)
 
     def done_clicked(self):
-        pickle.dump(self.recorded_pairs, open('/home/yuncong/CSHL_volumes_resection/recorded_pairs.pkl', 'w'))
+        resectioned_dir = create_if_not_exists('/home/yuncong/CSHL_volumes_resection/%(stack)s/' % {'stack':stack})
+        pickle.dump(self.recorded_points, open(resectioned_dir + '/recorded_points.pkl' % {'stack':stack}, 'w'))
 
-    def sameX_clicked(self):
-        self.mode = 'sameX'
+    # def sameX_clicked(self):
+    #     self.mode = 'sameX'
+    #
+    # def sameY_clicked(self):
+    #     self.mode = 'sameY'
 
-    def sameY_clicked(self):
-        self.mode = 'sameY'
+    # def sameZ_clicked(self):
+    #     self.mode = 'sameZ'
 
-    def sameZ_clicked(self):
-        self.mode = 'sameZ'
+    def symmetric_clicked(self):
+        self.mode = 'symmetric'
+
+    def midline_clicked(self):
+        self.mode = 'midline'
+
+    def cancel_clicked(self):
+        self.mode = None
 
     def update_gscenes(self, which):
 
@@ -300,7 +313,6 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         T = np.array([[1, self.hxy, self.hxz], [self.hyx, 1, self.hyz], [self.hzx, self.hzy, 1]])
 
 
-
     def eventFilter(self, obj, event):
 
         event_type = event.type()
@@ -349,16 +361,23 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
                 elif obj == self.horizontal_gscene:
                     x, y, z = self.translate_gsceneCoord_to_3d('horizontal', gscene_x, gscene_y)
 
-                if not self.first_point_done:
-                    self.first_point = (x,y,z)
-                    print 'first point', self.first_point
-                    self.first_point_done = True
-                else:
-                    self.second_point = (x,y,z)
-                    print 'second point', self.second_point
-                    self.first_point_done = False
-                    self.recorded_pairs[self.mode].append((self.first_point, self.second_point))
-                    self.mode = None
+                if self.mode == 'midline':
+                    self.recorded_points['midline'].append((x,y,z))
+                    print 'midline', x,y,z
+
+                elif self.mode == 'symmetric':
+                    if not self.first_point_done:
+                        self.first_point = (x,y,z)
+                        print 'first point', self.first_point
+                        self.first_point_done = True
+                    else:
+                        self.second_point = (x,y,z)
+                        print 'second point', self.second_point
+                        self.first_point_done = False
+                        self.recorded_points['symmetric'].append((self.first_point, self.second_point))
+
+                    # self.mode = None
+
                 return True
 
         return False

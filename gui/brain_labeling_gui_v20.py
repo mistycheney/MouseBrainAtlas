@@ -800,7 +800,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# update crosslines in rectification tool
 				if hasattr(self, 'rectification_tool'):
 					x, y, _ = self.rectification_tool.translate_gsceneCoord_to_3d('sagittal',
-								self.press_x/self.rectification_tool_downsample, self.press_y/self.rectification_tool_downsample)
+								self.press_x/self.rectification_tool.downsample_factor, self.press_y/self.rectification_tool.downsample_factor)
 					z = self.convert_section_to_z(self.section)
 					self.rectification_tool.update_cross(x, y, z)
 
@@ -2148,8 +2148,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		self.close()
 
 	def open_3view(self):
-		self.rectification_tool_downsample = 32
-		self.rectification_tool = RectificationTool(stack=self.stack, downsample_factor=self.rectification_tool_downsample)
+		self.rectification_tool = RectificationTool(stack=self.stack)
 		self.rectification_tool.show()
 
 		if hasattr(self, 'section'):
@@ -2161,7 +2160,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 	def convert_section_to_z(self, sec):
 
-		xy_pixel_distance = xy_pixel_distance_lossless * self.rectification_tool_downsample
+		xy_pixel_distance = xy_pixel_distance_lossless * self.rectification_tool.downsample_factor
 		voxel_z_size = section_thickness / xy_pixel_distance
 
 		z_end = int(np.ceil((self.last_sec+1)*voxel_z_size))

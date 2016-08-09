@@ -235,7 +235,7 @@ class DataManager(object):
 
         except Exception as e:
             print e
-            sys.stderr.write('Cannot find image\n')
+            sys.stderr.write('Cannot find image. Make sure the data folder is mounted.\n')
 
         return self.image_width, self.image_height
 

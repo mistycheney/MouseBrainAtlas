@@ -24,10 +24,10 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 
-PEN_WIDTH = 2
+CROSSLINE_PEN_WIDTH = 2
 
-red_pen = QPen(Qt.red)
-red_pen.setWidth(PEN_WIDTH)
+crossline_red_pen = QPen(Qt.red)
+crossline_red_pen.setWidth(CROSSLINE_PEN_WIDTH)
 
 # Use the third method in http://pyqt.sourceforge.net/Docs/PyQt4/designer.html
 class RectificationTool(QMainWindow, Ui_RectificationGUI):
@@ -40,20 +40,14 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
         self.setupUi(self)
 
-        # self.sagittal_gscene = QGraphicsScene(self.sagittal_gview)
-
         self.stack = stack
-        if hostname == 'yuncong-MacbookPro':
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down1Volume.bp' % {'stack':stack})
-        elif hostname == 'yuncong-Precision-WorkStation-T7500':
-            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down4Volume.bp' % {'stack':stack})
-        else:
-            raise Exception('Unknown machine.')
 
+        self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
+                            8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
+
+        self.downsample_factor = 32
+
+        self.volume = self.volume_cache[self.downsample_factor]
         self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
         self.coronal_gscene = QGraphicsScene()
@@ -84,22 +78,22 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.horizontal_gscene.addItem(self.horizontal_pixmapItem)
 
         self.coronal_hline = QGraphicsLineItem()
-        self.coronal_hline.setPen(red_pen)
+        self.coronal_hline.setPen(crossline_red_pen)
         # self.coronal_hline.setZValue(0)
         self.coronal_vline = QGraphicsLineItem()
-        self.coronal_vline.setPen(red_pen)
+        self.coronal_vline.setPen(crossline_red_pen)
         # self.coronal_vline.setZValue(0)
         self.horizontal_hline = QGraphicsLineItem()
-        self.horizontal_hline.setPen(red_pen)
+        self.horizontal_hline.setPen(crossline_red_pen)
         # self.horizontal_hline.setZValue(0)
         self.horizontal_vline = QGraphicsLineItem()
-        self.horizontal_vline.setPen(red_pen)
+        self.horizontal_vline.setPen(crossline_red_pen)
         # self.horizontal_vline.setZValue(0)
         self.sagittal_hline = QGraphicsLineItem()
-        self.sagittal_hline.setPen(red_pen)
+        self.sagittal_hline.setPen(crossline_red_pen)
         # self.horizontal_hline.setZValue(0)
         self.sagittal_vline = QGraphicsLineItem()
-        self.sagittal_vline.setPen(red_pen)
+        self.sagittal_vline.setPen(crossline_red_pen)
         # self.horizontal_vline.setZValue(0)
 
         self.coronal_gscene.addItem(self.coronal_hline)
@@ -129,9 +123,9 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         # self.sagittal_hline = self.coronal_gscene.addLine(0, self.y, self.coronal_gscene.width(), self.y)
         # self.sagittal_vline = self.coronal_gscene.addLine(0, self.y, self.coronal_gscene.width(), self.y)
 
-        self.button_sameX.clicked.connect(self.sameX_clicked)
-        self.button_sameY.clicked.connect(self.sameY_clicked)
-        self.button_sameZ.clicked.connect(self.sameZ_clicked)
+        # self.button_sameX.clicked.connect(self.sameX_clicked)
+        # self.button_sameY.clicked.connect(self.sameY_clicked)
+        # self.button_sameZ.clicked.connect(self.sameZ_clicked)
 
         self.slider_hxy.valueChanged.connect(self.slider_hxy_changed)
         self.slider_hxz.valueChanged.connect(self.slider_hxz_changed)
@@ -139,6 +133,8 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.slider_hyz.valueChanged.connect(self.slider_hyz_changed)
         self.slider_hzx.valueChanged.connect(self.slider_hzx_changed)
         self.slider_hzy.valueChanged.connect(self.slider_hzy_changed)
+
+        self.slider_downsample.valueChanged.connect(self.downsample_factor_changed)
 
         self.button_done.clicked.connect(self.done_clicked)
 
@@ -154,6 +150,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.hyz = 0
         self.hzx = 0
         self.hzy = 0
+
 
     def update_crosslines(self):
         print self.cross_x, self.cross_y, self.cross_z
@@ -296,6 +293,33 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.hzy = val / 10.
         self.update_transform()
 
+
+    def downsample_factor_changed(self, val):
+
+        self.cross_x_lossless = self.cross_x * self.downsample_factor
+        self.cross_y_lossless = self.cross_y * self.downsample_factor
+        self.cross_z_lossless = self.cross_z * self.downsample_factor
+
+        print val
+
+        if val == 0:
+            self.downsample_factor = 32
+        elif val == 1:
+            self.downsample_factor = 8
+        elif val == 2:
+            self.downsample_factor = 4
+            if 4 not in self.volume_cache:
+                self.volume_cache[4] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':4})
+                self.statusBar().showMessage('Volume loaded.')
+
+        self.volume = self.volume_cache[self.downsample_factor]
+        self.y_dim, self.x_dim, self.z_dim = self.volume.shape
+
+        self.update_cross(self.cross_x_lossless / self.downsample_factor, self.cross_y_lossless / self.downsample_factor, self.cross_z_lossless / self.downsample_factor)
+        self.update_gscenes('x')
+        self.update_gscenes('y')
+        self.update_gscenes('z')
+
     def update_transform(self):
         T = np.array([[1, self.hxy, self.hxz], [self.hyx, 1, self.hyz], [self.hzx, self.hzy, 1]])
 
@@ -374,13 +398,14 @@ if __name__ == "__main__":
         description='Launch rectification GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
+    # parser.add_argument("downsample", type=int, help="downsample factor (4,8,32)")
     args = parser.parse_args()
 
     from sys import argv, exit
     app = QApplication(argv)
 
-    stack = args.stack_name
-    m = RectificationTool(stack=stack)
+    # m = RectificationTool(stack=args.stack_name, downsample_factor=args.downsample)
+    m = RectificationTool(stack=args.stack_name)
 
     m.show()
     # m.showMaximized()

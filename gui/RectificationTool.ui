@@ -32,7 +32,7 @@
         <enum>Qt::Horizontal</enum>
        </property>
        <widget class="QGraphicsView" name="horizontal_gview"/>
-       <widget class="QWidget" name="">
+       <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout">
          <item row="0" column="4">
           <spacer name="verticalSpacer">
@@ -100,9 +100,9 @@
           </widget>
          </item>
          <item row="1" column="5">
-          <widget class="QPushButton" name="button_sameX">
+          <widget class="QPushButton" name="button_cancel">
            <property name="text">
-            <string>Same x</string>
+            <string>Cancel</string>
            </property>
           </widget>
          </item>
@@ -147,9 +147,9 @@
           </widget>
          </item>
          <item row="2" column="5">
-          <widget class="QPushButton" name="button_sameY">
+          <widget class="QPushButton" name="button_symmetric">
            <property name="text">
-            <string>Same y</string>
+            <string>Symmetric</string>
            </property>
           </widget>
          </item>
@@ -207,9 +207,9 @@
           </widget>
          </item>
          <item row="3" column="5">
-          <widget class="QPushButton" name="button_sameZ">
+          <widget class="QPushButton" name="button_midline">
            <property name="text">
-            <string>Same z</string>
+            <string>Midline</string>
            </property>
           </widget>
          </item>
@@ -220,34 +220,29 @@
            </property>
           </widget>
          </item>
+         <item row="4" column="4">
+          <widget class="QSlider" name="slider_downsample">
+           <property name="maximum">
+            <number>2</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="3">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Scale</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </widget>
      </widget>
     </item>
    </layout>
-   <zorder>coronal_gview</zorder>
-   <zorder>horizontal_gview</zorder>
-   <zorder>sagittal_gview</zorder>
-   <zorder>button_sameX</zorder>
-   <zorder>button_sameY</zorder>
-   <zorder>button_sameZ</zorder>
-   <zorder>button_done</zorder>
-   <zorder>slider_hxy</zorder>
-   <zorder>label</zorder>
-   <zorder>label_2</zorder>
-   <zorder>slider_hyx</zorder>
-   <zorder>label_3</zorder>
-   <zorder>slider_hzx</zorder>
-   <zorder>label_4</zorder>
-   <zorder>slider_hxz</zorder>
-   <zorder>label_5</zorder>
-   <zorder>slider_hyz</zorder>
-   <zorder>label_6</zorder>
-   <zorder>slider_hzy</zorder>
-   <zorder>horizontalSpacer</zorder>
-   <zorder>verticalSpacer</zorder>
-   <zorder></zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

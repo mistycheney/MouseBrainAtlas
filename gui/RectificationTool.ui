@@ -99,6 +99,13 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="5">
+          <widget class="QPushButton" name="button_cancel">
+           <property name="text">
+            <string>Cancel</string>
+           </property>
+          </widget>
+         </item>
          <item row="2" column="1">
           <widget class="QLabel" name="label_2">
            <property name="text">
@@ -213,10 +220,20 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="5">
-          <widget class="QPushButton" name="button_cancel">
+         <item row="4" column="4">
+          <widget class="QSlider" name="slider_downsample">
+           <property name="maximum">
+            <number>2</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="3">
+          <widget class="QLabel" name="label_7">
            <property name="text">
-            <string>Cancel</string>
+            <string>Scale</string>
            </property>
           </widget>
          </item>

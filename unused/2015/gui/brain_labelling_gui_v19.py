@@ -242,6 +242,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# n=60; 104G used, 21G free; n = 70, 125G used; n=80, 125G used, buffer 120G, cache 5.1G, 496s; n=90, 125 used, buffer 121, cached 3, 557s
 
 				# sequential load  ~ 30s for 10 sections; 60s for 20; 126s for 40;
+				# n = 100, 604s, used 124, buffer 123, cache 2;
 				self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir=data_dir))
 								for i in self.sections}
 

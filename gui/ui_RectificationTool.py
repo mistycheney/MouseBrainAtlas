@@ -2,8 +2,12 @@
 
 # Form implementation generated from reading ui file 'RectificationTool.ui'
 #
+<<<<<<< HEAD
 # Created: Sun Aug  7 15:45:34 2016
 #      by: PyQt4 UI code generator 4.10.4
+=======
+# Created by: PyQt4 UI code generator 4.11.4
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -49,7 +53,10 @@ class Ui_RectificationGUI(object):
         self.layoutWidget = QtGui.QWidget(self.splitter_2)
         self.layoutWidget.setObjectName(_fromUtf8("layoutWidget"))
         self.gridLayout = QtGui.QGridLayout(self.layoutWidget)
+<<<<<<< HEAD
         self.gridLayout.setMargin(0)
+=======
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.gridLayout.addItem(spacerItem, 0, 4, 1, 1)
@@ -75,6 +82,12 @@ class Ui_RectificationGUI(object):
         self.slider_hxz.setOrientation(QtCore.Qt.Horizontal)
         self.slider_hxz.setObjectName(_fromUtf8("slider_hxz"))
         self.gridLayout.addWidget(self.slider_hxz, 1, 4, 1, 1)
+<<<<<<< HEAD
+=======
+        self.button_cancel = QtGui.QPushButton(self.layoutWidget)
+        self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
+        self.gridLayout.addWidget(self.button_cancel, 1, 5, 1, 1)
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
         self.label_2 = QtGui.QLabel(self.layoutWidget)
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.gridLayout.addWidget(self.label_2, 2, 1, 1, 1)
@@ -122,9 +135,20 @@ class Ui_RectificationGUI(object):
         self.button_done = QtGui.QPushButton(self.layoutWidget)
         self.button_done.setObjectName(_fromUtf8("button_done"))
         self.gridLayout.addWidget(self.button_done, 4, 5, 1, 1)
+<<<<<<< HEAD
         self.button_cancel = QtGui.QPushButton(self.layoutWidget)
         self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
         self.gridLayout.addWidget(self.button_cancel, 1, 5, 1, 1)
+=======
+        self.slider_downsample = QtGui.QSlider(self.layoutWidget)
+        self.slider_downsample.setMaximum(2)
+        self.slider_downsample.setOrientation(QtCore.Qt.Horizontal)
+        self.slider_downsample.setObjectName(_fromUtf8("slider_downsample"))
+        self.gridLayout.addWidget(self.slider_downsample, 4, 4, 1, 1)
+        self.label_7 = QtGui.QLabel(self.layoutWidget)
+        self.label_7.setObjectName(_fromUtf8("label_7"))
+        self.gridLayout.addWidget(self.label_7, 4, 3, 1, 1)
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
         self.gridLayout_2.addWidget(self.splitter_3, 0, 0, 1, 1)
         RectificationGUI.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(RectificationGUI)
@@ -145,6 +169,10 @@ class Ui_RectificationGUI(object):
         RectificationGUI.setWindowTitle(_translate("RectificationGUI", "MainWindow", None))
         self.label.setText(_translate("RectificationGUI", "h_xy", None))
         self.label_4.setText(_translate("RectificationGUI", "h_xz", None))
+<<<<<<< HEAD
+=======
+        self.button_cancel.setText(_translate("RectificationGUI", "Cancel", None))
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
         self.label_2.setText(_translate("RectificationGUI", "h_yx", None))
         self.label_5.setText(_translate("RectificationGUI", "h_yz", None))
         self.button_symmetric.setText(_translate("RectificationGUI", "Symmetric", None))
@@ -152,7 +180,11 @@ class Ui_RectificationGUI(object):
         self.label_6.setText(_translate("RectificationGUI", "h_zy", None))
         self.button_midline.setText(_translate("RectificationGUI", "Midline", None))
         self.button_done.setText(_translate("RectificationGUI", "Complete", None))
+<<<<<<< HEAD
         self.button_cancel.setText(_translate("RectificationGUI", "Cancel", None))
+=======
+        self.label_7.setText(_translate("RectificationGUI", "Scale", None))
+>>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
         self.toolBar.setWindowTitle(_translate("RectificationGUI", "toolBar", None))
 
 

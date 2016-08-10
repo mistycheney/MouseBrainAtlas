@@ -28,7 +28,8 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
-from ui_BrainLabelingGui_v13 import Ui_BrainLabelingGui
+from ui_BrainLabelingGui_v14 import Ui_BrainLabelingGui
+from rectification_tool import *
 
 from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
 
@@ -374,6 +375,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 		# self.button_loadLabeling.clicked.connect(self.load_callback)
 		self.button_saveLabeling.clicked.connect(self.save_callback)
 		self.button_quit.clicked.connect(self.close)
+		self.button_3view.clicked.connect(self.open_3view)
 
 		self.lineEdit_username.returnPressed.connect(self.username_changed)
 
@@ -2129,6 +2131,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 					sys.stderr.write(e)
 
 		self.save_history()
+
+
+	def open_3view(self):
+		self.rectification_tool = RectificationTool(stack=self.stack, downsample_factor=8)
+		self.rectification_tool.show()
 
 	############################################
 	# matplotlib canvas CALLBACKs

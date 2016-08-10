@@ -95,13 +95,15 @@ function create_data(data) {
   .data(data).
   enter().append("svg:image")
   .attr('class', 'image')
-  .attr("width", function(d) {return d.width;})
-  .attr("height", function(d) {return d.height;})
+  // .attr("width", function(d) {return 30;})
+  // .attr("height", function(d) {return 30;})
+  .attr("width", function(d) {return d.w;})
+  .attr("height", function(d) {return d.h;})
   .attr("transform", transform)
   .on("mouseover", tip.show)
   .on("mouseout", tip.hide);
 
-  // console.log(d)
+  // console.log(dd)
 
   return dd
 }
@@ -125,7 +127,8 @@ var datadir;
 if (location.hostname == 'localhost') {
   datadir = '../../../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
 } else {
-  datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  // datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  datadir = '../../../csd395/CSHL_cells/gallery/nonsmallKMeans/'; // <-- Change this to the data folder
 }
 
 var show_blob = true;
@@ -134,11 +137,13 @@ load_data(dataset);
 
 function load_data(dataset) {
 
+  // d3.json(datadir+'/'+dataset+'/embedding_'+dataset+'.json'+ '?' + Math.floor(Math.random() * 1000),
   d3.json(datadir+'/'+dataset+'/embedding_'+dataset+'.json',
   function(data) {
     data.forEach(function(d) {
       d.fname_blob = datadir+'/'+dataset+"/blobs/cellMask_"+dataset+"Blobs_"+d.id+"_"+d.index+'.png';
       d.fname_contour = datadir+'/'+dataset+"/contours/cellMask_"+dataset+"Contours_"+d.id+"_"+d.index+'.png';
+      // cannot use "width", "height" as keys, may confuse with built-in attributes
     });
 
     dd = create_data(data)

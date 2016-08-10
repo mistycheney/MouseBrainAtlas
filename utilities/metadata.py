@@ -20,13 +20,14 @@ if hostname.endswith('sdsc.edu'):
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
-    data_dir = '/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8/'
+    data_dir = '/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8/CSHL_data_processed'
     volume_dir = '/home/yuncong/CSHL_volumes/'
     mesh_rootdir = '/home/yuncong/CSHL_meshes'
     atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
+    print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
     volume_dir = '/home/yuncong/CSHL_volumes/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'

@@ -127,7 +127,8 @@ var datadir;
 if (location.hostname == 'localhost') {
   datadir = '../../../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
 } else {
-  datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  // datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  datadir = '../../../csd395/CSHL_cells/gallery/nonsmallKMeans/'; // <-- Change this to the data folder
 }
 
 var show_blob = true;

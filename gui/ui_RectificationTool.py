@@ -2,8 +2,6 @@
 
 # Form implementation generated from reading ui file 'RectificationTool.ui'
 #
-# Created by: PyQt4 UI code generator 4.11.4
-#
 # WARNING! All changes made in this file will be lost!
 
 from PyQt4 import QtCore, QtGui
@@ -48,6 +46,7 @@ class Ui_RectificationGUI(object):
         self.layoutWidget = QtGui.QWidget(self.splitter_2)
         self.layoutWidget.setObjectName(_fromUtf8("layoutWidget"))
         self.gridLayout = QtGui.QGridLayout(self.layoutWidget)
+        self.gridLayout.setMargin(0)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.gridLayout.addItem(spacerItem, 0, 4, 1, 1)
@@ -123,6 +122,10 @@ class Ui_RectificationGUI(object):
         self.button_done = QtGui.QPushButton(self.layoutWidget)
         self.button_done.setObjectName(_fromUtf8("button_done"))
         self.gridLayout.addWidget(self.button_done, 4, 5, 1, 1)
+        self.button_cancel = QtGui.QPushButton(self.layoutWidget)
+        self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
+        self.gridLayout.addWidget(self.button_cancel, 1, 5, 1, 1)
+
         self.slider_downsample = QtGui.QSlider(self.layoutWidget)
         self.slider_downsample.setMaximum(2)
         self.slider_downsample.setOrientation(QtCore.Qt.Horizontal)
@@ -151,6 +154,7 @@ class Ui_RectificationGUI(object):
         RectificationGUI.setWindowTitle(_translate("RectificationGUI", "MainWindow", None))
         self.label.setText(_translate("RectificationGUI", "h_xy", None))
         self.label_4.setText(_translate("RectificationGUI", "h_xz", None))
+
         self.button_cancel.setText(_translate("RectificationGUI", "Cancel", None))
         self.label_2.setText(_translate("RectificationGUI", "h_yx", None))
         self.label_5.setText(_translate("RectificationGUI", "h_yz", None))
@@ -171,4 +175,3 @@ if __name__ == "__main__":
     ui.setupUi(RectificationGUI)
     RectificationGUI.show()
     sys.exit(app.exec_())
-

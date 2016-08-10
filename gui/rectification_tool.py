@@ -41,19 +41,6 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.setupUi(self)
 
         self.stack = stack
-<<<<<<< HEAD
-        if hostname == 'yuncong-MacbookPro':
-            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down1Volume.bp' % {'stack':stack})
-        elif hostname == 'yuncong-Precision-WorkStation-T7500':
-            self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_thumbnailVolume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down8Volume.bp' % {'stack':stack})
-            # self.volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down4Volume.bp' % {'stack':stack})
-        else:
-            raise Exception('Unknown machine.')
-=======
->>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
 
         self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
                             8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
@@ -139,12 +126,10 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         # self.button_sameX.clicked.connect(self.sameX_clicked)
         # self.button_sameY.clicked.connect(self.sameY_clicked)
         # self.button_sameZ.clicked.connect(self.sameZ_clicked)
-<<<<<<< HEAD
+
         self.button_symmetric.clicked.connect(self.symmetric_clicked)
         self.button_midline.clicked.connect(self.midline_clicked)
         self.button_cancel.clicked.connect(self.cancel_clicked)
-=======
->>>>>>> a4f574f0ef1f76d54afb2de1795baec6a24f5980
 
         self.slider_hxy.valueChanged.connect(self.slider_hxy_changed)
         self.slider_hxz.valueChanged.connect(self.slider_hxz_changed)

@@ -1,0 +1,189 @@
+Pontine Tegmentum
+     Superior Olivary Complex, SOC
+     - Periolivary Region, PO:  Some authors distinguish the same subdivisions in the rat ( Paxinos-2009b ) and the mouse ( Franklin-2008 ). Others report that in the rat ( Swanson-2004 ) and the mouse ( Hof-2000 ) the neurons are not sufficiently organized to be reliably subgrouped.
+          - dorsal periolivary, DPO: Fairly easy to identify. The border with LSO is sometimes fuzzy.
+          - medioventral periolivary nucleus, MVPO: can identify roughly, but rostral border is hard to distinguish with LVPO
+          - lateroventral periolivary nucleus, LVPO: can identify roughly, but caudal border is hard to distinguish with MVPO
+          - superior periolivary nucleus, SPO: easier to identify on coronal; not sure about rostral border.
+     - Superior Olive, SO
+          - medial superior olive, MSO: very small, between SPO and LSO, not sure about the border.
+          - lateral superior olive, LSO: fairly distinguishable, pinkish background; exact border is not clear; easier on coronal.
+     - nucleus of the trapezoid body, Tz: very distinguishable [GOOD]
+     motor trigeminal nucleus, 5N: for the most part very distinguishable; lateral part interleaves with tracts, called 5NTT in Paxinos [GOOD]
+     principal sensory trigeminal nucleus, Pr5: Paxinos subdivides into Pr5VL and Pr5DM
+     Pontine Reticular Formation
+     - paramedian raphe nucleus, PMnR: not a closed region
+     - median raphe nucleus, MnR: 
+     - oral/rostral pontine reticular nucleus, PnO
+     - caudal pontine reticular nucleus, PnC
+     - pontine central grey, CGPn
+          - dorsal tegmental nucleus, DTg
+          - Barrington's nucleus, Bar: right next to LC and has similar size on coronal sections; border with LC is not clear.
+          - supragenual nucleus, SGe
+          - laterodorsal tegmental nucleus, LDTg
+          - posterodorsal tegmental nucleus, PDTg: in Paxinos, but not all authors identify this
+     - reticulotegmental nucleus, PtTg: very distinguishable; split into two parts at midline
+     facial nerve, 7n: very distinguishable
+     locus coeruleus, LC: most part very distinguishable, ventral border is a bit uncertain
+     Subceruleus Nucleus, SubC: in Paxinos, subdivided into two parts, dorsal part, SubCD and ventral part, SubCV
+     abducens, 6N: very distinguishable
+     facial nucleus, 7N: very distinguishable
+     medial parabrachial nucleus, MPB:
+     lateral parabrachial nucleus, LPB
+     Pontine Raphe Nucleus, PnR
+     Superior Salivary Nucleus, SuS: not on Paxinos sagittal
+     dorsal lateral lemniscus, DLL: fairly distinguishable
+     ventral lateral lemniscus, VLL: very distinguishable
+     Superior Medullary Velum, SMV:
+     trapezoid body, tz:
+     decussation of the trochlear nerve: not in Paxions
+     medial longitudinal fasciculus, mlf:
+     longitudinal fasciculus of the pons, lfp:
+     dorsal acoustic stria, das: might be identifiable based on coronal resection
+     trigeminal tract: terms inconsistent; Paxinos only has mesencephalic trigeminal tract, me5 and spinal trigeminal tract, sp5
+     trigeminal nerve fibers, 5n: terms inconsistent
+     spinal trigeminal tract, sp5: easily identifiable, but medially hard to identify transitions with cu. At lateral, wrap around brainstem, not easily represented using a closed polygon.
+     motor root of the trigeminal nerve, m5:
+     lateral lemniscus, ll (central acoustic tract):
+     medial lemniscus, ml:
+     spinothalamic tract: not in Paxinos
+     superior cerebellar peduncle, scp:
+     Spinal trigeminal nucleus, oral part, Sp5O:
+
+Basal Pons
+     Pontine Nuclei, Pn: distinct; has two obvious subdivisions
+     transverse pontine fibers, tfp:
+     longitudinal pontine fibers: not in Paxinos, Paxinoxs only has transverse fibre of pons, tfp; Could it be lfp (?)
+     middle cerebellar peduncle, mcp:
+
+Medulla
+     vestibular nuclei, Ve
+     - superior, SVe: fairly easy, rostral border sometimes not sure, but most times good
+     - lateral, LVe
+     - medial, MVe
+     - spinal, SpVe
+     - interstitial nucleus of the vestibular nerve, I8: some author exclude this
+     - nucleus y, Y: some author include this
+     dorsal motor nucleus of vagus, 10N: fairly distinguishable
+     Central grey of Medulla, CG: in paxinos, this includes CGA, CGB, CGC, CGO
+     hypoglossal nucleus, 12N: fairly distinguishable
+     perihypoglossal complex, PhC
+     - prepositus nucleus, Pr:
+     - Intercalated Nucleus, In:
+     - nucleus of Roller/sublingual nucleus, Ro:
+     diffuse reticular nucleus/nucleus of Kolliker-Fuse, KF:
+     paratrigeminal nucleus, Pa5:
+     petritrigeminal nucleus: Paxinos only has petritrigeminal zone, P5
+     inferior salivatory nucleus, IS: identifiable only on coronal
+     ambiguus nucleus, Amb: very easy to distinguish, but not sure about caudal end
+     Gracile nucleus, Gr: fairly easy to distinguish, but not sure about border of transition to Cu laterally
+     cuneate nucleus, Cu: fairly easy to distinguish, but not sure about border of transition to Gr medially, and ECu
+     external cuneate nucleus, ECu:
+     Spinal trigeminal nucleus, caudal part, Sp5C:
+     Spinal trigeminal nucleus, interpolar part, Sp5I:
+     area postrema, AP: very distinguishable
+     central canal, CC:
+     medullary white matters: a lot under this, no time to check yet.
+     inferior olivary complex, IO
+     - principle inferior olive nucleus, IOPr
+     - dorsal inferior olive nucleus, IOD:
+     - medial inferior olive nucleus, IOM: Paxinos has many subdivisions
+     Raphe nuclei of the medulla
+     - raphe magnus, RMg
+     - raphe obscurus, ROb
+     - raphe pallidus, RPa
+     Solitary nucleus, Sol: subdivided into ten subnuclei in Paxinos
+     - dorsolateral 
+     - dorsomedial
+     - medial
+     - parvicellular
+     - ventrolateral
+     Parasolitary nucleus, PSol:
+     Cochlear nuclei:
+     - dorsal cochlear nucleus, DC
+     - ventral cochlear nucleus, VC
+          - ventral cochlear nucleus, anterior, VCA
+          - ventral cochlear nucleus, posterior, VCP
+     medullary reticular formation
+     - lateral group
+          - lateral reticular nucleus, LRt: in Paxinos, also identified two subpart, pavicellular part, LRtPC and subtrigeminal part, LRt5s
+     - central group
+          - gigantocellular reticular nucleus, Gi:
+          - lateral paragigantocellular nucleusm, LPGi:
+          - dorsal paragigantocellular nucleus, DPGi:
+          - ventral reticular nucleus
+     - paramedian reticular nucleus, PMn
+
+cerebral peduncle
+     substantia nigra, SN
+     - substantia nigra, reticular part, SNR:
+     - substantia nigra, compact part, SNC:
+
+midbrain tegmentum
+     mesencephalic tract of the trigeminal nerve, me5:
+     midbrain trigeminal nucleus, Me5: easy to identify; spread-out
+     cerebral aqueduct, Aq:
+     periaqueductal gray / central gray of midbrain, PAG:
+          - dorsolateral, DLPAG
+          - dorsomedial, DMPAG
+          - lateroposterial, LPAG
+          - ventrolateral, VLPAG
+          - supraoculomotor, Su3: disputed
+          - supraoculomotor cap, Su3C: disputed
+          - pleioglial / pleoglial, PlPAG: disputed
+          - nucleus of Darkschewitsch, DK
+     nucleus of the posterior commissure, PCom
+     dorsal raphe nucleus, DR: Paxinos divides into dorsal, ventral, interfascicular, lateral parts
+     trochlear nucleus, 4N: very easy to distinguish
+     interstitial nucleus of Cajal, InC:
+     dorsal tegmental nucleus, DTg: fairly easy; Paxinos subdivision, DTGP, DTGC
+     ventral tegmental nucleus, VTg: fairly easy
+     rostral interstitial nucleus, RI: Paxinos also has caudal interstitial nucleus of the medial longitudina, CI
+     Linear nucleus of the raphe: Paxinos has caudal linear nucleus of the raphe, CLi and rostral linear nucleus, RLi and VLi (?)
+     peripeduncular nucleus, PP:
+     ventral tegmental area, VTA:
+     interpeduncular nucleus, IP:
+     - rostral
+     - apical
+     - lateral
+     - dorsal part of lateral
+     - intermediate
+     dorsal tegmental decussation, dtgx
+     ventral tegmental decussation, vtgx
+     decussation of scp, xscp
+     oculomotor nerve fibers, 3n: identifiable in coronal
+     pallidotegmental fasciculus: not in Paxinos
+     trochlear nerve, 4n:
+     fasciculus retroflexus, fr:
+     oculomotor nuclear complex, 3N
+     - parvocellular oculomotor nucleus, 3PC: NeuroName says this is the same as Edinger-Westphal, but Paxinos has a separate EW.
+     red nucleus, R
+     - parvocellular, RPC
+     - magnocellular, RMC
+     Cuneiform Nucleus, CnF:
+     pedunculopontine nucleus, PTg: Paxinos calls it pedunculotegmental nucleus
+
+tectum
+     pretectal region
+     - nucleus of pretectal area: in Paxinos, subdivided into anterior APT, medial MPT, posterior PPT
+     - olivary pretectal nucleus, OPT
+     - nucleus of the optic tract, OT
+     inferior colliculus, IC
+     - central, CIC
+     - external, ECIC
+     - dorsal (pericentral) cortex of the inferior colliculus, DCIC
+     - commissure of inferior colliculus, cic
+     - brachium of the inferior colliculus, bic
+     parabigeminal nucleus, PBG:
+     subcommissural organ, SCO:
+     posterior commissure, pc:
+     brachium of the superior colliculus, bsc:
+     commissure of superior colliculus, csc:
+     superior colliculus, SC
+     - Zona layer, Zo
+     - Superficial gray layer, SuG
+     - optical layer / superficial white, Op
+     - intermediate gray, InG
+     - intermediate white, InWh
+     - deep gray, DpG
+     - deep white, DpWh

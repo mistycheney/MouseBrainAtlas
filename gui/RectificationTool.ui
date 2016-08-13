@@ -99,13 +99,6 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="5">
-          <widget class="QPushButton" name="button_cancel">
-           <property name="text">
-            <string>Cancel</string>
-           </property>
-          </widget>
-         </item>
          <item row="2" column="1">
           <widget class="QLabel" name="label_2">
            <property name="text">
@@ -143,13 +136,6 @@
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="5">
-          <widget class="QPushButton" name="button_symmetric">
-           <property name="text">
-            <string>Symmetric</string>
            </property>
           </widget>
          </item>
@@ -206,14 +192,14 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="5">
+         <item row="3" column="6">
           <widget class="QPushButton" name="button_midline">
            <property name="text">
             <string>Midline</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="5">
+         <item row="4" column="6">
           <widget class="QPushButton" name="button_done">
            <property name="text">
             <string>Complete</string>
@@ -234,6 +220,27 @@
           <widget class="QLabel" name="label_7">
            <property name="text">
             <string>Scale</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="5">
+          <widget class="QPushButton" name="button_symmetric">
+           <property name="text">
+            <string>Symmetric</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="5">
+          <widget class="QPushButton" name="button_cancel">
+           <property name="text">
+            <string>Cancel</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="5">
+          <widget class="QPushButton" name="button_newPolygon">
+           <property name="text">
+            <string>New Drawing</string>
            </property>
           </widget>
          </item>

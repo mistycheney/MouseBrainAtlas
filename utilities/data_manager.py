@@ -96,7 +96,8 @@ class DataManager(object):
     def get_image_dimension(stack):
         try:
             sec = section_range_lookup[stack][0]
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'), shell=True).split('x'))
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir),
+            shell=True).split('x'))
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')

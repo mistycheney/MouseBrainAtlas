@@ -18,6 +18,7 @@ else:
 	from PyQt4.QtCore import *
 	from PyQt4.QtGui import *
 
+
 class CustomQCompleter(QCompleter):
 	# adapted from http://stackoverflow.com/a/26440173
 	def __init__(self, *args):#parent=None):
@@ -124,7 +125,7 @@ class ListSelection(QDialog):
 		self.selected = set([])
 
 		self.listWidget = QListWidget()
-		for item in item_ls:    
+		for item in item_ls:
 			w_item = QListWidgetItem(item)
 			self.listWidget.addItem(w_item)
 

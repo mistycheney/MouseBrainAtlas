@@ -296,6 +296,66 @@ def closest_to(point, poly):
     closest_point_coords = list(p.coords)[0]
     return closest_point_coords
 
+
+def average_multiple_volumes(volumes):
+    return np.maximum(*volumes)
+
+def interpolate_contours_to_volume(contours_grouped_by_z=None, interpolation_direction='z', contours_xyz=None):
+    """Interpolate contours
+
+    Returns
+    -------
+    volume:
+    bbox (xmin, xmax, ymin, ymax, zmin, zmax):
+
+    """
+
+    t = time.time()
+
+    if contours_grouped_by_z is None:
+        assert contours_xyz is not None
+        contours_grouped_by_z = defaultdict(list)
+        all_points = np.concatenate(contours_xyz)
+        if interpolation_direction == 'z':
+            for x,y,z in all_points:
+                contours_grouped_by_z[z].append((x,y))
+        elif interpolation_direction == 'y':
+            for x,y,z in all_points:
+                contours_grouped_by_z[y].append((x,z))
+        elif interpolation_direction == 'x':
+            for x,y,z in all_points:
+                contours_grouped_by_z[x].append((y,z))
+    else:
+        all_points = np.concatenate(contours_grouped_by_z.iteritems())
+
+    xmin, ymin, zmin = all_points.min(axis=0)
+    xmax, ymax, zmax = all_points.max(axis=0)
+
+    intepolated_contours = {}
+
+    zs = sorted(contours_grouped_by_z.keys())
+
+    for i in range(zs):
+        z0 = zs[i]
+        intepolated_contours[z0] = contours_grouped_by_z[z0]
+        if i + 1 < len(zs):
+            z1 = zs[i+1]
+            interp_cnts = interpolate_contours(contours_grouped_by_z[z0], contours_grouped_by_z[z0], z1-z0+1)
+            for zi, z in enumerate(range(z0+1, z1)):
+                interpolated_contours[z] = interp_cnts[zi+1]
+
+    volume = np.zeros((xmax-xmin+1, ymax-ymin+1, zmax-zmin+1), np.bool)
+    for z, pts in intepolated_contours.iteritems():
+        if interpolation_direction == 'z':
+            volume[pts[:,1], pts[:,0], z] = 1
+        elif interpolation_direction == 'y':
+            volume[z, pts[:,0], pts[:,1]] = 1
+        elif interpolation_direction == 'x':
+            volume[pts[:,0], z, pts[:,1]] = 1
+
+    return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
+
+
 def interpolate_contours(cnt1, cnt2, nlevels):
     '''
     returned arrays include cnt1 and cnt2

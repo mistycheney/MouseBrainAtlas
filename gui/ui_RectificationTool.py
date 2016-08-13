@@ -2,6 +2,9 @@
 
 # Form implementation generated from reading ui file 'RectificationTool.ui'
 #
+# Created: Wed Aug 10 23:42:25 2016
+#      by: PyQt4 UI code generator 4.10.4
+#
 # WARNING! All changes made in this file will be lost!
 
 from PyQt4 import QtCore, QtGui
@@ -72,9 +75,6 @@ class Ui_RectificationGUI(object):
         self.slider_hxz.setOrientation(QtCore.Qt.Horizontal)
         self.slider_hxz.setObjectName(_fromUtf8("slider_hxz"))
         self.gridLayout.addWidget(self.slider_hxz, 1, 4, 1, 1)
-        self.button_cancel = QtGui.QPushButton(self.layoutWidget)
-        self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
-        self.gridLayout.addWidget(self.button_cancel, 1, 5, 1, 1)
         self.label_2 = QtGui.QLabel(self.layoutWidget)
         self.label_2.setObjectName(_fromUtf8("label_2"))
         self.gridLayout.addWidget(self.label_2, 2, 1, 1, 1)
@@ -93,9 +93,6 @@ class Ui_RectificationGUI(object):
         self.slider_hyz.setOrientation(QtCore.Qt.Horizontal)
         self.slider_hyz.setObjectName(_fromUtf8("slider_hyz"))
         self.gridLayout.addWidget(self.slider_hyz, 2, 4, 1, 1)
-        self.button_symmetric = QtGui.QPushButton(self.layoutWidget)
-        self.button_symmetric.setObjectName(_fromUtf8("button_symmetric"))
-        self.gridLayout.addWidget(self.button_symmetric, 2, 5, 1, 1)
         spacerItem1 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem1, 3, 0, 1, 1)
         self.label_3 = QtGui.QLabel(self.layoutWidget)
@@ -118,14 +115,10 @@ class Ui_RectificationGUI(object):
         self.gridLayout.addWidget(self.slider_hzy, 3, 4, 1, 1)
         self.button_midline = QtGui.QPushButton(self.layoutWidget)
         self.button_midline.setObjectName(_fromUtf8("button_midline"))
-        self.gridLayout.addWidget(self.button_midline, 3, 5, 1, 1)
+        self.gridLayout.addWidget(self.button_midline, 3, 6, 1, 1)
         self.button_done = QtGui.QPushButton(self.layoutWidget)
         self.button_done.setObjectName(_fromUtf8("button_done"))
-        self.gridLayout.addWidget(self.button_done, 4, 5, 1, 1)
-        self.button_cancel = QtGui.QPushButton(self.layoutWidget)
-        self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
-        self.gridLayout.addWidget(self.button_cancel, 1, 5, 1, 1)
-
+        self.gridLayout.addWidget(self.button_done, 4, 6, 1, 1)
         self.slider_downsample = QtGui.QSlider(self.layoutWidget)
         self.slider_downsample.setMaximum(2)
         self.slider_downsample.setOrientation(QtCore.Qt.Horizontal)
@@ -134,6 +127,15 @@ class Ui_RectificationGUI(object):
         self.label_7 = QtGui.QLabel(self.layoutWidget)
         self.label_7.setObjectName(_fromUtf8("label_7"))
         self.gridLayout.addWidget(self.label_7, 4, 3, 1, 1)
+        self.button_symmetric = QtGui.QPushButton(self.layoutWidget)
+        self.button_symmetric.setObjectName(_fromUtf8("button_symmetric"))
+        self.gridLayout.addWidget(self.button_symmetric, 3, 5, 1, 1)
+        self.button_cancel = QtGui.QPushButton(self.layoutWidget)
+        self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
+        self.gridLayout.addWidget(self.button_cancel, 4, 5, 1, 1)
+        self.button_newPolygon = QtGui.QPushButton(self.layoutWidget)
+        self.button_newPolygon.setObjectName(_fromUtf8("button_newPolygon"))
+        self.gridLayout.addWidget(self.button_newPolygon, 2, 5, 1, 1)
         self.gridLayout_2.addWidget(self.splitter_3, 0, 0, 1, 1)
         RectificationGUI.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(RectificationGUI)
@@ -154,16 +156,16 @@ class Ui_RectificationGUI(object):
         RectificationGUI.setWindowTitle(_translate("RectificationGUI", "MainWindow", None))
         self.label.setText(_translate("RectificationGUI", "h_xy", None))
         self.label_4.setText(_translate("RectificationGUI", "h_xz", None))
-
-        self.button_cancel.setText(_translate("RectificationGUI", "Cancel", None))
         self.label_2.setText(_translate("RectificationGUI", "h_yx", None))
         self.label_5.setText(_translate("RectificationGUI", "h_yz", None))
-        self.button_symmetric.setText(_translate("RectificationGUI", "Symmetric", None))
         self.label_3.setText(_translate("RectificationGUI", "h_zx", None))
         self.label_6.setText(_translate("RectificationGUI", "h_zy", None))
         self.button_midline.setText(_translate("RectificationGUI", "Midline", None))
         self.button_done.setText(_translate("RectificationGUI", "Complete", None))
         self.label_7.setText(_translate("RectificationGUI", "Scale", None))
+        self.button_symmetric.setText(_translate("RectificationGUI", "Symmetric", None))
+        self.button_cancel.setText(_translate("RectificationGUI", "Cancel", None))
+        self.button_newPolygon.setText(_translate("RectificationGUI", "New Drawing", None))
         self.toolBar.setWindowTitle(_translate("RectificationGUI", "toolBar", None))
 
 
@@ -175,3 +177,4 @@ if __name__ == "__main__":
     ui.setupUi(RectificationGUI)
     RectificationGUI.show()
     sys.exit(app.exec_())
+

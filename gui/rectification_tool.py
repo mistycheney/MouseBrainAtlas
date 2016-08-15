@@ -157,7 +157,6 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.hzx = 0
         self.hzy = 0
 
-
     def update_crosslines(self):
         print self.cross_x, self.cross_y, self.cross_z
         self.coronal_hline.setLine(0, self.cross_y, self.z_dim-1, self.cross_y)

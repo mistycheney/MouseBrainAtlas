@@ -43,7 +43,7 @@ VERTEX_CIRCLE_RADIUS = 10
 
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
-    def __init__(self, path, parent=None, gscene=None, section=None):
+    def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, index=None):
 
         super(self.__class__, self).__init__(path, parent=parent)
 
@@ -52,14 +52,23 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         self.signal_emitter = PolygonSignalEmitter(parent=self)
 
         self.gscene = gscene
-        self.section = section
+
         self.vertex_circles = []
         self.closed = False
+
+        self.orientation = orientation
+        self.position = position
+
+        self.index = index
+
+        # if section is None:
+        #     self.section = section
 
         # SignalEmitter.vertex_added = pyqtSignal(object)
 
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
+
 
     def set_label(self, label, label_pos=None):
 
@@ -185,26 +194,55 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     #
     #     self.label_selection_dialog.accept()
 
+    def add_circles_for_all_vertices(self, radius=VERTEX_CIRCLE_RADIUS, color='b'):
+        '''
+        Add vertex circles for all vertices in a polygon with existing path.
 
+        Args:
+            polygon (QGraphicsPathItemModified): the polygon
+        '''
 
-    def add_vertex(self, x, y, new_index=-1):
+        path = self.path()
+        is_closed = polygon_is_closed(path=path)
 
-        # sec = self.map_polygon_to_section[polygon]
+        n = polygon_num_vertices(path=path, closed=is_closed)
 
-        polygon_goto(self, x, y)
+        for i in range(n):
+            self.add_circle_for_vertex(index=i, radius=radius, color=color)
 
-        ellipse = QGraphicsEllipseItemModified(-VERTEX_CIRCLE_RADIUS, -VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS, 2*VERTEX_CIRCLE_RADIUS,
-                                            polygon=self, parent=self) # set polygon as parent, so that moving polygon moves the children vertices as well
-        ellipse.setPos(x,y)
-        ellipse.setPen(Qt.blue)
-        ellipse.setBrush(Qt.blue)
+    def add_circle_for_vertex(self, index, radius=VERTEX_CIRCLE_RADIUS, color='b'):
+        """
+        Add a circle for an existing vertex.
+        """
+
+        path = self.path()
+        if index == -1:
+            is_closed = polygon_is_closed(path=path)
+            n = polygon_num_vertices(path=path, closed=is_closed)
+            elem = path.elementAt(n-1)
+        else:
+            elem = path.elementAt(index)
+
+        ellipse = QGraphicsEllipseItemModified(-radius, -radius, 2*radius, 2*radius, polygon=self, parent=self) # set polygon as parent, so that moving polygon moves the children vertices as well
+        ellipse.setPos(elem.x, elem.y)
+
+        if color == 'r':
+            ellipse.setPen(Qt.red)
+            ellipse.setBrush(Qt.red)
+        elif color == 'g':
+            ellipse.setPen(Qt.green)
+            ellipse.setBrush(Qt.green)
+        elif color == 'b':
+            ellipse.setPen(Qt.blue)
+            ellipse.setBrush(Qt.blue)
+
         ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         ellipse.setZValue(99)
 
-        if new_index == -1:
+        if index == -1:
             self.vertex_circles.append(ellipse)
         else:
-            self.vertex_circles.insert(new_index, ellipse)
+            self.vertex_circles.insert(index, ellipse)
 
         self.signal_emitter.vertex_added.emit(ellipse)
 
@@ -224,6 +262,13 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         #     })
 
         return ellipse
+
+    def add_vertex(self, x, y, new_index=-1):
+        if new_index == -1:
+            polygon_goto(self, x, y)
+
+        self.add_circle_for_vertex(new_index)
+
 
     @pyqtSlot(object)
     def vertex_press(self, circle):

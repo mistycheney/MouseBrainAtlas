@@ -300,58 +300,65 @@ def closest_to(point, poly):
 def average_multiple_volumes(volumes):
     return np.maximum(*volumes)
 
-def interpolate_contours_to_volume(contours_grouped_by_z=None, interpolation_direction='z', contours_xyz=None):
+def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None):
     """Interpolate contours
 
     Returns
     -------
-    volume:
-    bbox (xmin, xmax, ymin, ymax, zmin, zmax):
+    volume: a 3D binary array
+    bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
 
     """
 
-    t = time.time()
-
-    if contours_grouped_by_z is None:
+    if contours_grouped_by_pos is None:
         assert contours_xyz is not None
-        contours_grouped_by_z = defaultdict(list)
+        contours_grouped_by_pos = defaultdict(list)
         all_points = np.concatenate(contours_xyz)
         if interpolation_direction == 'z':
             for x,y,z in all_points:
-                contours_grouped_by_z[z].append((x,y))
+                contours_grouped_by_pos[z].append((x,y))
         elif interpolation_direction == 'y':
             for x,y,z in all_points:
-                contours_grouped_by_z[y].append((x,z))
+                contours_grouped_by_pos[y].append((x,z))
         elif interpolation_direction == 'x':
             for x,y,z in all_points:
-                contours_grouped_by_z[x].append((y,z))
+                contours_grouped_by_pos[x].append((y,z))
+
     else:
-        all_points = np.concatenate(contours_grouped_by_z.iteritems())
+        # all_points = np.concatenate(contours_grouped_by_z.values())
+        if interpolation_direction == 'z':
+            all_points = np.array([(x,y,z) for z, xys in contours_grouped_by_pos.iteritems() for x,y in xys])
+        elif interpolation_direction == 'y':
+            all_points = np.array([(x,y,z) for y, xzs in contours_grouped_by_pos.iteritems() for x,z in xzs])
+        elif interpolation_direction == 'x':
+            all_points = np.array([(x,y,z) for x, yzs in contours_grouped_by_pos.iteritems() for y,z in yzs])
 
-    xmin, ymin, zmin = all_points.min(axis=0)
-    xmax, ymax, zmax = all_points.max(axis=0)
+    xmin, ymin, zmin = np.floor(all_points.min(axis=0)).astype(np.int)
+    xmax, ymax, zmax = np.ceil(all_points.max(axis=0)).astype(np.int)
 
-    intepolated_contours = {}
+    interpolated_contours = {}
 
-    zs = sorted(contours_grouped_by_z.keys())
+    zs = sorted(contours_grouped_by_pos.keys())
 
-    for i in range(zs):
+    for i in range(len(zs)):
         z0 = zs[i]
-        intepolated_contours[z0] = contours_grouped_by_z[z0]
+        interpolated_contours[z0] = np.array(contours_grouped_by_pos[z0])
         if i + 1 < len(zs):
             z1 = zs[i+1]
-            interp_cnts = interpolate_contours(contours_grouped_by_z[z0], contours_grouped_by_z[z0], z1-z0+1)
+            interp_cnts = interpolate_contours(contours_grouped_by_pos[z0], contours_grouped_by_pos[z0], z1-z0+1)
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
-    volume = np.zeros((xmax-xmin+1, ymax-ymin+1, zmax-zmin+1), np.bool)
-    for z, pts in intepolated_contours.iteritems():
+    interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+
+    volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
+    for i, pts in interpolated_interior_points.iteritems():
         if interpolation_direction == 'z':
-            volume[pts[:,1], pts[:,0], z] = 1
+            volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
         elif interpolation_direction == 'y':
-            volume[z, pts[:,0], pts[:,1]] = 1
+            volume[i, pts[:,0]-xmin, pts[:,1]-zmin] = 1
         elif interpolation_direction == 'x':
-            volume[pts[:,0], z, pts[:,1]] = 1
+            volume[pts[:,0]-ymin, i, pts[:,1]-zmin] = 1
 
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 

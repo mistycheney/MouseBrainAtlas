@@ -24,6 +24,8 @@ from metadata import *
 
 from collections import defaultdict
 
+from annotation_utilities import *
+from registration_utilities import *
 
 # self.red_pen = QPen(Qt.red)
 # self.red_pen.setWidth(PEN_WIDTH)
@@ -44,16 +46,21 @@ PEN_WIDTH = 10
 # # NUM_NEIGHBORS_PRELOAD = 1 # preload neighbor sections before and after this number
 # VERTEX_CIRCLE_RADIUS = 10
 
-RED_PEN = QPen(Qt.red)
-RED_PEN.setWidth(PEN_WIDTH)
+# RED_PEN = QPen(Qt.red)
+# RED_PEN.setWidth(PEN_WIDTH)
 BLUE_PEN = QPen(Qt.blue)
 BLUE_PEN.setWidth(PEN_WIDTH)
 GREEN_PEN = QPen(Qt.green)
 GREEN_PEN.setWidth(PEN_WIDTH)
 
+CROSSLINE_PEN_WIDTH = 2
+CROSSLINE_RED_PEN = QPen(Qt.red)
+CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
+
 class DrawableGraphicsScene(QGraphicsScene):
 
     drawings_updated = pyqtSignal(object)
+    crossline_updated = pyqtSignal(int, int, int)
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(QGraphicsScene, self).__init__(parent=parent)
@@ -68,6 +75,8 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.polygonElements = defaultdict(dict)
         self.qimages = None
         self.active_section = None
+        self.active_i = None
+        self.active_dataset = None
 
         self.installEventFilter(self)
 
@@ -75,11 +84,16 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         self.dont_add_vertex = False
 
-        # self.map_vertex_to_polygon = {}
-        # self.map_polygon_to_section = {}
-
         self.drawings = defaultdict(list)
-        # self.drawings = None
+
+        self.hline = QGraphicsLineItem()
+        self.hline.setPen(CROSSLINE_RED_PEN)
+        self.vline = QGraphicsLineItem()
+        self.vline.setPen(CROSSLINE_RED_PEN)
+        self.addItem(self.hline)
+        self.addItem(self.vline)
+        self.hline.setVisible(False)
+        self.vline.setVisible(False)
 
         self.gview.setMouseTracking(False)
         self.gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
@@ -101,42 +115,138 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.set_mode('idle')
 
     def set_mode(self, mode):
+
+        if hasattr(self, 'mode'):
+            print 'Mode change:', self.mode, '=>', mode
+
         if mode == 'add vertices consecutively':
             self.gview.setDragMode(QGraphicsView.NoDrag)
+            for p in self.drawings[self.active_i]:
+                p.setFlag(QGraphicsItem.ItemIsMovable, False)
+
         elif mode == 'idle':
             self.gview.setDragMode(QGraphicsView.ScrollHandDrag)
+            if hasattr(self, 'mode') and self.mode == 'crossline':
+                self.hline.setVisible(False)
+                self.vline.setVisible(False)
+                # self.removeItem(self.hline)
+                # self.removeItem(self.vline)
+            for p in self.drawings[self.active_i]:
+                p.setFlag(QGraphicsItem.ItemIsMovable, True)
 
         self.mode = mode
 
-    def set_qimages(self, qimages):
-        self.qimages = qimages
+    def set_data_feeder(self, feeder):
+        self.data_feeder = feeder
 
-        secs = qimages.keys()
-        self.min_sec = min(secs)
-        self.max_sec = max(secs)
+    def set_structure_volumes(self, structure_volumes):
+        self.structure_volumes = structure_volumes
+
+    def update_drawings_from_structure_volume(self, name_u):
+
+        volume, bbox = self.structure_volumes[name_u]
+        xmin, xmax, ymin, ymax, zmin, zmax = bbox
+        downsample = self.data_feeder.downsample
+        volume_downsampled = volume[::downsample, ::downsample, ::downsample]
+        xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox) / downsample
+
+        print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
+
+        if self.data_feeder.orientation == 'coronal':
+            # x = self.active_i * self.data_feeder.downsample
+
+            # for x_ds in range(xmin_ds, xmax_ds + 1):
+            for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
+                cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8))
+                if len(cnts) > 0 and 1 in cnts:
+                    print x_ds
+                    zys = np.array(cnts[1][0])
+                    pts_on_gscene = zys + (zmin_ds, ymin_ds)
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
+                                                            linecolor='r', linewidth=2, index=x_ds)
+
+        # elif self.data_feeder.orientation == 'horizontal':
+        #     y = self.active_i
+        #     xzs = find_contour_points(volume[y-ymin,:,:])
+        #     self.add_polygon_with_circles_and_label(path=vertices_to_path(xzs[:, ::-1]+(zmin, xmin)), label=name_u, index=y)
+        #
+        # elif self.data_feeder.orientation == 'sagittal':
+        #     z = self.active_i
+        #     yxs = find_contour_points(volume[:,:,z-zmin])
+            # self.add_polygon_with_circles_and_label(path=vertices_to_path(yxs[:, ::-1]+(xmin, ymin)), label=name_u, index=z)
+
+
+    # def set_drawings(self, drawings):
+    #     self.drawings = drawings
+
+    def set_active_i(self, i):
+        if i == self.active_i:
+            return
+
+        # sec = self.sections[self.active_i]
+        for polygon in self.drawings[self.active_i]:
+            self.removeItem(polygon)
+
+        for polygon in self.drawings[i]:
+            self.addItem(polygon)
+
+        self.active_i = i
+
+        if hasattr(self.data_feeder, 'sections'):
+            self.active_section = self.data_feeder.sections[self.active_i]
+
+        # self.active_section = sec
+        self.update_image()
+
+        if self.mode == 'crossline':
+            if hasattr(self.data_feeder, 'sections'):
+                cross_depth_lossless = self.convert_section_to_z(sec=self.active_section, downsample=1)[0]
+            else:
+                cross_depth_lossless = self.active_i * self.data_feeder.downsample
+
+            if self.data_feeder.orientation == 'sagittal':
+                self.cross_z_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'coronal':
+                self.cross_x_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'horizontal':
+                self.cross_y_lossless = cross_depth_lossless
+
+            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless)
+
 
     def set_active_section(self, sec):
 
-        if sec != self.active_section:
+        if sec == self.active_section:
+            return
 
-            for polygon in self.drawings[self.active_section]:
-                self.removeItem(polygon)
+        if hasattr(self.data_feeder, 'sections'):
+            i = self.data_feeder.sections.index(sec)
+            self.set_active_i(i)
 
-            for polygon in self.drawings[sec]:
-                self.addItem(polygon)
+        self.active_section = sec
 
-            self.active_section = sec
-
-            if self.showing_which == 'histology':
-                self.load_histology()
-            elif self.showing_which == 'scoremap':
-                self.load_scoremap()
+    def update_image(self):
+        if self.showing_which == 'histology':
+            self.load_histology()
+        elif self.showing_which == 'scoremap':
+            self.load_scoremap()
 
     def set_active_structure(self, name_s=None, name_u=None):
         if name_s is not None:
             self.active_structure = name_s
         else:
             self.active_structure = name_u
+
+    def set_downsample_factor(self, downsample):
+        if self.data_feeder.downsample == downsample:
+            return
+        # if self.downsample == downsample:
+        #     return
+        #
+        # self.downsample = downsample
+        self.data_feeder.set_downsample_factor(downsample)
+        self.update_image()
+
 
     def load_scoremap(self, name_u=None, sec=None):
         if sec is None:
@@ -155,34 +265,43 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.pixmapItem.setPixmap(scoremap_pixmap)
         self.showing_which = 'scoremap'
 
-    def load_histology(self, sec=None):
-        if sec is None:
-            assert self.active_section is not None
-            sec = self.active_section
 
-        histology_pixmap = QPixmap.fromImage(self.qimages[sec])
+    def load_histology(self, i=None, sec=None):
+
+        if i is None:
+            i = self.active_i
+        elif self.data_feeder.sections is not None:
+            if sec is None:
+                sec = self.active_section
+            i = self.data_feeder.sections.index(sec)
+
+        image = self.data_feeder.retrive_i(i=i)
+        histology_pixmap = QPixmap.fromImage(image)
+
+        # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
         self.pixmapItem.setPixmap(histology_pixmap)
         self.showing_which = 'histology'
 
-    def show_next(self):
-        self.set_active_section(min(self.max_sec, self.active_section + 1))
+        self.set_active_i(i)
 
+    def show_next(self):
+        self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
 
     def show_previous(self):
-        self.set_active_section(max(self.min_sec, self.active_section - 1))
+        self.set_active_i(max(self.active_i - 1, 0))
 
-    def add_label_to_polygon(self, polygon, label, label_pos=None):
-        '''
-        Add label to a polygon.
-
-        Args:
-            polygon (QGraphicsPathItemModified): the polygon to add label
-            label (str): the label
-            label_pos (tuple): label position
-
-        '''
-
-        polygon.set_label(label, label_pos)
+    # def add_label_to_polygon(self, polygon, label, label_pos=None):
+    #     '''
+    #     Add label to a polygon.
+    #
+    #     Args:
+    #         polygon (QGraphicsPathItemModified): the polygon to add label
+    #         label (str): the label
+    #         label_pos (tuple): label position
+    #
+    #     '''
+    #
+    #     polygon.set_label(label, label_pos)
 
         # sec = self.polygon_inverse_lookup[polygon]
         #
@@ -212,8 +331,47 @@ class DrawableGraphicsScene(QGraphicsScene):
         #     })
 
 
+    def set_conversion_func_section_to_z(self, func):
+        self.convert_section_to_z = func
 
-    def add_polygon(self, path=QPainterPath(), pen=None, z_value=50, uncertain=False, sec=None):
+    def set_conversion_func_z_to_section(self, func):
+        self.convert_z_to_section = func
+
+    def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=PEN_WIDTH, vertex_color='b', vertex_radius=2,
+                                            label='unknown', section=None, label_pos=None, index=None):
+        '''
+        Function for adding polygon, along with vertex circles.
+        Step 1: create polygon
+        Step 2: create vertices
+        Step 3: reorder overlapping polygons if any
+        Step 4: add label
+        '''
+
+        ## CHECK THIS!!!!
+
+        # self.history_allSections[sec].append({
+        #     'type': 'add_polygon_by_vertices_label_begin'
+        #     })
+
+        if index is None:
+            index = self.active_i
+
+        polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index)
+        polygon.add_circles_for_all_vertices(radius=2, color=vertex_color)
+        polygon.set_label(label, label_pos)
+
+        # self.populate_polygon_with_vertex_circles(new_polygon)
+        # self.restack_polygons(new_polygon)
+        # self.add_label_to_polygon(new_polygon, label=label, label_pos=label_pos)
+
+        # self.history_allSections[sec].append({
+        #     'type': 'add_polygon_by_vertices_label_end'
+        #     })
+
+        return polygon
+
+
+    def add_polygon(self, path=QPainterPath(), color='r', linewidth=PEN_WIDTH, z_value=50, uncertain=False, section=None, index=None):
         '''
         Add a polygon.
 
@@ -229,13 +387,34 @@ class DrawableGraphicsScene(QGraphicsScene):
         # if path is None:
         #     path = QPainterPath()
 
-        if pen is None:
-            pen = RED_PEN
+        if color == 'r':
+            pen = QPen(Qt.red)
+        elif color == 'g':
+            pen = QPen(Qt.green)
+        elif color == 'b':
+            pen = QPen(Qt.blue)
 
-        if sec is None:
-            sec = self.active_section
+        pen.setWidth(linewidth)
 
-        polygon = QGraphicsPathItemModified(path, gscene=self, section=sec)
+        if index is None:
+            if hasattr(self, 'active_i'):
+                index = self.active_i
+            else:
+                if section is None:
+                    section = self.active_section
+                index = self.data_feeder.sections.index(section)
+
+        if hasattr(self.data_feeder, 'sections'):
+            sec = self.data_feeder.sections[index]
+            z = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
+            if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
+                pos = z[0]
+            else:
+                pos = z
+        else:
+            pos = index
+
+        polygon = QGraphicsPathItemModified(path, gscene=self, index=index, orientation=self.data_feeder.orientation, position=pos)
 
         polygon.setPen(pen)
         polygon.setZValue(z_value)
@@ -256,10 +435,12 @@ class DrawableGraphicsScene(QGraphicsScene):
         polygon.signal_emitter.evoke_label_selection.connect(self.label_selection_evoked)
         polygon.signal_emitter.polygon_completed.connect(self.polygon_completed)
 
-        self.drawings[sec].append(polygon)
+        self.drawings[index].append(polygon)
 
         # if adding polygon to current section
-        if sec == self.active_section:
+        # if sec == self.active_section:
+        if index == self.active_i:
+            print 'polygon added.'
             self.addItem(polygon)
         # self.polygonElements[sec][polygon] = {'vertexCircles': [], 'uncertain': uncertain}
 
@@ -292,9 +473,9 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.label_selection_dialog.setWindowTitle('Select Structure Name')
 
         # if hasattr(self, 'invalid_labelname'):
-        #	 print 'invalid_labelname', self.invalid_labelname
+        #     print 'invalid_labelname', self.invalid_labelname
         # else:
-        #	 print 'no labelname set'
+        #     print 'no labelname set'
 
         if hasattr(self.active_polygon, 'label'):
             abbr_unsided = self.active_polygon.label
@@ -397,13 +578,15 @@ class DrawableGraphicsScene(QGraphicsScene):
     @pyqtSlot(object)
     def label_added(self, text_item):
         polygon = self.sender().parent
-        if polygon.section is None or polygon.section == self.active_section:
+        if polygon.index == self.active_i:
+            print 'label added.'
             self.addItem(text_item)
 
     @pyqtSlot(QGraphicsEllipseItemModified)
     def vertex_added(self, circle):
         polygon = self.sender().parent
-        if polygon.section is None or polygon.section == self.active_section:
+        if polygon.index == self.active_i:
+            print 'circle added.'
             self.addItem(circle)
             # circle.signal_emitter.moved.connect(self.vertex_moved)
             # circle.signal_emitter.clicked.connect(self.vertex_clicked)
@@ -470,6 +653,17 @@ class DrawableGraphicsScene(QGraphicsScene):
     def show_context_menu(self, pos):
         myMenu = QMenu(self.gview)
         action_newPolygon = myMenu.addAction("New polygon")
+
+        resolution_menu = QMenu("Change Resolution", myMenu)
+        action_changeResolution = myMenu.addMenu(resolution_menu)
+
+        action_resolutions = {}
+        for d in self.data_feeder.supported_downsample_factors:
+            action = resolution_menu.addAction(str(d))
+            action_resolutions[action] = d
+
+        action_reconstruct = myMenu.addAction("Reconstruct volume")
+
         action_deletePolygon = myMenu.addAction("Delete polygon")
         action_setLabel = myMenu.addAction("Set label")
         action_setUncertain = myMenu.addAction("Set uncertain segment")
@@ -488,12 +682,17 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
 
-        if selected_action == action_newPolygon:
-            print 'new polygon'
+        # if selected_action == action_reconstruct:
+        #     self.reconstruct_drawing_to_volume(name_u=self.active_polygon.label)
 
+        if selected_action in action_resolutions:
+            selected_downsample_factor = action_resolutions[selected_action]
+            self.set_downsample_factor(selected_downsample_factor)
+
+        elif selected_action == action_newPolygon:
             # self.disable_elements()
             self.close_curr_polygon = False
-            self.active_polygon = self.add_polygon(QPainterPath(), RED_PEN)
+            self.active_polygon = self.add_polygon(QPainterPath(), color='r', linewidth=10, index=self.active_i)
             # assert self.active_polygon is not None
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
@@ -800,9 +999,47 @@ class DrawableGraphicsScene(QGraphicsScene):
         #
         # self.print_history()
 
+    def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
+
+        print 'cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
+
+        self.hline.setVisible(True)
+        self.vline.setVisible(True)
+
+        self.cross_x_lossless = cross_x_lossless
+        self.cross_y_lossless = cross_y_lossless
+        self.cross_z_lossless = cross_z_lossless
+
+        downsample = self.data_feeder.downsample
+        cross_x_ds = cross_x_lossless / downsample
+        cross_y_ds = cross_y_lossless / downsample
+        cross_z_ds = cross_z_lossless / downsample
+
+        if self.data_feeder.orientation == 'sagittal':
+
+            self.hline.setLine(0, cross_y_ds, self.data_feeder.x_dim-1, cross_y_ds)
+            self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.y_dim-1)
+
+            sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
+            self.set_active_section(sec)
+
+        elif self.data_feeder.orientation == 'coronal':
+
+            self.hline.setLine(0, cross_y_ds, self.data_feeder.z_dim-1, cross_y_ds)
+            self.vline.setLine(self.data_feeder.z_dim-1-cross_z_ds, 0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.y_dim-1)
+
+            self.set_active_i(cross_x_ds)
+
+        elif self.data_feeder.orientation == 'horizontal':
+
+            self.hline.setLine(0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.x_dim-1, self.data_feeder.z_dim-1-cross_z_ds)
+            self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.z_dim-1)
+
+            self.set_active_i(cross_y_ds)
+
 
     def eventFilter(self, obj, event):
-        print obj.metaObject().className(), event.type()
+        # print obj.metaObject().className(), event.type()
         # http://doc.qt.io/qt-4.8/qevent.html#Type-enum
 
         out_factor = .9
@@ -836,11 +1073,10 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         if event.type() == QEvent.GraphicsSceneMousePress:
 
-            self.gui.active_gscene_id = self.id
+            self.gui.active_gscene = self
 
             gscene_x = event.scenePos().x()
             gscene_y = event.scenePos().y()
-
 
             if event.button() == Qt.RightButton:
                 obj.mousePressEvent(event)
@@ -854,6 +1090,36 @@ class DrawableGraphicsScene(QGraphicsScene):
                 print self.press_screen_x, self.press_screen_y
                 self.pressed = True
                 return True
+
+            elif self.mode == 'crossline':
+
+                downsample = self.data_feeder.downsample
+
+                gscene_y_lossless = gscene_y * downsample
+                gscene_x_lossless = gscene_x * downsample
+
+                if hasattr(self.data_feeder, 'sections'):
+                    gscene_z_lossless = self.convert_section_to_z(sec=self.active_section, downsample=1)[0] # Note that the returned result is a pair of z limits.
+                else:
+                    gscene_z_lossless = self.active_i
+
+                if self.data_feeder.orientation == 'sagittal':
+                    cross_x_lossless = gscene_x_lossless
+                    cross_y_lossless = gscene_y_lossless
+                    cross_z_lossless = gscene_z_lossless
+
+                elif self.data_feeder.orientation == 'coronal':
+                    cross_z_lossless = -gscene_x_lossless
+                    cross_y_lossless = gscene_y_lossless
+                    cross_x_lossless = gscene_z_lossless
+
+                elif self.data_feeder.orientation == 'horizontal':
+                    cross_x_lossless = gscene_x_lossless
+                    cross_z_lossless = -gscene_y_lossless
+                    cross_y_lossless = gscene_z_lossless
+
+                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+
 
             elif self.mode == 'add vertices consecutively':
                 # if in add vertices mode, left mouse press means:

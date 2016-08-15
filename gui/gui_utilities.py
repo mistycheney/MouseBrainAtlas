@@ -100,7 +100,7 @@ def vertices_to_path(vertices, closed=True):
     Generate QPainterPath from vertices.
 
     Args:
-        vertices (n x 2 numpy array): vertices
+        vertices (n x 2 numpy array): vertices, (x,y)
         closed (bool): whether the polygon is closed; if polygon has only one vertex, count as open
 
     Returns:

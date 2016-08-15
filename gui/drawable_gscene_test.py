@@ -162,14 +162,21 @@ class ImageDataFeeder(object):
 
 class VolumeResectionDataFeeder(object):
 
-    def __init__(self, name):
+    def __init__(self, name, stack):
 
         self.name = name
         self.volume_cache = {}
         self.supported_downsample_factors = [4,8,32]
 
+        self.stack = stack
+
     def set_downsample_factor(self, downsample):
-        self.downsample = downsample
+        if downsample not in self.supported_downsample_factors:
+            sys.stderr.write('Downsample factor %d is not supported.\n' % downsample)
+            return
+        else:
+            self.downsample = downsample
+
         if self.downsample in self.volume_cache:
             self.volume = self.volume_cache[self.downsample]
             self.y_dim, self.x_dim, self.z_dim = self.volume.shape
@@ -186,13 +193,14 @@ class VolumeResectionDataFeeder(object):
                 # self.min_i = 0
                 # self.max_i = self.y_dim - 1
                 self.n = self.y_dim
+        else:
+            try:
+                self.volume_cache[self.downsample] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':self.downsample})
+            except:
+                sys.stderr.write('Cannot read volume file.\n')
 
     def set_volume_cache(self, volume_cache):
         self.volume_cache = volume_cache
-
-    # def set_volume(self, volume):
-    #     self.volume = volume
-    #     self.y_dim, self.x_dim, self.z_dim = volume.shape
 
     def add_volume(self, volume, downsample):
         if downsample not in self.volume_cache:
@@ -243,16 +251,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.stack = stack
         self.setupUi(self)
 
+        self.button_save.clicked.connect(self.save)
+        self.lineEdit_username.returnPressed.connect(self.username_changed)
+
         from collections import defaultdict
         self.structure_volumes = {}
 
-        self.sections = range(180, 190)
+        # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
+        #                     8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
 
-        # first_sec, last_sec = section_range_lookup[self.stack]
-        # self.sections = range(first, last+1)
-
-        self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
-                            8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
+        self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
 
         self.downsample_factor = 32
 
@@ -273,6 +281,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
             gscene.crossline_updated.connect(self.crossline_updated)
+            gscene.update_structure_volume_requested.connect(self.update_structure_volume_requested)
             gscene.set_structure_volumes(self.structure_volumes)
             # gscene.set_drawings(self.drawings)
 
@@ -281,7 +290,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['sagittal'].set_conversion_func_z_to_section(partial(DataManager.convert_z_to_section, stack=self.stack))
 
         ##################
-        self.slider_downsample.valueChanged.connect(self.downsample_factor_changed)
+        # self.slider_downsample.valueChanged.connect(self.downsample_factor_changed)
 
         ###################
         self.contextMenu_set = True
@@ -294,28 +303,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        self.keyPressEvent = self.key_pressed
+        # self.keyPressEvent = self.key_pressed
+        # self.keyReleaseEvent = self.key_released
 
-        # self.gscenes['coronal'].set_data({'volume': self.volume})
-        # self.gscenes['sagittal'].set_data({'volume': self.volume})
-        # self.gscenes['horizontal'].set_data({'volume': self.volume})
 
-        # from functools import partial
+        self.sections = range(180, 190)
+        # first_sec, last_sec = section_range_lookup[self.stack]
+        # self.sections = range(first, last+1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
         image_feeder.set_orientation('sagittal')
         image_feeder.set_downsample_factor(1)
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
 
-        volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder')
+        volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
 
-        coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder')
+        coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
         coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
         coronal_volume_resection_feeder.set_orientation('coronal')
         coronal_volume_resection_feeder.set_downsample_factor(self.downsample_factor)
         self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
 
-        horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder')
+        horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
         horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
         horizontal_volume_resection_feeder.set_orientation('horizontal')
         horizontal_volume_resection_feeder.set_downsample_factor(self.downsample_factor)
@@ -329,56 +338,130 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['sagittal'].set_active_section(181)
         self.gscenes['horizontal'].set_active_i(150)
 
+    #
+    # @pyqtSlot(int)
+    # def downsample_factor_changed(self, val):
+    #
+    #     # self.cross_x_lossless = self.cross_x * self.downsample_factor
+    #     # self.cross_y_lossless = self.cross_y * self.downsample_factor
+    #     # self.cross_z_lossless = self.cross_z * self.downsample_factor
+    #
+    #     print val
+    #
+    #     if val == 0:
+    #         self.downsample_factor = 32
+    #     elif val == 1:
+    #         self.downsample_factor = 8
+    #     elif val == 2:
+    #         self.downsample_factor = 4
+    #         if 4 not in self.volume_cache:
+    #             self.volume_cache[4] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':4})
+    #             self.statusBar().showMessage('Volume loaded.')
+    #
+    #     self.gscenes['coronal'].set_downsample_factor(self.downsample_factor)
+    #     self.gscenes['sagittal'].set_downsample_factor(self.downsample_factor)
+    #     self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
+    #
+    #     self.gscenes['coronal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='coronal')
+    #     self.gscenes['sagittal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='sagittal')
+    #     self.gscenes['horizontal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='horizontal')
+    #
+    #     self.gscenes['coronal'].update_image()
+    #     self.gscenes['sagittal'].update_image()
+    #     self.gscenes['horizontal'].update_image()
+    #
+    #     # self.update_cross(self.cross_x_lossless / self.downsample_factor, self.cross_y_lossless / self.downsample_factor, self.cross_z_lossless / self.downsample_factor)
+    #     # self.update_gscenes('x')
+    #     # self.update_gscenes('y')
+    #     # self.update_gscenes('z')
 
-    @pyqtSlot(int)
-    def downsample_factor_changed(self, val):
+    @pyqtSlot()
+    def username_changed(self):
+        self.username = str(self.sender().text())
+        print 'username changed to', self.username
 
-        # self.cross_x_lossless = self.cross_x * self.downsample_factor
-        # self.cross_y_lossless = self.cross_y * self.downsample_factor
-        # self.cross_z_lossless = self.cross_z * self.downsample_factor
+    @pyqtSlot()
+    def save(self):
 
-        print val
+        if not hasattr(self, 'username') or self.username is None:
+            username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+            if not okay: return
+            self.username = str(username)
+            self.lineEdit_username.setText(self.username)
 
-        if val == 0:
-            self.downsample_factor = 32
-        elif val == 1:
-            self.downsample_factor = 8
-        elif val == 2:
-            self.downsample_factor = 4
-            if 4 not in self.volume_cache:
-                self.volume_cache[4] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':4})
-                self.statusBar().showMessage('Volume loaded.')
 
-        self.gscenes['coronal'].set_downsample_factor(self.downsample_factor)
-        self.gscenes['sagittal'].set_downsample_factor(self.downsample_factor)
-        self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
+        labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
 
-        self.gscenes['coronal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='coronal')
-        self.gscenes['sagittal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='sagittal')
-        self.gscenes['horizontal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='horizontal')
+        for gscene_id, gscene in self.gscenes.iteritems():
+            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
 
-        self.gscenes['coronal'].update_image()
-        self.gscenes['sagittal'].update_image()
-        self.gscenes['horizontal'].update_image()
+        pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
 
-        # self.update_cross(self.cross_x_lossless / self.downsample_factor, self.cross_y_lossless / self.downsample_factor, self.cross_z_lossless / self.downsample_factor)
-        # self.update_gscenes('x')
-        # self.update_gscenes('y')
-        # self.update_gscenes('z')
+        # # if sec is not None:
+        # #
+        # #     accepted_proposal_props = []
+        # #     for polygon, props in self.accepted_proposals_allSections[sec].iteritems():
+        # #
+        # #         props_saved = props.copy()
+        # #
+        # #         # props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
+        # #
+        # #         path = polygon.path()
+        # #
+        # #         if path.elementCount() > 1 and polygon_is_closed(path=path):
+        # #             props_saved['subtype'] = PolygonType.CLOSED
+        # #             props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount()-1)]
+        # #         else:
+        # #             props_saved['subtype'] = PolygonType.OPEN
+        # #             props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount())]
+        # #
+        # #         label_pos = props['labelTextArtist'].scenePos()
+        # #         props_saved['labelPos'] = (label_pos.x(), label_pos.y())
+        # #
+        # #         props_saved.pop('vertexCircles')
+        # #         props_saved.pop('labelTextArtist')
+        # #
+        # #         accepted_proposal_props.append(props_saved)
+        #
+        #     # print '#############'
+        #     # print accepted_proposal_props
+        #
+        #     # labeling_path = self.dms[sec].save_annotation(accepted_proposal_props, self.username, timestamp)
+        #     labeling_path = DataManager.save_annotation(accepted_proposal_props, self.stack, sec, self.username, timestamp,
+        #     annotation_rootdir=annotation_midbrainIncluded_rootdir)
+        #
+        #     # print self.new_labelnames
+        #     self.dms[sec].add_labelnames(self.new_labelnames, os.environ['REPO_DIR']+'/gui/newStructureNames.txt')
+        #
+        #     self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
+        #
+        #     if sec in self.gscenes:
+        #         pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
+        #         painter = QPainter(pix)
+        #
+        #         self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8),
+        #                                 QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
+        #         pix.save(labeling_path[:-4] + '.jpg', "JPG")
+        #         print 'Preview image saved to', labeling_path[:-4] + '.jpg'
+        #         del painter
+        #         del pix
+
 
     @pyqtSlot(object)
     def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
+        print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless
         for gscene in self.gscenes.itervalues():
             gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
 
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
-
         print 'Drawings updated.'
 
-        name_u = polygon.label
+    @pyqtSlot(object)
+    def update_structure_volume_requested(self, polygon):
 
+        name_u = polygon.label
         downsample = polygon.gscene.data_feeder.downsample
 
         matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
@@ -400,36 +483,75 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
             self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)
 
+        print '3D structure updated.'
+        self.statusBar().showMessage('3D structure updated.')
 
-    def key_pressed(self, event):
-        # if event.type() == Qt.keyPressEvent:
-        key = event.key()
-        if key == Qt.Key_1:
-            self.gscenes['sagittal'].show_previous()
-        elif key == Qt.Key_2:
-            self.gscenes['sagittal'].show_next()
-        elif key == Qt.Key_3:
-            self.gscenes['coronal'].show_previous()
-        elif key == Qt.Key_4:
-            self.gscenes['coronal'].show_next()
-        elif key == Qt.Key_5:
-            self.gscenes['horizontal'].show_previous()
-        elif key == Qt.Key_6:
-            self.gscenes['horizontal'].show_next()
+    # def key_released(self, event):
+    #     key = event.key()
+    #     if key == Qt.Key_Space:
+    #         for gscene in self.gscenes.itervalues():
+    #             gscene.set_mode('idle')
+    #             # if gscene.mode == 'crossline':
+                #     gscene.set_mode('idle')
+                # else:
+                #     gscene.set_mode('crossline')
 
-        elif key == Qt.Key_Space:
-            for gscene in self.gscenes.itervalues():
-                if gscene.mode == 'crossline':
-                    gscene.set_mode('idle')
-                else:
-                    gscene.set_mode('crossline')
+    # def key_pressed(self, event):
+    #     # if event.type() == Qt.keyPressEvent:
+    #     key = event.key()
+    #     if key == Qt.Key_1:
+    #         self.gscenes['sagittal'].show_previous()
+    #     elif key == Qt.Key_2:
+    #         self.gscenes['sagittal'].show_next()
+    #     elif key == Qt.Key_3:
+    #         self.gscenes['coronal'].show_previous()
+    #     elif key == Qt.Key_4:
+    #         self.gscenes['coronal'].show_next()
+    #     elif key == Qt.Key_5:
+    #         self.gscenes['horizontal'].show_previous()
+    #     elif key == Qt.Key_6:
+    #         self.gscenes['horizontal'].show_next()
+    #
+    #     elif key == Qt.Key_Space:
+    #         for gscene in self.gscenes.itervalues():
+    #             gscene.set_mode('crossline')
+    #             # if gscene.mode == 'crossline':
+    #             #     gscene.set_mode('idle')
+    #             # else:
+    #             #     gscene.set_mode('crossline')
 
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
+
+        if event.type() == QEvent.KeyPress:
+            key = event.key()
+            if key == Qt.Key_1:
+                self.gscenes['sagittal'].show_previous()
+            elif key == Qt.Key_2:
+                self.gscenes['sagittal'].show_next()
+            elif key == Qt.Key_3:
+                self.gscenes['coronal'].show_previous()
+            elif key == Qt.Key_4:
+                self.gscenes['coronal'].show_next()
+            elif key == Qt.Key_5:
+                self.gscenes['horizontal'].show_previous()
+            elif key == Qt.Key_6:
+                self.gscenes['horizontal'].show_next()
+
+            elif key == Qt.Key_Space:
+                if not event.isAutoRepeat():
+                    for gscene in self.gscenes.itervalues():
+                        gscene.set_mode('crossline')
+
+        elif event.type() == QEvent.KeyRelease:
+            key = event.key()
+            if key == Qt.Key_Space:
+                if not event.isAutoRepeat():
+                    for gscene in self.gscenes.itervalues():
+                        gscene.set_mode('idle')
+
         return False
-
-
 
 
 def load_structure_names(fn):

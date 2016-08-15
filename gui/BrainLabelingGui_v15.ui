@@ -192,23 +192,6 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="4">
-          <widget class="QSlider" name="slider_downsample">
-           <property name="maximum">
-            <number>2</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="3">
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Scale</string>
-           </property>
-          </widget>
-         </item>
          <item row="1" column="5">
           <widget class="QPushButton" name="button_symmetric">
            <property name="text">
@@ -234,6 +217,30 @@
           <widget class="QPushButton" name="button_done">
            <property name="text">
             <string>Complete</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="5">
+          <widget class="QPushButton" name="button_save">
+           <property name="text">
+            <string>Save</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="6">
+          <widget class="QPushButton" name="button_load">
+           <property name="text">
+            <string>Load</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="6">
+          <widget class="QLineEdit" name="lineEdit_username"/>
+         </item>
+         <item row="4" column="5">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Username:</string>
            </property>
           </widget>
          </item>

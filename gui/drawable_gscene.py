@@ -61,6 +61,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
     drawings_updated = pyqtSignal(object)
     crossline_updated = pyqtSignal(int, int, int)
+    update_structure_volume_requested = pyqtSignal(object)
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(QGraphicsScene, self).__init__(parent=parent)
@@ -134,6 +135,10 @@ class DrawableGraphicsScene(QGraphicsScene):
             for p in self.drawings[self.active_i]:
                 p.setFlag(QGraphicsItem.ItemIsMovable, True)
 
+        elif mode == 'crossline':
+            self.hline.setVisible(True)
+            self.vline.setVisible(True)
+
         self.mode = mode
 
     def set_data_feeder(self, feeder):
@@ -152,6 +157,12 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
+        matched_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u]
+        for i, p in matched_polygons:
+            if i == self.active_i:
+                self.removeItem(p)
+            self.drawings[i].remove(p)
+
         if self.data_feeder.orientation == 'coronal':
             # x = self.active_i * self.data_feeder.downsample
 
@@ -159,29 +170,37 @@ class DrawableGraphicsScene(QGraphicsScene):
             for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
                 cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8))
                 if len(cnts) > 0 and 1 in cnts:
-                    print x_ds
+                    # print x_ds
                     zys = np.array(cnts[1][0])
-                    pts_on_gscene = zys + (zmin_ds, ymin_ds)
+                    gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
+                    gscene_ys = zys[:,1] + ymin_ds
+                    pts_on_gscene = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
                                                             linecolor='r', linewidth=2, index=x_ds)
 
-        # elif self.data_feeder.orientation == 'horizontal':
-        #     y = self.active_i
-        #     xzs = find_contour_points(volume[y-ymin,:,:])
-        #     self.add_polygon_with_circles_and_label(path=vertices_to_path(xzs[:, ::-1]+(zmin, xmin)), label=name_u, index=y)
-        #
+        elif self.data_feeder.orientation == 'horizontal':
+            for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
+                cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8))
+                if len(cnts) > 0 and 1 in cnts:
+                    # print y_ds
+                    zxs = np.array(cnts[1][0])
+                    gscene_xs = zxs[:,1] + xmin_ds
+                    gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
+                    pts_on_gscene = np.c_[gscene_xs, gscene_ys]
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
+                                                            linecolor='r', linewidth=2, index=y_ds)
+
         # elif self.data_feeder.orientation == 'sagittal':
         #     z = self.active_i
         #     yxs = find_contour_points(volume[:,:,z-zmin])
             # self.add_polygon_with_circles_and_label(path=vertices_to_path(yxs[:, ::-1]+(xmin, ymin)), label=name_u, index=z)
 
 
-    # def set_drawings(self, drawings):
-    #     self.drawings = drawings
-
-    def set_active_i(self, i):
+    def set_active_i(self, i, update_crossline=True):
         if i == self.active_i:
             return
+
+        print self.id, ': Set active index to', i, ', update_crossline', update_crossline
 
         # sec = self.sections[self.active_i]
         for polygon in self.drawings[self.active_i]:
@@ -198,11 +217,14 @@ class DrawableGraphicsScene(QGraphicsScene):
         # self.active_section = sec
         self.update_image()
 
-        if self.mode == 'crossline':
+        # if update_crossline and self.mode == 'crossline':
+        if update_crossline and hasattr(self, 'cross_x_lossless'):
             if hasattr(self.data_feeder, 'sections'):
                 cross_depth_lossless = self.convert_section_to_z(sec=self.active_section, downsample=1)[0]
+                # print 'cross_depth_lossless 1', cross_depth_lossless
             else:
                 cross_depth_lossless = self.active_i * self.data_feeder.downsample
+                # print 'cross_depth_lossless 2', cross_depth_lossless
 
             if self.data_feeder.orientation == 'sagittal':
                 self.cross_z_lossless = cross_depth_lossless
@@ -211,17 +233,20 @@ class DrawableGraphicsScene(QGraphicsScene):
             elif self.data_feeder.orientation == 'horizontal':
                 self.cross_y_lossless = cross_depth_lossless
 
+            print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
             self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless)
 
 
-    def set_active_section(self, sec):
+    def set_active_section(self, sec, update_crossline=True):
 
         if sec == self.active_section:
             return
 
+        print self.id, ': Set active section to', sec
+
         if hasattr(self.data_feeder, 'sections'):
             i = self.data_feeder.sections.index(sec)
-            self.set_active_i(i)
+            self.set_active_i(i, update_crossline=update_crossline)
 
         self.active_section = sec
 
@@ -408,7 +433,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             sec = self.data_feeder.sections[index]
             z = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
             if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
-                pos = z[0]
+                pos = (z[0]+z[1])/2
             else:
                 pos = z
         else:
@@ -558,6 +583,17 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         self.label_selection_dialog.accept()
 
+
+
+    def save_drawings(self, fn_template):
+        import cPickle as pickle
+        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        pickle.dump(self.drawings, fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
+                                                downsample=self.data_feeder.downsample,
+                                                timestamp=timestamp))
+        # for i, polygon in self.drawings.iteritems():
+
+
     @pyqtSlot()
     def polygon_completed(self):
         polygon = self.sender().parent
@@ -654,7 +690,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         myMenu = QMenu(self.gview)
         action_newPolygon = myMenu.addAction("New polygon")
 
-        resolution_menu = QMenu("Change Resolution", myMenu)
+        resolution_menu = QMenu("Change resolution", myMenu)
         action_changeResolution = myMenu.addMenu(resolution_menu)
 
         action_resolutions = {}
@@ -662,30 +698,35 @@ class DrawableGraphicsScene(QGraphicsScene):
             action = resolution_menu.addAction(str(d))
             action_resolutions[action] = d
 
-        action_reconstruct = myMenu.addAction("Reconstruct volume")
+        action_reconstruct = myMenu.addAction("Update 3D structure")
 
         action_deletePolygon = myMenu.addAction("Delete polygon")
         action_setLabel = myMenu.addAction("Set label")
-        action_setUncertain = myMenu.addAction("Set uncertain segment")
-        action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
-        action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
-        action_deleteBetween = myMenu.addAction("Delete edges between two vertices")
-        action_closePolygon = myMenu.addAction("Close polygon")
-        action_insertVertex = myMenu.addAction("Insert vertex")
-        action_appendVertex = myMenu.addAction("Append vertex")
-        action_connectVertex = myMenu.addAction("Connect vertex")
 
-        action_showScoremap = myMenu.addAction("Show scoremap")
-        action_showHistology = myMenu.addAction("Show histology")
+        # action_setUncertain = myMenu.addAction("Set uncertain segment")
+        # action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
+        # action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
+        # action_deleteBetween = myMenu.addAction("Delete edges between two vertices")
+        # action_closePolygon = myMenu.addAction("Close polygon")
+        # action_insertVertex = myMenu.addAction("Insert vertex")
+        # action_appendVertex = myMenu.addAction("Append vertex")
+        # action_connectVertex = myMenu.addAction("Connect vertex")
 
-        action_doneDrawing = myMenu.addAction("Done drawing")
+        # action_showScoremap = myMenu.addAction("Show scoremap")
+        # action_showHistology = myMenu.addAction("Show histology")
+
+        # action_doneDrawing = myMenu.addAction("Done drawing")
 
         selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
 
-        # if selected_action == action_reconstruct:
-        #     self.reconstruct_drawing_to_volume(name_u=self.active_polygon.label)
+        if selected_action == action_deletePolygon:
+            self.drawings[self.active_i].remove(self.active_polygon)
+            self.removeItem(self.active_polygon)
 
-        if selected_action in action_resolutions:
+        elif selected_action == action_reconstruct:
+            self.update_structure_volume_requested.emit(self.active_polygon)
+
+        elif selected_action in action_resolutions:
             selected_downsample_factor = action_resolutions[selected_action]
             self.set_downsample_factor(selected_downsample_factor)
 
@@ -738,15 +779,15 @@ class DrawableGraphicsScene(QGraphicsScene):
         # elif selected_action == action_doneDrawing:
         #     self.set_mode(Mode.IDLE)
 
-        if selected_action == action_showScoremap:
-            # name_s = self.polygonElements[self.active_section][self.selected_polygon]['label']
-            # name_s = '7N_L'
-            # name_u = labelMap_sidedToUnsided[name_s]
-            self.set_active_structure(name_u='7N_L')
-            self.load_scoremap()
-
-        elif selected_action == action_showHistology:
-            self.load_histology()
+        # if selected_action == action_showScoremap:
+        #     # name_s = self.polygonElements[self.active_section][self.selected_polygon]['label']
+        #     # name_s = '7N_L'
+        #     # name_u = labelMap_sidedToUnsided[name_s]
+        #     self.set_active_structure(name_u='7N_L')
+        #     self.load_scoremap()
+        #
+        # elif selected_action == action_showHistology:
+        #     self.load_histology()
 
 
     # def zoom_scene(self, gview_x, gview_y, delta):
@@ -1001,10 +1042,10 @@ class DrawableGraphicsScene(QGraphicsScene):
 
     def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
 
-        print 'cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
+        print self.id, ': cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
 
-        self.hline.setVisible(True)
-        self.vline.setVisible(True)
+        # self.hline.setVisible(True)
+        # self.vline.setVisible(True)
 
         self.cross_x_lossless = cross_x_lossless
         self.cross_y_lossless = cross_y_lossless
@@ -1020,22 +1061,24 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.hline.setLine(0, cross_y_ds, self.data_feeder.x_dim-1, cross_y_ds)
             self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.y_dim-1)
 
-            sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
-            self.set_active_section(sec)
+            if hasattr(self.data_feeder, 'sections'):
+                sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
+                print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', self.convert_section_to_z(sec=sec, downsample=downsample)
+                self.set_active_section(sec, update_crossline=False)
 
         elif self.data_feeder.orientation == 'coronal':
 
             self.hline.setLine(0, cross_y_ds, self.data_feeder.z_dim-1, cross_y_ds)
             self.vline.setLine(self.data_feeder.z_dim-1-cross_z_ds, 0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.y_dim-1)
 
-            self.set_active_i(cross_x_ds)
+            self.set_active_i(cross_x_ds, update_crossline=False)
 
         elif self.data_feeder.orientation == 'horizontal':
 
             self.hline.setLine(0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.x_dim-1, self.data_feeder.z_dim-1-cross_z_ds)
             self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.z_dim-1)
 
-            self.set_active_i(cross_y_ds)
+            self.set_active_i(cross_y_ds, update_crossline=False)
 
 
     def eventFilter(self, obj, event):
@@ -1045,7 +1088,13 @@ class DrawableGraphicsScene(QGraphicsScene):
         out_factor = .9
         in_factor = 1. / out_factor
 
-        if event.type() == QEvent.Wheel:
+        if event.type() == QEvent.KeyPress:
+            if (event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return) and self.mode == 'add vertices consecutively':
+                first_circ = self.active_polygon.vertex_circles[0]
+                first_circ.signal_emitter.press.emit(first_circ)
+                return False
+
+        elif event.type() == QEvent.Wheel:
             # eat wheel event from gview viewport. default behavior is to trigger down scroll
 
             if event.delta() < 0: # negative means towards user
@@ -1099,7 +1148,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 gscene_x_lossless = gscene_x * downsample
 
                 if hasattr(self.data_feeder, 'sections'):
-                    gscene_z_lossless = self.convert_section_to_z(sec=self.active_section, downsample=1)[0] # Note that the returned result is a pair of z limits.
+                    z = self.convert_section_to_z(sec=self.active_section, downsample=1) # Note that the returned result is a pair of z limits.
+                    gscene_z_lossless = (z[0] + z[1])/2
                 else:
                     gscene_z_lossless = self.active_i
 
@@ -1109,16 +1159,18 @@ class DrawableGraphicsScene(QGraphicsScene):
                     cross_z_lossless = gscene_z_lossless
 
                 elif self.data_feeder.orientation == 'coronal':
-                    cross_z_lossless = -gscene_x_lossless
+                    cross_z_lossless = self.data_feeder.z_dim * downsample - 1 - gscene_x_lossless
                     cross_y_lossless = gscene_y_lossless
                     cross_x_lossless = gscene_z_lossless
 
                 elif self.data_feeder.orientation == 'horizontal':
                     cross_x_lossless = gscene_x_lossless
-                    cross_z_lossless = -gscene_y_lossless
+                    cross_z_lossless = self.data_feeder.z_dim * downsample - 1 - gscene_y_lossless
                     cross_y_lossless = gscene_z_lossless
 
-                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+                print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
+                self.crossline_updated.emit(int(np.round(cross_x_lossless)), int(np.round(cross_y_lossless)), int(np.round(cross_z_lossless)))
+                return True
 
 
             elif self.mode == 'add vertices consecutively':

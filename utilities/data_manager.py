@@ -117,14 +117,19 @@ class DataManager(object):
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size
         # return int(z1)-z_begin, int(z2)+1-z_begin
-        return int(z1)-z_begin, int(z2)+1-z_begin
+        return int(np.round(z1))-z_begin, int(np.round(z2))+1-z_begin
 
     @staticmethod
     def convert_z_to_section(stack, z, downsample):
         xy_pixel_distance = xy_pixel_distance_lossless * downsample
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
-        sec = int(z / voxel_z_size)
+
+        first_sec, last_sec = section_range_lookup[stack]
+        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+        z_begin = int(np.floor(first_sec*voxel_z_size))
+
+        sec = int(np.round((z + z_begin) / voxel_z_size))
         return sec
 
     def __init__(self, data_dir=os.environ['DATA_DIR'],

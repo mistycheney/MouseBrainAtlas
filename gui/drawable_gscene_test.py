@@ -102,24 +102,24 @@ class ImageDataFeeder(object):
 
         self.image_cache[downsample][sec] = qimage
 
-    def load_images(self, downsample=None, selected_sections=None):
-        if downsample is None:
-            downsample = self.downsample
-
-        if selected_sections is None:
-            selected_sections = self.sections
-
-        if downsample == 1:
-            self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-                            for sec in selected_sections}
-        elif downsample == 32:
-            # self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
-            #                 for sec in self.sections}
-            self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
-                                            % dict(stack=self.stack, sec=sec))
-                                            for sec in selected_sections}
-
-        self.compute_dimension()
+    # def load_images(self, downsample=None, selected_sections=None):
+    #     if downsample is None:
+    #         downsample = self.downsample
+    #
+    #     if selected_sections is None:
+    #         selected_sections = self.sections
+    #
+    #     if downsample == 1:
+    #         self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
+    #                         for sec in selected_sections}
+    #     elif downsample == 32:
+    #         # self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
+    #         #                 for sec in self.sections}
+    #         self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
+    #                                         % dict(stack=self.stack, sec=sec))
+    #                                         for sec in selected_sections}
+    #
+    #     self.compute_dimension()
 
 
     def compute_dimension(self):
@@ -154,20 +154,27 @@ class ImageDataFeeder(object):
             sys.stderr.write('Downsample factor %d is not supported.' % downsample)
             return
 
-        if downsample not in self.image_cache:
-            t = time.time()
-            self.load_images(downsample)
-            sys.stderr.write('Load images: %.2f\n' % (time.time() - t))
-
         sec = self.sections[i]
 
+        # if downsample not in self.image_cache:
+        #     t = time.time()
+        #     self.load_images(downsample)
+        #     sys.stderr.write('Load images: %.2f\n' % (time.time() - t))
+
+        # if sec not in self.image_cache[downsample]:
+        #     if downsample == 1:
+        #         self.image_cache[downsample][sec] = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
+        #     elif downsample == 32:
+        #         # self.image_cache[downsample][i] = QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
+        #         self.image_cache[downsample][sec] = QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
+        #                                         % dict(stack=self.stack, sec=sec))
+        #
+        if downsample not in self.image_cache:
+            self.image_cache[downsample] = {}
+
         if sec not in self.image_cache[downsample]:
-            if downsample == 1:
-                self.image_cache[downsample][sec] = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-            elif downsample == 32:
-                # self.image_cache[downsample][i] = QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
-                self.image_cache[downsample][sec] = QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
-                                                % dict(stack=self.stack, sec=sec))
+            sys.stderr.write('Image is not loaded.\n')
+            return None
 
         return self.image_cache[downsample][sec]
 
@@ -271,6 +278,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         Initialization of BrainLabelingGUI.
         """
+
+        t0 = time.time()
+
         # self.app = QApplication(sys.argv)
         QMainWindow.__init__(self, parent)
 
@@ -375,6 +385,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.read_images_thread.start()
 
         self.button_stop.clicked.connect(self.read_images_thread.terminate)
+
+        print time.time() - t0
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):

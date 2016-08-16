@@ -314,6 +314,9 @@ class DrawableGraphicsScene(QGraphicsScene):
             i = self.data_feeder.sections.index(sec)
 
         image = self.data_feeder.retrive_i(i=i)
+        if image is None:
+            return
+
         histology_pixmap = QPixmap.fromImage(image)
 
         # histology_pixmap = QPixmap.fromImage(self.qimages[sec])

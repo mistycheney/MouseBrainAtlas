@@ -340,7 +340,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if first_sec is None and last_sec is None:
             first_sec, last_sec = section_range_lookup[self.stack]
 
-        self.sections = range(first, last+1)
+        self.sections = range(first_sec, last_sec + 1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
         image_feeder.set_orientation('sagittal')

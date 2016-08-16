@@ -619,17 +619,22 @@ if __name__ == "__main__":
         description='Launch brain labeling GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
-    parser.add_argument("first_sec", type=int, help="first section")
-    parser.add_argument("last_sec", type=int, help="last section")
-    # parser.add_argument("-n", "--num_neighbors", type=int, help="number of neighbor sections to preload, default %(default)d", default=1)
+    parser.add_argument("-f", "--first_sec", type=int, help="first section")
+    parser.add_argument("-l", "--last_sec", type=int, help="last section")
     args = parser.parse_args()
 
     from sys import argv, exit
     appl = QApplication(argv)
 
     stack = args.stack_name
-    # NUM_NEIGHBORS_PRELOAD = args.num_neighbors
-    m = BrainLabelingGUI(stack=stack, first_sec=args.first_sec, last_sec=args.last_sec)
+    first_sec0, last_sec0 = section_range_lookup[stack]
+
+    if args.first_sec is None:
+        first_sec = first_sec0
+    if args.last_sec is None:
+        last_sec = last_sec0
+
+    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec)
 
     m.showMaximized()
     m.raise_()

@@ -267,7 +267,7 @@ class ReadImagesThread(QThread):
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
-    def __init__(self, parent=None, stack=None):
+    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None):
         """
         Initialization of BrainLabelingGUI.
         """
@@ -335,10 +335,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # self.sections = range(127, 327)
         # self.sections = range(150, 304)
-        self.sections = range(150, 160)
+        # self.sections = range(150, 160)
 
-        # first_sec, last_sec = section_range_lookup[self.stack]
-        # self.sections = range(first, last+1)
+        if first_sec is None and last_sec is None:
+            first_sec, last_sec = section_range_lookup[self.stack]
+
+        self.sections = range(first, last+1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
         image_feeder.set_orientation('sagittal')
@@ -605,6 +607,8 @@ if __name__ == "__main__":
         description='Launch brain labeling GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
+    parser.add_argument("first_sec", type=int, help="first section")
+    parser.add_argument("last_sec", type=int, help="last section")
     # parser.add_argument("-n", "--num_neighbors", type=int, help="number of neighbor sections to preload, default %(default)d", default=1)
     args = parser.parse_args()
 
@@ -613,7 +617,7 @@ if __name__ == "__main__":
 
     stack = args.stack_name
     # NUM_NEIGHBORS_PRELOAD = args.num_neighbors
-    m = BrainLabelingGUI(stack=stack)
+    m = BrainLabelingGUI(stack=stack, first_sec=args.first_sec, last_sec=args.last_sec)
 
     m.showMaximized()
     m.raise_()

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v15.ui'
 #
-# Created: Mon Aug 15 13:52:23 2016
+# Created: Mon Aug 15 20:30:28 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -137,6 +137,9 @@ class Ui_BrainLabelingGui(object):
         self.label_7 = QtGui.QLabel(self.layoutWidget)
         self.label_7.setObjectName(_fromUtf8("label_7"))
         self.gridLayout.addWidget(self.label_7, 4, 5, 1, 1)
+        self.button_stop = QtGui.QPushButton(self.layoutWidget)
+        self.button_stop.setObjectName(_fromUtf8("button_stop"))
+        self.gridLayout.addWidget(self.button_stop, 4, 4, 1, 1)
         self.gridLayout_2.addWidget(self.splitter_3, 0, 0, 1, 1)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
@@ -168,6 +171,7 @@ class Ui_BrainLabelingGui(object):
         self.button_save.setText(_translate("BrainLabelingGui", "Save", None))
         self.button_load.setText(_translate("BrainLabelingGui", "Load", None))
         self.label_7.setText(_translate("BrainLabelingGui", "Username:", None))
+        self.button_stop.setText(_translate("BrainLabelingGui", "Stop Loading", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))
 
 

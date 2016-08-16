@@ -125,8 +125,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         if mode == 'add vertices consecutively':
             self.gview.setDragMode(QGraphicsView.NoDrag)
-            for p in self.drawings[self.active_i]:
-                p.setFlag(QGraphicsItem.ItemIsMovable, False)
+            # for p in self.drawings[self.active_i]:
+                # p.setFlag(QGraphicsItem.ItemIsMovable, False)
 
         elif mode == 'idle':
             self.gview.setDragMode(QGraphicsView.ScrollHandDrag)
@@ -135,8 +135,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 self.vline.setVisible(False)
                 # self.removeItem(self.hline)
                 # self.removeItem(self.vline)
-            for p in self.drawings[self.active_i]:
-                p.setFlag(QGraphicsItem.ItemIsMovable, True)
+            # for p in self.drawings[self.active_i]:
+            #     p.setFlag(QGraphicsItem.ItemIsMovable, True)
 
         elif mode == 'crossline':
             self.hline.setVisible(True)
@@ -499,7 +499,9 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         polygon.setPen(pen)
         polygon.setZValue(z_value)
-        polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+        # polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+        polygon.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+        polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
 
         polygon.signal_emitter.press.connect(self.polygon_press)
         polygon.signal_emitter.release.connect(self.polygon_release)
@@ -638,6 +640,17 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.gui.recent_labels.insert(0, abbr)
 
         self.label_selection_dialog.accept()
+
+
+
+    # def load_drawings(self, fn_template, append=True):
+    #     import cPickle as pickle
+    #
+    #     self.labelings = pickle.load(open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
+    #                                             downsample=self.data_feeder.downsample), 'r'))
+    #
+    #     for i, polygons in self.labelings.iteritems():
+    #
 
 
 
@@ -1165,6 +1178,22 @@ class DrawableGraphicsScene(QGraphicsScene):
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
                 return False
+            elif event.key() == Qt.Key_V: # Toggle all vertex circles
+                for i, polygons in self.drawings.iteritems():
+                    for p in polygons:
+                        for c in p.vertex_circles:
+                            if c.isVisible():
+                                c.setVisible(False)
+                            else:
+                                c.setVisible(True)
+            elif event.key() == Qt.Key_C: # Toggle all contours
+                for i, polygons in self.drawings.iteritems():
+                    for p in polygons:
+                        if p.isVisible():
+                            p.setVisible(False)
+                        else:
+                            p.setVisible(True)
+
 
         elif event.type() == QEvent.Wheel:
             # eat wheel event from gview viewport. default behavior is to trigger down scroll

@@ -24,22 +24,22 @@ from enum import Enum
 
 from gui_utilities import *
 
-class Mode(Enum):
-    REVIEW_PROPOSAL = 'review proposal'
-    IDLE = 'idle'
-    MOVING_POLYGON = 'moving polygon'
-    MOVING_VERTEX = 'moving vertex'
-    CREATING_NEW_POLYGON = 'create new polygon'
-    ADDING_VERTICES_CONSECUTIVELY = 'adding vertices consecutively'
-    ADDING_VERTICES_RANDOMLY = 'adding vertices randomly'
-    KEEP_SELECTION = 'keep selection'
-    SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
-    DELETE_ROI_MERGE = 'delete roi (merge)'
-    DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
-    DELETE_BETWEEN = 'delete edges between two vertices'
-    CONNECT_VERTICES = 'connect two vertices'
+# class Mode(Enum):
+#     REVIEW_PROPOSAL = 'review proposal'
+#     IDLE = 'idle'
+#     MOVING_POLYGON = 'moving polygon'
+#     MOVING_VERTEX = 'moving vertex'
+#     CREATING_NEW_POLYGON = 'create new polygon'
+#     ADDING_VERTICES_CONSECUTIVELY = 'adding vertices consecutively'
+#     ADDING_VERTICES_RANDOMLY = 'adding vertices randomly'
+#     KEEP_SELECTION = 'keep selection'
+#     SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
+#     DELETE_ROI_MERGE = 'delete roi (merge)'
+#     DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
+#     DELETE_BETWEEN = 'delete edges between two vertices'
+#     CONNECT_VERTICES = 'connect two vertices'
 
-VERTEX_CIRCLE_RADIUS = 10
+VERTEX_CIRCLE_RADIUS = 20
 
 class QGraphicsPathItemModified(QGraphicsPathItem):
 

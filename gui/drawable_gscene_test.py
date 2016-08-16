@@ -95,19 +95,29 @@ class ImageDataFeeder(object):
         self.orientation = orientation
         self.compute_dimension()
 
-    def load_images(self, downsample=None):
+    def set_image(self, qimage, sec, downsample=None):
+
         if downsample is None:
             downsample = self.downsample
 
+        self.image_cache[downsample][sec] = qimage
+
+    def load_images(self, downsample=None, selected_sections=None):
+        if downsample is None:
+            downsample = self.downsample
+
+        if selected_sections is None:
+            selected_sections = self.sections
+
         if downsample == 1:
             self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-                            for sec in self.sections}
+                            for sec in selected_sections}
         elif downsample == 32:
             # self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
             #                 for sec in self.sections}
             self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
                                             % dict(stack=self.stack, sec=sec))
-                                            for sec in self.sections}
+                                            for sec in selected_sections}
 
         self.compute_dimension()
 
@@ -240,6 +250,20 @@ class VolumeResectionDataFeeder(object):
             return sagittal_image
 
 
+class ReadImagesThread(QThread):
+    def __init__(self, stack, sections):
+        QThread.__init__(self)
+        self.stack = stack
+        self.sections = sections
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        for sec in self.sections:
+            image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
+            self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
+
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
@@ -310,8 +334,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.keyReleaseEvent = self.key_released
 
         # self.sections = range(127, 327)
-        self.sections = range(150, 304)
-        # self.sections = range(150, 160)
+        # self.sections = range(150, 304)
+        self.sections = range(150, 160)
 
         # first_sec, last_sec = section_range_lookup[self.stack]
         # self.sections = range(first, last+1)
@@ -342,6 +366,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['coronal'].set_active_i(50)
         self.gscenes['sagittal'].set_active_section(self.sections[0])
         self.gscenes['horizontal'].set_active_i(150)
+
+        self.read_images_thread = ReadImagesThread(self.stack, self.sections)
+        self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
+
+        self.read_images_thread.start()
+
+        self.button_stop.clicked.connect(self.read_images_thread.terminate)
+
+    @pyqtSlot()
+    def image_loaded(self, qimage, sec):
+        self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
+        print qimage.width(), qimage.height(), sec, 'received'
 
     @pyqtSlot()
     def username_changed(self):
@@ -569,14 +605,14 @@ if __name__ == "__main__":
         description='Launch brain labeling GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
-    parser.add_argument("-n", "--num_neighbors", type=int, help="number of neighbor sections to preload, default %(default)d", default=1)
+    # parser.add_argument("-n", "--num_neighbors", type=int, help="number of neighbor sections to preload, default %(default)d", default=1)
     args = parser.parse_args()
 
     from sys import argv, exit
     appl = QApplication(argv)
 
     stack = args.stack_name
-    NUM_NEIGHBORS_PRELOAD = args.num_neighbors
+    # NUM_NEIGHBORS_PRELOAD = args.num_neighbors
     m = BrainLabelingGUI(stack=stack)
 
     m.showMaximized()

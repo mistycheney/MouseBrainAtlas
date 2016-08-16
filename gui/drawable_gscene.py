@@ -656,13 +656,12 @@ class DrawableGraphicsScene(QGraphicsScene):
         # stack_orient_downsample_user_timestamp.pkl
 
         if username is not None:
-            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username]
+            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username and 'sagittal' in f_split]
         else:
             filtered_fns = fns
 
         if timestamp == 'latest':
             if len(filtered_fns) == 0: return None
-            print filtered_fns
             fns_sorted_by_timestamp = sorted(filtered_fns, key=lambda (f, f_split): datetime.datetime.strptime(f_split[4], "%m%d%Y%H%M%S"), reverse=True)
             selected_f, selected_f_split = fns_sorted_by_timestamp[0]
             selected_username = selected_f_split[3]
@@ -671,6 +670,9 @@ class DrawableGraphicsScene(QGraphicsScene):
             raise Exception('Timestamp must be `latest`.')
 
         import cPickle as pickle
+
+        print selected_f
+
         self.labelings = pickle.load(open(os.path.join(labeling_dir, selected_f), 'r'))
 
         if not append:

@@ -646,7 +646,8 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.label_selection_dialog.accept()
 
 
-    def load_drawings(self, username, timestamp='latest', labeling_dir=None, append=False):
+
+    def load_drawings(self, username, timestamp='latest', labeling_dir=None, append=False, orientation=None):
 
         if labeling_dir is None:
             annotation_rootdir = '/home/yuncong/CSHL_labelings_new'
@@ -655,8 +656,11 @@ class DrawableGraphicsScene(QGraphicsScene):
         fns = [(f, f[:-4].split('_')) for f in os.listdir(labeling_dir) if f.endswith('pkl')]
         # stack_orient_downsample_user_timestamp.pkl
 
+        if orientation is None:
+            orientation = self.data_feeder.orientation
+
         if username is not None:
-            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username]
+            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username and f_split[1] == orientation]
         else:
             filtered_fns = fns
 

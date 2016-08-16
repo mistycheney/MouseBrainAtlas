@@ -280,7 +280,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Initialization of BrainLabelingGUI.
         """
 
-        t0 = time.time()
+        # t0 = time.time()
 
         # self.app = QApplication(sys.argv)
         QMainWindow.__init__(self, parent)
@@ -383,17 +383,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.read_images_thread = ReadImagesThread(self.stack, self.sections)
         self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
-
         self.read_images_thread.start()
-
         self.button_stop.clicked.connect(self.read_images_thread.terminate)
 
-        print time.time() - t0
+        # print time.time() - t0
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
         self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
         print 'Image', sec, 'received.'
+        self.statusBar().showMessage('Image %d loaded.\n' % sec)
 
     @pyqtSlot()
     def username_changed(self):

@@ -648,14 +648,19 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.labelings = defaultdict(list)
         for i, polygons in self.drawings.iteritems():
             for polygon in polygons:
-                polygon_labeling = {'vertices': []}
-                for c in polygon.vertex_circles:
-                    pos = c.scenePos()
-                    polygon_labeling['vertices'].append((pos.x(), pos.y()))
-                polygon_labeling['label'] = polygon.label
-                if hasattr(self.data_feeder, 'sections'):
-                    polygon_labeling['section'] = self.data_feeder.sections[i]
-                self.labelings[i].append(polygon_labeling)
+                try:
+                    polygon_labeling = {'vertices': []}
+                    for c in polygon.vertex_circles:
+                        pos = c.scenePos()
+                        polygon_labeling['vertices'].append((pos.x(), pos.y()))
+                    polygon_labeling['label'] = polygon.label
+                    if hasattr(self.data_feeder, 'sections'):
+                        polygon_labeling['section'] = self.data_feeder.sections[i]
+                    self.labelings[i].append(polygon_labeling)
+                except Exception as e:
+                    print e
+                    with open('log.txt', 'w') as f:
+                        f.write('ERROR:' + self.id + ' ' + i + '\n')
 
         pickle.dump(self.labelings, open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
                                                 downsample=self.data_feeder.downsample), 'w'))

@@ -101,6 +101,7 @@ class ImageDataFeeder(object):
             downsample = self.downsample
 
         self.image_cache[downsample][sec] = qimage
+        self.compute_dimension()
 
     # def load_images(self, downsample=None, selected_sections=None):
     #     if downsample is None:
@@ -288,6 +289,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.setupUi(self)
 
         self.button_save.clicked.connect(self.save)
+        self.button_load.clicked.connect(self.load)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         from collections import defaultdict
@@ -391,7 +393,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
         self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
-        print qimage.width(), qimage.height(), sec, 'received'
+        print 'Image', sec, 'received.'
 
     @pyqtSlot()
     def username_changed(self):
@@ -469,17 +471,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #         del pix
 
 
+    def load(self):
+        self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest')
+
     @pyqtSlot()
     def active_image_updated(self):
         self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
         dict(stack=self.stack, sec=self.gscenes['sagittal'].active_section, z=self.gscenes['sagittal'].active_i, x=self.gscenes['coronal'].active_i, y=self.gscenes['horizontal'].active_i))
 
-    @pyqtSlot(object)
-    def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
-        print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless
-        for gscene in self.gscenes.itervalues():
-            gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+    @pyqtSlot(int, int, int, str)
+    def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, source_gscene_id):
+        print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
+        for gscene_id, gscene in self.gscenes.iteritems():
+            # if gscene_id != source_gscene_id:
+            #     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -627,12 +634,9 @@ if __name__ == "__main__":
     appl = QApplication(argv)
 
     stack = args.stack_name
-    first_sec0, last_sec0 = section_range_lookup[stack]
 
-    if args.first_sec is None:
-        first_sec = first_sec0
-    if args.last_sec is None:
-        last_sec = last_sec0
+    first_sec = section_range_lookup[stack][0] if args.first_sec is None else args.first_sec
+    last_sec = section_range_lookup[stack][1] if args.last_sec is None else args.last_sec
 
     m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec)
 

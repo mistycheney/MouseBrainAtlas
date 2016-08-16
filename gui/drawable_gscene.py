@@ -62,7 +62,7 @@ CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
 class DrawableGraphicsScene(QGraphicsScene):
 
     drawings_updated = pyqtSignal(object)
-    crossline_updated = pyqtSignal(int, int, int)
+    crossline_updated = pyqtSignal(int, int, int, str)
     update_structure_volume_requested = pyqtSignal(object)
     active_image_updated = pyqtSignal()
 
@@ -247,7 +247,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 self.cross_y_lossless = cross_depth_lossless
 
             print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
-            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless)
+            # self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
+            self.crossline_updated.emit(int(np.round(self.cross_x_lossless)), int(np.round(self.cross_y_lossless)), int(np.round(self.cross_z_lossless)), self.id)
 
 
     def set_active_section(self, sec, update_crossline=True):
@@ -436,11 +437,13 @@ class DrawableGraphicsScene(QGraphicsScene):
         #     'type': 'add_polygon_by_vertices_label_begin'
         #     })
 
-        if index is None:
+        if index is None and section is None:
             index = self.active_i
+        elif section is not None:
+            index = self.data_feeder.sections.index(section)
 
-        polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index)
-        polygon.add_circles_for_all_vertices(radius=2, color=vertex_color)
+        polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
+        polygon.add_circles_for_all_vertices(radius=vertex_radius, color=vertex_color)
         polygon.set_label(label, label_pos)
         # self.restack_polygons(polygon)
 
@@ -480,13 +483,11 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         pen.setWidth(linewidth)
 
-        if index is None:
+        if index is None and section is None:
             if hasattr(self, 'active_i'):
                 index = self.active_i
-            else:
-                if section is None:
-                    section = self.active_section
-                index = self.data_feeder.sections.index(section)
+        elif section is not None:
+            index = self.data_feeder.sections.index(section)
 
         if hasattr(self.data_feeder, 'sections'):
             sec = self.data_feeder.sections[index]
@@ -645,16 +646,47 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.label_selection_dialog.accept()
 
 
+    def load_drawings(self, username, timestamp='latest', labeling_dir=None, append=False):
 
-    # def load_drawings(self, fn_template, append=True):
-    #     import cPickle as pickle
-    #
-    #     self.labelings = pickle.load(open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
-    #                                             downsample=self.data_feeder.downsample), 'r'))
-    #
-    #     for i, polygons in self.labelings.iteritems():
-    #
+        if labeling_dir is None:
+            annotation_rootdir = '/home/yuncong/CSHL_labelings_new'
+            labeling_dir = os.path.join(annotation_rootdir, self.data_feeder.stack)
 
+        fns = [(f, f[:-4].split('_')) for f in os.listdir(labeling_dir) if f.endswith('pkl')]
+        # stack_orient_downsample_user_timestamp.pkl
+
+        if username is not None:
+            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username]
+        else:
+            filtered_fns = fns
+
+        if timestamp == 'latest':
+            if len(filtered_fns) == 0: return None
+            print filtered_fns
+            fns_sorted_by_timestamp = sorted(filtered_fns, key=lambda (f, f_split): datetime.datetime.strptime(f_split[4], "%m%d%Y%H%M%S"), reverse=True)
+            selected_f, selected_f_split = fns_sorted_by_timestamp[0]
+            selected_username = selected_f_split[3]
+            selected_timestamp = selected_f_split[4]
+        else:
+            raise Exception('Timestamp must be `latest`.')
+
+        import cPickle as pickle
+        self.labelings = pickle.load(open(os.path.join(labeling_dir, selected_f), 'r'))
+
+        if not append:
+            self.drawings = defaultdict(list)
+
+        for i, polygon_dicts in self.labelings.iteritems():
+            for polygon_dict in polygon_dicts:
+                vertices = polygon_dict['vertices']
+                sec = polygon_dict['section']
+                if sec not in self.data_feeder.sections: continue
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
+                                                        linecolor='r', linewidth=10, vertex_radius=20, section=sec)
+
+        # if index == self.active_i:
+        #     print 'polygon added.'
+        #     self.addItem(polygon)
 
 
     def save_drawings(self, fn_template):
@@ -1273,7 +1305,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                     cross_y_lossless = gscene_z_lossless
 
                 print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
-                self.crossline_updated.emit(int(np.round(cross_x_lossless)), int(np.round(cross_y_lossless)), int(np.round(cross_z_lossless)))
+                self.crossline_updated.emit(int(np.round(cross_x_lossless)), int(np.round(cross_y_lossless)), int(np.round(cross_z_lossless)), self.id)
                 return True
 
 

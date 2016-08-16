@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 
-from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion, remove_small_holes
+from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 

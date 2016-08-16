@@ -145,7 +145,9 @@ class ImageDataFeeder(object):
             return
 
         if downsample not in self.image_cache:
+            t = time.time()
             self.load_images(downsample)
+            sys.stderr.write('Load images: %.2f\n' % (time.time() - t))
 
         sec = self.sections[i]
 
@@ -281,6 +283,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
             gscene.crossline_updated.connect(self.crossline_updated)
+            gscene.active_image_updated.connect(self.active_image_updated)
             gscene.update_structure_volume_requested.connect(self.update_structure_volume_requested)
             gscene.set_structure_volumes(self.structure_volumes)
             # gscene.set_drawings(self.drawings)
@@ -306,8 +309,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.keyPressEvent = self.key_pressed
         # self.keyReleaseEvent = self.key_released
 
+        # self.sections = range(127, 327)
+        self.sections = range(150, 304)
+        # self.sections = range(150, 160)
 
-        self.sections = range(180, 190)
         # first_sec, last_sec = section_range_lookup[self.stack]
         # self.sections = range(first, last+1)
 
@@ -335,45 +340,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
 
         self.gscenes['coronal'].set_active_i(50)
-        self.gscenes['sagittal'].set_active_section(181)
+        self.gscenes['sagittal'].set_active_section(self.sections[0])
         self.gscenes['horizontal'].set_active_i(150)
-
-    #
-    # @pyqtSlot(int)
-    # def downsample_factor_changed(self, val):
-    #
-    #     # self.cross_x_lossless = self.cross_x * self.downsample_factor
-    #     # self.cross_y_lossless = self.cross_y * self.downsample_factor
-    #     # self.cross_z_lossless = self.cross_z * self.downsample_factor
-    #
-    #     print val
-    #
-    #     if val == 0:
-    #         self.downsample_factor = 32
-    #     elif val == 1:
-    #         self.downsample_factor = 8
-    #     elif val == 2:
-    #         self.downsample_factor = 4
-    #         if 4 not in self.volume_cache:
-    #             self.volume_cache[4] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':4})
-    #             self.statusBar().showMessage('Volume loaded.')
-    #
-    #     self.gscenes['coronal'].set_downsample_factor(self.downsample_factor)
-    #     self.gscenes['sagittal'].set_downsample_factor(self.downsample_factor)
-    #     self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
-    #
-    #     self.gscenes['coronal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='coronal')
-    #     self.gscenes['sagittal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='sagittal')
-    #     self.gscenes['horizontal'].set_data_feeder(self.resection_volume_feeder, volume=self.volume_cache[self.downsample_factor], orientation='horizontal')
-    #
-    #     self.gscenes['coronal'].update_image()
-    #     self.gscenes['sagittal'].update_image()
-    #     self.gscenes['horizontal'].update_image()
-    #
-    #     # self.update_cross(self.cross_x_lossless / self.downsample_factor, self.cross_y_lossless / self.downsample_factor, self.cross_z_lossless / self.downsample_factor)
-    #     # self.update_gscenes('x')
-    #     # self.update_gscenes('y')
-    #     # self.update_gscenes('z')
 
     @pyqtSlot()
     def username_changed(self):
@@ -389,13 +357,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.username = str(username)
             self.lineEdit_username.setText(self.username)
 
-
         labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
 
-        for gscene_id, gscene in self.gscenes.iteritems():
-            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
+        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
-        pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
+        for gscene_id, gscene in self.gscenes.iteritems():
+            # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
+            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+
+        self.statusBar().showMessage('Labelings saved to %s.' % labelings_dir)
+
+        # pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
 
         # # if sec is not None:
         # #
@@ -447,6 +419,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #         del pix
 
 
+    @pyqtSlot()
+    def active_image_updated(self):
+        self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
+        dict(stack=self.stack, sec=self.gscenes['sagittal'].active_section, z=self.gscenes['sagittal'].active_i, x=self.gscenes['coronal'].active_i, y=self.gscenes['horizontal'].active_i))
+
     @pyqtSlot(object)
     def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless
@@ -457,6 +434,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
         print 'Drawings updated.'
+        self.save()
 
     @pyqtSlot(object)
     def update_structure_volume_requested(self, polygon):
@@ -465,23 +443,40 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         downsample = polygon.gscene.data_feeder.downsample
 
         matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
-        if len(matched_polygons) >= 2:
-            contour_points_grouped_by_pos = {p.position: [(c.scenePos().x()*downsample, c.scenePos().y()*downsample)
-                                                            for c in p.vertex_circles] for p in matched_polygons}
 
-            if polygon.gscene.data_feeder.orientation == 'sagittal':
-                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-            elif polygon.gscene.data_feeder.orientation == 'coronal':
-                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-            elif polygon.gscene.data_feeder.orientation == 'horizontal':
-                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+        if len(matched_polygons) < 2:
+            return
 
-            # Here bbox must be of the original dimension.
 
-            self.structure_volumes[name_u] = (volume, bbox)
+        # NOTICE THE VOLUME IS DOWNSAMPLED BY 8 !!!!
 
-            self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
-            self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)
+        volume_downsample_factor = 8
+        contour_points_grouped_by_pos = {p.position / volume_downsample_factor: [(c.scenePos().x()*downsample / volume_downsample_factor, c.scenePos().y()*downsample/volume_downsample_factor)
+                                                        for c in p.vertex_circles] for p in matched_polygons}
+
+        if polygon.gscene.data_feeder.orientation == 'sagittal':
+            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+        elif polygon.gscene.data_feeder.orientation == 'coronal':
+            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+        elif polygon.gscene.data_feeder.orientation == 'horizontal':
+            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+        # contour_points_grouped_by_pos = {p.position: [(c.scenePos().x()*downsample, c.scenePos().y()*downsample)
+        #                                                 for c in p.vertex_circles] for p in matched_polygons}
+        #
+        # if polygon.gscene.data_feeder.orientation == 'sagittal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+        # elif polygon.gscene.data_feeder.orientation == 'coronal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+        # elif polygon.gscene.data_feeder.orientation == 'horizontal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+        # Here bbox must be of the original dimension.
+
+        self.structure_volumes[name_u] = (volume, bbox)
+
+        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
+        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')

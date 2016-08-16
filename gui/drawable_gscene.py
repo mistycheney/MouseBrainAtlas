@@ -27,6 +27,8 @@ from collections import defaultdict
 from annotation_utilities import *
 from registration_utilities import *
 
+from multiprocess import Pool
+
 # self.red_pen = QPen(Qt.red)
 # self.red_pen.setWidth(PEN_WIDTH)
 # self.blue_pen = QPen(Qt.blue)
@@ -62,6 +64,7 @@ class DrawableGraphicsScene(QGraphicsScene):
     drawings_updated = pyqtSignal(object)
     crossline_updated = pyqtSignal(int, int, int)
     update_structure_volume_requested = pyqtSignal(object)
+    active_image_updated = pyqtSignal()
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(QGraphicsScene, self).__init__(parent=parent)
@@ -151,9 +154,14 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         volume, bbox = self.structure_volumes[name_u]
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
+
+        volume_downsample_factor = 8
+        # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
+        bbox_lossless = np.array(bbox) * volume_downsample_factor
+
         downsample = self.data_feeder.downsample
-        volume_downsampled = volume[::downsample, ::downsample, ::downsample]
-        xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox) / downsample
+        volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
+        xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
 
         print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
@@ -168,6 +176,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             # for x_ds in range(xmin_ds, xmax_ds + 1):
             for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
+                print x_ds
                 cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8))
                 if len(cnts) > 0 and 1 in cnts:
                     # print x_ds
@@ -178,8 +187,10 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
                                                             linecolor='r', linewidth=2, index=x_ds)
 
+
         elif self.data_feeder.orientation == 'horizontal':
             for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
+                print y_ds
                 cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8))
                 if len(cnts) > 0 and 1 in cnts:
                     # print y_ds
@@ -216,6 +227,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         # self.active_section = sec
         self.update_image()
+
+        self.active_image_updated.emit()
 
         # if update_crossline and self.mode == 'crossline':
         if update_crossline and hasattr(self, 'cross_x_lossless'):
@@ -362,6 +375,48 @@ class DrawableGraphicsScene(QGraphicsScene):
     def set_conversion_func_z_to_section(self, func):
         self.convert_z_to_section = func
 
+    # def restack_polygons(self, polygon):
+    #     '''
+    #     Adjust the z-order of a polygon, given other overlapping polygons.
+    #
+    #     Args:
+    #         polygon (QGraphicsPathItemModified): the polygon
+    #
+    #     Returns:
+    #         list of QGraphicsPathItemModified: polygons overlapping with this polygon
+    #
+    #     '''
+    #
+    #     # sec = self.polygon_inverse_lookup[polygon]
+    #
+    #     path = polygon.path()
+    #
+    #     n = polygon_num_vertices(path=path)
+    #
+    #     overlap_polygons = set([])
+    #     # for p in self.accepted_proposals_allSections[sec]:
+    #     for p in self.drawings[self.active_i]:
+    #         if p != polygon:
+    #             for i in range(n):
+    #                 elem = path.elementAt(i)
+    #                 if p.path().contains(QPointF(elem.x, elem.y)) or p.path().intersects(path):
+    #                     # print 'overlap_with', overlap_polygons
+    #                     overlap_polygons.add(p)
+    #
+    #     for p in overlap_polygons:
+    #         if p.path().contains(path): # if new polygon is within existing polygon, it must has higher z value
+    #             new_z = max(polygon.zValue(), p.zValue()+1)
+    #             print polygon, '=>', new_z
+    #             polygon.setZValue(new_z)
+    #
+    #         elif path.contains(p.path()):  # if new polygon wraps existing polygon, it must has lower z value
+    #             new_z = min(polygon.zValue(), p.zValue()-1)
+    #             print polygon, '=>', new_z
+    #             polygon.setZValue(new_z)
+    #
+    #     return overlap_polygons
+
+
     def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=PEN_WIDTH, vertex_color='b', vertex_radius=2,
                                             label='unknown', section=None, label_pos=None, index=None):
         '''
@@ -384,6 +439,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index)
         polygon.add_circles_for_all_vertices(radius=2, color=vertex_color)
         polygon.set_label(label, label_pos)
+        # self.restack_polygons(polygon)
 
         # self.populate_polygon_with_vertex_circles(new_polygon)
         # self.restack_polygons(new_polygon)
@@ -587,11 +643,22 @@ class DrawableGraphicsScene(QGraphicsScene):
 
     def save_drawings(self, fn_template):
         import cPickle as pickle
-        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-        pickle.dump(self.drawings, fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
-                                                downsample=self.data_feeder.downsample,
-                                                timestamp=timestamp))
-        # for i, polygon in self.drawings.iteritems():
+
+        # Cannot pickle QT objects.
+        self.labelings = defaultdict(list)
+        for i, polygons in self.drawings.iteritems():
+            for polygon in polygons:
+                polygon_labeling = {'vertices': []}
+                for c in polygon.vertex_circles:
+                    pos = c.scenePos()
+                    polygon_labeling['vertices'].append((pos.x(), pos.y()))
+                polygon_labeling['label'] = polygon.label
+                if hasattr(self.data_feeder, 'sections'):
+                    polygon_labeling['section'] = self.data_feeder.sections[i]
+                self.labelings[i].append(polygon_labeling)
+
+        pickle.dump(self.labelings, open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
+                                                downsample=self.data_feeder.downsample), 'w'))
 
 
     @pyqtSlot()

@@ -64,7 +64,11 @@ class DataManager(object):
             filtered_fns = fns
 
         if timestamp == 'latest':
-            if len(filtered_fns) == 0: return None
+            if len(filtered_fns) == 0:
+                # sys.stderr.write('No annotation matches criteria.\n')
+                # return None
+                raise Exception('No annotation matches criteria.\n')
+
             fns_sorted_by_timestamp = sorted(filtered_fns, key=lambda (f, f_split): datetime.datetime.strptime(f_split[4], "%m%d%Y%H%M%S"), reverse=True)
             selected_f, selected_f_split = fns_sorted_by_timestamp[0]
             selected_username = selected_f_split[3]
@@ -77,8 +81,10 @@ class DataManager(object):
 
     @staticmethod
     def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
-        res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=None, downsample=None, annotation_rootdir=annotation_rootdir)
+        res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
         fp, usr, ts = res
+        print usr, ts
+
         obj = pickle.load(open(fp, 'r'))
         if obj is None:
             return None

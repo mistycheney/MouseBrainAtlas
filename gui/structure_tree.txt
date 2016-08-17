@@ -24,7 +24,7 @@ Pontine Tegmentum
           - posterodorsal tegmental nucleus, PDTg: in Paxinos, but not all authors identify this
      - reticulotegmental nucleus, RtTg: very distinguishable; split into two parts at midline [GOOD]
      facial nerve, 7n: very distinguishable [GOOD]
-     locus coeruleus, LC: most part very distinguishable, ventral border is a bit uncertain
+     locus coeruleus, LC: most part very distinguishable, ventral border is a bit uncertain [LC]
      Subceruleus Nucleus, SubC: in Paxinos, subdivided into two parts, dorsal part, SubCD and ventral part, SubCV
      abducens, 6N: very distinguishable
      facial nucleus, 7N: very distinguishable

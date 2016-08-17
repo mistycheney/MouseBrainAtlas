@@ -408,13 +408,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.username = str(username)
             self.lineEdit_username.setText(self.username)
 
-        labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
+        # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
+        labelings_dir = create_if_not_exists(os.path.join(annotation_midbrainIncluded_v2_rootdir, stack))
 
         timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
         for gscene_id, gscene in self.gscenes.iteritems():
             # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+            # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
 
         self.statusBar().showMessage('Labelings saved to %s.' % labelings_dir)
 
@@ -471,7 +473,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def load(self):
-        self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
 
     @pyqtSlot()
     def active_image_updated(self):

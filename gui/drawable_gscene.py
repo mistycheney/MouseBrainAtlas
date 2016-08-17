@@ -655,7 +655,8 @@ class DrawableGraphicsScene(QGraphicsScene):
         if downsample is None:
             downsample = self.data_feeder.downsample
 
-        self.labelings = DataManager.load_annotation_v2(stack=self.data_feeder.stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=None)
+        self.labelings, _, _ = DataManager.load_annotation_v2(stack=self.data_feeder.stack, username=username, timestamp=timestamp,
+                                                        orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
 
         if not append:
             self.drawings = defaultdict(list)
@@ -677,11 +678,21 @@ class DrawableGraphicsScene(QGraphicsScene):
         #     self.addItem(polygon)
 
 
-    def save_drawings(self, fn_template):
+    def save_drawings(self, fn_template, timestamp, username):
         import cPickle as pickle
 
-        # Cannot pickle QT objects.
-        self.labelings = defaultdict(list)
+        # Cannot pickle QT objects, so need to extract the data and put in dict.
+        self.labelings = {'polygons': defaultdict(list)}
+        if hasattr(self.data_feeder, 'sections'):
+            self.labelings['indexing_scheme'] = 'section'
+        else:
+            self.labelings['indexing_scheme'] = 'index'
+
+        self.labelings['orientation'] = self.data_feeder.orientation
+        self.labelings['downsample'] = self.data_feeder.downsample
+        self.labelings['timestamp'] = timestamp
+        self.labelings['username'] = username
+
         for i, polygons in self.drawings.iteritems():
             for polygon in polygons:
                 try:
@@ -693,9 +704,9 @@ class DrawableGraphicsScene(QGraphicsScene):
                     if hasattr(self.data_feeder, 'sections'):
                         # polygon_labeling['section'] = self.data_feeder.sections[i]
                         sec = self.data_feeder.sections[i]
-                        self.labelings[sec].append(polygon_labeling)
+                        self.labelings['polygons'][sec].append(polygon_labeling)
                     else:
-                        self.labelings[i].append(polygon_labeling)
+                        self.labelings['polygons'][i].append(polygon_labeling)
 
                 except Exception as e:
                     print e
@@ -703,7 +714,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                         f.write('ERROR:' + self.id + ' ' + str(i) + '\n')
 
         pickle.dump(self.labelings, open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
-                                                downsample=self.data_feeder.downsample), 'w'))
+                                                downsample=self.data_feeder.downsample, username=username, timestamp=timestamp), 'w'))
 
 
     @pyqtSlot()

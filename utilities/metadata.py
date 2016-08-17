@@ -27,6 +27,7 @@ elif hostname == 'yuncong-MacbookPro':
     atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+    annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v2/'
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'

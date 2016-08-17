@@ -471,7 +471,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     def load(self):
-        self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest')
+        self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
 
     @pyqtSlot()
     def active_image_updated(self):

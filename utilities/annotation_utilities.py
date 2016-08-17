@@ -54,18 +54,21 @@ def assign_sideness(label_polygons, landmark_range_limits=None):
     label_polygons_sideAssigned_dict = defaultdict(dict)
 
     for name, v in label_polygons_dict.iteritems():
-        if name in labels_unsided and len(labelMap_unsidedToSided[name]) == 2:
+        if name not in singular_structures:
+            name_u = convert_name_to_unsided(name)
             for sec, coords in v.iteritems():
-
                 if np.any(np.isnan(coords)): continue
 
-                if sec <= landmark_range_limits[name + '_L'][1]:
-                    label_polygons_sideAssigned_dict[name + '_L'][sec] = coords
-                elif sec >= landmark_range_limits[name + '_R'][0]:
-                    label_polygons_sideAssigned_dict[name + '_R'][sec] = coords
+                lname = convert_to_left_name(name)
+                rname = convert_to_right_name(name)
+
+                if lname in landmark_range_limits and sec <= landmark_range_limits[lname][1]:
+                    label_polygons_sideAssigned_dict[lname][sec] = coords
+                elif rname in landmark_range_limits and sec >= landmark_range_limits[rname][0]:
+                    label_polygons_sideAssigned_dict[rname][sec] = coords
                 else:
-                    print name, sec, landmark_range_limits[name + '_L'], landmark_range_limits[name + '_R']
-                    raise Exception('label_polygon contains %s beyond range limits.' % name)
+                    print name, sec, landmark_range_limits[lname], landmark_range_limits[rname]
+                    raise Exception('label_polygon has structure %s on section %d beyond range limits.' % (name, sec))
 
         else:
             label_polygons_sideAssigned_dict[name].update({sec:coords for sec, coords in v.iteritems()
@@ -135,50 +138,80 @@ def get_landmark_range_limits(stack=None, username=None, label_polygons=None, fi
     else:
         d = set(label_polygons.keys()) & set(filtered_labels)
 
-    d_unsided = set([labelMap_sidedToUnsided[ll] if ll in labelMap_sidedToUnsided else ll for ll in d])
+    d_unsided = set(map(convert_name_to_unsided, d))
 
     for name_u in d_unsided:
 
+        lname = convert_to_left_name(name_u)
+        rname = convert_to_right_name(name_u)
+
         secs = []
+
         if name_u in label_polygons:
             secs += list(label_polygons[name_u].dropna().keys())
-        if name_u + '_L' in label_polygons:
-            secs += list(label_polygons[name_u + '_L'].dropna().keys())
-        if name_u + '_R' in label_polygons:
-            secs += list(label_polygons[name_u + '_R'].dropna().keys())
+
+        if lname in label_polygons:
+            secs += list(label_polygons[lname].dropna().keys())
+
+        if rname in label_polygons:
+            secs += list(label_polygons[rname].dropna().keys())
 
         secs = np.array(sorted(secs))
 
-        if len(secs) < 2:
-            continue
-
-        if len(labelMap_unsidedToSided[name_u]) == 1: # single
+        if name_u in singular_structures: # single
             landmark_limits[name_u] = (secs.min(), secs.max())
         else: # two sides
-            diffs = np.diff(secs)
-            peak = np.argmax(diffs)
 
-            inferred_maxL = secs[peak]
-            inferred_minR = secs[peak+1]
-
-            if name_u + '_L' in label_polygons:
-                labeled_maxL = label_polygons[name_u + '_L'].dropna().keys().max()
-                maxL = max(labeled_maxL, inferred_maxL)
-            else:
-                maxL = inferred_maxL
-
-            if name_u + '_R' in label_polygons:
-                labeled_minR = label_polygons[name_u + '_R'].dropna().keys().min()
-                minR = min(labeled_minR, inferred_minR)
-            else:
-                minR = inferred_minR
-
-            if maxL >= minR:
-                sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+            if len(secs) == 1:
+                sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
+                sec = secs[0]
+                if sec < mid_sec:
+                    landmark_limits[lname] = (sec, sec)
+                else:
+                    landmark_limits[rname] = (sec, sec)
                 continue
 
-            landmark_limits[name_u + '_L'] = (secs.min(), maxL)
-            landmark_limits[name_u + '_R'] = (minR, secs.max())
+            elif len(secs) == 0:
+                raise
+            else:
+
+                diffs = np.diff(secs)
+                peak = np.argmax(diffs)
+
+                inferred_maxL = secs[peak]
+                inferred_minR = secs[peak+1]
+
+                if lname in label_polygons:
+                    labeled_maxL = label_polygons[lname].dropna().keys().max()
+                    maxL = max(labeled_maxL, inferred_maxL)
+                else:
+                    maxL = inferred_maxL
+
+                if rname in label_polygons:
+                    labeled_minR = label_polygons[rname].dropna().keys().min()
+                    minR = min(labeled_minR, inferred_minR)
+                else:
+                    minR = inferred_minR
+
+                if maxL >= minR:
+                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+
+                    if inferred_maxL < inferred_minR:
+                        maxL = inferred_maxL
+                        minR = inferred_minR
+                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+                    elif labeled_maxL < labeled_minR:
+                        maxL = labeled_maxL
+                        minR = labeled_minR
+                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+                    else:
+                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
+                        continue
+
+            landmark_limits[lname] = (secs.min(), maxL)
+            landmark_limits[rname] = (minR, secs.max())
 
             # print 'label:', name_u
             # print 'secs:', secs
@@ -245,45 +278,93 @@ def load_label_polygons_if_exists(stack, username, output_path=None, force=False
     return label_polygons
 
 
-def generate_label_polygons(stack, username, output_path=None,
+def generate_label_polygons(stack, username, orientation=None, downsample=None, timestamp='latest', output_path=None,
                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
-                            annotation_rootdir=annotation_midbrainIncluded_rootdir):
+                            annotation_rootdir=None, structure_names=None):
     """Convert annotation files to polygon objects.
     """
 
     # dm = DataManager(stack=stack)
+
+    # if structure_names is None:
+    #     structure_names = labelMap_unsidedToSided.keys()
+
     label_polygons = defaultdict(lambda: {})
     section_bs_begin, section_bs_end = section_range_lookup[stack]
+
+    labelings, usr, ts = DataManager.load_annotation_v2(stack=stack, username=username, orientation=orientation, downsample=downsample,
+                                                        timestamp=timestamp, annotation_rootdir=annotation_rootdir)
+
     for sec in range(section_bs_begin, section_bs_end+1):
 
         # dm.set_slice(sec)
-        ret = DataManager.load_annotation(stack=stack, section=sec, username=username, timestamp='latest', annotation_rootdir=annotation_rootdir)
-
-        if ret is None:
+        if sec not in labelings['polygons']:
+            sys.stderr.write('Section %d is not in labelings.\n' % sec)
             continue
 
-        annotations, usr, ts = ret
-
-        for ann in annotations:
+        for ann in labelings['polygons'][sec]:
             label = ann['label']
+
             if label in labels_merge_map:
                 label = labels_merge_map[label]
-            elif '_' in label and label[:-2] in labels_merge_map: # strip off sideness suffix
-                label = labels_merge_map[label[:-2]] + label[-2:]
 
-            if label not in labels_unsided + labels_sided: # 12N_L -> 12N
-                if '_' in label and label[:-2] in labelMap_unsidedToSided and len(labelMap_unsidedToSided[label[:-2]]) == 1:
-                    label = label[:-2]
-                else:
-                    # raise Exception('Label %s is not recognized.' % label)
-                    sys.stderr.write('Label %s on Section %d is not recognized.\n' % (label, sec))
-                    continue
+            if label in singular_structures:
+                # assert ann['side'] is None, 'Structure %s is singular, but labeling says it has side property.' % label
+                if ann['side'] is not None:
+                    sys.stderr.write('Structure %s is singular, but labeling says it has side property... ignore side.\n' % label)
+            else:
+                if ann['side'] is not None:
+                    label = label + '_' + ann['side']
+
+            if label not in all_landmark_names_unsided: # 12N_L -> 12N
+                sys.stderr.write('Label %s on Section %d is not recognized.\n' % (label, sec))
+                    # continue
 
             label_polygons[label][sec] = np.array(ann['vertices']).astype(np.int)
 
     label_polygons.default_factory = None
 
     return label_polygons
+
+
+# def generate_label_polygons(stack, username, output_path=None,
+#                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
+#                             annotation_rootdir=None):
+#     """Convert annotation files to polygon objects.
+#     """
+#
+#     # dm = DataManager(stack=stack)
+#     label_polygons = defaultdict(lambda: {})
+#     section_bs_begin, section_bs_end = section_range_lookup[stack]
+#     for sec in range(section_bs_begin, section_bs_end+1):
+#
+#         # dm.set_slice(sec)
+#         ret = DataManager.load_annotation(stack=stack, section=sec, username=username, timestamp='latest', annotation_rootdir=annotation_rootdir)
+#         if ret is None:
+#             continue
+#         annotations, usr, ts = ret
+#
+#         # for ann in annotations:
+#         for ann in annotations['polygons']:
+#             label = ann['label']
+#             if label in labels_merge_map:
+#                 label = labels_merge_map[label]
+#             elif '_' in label and label[:-2] in labels_merge_map: # strip off sideness suffix
+#                 label = labels_merge_map[label[:-2]] + label[-2:]
+#
+#             if label not in labels_unsided + labels_sided: # 12N_L -> 12N
+#                 if '_' in label and label[:-2] in labelMap_unsidedToSided and len(labelMap_unsidedToSided[label[:-2]]) == 1:
+#                     label = label[:-2]
+#                 else:
+#                     # raise Exception('Label %s is not recognized.' % label)
+#                     sys.stderr.write('Label %s on Section %d is not recognized.\n' % (label, sec))
+#                     continue
+#
+#             label_polygons[label][sec] = np.array(ann['vertices']).astype(np.int)
+#
+#     label_polygons.default_factory = None
+#
+#     return label_polygons
 
 
 
@@ -336,6 +417,23 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     xmin, ymin, zmin = np.floor(all_points.min(axis=0)).astype(np.int)
     xmax, ymax, zmax = np.ceil(all_points.max(axis=0)).astype(np.int)
 
+    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos)
+    interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+
+    volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
+    for i, pts in interpolated_interior_points.iteritems():
+        if interpolation_direction == 'z':
+            volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
+        elif interpolation_direction == 'y':
+            volume[i, pts[:,0]-xmin, pts[:,1]-zmin] = 1
+        elif interpolation_direction == 'x':
+            volume[pts[:,0]-ymin, i, pts[:,1]-zmin] = 1
+
+    return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
+
+
+def get_interpolated_contours(contours_grouped_by_pos):
+
     interpolated_contours = {}
 
     zs = sorted(contours_grouped_by_pos.keys())
@@ -349,18 +447,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
-    interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
-
-    volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
-    for i, pts in interpolated_interior_points.iteritems():
-        if interpolation_direction == 'z':
-            volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
-        elif interpolation_direction == 'y':
-            volume[i, pts[:,0]-xmin, pts[:,1]-zmin] = 1
-        elif interpolation_direction == 'x':
-            volume[pts[:,0]-ymin, i, pts[:,1]-zmin] = 1
-
-    return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
+    return interpolated_contours
 
 
 def interpolate_contours(cnt1, cnt2, nlevels):

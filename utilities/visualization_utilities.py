@@ -157,6 +157,93 @@ def export_scoremapPlusAnnotationVizs(bg, stack, sections, names, downscale_fact
 #         export_scoremapPlusAnnotationVizs_worker(bg, stack, sec, names, downscale_factor,
 #                                                         export_filepath_fmt=export_filepath_fmt)
 
+
+def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=None,
+                            structure_names=None, downscale_factor=8,
+                            users=None, colors=None, show_labels=True, export_filepath_fmt=None,
+                            annotation_rootdir=None):
+    """
+    Works with annotation files version 2.
+    It is user's responsibility to ensure bg is the same downscaling as the labeling.
+
+    image identifier: MD589_sagittal_downsample8_indexOrSection
+    annotation identifier: MD589_sgittal_downsample8_username_timestamp
+    """
+
+    annotations = {}
+    timestamps = {}
+
+    if users is None:
+        users = ['yuncong', 'localAdjusted', 'autoAnnotate']
+
+    if colors is None:
+        colors = [(0,0,255), (255,0,0), (0,255,0), (0, 255, 255)]
+
+    for user in users:
+        try:
+            labeling, _, _ = DataManager.load_annotation_v2(stack=stack, username=user, orientation=orientation, downsample=downscale_factor, annotation_rootdir=annotation_rootdir)
+        except:
+            sys.stderr.write('Cannot read labeling for %s\n' % user)
+            continue
+
+        if labeling['indexing_scheme'] == 'index':
+            assert index is not None
+            annotations[user] = labeling['polygons'][index]
+        elif labeling['indexing_scheme'] == 'section':
+            assert section is not None
+            annotations[user] = labeling['polygons'][section]
+        timestamps[user] = labeling['timestamp']
+
+    if len(annotations) == 0:
+        return
+
+    if bg == 'original':
+        assert section is not None
+        img = imread(DataManager.get_image_filepath(stack=stack, section=section, version='rgb-jpg'))
+        viz = img[::downscale_factor, ::downscale_factor].copy()
+    else:
+        viz = bg.copy()
+
+    added_labels = set([])
+
+    for user, anns in annotations.iteritems():
+        for ann in anns:
+
+            if structure_names is not None and ann['label'] not in structure_names:
+                continue
+
+            vertices = np.array(ann['vertices']) / downscale_factor
+
+        #     for x,y in vertices:
+        #         cv2.circle(viz, (int(x), int(y)), 5, (255,0,0), -1)
+            cv2.polylines(viz, [vertices.astype(np.int)], True, colors[users.index(user)], 2)
+
+            if show_labels:
+                if ann['label'] not in added_labels:
+                    lx, ly = np.array(ann['labelPos']) / downscale_factor
+                    cv2.putText(viz, ann['label'], (int(lx)-10, int(ly)+10),
+                                cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 2)
+
+                    added_labels.add(ann['label'])
+
+
+    if export_filepath_fmt is not None:
+        if structure_names is not None:
+            if len(structure_names) == 1:
+                assert section is not None
+                export_filepath = export_filepath_fmt % {'stack': stack, 'sec': section, 'name': structure_names[0],
+                                                     'annofn': '_'.join(usr+'_'+ts for usr, ts in timestamps.iteritems())}
+        else:
+            assert section is not None
+            export_filepath = export_filepath_fmt % {'stack': stack, 'sec': section,
+                                                 'annofn': '_'.join(usr+'_'+ts for usr, ts in timestamps.iteritems())}
+
+        create_if_not_exists(os.path.dirname(export_filepath))
+        cv2.imwrite(export_filepath, viz[..., ::-1])
+
+    return viz
+
+
 def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_factor=8,
                           users=None, colors=None, show_labels=True,
                          export_filepath_fmt=None, annotation_rootdir=annotation_midbrainIncluded_rootdir):

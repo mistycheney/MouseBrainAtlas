@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RectificationGUI</class>
- <widget class="QMainWindow" name="RectificationGUI">
+ <class>BrainLabelingGui</class>
+ <widget class="QMainWindow" name="BrainLabelingGui">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -18,20 +18,20 @@
     <item row="0" column="0">
      <widget class="QSplitter" name="splitter_3">
       <property name="orientation">
-       <enum>Qt::Vertical</enum>
+       <enum>Qt::Horizontal</enum>
       </property>
-      <widget class="QSplitter" name="splitter">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <widget class="QGraphicsView" name="sagittal_gview"/>
-       <widget class="QGraphicsView" name="coronal_gview"/>
-      </widget>
+      <widget class="QGraphicsView" name="sagittal_gview"/>
       <widget class="QSplitter" name="splitter_2">
        <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+        <enum>Qt::Vertical</enum>
        </property>
-       <widget class="QGraphicsView" name="horizontal_gview"/>
+       <widget class="QSplitter" name="splitter">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <widget class="QGraphicsView" name="coronal_gview"/>
+        <widget class="QGraphicsView" name="horizontal_gview"/>
+       </widget>
        <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout">
          <item row="0" column="4">
@@ -192,55 +192,62 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="6">
-          <widget class="QPushButton" name="button_midline">
-           <property name="text">
-            <string>Midline</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="6">
-          <widget class="QPushButton" name="button_done">
-           <property name="text">
-            <string>Complete</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="4">
-          <widget class="QSlider" name="slider_downsample">
-           <property name="maximum">
-            <number>2</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="3">
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Scale</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="5">
+         <item row="1" column="5">
           <widget class="QPushButton" name="button_symmetric">
            <property name="text">
             <string>Symmetric</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="5">
+         <item row="1" column="6">
+          <widget class="QPushButton" name="button_midline">
+           <property name="text">
+            <string>Midline</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="5">
           <widget class="QPushButton" name="button_cancel">
            <property name="text">
             <string>Cancel</string>
            </property>
           </widget>
          </item>
-         <item row="2" column="5">
-          <widget class="QPushButton" name="button_newPolygon">
+         <item row="2" column="6">
+          <widget class="QPushButton" name="button_done">
            <property name="text">
-            <string>New Drawing</string>
+            <string>Complete</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="5">
+          <widget class="QPushButton" name="button_save">
+           <property name="text">
+            <string>Save</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="6">
+          <widget class="QPushButton" name="button_load">
+           <property name="text">
+            <string>Load</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="6">
+          <widget class="QLineEdit" name="lineEdit_username"/>
+         </item>
+         <item row="4" column="5">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Username:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="4">
+          <widget class="QPushButton" name="button_stop">
+           <property name="text">
+            <string>Stop Loading</string>
            </property>
           </widget>
          </item>

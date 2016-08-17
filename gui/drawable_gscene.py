@@ -647,6 +647,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
 
 
+<<<<<<< HEAD
     def load_drawings(self, username, timestamp='latest', labeling_dir=None, append=False, orientation=None):
 
         if labeling_dir is None:
@@ -655,10 +656,14 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         fns = [(f, f[:-4].split('_')) for f in os.listdir(labeling_dir) if f.endswith('pkl')]
         # stack_orient_downsample_user_timestamp.pkl
+=======
+    def load_drawings(self, username, timestamp='latest', annotation_rootdir=None, append=False, orientation=None, downsample=None):
+>>>>>>> 73babd559ee2b30847e6727d9a348f3ff7268dd4
 
         if orientation is None:
             orientation = self.data_feeder.orientation
 
+<<<<<<< HEAD
         if username is not None:
             filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username and f_split[1] == orientation]
         else:
@@ -678,10 +683,17 @@ class DrawableGraphicsScene(QGraphicsScene):
         print selected_f
 
         self.labelings = pickle.load(open(os.path.join(labeling_dir, selected_f), 'r'))
+=======
+        if downsample is None:
+            downsample = self.data_feeder.downsample
+
+        self.labelings = DataManager.load_annotation_v2(stack=self.data_feeder.stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=None)
+>>>>>>> 73babd559ee2b30847e6727d9a348f3ff7268dd4
 
         if not append:
             self.drawings = defaultdict(list)
 
+<<<<<<< HEAD
         for i, polygon_dicts in self.labelings.iteritems():
             for polygon_dict in polygon_dicts:
                 vertices = polygon_dict['vertices']
@@ -689,6 +701,19 @@ class DrawableGraphicsScene(QGraphicsScene):
                 if sec not in self.data_feeder.sections: continue
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
                                                         linecolor='r', linewidth=10, vertex_radius=20, section=sec)
+=======
+        for i_or_sec, polygon_dicts in self.labelings['polygons'].iteritems():
+            for polygon_dict in polygon_dicts:
+                vertices = polygon_dict['vertices']
+                # sec = polygon_dict['section']
+                if self.labelings['indexing_scheme'] == 'section':
+                    if i_or_sec not in self.data_feeder.sections: continue
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
+                                                            linecolor='r', linewidth=10, vertex_radius=20, section=i_or_sec)
+                elif self.labelings['indexing_scheme'] == 'index':
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
+                                                            linecolor='r', linewidth=10, vertex_radius=20, index=i_or_sec)
+>>>>>>> 73babd559ee2b30847e6727d9a348f3ff7268dd4
 
         # if index == self.active_i:
         #     print 'polygon added.'
@@ -709,8 +734,17 @@ class DrawableGraphicsScene(QGraphicsScene):
                         polygon_labeling['vertices'].append((pos.x(), pos.y()))
                     polygon_labeling['label'] = polygon.label
                     if hasattr(self.data_feeder, 'sections'):
+<<<<<<< HEAD
                         polygon_labeling['section'] = self.data_feeder.sections[i]
                     self.labelings[i].append(polygon_labeling)
+=======
+                        # polygon_labeling['section'] = self.data_feeder.sections[i]
+                        sec = self.data_feeder.sections[i]
+                        self.labelings[sec].append(polygon_labeling)
+                    else:
+                        self.labelings[i].append(polygon_labeling)
+
+>>>>>>> 73babd559ee2b30847e6727d9a348f3ff7268dd4
                 except Exception as e:
                     print e
                     with open('log.txt', 'w') as f:

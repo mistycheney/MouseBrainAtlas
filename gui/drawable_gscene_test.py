@@ -101,7 +101,6 @@ class ImageDataFeeder(object):
             downsample = self.downsample
 
         self.image_cache[downsample][sec] = qimage
-        self.compute_dimension()
 
     # def load_images(self, downsample=None, selected_sections=None):
     #     if downsample is None:
@@ -280,7 +279,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Initialization of BrainLabelingGUI.
         """
 
-        # t0 = time.time()
+        t0 = time.time()
 
         # self.app = QApplication(sys.argv)
         QMainWindow.__init__(self, parent)
@@ -289,7 +288,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.setupUi(self)
 
         self.button_save.clicked.connect(self.save)
-        self.button_load.clicked.connect(self.load)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         from collections import defaultdict
@@ -383,16 +381,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.read_images_thread = ReadImagesThread(self.stack, self.sections)
         self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
+
         self.read_images_thread.start()
+
         self.button_stop.clicked.connect(self.read_images_thread.terminate)
 
-        # print time.time() - t0
+        print time.time() - t0
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
         self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
-        print 'Image', sec, 'received.'
-        self.statusBar().showMessage('Image %d loaded.\n' % sec)
+        print qimage.width(), qimage.height(), sec, 'received'
 
     @pyqtSlot()
     def username_changed(self):
@@ -408,15 +407,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.username = str(username)
             self.lineEdit_username.setText(self.username)
 
-        # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
-        labelings_dir = create_if_not_exists(os.path.join(annotation_midbrainIncluded_v2_rootdir, stack))
+        labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
 
         timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
         for gscene_id, gscene in self.gscenes.iteritems():
             # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-            # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
-            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
+            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
 
         self.statusBar().showMessage('Labelings saved to %s.' % labelings_dir)
 
@@ -472,23 +469,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #         del pix
 
 
-    def load(self):
-        # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-
     @pyqtSlot()
     def active_image_updated(self):
         self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
         dict(stack=self.stack, sec=self.gscenes['sagittal'].active_section, z=self.gscenes['sagittal'].active_i, x=self.gscenes['coronal'].active_i, y=self.gscenes['horizontal'].active_i))
 
-    @pyqtSlot(int, int, int, str)
-    def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, source_gscene_id):
-        print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
-
-        for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id != source_gscene_id:
-            #     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+    @pyqtSlot(object)
+    def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
+        print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless
+        for gscene in self.gscenes.itervalues():
             gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -636,9 +627,12 @@ if __name__ == "__main__":
     appl = QApplication(argv)
 
     stack = args.stack_name
+    first_sec0, last_sec0 = section_range_lookup[stack]
 
-    first_sec = section_range_lookup[stack][0] if args.first_sec is None else args.first_sec
-    last_sec = section_range_lookup[stack][1] if args.last_sec is None else args.last_sec
+    if not hasattr(args, 'first_sec'):
+        first_sec = first_sec0
+    if not hasattr(args, 'last_sec'):
+        last_sec = last_sec0
 
     m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec)
 

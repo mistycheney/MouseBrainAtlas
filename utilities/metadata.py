@@ -17,6 +17,7 @@ if hostname.endswith('sdsc.edu'):
     annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+    annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v2/'
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
@@ -26,6 +27,7 @@ elif hostname == 'yuncong-MacbookPro':
     atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+    annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v2/'
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
@@ -37,29 +39,50 @@ else:
 
 ############ Class Labels #############
 
-volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
-                                 'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
-linear_landmark_names_unsided = ['outerContour']
+paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', 'SC', 'IC', '3N', '4N']
+singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour']
 
-labels_unsided = volume_landmark_names_unsided + linear_landmark_names_unsided
+# volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
+#                                  'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
+linear_landmark_names_unsided = ['outerContour']
+volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
+all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
+
+labels_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
 labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
 
-labelMap_unsidedToSided = {'12N': ['12N'],
-                            '5N': ['5N_L', '5N_R'],
-                            '6N': ['6N_L', '6N_R'],
-                            '7N': ['7N_L', '7N_R'],
-                            '7n': ['7n_L', '7n_R'],
-                            'AP': ['AP'],
-                            'Amb': ['Amb_L', 'Amb_R'],
-                            'LC': ['LC_L', 'LC_R'],
-                            'LRt': ['LRt_L', 'LRt_R'],
-                            'Pn': ['Pn_L', 'Pn_R'],
-                            'R': ['R_L', 'R_R'],
-                            'RtTg': ['RtTg'],
-                            'Tz': ['Tz_L', 'Tz_R'],
-                            'VLL': ['VLL_L', 'VLL_R'],
-                            'sp5': ['sp5'],
-                           'outerContour': ['outerContour']}
+def convert_name_to_unsided(name):
+    if '_' not in name:
+        return name
+    else:
+        return name[:-2]
+
+def convert_to_left_name(name):
+    return convert_name_to_unsided(name) + '_L'
+
+def convert_to_right_name(name):
+    return convert_name_to_unsided(name) + '_R'
+
+labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
+                            [(name, [name]) for name in singular_structures])
+
+# labelMap_unsidedToSided = {'12N': ['12N'],
+#                             '5N': ['5N_L', '5N_R'],
+#                             '6N': ['6N_L', '6N_R'],
+#                             '7N': ['7N_L', '7N_R'],
+#                             '7n': ['7n_L', '7n_R'],
+#                             'AP': ['AP'],
+#                             'Amb': ['Amb_L', 'Amb_R'],
+#                             'LC': ['LC_L', 'LC_R'],
+#                             'LRt': ['LRt_L', 'LRt_R'],
+#                             'Pn': ['Pn_L', 'Pn_R'],
+#                             'R': ['R_L', 'R_R'],
+#                             'RtTg': ['RtTg'],
+#                             'Tz': ['Tz_L', 'Tz_R'],
+#                             'VLL': ['VLL_L', 'VLL_R'],
+#                             'sp5': ['sp5'],
+#
+#                            'outerContour': ['outerContour']}
 
 labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
 

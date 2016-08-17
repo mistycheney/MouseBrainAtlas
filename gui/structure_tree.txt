@@ -13,18 +13,18 @@ Pontine Tegmentum
      principal sensory trigeminal nucleus, Pr5: Paxinos subdivides into Pr5VL and Pr5DM
      Pontine Reticular Formation
      - paramedian raphe nucleus, PMnR: not a closed region
-     - median raphe nucleus, MnR: 
+     - median raphe nucleus, MnR:
      - oral/rostral pontine reticular nucleus, PnO
      - caudal pontine reticular nucleus, PnC
      - pontine central grey, CGPn
-          - dorsal tegmental nucleus, DTg
+          - dorsal tegmental nucleus, DTg: fairly easy; Paxinos subdivision, DTgP, DTgC [GOOD]
           - Barrington's nucleus, Bar: right next to LC and has similar size on coronal sections; border with LC is not clear.
           - supragenual nucleus, SGe
           - laterodorsal tegmental nucleus, LDTg
           - posterodorsal tegmental nucleus, PDTg: in Paxinos, but not all authors identify this
-     - reticulotegmental nucleus, PtTg: very distinguishable; split into two parts at midline
-     facial nerve, 7n: very distinguishable
-     locus coeruleus, LC: most part very distinguishable, ventral border is a bit uncertain
+     - reticulotegmental nucleus, RtTg: very distinguishable; split into two parts at midline [GOOD]
+     facial nerve, 7n: very distinguishable [GOOD]
+     locus coeruleus, LC: most part very distinguishable, ventral border is a bit uncertain [LC]
      Subceruleus Nucleus, SubC: in Paxinos, subdivided into two parts, dorsal part, SubCD and ventral part, SubCV
      abducens, 6N: very distinguishable
      facial nucleus, 7N: very distinguishable
@@ -93,7 +93,7 @@ Medulla
      - raphe obscurus, ROb
      - raphe pallidus, RPa
      Solitary nucleus, Sol: subdivided into ten subnuclei in Paxinos
-     - dorsolateral 
+     - dorsolateral
      - dorsomedial
      - medial
      - parvicellular
@@ -136,7 +136,7 @@ midbrain tegmentum
      dorsal raphe nucleus, DR: Paxinos divides into dorsal, ventral, interfascicular, lateral parts
      trochlear nucleus, 4N: very easy to distinguish
      interstitial nucleus of Cajal, InC:
-     dorsal tegmental nucleus, DTg: fairly easy; Paxinos subdivision, DTGP, DTGC
+     dorsal tegmental nucleus, DTg: fairly easy; Paxinos subdivision, DTgP, DTgC
      ventral tegmental nucleus, VTg: fairly easy
      rostral interstitial nucleus, RI: Paxinos also has caudal interstitial nucleus of the medial longitudina, CI
      Linear nucleus of the raphe: Paxinos has caudal linear nucleus of the raphe, CLi and rostral linear nucleus, RLi and VLi (?)

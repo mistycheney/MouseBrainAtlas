@@ -43,6 +43,55 @@ class DataManager(object):
 
         return image_path
 
+
+    @staticmethod
+    def get_annotation_path_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
+        """Return the path to annotation."""
+
+        d = os.path.join(annotation_rootdir, stack)
+
+        if not os.path.exists(d):
+            # sys.stderr.write('Directory %s does not exist.\n' % d)
+            raise Exception('Directory %s does not exist.\n' % d)
+
+        fns = [(f, f[:-4].split('_')) for f in os.listdir(d) if f.endswith('pkl')]
+        # stack_orient_downsample_user_timestamp.pkl
+
+        if username is not None:
+            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username and ((f_split[1] == orientation) if orientation is not None else True) \
+             and ((f_split[2] == 'downsample'+str(downsample)) if downsample is not None else True)]
+        else:
+            filtered_fns = fns
+
+        if timestamp == 'latest':
+            if len(filtered_fns) == 0:
+                # sys.stderr.write('No annotation matches criteria.\n')
+                # return None
+                raise Exception('No annotation matches criteria.\n')
+
+            fns_sorted_by_timestamp = sorted(filtered_fns, key=lambda (f, f_split): datetime.datetime.strptime(f_split[4], "%m%d%Y%H%M%S"), reverse=True)
+            selected_f, selected_f_split = fns_sorted_by_timestamp[0]
+            selected_username = selected_f_split[3]
+            selected_timestamp = selected_f_split[4]
+        else:
+            raise Exception('Timestamp must be `latest`.')
+
+        return os.path.join(d, selected_f), selected_username, selected_timestamp
+
+
+    @staticmethod
+    def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
+        res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
+        fp, usr, ts = res
+        print usr, ts
+
+        obj = pickle.load(open(fp, 'r'))
+        if obj is None:
+            return None
+        else:
+            return obj, usr, ts
+
+
     @staticmethod
     def get_annotation_path(stack, section, username=None, timestamp='latest', annotation_rootdir=annotation_rootdir):
         """Return the path to annotation."""

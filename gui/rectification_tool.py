@@ -24,6 +24,8 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 
+from gui_utilities import *
+
 CROSSLINE_PEN_WIDTH = 2
 
 crossline_red_pen = QPen(Qt.red)
@@ -155,7 +157,6 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
         self.hzx = 0
         self.hzy = 0
 
-
     def update_crosslines(self):
         print self.cross_x, self.cross_y, self.cross_z
         self.coronal_hline.setLine(0, self.cross_y, self.z_dim-1, self.cross_y)
@@ -186,6 +187,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
     def cancel_clicked(self):
         self.mode = None
+
 
     def update_gscenes(self, which):
 
@@ -361,10 +363,17 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
             return True
 
-        elif event_type == QEvent.GraphicsSceneMousePress:
+        if event_type == QEvent.GraphicsSceneMousePress:
 
             gscene_x = event.scenePos().x()
             gscene_y = event.scenePos().y()
+
+            if obj == self.sagittal_gscene:
+                self.active_view = 'sagittal'
+            elif obj == self.coronal_gscene:
+                self.active_view = 'coronal'
+            elif obj == self.horizontal_gscene:
+                self.active_view = 'horizontal'
 
             if self.mode is None:
 
@@ -377,7 +386,7 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
                 self.update_cross(x, y, z)
                 return True
 
-            else:
+            elif self.mode in ['midline', 'symmetric']:
 
                 if obj == self.sagittal_gscene:
                     x, y, z = self.translate_gsceneCoord_to_3d('sagittal', gscene_x, gscene_y)
@@ -407,6 +416,8 @@ class RectificationTool(QMainWindow, Ui_RectificationGUI):
 
         return False
 
+
+
 if __name__ == "__main__":
 
     import argparse
@@ -418,16 +429,14 @@ if __name__ == "__main__":
         description='Launch rectification GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
-    # parser.add_argument("downsample", type=int, help="downsample factor (4,8,32)")
     args = parser.parse_args()
 
     from sys import argv, exit
     app = QApplication(argv)
 
-    # m = RectificationTool(stack=args.stack_name, downsample_factor=args.downsample)
     m = RectificationTool(stack=args.stack_name)
 
-    m.show()
-    # m.showMaximized()
+    # m.show()
+    m.showMaximized()
     # m.raise_()
     exit(app.exec_())

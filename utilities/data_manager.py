@@ -43,6 +43,49 @@ class DataManager(object):
 
         return image_path
 
+
+    @staticmethod
+    def get_annotation_path_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
+        """Return the path to annotation."""
+
+        d = os.path.join(annotation_rootdir, stack)
+
+        if not os.path.exists(d):
+            # sys.stderr.write('Directory %s does not exist.\n' % d)
+            raise Exception('Directory %s does not exist.\n' % d)
+
+        fns = [(f, f[:-4].split('_')) for f in os.listdir(d) if f.endswith('pkl')]
+        # stack_orient_downsample_user_timestamp.pkl
+
+        if username is not None:
+            filtered_fns = [(f, f_split) for f, f_split in fns if f_split[3] == username and ((f_split[1] == orientation) if orientation is not None else True) \
+             and ((f_split[2] == 'downsample'+str(downsample)) if downsample is not None else True)]
+        else:
+            filtered_fns = fns
+
+        if timestamp == 'latest':
+            if len(filtered_fns) == 0: return None
+            fns_sorted_by_timestamp = sorted(filtered_fns, key=lambda (f, f_split): datetime.datetime.strptime(f_split[4], "%m%d%Y%H%M%S"), reverse=True)
+            selected_f, selected_f_split = fns_sorted_by_timestamp[0]
+            selected_username = selected_f_split[3]
+            selected_timestamp = selected_f_split[4]
+        else:
+            raise Exception('Timestamp must be `latest`.')
+
+        return os.path.join(d, selected_f), selected_username, selected_timestamp
+
+
+    @staticmethod
+    def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
+        res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=None, downsample=None, annotation_rootdir=annotation_rootdir)
+        fp, usr, ts = res
+        obj = pickle.load(open(fp, 'r'))
+        if obj is None:
+            return None
+        else:
+            return obj, usr, ts
+
+
     @staticmethod
     def get_annotation_path(stack, section, username=None, timestamp='latest', annotation_rootdir=annotation_rootdir):
         """Return the path to annotation."""
@@ -96,12 +139,41 @@ class DataManager(object):
     def get_image_dimension(stack):
         try:
             sec = section_range_lookup[stack][0]
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'), shell=True).split('x'))
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir),
+            shell=True).split('x'))
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')
 
         return image_width, image_height
+
+    @staticmethod
+    def convert_section_to_z(stack, sec, downsample):
+        xy_pixel_distance = xy_pixel_distance_lossless * downsample
+        voxel_z_size = section_thickness / xy_pixel_distance
+        # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+
+        first_sec, last_sec = section_range_lookup[stack]
+        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+        z_begin = int(np.floor(first_sec*voxel_z_size))
+
+        z1 = sec * voxel_z_size
+        z2 = (sec + 1) * voxel_z_size
+        # return int(z1)-z_begin, int(z2)+1-z_begin
+        return int(np.round(z1))-z_begin, int(np.round(z2))+1-z_begin
+
+    @staticmethod
+    def convert_z_to_section(stack, z, downsample):
+        xy_pixel_distance = xy_pixel_distance_lossless * downsample
+        voxel_z_size = section_thickness / xy_pixel_distance
+        # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+
+        first_sec, last_sec = section_range_lookup[stack]
+        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+        z_begin = int(np.floor(first_sec*voxel_z_size))
+
+        sec = int(np.round((z + z_begin) / voxel_z_size))
+        return sec
 
     def __init__(self, data_dir=os.environ['DATA_DIR'],
                  repo_dir=os.environ['REPO_DIR'],

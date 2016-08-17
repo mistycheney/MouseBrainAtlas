@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 
-from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion, remove_small_holes
+from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
@@ -2033,6 +2033,7 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
 def find_contour_points(labelmap, sample_every=10):
     '''
     return is (x,y)
+    Note the returned result is a dict of lists.
     '''
 
     regions = regionprops(labelmap)

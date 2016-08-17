@@ -246,12 +246,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 				# n = 100, 624s, used 124, buffer 123, cache 2;
 				# n = 100 is the max, beyond which 128GB RAM will crash
 
-				# self.qimages = {sec_ind: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec_ind, version='rgb-jpg', data_dir=data_dir))
-				# 				for sec_ind in self.sections}
-				# self.pixmaps = {sec: QPixmap.fromImage(img) for sec, img in self.qimages.iteritems()}
+				t1 = time.time()
+				self.qimages = {sec_ind: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec_ind, version='rgb-jpg', data_dir=data_dir))
+								for sec_ind in self.sections}
+				self.pixmaps = {sec: QPixmap.fromImage(img) for sec, img in self.qimages.iteritems()}
 
-				self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir=data_dir))
-								for i in self.sections}
+				# self.pixmaps = {i: QPixmap(DataManager.get_image_filepath(stack=self.stack, section=i, version='rgb-jpg', data_dir=data_dir))
+				# 				for i in self.sections}
+
+				print time.time() - t1
 
 				# parallel load ~ 26s for 10 sections; 40s for 20; 107s for 40; 350s for 80
 

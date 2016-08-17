@@ -8,6 +8,8 @@ import numpy as np
 
 
 def polygon_goto(polygon, x, y):
+    """Modifies polygon object inline.
+    """
 
     path = polygon.path()
 
@@ -51,7 +53,7 @@ def polygon_to_shapely(polygon=None, path=None):
     if path is None:
         path = polygon.path()
 
-    closed = polygon_is_closed(polygon=polygon, path=path)   
+    closed = polygon_is_closed(polygon=polygon, path=path)
     vertices = vertices_from_polygon(polygon=polygon, path=path, closed=closed)
 
     if len(vertices) == 1:
@@ -98,7 +100,7 @@ def vertices_to_path(vertices, closed=True):
     Generate QPainterPath from vertices.
 
     Args:
-        vertices (n x 2 numpy array): vertices
+        vertices (n x 2 numpy array): vertices, (x,y)
         closed (bool): whether the polygon is closed; if polygon has only one vertex, count as open
 
     Returns:
@@ -160,7 +162,7 @@ def find_vertex_insert_position(polygon, x, y):
             dists[i] = np.min(np.squeeze(cdist([pos], [xys[i], xys[(i+1)%n]])))
 
     # print edges_normalized[:,:2]
-    # print projections                
+    # print projections
     # print dists
     # print endpoint
     nearest_edge_begins_at = np.argsort(dists)[0]
@@ -170,138 +172,8 @@ def find_vertex_insert_position(polygon, x, y):
     elif nearest_edge_begins_at == n-2 and not is_closed and endpoint[-1] == n-1:
         new_vertex_ind = n
     else:
-        new_vertex_ind = nearest_edge_begins_at + 1  
+        new_vertex_ind = nearest_edge_begins_at + 1
 
     print 'nearest_edge_begins_at', nearest_edge_begins_at, 'new_vertex_ind', new_vertex_ind
 
     return new_vertex_ind
-
-
-################################################
-
-# QFileSystemModel might be useful http://qt-project.org/doc/qt-4.8/qfilesystemmodel.html
-
-# def paths_to_dict(paths):
-
-#     level_counts = [len(p.split('_')) for p in paths]
-#     n_levels = max(level_counts) + 1
-#     paths_same_level = [[] for _ in range(n_levels)]
-#     for p, lc in zip(paths, level_counts):
-#         paths_same_level[lc].append(p)
-        
-#     res_dict = {}
-#     for l in range(n_levels):
-#         for p in paths_same_level[l]:
-#             elements = p.split('/')
-#             parent = reduce(dict.get, elements[:-1], res_dict)
-#             parent[elements[-1]] = {}
-
-#     return res_dict
-
-
-# def pad_paths(paths, level, key_list):
-#     for p in paths:
-#         elements = p.split('/')
-#         if len(elements) == level:
-#             prefix = '/'.join(elements[:level])
-#             paths += [prefix + '/' + k for k in key_list]
-#     return list(set(paths))
-
-
-# def pad_dict(d, level, key_list):
-#     if level == 0:
-#         for p in key_list:
-#             if p not in d:
-#                 d[p] = None
-#     else:
-#         for k, v in d.iteritems():
-#             pad_dict(v, level=level-1, key_list=key_list)
-#     return d
-
-
-# def dict_to_paths(d, prefix=None):
-#     paths = []
-#     for k, v in d.iteritems():
-#         if prefix is None:
-#             full_key = k
-#         else:
-#             full_key = prefix + '/' + k
-#         paths.append(full_key)
-#         if v is not None: # if this is not a file, but is a directory
-#             paths += dict_to_paths(v, prefix=full_key)
-#     return paths
-
-
-# class Node(object):
-#     def __init__(self, parent=None, name='', value=None):
-#         self.parent = parent
-#         self.children = []
-#         self.name = name
-#         self.value = value
-
-#     # def convert_to_dict(self):
-
-
-# def find_child_by_name(node, name):
-#     return [c for c in node.children if c.name == name][0]
-
-
-# def paths_to_tree(paths):
-
-#     level_counts = [len(p.split('/')) for p in paths]
-#     n_levels = max(level_counts) + 1
-#     paths_same_level = [[] for _ in range(n_levels)]
-#     for pv_tuple, lc in zip(paths, level_counts):
-#         paths_same_level[lc].append(pv_tuple)
-        
-#     root = Node('root', None)
-#     for l in range(n_levels):
-#         for p in paths_same_level[l]:
-#             elements = p.split('/')
-#             parent = reduce(find_child_by_name, elements[:-1], root)
-#             parent.children.append(Node(parent, elements[-1]))
-
-#     return root
-
-# def labeled_paths_to_tree(paths):
-
-#     level_counts = [len(p.split('/')) for p, v in paths]
-#     n_levels = max(level_counts) + 1
-#     paths_same_level = [[] for _ in range(n_levels)]
-#     for pv_tuple, lc in zip(paths, level_counts):
-#         paths_same_level[lc].append(pv_tuple)
-        
-#     root = Node('root', None)
-#     for l in range(n_levels):
-#         for p, v in paths_same_level[l]:
-#             elements = p.split('/')
-#             parent = reduce(find_child_by_name, elements[:-1], root)
-#             parent.children.append(Node(parent, elements[-1], v))
-
-#     return root
-
-# def paths_to_QStandardModel(paths):
-#     tree = paths_to_tree(paths)
-#     model = tree_to_QStandardItemModel(tree)
-#     return model
-
-
-# def tree_to_QStandardItem(node):
-#     # label = '%s(%s)' % (node.name, node.value)
-#     label = node.name
-#     root = QStandardItem(label)
-#     if len(node.children) > 0:
-#         for c in node.children:
-#             sub_tree = tree_to_QStandardItem(c)
-#             root.appendRow(sub_tree)
-#     return root
-
-
-# def tree_to_QStandardItemModel(node):
-#     m = QStandardItemModel()
-#     for c in node.children:
-#         m.appendRow(tree_to_QStandardItem(c))
-#     return m
-
-####################################################
-

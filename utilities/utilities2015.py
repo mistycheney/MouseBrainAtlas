@@ -505,9 +505,12 @@ def bbox_3d(img):
     c = np.any(img, axis=(0, 2))
     z = np.any(img, axis=(0, 1))
 
-    rmin, rmax = np.where(r)[0][[0, -1]]
-    cmin, cmax = np.where(c)[0][[0, -1]]
-    zmin, zmax = np.where(z)[0][[0, -1]]
+    try:
+        rmin, rmax = np.where(r)[0][[0, -1]]
+        cmin, cmax = np.where(c)[0][[0, -1]]
+        zmin, zmax = np.where(z)[0][[0, -1]]
+    except:
+        raise Exception('Input is empty.\n')
 
     return cmin, cmax, rmin, rmax, zmin, zmax
 

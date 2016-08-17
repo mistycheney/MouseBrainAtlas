@@ -83,8 +83,7 @@ class DataManager(object):
     def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
         res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
         fp, usr, ts = res
-        print usr, ts
-
+        sys.stderr.write('Loaded annotation %s.\n' % fp)
         obj = pickle.load(open(fp, 'r'))
         if obj is None:
             return None

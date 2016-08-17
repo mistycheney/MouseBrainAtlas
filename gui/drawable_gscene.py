@@ -673,6 +673,9 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
                                                             linecolor='r', linewidth=10, vertex_radius=20, index=i_or_sec)
 
+        # print self.labelings['polygons'].keys()
+        # print self.drawings.keys()
+
         # if index == self.active_i:
         #     print 'polygon added.'
         #     self.addItem(polygon)
@@ -682,18 +685,31 @@ class DrawableGraphicsScene(QGraphicsScene):
         import cPickle as pickle
 
         # Cannot pickle QT objects, so need to extract the data and put in dict.
-        self.labelings = {'polygons': defaultdict(list)}
-        if hasattr(self.data_feeder, 'sections'):
-            self.labelings['indexing_scheme'] = 'section'
-        else:
-            self.labelings['indexing_scheme'] = 'index'
 
-        self.labelings['orientation'] = self.data_feeder.orientation
-        self.labelings['downsample'] = self.data_feeder.downsample
-        self.labelings['timestamp'] = timestamp
-        self.labelings['username'] = username
+        # If no labeling is loaded, create a new one
+        if not hasattr(self, 'labelings'):
+            self.labelings = {'polygons': defaultdict(list)}
+
+            if hasattr(self.data_feeder, 'sections'):
+                self.labelings['indexing_scheme'] = 'section'
+            else:
+                self.labelings['indexing_scheme'] = 'index'
+
+            self.labelings['orientation'] = self.data_feeder.orientation
+            self.labelings['downsample'] = self.data_feeder.downsample
+            self.labelings['timestamp'] = timestamp
+            self.labelings['username'] = username
 
         for i, polygons in self.drawings.iteritems():
+
+            # Erase the labelings on a loaded section - because we will add those later as they currently appear.
+            if hasattr(self.data_feeder, 'sections'):
+                sec = self.data_feeder.sections[i]
+                self.labelings['polygons'][sec] = []
+            else:
+                self.labelings['polygons'][i] = []
+
+            # Add polygons as they currently appear
             for polygon in polygons:
                 try:
                     polygon_labeling = {'vertices': []}
@@ -703,7 +719,6 @@ class DrawableGraphicsScene(QGraphicsScene):
                     polygon_labeling['label'] = polygon.label
                     if hasattr(self.data_feeder, 'sections'):
                         # polygon_labeling['section'] = self.data_feeder.sections[i]
-                        sec = self.data_feeder.sections[i]
                         self.labelings['polygons'][sec].append(polygon_labeling)
                     else:
                         self.labelings['polygons'][i].append(polygon_labeling)
@@ -713,8 +728,12 @@ class DrawableGraphicsScene(QGraphicsScene):
                     with open('log.txt', 'w') as f:
                         f.write('ERROR:' + self.id + ' ' + str(i) + '\n')
 
-        pickle.dump(self.labelings, open(fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
-                                                downsample=self.data_feeder.downsample, username=username, timestamp=timestamp), 'w'))
+        print self.labelings['polygons'].keys()
+
+        fn = fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
+                                downsample=self.data_feeder.downsample, username=username, timestamp=timestamp)
+        pickle.dump(self.labelings, open(fn, 'w'))
+        sys.stderr.write('Labeling saved to %s.\n' % fn)
 
 
     @pyqtSlot()

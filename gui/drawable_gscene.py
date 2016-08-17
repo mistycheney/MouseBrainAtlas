@@ -728,8 +728,6 @@ class DrawableGraphicsScene(QGraphicsScene):
                     with open('log.txt', 'w') as f:
                         f.write('ERROR:' + self.id + ' ' + str(i) + '\n')
 
-        print self.labelings['polygons'].keys()
-
         fn = fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
                                 downsample=self.data_feeder.downsample, username=username, timestamp=timestamp)
         pickle.dump(self.labelings, open(fn, 'w'))

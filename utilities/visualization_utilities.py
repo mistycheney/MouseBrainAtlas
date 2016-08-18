@@ -181,7 +181,7 @@ def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=No
 
     for user in users:
         try:
-            labeling, _, _ = DataManager.load_annotation_v2(stack=stack, username=user, orientation=orientation, downsample=downscale_factor, annotation_rootdir=annotation_rootdir)
+            labeling, _, _ = DataManager.load_annotation_v2(stack=stack, username=user, orientation=orientation, downsample=1, annotation_rootdir=annotation_rootdir)
         except:
             sys.stderr.write('Cannot read labeling for %s\n' % user)
             continue

@@ -39,11 +39,11 @@ from gui_utilities import *
 #     DELETE_BETWEEN = 'delete edges between two vertices'
 #     CONNECT_VERTICES = 'connect two vertices'
 
-VERTEX_CIRCLE_RADIUS = 20
+# VERTEX_CIRCLE_RADIUS = 20
 
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
-    def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, index=None):
+    def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, index=None, vertex_radius=None):
 
         super(self.__class__, self).__init__(path, parent=parent)
 
@@ -61,6 +61,11 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 
         self.index = index
 
+        if vertex_radius is None:
+            self.vertex_radius = 20
+        else:
+            self.vertex_radius = vertex_radius
+
         # if section is None:
         #     self.section = section
 
@@ -68,7 +73,6 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
-
 
     def set_label(self, label, label_pos=None):
 
@@ -194,7 +198,7 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     #
     #     self.label_selection_dialog.accept()
 
-    def add_circles_for_all_vertices(self, radius=VERTEX_CIRCLE_RADIUS, color='b'):
+    def add_circles_for_all_vertices(self, radius=None, color='b'):
         '''
         Add vertex circles for all vertices in a polygon with existing path.
 
@@ -210,7 +214,7 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         for i in range(n):
             self.add_circle_for_vertex(index=i, radius=radius, color=color)
 
-    def add_circle_for_vertex(self, index, radius=VERTEX_CIRCLE_RADIUS, color='b'):
+    def add_circle_for_vertex(self, index, radius=None, color='b'):
         """
         Add a circle for an existing vertex.
         """
@@ -222,6 +226,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
             elem = path.elementAt(n-1)
         else:
             elem = path.elementAt(index)
+
+        if radius is None:
+            radius = self.vertex_radius
 
         ellipse = QGraphicsEllipseItemModified(-radius, -radius, 2*radius, 2*radius, polygon=self, parent=self) # set polygon as parent, so that moving polygon moves the children vertices as well
         ellipse.setPos(elem.x, elem.y)

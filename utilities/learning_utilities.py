@@ -146,6 +146,10 @@ def extract_patches_given_locations(stack, sec, locs=None, grid_spec=None, indic
 
 
 def locate_patches_given_addresses(addresses):
+    """
+    addresses is a list of addresses.
+    address: stack, section, structure_name, index
+    """
 
     from collections import defaultdict
     addresses_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))

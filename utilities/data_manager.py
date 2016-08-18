@@ -3,11 +3,31 @@ from metadata import *
 
 class DataManager(object):
 
+
     @staticmethod
-    def load_thumbnail_mask(stack, section):
-        thumbmail_mask = imread(data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
-                        {'stack': stack, 'sec': section}).astype(np.bool)
+    def save_thumbnail_mask(mask, stack, section, cerebellum_removed=False):
+
+        fn = DataManager.get_thumbnail_mask_filepath(stack, section, cerebellum_removed=cerebellum_removed)
+        create_if_not_exists(os.path.dirname(fn))
+        imsave(fn, mask)
+        sys.stderr.write('Thumbnail mask for section %s, %d saved to %s.\n' % (stack, section, fn))
+
+    @staticmethod
+    def load_thumbnail_mask(stack, section, cerebellum_removed=False):
+        fn = DataManager.get_thumbnail_mask_filepath(stack, section, cerebellum_removed=cerebellum_removed)
+        thumbmail_mask = imread(fn).astype(np.bool)
         return thumbmail_mask
+
+    @staticmethod
+    def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
+        if cerebellum_removed:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
+                {'stack': stack, 'sec': section}
+        else:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
+                            {'stack': stack, 'sec': section}
+        return fn
+
 
     @staticmethod
     def get_image_filepath(stack, section, version='rgb-jpg', resol=None, data_dir=None):
@@ -153,14 +173,19 @@ class DataManager(object):
         return image_width, image_height
 
     @staticmethod
-    def convert_section_to_z(stack, sec, downsample):
+    def convert_section_to_z(stack, sec, downsample, z_begin=None):
+        """
+        z_begin default to the first brainstem section.
+        """
+
         xy_pixel_distance = xy_pixel_distance_lossless * downsample
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
         first_sec, last_sec = section_range_lookup[stack]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-        z_begin = int(np.floor(first_sec*voxel_z_size))
+        if z_begin is None:
+            z_begin = int(np.floor(first_sec*voxel_z_size))
 
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size

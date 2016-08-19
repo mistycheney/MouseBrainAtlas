@@ -261,14 +261,22 @@ def get_section_contains_labels(label_polygons, filtered_labels=None):
     return section_contains_labels
 
 
-def load_label_polygons_if_exists(stack, username, output_path=None, output=True, force=False, downsample=None, annotation_rootdir=annotation_midbrainIncluded_rootdir):
+def load_label_polygons_if_exists(stack, username, output_path=None, output=True, force=False,
+                                downsample=None, orientation=None, annotation_rootdir=None,
+                                side_assigned=False):
 
-    label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons.h5' % {'stack': stack, 'username': username})
+    if side_assigned:
+        label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons_sided.h5' % {'stack': stack, 'username': username})
+    else:
+        label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons.h5' % {'stack': stack, 'username': username})
 
     if os.path.exists(label_polygons_path) and not force:
         label_polygons = pd.read_hdf(label_polygons_path, 'label_polygons')
     else:
-        label_polygons = pd.DataFrame(generate_label_polygons(stack, username=username, annotation_rootdir=annotation_rootdir, downsample=downsample))
+        label_polygons = pd.DataFrame(generate_label_polygons(stack, username=username, orientation=orientation, annotation_rootdir=annotation_rootdir, downsample=downsample))
+
+        if side_assigned:
+            label_polygons = assign_sideness(label_polygons)
 
         if output:
             if output_path is None:
@@ -532,16 +540,25 @@ def interpolate_contours(cnt1, cnt2, nlevels):
 
     s2i = s2[::-1]
 
-    curv1, xp1, yp1 = signed_curvatures(s1)
-    curv2, xp2, yp2 = signed_curvatures(s2)
-    curv2i, xp2i, yp2i = signed_curvatures(s2i)
+    # curv1, xp1, yp1 = signed_curvatures(s1)
+    # curv2, xp2, yp2 = signed_curvatures(s2)
+    # curv2i, xp2i, yp2i = signed_curvatures(s2i)
+
+    d = 7
+    xp1 = np.gradient(s1[:, 0], d)
+    yp1 = np.gradient(s1[:, 1], d)
+    xp2 = np.gradient(s2[:, 0], d)
+    yp2 = np.gradient(s2[:, 1], d)
+    xp2i = np.gradient(s2i[:, 0], d)
+    yp2i = np.gradient(s2i[:, 1], d)
+
 
     # using correlation over curvature values directly is much better than using correlation over signs
     # sign1 = np.sign(curv1)
     # sign2 = np.sign(curv2)
     # sign2i = np.sign(curv2i)
 
-    conv_curv_1_2 = np.correlate(np.r_[curv2, curv2], curv1, mode='valid')
+    # conv_curv_1_2 = np.correlate(np.r_[curv2, curv2], curv1, mode='valid')
     conv_xp_1_2 = np.correlate(np.r_[xp2, xp2], xp1, mode='valid')
     conv_yp_1_2 = np.correlate(np.r_[yp2, yp2], yp1, mode='valid')
 
@@ -554,7 +571,7 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     # d2_second = d2_second / np.linalg.norm(d2_second)
     # s2_start_index = [top, second][np.argmax(np.dot([d2_top, d2_second], d1))]
 
-    conv_curv_1_2i = np.correlate(np.r_[curv2i, curv2i], curv1, mode='valid')
+    # conv_curv_1_2i = np.correlate(np.r_[curv2i, curv2i], curv1, mode='valid')
     conv_xp_1_2i = np.correlate(np.r_[xp2i, xp2i], xp1, mode='valid')
     conv_yp_1_2i = np.correlate(np.r_[yp2i, yp2i], yp1, mode='valid')
 
@@ -576,13 +593,25 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     # else:
     #     s3 = np.r_[np.atleast_2d(s2i[s2i_start_index:]), np.atleast_2d(s2i[:s2i_start_index])]
 
-    if conv_curv_1_2.max() > conv_curv_1_2i.max():
-        overall = conv_curv_1_2 / conv_curv_1_2.max() + conv_xp_1_2 / conv_xp_1_2.max() + conv_yp_1_2 / conv_yp_1_2.max()
-        s2_start_index = np.argmax(overall)
+    # from scipy.spatial import KDTree
+    # tree = KDTree(s1)
+    # nn_in_order_s2 = np.count_nonzero(np.diff(tree.query(s2)[1]) > 0)
+    # nn_in_order_s2i = np.count_nonzero(np.diff(tree.query(s2i)[1]) > 0)
+
+    # overall_s2 = conv_curv_1_2 / conv_curv_1_2.max() + conv_xp_1_2 / conv_xp_1_2.max() + conv_yp_1_2 / conv_yp_1_2.max()
+    # overall_s2i = conv_curv_1_2i / conv_curv_1_2i.max() + conv_xp_1_2i / conv_xp_1_2i.max() + conv_yp_1_2i / conv_yp_1_2i.max()
+
+    # overall_s2 =  conv_xp_1_2 / conv_xp_1_2.max() + conv_yp_1_2 / conv_yp_1_2.max()
+    # overall_s2i =  conv_xp_1_2i / conv_xp_1_2i.max() + conv_yp_1_2i / conv_yp_1_2i.max()
+
+    overall_s2 =  conv_xp_1_2 + conv_yp_1_2
+    overall_s2i =  conv_xp_1_2i + conv_yp_1_2i
+
+    if overall_s2.max() > overall_s2i.max():
+        s2_start_index = np.argmax(overall_s2)
         s3 = np.roll(s2, -s2_start_index, axis=0)
     else:
-        overall = conv_curv_1_2i / conv_curv_1_2i.max() + conv_xp_1_2i / conv_xp_1_2i.max() + conv_yp_1_2i / conv_yp_1_2i.max()
-        s2i_start_index = np.argmax(overall)
+        s2i_start_index = np.argmax(overall_s2i)
         s3 = np.roll(s2i, -s2i_start_index, axis=0)
 
     # plt.plot(overall)

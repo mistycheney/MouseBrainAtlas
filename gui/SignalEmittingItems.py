@@ -66,6 +66,8 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         else:
             self.vertex_radius = vertex_radius
 
+        self.type = None
+
         # if section is None:
         #     self.section = section
 
@@ -73,6 +75,21 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
+
+
+    def set_type(self, t):
+
+        if self.type == 'interpolated' and t is None:
+            curr_pen = self.pen()
+            curr_pen.setColor(Qt.red)
+            self.setPen(curr_pen)
+        elif self.type == None and t == 'interpolated':
+            curr_pen = self.pen()
+            curr_pen.setColor(Qt.green)
+            self.setPen(curr_pen)
+
+        self.type = t
+
 
     def set_label(self, label, label_pos=None):
 
@@ -275,6 +292,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
             polygon_goto(self, x, y)
 
         self.add_circle_for_vertex(new_index)
+
+    def set_closed(self, closed):
+        self.closed = closed
 
 
     @pyqtSlot(object)

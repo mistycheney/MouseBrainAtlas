@@ -47,18 +47,22 @@ class DataManager(object):
         #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
         #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
         #     image_path = os.path.join(image_dir, image_name + '.jpg')
-        elif version == 'gray':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-        elif version == 'rgb':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
+        # elif version == 'gray':
+        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
+        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
+        #     image_path = os.path.join(image_dir, image_name + '.tif')
+        # elif version == 'rgb':
+        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
+        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
+        #     image_path = os.path.join(image_dir, image_name + '.tif')
+        # elif version == 'stereotactic-rgb-jpg':
+        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
+        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
+        #     image_path = os.path.join(image_dir, image_name + '.jpg')
 
-        elif version == 'stereotactic-rgb-jpg':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
+        elif version == 'saturation':
+            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_saturation')
+            image_name = '_'.join([stack, slice_str, resol, '_aligned_cropped_saturation'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
 
         return image_path

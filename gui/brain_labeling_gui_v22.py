@@ -80,7 +80,7 @@ class ReadImagesThread(QThread):
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
-    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None):
+    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, downsample=None):
         """
         Initialization of BrainLabelingGUI.
         """
@@ -91,6 +91,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         QMainWindow.__init__(self, parent)
 
         self.stack = stack
+        self.sagittal_downsample = downsample
+
         self.setupUi(self)
 
         self.button_save.clicked.connect(self.save)
@@ -159,7 +161,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
         image_feeder.set_orientation('sagittal')
-        image_feeder.set_downsample_factor(1)
+        # image_feeder.set_downsample_factor(1)
+        image_feeder.set_downsample_factor(self.sagittal_downsample)
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
@@ -200,6 +203,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def image_loaded(self, qimage, sec):
         self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
         print 'Image', sec, 'received.'
+        if self.gscenes['sagittal'].active_section == sec:
+            self.gscenes['sagittal'].load_histology()
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
 
     @pyqtSlot()
@@ -439,17 +444,19 @@ if __name__ == "__main__":
     parser.add_argument("stack_name", type=str, help="stack name")
     parser.add_argument("-f", "--first_sec", type=int, help="first section")
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
+    parser.add_argument("-d", "--downsample", type=int, help="downsample", default=1)
     args = parser.parse_args()
 
     from sys import argv, exit
     appl = QApplication(argv)
 
     stack = args.stack_name
+    downsample = args.downsample
 
     first_sec = section_range_lookup[stack][0] if args.first_sec is None else args.first_sec
     last_sec = section_range_lookup[stack][1] if args.last_sec is None else args.last_sec
 
-    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec)
+    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, downsample=downsample)
 
     m.showMaximized()
     m.raise_()

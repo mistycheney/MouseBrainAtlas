@@ -118,6 +118,15 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         self.set_mode('idle')
 
+        self.vertex_radius = 20
+        self.line_width = 10
+
+    def set_vertex_radius(self, radius):
+        self.vertex_radius = radius
+
+    def set_line_width(self, width):
+        self.line_width = width
+
     def set_mode(self, mode):
 
         if hasattr(self, 'mode'):
@@ -151,33 +160,91 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.structure_volumes = structure_volumes
 
     def update_drawings_from_structure_volume(self, name_u):
+        """
+        Based on reconstructed 3D structure,
+        """
 
         volume, bbox = self.structure_volumes[name_u]
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
+        print 'volume', volume.shape
+        print 'bbox', xmin, xmax, ymin, ymax, zmin, zmax
 
-        volume_downsample_factor = 8
+        volume_downsample_factor = self.gui.volume_downsample_factor
         # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
         bbox_lossless = np.array(bbox) * volume_downsample_factor
 
         downsample = self.data_feeder.downsample
-        volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
-        xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
 
-        print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
+        if volume_downsample_factor <= downsample:
 
-        matched_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u]
-        for i, p in matched_polygons:
-            if i == self.active_i:
-                self.removeItem(p)
-            self.drawings[i].remove(p)
+            volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
+            xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
 
-        if self.data_feeder.orientation == 'coronal':
+            print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
+
+        matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type != 'interpolated']
+
+        # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
+        # for i, p in matched_unconfirmed_polygons:
+        #     if i == self.active_i:
+        #         self.removeItem(p)
+        #     self.drawings[i].remove(p)
+
+        if self.data_feeder.orientation == 'sagittal':
+            if hasattr(self.data_feeder, 'sections'):
+                # sec_min = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=downsample)
+                matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
+                min_sec = np.min(matched_confirmed_sections)
+                max_sec = np.max(matched_confirmed_sections)
+                for sec in range(min_sec, max_sec+1):
+                    if sec in matched_confirmed_sections:
+                        continue
+
+                    # remove if this section has interpolated polygon
+                    i = self.data_feeder.sections.index(sec)
+                    matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated']
+                    for p in matched_unconfirmed_polygons_to_remove:
+                        self.drawings[i].remove(p)
+                        if i == self.active_i:
+                            self.removeItem(p)
+
+                    z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
+
+                    z_currResol = (z0 + z1) / 2
+                    z_volResol = z_currResol * downsample / volume_downsample_factor
+                    print sec, z0, z1, z_currResol, z_volResol, zmin
+                    # if downsample == 32:
+                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=20)
+
+                    # print cnts_volResol
+
+                    if len(cnts_volResol) > 0 and 1 in cnts_volResol:
+                        # print x_ds
+                        xys_volResol = np.array(cnts_volResol[1][0])
+                        gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
+                        gscene_ys_volResol = xys_volResol[:,1] + ymin
+                        gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
+                        gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
+                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
+                                                                label=name_u, linecolor='g', section=sec, type='interpolated')
+            else:
+                raise Exception('Sagittal interpolation on volume data is not implemented.')
+
+        elif self.data_feeder.orientation == 'coronal':
             # x = self.active_i * self.data_feeder.downsample
 
             # for x_ds in range(xmin_ds, xmax_ds + 1):
             for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
-                print x_ds
-                cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8))
+
+                # remove if this section has interpolated polygon
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[x_ds] if p.label == name_u and p.type == 'interpolated']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[x_ds].remove(p)
+                    if x_ds == self.active_i:
+                        self.removeItem(p)
+
+                # print x_ds
+                cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8), sample_every=50/downsample)
                 if len(cnts) > 0 and 1 in cnts:
                     # print x_ds
                     zys = np.array(cnts[1][0])
@@ -185,13 +252,20 @@ class DrawableGraphicsScene(QGraphicsScene):
                     gscene_ys = zys[:,1] + ymin_ds
                     pts_on_gscene = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
-                                                            linecolor='r', linewidth=2, index=x_ds)
-
+                                                            linecolor='g', vertex_radius=1, linewidth=2, index=x_ds,
+                                                            type='interpolated')
 
         elif self.data_feeder.orientation == 'horizontal':
             for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
-                print y_ds
-                cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8))
+
+                # remove if this section has interpolated polygon
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[y_ds] if p.label == name_u and p.type == 'interpolated']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[y_ds].remove(p)
+                    if y_ds == self.active_i:
+                        self.removeItem(p)
+
+                cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8), sample_every=50/downsample)
                 if len(cnts) > 0 and 1 in cnts:
                     # print y_ds
                     zxs = np.array(cnts[1][0])
@@ -199,7 +273,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                     gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
                     pts_on_gscene = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
-                                                            linecolor='r', linewidth=2, index=y_ds)
+                                                            linecolor='g', vertex_radius=1, linewidth=2, index=y_ds,
+                                                            type='interpolated')
 
         # elif self.data_feeder.orientation == 'sagittal':
         #     z = self.active_i
@@ -214,8 +289,9 @@ class DrawableGraphicsScene(QGraphicsScene):
         print self.id, ': Set active index to', i, ', update_crossline', update_crossline
 
         # sec = self.sections[self.active_i]
-        for polygon in self.drawings[self.active_i]:
-            self.removeItem(polygon)
+        if self.active_i is not None:
+            for polygon in self.drawings[self.active_i]:
+                self.removeItem(polygon)
 
         for polygon in self.drawings[i]:
             self.addItem(polygon)
@@ -421,8 +497,8 @@ class DrawableGraphicsScene(QGraphicsScene):
     #     return overlap_polygons
 
 
-    def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=PEN_WIDTH, vertex_color='b', vertex_radius=2,
-                                            label='unknown', section=None, label_pos=None, index=None):
+    def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=None, vertex_color='b', vertex_radius=None,
+                                            label='unknown', section=None, label_pos=None, index=None, type=None):
         '''
         Function for adding polygon, along with vertex circles.
         Step 1: create polygon
@@ -443,8 +519,17 @@ class DrawableGraphicsScene(QGraphicsScene):
             index = self.data_feeder.sections.index(section)
 
         polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
+
+        if vertex_radius is None:
+            vertex_radius = self.vertex_radius
+
         polygon.add_circles_for_all_vertices(radius=vertex_radius, color=vertex_color)
+
         polygon.set_label(label, label_pos)
+        polygon.set_closed(True)
+        polygon.set_type(type)
+
+
         # self.restack_polygons(polygon)
 
         # self.populate_polygon_with_vertex_circles(new_polygon)
@@ -458,7 +543,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         return polygon
 
 
-    def add_polygon(self, path=QPainterPath(), color='r', linewidth=PEN_WIDTH, z_value=50, uncertain=False, section=None, index=None):
+    def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, z_value=50, uncertain=False, section=None, index=None, vertex_radius=None):
         '''
         Add a polygon.
 
@@ -481,6 +566,9 @@ class DrawableGraphicsScene(QGraphicsScene):
         elif color == 'b':
             pen = QPen(Qt.blue)
 
+        if linewidth is None:
+            linewidth = self.line_width
+
         pen.setWidth(linewidth)
 
         if index is None and section is None:
@@ -499,13 +587,17 @@ class DrawableGraphicsScene(QGraphicsScene):
         else:
             pos = index
 
-        polygon = QGraphicsPathItemModified(path, gscene=self, index=index, orientation=self.data_feeder.orientation, position=pos)
+        if vertex_radius is None:
+            vertex_radius = self.vertex_radius
+
+        polygon = QGraphicsPathItemModified(path, gscene=self, index=index, orientation=self.data_feeder.orientation, position=pos, vertex_radius=vertex_radius)
 
         polygon.setPen(pen)
         polygon.setZValue(z_value)
         # polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         polygon.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
+
 
         polygon.signal_emitter.press.connect(self.polygon_press)
         polygon.signal_emitter.release.connect(self.polygon_release)
@@ -611,14 +703,14 @@ class DrawableGraphicsScene(QGraphicsScene):
         m = re.match('^(.+?)\s*\((.+)\)$', text)
 
         if m is None:
-            QMessageBox.warning(self, 'oops', 'structure name must be of the form "abbreviation (full description)"')
+            QMessageBox.warning(self.gview, 'oops', 'structure name must be of the form "abbreviation (full description)"')
             return
 
         else:
             abbr, fullname = m.groups()
             if not (abbr in self.gui.structure_names.keys() and fullname in self.gui.structure_names.values()):  # new label
                 if abbr in self.gui.structure_names:
-                    QMessageBox.warning(self, 'oops', 'structure with abbreviation %s already exists: %s' % (abbr, fullname))
+                    QMessageBox.warning(self.gview, 'oops', 'structure with abbreviation %s already exists: %s' % (abbr, fullname))
                     return
                 else:
                     self.gui.structure_names[abbr] = fullname
@@ -646,7 +738,6 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.label_selection_dialog.accept()
 
 
-
     def load_drawings(self, username, timestamp='latest', annotation_rootdir=None, append=False, orientation=None, downsample=None):
 
         if orientation is None:
@@ -662,17 +753,18 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.drawings = defaultdict(list)
 
         for i_or_sec, polygon_dicts in self.labelings['polygons'].iteritems():
+            print i_or_sec, len(polygon_dicts)
             for polygon_dict in polygon_dicts:
                 vertices = polygon_dict['vertices']
                 # sec = polygon_dict['section']
                 if self.labelings['indexing_scheme'] == 'section':
                     if i_or_sec not in self.data_feeder.sections: continue
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
-                                                            linecolor='r', linewidth=10, vertex_radius=20, section=i_or_sec)
+                    print i_or_sec
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
+                                                            linecolor='r', section=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
                 elif self.labelings['indexing_scheme'] == 'index':
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'],
-                                                            linecolor='r', linewidth=10, vertex_radius=20, index=i_or_sec)
-
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
+                                                            linecolor='r', index=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
         # print self.labelings['polygons'].keys()
         # print self.drawings.keys()
 
@@ -700,6 +792,8 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.labelings['timestamp'] = timestamp
             self.labelings['username'] = username
 
+        # print self.drawings
+
         for i, polygons in self.drawings.iteritems():
 
             # Erase the labelings on a loaded section - because we will add those later as they currently appear.
@@ -716,19 +810,25 @@ class DrawableGraphicsScene(QGraphicsScene):
                     for c in polygon.vertex_circles:
                         pos = c.scenePos()
                         polygon_labeling['vertices'].append((pos.x(), pos.y()))
+
                     polygon_labeling['label'] = polygon.label
+
+                    label_pos = polygon.label_textItem.scenePos()
+                    polygon_labeling['labelPos'] = (label_pos.x(), label_pos.y())
+
                     if hasattr(self.data_feeder, 'sections'):
                         # polygon_labeling['section'] = self.data_feeder.sections[i]
                         self.labelings['polygons'][sec].append(polygon_labeling)
                     else:
                         self.labelings['polygons'][i].append(polygon_labeling)
 
+                    polygon_labeling['side'] = None
+                    polygon_labeling['type'] = polygon.type
+
                 except Exception as e:
                     print e
                     with open('log.txt', 'w') as f:
                         f.write('ERROR:' + self.id + ' ' + str(i) + '\n')
-
-        print self.labelings['polygons'].keys()
 
         fn = fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
                                 downsample=self.data_feeder.downsample, username=username, timestamp=timestamp)
@@ -758,14 +858,15 @@ class DrawableGraphicsScene(QGraphicsScene):
         polygon = self.sender().parent
         if polygon.index == self.active_i:
             print 'label added.'
-            self.addItem(text_item)
+            # self.addItem(text_item)
 
     @pyqtSlot(QGraphicsEllipseItemModified)
     def vertex_added(self, circle):
         polygon = self.sender().parent
         if polygon.index == self.active_i:
-            print 'circle added.'
-            self.addItem(circle)
+            pass
+            # print 'circle added.'
+            # self.addItem(circle)
             # circle.signal_emitter.moved.connect(self.vertex_moved)
             # circle.signal_emitter.clicked.connect(self.vertex_clicked)
             # circle.signal_emitter.released.connect(self.vertex_released)
@@ -845,6 +946,11 @@ class DrawableGraphicsScene(QGraphicsScene):
         action_deletePolygon = myMenu.addAction("Delete polygon")
         action_setLabel = myMenu.addAction("Set label")
 
+        action_confirmPolygon = myMenu.addAction("Confirm this polygon")
+
+        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
+            action_confirmPolygon.setVisible(False)
+
         # action_setUncertain = myMenu.addAction("Set uncertain segment")
         # action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
         # action_deleteROIMerge = myMenu.addAction("Delete vertices in ROI (merge)")
@@ -861,7 +967,10 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
 
-        if selected_action == action_deletePolygon:
+        if selected_action == action_confirmPolygon:
+            self.active_polygon.set_type(None)
+
+        elif selected_action == action_deletePolygon:
             self.drawings[self.active_i].remove(self.active_polygon)
             self.removeItem(self.active_polygon)
 
@@ -875,7 +984,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         elif selected_action == action_newPolygon:
             # self.disable_elements()
             self.close_curr_polygon = False
-            self.active_polygon = self.add_polygon(QPainterPath(), color='r', linewidth=10, index=self.active_i)
+            self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
             # assert self.active_polygon is not None
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
@@ -1227,15 +1336,15 @@ class DrawableGraphicsScene(QGraphicsScene):
         # print obj.metaObject().className(), event.type()
         # http://doc.qt.io/qt-4.8/qevent.html#Type-enum
 
-        out_factor = .9
-        in_factor = 1. / out_factor
 
         if event.type() == QEvent.KeyPress:
-            if (event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return) and self.mode == 'add vertices consecutively':
+            key = event.key()
+
+            if (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively':
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
                 return False
-            elif event.key() == Qt.Key_V: # Toggle all vertex circles
+            elif key == Qt.Key_V: # Toggle all vertex circles
                 for i, polygons in self.drawings.iteritems():
                     for p in polygons:
                         for c in p.vertex_circles:
@@ -1243,7 +1352,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                                 c.setVisible(False)
                             else:
                                 c.setVisible(True)
-            elif event.key() == Qt.Key_C: # Toggle all contours
+            elif key == Qt.Key_C: # Toggle all contours
                 for i, polygons in self.drawings.iteritems():
                     for p in polygons:
                         if p.isVisible():
@@ -1251,9 +1360,26 @@ class DrawableGraphicsScene(QGraphicsScene):
                         else:
                             p.setVisible(True)
 
+            elif key == Qt.Key_Control:
+                if not event.isAutoRepeat():
+                    # for polygon in self.drawings[self.active_i]:
+                    #     polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
+                    self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
+
+        elif event.type() == QEvent.KeyRelease:
+            key = event.key()
+
+            if key == Qt.Key_Control:
+                if not event.isAutoRepeat():
+                    # for polygon in self.drawings[self.active_i]:
+                    #     polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
+                    self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
 
         elif event.type() == QEvent.Wheel:
             # eat wheel event from gview viewport. default behavior is to trigger down scroll
+
+            out_factor = .9
+            in_factor = 1. / out_factor
 
             if event.delta() < 0: # negative means towards user
                 self.gview.scale(out_factor, out_factor)
@@ -1282,8 +1408,9 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             self.gui.active_gscene = self
 
-            gscene_x = event.scenePos().x()
-            gscene_y = event.scenePos().y()
+            pos = event.scenePos()
+            gscene_x = pos.x()
+            gscene_y = pos.y()
 
             if event.button() == Qt.RightButton:
                 obj.mousePressEvent(event)
@@ -1292,8 +1419,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 # pass the event down
                 obj.mousePressEvent(event)
 
-                self.press_screen_x = event.screenPos().x()
-                self.press_screen_y = event.screenPos().y()
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
                 print self.press_screen_x, self.press_screen_y
                 self.pressed = True
                 return True

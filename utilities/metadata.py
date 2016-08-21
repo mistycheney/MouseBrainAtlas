@@ -28,12 +28,14 @@ elif hostname == 'yuncong-MacbookPro':
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v2/'
+    cerebellum_masks_rootdir = '/home/yuncong/CSHL_cerebellum_mask_labeligns/'
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
     volume_dir = '/home/yuncong/CSHL_volumes/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
+    annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v2/'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -98,7 +100,7 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
 
-all_stacks = ['MD589', 'MD594', 'MD593', 'MD585', 'MD592', 'MD590', 'MD591', 'MD589', 'MD595', 'MD598', 'MD602', 'MD603']
+all_stacks = ['MD589', 'MD594', 'MD593', 'MD585', 'MD592', 'MD590', 'MD591', 'MD595', 'MD598', 'MD602', 'MD603']
 
 section_number_lookup = { 'MD585': 440, 'MD589': 445,
                         'MD590': 419, 'MD591': 452, 'MD592': 454,
@@ -123,7 +125,6 @@ brainstem_bbox_lookup_midbrain = {'MD585': (528,113,527,408), 'MD589':(563,145,4
                                 'MD590':(585,142,668,550), 'MD591':(566,182,681,677), 'MD592':(702,299,731,416),
                                 'MD593':(525,122,691,506), 'MD594': (553,144,514,362), 'MD595':(560,156,820,519),
                                 'MD598':(582,88,793,478), 'MD602':(555,65,847,485), 'MD603':(514,189,635,401)}
-
 
 # xmin, ymin, w, h
 detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \

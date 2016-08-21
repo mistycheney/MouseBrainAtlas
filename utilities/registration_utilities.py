@@ -2031,10 +2031,11 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
 
 
 def find_contour_points(labelmap, sample_every=10):
-    '''
+    """
+    The value of sample_every can be interpreted as distance between points.
     return is (x,y)
     Note the returned result is a dict of lists.
-    '''
+    """
 
     regions = regionprops(labelmap)
 

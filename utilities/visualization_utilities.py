@@ -181,7 +181,7 @@ def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=No
 
     for user in users:
         try:
-            labeling, _, _ = DataManager.load_annotation_v2(stack=stack, username=user, orientation=orientation, downsample=downscale_factor, annotation_rootdir=annotation_rootdir)
+            labeling, _, _ = DataManager.load_annotation_v2(stack=stack, username=user, orientation=orientation, downsample=1, annotation_rootdir=annotation_rootdir)
         except:
             sys.stderr.write('Cannot read labeling for %s\n' % user)
             continue
@@ -345,24 +345,24 @@ def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_fa
 #         return pickle.load(open(annotation_filepath, 'r')), timestamp
 
 
-def get_labeling_list():
-
-    from collections import defaultdict
-    import pandas as pd
-
-    labeling_list = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    for stack in os.listdir(os.environ['LABELING_DIR']):
-        if os.path.isdir(os.path.join(os.environ['LABELING_DIR'], stack)):
-            for sec in sorted(os.listdir(os.path.join(os.environ['LABELING_DIR'], stack))):
-                for labeling_fn in os.listdir(os.path.join(os.environ['LABELING_DIR'], stack, sec)):
-                    user = labeling_fn.split('_')[2]
-                    labeling_list[stack][int(sec)][user].append(labeling_fn)
-
-    labeling_list.default_factory = None
-
-    reformed = {(stack, sec): labeling_list[stack][sec] for stack, secs in labeling_list.iteritems() for sec in secs }
-    df = pd.DataFrame(reformed)
-
-    return df
-
-labeling_list = get_labeling_list()
+# def get_labeling_list():
+#
+#     from collections import defaultdict
+#     import pandas as pd
+#
+#     labeling_list = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+#     for stack in os.listdir(os.environ['LABELING_DIR']):
+#         if os.path.isdir(os.path.join(os.environ['LABELING_DIR'], stack)):
+#             for sec in sorted(os.listdir(os.path.join(os.environ['LABELING_DIR'], stack))):
+#                 for labeling_fn in os.listdir(os.path.join(os.environ['LABELING_DIR'], stack, sec)):
+#                     user = labeling_fn.split('_')[2]
+#                     labeling_list[stack][int(sec)][user].append(labeling_fn)
+#
+#     labeling_list.default_factory = None
+#
+#     reformed = {(stack, sec): labeling_list[stack][sec] for stack, secs in labeling_list.iteritems() for sec in secs }
+#     df = pd.DataFrame(reformed)
+#
+#     return df
+#
+# labeling_list = get_labeling_list()

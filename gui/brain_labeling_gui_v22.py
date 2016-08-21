@@ -32,8 +32,6 @@ from ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
 # from ui_RectificationTool import Ui_RectificationGUI
 # from rectification_tool import *
 
-from matplotlib.colors import ListedColormap, NoNorm, ColorConverter
-
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import LineString as ShapelyLineString
@@ -59,204 +57,11 @@ from joblib import Parallel, delayed
 # from LabelingPainter import LabelingPainter
 from custom_widgets import *
 from SignalEmittingItems import *
-
+from DataFeeder import ImageDataFeeder, VolumeResectionDataFeeder
 
 from drawable_gscene import *
 
-gray_color_table = [qRgb(i, i, i) for i in range(256)]
-
 #######################################################################
-
-
-# class DataFeeder(object):
-#     def __init__(self, name):
-#         super(self.__class__, self).__init__()
-#         self.name = name
-
-        # def set_downsample_factor(self, downsample):
-        #     self.downsample = downsample
-
-class ImageDataFeeder(object):
-
-    def __init__(self, name, stack, sections):
-        self.name = name
-        self.stack = stack
-
-        self.sections = sections
-        self.min_section = min(self.sections)
-        self.max_section = max(self.sections)
-
-        self.n = len(self.sections)
-
-        self.supported_downsample_factors = [1, 32]
-        self.image_cache = {}
-
-    def set_orientation(self, orientation):
-        self.orientation = orientation
-        self.compute_dimension()
-
-    def set_image(self, qimage, sec, downsample=None):
-
-        if downsample is None:
-            downsample = self.downsample
-
-        self.image_cache[downsample][sec] = qimage
-        self.compute_dimension()
-
-    # def load_images(self, downsample=None, selected_sections=None):
-    #     if downsample is None:
-    #         downsample = self.downsample
-    #
-    #     if selected_sections is None:
-    #         selected_sections = self.sections
-    #
-    #     if downsample == 1:
-    #         self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-    #                         for sec in selected_sections}
-    #     elif downsample == 32:
-    #         # self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
-    #         #                 for sec in self.sections}
-    #         self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
-    #                                         % dict(stack=self.stack, sec=sec))
-    #                                         for sec in selected_sections}
-    #
-    #     self.compute_dimension()
-
-
-    def compute_dimension(self):
-
-        if hasattr(self, 'downsample') and self.downsample in self.image_cache and hasattr(self, 'orientation'):
-            arbitrary_img = self.image_cache[self.downsample].values()[0]
-            if self.orientation == 'sagittal':
-                self.x_dim = arbitrary_img.width()
-                self.y_dim = arbitrary_img.height()
-            elif self.orientation == 'coronal':
-                self.z_dim = arbitrary_img.width()
-                self.y_dim = arbitrary_img.height()
-            elif self.orientation == 'horizontal':
-                self.x_dim = arbitrary_img.width()
-                self.z_dim = arbitrary_img.height()
-
-    def set_downsample_factor(self, downsample):
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
-        else:
-            self.downsample = downsample
-
-        self.compute_dimension()
-
-    def retrive_i(self, i, downsample=None):
-
-        if downsample is None:
-            downsample = self.downsample
-
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
-
-        sec = self.sections[i]
-
-        # if downsample not in self.image_cache:
-        #     t = time.time()
-        #     self.load_images(downsample)
-        #     sys.stderr.write('Load images: %.2f\n' % (time.time() - t))
-
-        # if sec not in self.image_cache[downsample]:
-        #     if downsample == 1:
-        #         self.image_cache[downsample][sec] = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-        #     elif downsample == 32:
-        #         # self.image_cache[downsample][i] = QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
-        #         self.image_cache[downsample][sec] = QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
-        #                                         % dict(stack=self.stack, sec=sec))
-        #
-        if downsample not in self.image_cache:
-            self.image_cache[downsample] = {}
-
-        if sec not in self.image_cache[downsample]:
-            sys.stderr.write('Image is not loaded.\n')
-            return None
-
-        return self.image_cache[downsample][sec]
-
-
-class VolumeResectionDataFeeder(object):
-
-    def __init__(self, name, stack):
-
-        self.name = name
-        self.volume_cache = {}
-        self.supported_downsample_factors = [4,8,32]
-
-        self.stack = stack
-
-    def set_downsample_factor(self, downsample):
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.\n' % downsample)
-            return
-        else:
-            self.downsample = downsample
-
-        if self.downsample in self.volume_cache:
-            self.volume = self.volume_cache[self.downsample]
-            self.y_dim, self.x_dim, self.z_dim = self.volume.shape
-
-            if self.orientation == 'sagittal':
-                # self.min_i = 0
-                # self.max_i = self.z_dim - 1
-                self.n = self.z_dim
-            elif self.orientation == 'coronal':
-                # self.min_i = 0
-                # self.max_i = self.x_dim - 1
-                self.n = self.x_dim
-            elif self.orientation == 'horizontal':
-                # self.min_i = 0
-                # self.max_i = self.y_dim - 1
-                self.n = self.y_dim
-        else:
-            try:
-                self.volume_cache[self.downsample] = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':self.downsample})
-            except:
-                sys.stderr.write('Cannot read volume file.\n')
-
-    def set_volume_cache(self, volume_cache):
-        self.volume_cache = volume_cache
-
-    def add_volume(self, volume, downsample):
-        if downsample not in self.volume_cache:
-            self.volume_cache[downsample] = volume
-
-    def set_orientation(self, orientation):
-        self.orientation = orientation
-
-    def retrive_i(self, i, orientation=None, downsample=None):
-        if orientation is None:
-            orientation = self.orientation
-
-        if downsample is None:
-            downsample = self.downsample
-
-        if orientation == 'horizontal':
-            y = i
-            horizontal_data = self.volume[y, :, ::-1].T.flatten()
-            horizontal_image = QImage(horizontal_data, self.x_dim, self.z_dim, self.x_dim, QImage.Format_Indexed8)
-            horizontal_image.setColorTable(gray_color_table)
-            return horizontal_image
-
-        elif orientation == 'coronal':
-            x = i
-            coronal_data = self.volume[:, x, ::-1].flatten()
-            coronal_image = QImage(coronal_data, self.z_dim, self.y_dim, self.z_dim, QImage.Format_Indexed8)
-            coronal_image.setColorTable(gray_color_table)
-            return coronal_image
-
-        elif orientation == 'sagittal':
-            z = i
-            sagittal_data = self.volume[:, :, z].flatten()
-            sagittal_image = QImage(sagittal_data, self.x_dim, self.y_dim, self.x_dim, QImage.Format_Indexed8)
-            sagittal_image.setColorTable(gray_color_table)
-            return sagittal_image
-
 
 class ReadImagesThread(QThread):
     def __init__(self, stack, sections):
@@ -275,7 +80,7 @@ class ReadImagesThread(QThread):
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
-    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None):
+    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, downsample=None):
         """
         Initialization of BrainLabelingGUI.
         """
@@ -286,6 +91,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         QMainWindow.__init__(self, parent)
 
         self.stack = stack
+        self.sagittal_downsample = downsample
+
         self.setupUi(self)
 
         self.button_save.clicked.connect(self.save)
@@ -300,10 +107,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
 
-        self.downsample_factor = 32
-
-        self.volume = self.volume_cache[self.downsample_factor]
-        self.y_dim, self.x_dim, self.z_dim = self.volume.shape
+        # self.volume = self.volume_cache[self.downsample_factor]
+        # self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
         self.coronal_gscene = DrawableGraphicsScene(id='coronal', gui=self, gview=self.coronal_gview)
         self.coronal_gview.setScene(self.coronal_gscene)
@@ -356,7 +161,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
         image_feeder.set_orientation('sagittal')
-        image_feeder.set_downsample_factor(1)
+        # image_feeder.set_downsample_factor(1)
+        image_feeder.set_downsample_factor(self.sagittal_downsample)
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
@@ -364,27 +170,32 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
         coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
         coronal_volume_resection_feeder.set_orientation('coronal')
-        coronal_volume_resection_feeder.set_downsample_factor(self.downsample_factor)
+        coronal_volume_resection_feeder.set_downsample_factor(32)
         self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
 
         horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
         horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
         horizontal_volume_resection_feeder.set_orientation('horizontal')
-        horizontal_volume_resection_feeder.set_downsample_factor(self.downsample_factor)
+        horizontal_volume_resection_feeder.set_downsample_factor(32)
         self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
 
         # self.gscenes['coronal'].set_downsample_factor(self.downsample_factor)
         # self.gscenes['sagittal'].set_downsample_factor(1)
         # self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
 
+        if self.gscenes['sagittal'].data_feeder.downsample == 1:
+            self.read_images_thread = ReadImagesThread(self.stack, self.sections)
+            self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
+            self.read_images_thread.start()
+            self.button_stop.clicked.connect(self.read_images_thread.terminate)
+        else:
+            self.gscenes['sagittal'].data_feeder.load_images()
+            self.gscenes['sagittal'].set_vertex_radius(3)
+            self.gscenes['sagittal'].set_line_width(3)
+
         self.gscenes['coronal'].set_active_i(50)
         self.gscenes['sagittal'].set_active_section(self.sections[0])
         self.gscenes['horizontal'].set_active_i(150)
-
-        self.read_images_thread = ReadImagesThread(self.stack, self.sections)
-        self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
-        self.read_images_thread.start()
-        self.button_stop.clicked.connect(self.read_images_thread.terminate)
 
         # print time.time() - t0
 
@@ -392,6 +203,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def image_loaded(self, qimage, sec):
         self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
         print 'Image', sec, 'received.'
+        if self.gscenes['sagittal'].active_section == sec:
+            self.gscenes['sagittal'].load_histology()
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
 
     @pyqtSlot()
@@ -486,9 +299,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id != source_gscene_id:
-            #     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
-            gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            if gscene_id != source_gscene_id:
+                gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            # gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -506,12 +319,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if len(matched_polygons) < 2:
             return
 
+        # NOTICE THE reconstructed VOLUME IS DOWNSAMPLED BY this number !!!!
+        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
+        contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
+                                        [(c.scenePos().x()*downsample/self.volume_downsample_factor,
+                                        c.scenePos().y()*downsample/self.volume_downsample_factor)
+                                        for c in p.vertex_circles] for p in matched_polygons if p.type != 'interpolated'}
 
-        # NOTICE THE VOLUME IS DOWNSAMPLED BY 8 !!!!
-
-        volume_downsample_factor = 8
-        contour_points_grouped_by_pos = {p.position / volume_downsample_factor: [(c.scenePos().x()*downsample / volume_downsample_factor, c.scenePos().y()*downsample/volume_downsample_factor)
-                                                        for c in p.vertex_circles] for p in matched_polygons}
+        print contour_points_grouped_by_pos.keys()
 
         if polygon.gscene.data_feeder.orientation == 'sagittal':
             volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
@@ -520,59 +335,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         elif polygon.gscene.data_feeder.orientation == 'horizontal':
             volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
 
-        # contour_points_grouped_by_pos = {p.position: [(c.scenePos().x()*downsample, c.scenePos().y()*downsample)
-        #                                                 for c in p.vertex_circles] for p in matched_polygons}
-        #
-        # if polygon.gscene.data_feeder.orientation == 'sagittal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-        # elif polygon.gscene.data_feeder.orientation == 'coronal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-        # elif polygon.gscene.data_feeder.orientation == 'horizontal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-
-        # Here bbox must be of the original dimension.
-
         self.structure_volumes[name_u] = (volume, bbox)
 
         self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
         self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)
+        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u)
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')
-
-    # def key_released(self, event):
-    #     key = event.key()
-    #     if key == Qt.Key_Space:
-    #         for gscene in self.gscenes.itervalues():
-    #             gscene.set_mode('idle')
-    #             # if gscene.mode == 'crossline':
-                #     gscene.set_mode('idle')
-                # else:
-                #     gscene.set_mode('crossline')
-
-    # def key_pressed(self, event):
-    #     # if event.type() == Qt.keyPressEvent:
-    #     key = event.key()
-    #     if key == Qt.Key_1:
-    #         self.gscenes['sagittal'].show_previous()
-    #     elif key == Qt.Key_2:
-    #         self.gscenes['sagittal'].show_next()
-    #     elif key == Qt.Key_3:
-    #         self.gscenes['coronal'].show_previous()
-    #     elif key == Qt.Key_4:
-    #         self.gscenes['coronal'].show_next()
-    #     elif key == Qt.Key_5:
-    #         self.gscenes['horizontal'].show_previous()
-    #     elif key == Qt.Key_6:
-    #         self.gscenes['horizontal'].show_next()
-    #
-    #     elif key == Qt.Key_Space:
-    #         for gscene in self.gscenes.itervalues():
-    #             gscene.set_mode('crossline')
-    #             # if gscene.mode == 'crossline':
-    #             #     gscene.set_mode('idle')
-    #             # else:
-    #             #     gscene.set_mode('crossline')
 
 
     def eventFilter(self, obj, event):
@@ -630,17 +400,19 @@ if __name__ == "__main__":
     parser.add_argument("stack_name", type=str, help="stack name")
     parser.add_argument("-f", "--first_sec", type=int, help="first section")
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
+    parser.add_argument("-d", "--downsample", type=int, help="downsample", default=1)
     args = parser.parse_args()
 
     from sys import argv, exit
     appl = QApplication(argv)
 
     stack = args.stack_name
+    downsample = args.downsample
 
     first_sec = section_range_lookup[stack][0] if args.first_sec is None else args.first_sec
     last_sec = section_range_lookup[stack][1] if args.last_sec is None else args.last_sec
 
-    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec)
+    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, downsample=downsample)
 
     m.showMaximized()
     m.raise_()

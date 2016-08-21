@@ -24,6 +24,7 @@ from collections import defaultdict
 from visualization_utilities import *
 from annotation_utilities import *
 
+
 def compute_accuracy(predictions, true_labels, exclude_abstained=True, abstain_label=-1):
 
     n = len(predictions)
@@ -104,25 +105,25 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
                              horizontalalignment='center',
                              verticalalignment='center');
 
-def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
-    """
-    fn_template: a str including argument %stack and %sec
-    """
-
-    locations = locate_patches_given_addresses(addresses)
-
-    locations_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    for list_index, (stack, sec, loc, name) in enumerate(locations):
-        locations_grouped[stack][sec][name].append(loc)
-    locations_grouped.default_factory = None
-
-    for stack, locations_allSections in locations_grouped.iteritems():
-        for sec, locations_allNames in locations_allSections.iteritems():
-            clrs = [name_to_color[name] for name in locations_allNames.iterkeys()]
-            locs = locations_allNames.values()
-            viz = patch_boxes_overlay_on(bg='original', downscale_factor=downscale_factor,
-                                        locs=locs, colors=clrs, patch_size=224, stack=stack, sec=sec)
-            cv2.imwrite(fn_template % {'stack':stack, 'sec':sec}, viz[...,::-1])
+# def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
+#     """
+#     fn_template: a str including argument %stack and %sec
+#     """
+#
+#     locations = locate_patches_given_addresses(addresses)
+#
+#     locations_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+#     for list_index, (stack, sec, loc, name) in enumerate(locations):
+#         locations_grouped[stack][sec][name].append(loc)
+#     locations_grouped.default_factory = None
+#
+#     for stack, locations_allSections in locations_grouped.iteritems():
+#         for sec, locations_allNames in locations_allSections.iteritems():
+#             clrs = [name_to_color[name] for name in locations_allNames.iterkeys()]
+#             locs = locations_allNames.values()
+#             viz = patch_boxes_overlay_on(bg='original', downscale_factor=downscale_factor,
+#                                         locs=locs, colors=clrs, patch_size=224, stack=stack, sec=sec)
+#             cv2.imwrite(fn_template % {'stack':stack, 'sec':sec}, viz[...,::-1])
 
 
 def extract_patches_given_locations(stack, sec, locs=None, grid_spec=None, indices=None, sample_locations=None):
@@ -145,39 +146,69 @@ def extract_patches_given_locations(stack, sec, locs=None, grid_spec=None, indic
     return patches
 
 
-def locate_patches_given_addresses(addresses):
+# def locate_patches_given_addresses(addresses):
+#     """
+#     addresses is a list of addresses.
+#     address: stack, section, structure_name, index
+#     """
+#
+#     from collections import defaultdict
+#     addresses_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+#     for addressList_index, (stack, sec, name, i) in enumerate(addresses):
+#         addresses_grouped[stack][sec][name].append((i, addressList_index))
+#
+#     patch_locations_all = []
+#     addressList_indices_all = []
+#     for stack, indices_allSections in addresses_grouped.iteritems():
+#         grid_spec = get_default_gridspec(stack)
+#         sample_locations = grid_parameters_to_sample_locations(grid_spec)
+#         indices_allLandmarks_allSections = locate_annotated_patches(stack, grid_spec)
+#         for sec, indices_allNames in indices_allSections.iteritems():
+#             for name, fwInd_addrLstInd_tuples in indices_allNames.iteritems():
+#                 landmarkWise_indices_selected, addressList_indices = map(list, zip(*fwInd_addrLstInd_tuples))
+#                 frameWise_indices_oneLandmark = indices_allLandmarks_allSections[sec][name]
+#                 frameWise_indices_selected = frameWise_indices_oneLandmark[landmarkWise_indices_selected]
+#
+#                 patch_locations_all += [(stack, sec, loc, name) for loc in sample_locations[frameWise_indices_selected]]
+#                 addressList_indices_all += addressList_indices
+#
+#     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
+#     return patch_locations_all_inOriginalOrder
+
+
+def locate_patches_given_addresses_v2(addresses):
+    """
+    addresses is a list of addresses.
+    address: stack, section, framewise_index
+    """
 
     from collections import defaultdict
     addresses_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    for addressList_index, (stack, sec, name, i) in enumerate(addresses):
-        addresses_grouped[stack][sec][name].append((i, addressList_index))
+    for addressList_index, (stack, sec, i) in enumerate(addresses):
+        addresses_grouped[stack][sec].append((i, addressList_index))
 
     patch_locations_all = []
     addressList_indices_all = []
     for stack, indices_allSections in addresses_grouped.iteritems():
         grid_spec = get_default_gridspec(stack)
         sample_locations = grid_parameters_to_sample_locations(grid_spec)
-        indices_allLandmarks_allSections = locate_annotated_patches(stack, grid_spec)
-        for sec, indices_allNames in indices_allSections.iteritems():
-            for name, fwInd_addrLstInd_tuples in indices_allNames.iteritems():
-                landmarkWise_indices_selected, addressList_indices = map(list, zip(*fwInd_addrLstInd_tuples))
-                frameWise_indices_oneLandmark = indices_allLandmarks_allSections[sec][name]
-                frameWise_indices_selected = frameWise_indices_oneLandmark[landmarkWise_indices_selected]
-
-                patch_locations_all += [(stack, sec, loc, name) for loc in sample_locations[frameWise_indices_selected]]
-                addressList_indices_all += addressList_indices
+        for sec, fwInd_addrLstInd_tuples in indices_allSections.iteritems():
+            frameWise_indices_selected, addressList_indices = map(list, zip(*fwInd_addrLstInd_tuples))
+            patch_locations_all += [(stack, sec, loc, name) for loc in sample_locations[frameWise_indices_selected]]
+            addressList_indices_all += addressList_indices
 
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
-
-def extract_patches_given_addresses(addresses):
-
-    locations = locate_patches_given_addresses(addresses)
+def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location'):
+    """
+    addresses is a list of addresses.
+    address: stack, section, framewise_index
+    """
 
     from collections import defaultdict
     locations_grouped = defaultdict(lambda: defaultdict(list))
-    for list_index, (stack, sec, loc, name) in enumerate(locations):
+    for list_index, (stack, sec, loc) in enumerate(addresses):
         locations_grouped[stack][sec].append((loc, list_index))
 
     patches_all = []
@@ -185,20 +216,47 @@ def extract_patches_given_addresses(addresses):
     for stack, locations_allSections in locations_grouped.iteritems():
         for sec, loc_listInd_tuples in locations_allSections.iteritems():
             locs_thisSec, list_indices = map(list, zip(*loc_listInd_tuples))
-            patches_all += extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+            if location_or_grid_index == 'location':
+                extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+            else:
+                extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec)
+            patches_all += extracted_patches
             list_indices_all += list_indices
 
     patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
     return patch_all_inOriginalOrder
 
 
+# def extract_patches_given_addresses(addresses):
+#
+#     locations = locate_patches_given_addresses(addresses)
+#
+#     from collections import defaultdict
+#     locations_grouped = defaultdict(lambda: defaultdict(list))
+#     for list_index, (stack, sec, loc, name) in enumerate(locations):
+#         locations_grouped[stack][sec].append((loc, list_index))
+#
+#     patches_all = []
+#     list_indices_all = []
+#     for stack, locations_allSections in locations_grouped.iteritems():
+#         for sec, loc_listInd_tuples in locations_allSections.iteritems():
+#             locs_thisSec, list_indices = map(list, zip(*loc_listInd_tuples))
+#             patches_all += extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+#             list_indices_all += list_indices
+#
+#     patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
+#     return patch_all_inOriginalOrder
+
+
 def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = DataManager.get_image_dimension(stack)
     return (patch_size, stride, image_width, image_height)
 
-def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=False):
+def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=False, annotation_rootdir=None, cerebellum_removed=True, sided=True):
     """
     If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
+
+    Return a DataFrame: indexed by structure names and section number, cell is the grid indices.
     """
 
     if not force:
@@ -212,8 +270,8 @@ def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=Fa
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    label_polygons = load_label_polygons_if_exists(stack, username, force=force,
-                        annotation_rootdir=annotation_midbrainIncluded_rootdir)
+    label_polygons = load_label_polygons_if_exists(stack, username, force=force, downsample=1,
+                                                annotation_rootdir=annotation_rootdir, side_assigned=sided)
 
     first_sec, last_sec = detect_bbox_range_lookup[stack]
     # bar = show_progress_bar(first_sec, last_sec)
@@ -224,7 +282,7 @@ def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=Fa
 
         if sec in label_polygons.index:
 
-            mask_tb = DataManager.load_thumbnail_mask(stack, sec)
+            mask_tb = DataManager.load_thumbnail_mask(stack, sec, cerebellum_removed=cerebellum_removed)
             indices_allLandmarks = locate_patches(grid_spec=grid_spec, mask_tb=mask_tb, polygons=label_polygons.loc[sec].dropna())
             indices_allLandmarks_allSections[sec] = indices_allLandmarks
         else:
@@ -252,8 +310,8 @@ def locate_patches(grid_spec=None, stack=None, patch_size=224, stride=56, image_
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
-    - If bbox is given, valid patches are those entirely inside bbox.
-    - If polygons is given, the valid patches are those whose bounding boxes
+    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
+    - If polygons is given, the valid patches are those whose bounding boxes. polygons is a dict, keys are structure names, values are vertices (xy).
     if shrinked to 30%% are completely within the polygons.
     """
 

@@ -261,19 +261,28 @@ def get_section_contains_labels(label_polygons, filtered_labels=None):
     return section_contains_labels
 
 
-def load_label_polygons_if_exists(stack, username, output_path=None, force=False, annotation_rootdir=annotation_midbrainIncluded_rootdir):
+def load_label_polygons_if_exists(stack, username, output_path=None, output=True, force=False,
+                                downsample=None, orientation=None, annotation_rootdir=None,
+                                side_assigned=False):
 
-    label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons.h5' % {'stack': stack, 'username': username})
+    if side_assigned:
+        label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons_sided.h5' % {'stack': stack, 'username': username})
+    else:
+        label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons.h5' % {'stack': stack, 'username': username})
 
     if os.path.exists(label_polygons_path) and not force:
         label_polygons = pd.read_hdf(label_polygons_path, 'label_polygons')
     else:
-        label_polygons = pd.DataFrame(generate_label_polygons(stack, username, annotation_rootdir=annotation_rootdir))
+        label_polygons = pd.DataFrame(generate_label_polygons(stack, username=username, orientation=orientation, annotation_rootdir=annotation_rootdir, downsample=downsample))
 
-        if output_path is None:
-            label_polygons.to_hdf(label_polygons_path, 'label_polygons')
-        else:
-            label_polygons.to_hdf(output_path, 'label_polygons')
+        if side_assigned:
+            label_polygons = assign_sideness(label_polygons)
+
+        if output:
+            if output_path is None:
+                label_polygons.to_hdf(label_polygons_path, 'label_polygons')
+            else:
+                label_polygons.to_hdf(output_path, 'label_polygons')
 
     return label_polygons
 
@@ -307,6 +316,9 @@ def generate_label_polygons(stack, username, orientation=None, downsample=None, 
 
             if label in labels_merge_map:
                 label = labels_merge_map[label]
+
+            if 'side' not in ann:
+                ann['side'] = None
 
             if label in singular_structures:
                 # assert ann['side'] is None, 'Structure %s is singular, but labeling says it has side property.' % label
@@ -443,25 +455,169 @@ def get_interpolated_contours(contours_grouped_by_pos):
         interpolated_contours[z0] = np.array(contours_grouped_by_pos[z0])
         if i + 1 < len(zs):
             z1 = zs[i+1]
-            interp_cnts = interpolate_contours(contours_grouped_by_pos[z0], contours_grouped_by_pos[z0], z1-z0+1)
+            interp_cnts = interpolate_contours(contours_grouped_by_pos[z0], contours_grouped_by_pos[z1], nlevels=z1-z0+1)
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
     return interpolated_contours
 
 
+def resample_polygon(cnt, n_points=None, len_interval=20):
+
+    polygon = Polygon(cnt)
+
+    if n_points is None:
+        contour_length = polygon.exterior.length
+        n_points = max(3, int(np.round(contour_length / len_interval)))
+
+    resampled_cnt = np.empty((n_points, 2))
+    for i, p in enumerate(np.linspace(0, 1, n_points+1)[:-1]):
+        pt = polygon.exterior.interpolate(p, normalized=True)
+        resampled_cnt[i] = (pt.x, pt.y)
+    return resampled_cnt
+
+
+from shapely.geometry import Polygon
+
+
+def signed_curvatures(s, d=7):
+    """
+    https://www.wikiwand.com/en/Curvature
+    Return curvature and x prime, y prime along a curve.
+    """
+
+    xp = np.gradient(s[:, 0], d)
+    xpp = np.gradient(xp, d)
+    yp = np.gradient(s[:, 1], d)
+    ypp = np.gradient(yp, d)
+    curvatures = (xp * ypp - yp * xpp)/np.sqrt(xp**2+yp**2)**3
+    return curvatures, xp, yp
+
 def interpolate_contours(cnt1, cnt2, nlevels):
     '''
-    returned arrays include cnt1 and cnt2
+    Returned arrays include cnt1 and cnt2 - length of array is nlevels.
     '''
 
-    poly1 = Polygon(cnt1)
-    poly2 = Polygon(cnt2)
+    # poly1 = Polygon(cnt1)
+    # poly2 = Polygon(cnt2)
+    #
+    # interpolated_cnts = np.empty((nlevels, len(cnt1), 2))
+    # for i, p in enumerate(cnt1):
+    #     proj_point = closest_to(Point(p), poly2)
+    #     interpolated_cnts[:, i] = (np.column_stack([np.linspace(p[0], proj_point[0], nlevels),
+    #                      np.linspace(p[1], proj_point[1], nlevels)]))
+    #
+    # print cnt1
+    # print cnt2
 
-    interpolated_cnts = np.empty((nlevels, len(cnt1), 2))
-    for i, p in enumerate(cnt1):
-        proj_point = closest_to(Point(p), poly2)
-        interpolated_cnts[:, i] = (np.column_stack([np.linspace(p[0], proj_point[0], nlevels),
-                         np.linspace(p[1], proj_point[1], nlevels)]))
+    l1 = Polygon(cnt1).length
+    l2 = Polygon(cnt2).length
+    n1 = len(cnt1)
+    n2 = len(cnt2)
+    len_interval_1 = l1 / n1
+    len_interval_2 = l2 / n2
+    len_interval_interpolated = np.linspace(len_interval_1, len_interval_2, nlevels)
 
-    return interpolated_cnts
+    len_interval_0 = 20
+    n_points = max(int(np.round(max(l1, l2) / len_interval_0)), n1, n2)
+
+    s1 = resample_polygon(cnt1, n_points=n_points)
+    s2 = resample_polygon(cnt2, n_points=n_points)
+
+    # Make sure point sets are both clockwise or both anti-clockwise.
+
+    # c1 = np.mean(s1, axis=0)
+    # c2 = np.mean(s2, axis=0)
+    # d1 = (s1 - c1)[0]
+    # d1 = d1 / np.linalg.norm(d1)
+    # d2s = s2 - c2
+    # d2s = d2s / np.sqrt(np.sum(d2s**2, axis=1))[:,None]
+    # s2_start_index = np.argmax(np.dot(d1, d2s.T))
+    # print s2_start_index
+    # s2 = np.r_[np.atleast_2d(s2[s2_start_index:]), np.atleast_2d(s2[:s2_start_index])]
+
+    # s2i = np.r_[[s2[0]], s2[1:][::-1]]
+
+    s2i = s2[::-1]
+
+    # curv1, xp1, yp1 = signed_curvatures(s1)
+    # curv2, xp2, yp2 = signed_curvatures(s2)
+    # curv2i, xp2i, yp2i = signed_curvatures(s2i)
+
+    d = 7
+    xp1 = np.gradient(s1[:, 0], d)
+    yp1 = np.gradient(s1[:, 1], d)
+    xp2 = np.gradient(s2[:, 0], d)
+    yp2 = np.gradient(s2[:, 1], d)
+    xp2i = np.gradient(s2i[:, 0], d)
+    yp2i = np.gradient(s2i[:, 1], d)
+
+
+    # using correlation over curvature values directly is much better than using correlation over signs
+    # sign1 = np.sign(curv1)
+    # sign2 = np.sign(curv2)
+    # sign2i = np.sign(curv2i)
+
+    # conv_curv_1_2 = np.correlate(np.r_[curv2, curv2], curv1, mode='valid')
+    conv_xp_1_2 = np.correlate(np.r_[xp2, xp2], xp1, mode='valid')
+    conv_yp_1_2 = np.correlate(np.r_[yp2, yp2], yp1, mode='valid')
+
+    # conv_1_2 = np.correlate(np.r_[sign2, sign2], sign1, mode='valid')
+
+    # top, second = conv_1_2.argsort()[::-1][:2]
+    # d2_top = (s2 - c2)[top]
+    # d2_top = d2_top / np.linalg.norm(d2_top)
+    # d2_second = (s2 - c2)[second]
+    # d2_second = d2_second / np.linalg.norm(d2_second)
+    # s2_start_index = [top, second][np.argmax(np.dot([d2_top, d2_second], d1))]
+
+    # conv_curv_1_2i = np.correlate(np.r_[curv2i, curv2i], curv1, mode='valid')
+    conv_xp_1_2i = np.correlate(np.r_[xp2i, xp2i], xp1, mode='valid')
+    conv_yp_1_2i = np.correlate(np.r_[yp2i, yp2i], yp1, mode='valid')
+
+    # conv_1_2i = np.correlate(np.r_[sign2i, sign2i], sign1, mode='valid')
+    # top, second = conv_1_2i.argsort()[::-1][:2]
+    # if xp1[top] * xp2i[top] + yp1[top] * yp2i[top] > xp1[top] * xp2i[top] + yp1[top] * yp2i[top] :
+    #     s2i_start_index = top
+    # else:
+    #     s2i_start_index = second
+
+    # d2_top = (s2i - c2)[top]
+    # d2_top = d2_top / np.linalg.norm(d2_top)
+    # d2_second = (s2i - c2)[second]
+    # d2_second = d2_second / np.linalg.norm(d2_second)
+    # s2i_start_index = [top, second][np.argmax(np.dot([d2_top, d2_second], d1))]
+
+    # if conv_1_2[s2_start_index] > conv_1_2i[s2i_start_index]:
+    #     s3 = np.r_[np.atleast_2d(s2[s2_start_index:]), np.atleast_2d(s2[:s2_start_index])]
+    # else:
+    #     s3 = np.r_[np.atleast_2d(s2i[s2i_start_index:]), np.atleast_2d(s2i[:s2i_start_index])]
+
+    # from scipy.spatial import KDTree
+    # tree = KDTree(s1)
+    # nn_in_order_s2 = np.count_nonzero(np.diff(tree.query(s2)[1]) > 0)
+    # nn_in_order_s2i = np.count_nonzero(np.diff(tree.query(s2i)[1]) > 0)
+
+    # overall_s2 = conv_curv_1_2 / conv_curv_1_2.max() + conv_xp_1_2 / conv_xp_1_2.max() + conv_yp_1_2 / conv_yp_1_2.max()
+    # overall_s2i = conv_curv_1_2i / conv_curv_1_2i.max() + conv_xp_1_2i / conv_xp_1_2i.max() + conv_yp_1_2i / conv_yp_1_2i.max()
+
+    # overall_s2 =  conv_xp_1_2 / conv_xp_1_2.max() + conv_yp_1_2 / conv_yp_1_2.max()
+    # overall_s2i =  conv_xp_1_2i / conv_xp_1_2i.max() + conv_yp_1_2i / conv_yp_1_2i.max()
+
+    overall_s2 =  conv_xp_1_2 + conv_yp_1_2
+    overall_s2i =  conv_xp_1_2i + conv_yp_1_2i
+
+    if overall_s2.max() > overall_s2i.max():
+        s2_start_index = np.argmax(overall_s2)
+        s3 = np.roll(s2, -s2_start_index, axis=0)
+    else:
+        s2i_start_index = np.argmax(overall_s2i)
+        s3 = np.roll(s2i, -s2i_start_index, axis=0)
+
+    # plt.plot(overall)
+    # plt.show();
+
+    interpolated_contours = [(1-r) * s1 + r * s3 for r in np.linspace(0, 1, nlevels)]
+    resampled_interpolated_contours = [resample_polygon(cnt, len_interval=len_interval_interpolated[i]) for i, cnt in enumerate(interpolated_contours)]
+
+    return resampled_interpolated_contours

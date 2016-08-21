@@ -30,12 +30,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_image_filepath(stack, section, version='rgb-jpg', resol=None, data_dir=None):
-        if data_dir is None:
-            data_dir = os.environ['DATA_DIR']
-
-        if resol is None:
-            resol = 'lossless'
+    def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir):
 
         slice_str = '%04d' % section
 
@@ -62,7 +57,7 @@ class DataManager(object):
 
         elif version == 'saturation':
             image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_saturation')
-            image_name = '_'.join([stack, slice_str, resol, '_aligned_cropped_saturation'])
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
 
         return image_path

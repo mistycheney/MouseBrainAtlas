@@ -864,8 +864,7 @@ class DrawableGraphicsScene(QGraphicsScene):
     def vertex_added(self, circle):
         polygon = self.sender().parent
         if polygon.index == self.active_i:
-            pass
-            # print 'circle added.'
+            print 'circle added.'
             # self.addItem(circle)
             # circle.signal_emitter.moved.connect(self.vertex_moved)
             # circle.signal_emitter.clicked.connect(self.vertex_clicked)

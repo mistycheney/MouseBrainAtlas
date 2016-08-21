@@ -31,11 +31,6 @@ class DataManager(object):
 
     @staticmethod
     def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir):
-        # if data_dir is None:
-        #     data_dir = os.environ['DATA_DIR']
-
-        # if resol is None:
-        #     resol = 'lossless'
 
         slice_str = '%04d' % section
 

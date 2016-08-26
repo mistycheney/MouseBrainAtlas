@@ -166,6 +166,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         volume, bbox = self.structure_volumes[name_u]
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
+        print 'volume', volume.shape
+        print 'bbox', xmin, xmax, ymin, ymax, zmin, zmax
 
         volume_downsample_factor = self.gui.volume_downsample_factor
         # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
@@ -173,7 +175,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         downsample = self.data_feeder.downsample
 
-        if volume_downsample_factor < downsample:
+        if volume_downsample_factor <= downsample:
 
             volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
@@ -200,17 +202,22 @@ class DrawableGraphicsScene(QGraphicsScene):
 
                     # remove if this section has interpolated polygon
                     i = self.data_feeder.sections.index(sec)
-                    for p in self.drawings[i]:
-                        if p.label == name_u and p.type == 'interpolated':
-                            self.drawings[i].remove(p)
-                            if i == self.active_i:
-                                self.removeItem(p)
+                    matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated']
+                    for p in matched_unconfirmed_polygons_to_remove:
+                        self.drawings[i].remove(p)
+                        if i == self.active_i:
+                            self.removeItem(p)
 
                     z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-                    z_currResol = (z0 + z1) / 2
-                    z_volResol = z_currResol * downsample / volume_downsample_factor
-                    # print 'sec', sec, 'z_volResol', z_volResol
-                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=50/downsample)
+                    # z_currResol = int(np.round((z0 + z1)/2))
+                    z_currResol = .5 * z0 + .5 * z1
+                    z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
+                    # (int(np.ceil(z0)) + int(np.floor(z1))) / 2
+                    # z_volResol = z_currResol * downsample / volume_downsample_factor
+                    print sec, z0, z1, z_currResol, z_volResol, zmin
+                    # if downsample == 32:
+                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=20)
+
                     # print cnts_volResol
 
                     if len(cnts_volResol) > 0 and 1 in cnts_volResol:
@@ -230,6 +237,14 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             # for x_ds in range(xmin_ds, xmax_ds + 1):
             for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
+
+                # remove if this section has interpolated polygon
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[x_ds] if p.label == name_u and p.type == 'interpolated']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[x_ds].remove(p)
+                    if x_ds == self.active_i:
+                        self.removeItem(p)
+
                 # print x_ds
                 cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8), sample_every=50/downsample)
                 if len(cnts) > 0 and 1 in cnts:
@@ -244,7 +259,14 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         elif self.data_feeder.orientation == 'horizontal':
             for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
-                # print y_ds
+
+                # remove if this section has interpolated polygon
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[y_ds] if p.label == name_u and p.type == 'interpolated']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[y_ds].remove(p)
+                    if y_ds == self.active_i:
+                        self.removeItem(p)
+
                 cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8), sample_every=50/downsample)
                 if len(cnts) > 0 and 1 in cnts:
                     # print y_ds
@@ -287,11 +309,16 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.active_image_updated.emit()
 
         # if update_crossline and self.mode == 'crossline':
+
+        print self.id, hasattr(self.data_feeder, 'sections'), update_crossline,  hasattr(self, 'cross_x_lossless')
+
         if update_crossline and hasattr(self, 'cross_x_lossless'):
             if hasattr(self.data_feeder, 'sections'):
-                cross_depth_lossless = self.convert_section_to_z(sec=self.active_section, downsample=1)[0]
+                d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
+                cross_depth_lossless = .5 * d1 + .5 * d2
                 # print 'cross_depth_lossless 1', cross_depth_lossless
             else:
+                print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
                 cross_depth_lossless = self.active_i * self.data_feeder.downsample
                 # print 'cross_depth_lossless 2', cross_depth_lossless
 
@@ -303,8 +330,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 self.cross_y_lossless = cross_depth_lossless
 
             print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
-            # self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
-            self.crossline_updated.emit(int(np.round(self.cross_x_lossless)), int(np.round(self.cross_y_lossless)), int(np.round(self.cross_z_lossless)), self.id)
+            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
+            # self.crossline_updated.emit(int(np.round(self.cross_x_lossless)), int(np.round(self.cross_y_lossless)), int(np.round(self.cross_z_lossless)), self.id)
 
 
     def set_active_section(self, sec, update_crossline=True):
@@ -844,7 +871,8 @@ class DrawableGraphicsScene(QGraphicsScene):
     def vertex_added(self, circle):
         polygon = self.sender().parent
         if polygon.index == self.active_i:
-            print 'circle added.'
+            pass
+            # print 'circle added.'
             # self.addItem(circle)
             # circle.signal_emitter.moved.connect(self.vertex_moved)
             # circle.signal_emitter.clicked.connect(self.vertex_clicked)
@@ -927,7 +955,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         action_confirmPolygon = myMenu.addAction("Confirm this polygon")
 
-        if self.active_polygon.type != 'interpolated':
+        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
             action_confirmPolygon.setVisible(False)
 
         # action_setUncertain = myMenu.addAction("Set uncertain segment")
@@ -1412,10 +1440,10 @@ class DrawableGraphicsScene(QGraphicsScene):
                 gscene_x_lossless = gscene_x * downsample
 
                 if hasattr(self.data_feeder, 'sections'):
-                    z = self.convert_section_to_z(sec=self.active_section, downsample=1) # Note that the returned result is a pair of z limits.
-                    gscene_z_lossless = (z[0] + z[1])/2
+                    z0, z1 = self.convert_section_to_z(sec=self.active_section, downsample=1) # Note that the returned result is a pair of z limits.
+                    gscene_z_lossless = .5 * z0 + .5 * z1
                 else:
-                    gscene_z_lossless = self.active_i
+                    gscene_z_lossless = self.active_i * downsample
 
                 if self.data_feeder.orientation == 'sagittal':
                     cross_x_lossless = gscene_x_lossless
@@ -1433,7 +1461,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                     cross_y_lossless = gscene_z_lossless
 
                 print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
-                self.crossline_updated.emit(int(np.round(cross_x_lossless)), int(np.round(cross_y_lossless)), int(np.round(cross_z_lossless)), self.id)
+                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
                 return True
 
 

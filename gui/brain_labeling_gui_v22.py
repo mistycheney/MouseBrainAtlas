@@ -319,12 +319,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if len(matched_polygons) < 2:
             return
 
-        # NOTICE THE VOLUME IS DOWNSAMPLED BY 4 !!!!
+        # NOTICE THE reconstructed VOLUME IS DOWNSAMPLED BY this number !!!!
+        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
+        contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
+                                        [(c.scenePos().x()*downsample/self.volume_downsample_factor,
+                                        c.scenePos().y()*downsample/self.volume_downsample_factor)
+                                        for c in p.vertex_circles] for p in matched_polygons if p.type != 'interpolated'}
 
-        self.volume_downsample_factor = 4
-        contour_points_grouped_by_pos = {p.position/self.volume_downsample_factor: \
-        [(c.scenePos().x()*downsample/self.volume_downsample_factor, c.scenePos().y()*downsample/self.volume_downsample_factor)
-                                                        for c in p.vertex_circles] for p in matched_polygons}
+        print contour_points_grouped_by_pos.keys()
 
         if polygon.gscene.data_feeder.orientation == 'sagittal':
             volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
@@ -332,18 +334,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
         elif polygon.gscene.data_feeder.orientation == 'horizontal':
             volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-
-        # contour_points_grouped_by_pos = {p.position: [(c.scenePos().x()*downsample, c.scenePos().y()*downsample)
-        #                                                 for c in p.vertex_circles] for p in matched_polygons}
-        #
-        # if polygon.gscene.data_feeder.orientation == 'sagittal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-        # elif polygon.gscene.data_feeder.orientation == 'coronal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-        # elif polygon.gscene.data_feeder.orientation == 'horizontal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-
-        # Here bbox must be of the original dimension.
 
         self.structure_volumes[name_u] = (volume, bbox)
 
@@ -353,40 +343,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')
-
-    # def key_released(self, event):
-    #     key = event.key()
-    #     if key == Qt.Key_Space:
-    #         for gscene in self.gscenes.itervalues():
-    #             gscene.set_mode('idle')
-    #             # if gscene.mode == 'crossline':
-                #     gscene.set_mode('idle')
-                # else:
-                #     gscene.set_mode('crossline')
-
-    # def key_pressed(self, event):
-    #     # if event.type() == Qt.keyPressEvent:
-    #     key = event.key()
-    #     if key == Qt.Key_1:
-    #         self.gscenes['sagittal'].show_previous()
-    #     elif key == Qt.Key_2:
-    #         self.gscenes['sagittal'].show_next()
-    #     elif key == Qt.Key_3:
-    #         self.gscenes['coronal'].show_previous()
-    #     elif key == Qt.Key_4:
-    #         self.gscenes['coronal'].show_next()
-    #     elif key == Qt.Key_5:
-    #         self.gscenes['horizontal'].show_previous()
-    #     elif key == Qt.Key_6:
-    #         self.gscenes['horizontal'].show_next()
-    #
-    #     elif key == Qt.Key_Space:
-    #         for gscene in self.gscenes.itervalues():
-    #             gscene.set_mode('crossline')
-    #             # if gscene.mode == 'crossline':
-    #             #     gscene.set_mode('idle')
-    #             # else:
-    #             #     gscene.set_mode('crossline')
 
 
     def eventFilter(self, obj, event):

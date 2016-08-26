@@ -24,6 +24,8 @@ from enum import Enum
 
 from gui_utilities import *
 
+from datetime import datetime
+
 # class Mode(Enum):
 #     REVIEW_PROPOSAL = 'review proposal'
 #     IDLE = 'idle'
@@ -67,6 +69,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
             self.vertex_radius = vertex_radius
 
         self.type = None
+        self.edit_history = []
+        # self.endorsers = set([])
+        # self.creator = None
 
         # if section is None:
         #     self.section = section
@@ -76,6 +81,24 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
 
+
+    def set_edit_history(self, edit_history):
+        self.edit_history = edit_history
+
+    def add_edit(self, editor):
+        self.edit_history.append({'username': editor, 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})
+
+    # def set_creator(self, creator):
+    #     if self.creator is not None:
+    #         sys.stderr.write('Creator has been set for polygon, ignored.\n')
+    #     else:
+    #         self.creator = creator
+    #
+    # def set_endorsers(self, endorsers):
+    #     self.endorsers = endorsers
+    #
+    # def add_endorser(self, endorser):
+    #     self.endorsers.add(endorser)
 
     def set_type(self, t):
 

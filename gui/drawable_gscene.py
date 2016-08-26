@@ -29,6 +29,8 @@ from registration_utilities import *
 
 from multiprocess import Pool
 
+from datetime import datetime
+
 # self.red_pen = QPen(Qt.red)
 # self.red_pen.setWidth(PEN_WIDTH)
 # self.blue_pen = QPen(Qt.blue)
@@ -310,8 +312,6 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         # if update_crossline and self.mode == 'crossline':
 
-        print self.id, hasattr(self.data_feeder, 'sections'), update_crossline,  hasattr(self, 'cross_x_lossless')
-
         if update_crossline and hasattr(self, 'cross_x_lossless'):
             if hasattr(self.data_feeder, 'sections'):
                 d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
@@ -505,7 +505,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
 
     def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=None, vertex_color='b', vertex_radius=None,
-                                            label='unknown', section=None, label_pos=None, index=None, type=None):
+                                            label='unknown', section=None, label_pos=None, index=None, type=None,
+                                            edit_history=[]):
         '''
         Function for adding polygon, along with vertex circles.
         Step 1: create polygon
@@ -535,7 +536,10 @@ class DrawableGraphicsScene(QGraphicsScene):
         polygon.set_label(label, label_pos)
         polygon.set_closed(True)
         polygon.set_type(type)
+        polygon.set_edit_history(edit_history)
 
+        # polygon.set_creator(creator)
+        # polygon.set_endorsers(endorsers)
 
         # self.restack_polygons(polygon)
 
@@ -550,7 +554,8 @@ class DrawableGraphicsScene(QGraphicsScene):
         return polygon
 
 
-    def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, z_value=50, uncertain=False, section=None, index=None, vertex_radius=None):
+    def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, z_value=50,
+                    uncertain=False, section=None, index=None, vertex_radius=None, creator=None):
         '''
         Add a polygon.
 
@@ -586,11 +591,12 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         if hasattr(self.data_feeder, 'sections'):
             sec = self.data_feeder.sections[index]
-            z = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
-            if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
-                pos = (z[0]+z[1])/2
-            else:
-                pos = z
+            z0, z1 = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
+            pos = (z0 + z1) / 2
+            # if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
+            #     pos = (z[0]+z[1])/2
+            # else:
+            #     pos = z
         else:
             pos = index
 
@@ -604,7 +610,6 @@ class DrawableGraphicsScene(QGraphicsScene):
         # polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         polygon.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
-
 
         polygon.signal_emitter.press.connect(self.polygon_press)
         polygon.signal_emitter.release.connect(self.polygon_release)
@@ -745,42 +750,84 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.label_selection_dialog.accept()
 
 
-    def load_drawings(self, username, timestamp='latest', annotation_rootdir=None, append=False, orientation=None, downsample=None):
+    def load_drawings(self, contours, append=False):
 
-        if orientation is None:
-            orientation = self.data_feeder.orientation
-
-        if downsample is None:
-            downsample = self.data_feeder.downsample
-
-        self.labelings, _, _ = DataManager.load_annotation_v2(stack=self.data_feeder.stack, username=username, timestamp=timestamp,
-                                                        orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
+        CONTOUR_IS_INTERPOLATED = 1
 
         if not append:
             self.drawings = defaultdict(list)
 
-        for i_or_sec, polygon_dicts in self.labelings['polygons'].iteritems():
-            print i_or_sec, len(polygon_dicts)
-            for polygon_dict in polygon_dicts:
-                vertices = polygon_dict['vertices']
-                # sec = polygon_dict['section']
-                if self.labelings['indexing_scheme'] == 'section':
-                    if i_or_sec not in self.data_feeder.sections: continue
-                    print i_or_sec
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
-                                                            linecolor='r', section=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
-                elif self.labelings['indexing_scheme'] == 'index':
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
-                                                            linecolor='r', index=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
-        # print self.labelings['polygons'].keys()
-        # print self.drawings.keys()
+        # grouped = contours.groupby('creator')
+        # editors = {cnt_id: set([edit['username'] for edit in edits]) for cnt_id, edits in contours.iterrows()}
 
-        # if index == self.active_i:
-        #     print 'polygon added.'
-        #     self.addItem(polygon)
+        endorser_contour_lookup = defaultdict(set)
+        for cnt_id, contour in contours.iterrows():
+            for editor in set([edit['username'] for edit in contour['edits']]):
+                endorser_contour_lookup[editor].add(cnt_id)
+            endorser_contour_lookup[contour['creator']].add(cnt_id)
+
+        grouped = contours.groupby('section')
+
+        for i_or_sec, group in grouped:
+            if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
+            for contour_id, contour_entry in group.iterrows():
+                vertices = contour_entry['vertices']
+                contour_type = 'interpolated' if contour_entry['flags'] & CONTOUR_IS_INTERPOLATED else None
+                # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour_entry['name'], label_pos=contour_entry['label_position'],
+                                                        linecolor='r', section=i_or_sec, type=contour_type,
+                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
+
+        grouped = contours.groupby('position')
+
+        for i_or_sec, group in grouped:
+            for contour_id, contour_entry in group.iterrows():
+                vertices = contour_entry['vertices']
+                contour_type = 'interpolated' if contour_entry['flags'] & CONTOUR_IS_INTERPOLATED else None
+                endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour_entry['name'], label_pos=contour_entry['label_position'],
+                                                        linecolor='r', index=i_or_sec, type=contour_type,
+                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
+
+
+    # def load_drawings(self, username, timestamp='latest', annotation_rootdir=None, append=False, orientation=None, downsample=None):
+    #
+    #     if orientation is None:
+    #         orientation = self.data_feeder.orientation
+    #
+    #     if downsample is None:
+    #         downsample = self.data_feeder.downsample
+    #
+    #     self.labelings, _, _ = DataManager.load_annotation_v2(stack=self.data_feeder.stack, username=username, timestamp=timestamp,
+    #                                                     orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
+    #
+    #     if not append:
+    #         self.drawings = defaultdict(list)
+    #
+    #     for i_or_sec, polygon_dicts in self.labelings['polygons'].iteritems():
+    #         print i_or_sec, len(polygon_dicts)
+    #         for polygon_dict in polygon_dicts:
+    #             vertices = polygon_dict['vertices']
+    #             # sec = polygon_dict['section']
+    #             if self.labelings['indexing_scheme'] == 'section':
+    #                 if i_or_sec not in self.data_feeder.sections: continue
+    #                 print i_or_sec
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
+    #                                                         linecolor='r', section=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
+    #             elif self.labelings['indexing_scheme'] == 'index':
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=polygon_dict['label'], label_pos=polygon_dict['labelPos'] if 'labelPos' in polygon_dict else None,
+    #                                                         linecolor='r', index=i_or_sec, type=polygon_dict['type'] if 'type' in polygon_dict else None)
+    #     # print self.labelings['polygons'].keys()
+    #     # print self.drawings.keys()
+    #
+    #     # if index == self.active_i:
+    #     #     print 'polygon added.'
+    #     #     self.addItem(polygon)
 
 
     def save_drawings(self, fn_template, timestamp, username):
+        return
+
         import cPickle as pickle
 
         # Cannot pickle QT objects, so need to extract the data and put in dict.
@@ -955,6 +1002,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         action_confirmPolygon = myMenu.addAction("Confirm this polygon")
 
+        action_showInfo = myMenu.addAction("Show contour information")
+
         if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
             action_confirmPolygon.setVisible(False)
 
@@ -974,7 +1023,23 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
 
-        if selected_action == action_confirmPolygon:
+        if selected_action == action_showInfo:
+
+            contour_info_text = "Name: %(name)s\n" % {'name': self.active_polygon.label}
+
+            contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
+            {'creator': self.active_polygon.edit_history[0]['username'],
+            'timestamp':  datetime.strftime(datetime.strptime(self.active_polygon.edit_history[0]['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
+            }
+
+            editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
+            if len(editors) > 0:
+                contour_info_text += "Edited by %(editors)s\n" % \
+                {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
+
+            QMessageBox.information(self.gview, "Information", contour_info_text)
+
+        elif selected_action == action_confirmPolygon:
             self.active_polygon.set_type(None)
 
         elif selected_action == action_deletePolygon:
@@ -992,7 +1057,8 @@ class DrawableGraphicsScene(QGraphicsScene):
             # self.disable_elements()
             self.close_curr_polygon = False
             self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
-            # assert self.active_polygon is not None
+            self.active_polygon.add_edit(editor=self.gui.get_username())
+            self.active_polygon.set_type(None)
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
             self.set_mode('add vertices consecutively')

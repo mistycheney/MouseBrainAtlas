@@ -96,7 +96,6 @@ class DataManager(object):
 
         return os.path.join(d, selected_f), selected_username, selected_timestamp
 
-
     @staticmethod
     def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
         res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
@@ -108,6 +107,21 @@ class DataManager(object):
         else:
             return obj, usr, ts
 
+
+    @staticmethod
+    def load_annotation_v3(stack=None, annotation_rootdir=None):
+        from pandas import read_hdf
+        fn = os.path.join(annotation_rootdir, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        contour_df = read_hdf(fn, 'contours')
+        try:
+            structure_df = read_hdf(fn, 'structures')
+        except Exception as e:
+            print e
+            sys.stderr.write('Annotation has no structures.\n')
+            return contour_df, None
+
+        sys.stderr.write('Loaded annotation %s.\n' % fp)
+        return contour_df, structure_df
 
     @staticmethod
     def get_annotation_path(stack, section, username=None, timestamp='latest', annotation_rootdir=annotation_rootdir):

@@ -58,6 +58,12 @@ def convert_name_to_unsided(name):
     else:
         return name[:-2]
 
+def extract_side_from_name(name):
+    if '_' in name:
+        return name[-1]
+    else:
+        return None
+
 def convert_to_left_name(name):
     return convert_name_to_unsided(name) + '_L'
 

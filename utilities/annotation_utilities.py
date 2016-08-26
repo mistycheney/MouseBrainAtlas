@@ -264,6 +264,9 @@ def get_section_contains_labels(label_polygons, filtered_labels=None):
 def load_label_polygons_if_exists(stack, username, output_path=None, output=True, force=False,
                                 downsample=None, orientation=None, annotation_rootdir=None,
                                 side_assigned=False):
+    """
+    - assign sideness
+    """
 
     if side_assigned:
         label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons_sided.h5' % {'stack': stack, 'username': username})
@@ -290,7 +293,9 @@ def load_label_polygons_if_exists(stack, username, output_path=None, output=True
 def generate_label_polygons(stack, username, orientation=None, downsample=None, timestamp='latest', output_path=None,
                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
                             annotation_rootdir=None, structure_names=None):
-    """Convert annotation files to polygon objects.
+    """Read annotation file, and do the following processing:
+    - merge labels
+    - remove sideness tag if structure is singular
     """
 
     # dm = DataManager(stack=stack)

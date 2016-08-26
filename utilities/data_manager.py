@@ -30,12 +30,12 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_image_filepath(stack, section, version='rgb-jpg', resol=None, data_dir=None):
-        if data_dir is None:
-            data_dir = os.environ['DATA_DIR']
+    def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir):
+        # if data_dir is None:
+        #     data_dir = os.environ['DATA_DIR']
 
-        if resol is None:
-            resol = 'lossless'
+        # if resol is None:
+        #     resol = 'lossless'
 
         slice_str = '%04d' % section
 
@@ -62,7 +62,7 @@ class DataManager(object):
 
         elif version == 'saturation':
             image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_saturation')
-            image_name = '_'.join([stack, slice_str, resol, '_aligned_cropped_saturation'])
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
 
         return image_path
@@ -189,25 +189,46 @@ class DataManager(object):
         first_sec, last_sec = section_range_lookup[stack]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
-            z_begin = int(np.floor(first_sec*voxel_z_size))
+            # z_begin = int(np.floor(first_sec*voxel_z_size))
+            z_begin = first_sec * voxel_z_size
+        # print 'z_begin', first_sec*voxel_z_size, z_begin
 
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size
         # return int(z1)-z_begin, int(z2)+1-z_begin
-        return int(np.round(z1))-z_begin, int(np.round(z2))+1-z_begin
+        # print 'z1, z2', z1-z_begin, z2-1-z_begin
+        return z1-z_begin, z2-1-z_begin
+        # return int(np.round(z1-z_begin)), int(np.round(z2-1-z_begin))
+        # return int(np.round(z1))-z_begin, int(np.round(z2))-1-z_begin
 
     @staticmethod
-    def convert_z_to_section(stack, z, downsample):
+    def convert_z_to_section(stack, z, downsample, z_begin=None):
+        """
+        z_begin default to int(np.floor(first_sec*voxel_z_size)).
+        """
         xy_pixel_distance = xy_pixel_distance_lossless * downsample
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
         first_sec, last_sec = section_range_lookup[stack]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-        z_begin = int(np.floor(first_sec*voxel_z_size))
 
-        sec = int(np.round((z + z_begin) / voxel_z_size))
-        return sec
+        if z_begin is None:
+            # z_begin = int(np.floor(first_sec*voxel_z_size))
+            z_begin = first_sec * voxel_z_size
+        # print 'z_begin', first_sec*voxel_z_size, z_begin
+
+        sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+        # print sec_float
+        # print sec_float == 98., np.floor(np.float(sec_float))
+        sec_floor = int(np.floor(sec_float))
+
+        return sec_floor
+        # sec_ceil = int(np.ceil(sec_float))
+        # if sec_ceil == sec_floor:
+        #     return sec_ceil
+        # else:
+        #     return sec_floor, sec_ceil
 
     def __init__(self, data_dir=os.environ['DATA_DIR'],
                  repo_dir=os.environ['REPO_DIR'],

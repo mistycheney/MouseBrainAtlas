@@ -335,34 +335,89 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Drawings updated.'
         self.save()
 
+
     @pyqtSlot(object)
     def update_structure_volume_requested(self, polygon):
 
         name_u = polygon.label
-        downsample = polygon.gscene.data_feeder.downsample
+        # downsample = polygon.gscene.data_feeder.downsample
 
-        matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
+        # matched_polygons_sagittal = [p for i, polygons in self.gscenes['sagittal'].drawings.iteritems() for p in polygons if p.label == name_u]
+        # matched_polygons_coronal = [p for i, polygons in self.gscenes['coronal'].drawings.iteritems() for p in polygons if p.label == name_u]
+        # matched_polygons_horizontal = [p for i, polygons in self.gscenes['horizontal'].drawings.iteritems() for p in polygons if p.label == name_u]
 
-        if len(matched_polygons) < 2:
-            return
+        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
+
+        volumes_3view = {}
+        bboxes_3view = {}
+
+        for gscene_id, gscene in self.gscenes.iteritems():
+
+            matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
+                                if p.label == name_u and p.type != 'interpolated']
+
+            if len(matched_confirmed_polygons) < 2:
+                sys.stderr.write('%s: Matched confirmed polygons fewer than 2.\n' % gscene_id)
+                continue
+                # raise Exception('%s: Matched polygons fewer than 2.' % polygon.gscene.id)
+
+            factor_volResol = gscene.data_feeder.downsample / self.volume_downsample_factor
+
+            if gscene_id == 'sagittal':
+                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                                                [(c.scenePos().x() * factor_volResol,
+                                                c.scenePos().y() * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+
+                # print contour_points_grouped_by_pos.keys()
+
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+            elif gscene_id == 'coronal':
+
+                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                                                [(c.scenePos().y() * factor_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+
+            elif gscene_id == 'horizontal':
+
+                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                                                [(c.scenePos().x() * factor_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+            volumes_3view[gscene_id] = volume
+            bboxes_3view[gscene_id] = bbox
+
+        self.structure_volumes[name_u] = average_multiple_volumes(volumes_3view.values(), bboxes_3view.values())
+
+
+        # matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
+
+        # if len(matched_polygons) < 2:
+        #     return
 
         # NOTICE THE reconstructed VOLUME IS DOWNSAMPLED BY this number !!!!
-        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
-        contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
-                                        [(c.scenePos().x()*downsample/self.volume_downsample_factor,
-                                        c.scenePos().y()*downsample/self.volume_downsample_factor)
-                                        for c in p.vertex_circles] for p in matched_polygons if p.type != 'interpolated'}
+        # self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
+        # contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
+        #                                 [(c.scenePos().x()*downsample/self.volume_downsample_factor,
+        #                                 c.scenePos().y()*downsample/self.volume_downsample_factor)
+        #                                 for c in p.vertex_circles] for p in matched_polygons if p.type != 'interpolated'}
+        #
+        # print contour_points_grouped_by_pos.keys()
 
-        print contour_points_grouped_by_pos.keys()
+        # if polygon.gscene.data_feeder.orientation == 'sagittal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+        # elif polygon.gscene.data_feeder.orientation == 'coronal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+        # elif polygon.gscene.data_feeder.orientation == 'horizontal':
+        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
 
-        if polygon.gscene.data_feeder.orientation == 'sagittal':
-            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-        elif polygon.gscene.data_feeder.orientation == 'coronal':
-            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-        elif polygon.gscene.data_feeder.orientation == 'horizontal':
-            volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-
-        self.structure_volumes[name_u] = (volume, bbox)
+        # self.structure_volumes[name_u] = (volume, bbox)
 
         self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
         self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)

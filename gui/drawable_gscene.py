@@ -120,8 +120,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         self.set_mode('idle')
 
-        self.vertex_radius = 20
-        self.line_width = 10
+        # self.vertex_radius = 20
+        # self.line_width = 10
 
     def set_vertex_radius(self, radius):
         self.vertex_radius = radius
@@ -158,6 +158,17 @@ class DrawableGraphicsScene(QGraphicsScene):
     def set_data_feeder(self, feeder):
         self.data_feeder = feeder
 
+        if self.data_feeder.downsample == 32:
+            self.set_vertex_radius(4)
+        elif self.data_feeder.downsample == 1:
+            self.set_vertex_radius(20)
+
+        if self.data_feeder.downsample == 32:
+            self.set_line_width(3)
+        elif self.data_feeder.downsample == 1:
+            self.set_line_width(10)
+
+
     def set_structure_volumes(self, structure_volumes):
         self.structure_volumes = structure_volumes
 
@@ -168,8 +179,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         volume, bbox = self.structure_volumes[name_u]
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
-        print 'volume', volume.shape
-        print 'bbox', xmin, xmax, ymin, ymax, zmin, zmax
+        print 'volume', volume.shape, xmin, xmax, ymin, ymax, zmin, zmax
 
         volume_downsample_factor = self.gui.volume_downsample_factor
         # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
@@ -182,7 +192,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
 
-            print volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
+            print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
         matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type != 'interpolated']
 
@@ -192,93 +202,172 @@ class DrawableGraphicsScene(QGraphicsScene):
         #         self.removeItem(p)
         #     self.drawings[i].remove(p)
 
-        if self.data_feeder.orientation == 'sagittal':
-            if hasattr(self.data_feeder, 'sections'):
-                # sec_min = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=downsample)
-                matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
+        # if self.data_feeder.orientation == 'sagittal':
+        if hasattr(self.data_feeder, 'sections'):
+            assert self.data_feeder.orientation == 'sagittal'
+            # sec_min = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=downsample)
+            matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
+
+            if len(matched_confirmed_sections) > 0:
                 min_sec = np.min(matched_confirmed_sections)
                 max_sec = np.max(matched_confirmed_sections)
-                for sec in range(min_sec, max_sec+1):
-                    if sec in matched_confirmed_sections:
-                        continue
-
-                    # remove if this section has interpolated polygon
-                    i = self.data_feeder.sections.index(sec)
-                    matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated']
-                    for p in matched_unconfirmed_polygons_to_remove:
-                        self.drawings[i].remove(p)
-                        if i == self.active_i:
-                            self.removeItem(p)
-
-                    z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-                    # z_currResol = int(np.round((z0 + z1)/2))
-                    z_currResol = .5 * z0 + .5 * z1
-                    z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
-                    # (int(np.ceil(z0)) + int(np.floor(z1))) / 2
-                    # z_volResol = z_currResol * downsample / volume_downsample_factor
-                    print sec, z0, z1, z_currResol, z_volResol, zmin
-                    # if downsample == 32:
-                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=20)
-
-                    # print cnts_volResol
-
-                    if len(cnts_volResol) > 0 and 1 in cnts_volResol:
-                        # print x_ds
-                        xys_volResol = np.array(cnts_volResol[1][0])
-                        gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
-                        gscene_ys_volResol = xys_volResol[:,1] + ymin
-                        gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
-                        gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
-                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
-                                                                label=name_u, linecolor='g', section=sec, type='interpolated')
             else:
-                raise Exception('Sagittal interpolation on volume data is not implemented.')
+                min_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=volume_downsample_factor)
+                max_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmax, downsample=volume_downsample_factor)
 
-        elif self.data_feeder.orientation == 'coronal':
-            # x = self.active_i * self.data_feeder.downsample
+            for sec in range(min_sec, max_sec+1):
 
-            # for x_ds in range(xmin_ds, xmax_ds + 1):
-            for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
+                # if sec in matched_confirmed_sections:
+                #     continue
 
                 # remove if this section has interpolated polygon
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[x_ds] if p.label == name_u and p.type == 'interpolated']
+                if sec not in self.data_feeder.sections:
+                    sys.stderr.write('Section %d is not loaded.\n' % sec)
+                    continue
+
+                i = self.data_feeder.sections.index(sec)
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated']
                 for p in matched_unconfirmed_polygons_to_remove:
-                    self.drawings[x_ds].remove(p)
-                    if x_ds == self.active_i:
+                    self.drawings[i].remove(p)
+                    if i == self.active_i:
                         self.removeItem(p)
 
-                # print x_ds
-                cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8), sample_every=50/downsample)
-                if len(cnts) > 0 and 1 in cnts:
+                z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
+                # z_currResol = int(np.round((z0 + z1)/2))
+                z_currResol = .5 * z0 + .5 * z1
+                z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
+                # (int(np.ceil(z0)) + int(np.floor(z1))) / 2
+                # z_volResol = z_currResol * downsample / volume_downsample_factor
+                print sec, z0, z1, z_currResol, z_volResol, zmin
+                # if downsample == 32:
+                cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=20)
+
+                # print cnts_volResol
+
+                if len(cnts_volResol) > 0 and 1 in cnts_volResol:
                     # print x_ds
+                    xys_volResol = np.array(cnts_volResol[1][0])
+                    gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
+                    gscene_ys_volResol = xys_volResol[:,1] + ymin
+                    gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
+                    gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
+                                                            label=name_u, linecolor='g', section=sec, type='interpolated')
+        else:
+            # raise Exception('Sagittal interpolation on volume data is not implemented.')
+
+            matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
+
+            if self.data_feeder.orientation == 'sagittal':
+                posmin_ds = zmin_ds
+                posmax_ds = zmin_ds + volume_downsampled.shape[2] - 1
+            elif self.data_feeder.orientation == 'coronal':
+                posmin_ds = xmin_ds
+                posmax_ds = xmin_ds + volume_downsampled.shape[1] - 1
+            elif self.data_feeder.orientation == 'horizontal':
+                posmin_ds = ymin_ds
+                posmax_ds = ymin_ds + volume_downsampled.shape[0] - 1
+
+            for pos_ds in range(posmin_ds, posmax_ds+1):
+
+                # if pos_ds in matched_confirmed_positions:
+                #     continue
+
+                # remove if this section has interpolated polygon
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] if p.label == name_u and p.type == 'interpolated']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[pos_ds].remove(p)
+                    if pos_ds == self.active_i:
+                        self.removeItem(p)
+
+                if self.data_feeder.orientation == 'sagittal':
+                    raise Exception('Not implemented.')
+
+                elif self.data_feeder.orientation == 'coronal':
+
+                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+                    if len(cnts) == 0 or 1 not in cnts:
+                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        continue
+                        # Contour for label 1 (which is the only label in the boolean volume)
                     zys = np.array(cnts[1][0])
                     gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
                     gscene_ys = zys[:,1] + ymin_ds
-                    pts_on_gscene = np.c_[gscene_xs, gscene_ys]
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
-                                                            linecolor='g', vertex_radius=1, linewidth=2, index=x_ds,
-                                                            type='interpolated')
 
-        elif self.data_feeder.orientation == 'horizontal':
-            for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
+                elif self.data_feeder.orientation == 'horizontal':
 
-                # remove if this section has interpolated polygon
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[y_ds] if p.label == name_u and p.type == 'interpolated']
-                for p in matched_unconfirmed_polygons_to_remove:
-                    self.drawings[y_ds].remove(p)
-                    if y_ds == self.active_i:
-                        self.removeItem(p)
+                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+                    if len(cnts) == 0 or 1 not in cnts:
+                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        continue
 
-                cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8), sample_every=50/downsample)
-                if len(cnts) > 0 and 1 in cnts:
-                    # print y_ds
                     zxs = np.array(cnts[1][0])
                     gscene_xs = zxs[:,1] + xmin_ds
                     gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
-                    pts_on_gscene = np.c_[gscene_xs, gscene_ys]
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
-                                                            linecolor='g', vertex_radius=1, linewidth=2, index=y_ds,
-                                                            type='interpolated')
+
+                pts_on_gscene = np.c_[gscene_xs, gscene_ys]
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
+                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos_ds,
+                                                        type='interpolated')
+
+
+        # elif self.data_feeder.orientation == 'coronal':
+        #     # x = self.active_i * self.data_feeder.downsample
+        #
+        #     matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
+        #
+        #     # for x_ds in range(xmin_ds, xmax_ds + 1):
+        #     for x_ds in range(xmin_ds, xmin_ds + volume_downsampled.shape[1]):
+        #
+        #         if x_ds in matched_confirmed_positions:
+        #             continue
+        #
+        #         # remove if this section has interpolated polygon
+        #         matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[x_ds] if p.label == name_u and p.type == 'interpolated']
+        #         for p in matched_unconfirmed_polygons_to_remove:
+        #             self.drawings[x_ds].remove(p)
+        #             if x_ds == self.active_i:
+        #                 self.removeItem(p)
+        #
+        #         # print x_ds
+        #         cnts = find_contour_points(volume_downsampled[:, x_ds-xmin_ds, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+        #         if len(cnts) > 0 and 1 in cnts: # Contour for label 1 (which is the only label in the boolean volume)
+        #             # print x_ds
+        #             zys = np.array(cnts[1][0])
+        #             gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
+        #             gscene_ys = zys[:,1] + ymin_ds
+        #             pts_on_gscene = np.c_[gscene_xs, gscene_ys]
+        #             # print pts_on_gscene
+        #             self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
+        #                                                     linecolor='g', vertex_radius=1, linewidth=2, index=x_ds,
+        #                                                     type='interpolated')
+        #
+        # elif self.data_feeder.orientation == 'horizontal':
+        #
+        #     matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
+        #
+        #     for y_ds in range(ymin_ds, ymin_ds + volume_downsampled.shape[0]):
+        #
+        #         if x_ds in matched_confirmed_positions:
+        #             continue
+        #
+        #         # remove if this section has interpolated polygon
+        #         matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[y_ds] if p.label == name_u and p.type == 'interpolated']
+        #         for p in matched_unconfirmed_polygons_to_remove:
+        #             self.drawings[y_ds].remove(p)
+        #             if y_ds == self.active_i:
+        #                 self.removeItem(p)
+        #
+        #         cnts = find_contour_points(volume_downsampled[y_ds-ymin_ds, :, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+        #         if len(cnts) > 0 and 1 in cnts:
+        #             # print y_ds
+        #             zxs = np.array(cnts[1][0])
+        #             gscene_xs = zxs[:,1] + xmin_ds
+        #             gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
+        #             pts_on_gscene = np.c_[gscene_xs, gscene_ys]
+        #             self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
+        #                                                     linecolor='g', vertex_radius=1, linewidth=2, index=y_ds,
+        #                                                     type='interpolated')
 
         # elif self.data_feeder.orientation == 'sagittal':
         #     z = self.active_i
@@ -555,7 +644,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
 
     def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, z_value=50,
-                    uncertain=False, section=None, index=None, vertex_radius=None, creator=None):
+                    uncertain=False, section=None, index=None, vertex_radius=None):
         '''
         Add a polygon.
 
@@ -1027,15 +1116,24 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             contour_info_text = "Name: %(name)s\n" % {'name': self.active_polygon.label}
 
+            first_edit = self.active_polygon.edit_history[0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
-            {'creator': self.active_polygon.edit_history[0]['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(self.active_polygon.edit_history[0]['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
+            {'creator': first_edit['username'],
+            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
             }
 
-            editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
-            if len(editors) > 0:
-                contour_info_text += "Edited by %(editors)s\n" % \
-                {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
+            # editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
+            # if len(editors) > 0:
+            #     contour_info_text += "Edited by %(editors)s\n" % \
+            #     {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
+
+            last_edit = self.active_polygon.edit_history[-1]
+            contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
+            {'editor': last_edit['username'],
+            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
+            }
+
+            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.type}
 
             QMessageBox.information(self.gview, "Information", contour_info_text)
 

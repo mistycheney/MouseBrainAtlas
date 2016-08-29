@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v15.ui'
 #
-# Created: Mon Aug 29 11:03:43 2016
+# Created: Mon Aug 29 13:43:38 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -51,8 +51,6 @@ class Ui_BrainLabelingGui(object):
         self.gridLayout = QtGui.QGridLayout(self.layoutWidget)
         self.gridLayout.setMargin(0)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
-        spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        self.gridLayout.addItem(spacerItem, 0, 4, 1, 1)
         self.label = QtGui.QLabel(self.layoutWidget)
         self.label.setObjectName(_fromUtf8("label"))
         self.gridLayout.addWidget(self.label, 1, 1, 1, 1)
@@ -93,8 +91,8 @@ class Ui_BrainLabelingGui(object):
         self.slider_hyz.setOrientation(QtCore.Qt.Horizontal)
         self.slider_hyz.setObjectName(_fromUtf8("slider_hyz"))
         self.gridLayout.addWidget(self.slider_hyz, 2, 4, 1, 1)
-        spacerItem1 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.gridLayout.addItem(spacerItem1, 3, 0, 1, 1)
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.gridLayout.addItem(spacerItem, 3, 0, 1, 1)
         self.label_3 = QtGui.QLabel(self.layoutWidget)
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.gridLayout.addWidget(self.label_3, 3, 1, 1, 1)
@@ -116,9 +114,9 @@ class Ui_BrainLabelingGui(object):
         self.button_symmetric = QtGui.QPushButton(self.layoutWidget)
         self.button_symmetric.setObjectName(_fromUtf8("button_symmetric"))
         self.gridLayout.addWidget(self.button_symmetric, 1, 5, 1, 1)
-        self.button_midline = QtGui.QPushButton(self.layoutWidget)
-        self.button_midline.setObjectName(_fromUtf8("button_midline"))
-        self.gridLayout.addWidget(self.button_midline, 1, 6, 1, 1)
+        self.button_displayStructures = QtGui.QPushButton(self.layoutWidget)
+        self.button_displayStructures.setObjectName(_fromUtf8("button_displayStructures"))
+        self.gridLayout.addWidget(self.button_displayStructures, 1, 6, 1, 1)
         self.button_displayOptions = QtGui.QPushButton(self.layoutWidget)
         self.button_displayOptions.setObjectName(_fromUtf8("button_displayOptions"))
         self.gridLayout.addWidget(self.button_displayOptions, 2, 5, 1, 1)
@@ -140,6 +138,8 @@ class Ui_BrainLabelingGui(object):
         self.button_stop = QtGui.QPushButton(self.layoutWidget)
         self.button_stop.setObjectName(_fromUtf8("button_stop"))
         self.gridLayout.addWidget(self.button_stop, 4, 4, 1, 1)
+        spacerItem1 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.gridLayout.addItem(spacerItem1, 0, 4, 1, 1)
         self.gridLayout_2.addWidget(self.splitter_3, 0, 0, 1, 1)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
@@ -165,7 +165,7 @@ class Ui_BrainLabelingGui(object):
         self.label_3.setText(_translate("BrainLabelingGui", "h_zx", None))
         self.label_6.setText(_translate("BrainLabelingGui", "h_zy", None))
         self.button_symmetric.setText(_translate("BrainLabelingGui", "Symmetric", None))
-        self.button_midline.setText(_translate("BrainLabelingGui", "Midline", None))
+        self.button_displayStructures.setText(_translate("BrainLabelingGui", "Display Structures", None))
         self.button_displayOptions.setText(_translate("BrainLabelingGui", "Display Options", None))
         self.button_inferSide.setText(_translate("BrainLabelingGui", "Infer Side", None))
         self.button_save.setText(_translate("BrainLabelingGui", "Save", None))

@@ -99,6 +99,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_load.clicked.connect(self.load)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
+        self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         from collections import defaultdict
@@ -227,6 +228,111 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     # @pyqtSlot()
     # def username_dialog_requested(self):
 
+    def structure_tree_changed(self, item, column):
+        import re
+
+        tree_widget = self.sender()
+        complete_name = str(item.text(column))
+        abbr = re.findall('^.*?(\((.*)\))?$', complete_name)[0][1]
+
+        check_state = item.checkState(column)
+        if check_state == Qt.Unchecked:
+
+            for gscene in self.gscenes.values():
+                for section_index, polygons in gscene.drawings.iteritems():
+                    for polygon in polygons:
+                        if polygon.label == abbr:
+                            polygon.setVisible(False)
+
+        elif check_state == Qt.PartiallyChecked:
+            pass
+        elif check_state == Qt.Checked:
+            for gscene in self.gscenes.values():
+                for section_index, polygons in gscene.drawings.iteritems():
+                    for polygon in polygons:
+                        if polygon.label == abbr:
+                            polygon.setVisible(True)
+        else:
+            raise Exception('Unknown check state.')
+
+        # selected_items = tree_widget.selectedItems()
+        # print [str(it.text(0)) for it in selected_items]
+
+
+    @pyqtSlot()
+    def select_display_structures(self):
+        # structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+
+        structure_tree_dict = json.load(open('structure_tree.json'))
+        structure_tree_names = {'brainstem': {}}
+        extract_names(structure_tree_names['brainstem'], structure_tree_dict['brainstem'], structure_tree_dict)
+
+        # structure_tree_names = {'midbrain': ['IC', 'SC'], 'hindbrain': {'pons': ['7N', '5N'], 'medulla': ['7n', 'SCP']}}
+
+        display_structures_widget = QDialog(self)
+
+        tree_widget = QTreeWidget(display_structures_widget)
+        tree_widget.setHeaderLabels(['Structures'])
+        fill_tree_widget(tree_widget, structure_tree_names)
+
+        # http://stackoverflow.com/questions/27521391/signal-a-qtreewidgetitem-toggled-checkbox
+        tree_widget.itemChanged.connect(self.structure_tree_changed)
+
+        dialog_layout = QVBoxLayout(display_structures_widget)
+        dialog_layout.addWidget(tree_widget)
+        display_structures_widget.setLayout(dialog_layout)
+
+        display_structures_widget.setWindowTitle("Select structures to show")
+        # display_structures_widget.exec_()
+        display_structures_widget.show()
+
+    # @pyqtSlot()
+    # def select_display_structures(self):
+    #
+    #     display_structures_widget = QDialog(self)
+    #
+    #     scroll = QScrollArea(display_structures_widget)
+    #
+    #     viewport = QWidget(display_structures_widget)
+    #     scroll.setWidget(viewport)
+    #     scroll.setWidgetResizable(True)
+    #
+    #     viewport_layout = QVBoxLayout(viewport)
+    #
+    #     structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+    #
+    #     if not hasattr(self, 'show_structure'):
+    #         self.show_structure = {}
+    #
+    #     for name in sorted(structure_names):
+    #         if name not in self.show_structure:
+    #             self.show_structure[name] = True
+    #
+    #         checkbox_showStructure = QCheckBox(name)
+    #         checkbox_showStructure.setChecked(self.show_structure[name])
+    #         checkbox_showStructure.stateChanged.connect(self.checkbox_showStructure_callback)
+    #         viewport_layout.addWidget(checkbox_showStructure)
+    #
+    #     viewport.setLayout(viewport_layout)
+    #
+    #     dialog_layout = QVBoxLayout(display_structures_widget)
+    #     dialog_layout.addWidget(scroll)
+    #     display_structures_widget.setLayout(dialog_layout)
+    #
+    #     display_structures_widget.setWindowTitle("Select structures to show")
+    #     # display_structures_widget.exec_()
+    #     display_structures_widget.show()
+
+
+    # def checkbox_showStructure_callback(self, checked):
+    #     name = str(self.sender().text())
+    #     self.show_structure[name] = bool(checked)
+    #
+    #     for gscene in self.gscenes.values():
+    #         for section_index, polygons in gscene.drawings.iteritems():
+    #             for polygon in polygons:
+    #                 if polygon.label == name:
+    #                     polygon.setVisible(bool(checked))
 
     @pyqtSlot()
     def select_display_options(self):
@@ -239,7 +345,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         display_option_widget = QDialog(self)
 
-        layout = QHBoxLayout()
+        layout = QVBoxLayout()
 
         checkbox_showPolygons = QCheckBox("Polygon")
         checkbox_showPolygons.setChecked(self.show_polygons)

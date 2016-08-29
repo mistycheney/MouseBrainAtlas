@@ -34,19 +34,6 @@
        </widget>
        <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout">
-         <item row="0" column="4">
-          <spacer name="verticalSpacer">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
          <item row="1" column="1">
           <widget class="QLabel" name="label">
            <property name="text">
@@ -200,9 +187,9 @@
           </widget>
          </item>
          <item row="1" column="6">
-          <widget class="QPushButton" name="button_midline">
+          <widget class="QPushButton" name="button_displayStructures">
            <property name="text">
-            <string>Midline</string>
+            <string>Display Structures</string>
            </property>
           </widget>
          </item>
@@ -250,6 +237,19 @@
             <string>Stop Loading</string>
            </property>
           </widget>
+         </item>
+         <item row="0" column="4">
+          <spacer name="verticalSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
          </item>
         </layout>
        </widget>

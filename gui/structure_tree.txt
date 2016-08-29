@@ -84,7 +84,7 @@ Medulla
      area postrema, AP: very distinguishable [BEST]
      central canal, CC:
      medullary white matters: a lot under this, no time to check yet.
-     inferior olivary complex, IO [GOOD]
+     inferior olivary complex, IO: [GOOD]
      - principle inferior olive nucleus, IOPr
      - dorsal inferior olive nucleus, IOD:
      - medial inferior olive nucleus, IOM: Paxinos has many subdivisions
@@ -100,7 +100,7 @@ Medulla
      - ventrolateral
      Parasolitary nucleus, PSol:
      Cochlear nuclei:
-     - dorsal cochlear nucleus, DC [BEST]
+     - dorsal cochlear nucleus, DC: [BEST]
      - ventral cochlear nucleus, VC
           - ventral cochlear nucleus, anterior, VCA
           - ventral cochlear nucleus, posterior, VCP
@@ -155,7 +155,7 @@ midbrain tegmentum
      pallidotegmental fasciculus: not in Paxinos
      trochlear nerve, 4n:
      fasciculus retroflexus, fr: [BEST]
-     oculomotor nuclear complex, 3N [BEST]
+     oculomotor nuclear complex, 3N: [BEST]
      - parvocellular oculomotor nucleus, 3PC: NeuroName says this is the same as Edinger-Westphal, but Paxinos has a separate EW.
      red nucleus, R [USE]
      - parvocellular, RPC
@@ -168,7 +168,7 @@ tectum
      - nucleus of pretectal area: in Paxinos, subdivided into anterior APT, medial MPT, posterior PPT
      - olivary pretectal nucleus, OPT
      - nucleus of the optic tract, OT
-     inferior colliculus, IC [GOOD]
+     inferior colliculus, IC: [GOOD]
      - central, CIC
      - external, ECIC
      - dorsal (pericentral) cortex of the inferior colliculus, DCIC
@@ -179,7 +179,7 @@ tectum
      posterior commissure, pc: [BEST]
      brachium of the superior colliculus, bsc:
      commissure of superior colliculus, csc:
-     superior colliculus, SC [GOOD]
+     superior colliculus, SC: [GOOD]
      - Zona layer, Zo
      - Superficial gray layer, SuG
      - optical layer / superficial white, Op

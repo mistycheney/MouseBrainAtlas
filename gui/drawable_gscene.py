@@ -1173,7 +1173,12 @@ class DrawableGraphicsScene(QGraphicsScene):
     def show_context_menu(self, pos):
         myMenu = QMenu(self.gview)
 
+        action_newPolygon = myMenu.addAction("New polygon")
+        action_deletePolygon = myMenu.addAction("Delete polygon")
+        action_insertVertex = myMenu.addAction("Insert vertex")
         action_deleteVertices = myMenu.addAction("Delete vertices")
+
+        myMenu.addSeparator()
 
         setSide_menu = QMenu("Set hemisphere", myMenu)
         myMenu.addMenu(setSide_menu)
@@ -1185,29 +1190,23 @@ class DrawableGraphicsScene(QGraphicsScene):
         if self.active_polygon.side == 'R':
             action_assignR.setEnabled(False)
 
-        action_newPolygon = myMenu.addAction("New polygon")
+        action_setLabel = myMenu.addAction("Set label")
 
-        action_insertVertex = myMenu.addAction("Insert vertex")
+        action_confirmPolygon = myMenu.addAction("Confirm this polygon")
+        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
+            action_confirmPolygon.setVisible(False)
+
+        action_reconstruct = myMenu.addAction("Update 3D structure")
+        action_showInfo = myMenu.addAction("Show contour information")
+
+        myMenu.addSeparator()
 
         resolution_menu = QMenu("Change resolution", myMenu)
         myMenu.addMenu(resolution_menu)
-
         action_resolutions = {}
         for d in self.data_feeder.supported_downsample_factors:
             action = resolution_menu.addAction(str(d))
             action_resolutions[action] = d
-
-        action_reconstruct = myMenu.addAction("Update 3D structure")
-
-        action_deletePolygon = myMenu.addAction("Delete polygon")
-        action_setLabel = myMenu.addAction("Set label")
-
-        action_confirmPolygon = myMenu.addAction("Confirm this polygon")
-
-        action_showInfo = myMenu.addAction("Show contour information")
-
-        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
-            action_confirmPolygon.setVisible(False)
 
         # action_setUncertain = myMenu.addAction("Set uncertain segment")
         # action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")

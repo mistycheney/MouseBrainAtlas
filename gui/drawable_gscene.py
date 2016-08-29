@@ -191,6 +191,9 @@ class DrawableGraphicsScene(QGraphicsScene):
     def set_structure_volumes(self, structure_volumes):
         self.structure_volumes = structure_volumes
 
+    # def check_structure_side_properties(self):
+    #     return True
+
     def update_drawings_from_structure_volume(self, name_u, side):
         """
         Based on reconstructed 3D structure,
@@ -276,7 +279,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                     gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
                                                             label=name_u, linecolor='g', section=sec, type='interpolated',
-                                                            side=side)
+                                                            side=side,
+                                                            side_manually_assigned=False)
         else:
             # raise Exception('Sagittal interpolation on volume data is not implemented.')
 
@@ -333,7 +337,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
                                                         linecolor='g', vertex_radius=1, linewidth=2, index=pos_ds,
                                                         type='interpolated',
-                                                        side=side)
+                                                        side=side,
+                                                        side_manually_assigned=False)
 
 
         # elif self.data_feeder.orientation == 'coronal':
@@ -591,19 +596,24 @@ class DrawableGraphicsScene(QGraphicsScene):
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
                 if p.label in structure_ranges:
+                    assert p.label in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % p.label
                     if section_index >= structure_ranges[p.label][0] and section_index <= structure_ranges[p.label][1]:
-                        p.set_side(None)
+                        if p.side is None or not p.side_manually_assigned:
+                            p.set_side('S', side_manually_assigned=False)
                     else:
                         raise Exception('Polygon is on a section not in structure_range.')
                 else:
                     lname = convert_to_left_name(p.label)
                     if lname in structure_ranges:
                         if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
-                            p.set_side('L')
+                            if p.side is None or not p.side_manually_assigned:
+                                p.set_side('L', side_manually_assigned=False)
+
                     rname = convert_to_right_name(p.label)
                     if rname in structure_ranges:
                         if section_index >= structure_ranges[rname][0] and section_index <= structure_ranges[rname][1]:
-                            p.set_side('R')
+                            if p.side is None or not p.side_manually_assigned:
+                                p.set_side('R', side_manually_assigned=False)
 
 
     def set_conversion_func_section_to_z(self, func):
@@ -656,7 +666,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
     def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=None, vertex_color='b', vertex_radius=None,
                                             label='unknown', section=None, label_pos=None, index=None, type=None,
-                                            edit_history=[], side=None):
+                                            edit_history=[], side=None, side_manually_assigned=None):
         '''
         Function for adding polygon, along with vertex circles.
         Step 1: create polygon
@@ -692,7 +702,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         polygon.set_label(label, label_pos)
         polygon.set_closed(True)
         polygon.set_type(type)
-        polygon.set_side(side)
+        polygon.set_side(side=side, side_manually_assigned=side_manually_assigned)
 
         if edit_history is None or len(edit_history) == 0:
             polygon.add_edit(editor=self.gui.get_username())
@@ -934,26 +944,29 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         for i_or_sec, group in grouped:
             # if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
-            for contour_id, contour_entry in group.iterrows():
-                vertices = contour_entry['vertices']
-                contour_type = 'interpolated' if contour_entry['flags'] & CONTOUR_IS_INTERPOLATED else None
+            for contour_id, contour in group.iterrows():
+                vertices = contour['vertices']
+                contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour_entry['name'], label_pos=contour_entry['label_position'],
+
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
                                                         linecolor='r', section=i_or_sec, type=contour_type,
                                                         side=contour['side'],
+                                                        side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else True,
                                                         edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
 
-        grouped = contours.groupby('position')
-
-        for i_or_sec, group in grouped:
-            for contour_id, contour_entry in group.iterrows():
-                vertices = contour_entry['vertices']
-                contour_type = 'interpolated' if contour_entry['flags'] & CONTOUR_IS_INTERPOLATED else None
-                endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour_entry['name'], label_pos=contour_entry['label_position'],
-                                                        linecolor='r', index=i_or_sec, type=contour_type,
-                                                        side=contour['side'],
-                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
+        # grouped = contours.groupby('position')
+        #
+        # for i_or_sec, group in grouped:
+        #     for contour_id, contour in group.iterrows():
+        #         vertices = contour['vertices']
+        #         contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+        #         endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
+        #         self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
+        #                                                 linecolor='r', index=i_or_sec, type=contour_type,
+        #                                                 side=contour['side'],
+        #                                                 side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else True,
+        #                                                 edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
 
 
     # def load_drawings(self, username, timestamp='latest', annotation_rootdir=None, append=False, orientation=None, downsample=None):
@@ -1063,14 +1076,20 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                if p.side is None:
-                    label = p.label
-                elif p.side == 'L':
-                    label = convert_to_left_name(p.label)
-                elif p.side == 'R':
-                    label = convert_to_right_name(p.label)
+                if p.side_manually_assigned:
+                    if p.side is None:
+                        label = p.label
+                    elif p.side == 'S':
+                        label = p.label
+                    elif p.side == 'L':
+                        label = convert_to_left_name(p.label)
+                    elif p.side == 'R':
+                        label = convert_to_right_name(p.label)
+                    else:
+                        raise Exception('Side property must be None, L or R.')
                 else:
-                    raise Exception('Side property must be None, L or R.')
+                    label = p.label
+
                 label_section_lookup[label].append(section_index)
 
         label_section_lookup.default_factory = None
@@ -1182,13 +1201,21 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         setSide_menu = QMenu("Set hemisphere", myMenu)
         myMenu.addMenu(setSide_menu)
+        action_assignS = setSide_menu.addAction('Singular')
         action_assignL = setSide_menu.addAction('Left')
         action_assignR = setSide_menu.addAction('Right')
-        action_sides = {action_assignL: 'L', action_assignR: 'R'}
-        if self.active_polygon.side == 'L':
-            action_assignL.setEnabled(False)
-        if self.active_polygon.side == 'R':
-            action_assignR.setEnabled(False)
+        action_sides = {action_assignS: 'S', action_assignL: 'L', action_assignR: 'R'}
+        if self.active_polygon.side is not None:
+            if self.active_polygon.side_manually_assigned:
+                how_str = '(manual)'
+            else:
+                how_str = '(inferred)'
+            if self.active_polygon.side == 'L':
+                action_assignL.setText('Left ' + how_str)
+            elif self.active_polygon.side == 'R':
+                action_assignR.setText('Right ' + how_str)
+            elif self.active_polygon.side == 'S':
+                action_assignS.setText('Singular '+ how_str)
 
         action_setLabel = myMenu.addAction("Set label")
 
@@ -1235,21 +1262,32 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.set_mode('delete vertices')
 
         elif selected_action in action_sides:
-            self.active_polygon.set_side(action_sides[selected_action])
+            self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
 
         elif selected_action == action_showInfo:
 
+            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.label}
+            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
+
             if self.active_polygon.side is None:
                 side_string = ''
-            elif self.active_polygon.side == 'L':
-                side_string = '(left)'
-            elif self.active_polygon.side == 'R':
-                side_string = '(right)'
             else:
-                raise Exception('Side property must be one of None, L or R.')
+                if self.active_polygon.side == 'S':
+                    side_string = 'singular'
+                elif self.active_polygon.side == 'L':
+                    side_string = 'left'
+                elif self.active_polygon.side == 'R':
+                    side_string = 'right'
+                else:
+                    raise Exception('Side property must be one of S, L or R.')
 
-            contour_info_text = "Abbreviation: %(name)s %(side)s\n" % {'name': self.active_polygon.label, 'side': side_string}
-            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
+                if self.active_polygon.side_manually_assigned is not None:
+                    if self.active_polygon.side_manually_assigned:
+                        side_string += ' (manual)'
+                    else:
+                        side_string += ' (inferred)'
+
+            contour_info_text += "Side: %(side)s\n" % {'side': side_string}
 
             first_edit = self.active_polygon.edit_history[0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \

@@ -104,8 +104,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     # def add_endorser(self, endorser):
     #     self.endorsers.add(endorser)
 
-    def set_side(self, side):
+    def set_side(self, side, side_manually_assigned):
         self.side = side
+        self.side_manually_assigned = side_manually_assigned
 
     def set_type(self, t):
 
@@ -331,7 +332,7 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 
     	if merge:
     		new_path = delete_vertices_merge(self.path(), indices_to_remove)
-            
+
     		# self.history_allSections[self.selected_section].append({
     		# 	'type': 'delete_vertices_merge',
     		# 	'polygon': polygon,

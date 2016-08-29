@@ -98,6 +98,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_save.clicked.connect(self.save)
         self.button_load.clicked.connect(self.load)
         self.button_inferSide.clicked.connect(self.infer_side)
+        self.button_displayOptions.clicked.connect(self.select_display_options)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         from collections import defaultdict
@@ -225,6 +226,78 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     # @pyqtSlot()
     # def username_dialog_requested(self):
+
+
+    @pyqtSlot()
+    def select_display_options(self):
+
+        if not hasattr(self, 'show_polygons'):
+            self.show_polygons = True
+            self.show_vertices = True
+            self.show_labels = True
+            self.hide_interpolated = False
+
+        display_option_widget = QDialog(self)
+
+        layout = QHBoxLayout()
+
+        checkbox_showPolygons = QCheckBox("Polygon")
+        checkbox_showPolygons.setChecked(self.show_polygons)
+        checkbox_showPolygons.stateChanged.connect(self.checkbox_showPolygons_callback)
+        layout.addWidget(checkbox_showPolygons)
+
+        checkbox_showVertices = QCheckBox("Vertices")
+        checkbox_showVertices.setChecked(self.show_vertices)
+        checkbox_showVertices.stateChanged.connect(self.checkbox_showVertices_callback)
+        layout.addWidget(checkbox_showVertices)
+
+        checkbox_showLabels = QCheckBox("Labels")
+        checkbox_showLabels.setChecked(self.show_labels)
+        checkbox_showLabels.stateChanged.connect(self.checkbox_showLabels_callback)
+        layout.addWidget(checkbox_showLabels)
+
+        checkbox_hideInterpolated = QCheckBox("Hide interpolated")
+        checkbox_hideInterpolated.setChecked(self.hide_interpolated)
+        checkbox_hideInterpolated.stateChanged.connect(self.checkbox_hideInterpolated_callback)
+        layout.addWidget(checkbox_hideInterpolated)
+
+        display_option_widget.setLayout(layout)
+        display_option_widget.setWindowTitle("Select display options")
+        display_option_widget.exec_()
+
+    @pyqtSlot(int)
+    def checkbox_showLabels_callback(self, checked):
+        self.show_labels = checked
+        for gscene in self.gscenes.itervalues():
+            for section_index, polygons in gscene.drawings.iteritems():
+                for polygon in polygons:
+                    polygon.label_textItem.setVisible(checked)
+
+    @pyqtSlot(int)
+    def checkbox_showVertices_callback(self, checked):
+        self.show_vertices = checked
+        for gscene in self.gscenes.itervalues():
+            for section_index, polygons in gscene.drawings.iteritems():
+                for polygon in polygons:
+                    for v in polygon.vertex_circles:
+                        v.setVisible(checked)
+
+    @pyqtSlot(int)
+    def checkbox_showPolygons_callback(self, checked):
+        self.show_polygons = checked
+        for gscene in self.gscenes.itervalues():
+            for section_index, polygons in gscene.drawings.iteritems():
+                for polygon in polygons:
+                    polygon.setVisible(checked)
+
+    @pyqtSlot(int)
+    def checkbox_hideInterpolated_callback(self, checked):
+        self.hide_interpolated = checked
+        for gscene in self.gscenes.itervalues():
+            for section_index, polygons in gscene.drawings.iteritems():
+                for polygon in polygons:
+                    if polygon.type == 'interpolated':
+                        polygon.setVisible(not bool(checked))
 
     @pyqtSlot()
     def infer_side(self):

@@ -1245,8 +1245,11 @@ class DrawableGraphicsScene(QGraphicsScene):
                 side_string = '(left)'
             elif self.active_polygon.side == 'R':
                 side_string = '(right)'
+            else:
+                raise Exception('Side property must be one of None, L or R.')
 
-            contour_info_text = "Name: %(name)s %(side)s\n" % {'name': self.active_polygon.label, 'side': side_string}
+            contour_info_text = "Abbreviation: %(name)s %(side)s\n" % {'name': self.active_polygon.label, 'side': side_string}
+            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
 
             first_edit = self.active_polygon.edit_history[0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \

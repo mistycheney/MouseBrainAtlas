@@ -97,6 +97,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.button_save.clicked.connect(self.save)
         self.button_load.clicked.connect(self.load)
+        self.button_inferSide.clicked.connect(self.infer_side)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         from collections import defaultdict
@@ -226,6 +227,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     # def username_dialog_requested(self):
 
     @pyqtSlot()
+    def infer_side(self):
+        self.gscenes['sagittal'].infer_side()
+        self.gscenes['coronal'].infer_side()
+        self.gscenes['horizontal'].infer_side()
+
+    @pyqtSlot()
     def save(self):
         return
 
@@ -335,11 +342,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Drawings updated.'
         self.save()
 
+        # sagittal_label_section_lookup = self.gscenes['sagittal'].get_label_section_lookup()
+        # labels = sagittal_label_section_lookup.keys()
+
+        # self.gscenes['coronal'].get_label_section_lookup()
+        # self.gscenes['horizontal'].get_label_section_lookup()
+
 
     @pyqtSlot(object)
     def update_structure_volume_requested(self, polygon):
 
         name_u = polygon.label
+        side = polygon.side
         # downsample = polygon.gscene.data_feeder.downsample
 
         # matched_polygons_sagittal = [p for i, polygons in self.gscenes['sagittal'].drawings.iteritems() for p in polygons if p.label == name_u]
@@ -354,14 +368,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene_id, gscene in self.gscenes.iteritems():
 
             matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
-                                if p.label == name_u and p.type != 'interpolated']
+                                if p.label == name_u and p.type != 'interpolated' and p.side == side]
 
             if len(matched_confirmed_polygons) < 2:
                 sys.stderr.write('%s: Matched confirmed polygons fewer than 2.\n' % gscene_id)
                 continue
                 # raise Exception('%s: Matched polygons fewer than 2.' % polygon.gscene.id)
 
-            factor_volResol = gscene.data_feeder.downsample / self.volume_downsample_factor
+            factor_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
             if gscene_id == 'sagittal':
                 contour_points_grouped_by_pos = {p.position * factor_volResol: \
@@ -419,9 +433,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # self.structure_volumes[name_u] = (volume, bbox)
 
-        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u)
-        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u)
-        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u)
+        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
+        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
+        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u, side)
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')

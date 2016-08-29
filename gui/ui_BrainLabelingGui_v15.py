@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'BrainLabelingGui_v15.ui'
 #
-# Created: Mon Aug 15 20:30:28 2016
+# Created: Sun Aug 28 18:21:22 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -122,9 +122,9 @@ class Ui_BrainLabelingGui(object):
         self.button_cancel = QtGui.QPushButton(self.layoutWidget)
         self.button_cancel.setObjectName(_fromUtf8("button_cancel"))
         self.gridLayout.addWidget(self.button_cancel, 2, 5, 1, 1)
-        self.button_done = QtGui.QPushButton(self.layoutWidget)
-        self.button_done.setObjectName(_fromUtf8("button_done"))
-        self.gridLayout.addWidget(self.button_done, 2, 6, 1, 1)
+        self.button_inferSide = QtGui.QPushButton(self.layoutWidget)
+        self.button_inferSide.setObjectName(_fromUtf8("button_inferSide"))
+        self.gridLayout.addWidget(self.button_inferSide, 2, 6, 1, 1)
         self.button_save = QtGui.QPushButton(self.layoutWidget)
         self.button_save.setObjectName(_fromUtf8("button_save"))
         self.gridLayout.addWidget(self.button_save, 3, 5, 1, 1)
@@ -167,7 +167,7 @@ class Ui_BrainLabelingGui(object):
         self.button_symmetric.setText(_translate("BrainLabelingGui", "Symmetric", None))
         self.button_midline.setText(_translate("BrainLabelingGui", "Midline", None))
         self.button_cancel.setText(_translate("BrainLabelingGui", "Cancel", None))
-        self.button_done.setText(_translate("BrainLabelingGui", "Complete", None))
+        self.button_inferSide.setText(_translate("BrainLabelingGui", "Infer Side", None))
         self.button_save.setText(_translate("BrainLabelingGui", "Save", None))
         self.button_load.setText(_translate("BrainLabelingGui", "Load", None))
         self.label_7.setText(_translate("BrainLabelingGui", "Username:", None))

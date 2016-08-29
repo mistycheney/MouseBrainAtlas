@@ -21,7 +21,7 @@ if hostname.endswith('sdsc.edu'):
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
-    data_dir = '/media/yuncong/11846a25-2cc1-361b-a6e8-e5773e7689a8/CSHL_data_processed'
+    data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     volume_dir = '/home/yuncong/CSHL_volumes/'
     mesh_rootdir = '/home/yuncong/CSHL_meshes'
     atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
@@ -41,8 +41,8 @@ else:
 
 ############ Class Labels #############
 
-paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', 'SC', 'IC', '3N', '4N']
-singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour']
+paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', '3N', '4N']
+singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
 
 # volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
 #                                  'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']

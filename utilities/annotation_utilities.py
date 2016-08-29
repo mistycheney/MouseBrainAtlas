@@ -111,7 +111,105 @@ def get_annotation_on_sections(stack=None, username=None, label_polygons=None, f
     return annotation_on_sections
 
 
-def get_landmark_range_limits(stack=None, username=None, label_polygons=None, filtered_labels=None):
+def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered_labels=None):
+    """
+    label_section_lookup is a dict, keys are labels, values are sections.
+    """
+
+    first_sec, last_sec = section_range_lookup[stack]
+    mid_sec = (first_sec + last_sec)/2
+
+    landmark_limits = {}
+
+    if filtered_labels is None:
+        d = set(label_section_lookup.keys())
+    else:
+        d = set(label_section_lookup.keys()) & set(filtered_labels)
+
+    d_unsided = set(map(convert_name_to_unsided, d))
+
+    for name_u in d_unsided:
+
+        lname = convert_to_left_name(name_u)
+        rname = convert_to_right_name(name_u)
+
+        secs = []
+
+        if name_u in label_section_lookup:
+            secs += list(label_section_lookup[name_u])
+
+        if lname in label_section_lookup:
+            secs += list(label_section_lookup[lname])
+
+        if rname in label_section_lookup:
+            secs += list(label_section_lookup[rname])
+
+        secs = np.array(sorted(secs))
+
+        if name_u in singular_structures: # single
+            landmark_limits[name_u] = (secs.min(), secs.max())
+        else: # two sides
+
+            if len(secs) == 1:
+                sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
+                sec = secs[0]
+                if sec < mid_sec:
+                    landmark_limits[lname] = (sec, sec)
+                else:
+                    landmark_limits[rname] = (sec, sec)
+                continue
+
+            elif len(secs) == 0:
+                raise
+            else:
+
+                diffs = np.diff(secs)
+                peak = np.argmax(diffs)
+
+                inferred_maxL = secs[peak]
+                inferred_minR = secs[peak+1]
+
+                if lname in label_section_lookup:
+                    labeled_maxL = np.max(label_section_lookup[lname])
+                    maxL = max(labeled_maxL, inferred_maxL)
+                else:
+                    maxL = inferred_maxL
+
+                if rname in label_section_lookup:
+                    labeled_minR = np.min(label_section_lookup[rname])
+                    minR = min(labeled_minR, inferred_minR)
+                else:
+                    minR = inferred_minR
+
+                if maxL >= minR:
+                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+
+                    if inferred_maxL < inferred_minR:
+                        maxL = inferred_maxL
+                        minR = inferred_minR
+                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+                    elif labeled_maxL < labeled_minR:
+                        maxL = labeled_maxL
+                        minR = labeled_minR
+                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+                    else:
+                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
+                        continue
+
+            landmark_limits[lname] = (np.min(secs), maxL)
+            landmark_limits[rname] = (minR, np.max(secs))
+
+            # print 'label:', name_u
+            # print 'secs:', secs
+            # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
+            # print '\n'
+
+    return landmark_limits
+
+
+def get_landmark_range_limits(stack=None, username=None, label_polygons=None, label_section_lookup=None, filtered_labels=None):
     """
     Get a dictionary, whose keys are landmark names and
     values are tuples specifying the first and last sections that have the particular landmarks.

@@ -214,9 +214,9 @@
           </widget>
          </item>
          <item row="2" column="6">
-          <widget class="QPushButton" name="button_done">
+          <widget class="QPushButton" name="button_inferSide">
            <property name="text">
-            <string>Complete</string>
+            <string>Infer Side</string>
            </property>
           </widget>
          </item>

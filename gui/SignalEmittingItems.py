@@ -45,6 +45,7 @@ from datetime import datetime
 
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
+    # def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, vertex_radius=None):
     def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, index=None, vertex_radius=None):
 
         super(self.__class__, self).__init__(path, parent=parent)
@@ -70,6 +71,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
 
         self.type = None
         self.edit_history = []
+
+        self.side = None
+
         # self.endorsers = set([])
         # self.creator = None
 
@@ -99,6 +103,9 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     #
     # def add_endorser(self, endorser):
     #     self.endorsers.add(endorser)
+
+    def set_side(self, side):
+        self.side = side
 
     def set_type(self, t):
 
@@ -313,8 +320,44 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     def add_vertex(self, x, y, new_index=-1):
         if new_index == -1:
             polygon_goto(self, x, y)
+        else:
+            new_path = insert_vertex(self.path())
+            self.setPath(new_path)
 
         self.add_circle_for_vertex(new_index)
+
+
+    def delete_vertices(self, indices_to_remove, merge=False):
+
+    	if merge:
+    		new_path = delete_vertices_merge(self.path(), indices_to_remove)
+            
+    		# self.history_allSections[self.selected_section].append({
+    		# 	'type': 'delete_vertices_merge',
+    		# 	'polygon': polygon,
+    		# 	'new_polygon': new_polygon,
+    		# 	'indices_to_remove': indices_to_remove,
+    		# 	'label': self.accepted_proposals_allSections[self.selected_section][new_polygon]['label']
+    		# 	})
+
+    	else:
+    		paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
+
+    		# new_polygons = []
+    		# for path in paths_to_keep:
+    		# 	new_polygon = self.add_polygon_by_vertices_label(path, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon]['label'])
+    		# 	new_polygons.append(new_polygon)
+            #
+    		# self.remove_polygon(polygon)
+
+    		# self.history_allSections[self.selected_section].append({
+    		# 	'type': 'delete_vertices_split',
+    		# 	'polygon': polygon,
+    		# 	'new_polygons': new_polygons,
+    		# 	'indices_to_remove': indices_to_remove,
+    		# 	'label': self.accepted_proposals_allSections[self.selected_section][new_polygons[0]]['label']
+    		# 	})
+
 
     def set_closed(self, closed):
         self.closed = closed

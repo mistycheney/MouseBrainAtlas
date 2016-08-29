@@ -47,7 +47,11 @@ class ImageDataFeeder(object):
         self.min_section = min(self.sections)
         self.max_section = max(self.sections)
 
-        self.n = len(self.sections)
+        self.first_section, self.last_section = section_range_lookup[stack]
+        self.all_sections = range(self.first_section, self.last_section+1)
+
+        # self.n = len(self.sections)
+        self.n = len(self.all_sections)
 
         self.supported_downsample_factors = [1, 32]
         self.image_cache = {}
@@ -115,7 +119,8 @@ class ImageDataFeeder(object):
             return
 
         if sec is None:
-            sec = self.sections[i]
+            # sec = self.sections[i]
+            sec = self.all_sections[i]
 
         # if downsample not in self.image_cache:
         #     t = time.time()
@@ -137,6 +142,7 @@ class ImageDataFeeder(object):
         if sec not in self.image_cache[downsample]:
             sys.stderr.write('Image is not loaded.\n')
             return None
+            # raise Exception('Image is not loaded.')
 
         return self.image_cache[downsample][sec]
 

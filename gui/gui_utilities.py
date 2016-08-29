@@ -6,6 +6,214 @@ from scipy.spatial.distance import cdist
 from shapely.geometry import Polygon, LineString, Point
 import numpy as np
 
+def subpath(path, begin, end):
+
+    new_path = QPainterPath()
+
+    is_closed = polygon_is_closed(path=path)
+    n = path.elementCount() - 1 if is_closed else path.elementCount()
+
+    if not is_closed:
+        assert end >= begin
+        begin = max(0, begin)
+        end = min(n-1, end)
+    else:
+        assert end != begin # cannot handle this, because there is no way a path can have the same first and last points but is not closed
+        if end < begin:
+            end = end + n
+
+    for i in range(begin, end + 1):
+        elem = path.elementAt(i % n)
+        if new_path.elementCount() == 0:
+            new_path.moveTo(elem.x, elem.y)
+        else:
+            new_path.lineTo(elem.x, elem.y)
+
+    assert new_path.elementCount() > 0
+
+    return new_path
+
+
+def split_path(path, vertex_indices):
+	'''
+	Split path.
+
+	Args:
+		path (QPainterPath): input path
+		vertex_indices (list of tuples or n x 2 numpy array): indices in the cut box
+
+	Returns:
+		list of QPainterPath: paths in cut box
+		list of QPainterPath: paths outside of cut box
+
+	'''
+
+	is_closed = polygon_is_closed(path=path)
+	n = polygon_num_vertices(path=path, closed=is_closed)
+
+	segs_in, segs_out = split_array(vertex_indices, n, is_closed)
+
+	print segs_in, segs_out
+
+	in_paths = []
+	out_paths = []
+
+	for b, e in segs_in:
+		in_path = subpath(path, b, e)
+		in_paths.append(in_path)
+
+	for b, e in segs_out:
+		out_path = subpath(path, b-1, e+1)
+		out_paths.append(out_path)
+
+	return in_paths, out_paths
+
+
+def split_array(vertex_indices, n, is_closed):
+
+	cache = [i in vertex_indices for i in range(n)]
+
+	i = 0
+
+	sec_outs = []
+	sec_ins = []
+
+	sec_in = [None,None]
+	sec_out = [None,None]
+
+	while i != (n+1 if is_closed else n):
+
+		if cache[i%n] and not cache[(i+1)%n]:
+			sec_in[1] = i%n
+			sec_ins.append(sec_in)
+			sec_in = [None,None]
+
+			sec_out[0] = (i+1)%n
+		elif not cache[i%n] and cache[(i+1)%n]:
+			sec_out[1] = i%n
+			sec_outs.append(sec_out)
+			sec_out = [None,None]
+
+			sec_in[0] = (i+1)%n
+
+		i += 1
+
+	if sec_in[0] is not None or sec_in[1] is not None:
+		sec_ins.append(sec_in)
+
+	if sec_out[0] is not None or sec_out[1] is not None:
+		sec_outs.append(sec_out)
+
+	tmp = [None, None]
+	for sec in sec_ins:
+		if sec[0] is None and sec[1] is not None:
+			tmp[1] = sec[1]
+		elif sec[0] is not None and sec[1] is None:
+			tmp[0] = sec[0]
+	if tmp[0] is not None and tmp[1] is not None:
+		sec_ins = [s for s in sec_ins if s[0] is not None and s[1] is not None] + [tmp]
+	else:
+		sec_ins = [s for s in sec_ins if s[0] is not None and s[1] is not None]
+
+	tmp = [None, None]
+	for sec in sec_outs:
+		if sec[0] is None and sec[1] is not None:
+			tmp[1] = sec[1]
+		elif sec[0] is not None and sec[1] is None:
+			tmp[0] = sec[0]
+	if tmp[0] is not None and tmp[1] is not None:
+		sec_outs = [s for s in sec_outs if s[0] is not None and s[1] is not None] + [tmp]
+	else:
+		sec_outs = [s for s in sec_outs if s[0] is not None and s[1] is not None]
+
+	if not is_closed:
+		sec_ins2 = []
+		for sec in sec_ins:
+			if sec[0] > sec[1]:
+				sec_ins2.append([sec[0], n-1])
+				sec_ins2.append([0, sec[1]])
+			else:
+				sec_ins2.append(sec)
+
+		sec_outs2 = []
+		for sec in sec_outs:
+			if sec[0] > sec[1]:
+				sec_outs2.append([sec[0], n-1])
+				sec_outs2.append([0, sec[1]])
+			else:
+				sec_outs2.append(sec)
+
+		return sec_ins2, sec_outs2
+
+	else:
+		return sec_ins, sec_outs
+
+def insert_vertex(path, x, y, new_index):
+
+    new_path = QPainterPath()
+    for i in range(path.elementCount()+1): # +1 is important, because the new_index can be after the last vertex
+        if i == new_index:
+            path_goto(new_path, x, y)
+        if i < path.elementCount():
+            elem = path.elementAt(i)
+            path_goto(new_path, elem.x, elem.y)
+    return new_path
+
+
+def delete_between(path, first_index, second_index):
+
+    print first_index, second_index
+
+    if second_index < first_index:	# ensure first_index is smaller than second_index
+        temp = first_index
+        first_index = second_index
+        second_index = temp
+
+    n = polygon_num_vertices(path=path)
+
+    if (second_index - first_index > first_index + n - second_index):
+        indices_to_remove = range(second_index, n+1) + range(0, first_index+1)
+    else:
+        indices_to_remove = range(first_index, second_index+1)
+
+    print indices_to_remove
+
+    paths_to_remove, paths_to_keep = split_path(path, indices_to_remove)
+    assert len(paths_to_keep) == 1
+
+    return paths_to_keep[0]
+    
+
+def delete_vertices(path, indices_to_remove, merge=False):
+    if merge:
+        new_path = delete_vertices_merge(path, indices_to_remove)
+    else:
+        paths_to_remove, paths_to_keep = split_path(path, indices_to_remove)
+
+
+def delete_vertices_merge(path, indices_to_remove):
+
+    is_closed = polygon_is_closed(path=path)
+    n = polygon_num_vertices(path=path, closed=is_closed)
+
+    segs_to_remove, segs_to_keep = split_array(indices_to_remove, n, is_closed)
+    print segs_to_remove, segs_to_keep
+
+    new_path = QPainterPath()
+    for b, e in sorted(segs_to_keep):
+        if e < b: e = e + n
+        for i in range(b, e + 1):
+            elem = path.elementAt(i % n)
+            if new_path.elementCount() == 0:
+                new_path.moveTo(elem.x, elem.y)
+            else:
+                new_path.lineTo(elem.x, elem.y)
+
+    if is_closed:
+        new_path.closeSubpath()
+
+    return new_path
+
 
 def polygon_goto(polygon, x, y):
     """Modifies polygon object inline.

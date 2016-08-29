@@ -264,9 +264,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
 
         structure_tree_dict = json.load(open('structure_tree.json'))
-        structure_tree_names = {'brainstem': {}}
-        extract_names(structure_tree_names['brainstem'], structure_tree_dict['brainstem'], structure_tree_dict)
+        # structure_tree_names = {'brainstem': {}}
 
+        def get_children_names(name):
+            node = structure_tree_dict[name]
+            if 'abbr' in node and len(node['abbr']) > 0:
+                key = node['fullname'] + ' (' + node['abbr'] + ')'
+            else:
+                key = node['fullname']
+            return (key, dict([get_children_names(child_name) for child_name in node['children']]))
+
+        structure_tree_names = dict([get_children_names('brainstem')])
+
+        # extract_names(structure_tree_names['brainstem'], structure_tree_dict['brainstem'], structure_tree_dict)
         # structure_tree_names = {'midbrain': ['IC', 'SC'], 'hindbrain': {'pons': ['7N', '5N'], 'medulla': ['7n', 'SCP']}}
 
         display_structures_widget = QDialog(self)

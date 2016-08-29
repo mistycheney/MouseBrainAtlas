@@ -7,23 +7,23 @@ from shapely.geometry import Polygon, LineString, Point
 import numpy as np
 
 
-def extract_names(d, node, structure_tree_dict):
-
-    if len(node['children']) == 0:
-        return
-    else:
-        for name in node['children']:
-            print name
-
-            if 'abbr' in structure_tree_dict[name] and len(structure_tree_dict[name]['abbr']) > 0:
-                key = structure_tree_dict[name]['fullname'] + ' (' + structure_tree_dict[name]['abbr'] + ')'
-            else:
-                key = structure_tree_dict[name]['fullname']
-
-            if key not in d:
-                d[key] = {}
-
-            extract_names(d[key], structure_tree_dict[name], structure_tree_dict)
+# def extract_names(d, node, structure_tree_dict):
+#
+#     if len(node['children']) == 0:
+#         return
+#     else:
+#         for name in node['children']:
+#             print name
+#
+#             if 'abbr' in structure_tree_dict[name] and len(structure_tree_dict[name]['abbr']) > 0:
+#                 key = structure_tree_dict[name]['fullname'] + ' (' + structure_tree_dict[name]['abbr'] + ')'
+#             else:
+#                 key = structure_tree_dict[name]['fullname']
+#
+#             if key not in d:
+#                 d[key] = {}
+#
+#             extract_names(d[key], structure_tree_dict[name], structure_tree_dict)
 
 
 def fill_item_to_tree_widget(item, value):

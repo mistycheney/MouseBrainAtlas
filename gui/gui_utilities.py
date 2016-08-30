@@ -6,6 +6,7 @@ from scipy.spatial.distance import cdist
 from shapely.geometry import Polygon, LineString, Point
 import numpy as np
 
+import re
 
 # def extract_names(d, node, structure_tree_dict):
 #
@@ -36,37 +37,56 @@ def fill_item_to_tree_widget(item, value):
         for key, val in sorted(value.iteritems()):
             child = QTreeWidgetItem()
             child.setFlags(child.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
-            child.setText(0, unicode(key))
+            child.setText(0, key)
             child.setCheckState(0, Qt.Checked)
             item.addChild(child)
             fill_item_to_tree_widget(child, val)
-    elif type(value) is list:
-        for val in value:
-          child = QTreeWidgetItem()
-          child.setFlags(child.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
-          child.setCheckState(0, Qt.Checked)
-          item.addChild(child)
-          if type(val) is dict:
-              child.setText(0, '[dict]')
-              fill_item(child, val)
-          elif type(val) is list:
-              child.setText(0, '[list]')
-              fill_item_to_tree_widget(child, val)
-          else:
-              child.setText(0, unicode(val))
-          child.setExpanded(True)
-    else:
-        child = QTreeWidgetItem()
-        child.setText(0, unicode(value))
-        child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-        child.setCheckState(0, Qt.Checked)
-        item.addChild(child)
+    # elif type(value) is list:
+    #     for val in value:
+    #       child = QTreeWidgetItem()
+    #       child.setFlags(child.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+    #       child.setCheckState(0, Qt.Checked)
+    #       item.addChild(child)
+    #       if type(val) is dict:
+    #           child.setText(0, '[dict]')
+    #           fill_item_to_tree_widget(child, val, valid_abbrs)
+    #       elif type(val) is list:
+    #           child.setText(0, '[list]')
+    #           fill_item_to_tree_widget(child, val, valid_abbrs)
+    #       else:
+    #           child.setText(0, val)
+    #       child.setExpanded(True)
+    # else:
+    #     child = QTreeWidgetItem()
+    #     child.setText(0, value)
+    #     child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
+    #     child.setCheckState(0, Qt.Checked)
+    #     # if value not in valid_names:
+    #     #     print value
+    #     #     child.setDisabled(True)
+    #     item.addChild(child)
 
-def fill_tree_widget(widget, value):
+def decide_whether_enable(node, valid_abbrs):
+    # http://stackoverflow.com/questions/8961449/pyqt-qtreewidget-iterating
+
+    abbr = re.findall('^.*?(\((.*)\))?$', str(node.text(0)))[0][1]
+    should_enable = abbr in valid_abbrs
+
+    child_count = node.childCount()
+    if child_count > 0:
+        should_enable = should_enable | any([decide_whether_enable(node.child(i), valid_abbrs) for i in range(child_count)])
+
+    node.setDisabled(not should_enable)
+    return should_enable
+
+def fill_tree_widget(widget, value, valid_abbrs):
+    """
+    Invalid names are greyed out.
+    """
     # http://stackoverflow.com/questions/21805047/qtreewidget-to-mirror-python-dictionary
     widget.clear()
     fill_item_to_tree_widget(widget.invisibleRootItem(), value)
-
+    decide_whether_enable(widget.invisibleRootItem(), valid_abbrs)
 
 def subpath(path, begin, end):
 

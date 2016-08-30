@@ -106,7 +106,7 @@ Medulla
           - ventral cochlear nucleus, posterior, VCP
      medullary reticular formation
      - lateral group
-          - lateral reticular nucleus, LRt: in Paxinos, also identified two subpart, pavicellular part, LRtPC and subtrigeminal part, LRt5s [USE]
+          - lateral reticular nucleus, LRt: in Paxinos, also identified two subpart, pavicellular part, LRtPC and subtrigeminal part, LRt5s: [GOOD]
      - central group
           - gigantocellular reticular nucleus, Gi:
           - lateral paragigantocellular nucleusm, LPGi:
@@ -157,7 +157,7 @@ midbrain tegmentum
      fasciculus retroflexus, fr: [BEST]
      oculomotor nuclear complex, 3N: [BEST]
      - parvocellular oculomotor nucleus, 3PC: NeuroName says this is the same as Edinger-Westphal, but Paxinos has a separate EW.
-     red nucleus, R [USE]
+     red nucleus, R: [GOOD]
      - parvocellular, RPC
      - magnocellular, RMC
      Cuneiform Nucleus, CnF:

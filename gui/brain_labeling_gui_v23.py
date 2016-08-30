@@ -229,7 +229,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     # def username_dialog_requested(self):
 
     def structure_tree_changed(self, item, column):
-        import re
 
         tree_widget = self.sender()
         complete_name = str(item.text(column))
@@ -261,20 +260,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def select_display_structures(self):
-        # structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+        loaded_structure_abbrs = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
 
         structure_tree_dict = json.load(open('structure_tree.json'))
+        # structure_tree_dict = {name: d for name, d in structure_tree_dict_all.iteritems() if d['abbr'] in loaded_structure_names}
         # structure_tree_names = {'brainstem': {}}
 
-        def get_children_names(name):
-            node = structure_tree_dict[name]
+        def structure_entry_to_str(node):
             if 'abbr' in node and len(node['abbr']) > 0:
                 key = node['fullname'] + ' (' + node['abbr'] + ')'
             else:
                 key = node['fullname']
+            return key
+
+        def get_children_names(name):
+            node = structure_tree_dict[name]
+            key = structure_entry_to_str(node)
             return (key, dict([get_children_names(child_name) for child_name in node['children']]))
 
-        structure_tree_names = dict([get_children_names('brainstem')])
+        structure_name_tree = dict([get_children_names('brainstem')])
 
         # extract_names(structure_tree_names['brainstem'], structure_tree_dict['brainstem'], structure_tree_dict)
         # structure_tree_names = {'midbrain': ['IC', 'SC'], 'hindbrain': {'pons': ['7N', '5N'], 'medulla': ['7n', 'SCP']}}
@@ -283,7 +287,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         tree_widget = QTreeWidget(display_structures_widget)
         tree_widget.setHeaderLabels(['Structures'])
-        fill_tree_widget(tree_widget, structure_tree_names)
+        fill_tree_widget(tree_widget, structure_name_tree, loaded_structure_abbrs)
+        # tree_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        tree_widget.setMinimumHeight(1000)
+        tree_widget.setMinimumWidth(500)
 
         # http://stackoverflow.com/questions/27521391/signal-a-qtreewidgetitem-toggled-checkbox
         tree_widget.itemChanged.connect(self.structure_tree_changed)
@@ -291,6 +298,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         dialog_layout = QVBoxLayout(display_structures_widget)
         dialog_layout.addWidget(tree_widget)
         display_structures_widget.setLayout(dialog_layout)
+        # display_structures_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         display_structures_widget.setWindowTitle("Select structures to show")
         # display_structures_widget.exec_()

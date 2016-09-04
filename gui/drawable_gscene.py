@@ -82,7 +82,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.qimages = None
         self.active_section = None
         self.active_i = None
-        self.active_dataset = None
+        # self.active_dataset = None
 
         self.installEventFilter(self)
 
@@ -175,6 +175,9 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.mode = mode
 
     def set_data_feeder(self, feeder):
+        if hasattr(self, 'data_feeder') and self.data_feeder == feeder:
+            return
+
         self.data_feeder = feeder
 
         if self.data_feeder.downsample == 32:
@@ -186,6 +189,13 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.set_line_width(3)
         elif self.data_feeder.downsample == 1:
             self.set_line_width(10)
+
+        self.active_section = None
+        self.active_i = None
+
+        # if hasattr(self, 'active_i') and self.active_i is not None:
+        #     self.update_image()
+        #     self.active_image_updated.emit()
 
 
     def set_structure_volumes(self, structure_volumes):
@@ -405,30 +415,34 @@ class DrawableGraphicsScene(QGraphicsScene):
             # self.add_polygon_with_circles_and_label(path=vertices_to_path(yxs[:, ::-1]+(xmin, ymin)), label=name_u, index=z)
 
 
-    def set_active_i(self, i, update_crossline=True):
+    def set_active_i(self, i, update_crossline=True, emit_changed_signal=True):
+
         if i == self.active_i:
             return
 
+        old_i = self.active_i
+
         print self.id, ': Set active index to', i, ', update_crossline', update_crossline
 
-        # sec = self.sections[self.active_i]
-        if self.active_i is not None:
-            for polygon in self.drawings[self.active_i]:
-                self.removeItem(polygon)
+        self.active_i = i
+        if hasattr(self.data_feeder, 'sections'):
+            self.active_section = self.data_feeder.all_sections[self.active_i]
+
+        try:
+            self.update_image()
+        except Exception as e: # if failed, do not change active_i or active_section
+            self.active_i = old_i
+            self.active_section = self.data_feeder.all_sections[old_i]
+            raise e
+
+        for polygon in self.drawings[old_i]:
+            self.removeItem(polygon)
 
         for polygon in self.drawings[i]:
             self.addItem(polygon)
 
-        self.active_i = i
-
-        if hasattr(self.data_feeder, 'sections'):
-            # self.active_section = self.data_feeder.sections[self.active_i]
-            self.active_section = self.data_feeder.all_sections[self.active_i]
-
-        # self.active_section = sec
-        self.update_image()
-
-        self.active_image_updated.emit()
+        if emit_changed_signal:
+            self.active_image_updated.emit()
 
         # if update_crossline and self.mode == 'crossline':
 
@@ -454,7 +468,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             # self.crossline_updated.emit(int(np.round(self.cross_x_lossless)), int(np.round(self.cross_y_lossless)), int(np.round(self.cross_z_lossless)), self.id)
 
 
-    def set_active_section(self, sec, update_crossline=True):
+    def set_active_section(self, sec, emit_changed_signal=True, update_crossline=True):
 
         if sec == self.active_section:
             return
@@ -462,8 +476,9 @@ class DrawableGraphicsScene(QGraphicsScene):
         print self.id, ': Set active section to', sec
 
         if hasattr(self.data_feeder, 'sections'):
+            assert sec in self.data_feeder.all_sections, 'Section %s is not loaded.' % str(sec)
             i = self.data_feeder.all_sections.index(sec)
-            self.set_active_i(i, update_crossline=update_crossline)
+            self.set_active_i(i, emit_changed_signal=emit_changed_signal, update_crossline=update_crossline)
 
         self.active_section = sec
 
@@ -512,40 +527,47 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         if i is None:
             i = self.active_i
+            assert i >= 0 and i < len(self.data_feeder.all_sections)
         elif self.data_feeder.all_sections is not None:
         # elif self.data_feeder.sections is not None:
             if sec is None:
                 sec = self.active_section
             # i = self.data_feeder.sections.index(sec)
+            assert sec in self.data_feeder.all_sections
             i = self.data_feeder.all_sections.index(sec)
 
         image = self.data_feeder.retrive_i(i=i)
-        if image is None:
-            return
 
         histology_pixmap = QPixmap.fromImage(image)
 
         # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
         self.pixmapItem.setPixmap(histology_pixmap)
+        self.pixmapItem.setVisible(True)
         self.showing_which = 'histology'
 
         self.set_active_i(i)
 
-    def show_next(self):
+    def show_next(self, cycle=False):
         # if self.indexing_mode == 'section':
         #     self.set_active_section(min(self.active_section + 1, self.data_feeder.last_sec))
         # elif self.indexing_mode == 'voxel':
         #     self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
 
-        self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
+        if cycle:
+            self.set_active_i((self.active_i + 1) % self.data_feeder.n)
+        else:
+            self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
 
-    def show_previous(self):
+    def show_previous(self, cycle=False):
         # if self.indexing_mode == 'section':
         #     self.set_active_section(max(self.active_section - 1, self.data_feeder.first_sec))
         # elif self.indexing_mode == 'voxel':
         #     self.set_active_i(max(self.active_i - 1, 0))
 
-        self.set_active_i(max(self.active_i - 1, 0))
+        if cycle:
+            self.set_active_i((self.active_i - 1) % self.data_feeder.n)
+        else:
+            self.set_active_i(max(self.active_i - 1, 0))
 
     # def add_label_to_polygon(self, polygon, label, label_pos=None):
     #     '''
@@ -1205,7 +1227,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         action_assignL = setSide_menu.addAction('Left')
         action_assignR = setSide_menu.addAction('Right')
         action_sides = {action_assignS: 'S', action_assignL: 'L', action_assignR: 'R'}
-        if self.active_polygon.side is not None:
+        if hasattr(self, 'active_polygon') and self.active_polygon.side is not None:
             if self.active_polygon.side_manually_assigned:
                 how_str = '(manual)'
             else:

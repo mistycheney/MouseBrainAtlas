@@ -112,15 +112,23 @@ section_number_lookup = { 'MD585': 440, 'MD589': 445,
                         'MD590': 419, 'MD591': 452, 'MD592': 454,
                         'MD593': 448, 'MD594': 432, 'MD595': 441,
                         'MD598': 430, 'MD602': 420, 'MD603': 432,
-                        'MD635': 444}
+                        'MD635': 444, 'MD634': 729}
 
 section_range_lookup = {'MD585': (78, 347), 'MD589': (93, 368),
                         'MD590':(80,336), 'MD591': (98,387), 'MD592':(91,371),
                         'MD593': (69,350), 'MD594': (93, 364), 'MD595': (67,330),
                         'MD598': (95,354), 'MD602':(96,352), 'MD603':(60,347),
-                        'MD635': (75, 365)}
+                        'MD635': (75, 365), 'MD634': (312, 729)}
 
-# xmin, ymin, w, h
+stack_orientation = {'MD585': 'sagittal', 'MD589': 'sagittal',
+                        'MD590':'sagittal', 'MD591':'sagittal', 'MD592':'sagittal',
+                        'MD593':'sagittal', 'MD594': 'sagittal', 'MD595': 'sagittal',
+                        'MD598': 'sagittal', 'MD602':'sagittal', 'MD603':'sagittal',
+                        'MD635': 'horizontal', 'MD634': 'coronal'}
+
+bad_sections = {'MD634': [629, 660, 725, 727]}
+
+# xmin, ymin, w, h (on original uncropped sections)
 brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD589':(643,145,419,367),
                         'MD590': (652,156,601,536), 'MD591': (697,194,550,665), 'MD592': (807,308,626,407),
                         'MD593': (645,128,571,500), 'MD594': (616,144,451,362), 'MD595': (645,170,735,519),

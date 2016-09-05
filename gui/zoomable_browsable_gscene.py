@@ -139,6 +139,7 @@ class SimpleGraphicsScene(QGraphicsScene):
             self.active_section = self.data_feeder.all_sections[old_i]
             raise e
 
+
         if emit_changed_signal:
             self.active_image_updated.emit()
 
@@ -217,6 +218,11 @@ class SimpleGraphicsScene(QGraphicsScene):
 
         if event.type() == QEvent.KeyPress:
             key = event.key()
+            if key == Qt.Key_BracketRight:
+                self.show_next(cycle=True)
+            elif key == Qt.Key_BracketLeft:
+                self.show_previous(cycle=True)
+            return True
 
         elif event.type() == QEvent.Wheel:
             # eat wheel event from gview viewport. default behavior is to trigger down scroll

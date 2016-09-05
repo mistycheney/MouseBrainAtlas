@@ -79,6 +79,12 @@ class ImageDataFeeder(object):
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
 
+    def set_images(self, labels, filenames, downsample=None):
+
+        for lbl, fn in zip(labels, filenames):
+            qimage = QImage(fn)
+            self.set_image(qimage, lbl, downsample=downsample)
+
     def load_images(self, downsample=None, selected_sections=None):
         if downsample is None:
             downsample = self.downsample

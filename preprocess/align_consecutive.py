@@ -17,6 +17,7 @@ input_dir = sys.argv[2]
 output_dir = sys.argv[3]
 first_moving_secind = int(sys.argv[4])
 last_moving_secind = int(sys.argv[5])
+bad_sections = map(int, sys.argv[6].split('_'))
 suffix = 'thumbnail'
 
 all_files = dict(sorted([(int(img_fn[:-4].split('_')[1]), img_fn) for img_fn in os.listdir(input_dir) if suffix in img_fn]))
@@ -38,12 +39,11 @@ rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.t
 rg_param_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_noNumberOfSpatialSamples.txt")
 rg_param_requiredRatioOfValidSamples = os.path.join(parameter_dir, "Parameters_Rigid_RequiredRatioOfValidSamples.txt")
 
-
 jump_aligned_sections = pickle.load(open(os.path.join(output_dir, 'jump_aligned_sections.pkl'), 'r'))
 
 for moving_secind in range(first_moving_secind, last_moving_secind+1):
 
-	if moving_secind in bad_sections['MD634']:
+	if moving_secind in bad_sections:
 		continue
 
 	else:

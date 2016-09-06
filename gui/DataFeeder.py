@@ -45,6 +45,7 @@ class ImageDataFeeder(object):
 
         if use_data_manager:
             # index in stack
+            assert sections is not None
             self.sections = sections
             self.min_section = min(self.sections)
             self.max_section = max(self.sections)
@@ -56,8 +57,7 @@ class ImageDataFeeder(object):
             self.sections = sections
             self.all_sections = sections
 
-        # self.n = len(self.sections)
-        self.n = len(self.all_sections)
+        self.n = len(self.sections)
 
         self.supported_downsample_factors = [1, 32]
         self.image_cache = {}
@@ -79,11 +79,25 @@ class ImageDataFeeder(object):
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
 
-    def set_images(self, labels, filenames, downsample=None):
+    def set_images(self, labels, filenames, downsample=None, load_with_cv2=False):
 
         for lbl, fn in zip(labels, filenames):
-            qimage = QImage(fn)
+            if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
+                # print fn
+                img = cv2.imread(fn)
+                if img is None:
+                    continue
+
+                h, w = img.shape[:2]
+                if img.ndim == 3:
+                    qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
+                else:
+                    qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
+                    qimage.setColorTable(gray_color_table)
+            else:
+                qimage = QImage(fn)
             self.set_image(qimage, lbl, downsample=downsample)
+
 
     def load_images(self, downsample=None, selected_sections=None):
         if downsample is None:

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'AlignmentGui.ui'
 #
-# Created: Mon Sep  5 03:23:14 2016
+# Created: Mon Sep  5 23:38:44 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -29,24 +29,6 @@ class Ui_AlignmentGui(object):
         AlignmentGui.resize(1390, 972)
         self.gridLayout = QtGui.QGridLayout(AlignmentGui)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
-        self.verticalLayout = QtGui.QVBoxLayout()
-        self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
-        self.label = QtGui.QLabel(AlignmentGui)
-        self.label.setObjectName(_fromUtf8("label"))
-        self.verticalLayout.addWidget(self.label)
-        self.curr_gview = QtGui.QGraphicsView(AlignmentGui)
-        self.curr_gview.setObjectName(_fromUtf8("curr_gview"))
-        self.verticalLayout.addWidget(self.curr_gview)
-        self.horizontalLayout_2 = QtGui.QHBoxLayout()
-        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
-        self.label_current_filename = QtGui.QLabel(AlignmentGui)
-        self.label_current_filename.setObjectName(_fromUtf8("label_current_filename"))
-        self.horizontalLayout_2.addWidget(self.label_current_filename)
-        self.label_current_index = QtGui.QLabel(AlignmentGui)
-        self.label_current_index.setObjectName(_fromUtf8("label_current_index"))
-        self.horizontalLayout_2.addWidget(self.label_current_index)
-        self.verticalLayout.addLayout(self.horizontalLayout_2)
-        self.gridLayout.addLayout(self.verticalLayout, 0, 0, 1, 1)
         self.verticalLayout_2 = QtGui.QVBoxLayout()
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
         self.label_2 = QtGui.QLabel(AlignmentGui)
@@ -73,7 +55,25 @@ class Ui_AlignmentGui(object):
         self.aligned_gview = QtGui.QGraphicsView(AlignmentGui)
         self.aligned_gview.setObjectName(_fromUtf8("aligned_gview"))
         self.verticalLayout_3.addWidget(self.aligned_gview)
-        self.gridLayout.addLayout(self.verticalLayout_3, 0, 2, 1, 1)
+        self.gridLayout.addLayout(self.verticalLayout_3, 0, 3, 1, 1)
+        self.verticalLayout = QtGui.QVBoxLayout()
+        self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
+        self.label = QtGui.QLabel(AlignmentGui)
+        self.label.setObjectName(_fromUtf8("label"))
+        self.verticalLayout.addWidget(self.label)
+        self.curr_gview = QtGui.QGraphicsView(AlignmentGui)
+        self.curr_gview.setObjectName(_fromUtf8("curr_gview"))
+        self.verticalLayout.addWidget(self.curr_gview)
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.label_current_filename = QtGui.QLabel(AlignmentGui)
+        self.label_current_filename.setObjectName(_fromUtf8("label_current_filename"))
+        self.horizontalLayout_2.addWidget(self.label_current_filename)
+        self.label_current_index = QtGui.QLabel(AlignmentGui)
+        self.label_current_index.setObjectName(_fromUtf8("label_current_index"))
+        self.horizontalLayout_2.addWidget(self.label_current_index)
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+        self.gridLayout.addLayout(self.verticalLayout, 0, 2, 1, 1)
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.label_4 = QtGui.QLabel(AlignmentGui)
@@ -92,20 +92,23 @@ class Ui_AlignmentGui(object):
         self.button_align = QtGui.QPushButton(AlignmentGui)
         self.button_align.setObjectName(_fromUtf8("button_align"))
         self.horizontalLayout.addWidget(self.button_align)
-        self.gridLayout.addLayout(self.horizontalLayout, 1, 1, 1, 1)
+        self.gridLayout.addLayout(self.horizontalLayout, 1, 2, 1, 1)
+        self.button_anchor = QtGui.QPushButton(AlignmentGui)
+        self.button_anchor.setObjectName(_fromUtf8("button_anchor"))
+        self.gridLayout.addWidget(self.button_anchor, 1, 1, 1, 1)
 
         self.retranslateUi(AlignmentGui)
         QtCore.QMetaObject.connectSlotsByName(AlignmentGui)
 
     def retranslateUi(self, AlignmentGui):
         AlignmentGui.setWindowTitle(_translate("AlignmentGui", "Dialog", None))
-        self.label.setText(_translate("AlignmentGui", "Current", None))
-        self.label_current_filename.setText(_translate("AlignmentGui", "TextLabel", None))
-        self.label_current_index.setText(_translate("AlignmentGui", "TextLabel", None))
         self.label_2.setText(_translate("AlignmentGui", "Previous", None))
         self.label_previous_filename.setText(_translate("AlignmentGui", "TextLabel", None))
         self.label_previous_index.setText(_translate("AlignmentGui", "TextLabel", None))
         self.label_3.setText(_translate("AlignmentGui", "Current aligned to Previous", None))
+        self.label.setText(_translate("AlignmentGui", "Current", None))
+        self.label_current_filename.setText(_translate("AlignmentGui", "TextLabel", None))
+        self.label_current_index.setText(_translate("AlignmentGui", "TextLabel", None))
         self.label_4.setText(_translate("AlignmentGui", "Elastix parameters", None))
         self.comboBox_parameters.setItemText(0, _translate("AlignmentGui", "Rigid", None))
         self.comboBox_parameters.setItemText(1, _translate("AlignmentGui", "Rigid_MutualInformation", None))
@@ -115,6 +118,7 @@ class Ui_AlignmentGui(object):
         self.comboBox_parameters.setItemText(5, _translate("AlignmentGui", "BSpline", None))
         self.comboBox_parameters.setItemText(6, _translate("AlignmentGui", "Translation", None))
         self.button_align.setText(_translate("AlignmentGui", "align", None))
+        self.button_anchor.setText(_translate("AlignmentGui", "Add anchor pair", None))
 
 
 if __name__ == "__main__":

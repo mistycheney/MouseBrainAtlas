@@ -448,6 +448,33 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     #         QGraphicsPathItem.mouseMoveEvent(self, event)
 
 
+class QGraphicsEllipseItemModified2(QGraphicsEllipseItem):
+    """
+    This variant has no polygon associated with it.
+    """
+
+    def __init__(self, x, y, w, h, parent=None, scene=None):
+        super(self.__class__, self).__init__(x,y,w,h, parent=parent, scene=scene)
+        self.signal_emitter = VertexSignalEmitter(parent=self)
+
+    def itemChange(self, change, val):
+        # print change
+        if change == QGraphicsItem.ItemPositionChange:
+            old_pos = self.scenePos()
+            # print 'old', old_pos.x(), old_pos.y()
+            new_x = val.x()
+            new_y = val.y()
+            # print 'new', new_x, new_y
+
+        return val
+        # return val
+
+    def mousePressEvent(self, event):
+
+        # print self, 'received mousePressEvent'
+        QGraphicsEllipseItem.mousePressEvent(self, event)
+        self.signal_emitter.press.emit(self)
+
 
 class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 

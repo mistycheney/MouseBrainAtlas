@@ -425,14 +425,16 @@ class DrawableGraphicsScene(QGraphicsScene):
         print self.id, ': Set active index to', i, ', update_crossline', update_crossline
 
         self.active_i = i
-        if hasattr(self.data_feeder, 'sections'):
+        if hasattr(self.data_feeder, 'all_sections'):
             self.active_section = self.data_feeder.all_sections[self.active_i]
 
         try:
             self.update_image()
         except Exception as e: # if failed, do not change active_i or active_section
-            self.active_i = old_i
-            self.active_section = self.data_feeder.all_sections[old_i]
+            if old_i is not None:
+                self.active_i = old_i
+                if hasattr(self.data_feeder, 'all_sections'):
+                    self.active_section = self.data_feeder.all_sections[old_i]
             raise e
 
         for polygon in self.drawings[old_i]:
@@ -527,8 +529,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         if i is None:
             i = self.active_i
-            assert i >= 0 and i < len(self.data_feeder.all_sections)
-        elif self.data_feeder.all_sections is not None:
+            # assert i >= 0 and i < len(self.data_feeder.all_sections)
+        elif hasattr(self.data_feeder, 'all_sections') and self.data_feeder.all_sections is not None:
         # elif self.data_feeder.sections is not None:
             if sec is None:
                 sec = self.active_section
@@ -536,6 +538,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             assert sec in self.data_feeder.all_sections
             i = self.data_feeder.all_sections.index(sec)
 
+        print i
         image = self.data_feeder.retrive_i(i=i)
 
         histology_pixmap = QPixmap.fromImage(image)

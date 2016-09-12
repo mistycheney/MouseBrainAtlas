@@ -8,8 +8,6 @@ import os
 import argparse
 import sys
 import time
-from subprocess import check_output
-from joblib import Parallel, delayed
 
 # import cv2
 
@@ -41,19 +39,7 @@ exclude_nodes = [33]
 def index():
     return "Brainstem Web Service"
 
-@app.route('/set_sorted_filenames')
-def set_sorted_filenames():
 
-    stack = request.args.get('stack', type=str)
-    sorted_filenames = request.args.getlist('sorted_filenames')
-
-    with open(data_dir + '/%(stack)s_filename_map.txt' % {'stack':stack}, 'w') as f:
-        for i, fn in enumerate(sorted_filenames):
-            f.write(fn + ' ' + str(i+1) + '\n')
-    execute_command('%(script_dir)s/rename.py %(stack)s 0' % {'script_dir': script_dir, 'stack': stack})
-
-    d = {'result': 0}
-    return jsonify(**d)
 
 @app.route('/align')
 def align():
@@ -62,91 +48,61 @@ def align():
     print 'aligning...',
 
     stack = request.args.get('stack', type=str)
-    first_section = request.args.get('first_section', type=int)
-    last_section = request.args.get('last_section', type=int)
-    bad_sections = map(int, request.args.getlist('bad_sections'))
-    print 'bad_sections', bad_sections
+    filenames = map(str, request.args.getlist('filenames'))
 
-    elastix_output_dir = os.path.join(data_dir, stack+'_elastix_output')
 
-    if os.path.exists(elastix_output_dir):
-        os.system('rm -r %(elastix_output_dir)s/*' % {'elastix_output_dir': elastix_output_dir})
-    create_if_not_exists(elastix_output_dir)
-
-    jump_aligned_sections = {}
-    for moving_secind in range(first_section, last_section+1):
-        i = 1
-        while True:
-            if moving_secind - i not in bad_sections:
-                last_good_section = moving_secind - i
-                break
-            i += 1
-        if i != 1:
-            jump_aligned_sections[moving_secind] = last_good_section
-
-    print jump_aligned_sections
-    pickle.dump(jump_aligned_sections, open(os.path.join(elastix_output_dir, 'jump_aligned_sections.pkl'), 'w'))
-
-    input_dir = os.path.join(data_dir, stack+'_thumbnail_renamed')
-
-    run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d %(bad_secs)s' % \
+    run_distributed4("%(script_dir)s/align_consecutive_v2.py %(stack)s %(input_dir)s %(elastix_output_dir)s \'%%(kwargs_str)s\'" % \
                     {'stack': stack,
                     'script_dir': script_dir,
-                    'input_dir': input_dir,
-                    'elastix_output_dir': elastix_output_dir,
-                    'bad_secs': '_'.join(map(str, bad_sections))},
-                    first_sec=first_section,
-                    last_sec=last_section,
-                    stdout=open('/tmp/log', 'ab+'),
-                    take_one_section=False,
-                    exclude_nodes=exclude_nodes)
+                    'input_dir': '/home/yuncong/CSHL_data/' + stack,
+                    'elastix_output_dir': os.path.join(data_dir, stack, stack+'_elastix_output')},
+                    kwargs_list=[{'prev_fn': filenames[i-1], 'curr_fn': filenames[i]} for i in range(1, len(filenames))],
+                    exclude_nodes=exclude_nodes,
+                    argument_type='list')
 
     print 'done in', time.time() - t, 'seconds'
-
-    ##########################################################################
 
     d = {'result': 0}
     return jsonify(**d)
 
-def identify_shape(img_fp):
-    return map(int, check_output("identify -format %%Wx%%H %s" % img_fp, shell=True).split('x'))
+    ##########################################################################
 
 @app.route('/compose')
 def compose():
 
     stack = request.args.get('stack', type=str)
-    first_section = request.args.get('first_section', type=int)
-    last_section = request.args.get('last_section', type=int)
-    bad_sections = map(int, request.args.getlist('bad_sections'))
-    print 'bad_sections', bad_sections
+    filenames = map(str, request.args.getlist('filenames'))
+    anchor_fn = request.args.get('anchor_fn', type=str)
 
-    elastix_output_dir = os.path.join(data_dir, stack+'_elastix_output')
-    input_dir = os.path.join(data_dir, stack+'_thumbnail_renamed')
-    aligned_dir = os.path.join(data_dir, stack+'_thumbnail_aligned')
+    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
 
     #################################
 
-    suffix = 'thumbnail'
-    all_files = dict(sorted([(int(img_fn[:-4].split('_')[1]), img_fn) for img_fn in os.listdir(input_dir) if suffix in img_fn]))
-    all_files = dict([(i, all_files[i]) for i in range(first_section, last_section+1) if i in all_files])
-
-    shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join(input_dir, img_fn)) for img_fn in all_files.values())
-    img_shapes_map = dict(zip(all_files.keys(), shapes))
-    img_shapes_arr = np.array(img_shapes_map.values())
-    largest_sec = img_shapes_map.keys()[np.argmax(img_shapes_arr[:,0] * img_shapes_arr[:,1])]
-    print 'largest section is ', largest_sec
-
     # no parallelism
+
     t = time.time()
     print 'composing transform...',
-    os.system("ssh gcn-20-33.sdsc.edu %(script_dir)s/compose_transform_thumbnail.py %(stack)s %(elastix_output_dir)s %(first_sec)d %(last_sec)d %(largest_sec)d %(bad_secs)s" % \
-    {'stack': stack,
-    'script_dir': script_dir,
-    'elastix_output_dir': elastix_output_dir,
-    'bad_secs': '_'.join(map(str, bad_sections)),
-    'first_sec': first_section,
-    'last_sec': last_section,
-    'largest_sec': largest_sec} )
+
+    output_fn = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+                                                    dict(stack=stack, anchor_fn=anchor_fn))
+
+    run_distributed4("%(script_dir)s/compose_transform_thumbnail_v2.py %(stack)s %(elastix_output_dir)s \'%%(kwargs_str)s\' %(anchor_idx)d %(output_fn)s" % \
+                {'stack': stack,
+                'script_dir': script_dir,
+                'elastix_output_dir': os.path.join(data_dir, stack, stack+'_elastix_output'),
+                'anchor_idx': filenames.index(anchor_fn),
+                'output_fn': output_fn},
+                kwargs_list=[{'filenames': filenames}],
+                use_nodes=[33],
+                argument_type='list')
+
+    # transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+    # 														dict(stack=stack, anchor_fn=anchor_fn))
+    transforms_filename = '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % dict(stack=stack, anchor_fn=anchor_fn)
+    linked_name = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack))
+    execute_command('rm ' + linked_name)
+    execute_command('ln -s ' + transforms_filename + ' ' + linked_name)
+
     print 'done in', time.time() - t, 'seconds'
 
     ########################################################
@@ -154,17 +110,23 @@ def compose():
     t = time.time()
     print 'warping...',
 
-    run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(aligned_dir)s %%(f)d %%(l)d %(suffix)s 0 0 2000 1500' % \
-                    {'stack': stack,
-                    'script_dir': script_dir,
-                    'input_dir': input_dir,
-                    'aligned_dir': aligned_dir,
-                    'suffix': suffix},
-                    first_sec=first_section,
-                    last_sec=last_section,
-                    take_one_section=False,
-                    stdout=open('/tmp/log', 'ab+'),
-                    exclude_nodes=exclude_nodes)
+    # transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
+
+    transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+    														dict(stack=stack, anchor_fn=anchor_fn))
+    transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
+
+    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500' % \
+                    {'script_dir': script_dir,
+                    'stack': stack,
+                    'input_dir': '/home/yuncong/CSHL_data/' + stack,
+                    'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnail_unsorted_alignedTo_' + anchor_fn)},
+                    kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                'filename': fn + '.tif',
+                                'output_fn': fn + '_thumbnail_alignedTo_' + anchor_fn + '.tif'}
+                                for fn in filenames],
+                    exclude_nodes=exclude_nodes + [32],
+                    argument_type='single')
 
     print 'done in', time.time() - t, 'seconds'
 
@@ -172,6 +134,206 @@ def compose():
 
     d = {'result': 0}
     return jsonify(**d)
+
+
+@app.route('/crop')
+def crop():
+
+    stack = request.args.get('stack', type=str)
+    filenames = map(str, request.args.getlist('filenames'))
+    x = request.args.get('x', type=int)
+    y = request.args.get('y', type=int)
+    w = request.args.get('w', type=int)
+    h = request.args.get('h', type=int)
+    first_fn = request.args.get('first_fn', type=str)
+    last_fn = request.args.get('last_fn', type=str)
+    anchor_fn = request.args.get('anchor_fn', type=str)
+
+    first_idx = filenames.index(first_fn)
+    last_idx = filenames.index(last_fn)
+
+    # f = request.args.get('f', type=int)
+    # l = request.args.get('l', type=int)
+    # f = 202
+    # l = 202
+    # print x,y,w,h,f,l
+
+    ##################################################
+    #
+    # t = time.time()
+    # sys.stderr.write('cropping thumbnail...')
+    #
+    # os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
+    # 	{'stack': stack,
+    # 	'dataproc_dir': os.environ['DATA_DIR'],
+    # 	'w':w, 'h':h, 'x':x, 'y':y})
+    #
+    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+    #
+    # #################################################
+
+    t = time.time()
+    sys.stderr.write('expanding...')
+
+    expanded_tif_dir = create_if_not_exists(os.environ['DATA_DIR'] + '/' + stack + '/' + stack + '_lossless_tif')
+    # jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
+
+    filenames_to_expand = [fn for fn in filenames[first_idx:last_idx+1] if not os.path.exists(expanded_tif_dir + '/' + fn + '_lossless.tif')]
+    sys.stderr.write('filenames_to_expand: %s' % filenames_to_expand)
+
+    run_distributed4('kdu_expand_patched -i %(jp2_dir)s/%%(fn)s_lossless.jp2 -o %(expanded_tif_dir)s/%%(fn)s_lossless.tif' % \
+                    {'jp2_dir': '/home/yuncong/CSHL_data/' + stack,
+                    # 'stack': stack,
+                    'expanded_tif_dir': expanded_tif_dir},
+                    kwargs_list={'fn': filenames_to_expand},
+                    exclude_nodes=exclude_nodes,
+                    argument_type='single')
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+    #
+    # #################################################
+    #
+    t = time.time()
+    sys.stderr.write('warping and cropping lossless...')
+
+    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
+    # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
+
+    # print transforms_to_anchor.keys()
+
+    run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d'%\
+                    {'script_path': script_dir + '/warp_crop_IM_v2.py',
+                    'stack': stack,
+                    'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
+                    'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
+                    'x': x,
+                    'y': y,
+                    'w': w,
+                    'h': h},
+                    kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                'filename': fn + '_lossless.tif',
+                                'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif'}
+                                for fn in filenames[first_idx:last_idx+1]],
+                    exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
+                    argument_type='single')
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
+    #########################################
+
+    t = time.time()
+    print 'Generating compressed version and saturation as grayscale...',
+
+    run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' %(compressed_dir)s %(saturation_dir)s' % \
+                    dict(script_dir=script_dir,
+                    stack=stack,
+                    input_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
+                    compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_compressed'),
+                    saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_saturation')),
+                    kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]]},
+                    exclude_nodes=exclude_nodes + [32],
+                    argument_type='list2')
+
+    print 'done in', time.time() - t, 'seconds'
+
+    #########################################
+
+    d = {'result': 0}
+    return jsonify(**d)
+
+
+@app.route('/confirm_order')
+def confirm_order():
+
+    stack = request.args.get('stack', type=str)
+    sorted_filenames = request.args.getlist('sorted_filenames')
+    anchor_fn = request.args.get('anchor_fn', type=str)
+
+    ###### Generate thumbnail sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_thumbnail_sorted_aligned &&'
+            'mkdir %(stack)s_thumbnail_sorted_aligned') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif '
+                '%(stack)s_thumbnail_sorted_aligned/%(stack)s_%(idx)04d_thumbnail_aligned.tif') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+    ###### Generate lossless sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_lossless_sorted_aligned_cropped &&'
+            'mkdir %(stack)s_lossless_sorted_aligned_cropped') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.tif '
+                '%(stack)s_lossless_sorted_aligned_cropped/%(stack)s_%(idx)04d_lossless_aligned_cropped.tif') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+    ###### Generate lossless sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed &&'
+            'mkdir %(stack)s_lossless_sorted_aligned_cropped_compressed') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_compressed.jpg '
+                '%(stack)s_lossless_sorted_aligned_cropped_compressed/%(stack)s_%(idx)04d_lossless_aligned_cropped_compressed.jpg') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+    ###### Generate lossless sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_lossless_sorted_aligned_cropped_saturation &&'
+            'mkdir %(stack)s_lossless_sorted_aligned_cropped_saturation') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_saturation.jpg' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_saturation.jpg '
+                '%(stack)s_lossless_sorted_aligned_cropped_saturation/%(stack)s_%(idx)04d_lossless_aligned_cropped_saturation.jpg') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+    d = {'result': 0}
+    return jsonify(**d)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', use_reloader=False)

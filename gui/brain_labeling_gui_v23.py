@@ -74,6 +74,7 @@ class ReadImagesThread(QThread):
 
     def run(self):
         for sec in self.sections:
+            print DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir)
             image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
             self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
 
@@ -156,13 +157,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.sections = range(127, 327)
         # self.sections = range(150, 304)
         # self.sections = range(150, 160)
+        self.all_sections = range(1, 439)
 
-        if first_sec is None and last_sec is None:
-            first_sec, last_sec = section_range_lookup[self.stack]
+        # if first_sec is None and last_sec is None:
+        #     first_sec, last_sec = section_range_lookup[self.stack]
+        #
+        # self.sections = range(first_sec, last_sec + 1)
 
-        self.sections = range(first_sec, last_sec + 1)
-
-        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections)
+        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.all_sections, use_data_manager=False)
         image_feeder.set_orientation('sagittal')
         # image_feeder.set_downsample_factor(1)
         image_feeder.set_downsample_factor(self.sagittal_downsample)
@@ -182,12 +184,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         horizontal_volume_resection_feeder.set_downsample_factor(32)
         self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
 
-        # self.gscenes['coronal'].set_downsample_factor(self.downsample_factor)
-        # self.gscenes['sagittal'].set_downsample_factor(1)
-        # self.gscenes['horizontal'].set_downsample_factor(self.downsample_factor)
-
         if self.gscenes['sagittal'].data_feeder.downsample == 1:
-            self.read_images_thread = ReadImagesThread(self.stack, self.sections)
+            self.read_images_thread = ReadImagesThread(self.stack, range(150, 160))
             self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
             self.read_images_thread.start()
             self.button_stop.clicked.connect(self.read_images_thread.terminate)
@@ -196,8 +194,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['sagittal'].set_vertex_radius(3)
             self.gscenes['sagittal'].set_line_width(3)
 
+        # print self.sections
+        try:
+            self.gscenes['sagittal'].set_active_section(150)
+        except Exception as e:
+            sys.stderr.write(e.message + '\n')
+
         self.gscenes['coronal'].set_active_i(50)
-        self.gscenes['sagittal'].set_active_section(self.sections[0])
         self.gscenes['horizontal'].set_active_i(150)
 
         # print time.time() - t0

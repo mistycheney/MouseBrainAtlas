@@ -13,5 +13,5 @@ class WebService(object):
 
     def convert_to_request(self, name, **kwargs):
         r = requests.get('http://gcn-20-33.sdsc.edu:5000/'+name, params=kwargs)
-        print r.url
+        # print r.url
         return r.json()

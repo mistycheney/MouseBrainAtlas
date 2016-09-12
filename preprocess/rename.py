@@ -35,7 +35,7 @@ filenames = os.listdir(input_dir)
 
 from collections import defaultdict
 
-if bool(args.infer_order):
+def infer_order():
 
     d = defaultdict(dict)
     for fn in filenames:
@@ -64,16 +64,20 @@ if bool(args.infer_order):
     with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
         f.write('\n'.join([fn + ' ' + str(ind+1) for ind, fn in enumerate(complete_set)]))
 
+if bool(args.infer_order):
+    infer_order()
 
 with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'r') as f:
     complete_set = [l.split() for l in f.readlines()]
-    complete_set = dict([(fn, int(i)) for fn, i in complete_set])
+    complete_set = {int(i): fn for fn, i in complete_set}
 
 d = {'input_dir': input_dir,
     'output_dir': output_dir,
     'output_jp2_dir': output_jp2_dir}
 
-for fn, new_ind in complete_set.iteritems():
+# print sorted([(new_ind, fn) for fn, new_ind in complete_set.iteritems()])
+
+for new_ind, fn in complete_set.iteritems():
 
     if fn == 'Placeholder' or fn == 'Rescan':
         continue

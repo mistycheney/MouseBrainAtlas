@@ -156,6 +156,13 @@
      </property>
     </widget>
    </item>
+   <item row="1" column="3">
+    <widget class="QPushButton" name="button_upload_transform">
+     <property name="text">
+      <string>Upload transform to server</string>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <resources/>

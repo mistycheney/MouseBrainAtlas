@@ -63,9 +63,13 @@ final_tranf_filename = os.path.join(data_dir, stack + '_finalTransfParams.pkl')
 
 jump_aligned_sections = pickle.load(open(os.path.join(data_dir, stack+'_elastix_output', 'jump_aligned_sections.pkl'), 'r'))
 
+print jump_aligned_sections
+
 last_good_section = {moving_secind: jump_aligned_sections[moving_secind] \
 					if moving_secind in jump_aligned_sections else moving_secind-1
 					for moving_secind in range(first_sec+1, last_sec+1) if moving_secind not in bad_sections}
+
+print last_good_section
 
 next_good_section = {b: a for a, b in last_good_section.iteritems()}
 

@@ -97,18 +97,107 @@ class SimpleGraphicsScene3(SimpleGraphicsScene):
     """
 
     bad_status_changed = pyqtSignal(int)
-    move_forward_requested = pyqtSignal()
-    move_backward_requested = pyqtSignal()
+    first_section_set = pyqtSignal(int)
+    last_section_set = pyqtSignal(int)
+    anchor_set = pyqtSignal(int)
+    # move_forward_requested = pyqtSignal()
+    # move_backward_requested = pyqtSignal()
     # edit_transform_requested = pyqtSignal()
 
     def __init__(self, id, gview=None, parent=None):
         super(SimpleGraphicsScene3, self).__init__(id=id, gview=gview, parent=parent)
 
-        self.bad_cross = QGraphicsSimpleTextItem(QString('X'), scene=self)
-        self.bad_cross.setPos(50,50)
-        self.bad_cross.setScale(5)
-        self.bad_cross.setVisible(False)
-        self.bad_cross.setBrush(Qt.red)
+        self.bad_status_indicator = QGraphicsSimpleTextItem(QString('X'), scene=self)
+        self.bad_status_indicator.setPos(50,50)
+        self.bad_status_indicator.setScale(5)
+        self.bad_status_indicator.setVisible(False)
+        self.bad_status_indicator.setBrush(Qt.red)
+
+        # self.first_section_indicator = QGraphicsSimpleTextItem(QString('FIRST'), scene=self)
+        # self.first_section_indicator.setPos(50,50)
+        # self.first_section_indicator.setScale(5)
+        # self.first_section_indicator.setVisible(False)
+        # self.first_section_indicator.setBrush(Qt.red)
+        #
+        # self.last_section_indicator = QGraphicsSimpleTextItem(QString('LAST'), scene=self)
+        # self.last_section_indicator.setPos(50,50)
+        # self.last_section_indicator.setScale(5)
+        # self.last_section_indicator.setVisible(False)
+        # self.last_section_indicator.setBrush(Qt.red)
+
+        self.box = QGraphicsRectItem(100,100,100,100,scene=self)
+        self.box.setPen(QPen(Qt.red, 5))
+        # self.box.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+        self.box.setFlags(QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges)
+        self.box.setVisible(False)
+
+        self.corners = {}
+        radius = 20
+        for c in ['ll', 'lr', 'ul', 'ur']:
+            ellipse = QGraphicsEllipseItemModified3(-radius, -radius, 2*radius, 2*radius, scene=self)
+            if c == 'll':
+                ellipse.setPos(200,100)
+            elif c == 'lr':
+                ellipse.setPos(200,200)
+            elif c == 'ul':
+                ellipse.setPos(100,100)
+            elif c == 'ur':
+                ellipse.setPos(100,200)
+
+            ellipse.setPen(Qt.red)
+            ellipse.setBrush(Qt.red)
+            ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
+            # ellipse.setZValue(99)
+            ellipse.setVisible(False)
+            ellipse.signal_emitter.moved.connect(self.corner_moved)
+            ellipse.signal_emitter.pressed.connect(self.corner_pressed)
+            ellipse.signal_emitter.released.connect(self.corner_released)
+            self.corners[c] = ellipse
+
+        self.serving_ellipse = None
+
+    def corner_pressed(self, ellipse):
+        self.serving_ellipse = ellipse
+
+    def corner_released(self, ellipse):
+        self.serving_ellipse = None
+
+    def corner_moved(self, ellipse, new_x, new_y):
+
+        if self.serving_ellipse is not None and self.serving_ellipse != ellipse:
+            return
+
+        self.serving_ellipse = ellipse
+
+        corner_label = self.corners.keys()[self.corners.values().index(ellipse)]
+        if corner_label == 'll':
+            self.corners['lr'].setY(new_y)
+            self.corners['ul'].setX(new_x)
+        elif corner_label == 'lr':
+            self.corners['ll'].setY(new_y)
+            self.corners['ur'].setX(new_x)
+        elif corner_label == 'ul':
+            self.corners['ur'].setY(new_y)
+            self.corners['ll'].setX(new_x)
+        elif corner_label == 'ur':
+            self.corners['ul'].setY(new_y)
+            self.corners['lr'].setX(new_x)
+
+        ul_pos = self.corners['ul'].scenePos()
+        lr_pos = self.corners['lr'].scenePos()
+
+        self.box.setRect(ul_pos.x(), ul_pos.y(), lr_pos.x()-ul_pos.x(), lr_pos.y()-ul_pos.y())
+
+    def set_box(self, x, y, w, h):
+        for c in self.corners.values():
+            c.setVisible(True)
+        self.corners['ul'].setPos(x, y)
+        self.corners['ur'].setPos(x+w, y)
+        self.corners['ll'].setPos(x, y+h)
+        self.corners['lr'].setPos(x+w, y+h)
+
+        self.box.setVisible(True)
+        self.box.setRect(x, y, w, h)
 
     def set_bad_sections(self, secs):
         self.bad_sections = secs
@@ -118,35 +207,55 @@ class SimpleGraphicsScene3(SimpleGraphicsScene):
 
         is_bad = self.active_section in self.bad_sections
         action_setBad = myMenu.addAction("Unmark as Bad" if is_bad else "Mark as Bad")
-        action_moveForward = myMenu.addAction("Move forward")
-        action_moveBackward = myMenu.addAction("Move backward")
+        # action_moveForward = myMenu.addAction("Move forward")
+        # action_moveBackward = myMenu.addAction("Move backward")
+
+        box_on = self.box.isVisible()
+        action_toggleBox = myMenu.addAction("Show crop box" if not box_on else 'Hide crop box')
         # action_edit_transform = myMenu.addAction("Edit transform to previous")
+
+        action_setFirst = myMenu.addAction("Set as first")
+        action_setLast = myMenu.addAction("Set as last")
+        action_setAnchor = myMenu.addAction("Set as anchor")
 
         selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
 
         if selected_action == action_setBad:
             if is_bad:
-                self.bad_cross.setVisible(False)
+                self.bad_status_indicator.setVisible(False)
                 self.bad_status_changed.emit(0)
             else:
-                self.bad_cross.setVisible(True)
+                self.bad_status_indicator.setVisible(True)
                 self.bad_status_changed.emit(1)
-        elif selected_action == action_moveForward:
-            self.move_forward_requested.emit()
-        elif selected_action == action_moveBackward:
-            self.move_backward_requested.emit()
+        elif selected_action == action_toggleBox:
+            self.box.setVisible(not box_on)
+            for el in self.corners.values():
+                el.setVisible(not box_on)
+        elif selected_action == action_setFirst:
+            self.first_section_set.emit(self.active_section)
+            # self.first_section_indicator.setVisible(True)
+        elif selected_action == action_setLast:
+            self.last_section_set.emit(self.active_section)
+            # self.last_section = self.active_section
+            # self.status_updated.emit('LAST')
+            # self.last_section_indicator.setVisible(True)
+        elif selected_action == action_setAnchor:
+            self.anchor_set.emit(self.active_section)
+
+        # elif selected_action == action_moveForward:
+        #     self.move_forward_requested.emit()
+        # elif selected_action == action_moveBackward:
+        #     self.move_backward_requested.emit()
         # elif selected_action == action_edit_transform:
         #     self.edit_transform_requested.emit()
 
     def set_active_i(self, i, emit_changed_signal=True):
         super(SimpleGraphicsScene3, self).set_active_i(i, emit_changed_signal=True)
+        self.bad_status_indicator.setVisible(self.active_section in self.bad_sections)
 
-        # Determine whether to show bad section indicator
-        if self.active_section in self.bad_sections:
-            self.bad_cross.setVisible(True)
-        else:
-            self.bad_cross.setVisible(False)
-        print self.bad_sections
+        # self.first_section_indicator.setVisible(self.active_section == self.first_section)
+        # self.last_section_indicator.setVisible(self.active_section == self.last_section)
+
 
 class SimpleGraphicsScene2(SimpleGraphicsScene):
     """
@@ -182,6 +291,13 @@ class SimpleGraphicsScene2(SimpleGraphicsScene):
             self.send_to_sorted_requested.emit(self.id)
 
 
+
+from subprocess import check_output
+from joblib import Parallel, delayed
+
+def identify_shape(img_fp):
+    return map(int, check_output("identify -format %%Wx%%H %s" % img_fp, shell=True).split('x'))
+
 # Use the third method in http://pyqt.sourceforge.net/Docs/PyQt4/designer.html
 class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     def __init__(self, parent=None, stack=None):
@@ -194,6 +310,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.setupUi(self)
 
         self.stack = stack
+        self.stack_data_dir = '/home/yuncong/CSHL_data_processed/' + stack
+        self.stack_data_dir_gordon = '/home/yuncong/CSHL_data_processed/' + stack
 
         self.web_service = WebService()
 
@@ -215,13 +333,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # macro_fns = []
         import re
         for fn in os.listdir(macros_dir):
-            _, prefix, slide_num, date, hour = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s?([0-9]+)\s?-\s?(.*?) (.*?)_macro_annotated.jpg$', fn)[0]
+            _, prefix, slide_num, date, hour = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s*([0-9]+)\s?-\s?(.*?) (.*?)_macro_annotated.jpg$', fn)[0]
             # slide_indices[prefix].append(slide_num)
             slide_filenames[prefix + '_%02d' % int(slide_num)] = fn
 
         # print sorted(slide_filenames.keys())
 
-        slide_image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=sorted(slide_filenames.keys()), use_data_manager=False)
+        slide_image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=sorted(sorted(slide_filenames.keys(), reverse=True), key=lambda slide_name: int(slide_name.split('_')[1])),
+                                            use_data_manager=False)
         # slide_image_feeder.set_orientation(stack_orientation[self.stack])
         slide_image_feeder.set_images(labels=slide_filenames.keys(),
                                     filenames=[os.path.join(macros_dir, filename) for filename in slide_filenames.itervalues()],
@@ -235,34 +354,24 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         ################################################
 
         # self.slide_position_to_fn = defaultdict(lambda: defaultdict(lambda: 'Unknown'))
-        fn = '%(stack)s_slide_position_to_fn.pkl' % {'stack':stack}
-        if os.path.exists(fn):
-            self.slide_position_to_fn = pickle.load(open(fn, 'r'))
-            self.statusBar().showMessage('Slide position to image filename mapping is loaded.')
-        else:
-            self.slide_position_to_fn = {slide_index: {p: 'Unknown' for p in [1,2,3]}
+        self.slide_position_to_fn = {slide_index: {p: 'Unknown' for p in [1,2,3]}
                                         for slide_index in slide_filenames.iterkeys()}
 
         ###############
 
-        self.filename_to_slide = {}
-
         self.thumbnails_dir = '/home/yuncong/CSHL_data/%(stack)s/' % {'stack': self.stack}
         from glob import glob
-        # self.thumbnail_filenames = defaultdict(list)
+
         self.thumbnail_filenames = defaultdict(lambda: defaultdict(lambda: dict()))
+        self.filename_to_slide = {}
+
         for fp in glob(self.thumbnails_dir+'/*.tif'):
             fn = os.path.splitext(os.path.basename(fp))[0]
             _, prefix, slide_num, date, hour, _, position, index = re.findall('^(.*?)-([A-Z]+)([0-9]+)-(.*?)-(.*?)_(.*?)_([0-9])_([0-9]{4})$', fn)[0]
             # print prefix, slide_num, position, index
             slide_name = prefix + '_%02d' % int(slide_num)
             self.filename_to_slide[fn] = slide_name
-            # print fn
-            # self.thumbnail_filenames[slide_name][int(position)].append(fn)
             self.thumbnail_filenames[slide_name][int(position)][date] = fn
-            # self.thumbnail_filenames[prefix + '_%02d' % int(slide_num)].append(fn)
-            # if fn == 'MD589-N1-2015.07.30-16.19.59_MD589_2_0002':
-            #     print 1
 
         ################
 
@@ -333,6 +442,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         #######################
 
+        self.first_section = 1
+        self.last_section = 2
+
+
         # self.sorted_filenames = []
         #
         # filename_map_fp = '/home/yuncong/CSHL_data_processed/%(stack)s_filename_map.txt' % {'stack': stack}
@@ -359,23 +472,36 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # self.sorted_sections_gscene.set_active_section(2)
         self.sorted_sections_gscene.active_image_updated.connect(self.sorted_sections_image_updated)
         self.sorted_sections_gscene.bad_status_changed.connect(self.bad_status_changed)
-        self.sorted_sections_gscene.move_forward_requested.connect(self.move_forward)
-        self.sorted_sections_gscene.move_backward_requested.connect(self.move_backward)
+        self.sorted_sections_gscene.first_section_set.connect(self.set_first_section)
+        self.sorted_sections_gscene.last_section_set.connect(self.set_last_section)
+        self.sorted_sections_gscene.anchor_set.connect(self.set_anchor)
+
+        # self.sorted_sections_gscene.move_forward_requested.connect(self.move_forward)
+        # self.sorted_sections_gscene.move_backward_requested.connect(self.move_backward)
         # self.sorted_sections_gscene.edit_transform_requested.connect(self.edit_transform)
 
         #######################
 
         self.installEventFilter(self)
 
-        self.comboBox_show.currentIndexChanged.connect(self.show_option_changed)
+        self.comboBox_show.activated.connect(self.show_option_changed)
 
-        self.button_save.clicked.connect(self.save)
+        self.comboBox_slide_position_adjustment.activated.connect(self.slide_position_adjustment_changed)
+
+        self.button_save_slide_position_map.clicked.connect(self.save)
+        self.button_load_slide_position_map.clicked.connect(self.load_slide_position_map)
         self.button_sort.clicked.connect(self.sort)
-        self.button_sort_server.clicked.connect(self.sort_server)
+        self.button_confirm_order.clicked.connect(self.confirm_order)
+        self.button_load_sorted_filenames.clicked.connect(self.load_sorted_filenames)
+        self.button_save_sorted_filenames.clicked.connect(self.save_sorted_filenames)
         self.button_align.clicked.connect(self.align)
-        self.button_confirm_alignment.clicked.connect(self.confirm_alignment)
+        # self.button_align.setEnabled(False)
+        self.button_confirm_alignment.clicked.connect(self.compose)
         self.button_download.clicked.connect(self.download)
         self.button_edit_transform.clicked.connect(self.edit_transform)
+        self.button_crop.clicked.connect(self.crop)
+        self.button_load_crop.clicked.connect(self.load_crop)
+        self.button_save_crop.clicked.connect(self.save_crop)
 
         ################################
 
@@ -386,65 +512,79 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.labels_slide_position_filename = {1: self.label_section1_filename, 2: self.label_section2_filename, 3: self.label_section3_filename}
         self.labels_slide_position_index = {1: self.label_section1_index, 2: self.label_section2_index, 3: self.label_section3_index}
 
-    def move_backward(self):
 
-        curr_index = self.sorted_sections_gscene.active_section
-        print 'old index filename', self.sorted_filenames[curr_index-1]
-        if curr_index == 1:
-            return
-
-        new_index = curr_index - 1
-
-        self.sorted_filenames[new_index-1], self.sorted_filenames[curr_index-1] = self.sorted_filenames[curr_index-1], self.sorted_filenames[new_index-1]
-
-        data_feeder = self.sorted_sections_gscene.data_feeder
-
-        image1 = data_feeder.retrive_i(sec=curr_index)
-        image2 = data_feeder.retrive_i(sec=new_index)
-        data_feeder.set_image(image1, new_index)
-        data_feeder.set_image(image2, curr_index)
-
-        self.sorted_sections_gscene.set_active_section(new_index)
-        print 'new index filename', self.sorted_filenames[new_index-1]
-
-    def move_forward(self):
-
-        curr_index = self.sorted_sections_gscene.active_section
-        print 'old index filename', self.sorted_filenames[curr_index-1]
-        if curr_index == len(self.sorted_filenames)-1:
-            return
-
-        new_index = curr_index + 1
-
-        # swap two filenames
-        self.sorted_filenames[new_index-1], self.sorted_filenames[curr_index-1] = self.sorted_filenames[curr_index-1], self.sorted_filenames[new_index-1]
-
-        data_feeder = self.sorted_sections_gscene.data_feeder
-
-        # swap two images in data_feeder queue
-        image1 = data_feeder.retrive_i(sec=curr_index)
-        image2 = data_feeder.retrive_i(sec=new_index)
-        data_feeder.set_image(image1, new_index)
-        data_feeder.set_image(image2, curr_index)
-
-        self.sorted_sections_gscene.set_active_section(new_index)
-        print 'new index filename', self.sorted_filenames[new_index-1]
+    # def move_backward(self):
+    #
+    #     curr_label = self.sorted_sections_gscene.active_section
+    #     print 'old index filename', self.sorted_filenames[curr_label-1]
+    #
+    #     curr_index = self.sorted_sections_gscene.active_i
+    #
+    #     data_feeder = self.sorted_sections_gscene.data_feeder
+    #
+    #     if curr_index == 0:
+    #         return
+    #
+    #     new_index = curr_index - 1
+    #
+    #     # swap two filenames
+    #     self.sorted_filenames[new_index-1], self.sorted_filenames[curr_index-1] = self.sorted_filenames[curr_index-1], self.sorted_filenames[new_index-1]
+    #
+    #     # swap two images in data_feeder queue
+    #     image1 = data_feeder.retrive_i(i=curr_index)
+    #     image2 = data_feeder.retrive_i(i=new_index)
+    #     new_label = data_feeder.all_sections[new_index]
+    #     data_feeder.set_image(image1, new_label)
+    #     data_feeder.set_image(image2, curr_label)
+    #
+    #     self.sorted_sections_gscene.set_active_section(new_label)
+    #     print 'new index filename', self.sorted_filenames[new_label-1]
+    #
+    #
+    # def move_forward(self):
+    #
+    #     curr_label = self.sorted_sections_gscene.active_section
+    #     print 'old index filename', self.sorted_filenames[curr_label-1]
+    #
+    #     curr_index = self.sorted_sections_gscene.active_i
+    #
+    #     data_feeder = self.sorted_sections_gscene.data_feeder
+    #
+    #     if curr_index == data_feeder.n - 1:
+    #         return
+    #
+    #     new_index = curr_index + 1
+    #
+    #     # swap two filenames
+    #     self.sorted_filenames[new_index-1], self.sorted_filenames[curr_index-1] = self.sorted_filenames[curr_index-1], self.sorted_filenames[new_index-1]
+    #
+    #     # swap two images in data_feeder queue
+    #     image1 = data_feeder.retrive_i(i=curr_index)
+    #     image2 = data_feeder.retrive_i(i=new_index)
+    #     new_label = data_feeder.all_sections[new_index]
+    #     data_feeder.set_image(image1, new_label)
+    #     data_feeder.set_image(image2, curr_label)
+    #
+    #     self.sorted_sections_gscene.set_active_section(new_label)
+    #     print 'new index filename', self.sorted_filenames[new_label-1]
 
     def bad_status_changed(self, is_bad):
 
-        fn = self.sorted_filenames[self.sorted_sections_gscene.active_section-1]
-        if is_bad > 0:
-            # self.bad_sections.add(fn)
-            raise Exception('Cannot undo set Bad..')
-        else:
-            self.sorted_filenames[self.sorted_filenames.index(fn)] = 'Placeholder'
+        print is_bad
 
-        self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
+        fn = self.sorted_filenames[self.sorted_sections_gscene.active_section-1]
 
         slide_name = self.filename_to_slide[fn]
         position = self.slide_position_to_fn[slide_name].keys()[self.slide_position_to_fn[slide_name].values().index(fn)]
-        self.set_status(slide_name, position, 'Placeholder')
-        print self.slide_position_to_fn[slide_name]
+
+        if is_bad > 0:
+            self.sorted_filenames[self.sorted_filenames.index(fn)] = 'Placeholder'
+            self.set_status(slide_name, position, 'Placeholder')
+        else:
+            raise Exception('Cannot undo set Bad..')
+            self.set_status(slide_name, position, 'Normal')
+
+        self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
 
 
     def send_to_sorted(self, position):
@@ -452,6 +592,151 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         fn = self.slide_position_to_fn[slide_name][position]
         index = self.sorted_filenames.index(fn) + 1
         self.sorted_sections_gscene.set_active_section(index)
+
+    def slide_position_adjustment_changed(self, index):
+        adjustment_str = str(self.sender().currentText())
+        slide_name = self.slide_gscene.active_section
+
+        def swap_normal_positions(x):
+            if x[1] == 'Nonexisting':
+                x[2], x[3] = x[3], x[2]
+            elif x[3] == 'Nonexisting':
+                x[1], x[2] = x[2], x[1]
+            else:
+                x[3], x[1] = x[1], x[3]
+
+        def adjust(x, status, pos):
+            abnormal_statuses = ['Nonexisting', 'Rescan', 'Placeholder']
+            if pos == 'right':
+                if x[1] in abnormal_statuses:
+                    x[1], x[2], x[3] = status, x[2], x[3]
+                elif x[2] in abnormal_statuses:
+                    x[1], x[2], x[3] = status, x[1], x[3]
+                elif x[3] in abnormal_statuses:
+                    x[1], x[2], x[3] = status, x[1], x[2]
+            elif pos == 'left':
+                if x[1] in abnormal_statuses:
+                    x[1], x[2], x[3] = x[2], x[3], status
+                elif x[2] in abnormal_statuses:
+                    x[1], x[2], x[3] = x[1], x[3], status
+                elif x[3] in abnormal_statuses:
+                    x[1], x[2], x[3] = x[1], x[2], status
+
+        if adjustment_str == 'Reverse positions':
+
+            x = self.slide_position_to_fn[slide_name]
+
+            # if x.values().count('Nonexisting') == 0:
+
+            # if x[1] == 'Nonexisting':
+            #     x[2], x[3] = x[3], x[2]
+            # elif x[3] == 'Nonexisting':
+            #     x[1], x[2] = x[2], x[1]
+            # else:
+            #     x[3], x[1] = x[1], x[3]
+            swap_normal_positions(x)
+
+            for position in [1,2,3]:
+                self.set_status(slide_name, position, self.slide_position_to_fn[slide_name][position])
+
+        elif adjustment_str == 'Reverse positions on all slides':
+            for sn, x in self.slide_position_to_fn.iteritems():
+                # if x.values().count('Nonexisting') == 0:
+                # if x[1] == 'Nonexisting':
+                #     x[2], x[3] = x[3], x[2]
+                # elif x[3] == 'Nonexisting':
+                #     x[1], x[2] = x[2], x[1]
+                # else:
+                #     x[3], x[1] = x[1], x[3]
+                swap_normal_positions(x)
+
+                for pos in [1,2,3]:
+                    self.set_status(sn, pos, self.slide_position_to_fn[sn][pos])
+
+        elif adjustment_str == 'Reverse positions on all IHC slides':
+            for sn, x in self.slide_position_to_fn.iteritems():
+                if sn.startswith('IHC'):
+                    # if x[1] == 'Nonexisting':
+                    #     x[2], x[3] = x[3], x[2]
+                    # elif x[3] == 'Nonexisting':
+                    #     x[1], x[2] = x[2], x[1]
+                    # else:
+                    #     x[3], x[1] = x[1], x[3]
+                    swap_normal_positions(x)
+
+                    for pos in [1,2,3]:
+                        self.set_status(sn, pos, self.slide_position_to_fn[sn][pos])
+
+        elif adjustment_str == 'Reverse positions on all N slides':
+            for sn, x in self.slide_position_to_fn.iteritems():
+                # if sn.startswith('N') and x.values().count('Nonexisting') == 0:
+                if sn.startswith('N'):
+                    # print sn, x
+                    swap_normal_positions(x)
+
+                    # if x[1] == 'Nonexisting':
+                    #     x[2], x[3] = x[3], x[2]
+                    # elif x[3] == 'Nonexisting':
+                    #     x[1], x[2] = x[2], x[1]
+                    # else:
+                    #     x[3], x[1] = x[1], x[3]
+
+                    for pos in [1,2,3]:
+                        self.set_status(sn, pos, self.slide_position_to_fn[sn][pos])
+
+        elif adjustment_str == 'Move all nonexisting to left':
+
+            for sn, x in self.slide_position_to_fn.iteritems():
+
+                if x.values().count('Nonexisting') == 1:
+
+                    adjust(x, 'Nonexisting', 'left')
+
+                    # if x[1] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = x[2], x[3], 'Nonexisting'
+                    # elif x[2] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = x[1], x[3], 'Nonexisting'
+                    # elif x[3] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = x[1], x[2], 'Nonexisting'
+
+                    for pos in [1,2,3]:
+                        self.set_status(sn, pos, self.slide_position_to_fn[sn][pos])
+
+        elif adjustment_str == 'Move all nonexisting to right':
+
+            for sn, x in self.slide_position_to_fn.iteritems():
+
+                if x.values().count('Nonexisting') == 1:
+                    adjust(x, 'Nonexisting', 'right')
+
+                    # if x[1] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = 'Nonexisting', x[2], x[3]
+                    # elif x[2] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = 'Nonexisting', x[1], x[3]
+                    # elif x[3] in ['Nonexisting', 'Rescan', 'Placeholder']:
+                    #     x[1], x[2], x[3] = 'Nonexisting', x[1], x[2]
+
+                    for pos in [1,2,3]:
+                        self.set_status(sn, pos, self.slide_position_to_fn[sn][pos])
+        else:
+            x = self.slide_position_to_fn[slide_name]
+            assert x.values().count('Nonexisting') == 1
+
+            if adjustment_str == 'Move placeholder to right':
+                adjust(x, 'Placeholder', 'right')
+            elif adjustment_str == 'Move rescan to right':
+                adjust(x, 'Rescan', 'right')
+            elif adjustment_str == 'Move nonexisting to right':
+                adjust(x, 'Nonexisting', 'right')
+            elif adjustment_str == 'Move placeholder to left':
+                adjust(x, 'Placeholder', 'left')
+            elif adjustment_str == 'Move rescan to left':
+                adjust(x, 'Rescan', 'left')
+            elif adjustment_str == 'Move nonexisting to left':
+                adjust(x, 'Nonexisting', 'left')
+
+            for position in [1,2,3]:
+                self.set_status(slide_name, position, self.slide_position_to_fn[slide_name][position])
 
     def slide_position_status_updated(self, position, status):
         print 'slide_position_status_updated:', position, status
@@ -465,7 +750,53 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 arbitrary_image = self.thumbnail_filenames[slide_name].values()[0].values()[0]
                 self.set_status(slide_name, position, arbitrary_image)
         else:
-            self.set_status(slide_name, position, status)
+            self.set_status(slide_name, position, str(status))
+
+
+
+    def load_crop(self):
+
+        self.set_show_option('aligned')
+
+        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'r') as f:
+            ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section = map(int, f.readline().split())
+            self.sorted_sections_gscene.set_box(ul_x, ul_y, lr_x - ul_x, lr_y - ul_y)
+            print ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section
+
+
+    def save_crop(self):
+        ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
+        lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
+        ul_x = int(ul_pos.x())
+        ul_y = int(ul_pos.y())
+        lr_x = int(lr_pos.x())
+        lr_y = int(lr_pos.y())
+
+        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'w') as f:
+            f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
+
+    def crop(self):
+
+        self.save_crop()
+
+        ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
+        lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
+        ul_x = int(ul_pos.x())
+        ul_y = int(ul_pos.y())
+        lr_x = int(lr_pos.x())
+        lr_y = int(lr_pos.y())
+
+        self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x-ul_x, h=lr_y-ul_y,
+                                            f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
+                                            filenames=self.get_valid_sorted_filenames(),
+                                            first_fn=self.sorted_filenames[self.first_section-1],
+                                            last_fn=self.sorted_filenames[self.last_section-1])
+
+        # self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x-ul_x, h=lr_y-ul_y,
+        #                                     f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
+        #                                     filenames=self.get_valid_sorted_filenames(),
+        #                                     first_fn=self.sorted_filenames[200],
+        #                                     last_fn=self.sorted_filenames[201])
 
     def edit_transform(self):
 
@@ -496,8 +827,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.prev_gscene.active_image_updated.connect(self.previous_section_image_changed)
         self.prev_gscene.anchor_point_added.connect(self.anchor_point_added)
 
-        transformed_image_filenames = ['/home/yuncong/CSHL_data_processed/%(stack)s_elastix_output/output%(curr)dto%(prev)d/result.0.tif' % \
-                                    {'stack': self.stack, 'curr': self.valid_section_indices[i], 'prev': self.valid_section_indices[i-1]}
+        transformed_image_filenames = [self.stack_data_dir + '/%(stack)s_elastix_output/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
+                                    {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
                                     for i in range(len(self.valid_section_indices))]
 
         # aligned_images_feeder_labels = valid_section_indices[1:]
@@ -510,7 +841,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.alignment_ui.aligned_gview.setScene(self.aligned_gscene)
         self.aligned_gscene.set_data_feeder(transformed_images_feeder, 'moving')
         self.aligned_gscene.set_data_feeder(valid_sections_feeder, 'fixed')
-        self.aligned_gscene.set_active_indices({'moving': 2, 'fixed': 1})
+        self.aligned_gscene.set_active_indices({'moving': 1, 'fixed': 0})
         self.aligned_gscene.set_opacity('moving', .8)
         self.aligned_gscene.set_opacity('fixed', .8)
         self.aligned_gscene.active_image_updated.connect(self.aligned_image_changed)
@@ -579,6 +910,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.curr_gscene.set_active_i(curr_section_i)
         self.aligned_gscene.set_active_indices({'moving': curr_section_i, 'fixed': prev_section_i})
 
+
     def sort(self):
 
         prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
@@ -600,39 +932,167 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 sorted_fns += [IHC_series[i][pos] for pos in range(1, 4)]
 
         self.sorted_filenames = [fn for fn in sorted_fns if fn != 'Nonexisting']
-        with open('%(stack)s_sorted_filenames.txt' % {'stack': self.stack}, 'w') as f:
+
+        self.update_sorted_sections_gscene_from_sorted_filenames()
+
+    def save_everything(self):
+
+        # Dump preprocessing info
+        placeholder_indices = [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Placeholder']
+        placeholder_slide_positions = [(slide_name, pos) for slide_name, x in self.slide_position_to_fn.iteritems() for pos, fn in x.iteritems() if fn == 'Placeholder']
+        rescan_indices = [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Rescan']
+        rescan_slide_positions = [(slide_name, pos) for slide_name, x in self.slide_position_to_fn.iteritems() for pos, fn in x.iteritems() if fn == 'Rescan']
+
+        ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
+        lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
+        ul_x = int(ul_pos.x())
+        ul_y = int(ul_pos.y())
+        lr_x = int(lr_pos.x())
+        lr_y = int(lr_pos.y())
+
+        info = {'placeholder_indices': placeholder_indices,
+        'placeholder_slide_positions': placeholder_slide_positions,
+        'rescan_indices': rescan_indices,
+        'rescan_slide_positions': rescan_slide_positions,
+        'sorted_filenames': self.sorted_filenames,
+        'slide_position_to_fn': self.slide_position_to_fn,
+        'first_section': self.first_section,
+        'last_section': self.last_section,
+        'anchor_fn': self.anchor_fn,
+        'bbox': (ul_x, ul_y, lr_x-ul_x, lr_y-ul_y) #x,y,w,h
+        }
+
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        pickle.dump(info, open(self.stack_data_dir + '/%(stack)s_preprocessInfo_%(timestamp)s.pkl' % {'stack': self.stack, 'timestamp':timestamp}, 'w'))
+
+        execute_command('cd %(stack_data_dir)s; ln -s %(stack)s_preprocessInfo_%(timestamp)s.pkl %(stack)s_preprocessInfo.pkl' % {'stack': self.stack, 'timestamp':timestamp, 'stack_data_dir':self.stack_data_dir})
+
+        self.save_crop()
+        self.save_sorted_filenames()
+        self.save()
+
+    def confirm_order(self):
+        sort_json = self.web_service.convert_to_request('confirm_order',
+                        stack=self.stack, sorted_filenames=self.sorted_filenames, anchor_fn=self.anchor_fn)
+
+        # Download sorted data folder symbolic links
+        download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned.tar %(stack)s_thumbnail_sorted_aligned\" && '
+                'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar . &&'
+                'rm -rf %(stack)s_thumbnail_sorted_aligned && tar -xf %(stack)s_thumbnail_sorted_aligned.tar &&'
+                'rm -r %(stack)s_thumbnail_sorted_aligned.tar &&'
+                'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
+                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+        print download_sorted_thumbnails_symlinks_cmd
+        execute_command(download_sorted_thumbnails_symlinks_cmd)
+
+        execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
+                        'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                        'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
+                        'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
+                        'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
+                        'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
+                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+
+        self.save_everything()
+
+
+
+    def update_sorted_sections_gscene_from_sorted_filenames(self):
+
+        if not hasattr(self, 'currently_showing'):
+            self.currently_showing = 'original'
+
+        self.valid_section_filenames = self.get_valid_sorted_filenames()
+        self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
+
+        if not hasattr(self, 'anchor_fn'):
+
+            anchor_fp = self.stack_data_dir + '/%(stack)s_anchor.txt' % dict(stack=self.stack)
+            if os.path.exists(anchor_fp):
+                with open(anchor_fp) as f:
+                    self.set_anchor(f.readline().strip())
+            else:
+                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join('/home/yuncong/CSHL_data/', self.stack, img_fn + '.tif')) for img_fn in self.valid_section_filenames)
+                largest_idx = np.argmax([h*w for h, w in shapes])
+                print 'largest section is ', self.valid_section_filenames[largest_idx]
+                self.set_anchor(self.valid_section_filenames[largest_idx])
+                print self.valid_section_filenames[largest_idx]
+
+        if self.currently_showing == 'original':
+
+            ordered_image_feeder_labels = range(1, len(self.sorted_filenames)+1)
+            self.ordered_image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=ordered_image_feeder_labels, use_data_manager=False)
+            self.ordered_image_feeder.set_images(labels=ordered_image_feeder_labels,
+                                                filenames=[os.path.join(self.thumbnails_dir, filename)
+                                                        for filename in self.sorted_filenames],
+                                                downsample=32)
+            self.ordered_image_feeder.set_downsample_factor(32)
+
+            if self.sorted_sections_gscene.active_i is not None:
+                active_i = self.sorted_sections_gscene.active_i
+            else:
+                active_i = 2
+
+            self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
+            self.sorted_sections_gscene.set_data_feeder(self.ordered_image_feeder)
+            self.sorted_sections_gscene.set_active_section(active_i)
+
+        elif self.currently_showing == 'aligned':
+
+            self.aligned_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
+                                                    sections=self.valid_section_indices, use_data_manager=False)
+            self.aligned_images_dir = self.stack_data_dir + '/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/' % {'stack': self.stack, 'anchor_fn':self.anchor_fn}
+            # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(stack)s_%(fn)s_aligned.tif' % \
+            #                             {'stack':self.stack, 'fn': self.sorted_filenames[i]}) for i in self.valid_section_indices]
+
+            aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
+                                        {'fn': fn, 'anchor_fn': self.anchor_fn}) for fn in self.valid_section_filenames]
+
+            self.aligned_images_feeder.set_images(self.valid_section_indices, aligned_image_filenames, downsample=32, load_with_cv2=False)
+            self.aligned_images_feeder.set_downsample_factor(32)
+
+            active_i = self.sorted_sections_gscene.active_i
+            self.sorted_sections_gscene.set_data_feeder(self.aligned_images_feeder)
+            self.sorted_sections_gscene.set_active_i(active_i)
+
+
+    def save_sorted_filenames(self):
+
+        # dump to disk
+        with open(self.stack_data_dir + '/%(stack)s_sorted_filenames.txt' % {'stack': self.stack}, 'w') as f:
             for i, fn in enumerate(self.sorted_filenames):
                 f.write(fn + ' ' + str(i+1) + '\n') # index starts from 1
 
-        ordered_image_feeder_labels = range(1, len(self.sorted_filenames)+1)
-        self.ordered_image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=ordered_image_feeder_labels, use_data_manager=False)
-        self.ordered_image_feeder.set_images(labels=ordered_image_feeder_labels,
-                                            filenames=[os.path.join(self.thumbnails_dir, filename)
-                                                    for filename in self.sorted_filenames],
-                                            downsample=32)
-        self.ordered_image_feeder.set_downsample_factor(32)
+        self.statusBar().showMessage('Sorted filename list saved.')
 
-        self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
-        self.sorted_sections_gscene.set_data_feeder(self.ordered_image_feeder)
-        self.sorted_sections_gscene.set_active_section(2)
 
+    def load_sorted_filenames(self):
+        self.sorted_filenames = []
+        with open(self.stack_data_dir + '/%(stack)s_sorted_filenames.txt' % {'stack': self.stack}, 'r') as f:
+            for line in f.readlines():
+                fn, idx = line.split()
+                self.sorted_filenames.append(fn)
+        self.statusBar().showMessage('Sorted filename list is loaded.')
+
+        self.update_sorted_sections_gscene_from_sorted_filenames()
+
+    def load_slide_position_map(self):
+        fn = self.stack_data_dir + '/%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}
+        if os.path.exists(fn):
+            self.slide_position_to_fn = pickle.load(open(fn, 'r'))
+            self.statusBar().showMessage('Slide position to image filename mapping is loaded.')
+        else:
+            self.statusBar().showMessage('Cannot load slide position to image filename mapping - File does not exists.')
 
     def save(self):
         for a, b in sorted(self.slide_position_to_fn.items()):
             for c, d in sorted(b.items()):
                 print a, c, d
 
-        pickle.dump(self.slide_position_to_fn, open('%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}, 'w') )
+        pickle.dump(self.slide_position_to_fn, open(self.stack_data_dir + '/%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}, 'w') )
 
-
-    def sort_server(self):
-        sort_json = self.web_service.convert_to_request('set_sorted_filenames',
-                        stack=self.stack, sorted_filenames=self.sorted_filenames)
-
-        execute_command("""scp -r gcn-20-33.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_renamed %(local_data_dir)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'stack': self.stack})
 
 
     def get_bad_sections(self):
@@ -641,48 +1101,76 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def download(self):
 
-        execute_command("""scp gcn-20-33.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.tif %(local_data_dir)s/%(stack)s/""" % \
+        execute_command("""mkdir %(local_data_dir)s/%(stack)s; scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.tif %(local_data_dir)s/%(stack)s/""" % \
                         {'gordon_data_dir': '/home/yuncong/CSHL_data',
                         'local_data_dir': '/home/yuncong/CSHL_data',
                         'stack': self.stack})
 
-    def confirm_alignment(self):
-        self.web_service.convert_to_request(name='compose', stack=self.stack,
-                first_section=1,
-                last_section=len(self.sorted_filenames),
-                bad_sections=self.get_bad_sections())
-
-        placeholder_indices = [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Placeholder']
-        placeholder_slide_positions = [(slide_name, pos) for slide_name, x in self.slide_position_to_fn.iteritems() for pos, fn in x.iteritems() if fn == 'Placeholder']
-        rescan_indices = [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Rescan']
-        rescan_slide_positions = [(slide_name, pos) for slide_name, x in self.slide_position_to_fn.iteritems() for pos, fn in x.iteritems() if fn == 'Rescan']
-        info = {'placeholder_indices': placeholder_indices,
-        'placeholder_slide_positions': placeholder_slide_positions,
-        'rescan_indices': rescan_indices,
-        'rescan_slide_positions': rescan_slide_positions,
-        'sorted_filenames': self.sorted_filenames,
-        'slide_position_to_fn': self.slide_position_to_fn}
-        pickle.dump(info, open('/home/yuncong/CSHL_data_processed/%(stack)s_preprocessInfo.pkl' % {'stack': self.stack}, 'w'))
-
-        execute_command("""ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s; tar -I pigz -cf %(stack)s_thumbnail_aligned.tar.gz %(stack)s_thumbnail_aligned/*.tif\";\
-                        scp gcn-20-33.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_aligned.tar.gz %(local_data_dir)s/;\
-                        cd %(local_data_dir)s; rm -rf %(stack)s_thumbnail_aligned; tar -xf %(stack)s_thumbnail_aligned.tar.gz; rm %(stack)s_thumbnail_aligned.tar.gz""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'stack': self.stack})
+        # execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros_annotated/%(stack)s/ %(local_data_dir)s/macros_annotated/%(stack)s/""" % \
+        #                 {'gordon_data_dir': '/home/yuncong/CSHL_data',
+        #                 'local_data_dir': '/home/yuncong/CSHL_data',
+        #                 'stack': self.stack})
 
     def align(self):
-        aligned_json = self.web_service.convert_to_request('align', stack=self.stack,
-                            first_section=1,
-                            last_section=len(self.sorted_filenames),
-                            bad_sections=self.get_bad_sections())
+        aligned_json = self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
-        execute_command("""ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s; tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\";\
-                        scp gcn-20-33.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/;\
-                        cd %(local_data_dir)s; rm -rf %(stack)s_elastix_output; tar -xf %(stack)s_elastix_output.tar.gz; rm %(stack)s_elastix_output.tar.gz""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+        ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
+        execute_command("""ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&\
+                        scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&\
+                        cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz""" % \
+                        {'gordon_data_dir': self.stack_data_dir_gordon,
+                        'local_data_dir': self.stack_data_dir,
                         'stack': self.stack})
+
+        self.statusBar().showMessage('Consecutive sections alignment results downloaded.')
+
+    def get_valid_sorted_filenames(self):
+        return [fn for fn in self.sorted_filenames if fn != 'Rescan' and fn != 'Placeholder']
+
+    def compose(self):
+
+        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}, 'w') as f:
+            f.write(self.anchor_fn)
+
+        self.statusBar().showMessage('Conmpose consetive alignments...')
+        self.web_service.convert_to_request(name='compose', stack=self.stack,
+                                            filenames=self.get_valid_sorted_filenames(),
+                                            anchor_fn=self.anchor_fn)
+        self.statusBar().showMessage('Images aligned.')
+
+        self.statusBar().showMessage('Downloading aligned images ...')
+
+        execute_command(('ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif\" && '
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz' ) % \
+                        dict(gordon_data_dir=self.stack_data_dir_gordon,
+                            local_data_dir=self.stack_data_dir,
+                            stack=self.stack,
+                            anchor_fn=self.anchor_fn))
+
+        self.statusBar().showMessage('Aligned images downloaded.')
+
+
+    def set_first_section(self, i):
+        self.first_section = i
+        if self.last_section <= self.first_section:
+            self.last_section = self.first_section + 1
+        self.update_sorted_sections_gscene_label()
+
+    def set_last_section(self, i):
+        self.last_section = i
+        if self.last_section <= self.first_section:
+            self.first_section = self.last_section - 1
+        self.update_sorted_sections_gscene_label()
+
+    def set_anchor(self, anchor):
+        if isinstance(anchor, int):
+            self.anchor_fn = self.sorted_filenames[anchor-1]
+        elif isinstance(anchor, str):
+            # assert isinstance(anchor, str)
+            self.anchor_fn = anchor
+
+        self.update_sorted_sections_gscene_label()
 
     def sorted_sections_image_updated(self):
         # print self.sorted_filenames[self.sorted_sections_gscene.active_section]
@@ -698,25 +1186,61 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         position = self.slide_position_to_fn[slide_name].keys()[self.slide_position_to_fn[slide_name].values().index(filename)]
         self.slide_gscene.set_active_section(slide_name)
 
+        self.update_sorted_sections_gscene_label()
+
+
+    def update_sorted_sections_gscene_label(self):
+
+        # print self.sorted_sections_gscene.active_section, self.anchor_fn
+        # if self.sorted_sections_gscene.active_section is not None:
+        #     print self.sorted_filenames[self.sorted_sections_gscene.active_section-1]
+
+        if self.sorted_sections_gscene.active_section == self.first_section:
+            self.label_sorted_sections_status.setText('FIRST')
+        elif self.sorted_sections_gscene.active_section == self.last_section:
+            self.label_sorted_sections_status.setText('LAST')
+        elif hasattr(self, 'anchor_fn') and self.sorted_sections_gscene.active_section is not None and \
+            self.sorted_filenames[self.sorted_sections_gscene.active_section-1] == self.anchor_fn:
+            self.label_sorted_sections_status.setText('ANCHOR')
+        else:
+            self.label_sorted_sections_status.setText('')
+
     def set_status(self, slide_name, position, fn):
+        """
+        Update slide_position_to_fn variables.
+        If active, change content and captions of the specified slide position gscene.
+        """
 
-        old_fn = self.slide_position_to_fn[slide_name][position]
-
-        self.slide_position_gscenes[position].set_active_section(fn)
+        # old_fn = self.slide_position_to_fn[slide_name][position]
         self.slide_position_to_fn[slide_name][position] = fn
-        self.labels_slide_position_filename[position].setText(fn)
 
-        if hasattr(self, 'sorted_filenames'):
-            if fn == 'Placeholder' or fn == 'Rescan' or fn == 'Nonexisting':
-                self.labels_slide_position_index[position].setText('')
-            else:
-                self.labels_slide_position_index[position].setText(str(self.sorted_filenames.index(fn)+1))
+        # # if slide_name == 'N_92':
+        # print position
+        # print self.slide_position_gscenes[position].data_feeder.all_sections
+        # print self.section_image_feeders[slide_name].all_sections
+
+        if slide_name == self.slide_gscene.active_section:
+            self.slide_position_gscenes[position].set_active_section(fn)
+            self.labels_slide_position_filename[position].setText(fn)
+
+            if hasattr(self, 'sorted_filenames'):
+                if fn == 'Placeholder' or fn == 'Rescan' or fn == 'Nonexisting':
+                    self.labels_slide_position_index[position].setText('')
+                else:
+                    if fn in self.sorted_filenames:
+                        self.labels_slide_position_index[position].setText(str(self.sorted_filenames.index(fn)+1))
+                    else:
+                        self.labels_slide_position_index[position].setText('Not in sorted list.')
+
 
     def slide_image_updated(self):
         self.setWindowTitle('Slide %(slide_index)s' % {'slide_index': self.slide_gscene.active_section})
 
         slide_name = self.slide_gscene.active_section
         feeder = self.section_image_feeders[slide_name]
+
+        if slide_name not in self.slide_position_to_fn:
+            self.slide_position_to_fn[slide_name] = {p: 'Unknown' for p in [1,2,3]}
 
         for position, gscene in self.slide_position_gscenes.iteritems():
 
@@ -728,49 +1252,32 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 if position in self.thumbnail_filenames[slide_name]:
                     newest_fn = sorted(self.thumbnail_filenames[slide_name][position].items())[-1][1]
                     self.set_status(slide_name, position, newest_fn)
-                    # arbitrary_image = self.thumbnail_filenames[slide_name].values()[0].values()[0]
-                    # self.set_status(slide_name, position, arbitrary_image)
-                    # self.set_status(slide_name, position, 'Normal')
                 else:
                     self.set_status(slide_name, position, 'Nonexisting')
 
     def show_option_changed(self, index):
-        # if text == 'original':
-        #     self.section_gscene.set_data_feeder(image_feeders['original'])
-        # elif text == 'aligned':
-        #     self.section_gscene.set_data_feeder(image_feeders['aligned'])
+
         show_option_text = str(self.sender().currentText())
         if show_option_text == 'Original Aligned':
-            self.currently_showing = 'aligned'
-
-            aligned_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
-                                                    sections=self.valid_section_indices, use_data_manager=False)
-            self.aligned_images_dir = '/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/' % {'stack': self.stack}
-            aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(stack)s_%(i)04d_thumbnail_aligned.tif' % \
-                                        {'stack':self.stack, 'i':i}) for i in self.valid_section_indices]
-            aligned_images_feeder.set_images(self.valid_section_indices, aligned_image_filenames, downsample=32, load_with_cv2=False)
-            aligned_images_feeder.set_downsample_factor(32)
-
-            active_i = self.sorted_sections_gscene.active_i
-            self.sorted_sections_gscene.set_data_feeder(aligned_images_feeder)
-            self.sorted_sections_gscene.set_active_i(active_i)
-
+            self.set_show_option('aligned')
         elif show_option_text == 'Original':
-            self.currently_showing = 'original'
+            self.set_show_option('original')
         else:
             raise Exception('Not implemented.')
 
-        print self.currently_showing
+    def set_show_option(self, showing):
 
-        # self.section_gscene.set_data_feeder(self.image_feeders[self.currently_showing])
-        # self.section_gscene.update_image()
-        # self.setWindowTitle('Section %(sec)d, %(show)s' % {'sec': self.section_gscene.active_section, 'show': self.currently_showing})
+        if self.currently_showing == showing:
+            return
+        else:
+            self.currently_showing = showing
+            print self.currently_showing
+            self.update_sorted_sections_gscene_from_sorted_filenames()
 
     def slide_position_image_updated(self):
         position = self.sender().id
         # if self.slide_position_gscenes[position].active_section is not None:
         #     self.slide_position_to_fn[self.slide_gscene.active_section][position] = self.slide_position_gscenes[position].active_section
-
         self.set_status(self.slide_gscene.active_section, position, self.slide_position_gscenes[position].active_section)
 
 

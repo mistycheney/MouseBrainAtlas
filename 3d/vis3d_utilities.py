@@ -11,6 +11,7 @@ from itertools import izip
 import os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+from metadata import *
 
 import time
 import mcubes # https://github.com/pmneila/PyMCubes
@@ -265,11 +266,12 @@ def vectormap_to_imagedata(arr, colors):
     return imagedata
 
 
-def volume_to_imagedata(arr):
+def volume_to_imagedata(arr, origin=(0,0,0)):
 
     imagedata = vtk.vtkImageData()
     imagedata.SetDimensions([arr.shape[1], arr.shape[0], arr.shape[2]])
     imagedata.SetSpacing([1., 1., 1.])
+    imagedata.SetOrigin(origin[0], origin[1], origin[2])
 
     v3 = np.transpose(arr, [2,0,1])
 
@@ -335,9 +337,11 @@ def save_mesh_stl(polydata, fn):
 
 
 
-def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True):
+def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True, background_color=(0,0,0)):
 
     ren1 = vtk.vtkRenderer()
+    ren1.SetBackground(background_color)
+
     renWin = vtk.vtkRenderWindow()
     renWin.AddRenderer(ren1)
 
@@ -346,7 +350,14 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, inte
 
     camera = vtk.vtkCamera()
 
-    if init_angle == '30':
+    if init_angle == '15':
+
+        # 30 degree
+        camera.SetViewUp(0, -1, 0)
+        camera.SetPosition(-20, -20, -20)
+        camera.SetFocalPoint(1, 1, 1)
+
+    elif init_angle == '30':
 
         # 30 degree
         camera.SetViewUp(0, -1, 0)
@@ -515,9 +526,9 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
     return a
 
 
-def actor_volume(volume, what):
+def actor_volume(volume, what, origin=(0,0,0)):
 
-    imagedata = volume_to_imagedata(volume)
+    imagedata = volume_to_imagedata(volume, origin=origin)
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
     #     volumeMapper.SetBlendModeToComposite()
@@ -544,6 +555,23 @@ def actor_volume(volume, what):
         color.AddRGBPoint(1.1, 0,0,0)
         color.AddRGBPoint(200.0, .5,.5,.5)
         color.AddRGBPoint(255.0, 1,1,1)
+
+        # compositeOpacity = vtk.vtkPiecewiseFunction()
+        # compositeOpacity.AddPoint(0.0, 0.05)
+        # compositeOpacity.AddPoint(20.0, 0.05)
+        # compositeOpacity.AddPoint(240., 0.)
+        # compositeOpacity.AddPoint(1.1, 0.)
+        # compositeOpacity.AddPoint(240., 0.05)
+        # compositeOpacity.AddPoint(255.0, 0.05)
+        #
+        # color = vtk.vtkColorTransferFunction()
+        #
+        # color.AddRGBPoint(0.0, 0,0,0)
+        # color.AddRGBPoint(.9, 1,0,0)
+        # color.AddRGBPoint(1., 1,0,0)
+        # color.AddRGBPoint(1.1, 0,0,0)
+        # color.AddRGBPoint(200.0, .5,.5,.5)
+        # color.AddRGBPoint(255.0, 1,1,1)
 
     elif what == 'score':
 
@@ -589,9 +617,20 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
         else:
             xmin, xmax, ymin, ymax, zmin, zmax = scoreVol_limit
 
+        # SUPER SLOW!!
+        # from scipy.ndimage import zoom
+        # m = zoom(tb_volume, 2)
+
         m = np.zeros((tb_xdim*2, tb_ydim*2, tb_zdim*2), np.uint8)
         m[::2,::2,::2] = img_as_ubyte(tb_volume)
+        m[::2,::2,1::2] = img_as_ubyte(tb_volume)
+        m[::2,1::2,::2] = img_as_ubyte(tb_volume)
+        m[::2,1::2,1::2] = img_as_ubyte(tb_volume)
+        m[1::2,::2,::2] = img_as_ubyte(tb_volume)
+        m[1::2,::2,1::2] = img_as_ubyte(tb_volume)
+        m[1::2,1::2,::2] = img_as_ubyte(tb_volume)
         m[1::2,1::2,1::2] = img_as_ubyte(tb_volume)
+        # tb_volume_scaledToScoreVolume = m[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1].copy()
         tb_volume_scaledToScoreVolume = m[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1].copy()
 
         return tb_volume_scaledToScoreVolume

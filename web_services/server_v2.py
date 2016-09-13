@@ -160,16 +160,18 @@ def crop():
 
     ##################################################
     #
-    # t = time.time()
-    # sys.stderr.write('cropping thumbnail...')
-    #
-    # os.system("""mkdir %(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped; mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(dataproc_dir)s/%(stack)s_thumbnail_aligned_cropped/%%[filename:name]_cropped.tif" %(dataproc_dir)s/%(stack)s_thumbnail_aligned/*.tif"""%\
-    # 	{'stack': stack,
-    # 	'dataproc_dir': os.environ['DATA_DIR'],
-    # 	'w':w, 'h':h, 'x':x, 'y':y})
-    #
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-    #
+    t = time.time()
+    sys.stderr.write('cropping thumbnail...')
+
+    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped ; '
+                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
+    	{'stack': stack,
+    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'w':w, 'h':h, 'x':x, 'y':y,
+        'anchor_fn': anchor_fn})
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
     # #################################################
 
     t = time.time()
@@ -270,6 +272,28 @@ def confirm_order():
                 dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
         execute_command(cmd)
 
+
+    ###### Generate thumbnail cropped sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped &&'
+            'mkdir %(stack)s_thumbnail_sorted_aligned_cropped') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s_cropped.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s_cropped.tif '
+                '%(stack)s_thumbnail_sorted_aligned_cropped/%(stack)s_%(idx)04d_thumbnail_aligned_cropped.tif') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+
     ###### Generate lossless sorted symlinks ######
 
     cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
@@ -290,7 +314,7 @@ def confirm_order():
                 dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
         execute_command(cmd)
 
-    ###### Generate lossless sorted symlinks ######
+    ###### Generate compressed sorted symlinks ######
 
     cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
             'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed &&'
@@ -310,7 +334,7 @@ def confirm_order():
                 dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
         execute_command(cmd)
 
-    ###### Generate lossless sorted symlinks ######
+    ###### Generate saturation sorted symlinks ######
 
     cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
             'rm -rf %(stack)s_lossless_sorted_aligned_cropped_saturation &&'

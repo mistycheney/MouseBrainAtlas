@@ -188,16 +188,16 @@ class SimpleGraphicsScene3(SimpleGraphicsScene):
 
         self.box.setRect(ul_pos.x(), ul_pos.y(), lr_pos.x()-ul_pos.x(), lr_pos.y()-ul_pos.y())
 
-    def set_box(self, x, y, w, h):
+    def set_box(self, xmin, xmax, ymin, ymax):
         for c in self.corners.values():
             c.setVisible(True)
-        self.corners['ul'].setPos(x, y)
-        self.corners['ur'].setPos(x+w, y)
-        self.corners['ll'].setPos(x, y+h)
-        self.corners['lr'].setPos(x+w, y+h)
+        self.corners['ul'].setPos(xmin, ymin)
+        self.corners['ur'].setPos(xmax, ymin)
+        self.corners['ll'].setPos(xmin, ymax)
+        self.corners['lr'].setPos(xmax, ymax)
 
         self.box.setVisible(True)
-        self.box.setRect(x, y, w, h)
+        self.box.setRect(xmin, ymin, xmax-xmin, ymax-ymin)
 
     def set_bad_sections(self, secs):
         self.bad_sections = secs
@@ -760,7 +760,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'r') as f:
             ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section = map(int, f.readline().split())
-            self.sorted_sections_gscene.set_box(ul_x, ul_y, lr_x - ul_x, lr_y - ul_y)
+            self.sorted_sections_gscene.set_box(ul_x, lr_x, ul_y, lr_y)
             print ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section
 
 
@@ -776,6 +776,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
 
     def crop(self):
+        ## Note that in cropbox, xmax, ymax are not included, so w = xmax-xmin, instead of xmax-xmin+1
 
         self.save_crop()
 
@@ -786,7 +787,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         lr_x = int(lr_pos.x())
         lr_y = int(lr_pos.y())
 
-        self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x-ul_x, h=lr_y-ul_y,
+        self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y,
                                             f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
                                             filenames=self.get_valid_sorted_filenames(),
                                             first_fn=self.sorted_filenames[self.first_section-1],
@@ -959,7 +960,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         'first_section': self.first_section,
         'last_section': self.last_section,
         'anchor_fn': self.anchor_fn,
-        'bbox': (ul_x, ul_y, lr_x-ul_x, lr_y-ul_y) #x,y,w,h
+        # 'bbox': (ul_x, lr_x, ul_y, lr_y) #xmin,xmax,ymin,ymax
+        'bbox': (ul_x, ul_y, lr_x+1-ul_x, lr_y+1-ul_y) #xmin,ymin,w,h
         }
 
         import datetime
@@ -984,9 +986,33 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 'rm -r %(stack)s_thumbnail_sorted_aligned.tar &&'
                 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
                 dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
-        print download_sorted_thumbnails_symlinks_cmd
         execute_command(download_sorted_thumbnails_symlinks_cmd)
 
+
+        # Download sorted thumbnail cropped images
+        self.statusBar().showMessage('Downloading aligned cropped thumbnail images ...')
+
+        execute_command(('ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/*.tif\" && '
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(local_data_dir)s/ &&'
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz' ) % \
+                        dict(gordon_data_dir=self.stack_data_dir_gordon,
+                            local_data_dir=self.stack_data_dir,
+                            stack=self.stack,
+                            anchor_fn=self.anchor_fn))
+
+        self.statusBar().showMessage('Aligned cropped thumbnail images downloaded.')
+
+        # Download sorted thumbnail cropped data folder symbolic links
+        download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned_cropped.tar %(stack)s_thumbnail_sorted_aligned_cropped\" && '
+                'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar . &&'
+                'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped && tar -xf %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
+                'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
+                'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
+                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+        execute_command(download_sorted_thumbnails_symlinks_cmd)
+
+        # Download sorted lossless cropped data folder symbolic links
         execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
                         'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
                         'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
@@ -996,7 +1022,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
 
         self.save_everything()
-
 
 
     def update_sorted_sections_gscene_from_sorted_filenames(self):

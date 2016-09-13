@@ -120,7 +120,7 @@ class DataManager(object):
     @staticmethod
     def load_annotation_v3(stack=None, annotation_rootdir=None):
         from pandas import read_hdf
-        fn = os.path.join(annotation_rootdir, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
         contour_df = read_hdf(fn, 'contours')
         try:
             structure_df = read_hdf(fn, 'structures')
@@ -185,8 +185,8 @@ class DataManager(object):
     def get_image_dimension(stack):
         try:
             sec = section_range_lookup[stack][0]
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir),
-            shell=True).split('x'))
+            fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')

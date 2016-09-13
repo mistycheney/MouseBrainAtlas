@@ -970,6 +970,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         for i_or_sec, group in grouped:
             # if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
             for contour_id, contour in group.iterrows():
+
                 vertices = contour['vertices']
                 contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
@@ -1027,6 +1028,46 @@ class DrawableGraphicsScene(QGraphicsScene):
     #     # if index == self.active_i:
     #     #     print 'polygon added.'
     #     #     self.addItem(polygon)
+
+    def convert_drawings_to_entries(self, timestamp, username):
+
+        import uuid
+
+        CONTOUR_IS_INTERPOLATED = 1
+
+        contour_entries = {}
+
+        for idx, polygons in self.drawings.iteritems():
+            for polygon in polygons:
+                polygon_id = str(uuid.uuid4().fields[-1])
+
+                vertices = []
+                for c in polygon.vertex_circles:
+                    pos = c.scenePos()
+                    vertices.append((pos.x(), pos.y()))
+
+                pos = polygon.label_textItem.scenePos()
+
+                contour_entry = {'name': polygon.label,
+                            'label_position': (pos.x(), pos.y()),
+                           'side': polygon.side,
+                           'creator': polygon.edit_history[0]['username'],
+                           'time_created': polygon.edit_history[0]['timestamp'],
+                            'edits': polygon.edit_history + [{'username':username, 'timestamp':timestamp}],
+                            'vertices': vertices,
+                            'downsample': self.data_feeder.downsample,
+                           'flags': CONTOUR_IS_INTERPOLATED if polygon.type == 'interpolated' else 0,
+                            'section': self.data_feeder.all_sections[idx],
+                            # 'position': None,
+                            'orientation': self.data_feeder.orientation,
+                            'parent_structure': [],
+                            'id': polygon_id}
+
+        #     contour_entries.append(contour_entry)
+                assert polygon_id not in contour_entries
+                contour_entries[polygon_id] = contour_entry
+
+        return contour_entries
 
 
     def save_drawings(self, fn_template, timestamp, username):
@@ -1325,6 +1366,8 @@ class DrawableGraphicsScene(QGraphicsScene):
             #     contour_info_text += "Edited by %(editors)s\n" % \
             #     {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
 
+            print self.active_polygon.edit_history
+
             last_edit = self.active_polygon.edit_history[-1]
             contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
             {'editor': last_edit['username'],
@@ -1355,6 +1398,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
             self.active_polygon.add_edit(editor=self.gui.get_username())
             self.active_polygon.set_type(None)
+            self.active_polygon.set_side(side=None, side_manually_assigned=False)
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
             self.set_mode('add vertices consecutively')

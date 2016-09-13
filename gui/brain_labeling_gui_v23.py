@@ -157,12 +157,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.sections = range(127, 327)
         # self.sections = range(150, 304)
         # self.sections = range(150, 160)
-        self.all_sections = range(1, 439)
+        # self.all_sections = range(1, 439)
 
         # if first_sec is None and last_sec is None:
-        #     first_sec, last_sec = section_range_lookup[self.stack]
-        #
-        # self.sections = range(first_sec, last_sec + 1)
+        first_sec0, last_sec0 = section_range_lookup[self.stack]
+        self.all_sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.all_sections, use_data_manager=False)
         image_feeder.set_orientation('sagittal')
@@ -185,7 +184,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
 
         if self.gscenes['sagittal'].data_feeder.downsample == 1:
-            self.read_images_thread = ReadImagesThread(self.stack, range(150, 160))
+            self.read_images_thread = ReadImagesThread(self.stack, range(first_sec, last_sec+1))
             self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
             self.read_images_thread.start()
             self.button_stop.clicked.connect(self.read_images_thread.terminate)
@@ -196,7 +195,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # print self.sections
         try:
-            self.gscenes['sagittal'].set_active_section(150)
+            self.gscenes['sagittal'].set_active_section(first_sec)
         except Exception as e:
             sys.stderr.write(e.message + '\n')
 
@@ -434,7 +433,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def save(self):
-        return
 
         username = self.get_username()
 
@@ -448,14 +446,27 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
         labelings_dir = create_if_not_exists(os.path.join(annotation_midbrainIncluded_v2_rootdir, stack))
 
+        import datetime
         timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
-        for gscene_id, gscene in self.gscenes.iteritems():
-            # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-            # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
-            gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
+        # contour_entries_all = []
+        # for gscene_id, gscene in self.gscenes.iteritems():
+        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
+        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
+        #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        #     contour_entries_all += contour_entries.items()
 
-        self.statusBar().showMessage('Labelings saved to %s.' % labelings_dir)
+        contour_entries_all = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+
+        fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+        execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
+
+        from pandas import DataFrame
+        df = DataFrame(dict(contour_entries_all)).T
+        df.to_hdf(fn, 'contours')
+
+        self.statusBar().showMessage('Labelings saved to %s.' % fn)
 
         # pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
 
@@ -540,7 +551,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
         print 'Drawings updated.'
-        self.save()
+        # self.save()
 
         # sagittal_label_section_lookup = self.gscenes['sagittal'].get_label_section_lookup()
         # labels = sagittal_label_section_lookup.keys()
@@ -586,6 +597,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # print contour_points_grouped_by_pos.keys()
 
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+                print bbox
+
             elif gscene_id == 'coronal':
 
                 contour_points_grouped_by_pos = {p.position * factor_volResol: \
@@ -609,6 +622,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.structure_volumes[name_u] = average_multiple_volumes(volumes_3view.values(), bboxes_3view.values())
 
+        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
+        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
+        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u, side)
+
+        print '3D structure updated.'
+        self.statusBar().showMessage('3D structure updated.')
 
         # matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
 
@@ -619,26 +638,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
         # contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
         #                                 [(c.scenePos().x()*downsample/self.volume_downsample_factor,
-        #                                 c.scenePos().y()*downsample/self.volume_downsample_factor)
-        #                                 for c in p.vertex_circles] for p in matched_polygons if p.type != 'interpolated'}
         #
-        # print contour_points_grouped_by_pos.keys()
-
-        # if polygon.gscene.data_feeder.orientation == 'sagittal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-        # elif polygon.gscene.data_feeder.orientation == 'coronal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-        # elif polygon.gscene.data_feeder.orientation == 'horizontal':
-        #     volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-
-        # self.structure_volumes[name_u] = (volume, bbox)
-
-        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
-        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
-        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u, side)
-
-        print '3D structure updated.'
-        self.statusBar().showMessage('3D structure updated.')
 
 
     def eventFilter(self, obj, event):

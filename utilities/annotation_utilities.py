@@ -506,7 +506,8 @@ def average_multiple_volumes(volumes, bboxes):
 
     return overall_volume, (overall_xmin, overall_xmax, overall_ymin, overall_ymax, overall_zmin, overall_zmax)
 
-def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None):
+def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
+                                    return_contours=False, len_interval=20):
     """Interpolate contours
 
     Returns
@@ -546,8 +547,14 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     xmin, ymin, zmin = np.floor(all_points.min(axis=0)).astype(np.int)
     xmax, ymax, zmax = np.ceil(all_points.max(axis=0)).astype(np.int)
 
-    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos)
+    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos, len_interval)
+
+    if return_contours:
+        return {i: contour_pts.astype(np.int) for i, contour_pts in interpolated_contours.iteritems()}
+
     interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+    if return_voxels:
+        return interpolated_interior_points
 
     volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
     for i, pts in interpolated_interior_points.iteritems():
@@ -561,7 +568,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 
 
-def get_interpolated_contours(contours_grouped_by_pos):
+def get_interpolated_contours(contours_grouped_by_pos, len_interval):
     """
     Snap minimum z to minimum int
     Snap maximum z to maximum int
@@ -587,7 +594,7 @@ def get_interpolated_contours(contours_grouped_by_pos):
         interpolated_contours[z0] = np.array(contours_grouped_by_adjusted_pos[z0])
         if i + 1 < n:
             z1 = zs[i+1]
-            interp_cnts = interpolate_contours(contours_grouped_by_adjusted_pos[z0], contours_grouped_by_adjusted_pos[z1], nlevels=z1-z0+1)
+            interp_cnts = interpolate_contours(contours_grouped_by_adjusted_pos[z0], contours_grouped_by_adjusted_pos[z1], nlevels=z1-z0+1, len_interval_0=len_interval)
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
@@ -625,7 +632,7 @@ def signed_curvatures(s, d=7):
     curvatures = (xp * ypp - yp * xpp)/np.sqrt(xp**2+yp**2)**3
     return curvatures, xp, yp
 
-def interpolate_contours(cnt1, cnt2, nlevels):
+def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
     '''
     Returned arrays include cnt1 and cnt2 - length of array is nlevels.
     '''
@@ -650,7 +657,7 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     len_interval_2 = l2 / n2
     len_interval_interpolated = np.linspace(len_interval_1, len_interval_2, nlevels)
 
-    len_interval_0 = 20
+    # len_interval_0 = 20
     n_points = max(int(np.round(max(l1, l2) / len_interval_0)), n1, n2)
 
     s1 = resample_polygon(cnt1, n_points=n_points)

@@ -326,16 +326,30 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.slide_gview.setScene(self.slide_gscene)
 
         # slide_indices = ['N11, N12, IHC28']
-        macros_dir = '/home/yuncong/CSHL_data/macros_annotated/%(stack)s/' % {'stack': self.stack}
+        macros_dir = '/home/yuncong/CSHL_data/macros/%(stack)s/' % {'stack': self.stack}
 
         # slide_indices = defaultdict(list)
         slide_filenames = {}
         # macro_fns = []
         import re
         for fn in os.listdir(macros_dir):
-            _, prefix, slide_num, date, hour = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s*([0-9]+)\s?-\s?(.*?) (.*?)_macro_annotated.jpg$', fn)[0]
+            res = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s*([0-9]+)\s?-\s?(.*?) (.*?)_macro.jpg$', fn)
+            if len(res) > 0:
+                _, prefix, slide_num, date, hour = res[0]
+            else:
+                res = re.findall('^macro_(.*?)-(F|N|IHC)([0-9]+)-(.*?)-(.*?).jpg$', fn)
+                if len(res) > 0:
+                    _, prefix, slide_num, date, hour = res[0]
+                else:
+                    continue
             # slide_indices[prefix].append(slide_num)
             slide_filenames[prefix + '_%02d' % int(slide_num)] = fn
+
+
+        create_if_not_exists(self.stack_data_dir + '/' + self.stack)
+        with open(self.stack_data_dir + '/' + self.stack + '_slide_list.txt', 'w') as f:
+            for slide_name, fn in sorted(slide_filenames.items()):
+                f.write(slide_name + ' ' + fn + '\n')
 
         # print sorted(slide_filenames.keys())
 
@@ -772,6 +786,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         lr_x = int(lr_pos.x())
         lr_y = int(lr_pos.y())
 
+        # If not set yet.
+        if ul_x == 100 and ul_y == 100 and lr_x == 200 and lr_y == 200:
+            return
+
         with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'w') as f:
             f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
 
@@ -793,11 +811,17 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                                             first_fn=self.sorted_filenames[self.first_section-1],
                                             last_fn=self.sorted_filenames[self.last_section-1])
 
-        # self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x-ul_x, h=lr_y-ul_y,
-        #                                     f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
-        #                                     filenames=self.get_valid_sorted_filenames(),
-        #                                     first_fn=self.sorted_filenames[200],
-        #                                     last_fn=self.sorted_filenames[201])
+        # Download unsorted thumbnail cropped images
+        self.statusBar().showMessage('Downloading aligned cropped thumbnail images ...')
+
+        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/*.tif\" && '
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(local_data_dir)s/ &&'
+                        'ssh gcn-20-34.sdsc.edu rm %(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz &&'
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz' ) % \
+                        dict(gordon_data_dir=self.stack_data_dir_gordon,
+                            local_data_dir=self.stack_data_dir,
+                            stack=self.stack,
+                            anchor_fn=self.anchor_fn))
 
     def edit_transform(self):
 
@@ -806,6 +830,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.alignment_ui.setupUi(self.alignment_gui)
 
         self.alignment_ui.button_anchor.clicked.connect(self.add_anchor_pair_clicked)
+        self.alignment_ui.button_upload_transform.clicked.connect(self.upload_custom_transform)
 
         self.valid_section_filenames = [fn for fn in self.sorted_filenames if fn != 'Placeholder' and fn != 'Rescan']
         self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
@@ -828,9 +853,25 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.prev_gscene.active_image_updated.connect(self.previous_section_image_changed)
         self.prev_gscene.anchor_point_added.connect(self.anchor_point_added)
 
-        transformed_image_filenames = [self.stack_data_dir + '/%(stack)s_elastix_output/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
-                                    {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
-                                    for i in range(len(self.valid_section_indices))]
+        # transformed_image_filenames = [self.stack_data_dir + '/%(stack)s_elastix_output/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
+        #                             {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
+        #                             for i in range(len(self.valid_section_indices))]
+
+        transformed_image_filenames = []
+        for i in range(len(self.valid_section_indices)):
+
+            custom_aligned_image_fn = self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
+            {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
+
+            print custom_aligned_image_fn
+
+            if os.path.exists(custom_aligned_image_fn):
+                sys.stderr.write('Load custom transform image. %s\n' % custom_aligned_image_fn)
+                transformed_image_filenames.append(custom_aligned_image_fn)
+            else:
+                fn = self.stack_data_dir + '/%(stack)s_elastix_output/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
+                {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
+                transformed_image_filenames.append(fn)
 
         # aligned_images_feeder_labels = valid_section_indices[1:]
         transformed_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
@@ -848,6 +889,47 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.aligned_gscene.active_image_updated.connect(self.aligned_image_changed)
 
         self.alignment_gui.show()
+
+    def upload_custom_transform(self):
+        curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
+        prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+
+        custom_tf_fn = os.path.join(self.stack_data_dir, self.stack+'_custom_transforms', curr_section_fn + '_to_' + prev_section_fn, curr_section_fn + '_to_' + prev_section_fn + '_customTransform.txt')
+        with open(custom_tf_fn, 'r') as f:
+            t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
+
+        prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H /home/yuncong/CSHL_data/%(stack)s/%(prev_fn)s.tif" %dict(stack=self.stack, prev_fn=prev_section_fn),
+                                            shell=True).split('x'))
+
+        output_image_fn = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
+                        dict(stack=self.stack,
+                        curr_fn=curr_section_fn,
+                        prev_fn=prev_section_fn) )
+
+        execute_command("convert /home/yuncong/CSHL_data/%(stack)s/%(curr_fn)s.tif -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
+        dict(stack=self.stack,
+            curr_fn=curr_section_fn,
+            output_fn=output_image_fn,
+            sx=t11,
+            sy=t22,
+            rx=t21,
+            ry=t12,
+            tx=t13,
+            ty=t23,
+            w=prev_img_w,
+            h=prev_img_h,
+            x='+0',
+            y='+0'))
+
+        execute_command(('ssh gcn-20-33.sdsc.edu mkdir %(stack_data_dir_gordon)s/%(stack)s_custom_transforms; '
+                        'scp -r %(stack_data_dir)s/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_custom_transforms/') %\
+                        dict(stack_data_dir=self.stack_data_dir,
+                            stack_data_dir_gordon=self.stack_data_dir_gordon,
+                            stack=self.stack,
+                            curr_fn=curr_section_fn,
+                            prev_fn=prev_section_fn))
+
+
 
     def add_anchor_pair_clicked(self):
         self.curr_gscene.set_mode('add point')
@@ -884,6 +966,35 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             print self.curr_gscene.active_section, np.array(curr_points)
             print self.prev_gscene.active_section, np.array(prev_points)
 
+            curr_points = np.array(curr_points)
+            prev_points = np.array(prev_points)
+            curr_centroid = curr_points.mean(axis=0)
+            prev_centroid = prev_points.mean(axis=0)
+            curr_points0 = curr_points - curr_centroid
+            prev_points0 = prev_points - prev_centroid
+
+            H = np.dot(curr_points0.T, prev_points0)
+            U, S, VT = np.linalg.svd(H)
+            R = np.dot(VT.T, U.T)
+
+            t = -np.dot(R, curr_centroid) + prev_centroid
+
+            print R, t
+
+            curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
+            prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+
+            create_if_not_exists(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/' % \
+                                dict(stack=self.stack,
+                                    curr_fn=curr_section_fn,
+                                    prev_fn=prev_section_fn))
+
+            with open(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_to_%(prev_fn)s_customTransform.txt' %\
+                        dict(stack=self.stack,
+                            curr_fn=curr_section_fn,
+                            prev_fn=prev_section_fn), 'w') as f:
+                f.write('%f %f %f %f %f %f\n' % (R[0,0], R[0,1], t[0], R[1,0], R[1,1], t[1]))
+
 
     def aligned_image_changed(self):
         pass
@@ -915,11 +1026,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     def sort(self):
 
         prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
-        if len(prefixes) == 2: # IHC and N
-            IHC_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'IHC'}
-            N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
-        elif len(prefixes) == 1:
-            raise Exception('Not implemented.')
+        # if len(prefixes) == 2: # IHC and N
+        IHC_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'IHC'}
+        N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
+        # elif len(prefixes) == 1:
+        #     raise Exception('Not implemented.')
 
         sorted_fns = []
         for i in sorted(set(IHC_series.keys() + N_series.keys())):
@@ -968,7 +1079,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
         pickle.dump(info, open(self.stack_data_dir + '/%(stack)s_preprocessInfo_%(timestamp)s.pkl' % {'stack': self.stack, 'timestamp':timestamp}, 'w'))
 
-        execute_command('cd %(stack_data_dir)s; ln -s %(stack)s_preprocessInfo_%(timestamp)s.pkl %(stack)s_preprocessInfo.pkl' % {'stack': self.stack, 'timestamp':timestamp, 'stack_data_dir':self.stack_data_dir})
+        execute_command('cd %(stack_data_dir)s && rm -f %(stack)s_preprocessInfo.pkl && ln -s %(stack)s_preprocessInfo_%(timestamp)s.pkl %(stack)s_preprocessInfo.pkl' % {'stack': self.stack, 'timestamp':timestamp, 'stack_data_dir':self.stack_data_dir})
 
         self.save_crop()
         self.save_sorted_filenames()
@@ -988,18 +1099,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
         execute_command(download_sorted_thumbnails_symlinks_cmd)
 
-
-        # Download sorted thumbnail cropped images
-        self.statusBar().showMessage('Downloading aligned cropped thumbnail images ...')
-
-        execute_command(('ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/*.tif\" && '
-                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz %(local_data_dir)s/ &&'
-                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped.tar.gz' ) % \
-                        dict(gordon_data_dir=self.stack_data_dir_gordon,
-                            local_data_dir=self.stack_data_dir,
-                            stack=self.stack,
-                            anchor_fn=self.anchor_fn))
-
         self.statusBar().showMessage('Aligned cropped thumbnail images downloaded.')
 
         # Download sorted thumbnail cropped data folder symbolic links
@@ -1012,14 +1111,17 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
         execute_command(download_sorted_thumbnails_symlinks_cmd)
 
-        # Download sorted lossless cropped data folder symbolic links
+        # Download sorted lossless aligned cropped data folder symbolic links
         execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
-                        'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                        'cd %(data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
                         'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
                         'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
                         'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
                         'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
-                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+                        dict(stack=self.stack, data_dir='/media/yuncong/YuncongPublic/CSHL_data_processed/', stack_data_dir_gordon=self.stack_data_dir_gordon))
+
+        # Download unsorted lossless aligned cropped data MANUALLY !!
+
 
         self.save_everything()
 
@@ -1112,9 +1214,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.statusBar().showMessage('Cannot load slide position to image filename mapping - File does not exists.')
 
     def save(self):
-        for a, b in sorted(self.slide_position_to_fn.items()):
-            for c, d in sorted(b.items()):
-                print a, c, d
+        # for a, b in sorted(self.slide_position_to_fn.items()):
+        #     for c, d in sorted(b.items()):
+        #         print a, c, d
 
         pickle.dump(self.slide_position_to_fn, open(self.stack_data_dir + '/%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}, 'w') )
 
@@ -1140,7 +1242,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         aligned_json = self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
-        execute_command("""ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&\
+        execute_command("""ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&\
                         scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&\
                         cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz""" % \
                         {'gordon_data_dir': self.stack_data_dir_gordon,
@@ -1157,7 +1259,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}, 'w') as f:
             f.write(self.anchor_fn)
 
-        self.statusBar().showMessage('Conmpose consetive alignments...')
+        self.statusBar().showMessage('Conmpose consecutive alignments...')
         self.web_service.convert_to_request(name='compose', stack=self.stack,
                                             filenames=self.get_valid_sorted_filenames(),
                                             anchor_fn=self.anchor_fn)
@@ -1165,9 +1267,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.statusBar().showMessage('Downloading aligned images ...')
 
-        execute_command(('ssh gcn-20-33.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif\" && '
+        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif\" && '
                         'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
-                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz' ) % \
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && '
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output/%(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_elastix_output/ && '
+                        'cd %(stack)s_elastix_output && rm -f %(stack)s_transformsTo_anchor.pkl && ln -s %(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_transformsTo_anchor.pkl ') % \
                         dict(gordon_data_dir=self.stack_data_dir_gordon,
                             local_data_dir=self.stack_data_dir,
                             stack=self.stack,

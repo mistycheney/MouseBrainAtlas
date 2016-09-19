@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'AlignmentGui.ui'
 #
-# Created: Mon Sep  5 23:38:44 2016
+# Created: Wed Sep 14 01:46:02 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -96,6 +96,9 @@ class Ui_AlignmentGui(object):
         self.button_anchor = QtGui.QPushButton(AlignmentGui)
         self.button_anchor.setObjectName(_fromUtf8("button_anchor"))
         self.gridLayout.addWidget(self.button_anchor, 1, 1, 1, 1)
+        self.button_upload_transform = QtGui.QPushButton(AlignmentGui)
+        self.button_upload_transform.setObjectName(_fromUtf8("button_upload_transform"))
+        self.gridLayout.addWidget(self.button_upload_transform, 1, 3, 1, 1)
 
         self.retranslateUi(AlignmentGui)
         QtCore.QMetaObject.connectSlotsByName(AlignmentGui)
@@ -119,6 +122,7 @@ class Ui_AlignmentGui(object):
         self.comboBox_parameters.setItemText(6, _translate("AlignmentGui", "Translation", None))
         self.button_align.setText(_translate("AlignmentGui", "align", None))
         self.button_anchor.setText(_translate("AlignmentGui", "Add anchor pair", None))
+        self.button_upload_transform.setText(_translate("AlignmentGui", "Upload transform to server", None))
 
 
 if __name__ == "__main__":

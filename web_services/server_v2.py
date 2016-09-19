@@ -93,7 +93,7 @@ def compose():
                 'anchor_idx': filenames.index(anchor_fn),
                 'output_fn': output_fn},
                 kwargs_list=[{'filenames': filenames}],
-                use_nodes=[33],
+                use_nodes=[34],
                 argument_type='list')
 
     # transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \

@@ -56,7 +56,7 @@ elif suffix == 'lossless':
     scale_factor = 32
 
 if os.path.exists(os.path.join(output_dir, output_fn)):
-    sys.stderr.write('Output image already exists.\n')
+    sys.stderr.write('Output image already exists. %s\n' % output_fn)
     sys.exit(0)
 
 sys.stderr.write(output_fn + '\n')

@@ -251,9 +251,6 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             for sec in range(min_sec, max_sec+1):
 
-                # if sec in matched_confirmed_sections:
-                #     continue
-
                 # remove if this section has interpolated polygon
                 # if sec not in self.data_feeder.sections:
                 if sec not in self.data_feeder.all_sections:
@@ -267,6 +264,10 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.drawings[i].remove(p)
                     if i == self.active_i:
                         self.removeItem(p)
+
+                if sec in matched_confirmed_sections:
+                    continue
+
 
                 z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
                 # z_currResol = int(np.round((z0 + z1)/2))
@@ -633,12 +634,14 @@ class DrawableGraphicsScene(QGraphicsScene):
                         if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
                             if p.side is None or not p.side_manually_assigned:
                                 p.set_side('L', side_manually_assigned=False)
+                                sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.all_sections[section_index], p.label))
 
                     rname = convert_to_right_name(p.label)
                     if rname in structure_ranges:
                         if section_index >= structure_ranges[rname][0] and section_index <= structure_ranges[rname][1]:
                             if p.side is None or not p.side_manually_assigned:
                                 p.set_side('R', side_manually_assigned=False)
+                                sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.all_sections[section_index], p.label))
 
 
     def set_conversion_func_section_to_z(self, func):
@@ -978,7 +981,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
                                                         linecolor='r', section=i_or_sec, type=contour_type,
                                                         side=contour['side'],
-                                                        side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else True,
+                                                        # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
+                                                        side_manually_assigned=contour['side_manually_assigned'],
                                                         edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
 
         # grouped = contours.groupby('position')
@@ -1061,6 +1065,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                             # 'position': None,
                             'orientation': self.data_feeder.orientation,
                             'parent_structure': [],
+                            'side_manually_assigned': polygon.side_manually_assigned,
                             'id': polygon_id}
 
         #     contour_entries.append(contour_entry)
@@ -1358,7 +1363,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             first_edit = self.active_polygon.edit_history[0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
             {'creator': first_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
+            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
             # editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
@@ -1371,7 +1376,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             last_edit = self.active_polygon.edit_history[-1]
             contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
             {'editor': last_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d-%H:%M')
+            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
             contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.type}

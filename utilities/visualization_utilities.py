@@ -246,13 +246,16 @@ def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=No
 
 def annotation_overlay_on(bg, stack, section, structure_names=None, downscale_factor=8,
                           users=None, colors=None, show_labels=True,
-                         export_filepath_fmt=None, annotation_rootdir=annotation_midbrainIncluded_rootdir):
+                         export_filepath_fmt=None, annotation_rootdir=None):
     """
     export_filepath_fmt should include stack, sec, name, annofn as arguments.
     annofn is a concatenation of username-timestamp tuples joined by hyphens.
     """
     annotations = {}
     timestamps = {}
+
+    if annotation_rootdir is None:
+        annotation_rootdir = annotation_midbrainIncluded_rootdir
 
     if users is None:
         users = ['yuncong', 'localAdjusted', 'autoAnnotate']

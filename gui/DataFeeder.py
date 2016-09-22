@@ -39,18 +39,30 @@ gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 class ImageDataFeeder(object):
 
-    def __init__(self, name, stack, sections):
+    def __init__(self, name, stack, sections, version='aligned_cropped', use_data_manager=True):
         self.name = name
         self.stack = stack
 
-        self.sections = sections
-        self.min_section = min(self.sections)
-        self.max_section = max(self.sections)
+        if use_data_manager:
+            # index in stack
+            assert sections is not None
+            self.sections = sections
+            self.min_section = min(self.sections)
+            self.max_section = max(self.sections)
+
+            self.first_section, self.last_section = section_range_lookup[stack]
+            self.all_sections = range(self.first_section, self.last_section+1)
+        else:
+            # macro index
+            self.sections = sections
+            self.all_sections = sections
 
         self.n = len(self.sections)
 
         self.supported_downsample_factors = [1, 32]
         self.image_cache = {}
+
+        self.version = version
 
     def set_orientation(self, orientation):
         self.orientation = orientation
@@ -61,8 +73,31 @@ class ImageDataFeeder(object):
         if downsample is None:
             downsample = self.downsample
 
+        if downsample not in self.image_cache:
+            self.image_cache[downsample] = {}
+
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
+
+    def set_images(self, labels, filenames, downsample=None, load_with_cv2=False):
+
+        for lbl, fn in zip(labels, filenames):
+            if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
+                # print fn
+                img = cv2.imread(fn)
+                if img is None:
+                    continue
+
+                h, w = img.shape[:2]
+                if img.ndim == 3:
+                    qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
+                else:
+                    qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
+                    qimage.setColorTable(gray_color_table)
+            else:
+                qimage = QImage(fn)
+            self.set_image(qimage, lbl, downsample=downsample)
+
 
     def load_images(self, downsample=None, selected_sections=None):
         if downsample is None:
@@ -71,13 +106,32 @@ class ImageDataFeeder(object):
         if selected_sections is None:
             selected_sections = self.sections
 
-        if downsample == 1:
-            self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-                            for sec in selected_sections}
-        elif downsample == 32:
-            self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
-                                            % dict(stack=self.stack, sec=sec))
-                                            for sec in selected_sections}
+        if self.version == 'aligned_cropped':
+            if downsample == 1:
+                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
+                                                for sec in selected_sections}
+            elif downsample == 32:
+                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
+                                                % dict(stack=self.stack, sec=sec))
+                                                for sec in selected_sections}
+            else:
+                raise Exception('Not implemented.')
+        elif self.version == 'aligned':
+            if downsample == 32:
+                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/%(stack)s_%(sec)04d_thumbnail_aligned.tif' \
+                                                % dict(stack=self.stack, sec=sec))
+                                                for sec in selected_sections}
+            else:
+                raise Exception('Not implemented.')
+        elif self.version == 'original':
+            if downsample == 32:
+                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_renamed/%(stack)s_%(sec)04d_thumbnail.tif' \
+                                                % dict(stack=self.stack, sec=sec))
+                                                for sec in selected_sections}
+            else:
+                raise Exception('Not implemented.')
+        else:
+            raise Exception('Not implemented.')
 
         self.compute_dimension()
 
@@ -105,7 +159,7 @@ class ImageDataFeeder(object):
 
         self.compute_dimension()
 
-    def retrive_i(self, i, sec=None, downsample=None):
+    def retrive_i(self, i=None, sec=None, downsample=None):
 
         if downsample is None:
             downsample = self.downsample
@@ -115,7 +169,8 @@ class ImageDataFeeder(object):
             return
 
         if sec is None:
-            sec = self.sections[i]
+            # sec = self.sections[i]
+            sec = self.all_sections[i]
 
         # if downsample not in self.image_cache:
         #     t = time.time()
@@ -135,8 +190,9 @@ class ImageDataFeeder(object):
             self.image_cache[downsample] = {}
 
         if sec not in self.image_cache[downsample]:
-            sys.stderr.write('Image is not loaded.\n')
-            return None
+            # sys.stderr.write('Image is not loaded.\n')
+            raise Exception('Image is not loaded.')
+            # raise Exception('Image is not loaded.')
 
         return self.image_cache[downsample][sec]
 

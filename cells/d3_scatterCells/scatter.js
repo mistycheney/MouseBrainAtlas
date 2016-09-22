@@ -1,8 +1,9 @@
 // reference: http://www.cotrino.com/lifespan/lifespan.js
 
-var margin = { top: 50, right: 300, bottom: 50, left: 50 },
-outerWidth = 2000,
-outerHeight = 1000,
+var margin = { top: 0, right: 0, bottom: 50, left: 50 },
+// Ger browser window size http://stackoverflow.com/questions/3333329/javascript-get-browser-height
+outerWidth = window.innerWidth - margin.left,
+outerHeight = window.innerHeight - margin.bottom,
 width = outerWidth - margin.left - margin.right,
 height = outerHeight - margin.top - margin.bottom;
 
@@ -116,33 +117,39 @@ var tip = d3.tip()
 .attr("class", "d3-tip")
 .offset([-10, 0])
 .html(function(d) {
-  return xCat + ": " + d[xCat] + "<br>" + yCat + ": " + d[yCat];
+  return "member count = " + d["memberCount"];
+  // return xCat + ": " + d[xCat] + "<br>" + yCat + ": " + d[yCat];
 });
 
 
-var dataset = 'random100';
+
+// var dataset = 'random10';
+var dataset = 'mediumCells'
+var cell_number = '10'
+var nystrom_sample_num = '1000'
 
 var datadir;
 
 if (location.hostname == 'localhost') {
-  datadir = '../../../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  datadir = '../../../CSHL_cells_v2/gallery/random/'; // <-- Change this to the data folder
 } else {
   // datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
-  datadir = '../../../csd395/CSHL_cells/gallery/nonsmallKMeans/'; // <-- Change this to the data folder
+  // datadir = '../../../csd395/CSHL_cells/gallery/largeCells/'; // <-- Change this to the data folder
+  datadir = '../../../csd395/CSHL_cells_v2/gallery/'; // <-- Change this to the data folder
 }
 
 var show_blob = true;
 
-load_data(dataset);
+load_data(dataset, cell_number, nystrom_sample_num);
 
-function load_data(dataset) {
+function load_data(dataset, cell_number=10, nystrom_sample_num=200) {
 
   // d3.json(datadir+'/'+dataset+'/embedding_'+dataset+'.json'+ '?' + Math.floor(Math.random() * 1000),
-  d3.json(datadir+'/'+dataset+'/embedding_'+dataset+'.json',
+  d3.json(datadir+dataset+'/random'+cell_number+'/embedding_random'+cell_number+'_nystrom'+nystrom_sample_num+'.json',
   function(data) {
     data.forEach(function(d) {
-      d.fname_blob = datadir+'/'+dataset+"/blobs/cellMask_"+dataset+"Blobs_"+d.id+"_"+d.index+'.png';
-      d.fname_contour = datadir+'/'+dataset+"/contours/cellMask_"+dataset+"Contours_"+d.id+"_"+d.index+'.png';
+      d.fname_blob = datadir+'/'+dataset+'/random'+cell_number+"/blobs/cellMask_random"+cell_number+"Blobs_"+d.id+"_"+d.index+'.png';
+      d.fname_contour = datadir+'/'+dataset+'/random'+cell_number+"/contours/cellMask_random"+cell_number+"Contours_"+d.id+"_"+d.index+'.png';
       // cannot use "width", "height" as keys, may confuse with built-in attributes
     });
 
@@ -159,19 +166,71 @@ function load_data(dataset) {
     d3.select('#toggleContour').on('click', toggleContourFunc);
   });
 }
+//
+// d3.select('#changeDataset').on('click', changeDatasetFunc);
+//
+// function changeDatasetFunc() {
+//   if (dataset == 'random100'){
+//     dataset = 'random1000';
+//     d3.select('svg').remove();
+//     d3.select('#changeDataset').attr('value', 'Show 100 cells');
+//     load_data(dataset);
+//   } else {
+//     dataset = 'random100';
+//     d3.select('svg').remove();
+//     d3.select('#changeDataset').attr('value', 'Show 1000 cells');
+//     load_data(dataset);
+//   }
+// }
 
-d3.select('#changeDataset').on('click', changeDatasetFunc);
 
-function changeDatasetFunc() {
-  if (dataset == 'random100'){
-    dataset = 'random1000';
-    d3.select('svg').remove();
-    d3.select('#changeDataset').attr('value', 'Show 100 cells');
-    load_data(dataset);
-  } else {
-    dataset = 'random100';
-    d3.select('svg').remove();
-    d3.select('#changeDataset').attr('value', 'Show 1000 cells');
-    load_data(dataset);
-  }
+// Get selection from combox box http://stackoverflow.com/questions/18883675/d3-js-get-value-of-selected-option
+
+d3.select('#dataset_list').on('change', dataset_changed);
+
+function dataset_changed() {
+
+  value = d3.select('#dataset_list').property("value");
+  dataset = value;
+  d3.select('svg').remove();
+  load_data(dataset, cell_number, nystrom_sample_num);
+}
+
+
+d3.select('#cell_number_list').on('change', cell_number_changed);
+
+function cell_number_changed() {
+
+  value = d3.select('#cell_number_list').property("value");
+  cell_number = value;
+  d3.select('svg').remove();
+  load_data(dataset, cell_number, nystrom_sample_num);
+}
+
+d3.select('#nystrom_sample_number_list').on('change', nystrom_sample_number_changed);
+
+function nystrom_sample_number_changed() {
+  value = d3.select('#nystrom_sample_number_list').property("value");
+  nystrom_sample_num = value;
+  d3.select('svg').remove();
+  load_data(dataset, cell_number, nystrom_sample_num);
+}
+
+
+d3.select('#x_axis_label').on('change', x_label_changed);
+
+function x_label_changed() {
+  value = d3.select('#x_axis_label').property("value");
+  xCat = value;
+  d3.select('svg').remove();
+  load_data(dataset, cell_number, nystrom_sample_num);
+}
+
+d3.select('#y_axis_label').on('change', y_label_changed);
+
+function y_label_changed() {
+  value = d3.select('#y_axis_label').property("value");
+  yCat = value;
+  d3.select('svg').remove();
+  load_data(dataset, cell_number, nystrom_sample_num);
 }

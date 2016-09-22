@@ -24,6 +24,8 @@ from enum import Enum
 
 from gui_utilities import *
 
+from datetime import datetime
+
 # class Mode(Enum):
 #     REVIEW_PROPOSAL = 'review proposal'
 #     IDLE = 'idle'
@@ -43,6 +45,7 @@ from gui_utilities import *
 
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
+    # def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, vertex_radius=None):
     def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, index=None, vertex_radius=None):
 
         super(self.__class__, self).__init__(path, parent=parent)
@@ -67,6 +70,12 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
             self.vertex_radius = vertex_radius
 
         self.type = None
+        self.edit_history = []
+
+        self.side = None
+
+        # self.endorsers = set([])
+        # self.creator = None
 
         # if section is None:
         #     self.section = section
@@ -76,6 +85,28 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
 
+
+    def set_edit_history(self, edit_history):
+        self.edit_history = edit_history
+
+    def add_edit(self, editor):
+        self.edit_history.append({'username': editor, 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})
+
+    # def set_creator(self, creator):
+    #     if self.creator is not None:
+    #         sys.stderr.write('Creator has been set for polygon, ignored.\n')
+    #     else:
+    #         self.creator = creator
+    #
+    # def set_endorsers(self, endorsers):
+    #     self.endorsers = endorsers
+    #
+    # def add_endorser(self, endorser):
+    #     self.endorsers.add(endorser)
+
+    def set_side(self, side, side_manually_assigned):
+        self.side = side
+        self.side_manually_assigned = side_manually_assigned
 
     def set_type(self, t):
 
@@ -290,8 +321,44 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     def add_vertex(self, x, y, new_index=-1):
         if new_index == -1:
             polygon_goto(self, x, y)
+        else:
+            new_path = insert_vertex(self.path())
+            self.setPath(new_path)
 
         self.add_circle_for_vertex(new_index)
+
+
+    def delete_vertices(self, indices_to_remove, merge=False):
+
+    	if merge:
+    		new_path = delete_vertices_merge(self.path(), indices_to_remove)
+
+    		# self.history_allSections[self.selected_section].append({
+    		# 	'type': 'delete_vertices_merge',
+    		# 	'polygon': polygon,
+    		# 	'new_polygon': new_polygon,
+    		# 	'indices_to_remove': indices_to_remove,
+    		# 	'label': self.accepted_proposals_allSections[self.selected_section][new_polygon]['label']
+    		# 	})
+
+    	else:
+    		paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
+
+    		# new_polygons = []
+    		# for path in paths_to_keep:
+    		# 	new_polygon = self.add_polygon_by_vertices_label(path, pen=self.red_pen, label=self.accepted_proposals_allSections[self.selected_section][polygon]['label'])
+    		# 	new_polygons.append(new_polygon)
+            #
+    		# self.remove_polygon(polygon)
+
+    		# self.history_allSections[self.selected_section].append({
+    		# 	'type': 'delete_vertices_split',
+    		# 	'polygon': polygon,
+    		# 	'new_polygons': new_polygons,
+    		# 	'indices_to_remove': indices_to_remove,
+    		# 	'label': self.accepted_proposals_allSections[self.selected_section][new_polygons[0]]['label']
+    		# 	})
+
 
     def set_closed(self, closed):
         self.closed = closed
@@ -379,6 +446,63 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
     #
     #     if not self.gui.mode == Mode.IDLE:
     #         QGraphicsPathItem.mouseMoveEvent(self, event)
+
+
+class QGraphicsEllipseItemModified2(QGraphicsEllipseItem):
+    """
+    This variant has no polygon associated with it.
+    """
+
+    def __init__(self, x, y, w, h, parent=None, scene=None):
+        super(self.__class__, self).__init__(x,y,w,h, parent=parent, scene=scene)
+        self.signal_emitter = VertexSignalEmitter(parent=self)
+
+    def itemChange(self, change, val):
+        # print change
+        if change == QGraphicsItem.ItemPositionChange:
+            old_pos = self.scenePos()
+            # print 'old', old_pos.x(), old_pos.y()
+            new_x = val.x()
+            new_y = val.y()
+            # print 'new', new_x, new_y
+
+        return val
+        # return val
+
+    def mousePressEvent(self, event):
+
+        # print self, 'received mousePressEvent'
+        QGraphicsEllipseItem.mousePressEvent(self, event)
+        self.signal_emitter.press.emit(self)
+
+class QGraphicsEllipseItemModified3(QGraphicsEllipseItem):
+    """
+    Basic QGraphicsEllipseItem that supports emitting MOVED signal.
+    """
+
+    def __init__(self, x, y, w, h, parent=None, scene=None):
+        super(self.__class__, self).__init__(x,y,w,h, parent=parent, scene=scene)
+        self.signal_emitter = VertexSignalEmitter(parent=self)
+
+    def itemChange(self, change, val):
+        # print change
+        if change == QGraphicsItem.ItemPositionChange:
+            # old_pos = self.scenePos()
+            # print 'old', old_pos.x(), old_pos.y()
+            new_x = val.x()
+            new_y = val.y()
+            # print 'new', new_x, new_y
+            self.signal_emitter.moved.emit(self, new_x, new_y)
+
+        return val
+
+    def mousePressEvent(self, event):
+        QGraphicsEllipseItem.mousePressEvent(self, event)
+        self.signal_emitter.pressed.emit(self)
+
+    def mouseReleaseEvent(self, event):
+        QGraphicsEllipseItem.mouseReleaseEvent(self, event)
+        self.signal_emitter.released.emit(self)
 
 
 
@@ -493,6 +617,9 @@ class VertexSignalEmitter(QObject):
     # moved = pyqtSignal(int, int, int, int)
     press = pyqtSignal(object)
     release = pyqtSignal()
+    pressed = pyqtSignal(object)
+    released = pyqtSignal(object)
+    moved = pyqtSignal(object, int, int)
 
     def __init__(self, parent):
         super(self.__class__, self).__init__()

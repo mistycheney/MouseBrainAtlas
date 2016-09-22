@@ -98,7 +98,11 @@ def generate_mask(img):
 
 def f(stack, sec):
 
-    img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_'%sec + suffix + '.' + thumbnail_fmt))
+    try:
+        img = rgb2gray(imread(input_dir+'/'+stack+'_%04d_'%sec + suffix + '.' + thumbnail_fmt))
+    except:
+        sys.stderr.write('Cannot load image of section %d.\n' % secind)
+        return
 
     try:
         mask = generate_mask(img)

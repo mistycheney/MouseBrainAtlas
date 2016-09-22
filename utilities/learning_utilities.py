@@ -126,7 +126,26 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
 #             cv2.imwrite(fn_template % {'stack':stack, 'sec':sec}, viz[...,::-1])
 
 
-def extract_patches_given_locations(stack, sec, locs=None, grid_spec=None, indices=None, sample_locations=None):
+# def get_names_given_locations(stack, section, label_polygons=None, username=None, locations=None, indices=None, grid_spec=None, grid_locations=None):
+#
+#     if label_polygons is None:
+#         label_polygons = load_label_polygons_if_exists(stack, username)
+#
+#     # if indices is not None:
+#     #     assert locations is None, 'Cannot specify both indices and locs.'
+#     #     if grid_locations is None:
+#     #         grid_locations = grid_parameters_to_sample_locations(grid_spec)
+#     #     locations = grid_locations[indices]
+#
+#     index_to_name_mapping = {}
+#     for name, full_indices in label_polygons.loc[section].dropna().to_dict():
+#         for i in full_indices:
+#             index_to_name_mapping[i] = name
+#
+#     return [index_to_name_mapping[i] for i in indices]
+
+
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None, grid_locations=None):
 
     img = imread(DataManager.get_image_filepath(stack, sec))
 
@@ -138,11 +157,11 @@ def extract_patches_given_locations(stack, sec, locs=None, grid_spec=None, indic
 
     if indices is not None:
         assert locs is None, 'Cannot specify both indices and locs.'
-        if sample_locations is None:
-            sample_locations = grid_parameters_to_sample_locations(grid_spec)
-        locs = sample_locations[indices]
+        if grid_locations is None:
+            grid_locations = grid_parameters_to_sample_locations(grid_spec)
+        locs = grid_locations[indices]
 
-    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size] for x, y in locs]
+    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 
 
@@ -207,24 +226,76 @@ def extract_patches_given_locations_multiple_sections(addresses, location_or_gri
     """
 
     from collections import defaultdict
+    # locations_grouped = defaultdict(lambda: defaultdict(list))
+    # for list_index, (stack, sec, loc) in enumerate(addresses):
+    #     locations_grouped[stack][sec].append((loc, list_index))
+
+    locations_grouped = {stack_sec: (x[2], list_index) \
+                        for stack_sec, (list_index, x) in group_by(enumerate(addresses), lambda i, x: (x[0],x[1]))}
+
+    patches_all = []
+    list_indices_all = []
+    # for stack, locations_allSections in locations_grouped.iteritems():
+    #     for sec, loc_listInd_tuples in locations_allSections.iteritems():
+    for stack_sec, locations_allSections in locations_grouped.iteritems():
+        stack, sec = stack_sec
+        locs_thisSec, list_indices = map(list, zip(*locations_allSections))
+        if location_or_grid_index == 'location':
+            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+        else:
+            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec)
+        patches_all += extracted_patches
+        list_indices_all += list_indices
+
+    patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
+    return patch_all_inOriginalOrder
+
+def get_names_given_locations_multiple_sections(addresses, location_or_grid_index='location', username=None):
+
+    # from collections import defaultdict
+    # locations_grouped = {stack_sec: (x[2], list_index) \
+    #                     for stack_sec, (list_index, x) in group_by(enumerate(addresses), lambda i, x: (x[0],x[1]))}
+
     locations_grouped = defaultdict(lambda: defaultdict(list))
     for list_index, (stack, sec, loc) in enumerate(addresses):
         locations_grouped[stack][sec].append((loc, list_index))
 
-    patches_all = []
+    # if indices is not None:
+    #     assert locations is None, 'Cannot specify both indices and locs.'
+    #     if grid_locations is None:
+    #         grid_locations = grid_parameters_to_sample_locations(grid_spec)
+    #     locations = grid_locations[indices]
+
+    names_all = []
     list_indices_all = []
     for stack, locations_allSections in locations_grouped.iteritems():
+
+        structure_grid_indices = locate_annotated_patches(stack=stack, username=username, force=True,
+                                                        annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+
         for sec, loc_listInd_tuples in locations_allSections.iteritems():
+
+            label_dict = structure_grid_indices[sec].dropna().to_dict()
+
             locs_thisSec, list_indices = map(list, zip(*loc_listInd_tuples))
+
+            index_to_name_mapping = {}
+
+            for name, full_indices in label_dict.iteritems():
+                for i in full_indices:
+                    index_to_name_mapping[i] = name
+
             if location_or_grid_index == 'location':
-                extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+                raise Exception('Not implemented.')
             else:
-                extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec)
-            patches_all += extracted_patches
+                names = [index_to_name_mapping[i] if i in index_to_name_mapping else 'BackG' for i in locs_thisSec]
+
+            names_all += names
             list_indices_all += list_indices
 
-    patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
-    return patch_all_inOriginalOrder
+    names_all_inOriginalOrder = [names_all[i] for i in np.argsort(list_indices_all)]
+    return names_all_inOriginalOrder
+
 
 
 # def extract_patches_given_addresses(addresses):
@@ -252,20 +323,21 @@ def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = DataManager.get_image_dimension(stack)
     return (patch_size, stride, image_width, image_height)
 
-def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=False, annotation_rootdir=None, cerebellum_removed=True, sided=True):
+# def locate_annotated_patches(stack, grid_spec=None, username='yuncong', regenerate_annotation_polygon=False, dump=True, annotation_rootdir=None, cerebellum_removed=True, sided=True):
+def locate_annotated_patches(stack, grid_spec=None, username='yuncong', annotation_rootdir=None, cerebellum_removed=True, sided=True):
     """
     If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
 
     Return a DataFrame: indexed by structure names and section number, cell is the grid indices.
     """
 
-    if not force:
-        try:
-            fn = os.path.join(patch_rootdir, '%(stack)s_indices_allLandmarks_allSection.h5' % {'stack':stack})
-            indices_allLandmarks_allSections_df = pd.read_hdf(fn, 'framewise_indices')
-            return indices_allLandmarks_allSections_df
-        except Exception as e:
-            sys.stderr.write(e.message)
+    # if not force:
+    #     try:
+    #         fn = os.path.join(patch_rootdir, '%(stack)s_indices_allLandmarks_allSection.h5' % {'stack':stack})
+    #         indices_allLandmarks_allSections_df = pd.read_hdf(fn, 'framewise_indices')
+    #         return indices_allLandmarks_allSections_df
+    #     except Exception as e:
+    #         sys.stderr.write(e.message)
 
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
@@ -290,6 +362,11 @@ def locate_annotated_patches(stack, grid_spec=None, username='yuncong', force=Fa
 
 
     indices_allLandmarks_allSections_df = pd.DataFrame(indices_allLandmarks_allSections)
+
+    # if dump:
+    #     fn = os.path.join(patch_rootdir, '%(stack)s_indices_allLandmarks_allSection.h5' % {'stack':stack})
+    #     indices_allLandmarks_allSections_df = pd.to_hdf(fn, 'framewise_indices')
+    #     return indices_allLandmarks_allSections_df
 
     return indices_allLandmarks_allSections_df
 

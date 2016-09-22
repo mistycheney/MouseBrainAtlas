@@ -3,6 +3,53 @@ from metadata import *
 
 class DataManager(object):
 
+    @staticmethod
+    def load_volume_label_to_name(stack):
+        label_to_name = {}
+        name_to_label = {}
+
+        with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_nameToLabel.txt'), 'r') as f:
+            for line in f.readlines():
+                name_s, label = line.split()
+                label_to_name[int(label)] = name_s
+                name_to_label[name_s] = int(label)
+
+        return label_to_name, name_to_label
+
+    @staticmethod
+    def load_volume_bbox(stack):
+        with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_bbox.txt'), 'r') as f:
+            bbox = map(int, f.readline().strip().split())
+        return bbox
+
+    @staticmethod
+    def load_cropbox(stack):
+        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+            cropbox = one_liner_to_arr(f.readline(), int)
+        return cropbox
+
+    @staticmethod
+    def load_sorted_filenames(stack):
+        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+            fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+            filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+            section_to_filename = {int(idx): fn for fn, idx in fn_idx_tuples}
+        return filename_to_section, section_to_filename
+
+    @staticmethod
+    def load_transforms(stack, downsample_factor):
+
+        import cPickle as pickle
+        Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+        Ts_inv_downsampled = {}
+        for fn, T0 in Ts.iteritems():
+            T = T0.copy()
+            T[:2, 2] = T[:2, 2] * 32 / downsample_factor
+            Tinv = np.linalg.inv(T)
+            Ts_inv_downsampled[fn] = Tinv
+
+        return Ts_inv_downsampled
 
     @staticmethod
     def save_thumbnail_mask(mask, stack, section, cerebellum_removed=False):
@@ -19,6 +66,20 @@ class DataManager(object):
         return thumbmail_mask
 
     @staticmethod
+    def load_thumbnail_mask_v2(stack, section, version='aligned_cropped'):
+
+        if version == 'aligned_cropped':
+            fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned_cropped/%(stack)s_%(sec)04d_mask_aligned_cropped.png' % \
+                dict(stack=stack, sec=section)
+        elif version == 'aligned':
+            fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned/%(stack)s_%(sec)04d_mask_aligned.png' % \
+                dict(stack=stack, sec=section)
+
+        mask = imread(fn).astype(np.bool)
+        return mask
+
+
+    @staticmethod
     def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
         if cerebellum_removed:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
@@ -26,18 +87,27 @@ class DataManager(object):
         else:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
                             {'stack': stack, 'sec': section}
+
         return fn
 
 
     @staticmethod
     def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir):
-
         slice_str = '%04d' % section
 
         if version == 'rgb-jpg':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
+            # image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
+            # image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
+            # image_path = os.path.join(image_dir, image_name + '.jpg')
+
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_compressed')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_compressed'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
+
+        elif version == 'rgb':
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped')
+            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
+            image_path = os.path.join(image_dir, image_name + '.tif')
         # elif version == 'gray-jpg':
         #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
         #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
@@ -56,7 +126,7 @@ class DataManager(object):
         #     image_path = os.path.join(image_dir, image_name + '.jpg')
 
         elif version == 'saturation':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_saturation')
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_saturation')
             image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
 
@@ -97,7 +167,6 @@ class DataManager(object):
 
         return os.path.join(d, selected_f), selected_username, selected_timestamp
 
-
     @staticmethod
     def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
         res = DataManager.get_annotation_path_v2(stack=stack, username=username, timestamp=timestamp, orientation=orientation, downsample=downsample, annotation_rootdir=annotation_rootdir)
@@ -109,6 +178,21 @@ class DataManager(object):
         else:
             return obj, usr, ts
 
+
+    @staticmethod
+    def load_annotation_v3(stack=None, annotation_rootdir=None):
+        from pandas import read_hdf
+        fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        contour_df = read_hdf(fn, 'contours')
+        try:
+            structure_df = read_hdf(fn, 'structures')
+        except Exception as e:
+            print e
+            sys.stderr.write('Annotation has no structures.\n')
+            return contour_df, None
+
+        sys.stderr.write('Loaded annotation %s.\n' % fp)
+        return contour_df, structure_df
 
     @staticmethod
     def get_annotation_path(stack, section, username=None, timestamp='latest', annotation_rootdir=annotation_rootdir):
@@ -163,8 +247,8 @@ class DataManager(object):
     def get_image_dimension(stack):
         try:
             sec = section_range_lookup[stack][0]
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir),
-            shell=True).split('x'))
+            fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')
@@ -184,25 +268,46 @@ class DataManager(object):
         first_sec, last_sec = section_range_lookup[stack]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
-            z_begin = int(np.floor(first_sec*voxel_z_size))
+            # z_begin = int(np.floor(first_sec*voxel_z_size))
+            z_begin = first_sec * voxel_z_size
+        # print 'z_begin', first_sec*voxel_z_size, z_begin
 
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size
         # return int(z1)-z_begin, int(z2)+1-z_begin
-        return int(np.round(z1))-z_begin, int(np.round(z2))+1-z_begin
+        # print 'z1, z2', z1-z_begin, z2-1-z_begin
+        return z1-z_begin, z2-1-z_begin
+        # return int(np.round(z1-z_begin)), int(np.round(z2-1-z_begin))
+        # return int(np.round(z1))-z_begin, int(np.round(z2))-1-z_begin
 
     @staticmethod
-    def convert_z_to_section(stack, z, downsample):
+    def convert_z_to_section(stack, z, downsample, z_begin=None):
+        """
+        z_begin default to int(np.floor(first_sec*voxel_z_size)).
+        """
         xy_pixel_distance = xy_pixel_distance_lossless * downsample
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
         first_sec, last_sec = section_range_lookup[stack]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-        z_begin = int(np.floor(first_sec*voxel_z_size))
 
-        sec = int(np.round((z + z_begin) / voxel_z_size))
-        return sec
+        if z_begin is None:
+            # z_begin = int(np.floor(first_sec*voxel_z_size))
+            z_begin = first_sec * voxel_z_size
+        # print 'z_begin', first_sec*voxel_z_size, z_begin
+
+        sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+        # print sec_float
+        # print sec_float == 98., np.floor(np.float(sec_float))
+        sec_floor = int(np.floor(sec_float))
+
+        return sec_floor
+        # sec_ceil = int(np.ceil(sec_float))
+        # if sec_ceil == sec_floor:
+        #     return sec_ceil
+        # else:
+        #     return sec_floor, sec_ceil
 
     def __init__(self, data_dir=os.environ['DATA_DIR'],
                  repo_dir=os.environ['REPO_DIR'],

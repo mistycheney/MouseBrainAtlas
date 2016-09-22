@@ -111,7 +111,128 @@ def get_annotation_on_sections(stack=None, username=None, label_polygons=None, f
     return annotation_on_sections
 
 
-def get_landmark_range_limits(stack=None, username=None, label_polygons=None, filtered_labels=None):
+def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered_labels=None):
+    """
+    label_section_lookup is a dict, keys are labels, values are sections.
+    """
+
+    # first_sec, last_sec = section_range_lookup[stack]
+
+    print label_section_lookup
+
+    first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+    mid_sec = (first_sec + last_sec)/2
+    print mid_sec
+
+    landmark_limits = {}
+
+    if filtered_labels is None:
+        d = set(label_section_lookup.keys())
+    else:
+        d = set(label_section_lookup.keys()) & set(filtered_labels)
+
+    d_unsided = set(map(convert_name_to_unsided, d))
+
+    for name_u in d_unsided:
+
+        lname = convert_to_left_name(name_u)
+        rname = convert_to_right_name(name_u)
+
+        secs = []
+
+        if name_u in label_section_lookup:
+            secs += list(label_section_lookup[name_u])
+
+        if lname in label_section_lookup:
+            secs += list(label_section_lookup[lname])
+
+        if rname in label_section_lookup:
+            secs += list(label_section_lookup[rname])
+
+        secs = np.array(sorted(secs))
+
+        if name_u in singular_structures: # single
+            landmark_limits[name_u] = (secs.min(), secs.max())
+        else: # two sides
+
+            if len(secs) == 1:
+                sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
+                sec = secs[0]
+                if sec < mid_sec:
+                    landmark_limits[lname] = (sec, sec)
+                else:
+                    landmark_limits[rname] = (sec, sec)
+                continue
+
+            elif len(secs) == 0:
+                raise
+            else:
+
+                inferred_Ls = secs[secs < mid_sec]
+                if len(inferred_Ls) > 0:
+                    inferred_maxL = np.max(inferred_Ls)
+                else:
+                    inferred_maxL = None
+
+                inferred_Rs = secs[secs >= mid_sec]
+                if len(inferred_Rs) > 0:
+                    inferred_minR = np.min(inferred_Rs)
+                else:
+                    inferred_minR = None
+
+                # diffs = np.diff(secs)
+                # peak = np.argmax(diffs)
+                #
+                # inferred_maxL = secs[peak]
+                # inferred_minR = secs[peak+1]
+
+                if lname in label_section_lookup:
+                    labeled_maxL = np.max(label_section_lookup[lname])
+                    maxL = max(labeled_maxL, inferred_maxL if inferred_maxL is not None else 0)
+                else:
+                    maxL = inferred_maxL
+
+                if rname in label_section_lookup:
+                    labeled_minR = np.min(label_section_lookup[rname])
+                    minR = min(labeled_minR, inferred_minR if inferred_minR is not None else 999)
+                else:
+                    minR = inferred_minR
+
+                if maxL is not None:
+                    landmark_limits[lname] = (np.min(secs), maxL)
+
+                if minR is not None:
+                    landmark_limits[rname] = (minR, np.max(secs))
+
+                # if maxL >= minR:
+                #     sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+                #     # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+                #     #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+                #
+                #     if inferred_maxL < inferred_minR:
+                #         maxL = inferred_maxL
+                #         minR = inferred_minR
+                #         sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+                #     elif labeled_maxL < labeled_minR:
+                #         maxL = labeled_maxL
+                #         minR = labeled_minR
+                #         sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+                #     else:
+                #         sys.stderr.write('#### Cannot resolve.. ignored.\n')
+                #         continue
+
+            # landmark_limits[lname] = (np.min(secs), maxL)
+            # landmark_limits[rname] = (minR, np.max(secs))
+
+            # print 'label:', name_u
+            # print 'secs:', secs
+            # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
+            # print '\n'
+
+    return landmark_limits
+
+
+def get_landmark_range_limits(stack=None, username=None, label_polygons=None, label_section_lookup=None, filtered_labels=None):
     """
     Get a dictionary, whose keys are landmark names and
     values are tuples specifying the first and last sections that have the particular landmarks.
@@ -264,6 +385,9 @@ def get_section_contains_labels(label_polygons, filtered_labels=None):
 def load_label_polygons_if_exists(stack, username, output_path=None, output=True, force=False,
                                 downsample=None, orientation=None, annotation_rootdir=None,
                                 side_assigned=False):
+    """
+    - assign sideness
+    """
 
     if side_assigned:
         label_polygons_path = os.path.join(annotation_rootdir, '%(stack)s_%(username)s_annotation_polygons_sided.h5' % {'stack': stack, 'username': username})
@@ -290,7 +414,9 @@ def load_label_polygons_if_exists(stack, username, output_path=None, output=True
 def generate_label_polygons(stack, username, orientation=None, downsample=None, timestamp='latest', output_path=None,
                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
                             annotation_rootdir=None, structure_names=None):
-    """Convert annotation files to polygon objects.
+    """Read annotation file, and do the following processing:
+    - merge labels
+    - remove sideness tag if structure is singular
     """
 
     # dm = DataManager(stack=stack)
@@ -390,16 +516,31 @@ def closest_to(point, poly):
     return closest_point_coords
 
 
-def average_multiple_volumes(volumes):
-    return np.maximum(*volumes)
+def average_multiple_volumes(volumes, bboxes):
 
-def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None):
+    overall_xmin, overall_ymin, overall_zmin = np.min([(xmin, ymin, zmin) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)
+    overall_xmax, overall_ymax, overall_zmax = np.max([(xmax, ymax, zmax) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)
+    overall_volume = np.zeros((overall_ymax-overall_ymin+1, overall_xmax-overall_xmin+1, overall_zmax-overall_zmin+1), np.bool)
+
+    for (xmin, xmax, ymin, ymax, zmin, zmax), vol in zip(bboxes, volumes):
+        overall_volume[ymin - overall_ymin:ymax - overall_ymin+1, \
+                        xmin - overall_xmin:xmax - overall_xmin+1, \
+                        zmin - overall_zmin:zmax - overall_zmin+1] += vol
+
+    return overall_volume, (overall_xmin, overall_xmax, overall_ymin, overall_ymax, overall_zmin, overall_zmax)
+
+def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
+                                    return_contours=False, len_interval=20):
     """Interpolate contours
 
     Returns
     -------
     volume: a 3D binary array
     bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
+
+    If interpolation_direction == 'z', the points should be (x,y)
+    If interpolation_direction == 'x', the points should be (y,z)
+    If interpolation_direction == 'y', the points should be (x,z)
 
     """
 
@@ -429,33 +570,54 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     xmin, ymin, zmin = np.floor(all_points.min(axis=0)).astype(np.int)
     xmax, ymax, zmax = np.ceil(all_points.max(axis=0)).astype(np.int)
 
-    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos)
+    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos, len_interval)
+
+    if return_contours:
+        return {i: contour_pts.astype(np.int) for i, contour_pts in interpolated_contours.iteritems()}
+
     interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+    if return_voxels:
+        return interpolated_interior_points
 
     volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
     for i, pts in interpolated_interior_points.iteritems():
         if interpolation_direction == 'z':
             volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
         elif interpolation_direction == 'y':
-            volume[i, pts[:,0]-xmin, pts[:,1]-zmin] = 1
+            volume[i-ymin, pts[:,0]-xmin, pts[:,1]-zmin] = 1
         elif interpolation_direction == 'x':
-            volume[pts[:,0]-ymin, i, pts[:,1]-zmin] = 1
+            volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
 
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 
 
-def get_interpolated_contours(contours_grouped_by_pos):
+def get_interpolated_contours(contours_grouped_by_pos, len_interval):
+    """
+    Snap minimum z to minimum int
+    Snap maximum z to maximum int
+    Return contours at integer levels
+    """
+
+    contours_grouped_by_adjusted_pos = {}
+    for i, (pos, contour) in enumerate(sorted(contours_grouped_by_pos.iteritems())):
+        if i == 0:
+            contours_grouped_by_adjusted_pos[int(np.ceil(pos))] = contour
+        elif i == len(contours_grouped_by_pos)-1:
+            contours_grouped_by_adjusted_pos[int(np.floor(pos))] = contour
+        else:
+            contours_grouped_by_adjusted_pos[int(np.round(pos))] = contour
+
+    zs = sorted(contours_grouped_by_adjusted_pos.keys())
+    n = len(zs)
 
     interpolated_contours = {}
 
-    zs = sorted(contours_grouped_by_pos.keys())
-
-    for i in range(len(zs)):
+    for i in range(n):
         z0 = zs[i]
-        interpolated_contours[z0] = np.array(contours_grouped_by_pos[z0])
-        if i + 1 < len(zs):
+        interpolated_contours[z0] = np.array(contours_grouped_by_adjusted_pos[z0])
+        if i + 1 < n:
             z1 = zs[i+1]
-            interp_cnts = interpolate_contours(contours_grouped_by_pos[z0], contours_grouped_by_pos[z1], nlevels=z1-z0+1)
+            interp_cnts = interpolate_contours(contours_grouped_by_adjusted_pos[z0], contours_grouped_by_adjusted_pos[z1], nlevels=z1-z0+1, len_interval_0=len_interval)
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
@@ -493,7 +655,7 @@ def signed_curvatures(s, d=7):
     curvatures = (xp * ypp - yp * xpp)/np.sqrt(xp**2+yp**2)**3
     return curvatures, xp, yp
 
-def interpolate_contours(cnt1, cnt2, nlevels):
+def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
     '''
     Returned arrays include cnt1 and cnt2 - length of array is nlevels.
     '''
@@ -518,7 +680,7 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     len_interval_2 = l2 / n2
     len_interval_interpolated = np.linspace(len_interval_1, len_interval_2, nlevels)
 
-    len_interval_0 = 20
+    # len_interval_0 = 20
     n_points = max(int(np.round(max(l1, l2) / len_interval_0)), n1, n2)
 
     s1 = resample_polygon(cnt1, n_points=n_points)

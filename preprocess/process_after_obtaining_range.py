@@ -7,8 +7,8 @@ parser = argparse.ArgumentParser(
     description='Process after identifying the first and last sections in the stack that contain brainstem (if desired, can be whole stack): 1) align thumbnails 2) warp thumbnail images 3) generate mask')
 
 parser.add_argument("stack_name", type=str, help="stack name")
-parser.add_argument("-f", "--first_sec", type=int, help="first section", default=1)
-parser.add_argument("-l", "--last_sec", type=int, help="last section", default=None)
+parser.add_argument("-f", "--first_sec", type=int, help="first section")
+parser.add_argument("-l", "--last_sec", type=int, help="last section")
 parser.add_argument("-p", "--use_precomputed", type=int, help="use precomputed transforms", default=False)
 args = parser.parse_args()
 
@@ -20,8 +20,12 @@ from preprocess_utility import *
 from metadata import *
 
 stack = args.stack_name
-first_sec = args.first_sec
-last_sec = section_number_lookup[stack] if args.last_sec is None else args.last_sec
+
+last_sec = args.last_sec if args.last_sec is not None else section_range_lookup[stack][1]
+first_sec = args.first_sec if args.first_sec is not None else section_range_lookup[stack][0]
+
+# first_sec = args.first_sec
+# last_sec = section_number_lookup[stack] if args.last_sec is None else args.last_sec
 use_precomputed_transforms = args.use_precomputed
 
 from subprocess import check_output
@@ -33,7 +37,6 @@ d = {
      'stack': stack,
      'first_sec': first_sec,
      'last_sec': last_sec,
-
      'input_dir': os.path.join( os.environ['DATA_DIR'], stack+'_thumbnail_renamed'),
 	 'elastix_output_dir': os.path.join( os.environ['DATA_DIR'], stack+'_elastix_output'),
 	 'aligned_dir': os.path.join( os.environ['DATA_DIR'], stack+'_thumbnail_aligned'),
@@ -49,19 +52,32 @@ print 'aligning...',
 
 if not use_precomputed_transforms:
 
-    if os.path.exists(d['elastix_output_dir']):
-        os.system('rm -r ' + d['elastix_output_dir'])
+    # if os.path.exists(d['elastix_output_dir']):
+    #     os.system('rm -r ' + d['elastix_output_dir'] + '/*')
+    # create_if_not_exists(d['elastix_output_dir'])
+    #
+    # jump_aligned_sections = {}
+    # for moving_secind in range(first_sec+1, last_sec+1):
+	# 	for i in range(1, 10):
+	# 		if moving_secind - i not in bad_sections[stack]:
+	# 			last_good_section = moving_secind - i
+	# 			break
+	# 	if i != 1:
+	# 		jump_aligned_sections[moving_secind] = last_good_section
+    #
+    # print jump_aligned_sections
+    # pickle.dump(jump_aligned_sections, open(os.path.join(d['elastix_output_dir'], 'jump_aligned_sections.pkl'), 'w'))
+    #
+    # run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d,
+    #                 first_sec=first_sec,
+    #                 last_sec=last_sec,
+    #                 stdout=open('/tmp/log', 'ab+'),
+    #                 take_one_section=False,
+    #                 exclude_nodes=exclude_nodes)
+    #
+    # print 'done in', time.time() - t, 'seconds'
 
-    run_distributed3('%(script_dir)s/align_consecutive.py %(stack)s %(input_dir)s %(elastix_output_dir)s %%(f)d %%(l)d'%d,
-                    first_sec=first_sec,
-                    last_sec=last_sec,
-                    stdout=open('/tmp/log', 'ab+'),
-                    take_one_section=False,
-                    exclude_nodes=exclude_nodes)
-
-    print 'done in', time.time() - t, 'seconds'
-
-    ###################################
+    ##################################
 
     from joblib import Parallel, delayed
 
@@ -84,7 +100,7 @@ if not use_precomputed_transforms:
     print 'done in', time.time() - t, 'seconds'
 
 else:
-    assert os.path.exists(os.path.join(os.environ['DATA_DIR'], stack+'_elastix_output'))
+    assert os.path.exists(os.path.join(data_dir, stack+'_elastix_output'))
 
 # else: user provide [stack]_finalTransfParams.pkl
 
@@ -101,6 +117,8 @@ run_distributed3('%(script_dir)s/warp_crop_IM.py %(stack)s %(input_dir)s %(align
                 exclude_nodes=exclude_nodes)
 
 print 'done in', time.time() - t, 'seconds'
+
+sys.exit(1)
 
 
 t = time.time()

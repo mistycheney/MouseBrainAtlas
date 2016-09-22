@@ -52,7 +52,7 @@ crop = not (x == 0 and y == 0 and w == 2000 and h == 1500)
 #     x = 0
 #     y = 0
 #     w = 2000
-#     h = 1500    
+#     h = 1500
 
 # if crop:
 #     x,y,w,h = map(int, sys.argv[8:12])
@@ -81,8 +81,12 @@ elif suffix == 'lossless':
 
 with open(os.path.join(os.environ['DATA_DIR'], stack + '_finalTransfParams.pkl'), 'r') as f:
     Ts = pickle.load(f)
-    
+
 for secind in range(first_sec, last_sec+1):
+
+    if secind not in Ts:
+        sys.stderr.write('No transform is computed for section %d.\n' % secind)
+        continue
 
     T2 = Ts[secind].copy()
     T2[:2,2] = Ts[secind][:2, 2] * scale_factor

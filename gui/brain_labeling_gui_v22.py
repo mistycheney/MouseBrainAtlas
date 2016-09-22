@@ -299,9 +299,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            if gscene_id != source_gscene_id:
-                gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
-            # gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            # if gscene_id != source_gscene_id:
+            #     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):

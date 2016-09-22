@@ -124,14 +124,14 @@ midbrain tegmentum
      midbrain trigeminal nucleus, Me5: easy to identify; spread-out
      cerebral aqueduct, Aq:
      periaqueductal gray / central gray of midbrain, PAG:
-          - dorsolateral, DLPAG
-          - dorsomedial, DMPAG
-          - lateroposterial, LPAG
-          - ventrolateral, VLPAG
-          - supraoculomotor, Su3: disputed
-          - supraoculomotor cap, Su3C: disputed
-          - pleioglial / pleoglial, PlPAG: disputed
-          - nucleus of Darkschewitsch, DK
+     - dorsolateral, DLPAG
+     - dorsomedial, DMPAG
+     - lateroposterial, LPAG
+     - ventrolateral, VLPAG
+     - supraoculomotor, Su3: disputed
+     - supraoculomotor cap, Su3C: disputed
+     - pleioglial / pleoglial, PlPAG: disputed
+     - nucleus of Darkschewitsch, DK
      nucleus of the posterior commissure, PCom
      dorsal raphe nucleus, DR: Paxinos divides into dorsal, ventral, interfascicular, lateral parts
      trochlear nucleus, 4N: very easy to distinguish [BEST]

@@ -8,8 +8,11 @@ hostname = subprocess.check_output("hostname", shell=True).strip()
 if hostname.endswith('sdsc.edu'):
     print 'Setting environment for Gordon'
     data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
-    atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
+    thumbnail_data_dir = data_dir
+    # atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
+    atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas_v2'
+    # atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
+    atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas_v2'
     volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes2/'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'
@@ -22,9 +25,11 @@ if hostname.endswith('sdsc.edu'):
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
+    thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     mesh_rootdir = '/home/yuncong/CSHL_meshes'
-    atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
+    # atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
+    atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams_atlas_v2/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -128,12 +133,12 @@ stack_orientation = {'MD585': 'sagittal', 'MD589': 'sagittal',
                         'MD598': 'sagittal', 'MD602':'sagittal', 'MD603':'sagittal',
                         'MD635': 'horizontal', 'MD634': 'coronal'}
 
-anchor_filename = {'MD585':'MD585-N47-2015.07.16-22.50.52_MD585_3_0141',
-'MD589': 'MD589-IHC31-2015.07.30-23.26.22_MD589_1_0091',
-'MD594': 'MD594-N58-2015.08.27-00.19.01_MD594_1_0172',
-'MD602': 'MD602-N49-2015.12.01-18.41.46_MD602_2_0146',
-'MD603': 'MD603-N60-2015.12.03-23.57.05_MD603_2_0179',
-'MD590': 'MD590-N47-2015.09.12-05.32.06_MD590_2_0140'}
+# anchor_filename = {'MD585':'MD585-N47-2015.07.16-22.50.52_MD585_3_0141',
+# 'MD589': 'MD589-IHC31-2015.07.30-23.26.22_MD589_1_0091',
+# 'MD594': 'MD594-N58-2015.08.27-00.19.01_MD594_1_0172',
+# 'MD602': 'MD602-N49-2015.12.01-18.41.46_MD602_2_0146',
+# 'MD603': 'MD603-N60-2015.12.03-23.57.05_MD603_2_0179',
+# 'MD590': 'MD590-N47-2015.09.12-05.32.06_MD590_2_0140'}
 
 # xmin, ymin, w, h (on original uncropped sections)
 # brainstem_bbox_lookup = {'MD585': (610,113,445,408), 'MD589':(643,145,419,367),

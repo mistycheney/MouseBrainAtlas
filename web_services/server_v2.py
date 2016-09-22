@@ -159,7 +159,7 @@ def crop():
     # print x,y,w,h,f,l
 
     ##################################################
-    #
+
     t = time.time()
     sys.stderr.write('cropping thumbnail...')
 
@@ -354,8 +354,107 @@ def confirm_order():
                 dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
         execute_command(cmd)
 
+    ###### Generate thumbnail aligned mask sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_mask_sorted_aligned &&'
+            'mkdir %(stack)s_mask_sorted_aligned') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_mask_alignedTo_%(anchor_fn)s.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_mask_alignedTo_%(anchor_fn)s.png '
+                '%(stack)s_mask_sorted_aligned/%(stack)s_%(idx)04d_mask_aligned.png') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+    ###### Generate thumbnail aligned cropped mask sorted symlinks ######
+
+    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+            'rm -rf %(stack)s_mask_sorted_aligned_cropped &&'
+            'mkdir %(stack)s_mask_sorted_aligned_cropped') % \
+            dict(stack=stack)
+    execute_command(cmd)
+
+    for idx, fn in enumerate(sorted_filenames):
+
+        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+            continue
+
+        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+                'ln -s ../%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png '
+                '%(stack)s_mask_sorted_aligned_cropped/%(stack)s_%(idx)04d_mask_aligned_cropped.png') % \
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+        execute_command(cmd)
+
+
     d = {'result': 0}
     return jsonify(**d)
+
+
+@app.route('/generate_warp_crop_mask')
+def generate_warp_crop_mask():
+
+    stack = request.args.get('stack', type=str)
+    filenames = map(str, request.args.getlist('filenames'))
+    x = request.args.get('x', type=int)
+    y = request.args.get('y', type=int)
+    w = request.args.get('w', type=int)
+    h = request.args.get('h', type=int)
+    anchor_fn = request.args.get('anchor_fn', type=str)
+
+    ########################################################
+
+    t = time.time()
+    print 'Generating thumbnail mask...',
+
+
+    print 'done in', time.time() - t, 'seconds'
+
+    ########################################################
+
+    t = time.time()
+    print 'warping thumbnail mask...',
+
+    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+                                                            dict(stack=stack, anchor_fn=anchor_fn))
+    transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
+
+    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500' % \
+                    {'script_dir': script_dir,
+                    'stack': stack,
+                    'input_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted/'),
+                    'aligned_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)},
+                    kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                'filename': fn + '_mask.png',
+                                'output_fn': fn + '_mask_alignedTo_' + anchor_fn + '.png'}
+                                for fn in filenames],
+                    exclude_nodes=exclude_nodes + [32],
+                    argument_type='single')
+
+    print 'done in', time.time() - t, 'seconds'
+
+    ########################################################
+
+    t = time.time()
+    sys.stderr.write('cropping thumbnail mask...')
+
+    os.system(('mkdir %(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped ; '
+                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.png" %(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/*.png') % \
+    	{'stack': stack,
+    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'w':w, 'h':h, 'x':x, 'y':y,
+        'anchor_fn': anchor_fn})
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
 
 

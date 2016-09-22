@@ -516,6 +516,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_crop.clicked.connect(self.crop)
         self.button_load_crop.clicked.connect(self.load_crop)
         self.button_save_crop.clicked.connect(self.save_crop)
+        self.button_mask.clicked.connect(self.generate_warp_crop_mask)
 
         ################################
 
@@ -1238,8 +1239,26 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         #                 'local_data_dir': '/home/yuncong/CSHL_data',
         #                 'stack': self.stack})
 
+    def generate_warp_crop_mask(self):
+        ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
+        lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
+        ul_x = int(ul_pos.x())
+        ul_y = int(ul_pos.y())
+        lr_x = int(lr_pos.x())
+        lr_y = int(lr_pos.y())
+        
+        self.web_service.convert_to_request('generate_warp_crop_mask',
+                                            stack=self.stack, filenames=self.get_valid_sorted_filenames(),
+                                            x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
+
+# self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y,
+#                                     f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
+#                                     filenames=self.get_valid_sorted_filenames(),
+#                                     first_fn=self.sorted_filenames[self.first_section-1],
+#                                     last_fn=self.sorted_filenames[self.last_section-1])
+
     def align(self):
-        aligned_json = self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
+        self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
         execute_command("""ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&\

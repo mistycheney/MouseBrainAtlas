@@ -97,7 +97,10 @@ def mesh_to_polydata(vertices, faces):
 def volume_to_polydata(volume, origin, num_simplify_iter=0, smooth=False):
 
     vol = volume.astype(np.bool)
-    vol_padded = np.pad(vol, ((5,5),(5,5),(5,5)), 'constant')
+
+    # vol_padded = np.zeros(vol.shape+(10,10,10), np.bool)
+    # vol_padded[5:-5, 5:-5, 5:-5] = vol
+    vol_padded = np.pad(vol, ((5,5),(5,5),(5,5)), 'constant') # need this otherwise the sides of volume will not close and expose the hollow inside of structures
 
     t = time.time()
     vs, fs = mcubes.marching_cubes(vol_padded, 0) # more than 5 times faster than skimage.marching_cube + correct_orientation
@@ -112,6 +115,7 @@ def volume_to_polydata(volume, origin, num_simplify_iter=0, smooth=False):
     # sys.stderr.write('correct orientation: %.2f seconds\n' % (time.time() - t))
 
     vs = vs[:, [1,0,2]] + origin - (5,5,5)
+    # vs = vs[:, [1,0,2]] + origin
 
     t = time.time()
     area = mesh_surface_area(vs, fs)

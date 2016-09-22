@@ -619,6 +619,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         structure_ranges = get_landmark_range_limits_v2(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
 
+        print 'structure_ranges', structure_ranges
+
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
                 if p.label in structure_ranges:

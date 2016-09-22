@@ -159,7 +159,6 @@ def crop():
     # print x,y,w,h,f,l
 
     ##################################################
-
     t = time.time()
     sys.stderr.write('cropping thumbnail...')
 

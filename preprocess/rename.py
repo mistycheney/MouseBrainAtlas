@@ -35,7 +35,7 @@ filenames = os.listdir(input_dir)
 
 from collections import defaultdict
 
-if bool(args.infer_order):
+def infer_order():
 
     d = defaultdict(dict)
     for fn in filenames:
@@ -64,6 +64,8 @@ if bool(args.infer_order):
     with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'w') as f:
         f.write('\n'.join([fn + ' ' + str(ind+1) for ind, fn in enumerate(complete_set)]))
 
+if bool(args.infer_order):
+    infer_order()
 
 with open(os.environ['DATA_DIR']  + '/' + stack + '_filename_map.txt', 'r') as f:
     complete_set = [l.split() for l in f.readlines()]

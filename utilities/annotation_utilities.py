@@ -116,8 +116,13 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
     label_section_lookup is a dict, keys are labels, values are sections.
     """
 
-    first_sec, last_sec = section_range_lookup[stack]
+    # first_sec, last_sec = section_range_lookup[stack]
+
+    print label_section_lookup
+
+    first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
     mid_sec = (first_sec + last_sec)/2
+    print mid_sec
 
     landmark_limits = {}
 
@@ -163,43 +168,61 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
                 raise
             else:
 
-                diffs = np.diff(secs)
-                peak = np.argmax(diffs)
+                inferred_Ls = secs[secs < mid_sec]
+                if len(inferred_Ls) > 0:
+                    inferred_maxL = np.max(inferred_Ls)
+                else:
+                    inferred_maxL = None
 
-                inferred_maxL = secs[peak]
-                inferred_minR = secs[peak+1]
+                inferred_Rs = secs[secs >= mid_sec]
+                if len(inferred_Rs) > 0:
+                    inferred_minR = np.min(inferred_Rs)
+                else:
+                    inferred_minR = None
+
+                # diffs = np.diff(secs)
+                # peak = np.argmax(diffs)
+                #
+                # inferred_maxL = secs[peak]
+                # inferred_minR = secs[peak+1]
 
                 if lname in label_section_lookup:
                     labeled_maxL = np.max(label_section_lookup[lname])
-                    maxL = max(labeled_maxL, inferred_maxL)
+                    maxL = max(labeled_maxL, inferred_maxL if inferred_maxL is not None else 0)
                 else:
                     maxL = inferred_maxL
 
                 if rname in label_section_lookup:
                     labeled_minR = np.min(label_section_lookup[rname])
-                    minR = min(labeled_minR, inferred_minR)
+                    minR = min(labeled_minR, inferred_minR if inferred_minR is not None else 999)
                 else:
                     minR = inferred_minR
 
-                if maxL >= minR:
-                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+                if maxL is not None:
+                    landmark_limits[lname] = (np.min(secs), maxL)
 
-                    if inferred_maxL < inferred_minR:
-                        maxL = inferred_maxL
-                        minR = inferred_minR
-                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-                    elif labeled_maxL < labeled_minR:
-                        maxL = labeled_maxL
-                        minR = labeled_minR
-                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-                    else:
-                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
-                        continue
+                if minR is not None:
+                    landmark_limits[rname] = (minR, np.max(secs))
 
-            landmark_limits[lname] = (np.min(secs), maxL)
-            landmark_limits[rname] = (minR, np.max(secs))
+                # if maxL >= minR:
+                #     sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+                #     # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+                #     #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+                #
+                #     if inferred_maxL < inferred_minR:
+                #         maxL = inferred_maxL
+                #         minR = inferred_minR
+                #         sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+                #     elif labeled_maxL < labeled_minR:
+                #         maxL = labeled_maxL
+                #         minR = labeled_minR
+                #         sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+                #     else:
+                #         sys.stderr.write('#### Cannot resolve.. ignored.\n')
+                #         continue
+
+            # landmark_limits[lname] = (np.min(secs), maxL)
+            # landmark_limits[rname] = (minR, np.max(secs))
 
             # print 'label:', name_u
             # print 'secs:', secs
@@ -506,7 +529,8 @@ def average_multiple_volumes(volumes, bboxes):
 
     return overall_volume, (overall_xmin, overall_xmax, overall_ymin, overall_ymax, overall_zmin, overall_zmax)
 
-def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None):
+def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
+                                    return_contours=False, len_interval=20):
     """Interpolate contours
 
     Returns
@@ -546,8 +570,14 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     xmin, ymin, zmin = np.floor(all_points.min(axis=0)).astype(np.int)
     xmax, ymax, zmax = np.ceil(all_points.max(axis=0)).astype(np.int)
 
-    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos)
+    interpolated_contours = get_interpolated_contours(contours_grouped_by_pos, len_interval)
+
+    if return_contours:
+        return {i: contour_pts.astype(np.int) for i, contour_pts in interpolated_contours.iteritems()}
+
     interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+    if return_voxels:
+        return interpolated_interior_points
 
     volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
     for i, pts in interpolated_interior_points.iteritems():
@@ -561,7 +591,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 
 
-def get_interpolated_contours(contours_grouped_by_pos):
+def get_interpolated_contours(contours_grouped_by_pos, len_interval):
     """
     Snap minimum z to minimum int
     Snap maximum z to maximum int
@@ -587,7 +617,7 @@ def get_interpolated_contours(contours_grouped_by_pos):
         interpolated_contours[z0] = np.array(contours_grouped_by_adjusted_pos[z0])
         if i + 1 < n:
             z1 = zs[i+1]
-            interp_cnts = interpolate_contours(contours_grouped_by_adjusted_pos[z0], contours_grouped_by_adjusted_pos[z1], nlevels=z1-z0+1)
+            interp_cnts = interpolate_contours(contours_grouped_by_adjusted_pos[z0], contours_grouped_by_adjusted_pos[z1], nlevels=z1-z0+1, len_interval_0=len_interval)
             for zi, z in enumerate(range(z0+1, z1)):
                 interpolated_contours[z] = interp_cnts[zi+1]
 
@@ -625,7 +655,7 @@ def signed_curvatures(s, d=7):
     curvatures = (xp * ypp - yp * xpp)/np.sqrt(xp**2+yp**2)**3
     return curvatures, xp, yp
 
-def interpolate_contours(cnt1, cnt2, nlevels):
+def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
     '''
     Returned arrays include cnt1 and cnt2 - length of array is nlevels.
     '''
@@ -650,7 +680,7 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     len_interval_2 = l2 / n2
     len_interval_interpolated = np.linspace(len_interval_1, len_interval_2, nlevels)
 
-    len_interval_0 = 20
+    # len_interval_0 = 20
     n_points = max(int(np.round(max(l1, l2) / len_interval_0)), n1, n2)
 
     s1 = resample_polygon(cnt1, n_points=n_points)
@@ -753,3 +783,74 @@ def interpolate_contours(cnt1, cnt2, nlevels):
     resampled_interpolated_contours = [resample_polygon(cnt, len_interval=len_interval_interpolated[i]) for i, cnt in enumerate(interpolated_contours)]
 
     return resampled_interpolated_contours
+
+
+
+def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
+
+    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+        filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+        # sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
+
+    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+        xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
+
+    import cPickle as pickle
+    Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+        fn = cnt['filename']
+        if fn not in filename_to_section:
+            continue
+        sec = filename_to_section[fn]
+        contour_df.loc[cnt_id, 'section'] = sec
+
+        T = Ts[fn].copy()
+        T[:2, 2] = T[:2, 2]*32
+        Tinv = np.linalg.inv(T)
+
+        n = len(cnt['vertices'])
+
+        vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
+        # contour_df.loc[cnt_id, 'vertices'] = vertices_on_aligned_cropped
+        contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+
+        label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+        # contour_df.loc[cnt_id, 'label_position'] = label_position_on_aligned_cropped.tolist()
+
+    return contour_df
+
+def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
+
+    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+        # filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+        sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
+
+    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+        xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
+
+    import cPickle as pickle
+    Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+        sec = cnt['section']
+        fn = sorted_filelist[sec]
+        if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
+            continue
+        contour_df.loc[cnt_id, 'filename'] = fn
+
+        T = Ts[fn].copy()
+        T[:2, 2] = T[:2, 2]*32
+
+        n = len(cnt['vertices'])
+
+        vertices_on_aligned = np.array(cnt['vertices']) + (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
+
+        label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
+
+    return contour_df

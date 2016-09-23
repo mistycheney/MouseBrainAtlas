@@ -29,6 +29,12 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def one_liner_to_arr(line, func):
+    return np.array(map(func, line.strip().split()))
+
+def array_to_one_liner(arr):
+    return ' '.join(map(str, arr)) + '\n'
+
 def show_progress_bar(min, max):
     bar = FloatProgress(min=min, max=max)
     display(bar)

@@ -131,11 +131,11 @@ var nystrom_sample_num = '1000'
 var datadir;
 
 if (location.hostname == 'localhost') {
-  datadir = '../../../CSHL_cells/gallery/random/'; // <-- Change this to the data folder
+  datadir = '../../../CSHL_cells_v2/gallery/random/'; // <-- Change this to the data folder
 } else {
   // datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
   // datadir = '../../../csd395/CSHL_cells/gallery/largeCells/'; // <-- Change this to the data folder
-  datadir = '../../../csd395/CSHL_cells/gallery/'; // <-- Change this to the data folder
+  datadir = '../../../csd395/CSHL_cells_v2/gallery/'; // <-- Change this to the data folder
 }
 
 var show_blob = true;

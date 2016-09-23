@@ -83,7 +83,6 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
                         'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
                         }
             elif argument_type == 'list2':
-
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')

@@ -3,6 +3,53 @@ from metadata import *
 
 class DataManager(object):
 
+    @staticmethod
+    def load_volume_label_to_name(stack):
+        label_to_name = {}
+        name_to_label = {}
+
+        with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_nameToLabel.txt'), 'r') as f:
+            for line in f.readlines():
+                name_s, label = line.split()
+                label_to_name[int(label)] = name_s
+                name_to_label[name_s] = int(label)
+
+        return label_to_name, name_to_label
+
+    @staticmethod
+    def load_volume_bbox(stack):
+        with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_bbox.txt'), 'r') as f:
+            bbox = map(int, f.readline().strip().split())
+        return bbox
+
+    @staticmethod
+    def load_cropbox(stack):
+        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+            cropbox = one_liner_to_arr(f.readline(), int)
+        return cropbox
+
+    @staticmethod
+    def load_sorted_filenames(stack):
+        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+            fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+            filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+            section_to_filename = {int(idx): fn for fn, idx in fn_idx_tuples}
+        return filename_to_section, section_to_filename
+
+    @staticmethod
+    def load_transforms(stack, downsample_factor):
+
+        import cPickle as pickle
+        Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+        Ts_inv_downsampled = {}
+        for fn, T0 in Ts.iteritems():
+            T = T0.copy()
+            T[:2, 2] = T[:2, 2] * 32 / downsample_factor
+            Tinv = np.linalg.inv(T)
+            Ts_inv_downsampled[fn] = Tinv
+
+        return Ts_inv_downsampled
 
     @staticmethod
     def save_thumbnail_mask(mask, stack, section, cerebellum_removed=False):
@@ -19,6 +66,20 @@ class DataManager(object):
         return thumbmail_mask
 
     @staticmethod
+    def load_thumbnail_mask_v2(stack, section, version='aligned_cropped'):
+
+        if version == 'aligned_cropped':
+            fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned_cropped/%(stack)s_%(sec)04d_mask_aligned_cropped.png' % \
+                dict(stack=stack, sec=section)
+        elif version == 'aligned':
+            fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned/%(stack)s_%(sec)04d_mask_aligned.png' % \
+                dict(stack=stack, sec=section)
+
+        mask = imread(fn).astype(np.bool)
+        return mask
+
+
+    @staticmethod
     def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
         if cerebellum_removed:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
@@ -26,6 +87,7 @@ class DataManager(object):
         else:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
                             {'stack': stack, 'sec': section}
+
         return fn
 
 
@@ -43,7 +105,7 @@ class DataManager(object):
             image_path = os.path.join(image_dir, image_name + '.jpg')
 
         elif version == 'rgb':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped')
             image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
             image_path = os.path.join(image_dir, image_name + '.tif')
         # elif version == 'gray-jpg':
@@ -64,7 +126,7 @@ class DataManager(object):
         #     image_path = os.path.join(image_dir, image_name + '.jpg')
 
         elif version == 'saturation':
-            image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_saturation')
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_saturation')
             image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
             image_path = os.path.join(image_dir, image_name + '.jpg')
 

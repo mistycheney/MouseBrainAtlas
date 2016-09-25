@@ -252,7 +252,6 @@ class DataManager(object):
             if not os.path.exists(fn):
                 fn = DataManager.get_image_filepath(stack=stack, section=sec, version='saturation', data_dir=data_dir)
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
-
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')

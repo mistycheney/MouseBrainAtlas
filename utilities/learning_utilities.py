@@ -11,7 +11,11 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from shapely.geometry import Polygon
 
-import pandas as pd
+# import pandas as pd
+from pandas import read_hdf, DataFrame
+
+from itertools import groupby
+
 try:
     import mxnet as mx
 except:
@@ -145,9 +149,9 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
 #     return [index_to_name_mapping[i] for i in indices]
 
 
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None, grid_locations=None):
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None, grid_locations=None, version='rgb-jpg'):
 
-    img = imread(DataManager.get_image_filepath(stack, sec))
+    img = imread(DataManager.get_image_filepath(stack, sec, version=version))
 
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
@@ -219,7 +223,7 @@ def locate_patches_given_addresses_v2(addresses):
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
-def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location'):
+def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='rgb-jpg'):
     """
     addresses is a list of addresses.
     address: stack, section, framewise_index
@@ -230,8 +234,13 @@ def extract_patches_given_locations_multiple_sections(addresses, location_or_gri
     # for list_index, (stack, sec, loc) in enumerate(addresses):
     #     locations_grouped[stack][sec].append((loc, list_index))
 
-    locations_grouped = {stack_sec: (x[2], list_index) \
-                        for stack_sec, (list_index, x) in group_by(enumerate(addresses), lambda i, x: (x[0],x[1]))}
+    locations_grouped = {}
+    for stack_sec, list_index_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (i, x): (x[0],x[1])),
+        key=lambda (i,x): (x[0], x[1])):
+        locations_grouped[stack_sec] = [(address[2], list_index) for list_index, address in list_index_and_address_grouper]
+
+    # locations_grouped = {stack_sec: (x[2], list_index) \
+    #                     for stack_sec, (list_index, x) in groupby(enumerate(addresses), lambda (i, x): (x[0],x[1]))}
 
     patches_all = []
     list_indices_all = []
@@ -241,9 +250,9 @@ def extract_patches_given_locations_multiple_sections(addresses, location_or_gri
         stack, sec = stack_sec
         locs_thisSec, list_indices = map(list, zip(*locations_allSections))
         if location_or_grid_index == 'location':
-            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec)
+            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
         else:
-            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec)
+            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
         patches_all += extracted_patches
         list_indices_all += list_indices
 
@@ -323,7 +332,7 @@ def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = DataManager.get_image_dimension(stack)
     return (patch_size, stride, image_width, image_height)
 
-def locate_annotated_patches_v2(stack, grid_spec=None, username='yuncong', annotation_rootdir=None, cerebellum_removed=True, sided=True):
+def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
     """
     If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
 
@@ -341,20 +350,25 @@ def locate_annotated_patches_v2(stack, grid_spec=None, username='yuncong', annot
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5', 'contours')
-    contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)]
+    contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+
+    filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
     grouped = contours.groupby('section')
 
     patch_indices_allSections_allStructures = {}
     for sec, group in grouped:
+        sys.stderr.write('Analyzing section %d..\n' % sec)
+        if section_to_filename[sec] in ['Placeholder', 'Nonexisting, Rescan']:
+            continue
         polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in group.iterrows()]
         mask_tb = DataManager.load_thumbnail_mask_v2(stack, sec)
         patch_indices = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec)
         patch_indices_allSections_allStructures[sec] = patch_indices
 
-    patch_indices_allSections_allStructures_df = pd.DataFrame(patch_indices_allSections_allStructures)
+    patch_indices_allSections_allStructures_df = DataFrame(patch_indices_allSections_allStructures)
 
     # if dump:
     #     fn = os.path.join(patch_rootdir, '%(stack)s_indices_allLandmarks_allSection.h5' % {'stack':stack})

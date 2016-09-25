@@ -788,16 +788,16 @@ def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
 
 def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 
-    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+    with open(data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
         fn_idx_tuples = [line.strip().split() for line in f.readlines()]
         filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
         # sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
 
-    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+    with open(data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
         xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
 
     import cPickle as pickle
-    Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+    Ts = pickle.load(open(data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         fn = cnt['filename']
@@ -824,16 +824,16 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 
 def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
 
-    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+    with open(data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
         fn_idx_tuples = [line.strip().split() for line in f.readlines()]
         # filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
         sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
 
-    with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+    with open(data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
         xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
 
     import cPickle as pickle
-    Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+    Ts = pickle.load(open(data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         sec = cnt['section']

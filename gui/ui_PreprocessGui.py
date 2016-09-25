@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PreprocessTool.ui'
 #
-# Created: Mon Sep 19 20:38:16 2016
+# Created: Sat Sep 24 11:28:40 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -127,6 +127,9 @@ class Ui_PreprocessGui(object):
         self.button_mask = QtGui.QPushButton(self.centralwidget)
         self.button_mask.setObjectName(_fromUtf8("button_mask"))
         self.gridLayout_2.addWidget(self.button_mask, 3, 0, 1, 1)
+        self.button_syncWorkstation = QtGui.QPushButton(self.centralwidget)
+        self.button_syncWorkstation.setObjectName(_fromUtf8("button_syncWorkstation"))
+        self.gridLayout_2.addWidget(self.button_syncWorkstation, 3, 1, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout_2)
         self.horizontalLayout_9.addLayout(self.verticalLayout)
         self.verticalLayout_3.addLayout(self.horizontalLayout_9)
@@ -251,6 +254,7 @@ class Ui_PreprocessGui(object):
         self.button_confirm_alignment.setText(_translate("PreprocessGui", "Compose", None))
         self.button_align.setText(_translate("PreprocessGui", "Align", None))
         self.button_mask.setText(_translate("PreprocessGui", "Generate/Warp/Crop Mask", None))
+        self.button_syncWorkstation.setText(_translate("PreprocessGui", "Sync to workstation", None))
         self.label_section2_filename.setText(_translate("PreprocessGui", "File", None))
         self.label_section2_index.setText(_translate("PreprocessGui", "TextLabel", None))
         self.label_section3_filename.setText(_translate("PreprocessGui", "File", None))

@@ -517,6 +517,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_load_crop.clicked.connect(self.load_crop)
         self.button_save_crop.clicked.connect(self.save_crop)
         self.button_mask.clicked.connect(self.generate_warp_crop_mask)
+        self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
 
         ################################
 
@@ -1086,6 +1087,105 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.save_sorted_filenames()
         self.save()
 
+    def send_to_workstation(self):
+
+        commands_on_brainstem_download_metadata = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_cropbox.txt . &&'
+        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_sorted_filenames.txt . &&'
+        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_anchor.txt . &&'
+        'mkdir %(stack)s_elastix_output; scp dm:%(stack_data_dir_gordon)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl %(stack)s_elastix_output/') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_gordon_tar_sorted_saturation = \
+        ('cd %(stack_data_dir_gordon)s &&'
+        'tar -cf %(stack)s_lossless_sorted_aligned_cropped_saturation.tar %(stack)s_lossless_sorted_aligned_cropped_saturation') \
+        % dict(stack=self.stack,
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_sorted_saturation = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_lossless_sorted_aligned_cropped_saturation &&'
+        'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_saturation.tar . &&'
+        'tar -xf %(stack)s_lossless_sorted_aligned_cropped_saturation.tar') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_unsorted_saturation = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation &&'
+        'scp -r dm:%(stack_data_dir_gordon)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation .') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon,
+                anchor_fn=self.anchor_fn)
+
+        commands_gordon_tar_sorted_compressed = \
+        ('cd %(stack_data_dir_gordon)s &&'
+        'tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed') \
+        % dict(stack=self.stack,
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_sorted_compressed = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed &&'
+        'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
+        'tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_unsorted_compressed = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed &&'
+        'scp -r dm:%(stack_data_dir_gordon)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed .') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon,
+                anchor_fn=self.anchor_fn)
+
+        commands_gordon_tar_masks = \
+        ('cd %(stack_data_dir_gordon)s &&'
+        'tar -cf %(stack)s_mask_sorted_aligned_cropped.tar %(stack)s_mask_sorted_aligned_cropped') \
+        % dict(stack=self.stack,
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_sorted_masks = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_mask_sorted_aligned_cropped &&'
+        'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_mask_sorted_aligned_cropped.tar . &&'
+        'tar -xf %(stack)s_mask_sorted_aligned_cropped.tar') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon)
+
+        commands_on_brainstem_download_unsorted_masks = \
+        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+        'rm -rf %(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped &&'
+        'scp -r dm:%(stack_data_dir_gordon)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped .') \
+        % dict(stack=self.stack,
+                workstation_data_dir='/media/yuncong/BstemAtlasData/CSHL_data_processed/',
+                stack_data_dir_gordon=self.stack_data_dir_gordon,
+                anchor_fn=self.anchor_fn)
+
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_metadata))
+
+        execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_sorted_saturation))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_saturation))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_saturation))
+
+        execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_sorted_compressed))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_compressed))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_compressed))
+
+        execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_masks))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_masks))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_masks))
+
+
     def confirm_order(self):
         sort_json = self.web_service.convert_to_request('confirm_order',
                         stack=self.stack, sorted_filenames=self.sorted_filenames, anchor_fn=self.anchor_fn)
@@ -1095,9 +1195,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
                 'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar . &&'
                 'rm -rf %(stack)s_thumbnail_sorted_aligned && tar -xf %(stack)s_thumbnail_sorted_aligned.tar &&'
-                'rm -r %(stack)s_thumbnail_sorted_aligned.tar &&'
-                'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
+                'rm -r %(stack)s_thumbnail_sorted_aligned.tar') %\
                 dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+                # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
+
         execute_command(download_sorted_thumbnails_symlinks_cmd)
 
         self.statusBar().showMessage('Aligned cropped thumbnail images downloaded.')
@@ -1107,24 +1208,33 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
                 'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar . &&'
                 'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped && tar -xf %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
-                'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
-                'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
+                'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar') %\
                 dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+                # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
+
         execute_command(download_sorted_thumbnails_symlinks_cmd)
 
-        # Download sorted lossless aligned cropped data folder symbolic links
+        # Download sorted lossless aligned cropped compressed data folder symbolic links
         execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
                         'cd %(data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
                         'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
                         'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
-                        'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
-                        'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
+                        'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') %\
                         dict(stack=self.stack, data_dir='/media/yuncong/YuncongPublic/CSHL_data_processed/', stack_data_dir_gordon=self.stack_data_dir_gordon))
+                        # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
 
         # Download unsorted lossless aligned cropped data MANUALLY !!
 
+        # self.send_to_workstation()
 
         self.save_everything()
+
+        # Upload cropbox file, sorted filenames file, anchor file
+        execute_command(('scp %(stack_data_dir)s/%(stack)s_cropbox.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+                        'scp %(stack_data_dir)s/%(stack)s_anchor.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+                        'scp %(stack_data_dir)s/%(stack)s_sorted_filenames.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/') %\
+                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+
 
 
     def update_sorted_sections_gscene_from_sorted_filenames(self):
@@ -1246,7 +1356,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         ul_y = int(ul_pos.y())
         lr_x = int(lr_pos.x())
         lr_y = int(lr_pos.y())
-        
+
         self.web_service.convert_to_request('generate_warp_crop_mask',
                                             stack=self.stack, filenames=self.get_valid_sorted_filenames(),
                                             x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
@@ -1261,12 +1371,13 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
-        execute_command("""ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&\
-                        scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&\
-                        cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz""" % \
-                        {'gordon_data_dir': self.stack_data_dir_gordon,
-                        'local_data_dir': self.stack_data_dir,
-                        'stack': self.stack})
+        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&'
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&'
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz'
+                        'ssh gcn-20-34.sdsc.edu rm %(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz') % \
+                        dict(gordon_data_dir=self.stack_data_dir_gordon,
+                            local_data_dir=self.stack_data_dir,
+                            stack=self.stack))
 
         self.statusBar().showMessage('Consecutive sections alignment results downloaded.')
 

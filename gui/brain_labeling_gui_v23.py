@@ -160,7 +160,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.all_sections = range(1, 439)
 
         # if first_sec is None and last_sec is None:
-        first_sec0, last_sec0 = section_range_lookup[self.stack]
+        # first_sec0, last_sec0 = section_range_lookup[self.stack]
+
+        first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
         self.all_sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.all_sections, use_data_manager=False)
@@ -463,7 +465,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         from pandas import DataFrame
         df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
-        df_original = self.convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped)
+        df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
         df_original.to_hdf(fn, 'contours')
 
         execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
@@ -521,81 +523,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #         del painter
         #         del pix
 
-    def convert_annotation_v3_original_to_aligned_cropped(self, contour_df):
-
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
-            fn_idx_tuples = [line.strip().split() for line in f.readlines()]
-            filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
-            # sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
-
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
-            xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
-
-        import cPickle as pickle
-        Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-
-        for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-            fn = cnt['filename']
-            if fn not in filename_to_section:
-                continue
-            sec = filename_to_section[fn]
-            contour_df.loc[cnt_id, 'section'] = sec
-
-            T = Ts[fn].copy()
-            T[:2, 2] = T[:2, 2]*32
-            Tinv = np.linalg.inv(T)
-
-            n = len(cnt['vertices'])
-
-            vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
-            # contour_df.loc[cnt_id, 'vertices'] = vertices_on_aligned_cropped
-            contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
-
-            label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
-            contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
-            # contour_df.loc[cnt_id, 'label_position'] = label_position_on_aligned_cropped.tolist()
-
-        return contour_df
-
-    def convert_annotation_v3_aligned_cropped_to_original(self, contour_df):
-
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
-            fn_idx_tuples = [line.strip().split() for line in f.readlines()]
-            # filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
-            sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
-
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
-            xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
-
-        import cPickle as pickle
-        Ts = pickle.load(open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-
-        for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-            sec = cnt['section']
-            fn = sorted_filelist[sec]
-            if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
-                continue
-            contour_df.loc[cnt_id, 'filename'] = fn
-
-            T = Ts[fn].copy()
-            T[:2, 2] = T[:2, 2]*32
-
-            n = len(cnt['vertices'])
-
-            vertices_on_aligned = np.array(cnt['vertices']) + (xmin*32, ymin*32)
-            contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
-
-            label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
-            contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
-
-        return contour_df
-
     @pyqtSlot()
     def load(self):
         # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
         # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
         contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack, annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        contour_df = self.convert_annotation_v3_original_to_aligned_cropped(contour_df_original)
+        contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
 
         sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours)
@@ -777,8 +710,10 @@ if __name__ == "__main__":
     stack = args.stack_name
     downsample = args.downsample
 
-    first_sec = section_range_lookup[stack][0] if args.first_sec is None else args.first_sec
-    last_sec = section_range_lookup[stack][1] if args.last_sec is None else args.last_sec
+    default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
+
+    first_sec = default_first_sec if args.first_sec is None else args.first_sec
+    last_sec = default_last_sec if args.last_sec is None else args.last_sec
 
     m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, downsample=downsample)
 

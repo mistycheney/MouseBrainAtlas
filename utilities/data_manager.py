@@ -246,9 +246,13 @@ class DataManager(object):
     @staticmethod
     def get_image_dimension(stack):
         try:
-            sec = section_range_lookup[stack][0]
+            # sec = section_range_lookup[stack][0]
+            sec = DataManager.load_cropbox(stack)[4]
             fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
+            if not os.path.exists(fn):
+                fn = DataManager.get_image_filepath(stack=stack, section=sec, version='saturation', data_dir=data_dir)
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
+
         except Exception as e:
             print e
             # sys.stderr.write('Cannot find image.\n')
@@ -265,7 +269,8 @@ class DataManager(object):
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
-        first_sec, last_sec = section_range_lookup[stack]
+        # first_sec, last_sec = section_range_lookup[stack]
+        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
             # z_begin = int(np.floor(first_sec*voxel_z_size))
@@ -289,7 +294,8 @@ class DataManager(object):
         voxel_z_size = section_thickness / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
-        first_sec, last_sec = section_range_lookup[stack]
+        # first_sec, last_sec = section_range_lookup[stack]
+        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
 
         if z_begin is None:

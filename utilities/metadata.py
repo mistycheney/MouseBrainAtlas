@@ -42,6 +42,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
+    patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
 else:
     print 'Setting environment for Brainstem workstation'
 

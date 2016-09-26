@@ -783,3 +783,74 @@ def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
     resampled_interpolated_contours = [resample_polygon(cnt, len_interval=len_interval_interpolated[i]) for i, cnt in enumerate(interpolated_contours)]
 
     return resampled_interpolated_contours
+
+
+
+def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
+
+    with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+        filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+        # sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
+
+    with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+        xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
+
+    import cPickle as pickle
+    Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+        fn = cnt['filename']
+        if fn not in filename_to_section:
+            continue
+        sec = filename_to_section[fn]
+        contour_df.loc[cnt_id, 'section'] = sec
+
+        T = Ts[fn].copy()
+        T[:2, 2] = T[:2, 2]*32
+        Tinv = np.linalg.inv(T)
+
+        n = len(cnt['vertices'])
+
+        vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
+        # contour_df.loc[cnt_id, 'vertices'] = vertices_on_aligned_cropped
+        contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+
+        label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+        # contour_df.loc[cnt_id, 'label_position'] = label_position_on_aligned_cropped.tolist()
+
+    return contour_df
+
+def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
+
+    with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+        # filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+        sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
+
+    with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+        xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
+
+    import cPickle as pickle
+    Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+        sec = cnt['section']
+        fn = sorted_filelist[sec]
+        if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
+            continue
+        contour_df.loc[cnt_id, 'filename'] = fn
+
+        T = Ts[fn].copy()
+        T[:2, 2] = T[:2, 2]*32
+
+        n = len(cnt['vertices'])
+
+        vertices_on_aligned = np.array(cnt['vertices']) + (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
+
+        label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
+        contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
+
+    return contour_df

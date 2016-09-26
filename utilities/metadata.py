@@ -37,10 +37,12 @@ elif hostname == 'yuncong-MacbookPro':
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
+    thumbnail_data_dir = data_dir
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
+    patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -125,13 +127,13 @@ all_stacks = ['MD589', 'MD594', 'MD593', 'MD585', 'MD592', 'MD590', 'MD591', 'MD
 #                         'MD598': (95,354), 'MD602':(96,352), 'MD603':(60,347),
 #                         'MD635': (75, 365), 'MD634': (312, 729)}
 
-section_range_lookup = {'MD585': (83, 352), 'MD589': (92, 370), 'MD590': (82, 343), 'MD594': (92, 367), 'MD602':(111, 375), 'MD603':(61, 353)}
-
-stack_orientation = {'MD585': 'sagittal', 'MD589': 'sagittal',
-                        'MD590':'sagittal', 'MD591':'sagittal', 'MD592':'sagittal',
-                        'MD593':'sagittal', 'MD594': 'sagittal', 'MD595': 'sagittal',
-                        'MD598': 'sagittal', 'MD602':'sagittal', 'MD603':'sagittal',
-                        'MD635': 'horizontal', 'MD634': 'coronal'}
+# section_range_lookup = {'MD585': (83, 352), 'MD589': (92, 370), 'MD590': (82, 343), 'MD594': (92, 367), 'MD602':(111, 375), 'MD603':(61, 353)}
+#
+# stack_orientation = {'MD585': 'sagittal', 'MD589': 'sagittal',
+#                         'MD590':'sagittal', 'MD591':'sagittal', 'MD592':'sagittal',
+#                         'MD593':'sagittal', 'MD594': 'sagittal', 'MD595': 'sagittal',
+#                         'MD598': 'sagittal', 'MD602':'sagittal', 'MD603':'sagittal',
+#                         'MD635': 'horizontal', 'MD634': 'coronal'}
 
 # anchor_filename = {'MD585':'MD585-N47-2015.07.16-22.50.52_MD585_3_0141',
 # 'MD589': 'MD589-IHC31-2015.07.30-23.26.22_MD589_1_0091',
@@ -153,9 +155,9 @@ stack_orientation = {'MD585': 'sagittal', 'MD589': 'sagittal',
 #                                 'MD598':(582,88,793,478), 'MD602':(555,65,847,485), 'MD603':(514,189,635,401)}
 
 
-brainstem_bbox_lookup_midbrain = {'MD585': (551,116,512,375), 'MD589':(569,140,485,373), 'MD590': (620, 125, 548, 408),
-                                'MD594':(583,120,544,368),
-                                'MD602': (603,36,698,384), 'MD603': (588,179,654,421)}
+# brainstem_bbox_lookup_midbrain = {'MD585': (551,116,512,375), 'MD589':(569,140,485,373), 'MD590': (620, 125, 548, 408),
+#                                 'MD594':(583,120,544,368),
+#                                 'MD602': (603,36,698,384), 'MD603': (588,179,654,421)}
 
 # xmin, ymin, w, h
 # detect_bbox_lookup = {'MD585': (16,144,411,225), 'MD593': (31,120,368,240), 'MD592': (43,129,419,241), 'MD590': (45,124,411,236), 'MD591': (38,117,410,272), \

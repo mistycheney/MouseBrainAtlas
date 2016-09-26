@@ -192,9 +192,9 @@ def crop():
                     argument_type='single')
 
     sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-    #
+
     # #################################################
-    #
+    
     t = time.time()
     sys.stderr.write('warping and cropping lossless...')
 

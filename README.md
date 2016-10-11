@@ -2,10 +2,10 @@ This is the repo for mouse brainstem atlas project.
 
 - *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
 - *annotation*: code related to processing human annotations
-v*cells*: experiments for cell-based texture representation
+- *cells*: experiments for cell-based texture representation
 - *dictionary*: experiments for dictionary learning
 - *gui*: code for two GUIs - brain labeling GUI and preprocessing GUI
-- *learning*: code for extracting patches, generating features, training classifiers and processing score - maps
+- *learning*: code for extracting patches, generating features, training classifiers and processing score maps
 - *preprocess*: code for preprocessing
 - *reconstruct*: code for reconstructing volumes
 - *registration*: code for 3D registration

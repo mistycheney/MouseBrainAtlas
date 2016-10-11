@@ -2109,7 +2109,7 @@ def find_contour_points(labelmap, sample_every=10):
     Note the returned result is a dict of lists.
     """
 
-    regions = regionprops(labelmap)
+    regions = regionprops(labelmap.astype(np.int))
 
     contour_points = {}
 

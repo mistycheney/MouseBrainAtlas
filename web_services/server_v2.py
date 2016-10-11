@@ -33,7 +33,7 @@ from preprocess_utility import *
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess')
 
-exclude_nodes = [33]
+exclude_nodes = [33, 47]
 
 @app.route('/')
 def index():
@@ -194,7 +194,7 @@ def crop():
     sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
     # #################################################
-    
+
     t = time.time()
     sys.stderr.write('warping and cropping lossless...')
 
@@ -415,7 +415,6 @@ def generate_warp_crop_mask():
     t = time.time()
     print 'Generating thumbnail mask...',
 
-
     print 'done in', time.time() - t, 'seconds'
 
     ########################################################
@@ -427,6 +426,8 @@ def generate_warp_crop_mask():
     transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
                                                             dict(stack=stack, anchor_fn=anchor_fn))
     transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
+
+    execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)))
 
     run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500' % \
                     {'script_dir': script_dir,
@@ -447,10 +448,18 @@ def generate_warp_crop_mask():
     t = time.time()
     sys.stderr.write('cropping thumbnail mask...')
 
-    os.system(('mkdir %(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped ; '
-                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.png" %(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/*.png') % \
+    aligned_cropped_dir = '%(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped' % \
+                            {'stack': stack,
+                            'stack_data_dir': os.path.join(data_dir, stack),
+                            'anchor_fn': anchor_fn}
+
+    execute_command('rm -rf %(aligned_cropped_dir)s' % dict(aligned_cropped_dir=aligned_cropped_dir))
+
+    os.system(('mkdir %(aligned_cropped_dir)s ; '
+                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(aligned_cropped_dir)s/%%[filename:name]_cropped.png" %(stack_data_dir)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/*.png') % \
     	{'stack': stack,
     	'stack_data_dir': os.path.join(data_dir, stack),
+        'aligned_cropped_dir': aligned_cropped_dir,
     	'w':w, 'h':h, 'x':x, 'y':y,
         'anchor_fn': anchor_fn})
 

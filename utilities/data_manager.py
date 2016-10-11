@@ -23,6 +23,12 @@ class DataManager(object):
         return bbox
 
     @staticmethod
+    def load_anchor_filename(stack):
+        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt'%dict(stack=stack), 'r') as f:
+            anchor_fn = f.readline()
+        return anchor_fn
+
+    @staticmethod
     def load_cropbox(stack):
         with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
             cropbox = one_liner_to_arr(f.readline(), int)

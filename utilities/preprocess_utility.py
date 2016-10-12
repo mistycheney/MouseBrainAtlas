@@ -91,7 +91,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
             elif argument_type == 'single':
                 line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'generic_launcher_path': os.environ['REPO_DIR'] + '/distributed/sequential_dispatcher.py',
+                        'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
                         'command_template': command,
                         'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
                         }

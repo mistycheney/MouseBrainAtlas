@@ -57,7 +57,7 @@ def generate_mask_contour_visualization(fn):
         viz = image.copy()
 
         for cnt in contour_xys:
-            cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1)
+            cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1)
 
         output_fn = os.path.join(output_dir, '%(fn)s_mask_contour_viz.tif' % dict(fn=fn))
 

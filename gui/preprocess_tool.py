@@ -315,11 +315,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.web_service = WebService()
 
-        # if stack in bad_sections:
-        #     self.bad_sections = set(bad_sections[stack])
-        # else:
-        # self.bad_sections = set([])
-
         ###############################################
 
         self.slide_gscene = SimpleGraphicsScene(id='section', gview=self.slide_gview)
@@ -328,9 +323,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # slide_indices = ['N11, N12, IHC28']
         macros_dir = '/home/yuncong/CSHL_data/macros/%(stack)s/' % {'stack': self.stack}
 
-        # slide_indices = defaultdict(list)
         slide_filenames = {}
-        # macro_fns = []
         import re
         for fn in os.listdir(macros_dir):
             res = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s*([0-9]+)\s?-\s?(.*?) (.*?)_macro.jpg$', fn)
@@ -342,30 +335,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                     _, prefix, slide_num, date, hour = res[0]
                 else:
                     continue
-            # slide_indices[prefix].append(slide_num)
             slide_filenames[prefix + '_%d' % int(slide_num)] = fn
-            # slide_filenames[prefix + '_%02d' % int(slide_num)] = fn
 
-
-        # def sort_filenames(fns):
-        #     sorted_filenames = []
-        #
-        #     for fn in fns:
-        #         res = re.findall('^(.*?)\s?-\s?(F|N|IHC)\s*([0-9]+)\s?-\s?(.*?) (.*?)_macro.jpg$', fn)
-        #         if len(res) > 0:
-        #             _, prefix, slide_num, date, hour = res[0]
-        #             sorted_filenames.append((slide_num, fn))
-        #         else:
-        #             res = re.findall('^macro_(.*?)-(F|N|IHC)([0-9]+)-(.*?)-(.*?).jpg$', fn)
-        #             if len(res) > 0:
-        #                 _, prefix, slide_num, date, hour = res[0]
-        #                 sorted_filenames.append((slide_num, fn))
-        #             else:
-        #                 continue
-        #
-        #     return [fn for i, fn in sorted(sorted_filenames)]
-
-        create_if_not_exists(self.stack_data_dir + '/' + self.stack)
+        create_if_not_exists(self.stack_data_dir)
         with open(self.stack_data_dir + '/' + self.stack + '_slide_list.txt', 'w') as f:
             for slide_name, fn in sorted(slide_filenames.items(), key=lambda x: int(x[0].split('_')[1])):
                 f.write(slide_name + ' ' + fn + '\n')
@@ -555,7 +527,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_crop.clicked.connect(self.crop)
         self.button_load_crop.clicked.connect(self.load_crop)
         self.button_save_crop.clicked.connect(self.save_crop)
-        self.button_mask.clicked.connect(self.generate_warp_crop_mask)
+        self.button_gen_mask.clicked.connect(self.generate_masks)
+        self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
         self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
 
         ################################
@@ -1338,6 +1311,24 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.sorted_sections_gscene.set_data_feeder(self.aligned_images_feeder)
             self.sorted_sections_gscene.set_active_i(active_i)
 
+        elif self.currently_showing == 'mask_contour':
+
+            self.maskContourViz_images_feeder = ImageDataFeeder('mask contoured image feeder', stack=self.stack,
+                                                sections=self.valid_section_indices, use_data_manager=False)
+            self.maskContourViz_images_dir = self.stack_data_dir + '/%(stack)s_maskContourViz_unsorted/' % {'stack': self.stack}
+            # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(stack)s_%(fn)s_aligned.tif' % \
+            #                             {'stack':self.stack, 'fn': self.sorted_filenames[i]}) for i in self.valid_section_indices]
+
+            maskContourViz_image_filenames = [os.path.join(self.maskContourViz_images_dir, '%(fn)s_mask_contour_viz.tif' % {'fn': fn})
+                                        for fn in self.valid_section_filenames]
+
+            self.maskContourViz_images_feeder.set_images(self.valid_section_indices, maskContourViz_image_filenames, downsample=32, load_with_cv2=False)
+            self.maskContourViz_images_feeder.set_downsample_factor(32)
+
+            active_i = self.sorted_sections_gscene.active_i
+            self.sorted_sections_gscene.set_data_feeder(self.maskContourViz_images_feeder)
+            self.sorted_sections_gscene.set_active_i(active_i)
+
 
     def save_sorted_filenames(self):
 
@@ -1368,9 +1359,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.statusBar().showMessage('Cannot load slide position to image filename mapping - File does not exists.')
 
     def save(self):
-        # for a, b in sorted(self.slide_position_to_fn.items()):
-        #     for c, d in sorted(b.items()):
-        #         print a, c, d
 
         pickle.dump(self.slide_position_to_fn, open(self.stack_data_dir + '/%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}, 'w') )
 
@@ -1397,8 +1385,22 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         'local_data_dir': '/home/yuncong/CSHL_data',
                         'stack': self.stack})
 
+    def generate_masks(self):
 
-    def generate_warp_crop_mask(self):
+        self.web_service.convert_to_request('generate_masks',
+                                    stack=self.stack, filenames=self.get_valid_sorted_filenames())
+
+        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted %(local_data_dir)s/%(stack)s/""" % \
+                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'stack': self.stack})
+
+        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted %(local_data_dir)s/%(stack)s/""" % \
+                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'stack': self.stack})
+
+    def warp_crop_masks(self):
         ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
         lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
         ul_x = int(ul_pos.x())
@@ -1406,15 +1408,22 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         lr_x = int(lr_pos.x())
         lr_y = int(lr_pos.y())
 
-        self.web_service.convert_to_request('generate_warp_crop_mask',
+        self.web_service.convert_to_request('warp_crop_masks',
                                             stack=self.stack, filenames=self.get_valid_sorted_filenames(),
                                             x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
 
-# self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y,
-#                                     f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
-#                                     filenames=self.get_valid_sorted_filenames(),
-#                                     first_fn=self.sorted_filenames[self.first_section-1],
-#                                     last_fn=self.sorted_filenames[self.last_section-1])
+        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s %(local_data_dir)s/%(stack)s/""" % \
+                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'anchor_fn': self.anchor_fn,
+                        'stack': self.stack})
+
+        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped %(local_data_dir)s/%(stack)s/""" % \
+                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        'anchor_fn': self.anchor_fn,
+                        'stack': self.stack})
+
 
     def align(self):
         self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
@@ -1570,6 +1579,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.set_show_option('aligned')
         elif show_option_text == 'Original':
             self.set_show_option('original')
+        elif show_option_text == 'Mask Contoured':
+            self.set_show_option('mask_contour')
         else:
             raise Exception('Not implemented.')
 

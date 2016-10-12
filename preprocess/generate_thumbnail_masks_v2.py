@@ -174,4 +174,4 @@ def generate_mask(fn):
         sys.stderr.write('%d, Mask error: %s\n' % (len(final_masks), fn))
         return
 
-_ = Parallel(n_jobs=14)(delayed(generate_mask)(fn) for fn in filenames)
+_ = Parallel(n_jobs=8)(delayed(generate_mask)(fn) for fn in filenames)

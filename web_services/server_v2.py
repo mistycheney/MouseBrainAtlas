@@ -116,7 +116,7 @@ def compose():
     														dict(stack=stack, anchor_fn=anchor_fn))
     transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
 
-    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500' % \
+    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 white' % \
                     {'script_dir': script_dir,
                     'stack': stack,
                     'input_dir': '/home/yuncong/CSHL_data/' + stack,
@@ -152,18 +152,12 @@ def crop():
     first_idx = filenames.index(first_fn)
     last_idx = filenames.index(last_fn)
 
-    # f = request.args.get('f', type=int)
-    # l = request.args.get('l', type=int)
-    # f = 202
-    # l = 202
-    # print x,y,w,h,f,l
-
     ##################################################
 
     t = time.time()
     sys.stderr.write('cropping thumbnail...')
 
-    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped ; '
+    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
                 'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
     	{'stack': stack,
     	'stack_data_dir': os.path.join(data_dir, stack),
@@ -204,7 +198,7 @@ def crop():
 
     # print transforms_to_anchor.keys()
 
-    run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d'%\
+    run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d white'%\
                     {'script_path': script_dir + '/warp_crop_IM_v2.py',
                     'stack': stack,
                     'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
@@ -399,8 +393,56 @@ def confirm_order():
     return jsonify(**d)
 
 
-@app.route('/generate_warp_crop_mask')
-def generate_warp_crop_mask():
+@app.route('/generate_masks')
+def generate_masks():
+    stack = request.args.get('stack', type=str)
+    filenames = map(str, request.args.getlist('filenames'))
+
+    ##################################################
+
+    t = time.time()
+    print 'Generating thumbnail mask...',
+
+    input_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
+    output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack))
+
+    run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s' % \
+                    {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/generate_thumbnail_masks_v2.py',
+                    'stack': stack,
+                    'input_dir': input_dir,
+                    'output_dir': output_dir},
+                    kwargs_list=dict(filenames=filenames),
+                    exclude_nodes=exclude_nodes,
+                    argument_type='list2')
+
+    print 'done in', time.time() - t, 'seconds'
+
+    ##################################################
+
+    t = time.time()
+    print 'Generating visualization of mask contours overlayed on thumbnail images ...',
+
+    image_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
+    mask_dir = '/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack)
+    output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
+
+    run_distributed4(command='%(script_path)s %(stack)s %(image_dir)s %(mask_dir)s \'%%(filenames)s\' %(output_dir)s' % \
+                    {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/generate_thumbnail_mask_contour_viz.py',
+                    'stack': stack,
+                    'image_dir': image_dir,
+                    'mask_dir': mask_dir,
+                    'output_dir': output_dir},
+                    kwargs_list=dict(filenames=filenames),
+                    exclude_nodes=exclude_nodes,
+                    argument_type='list2')
+
+    print 'done in', time.time() - t, 'seconds'
+
+    d = {'result': 0}
+    return jsonify(**d)
+
+@app.route('/warp_crop_masks')
+def warp_crop_masks():
 
     stack = request.args.get('stack', type=str)
     filenames = map(str, request.args.getlist('filenames'))
@@ -409,13 +451,6 @@ def generate_warp_crop_mask():
     w = request.args.get('w', type=int)
     h = request.args.get('h', type=int)
     anchor_fn = request.args.get('anchor_fn', type=str)
-
-    ########################################################
-
-    t = time.time()
-    print 'Generating thumbnail mask...',
-
-    print 'done in', time.time() - t, 'seconds'
 
     ########################################################
 
@@ -429,7 +464,7 @@ def generate_warp_crop_mask():
 
     execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)))
 
-    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500' % \
+    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 black' % \
                     {'script_dir': script_dir,
                     'stack': stack,
                     'input_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted/'),
@@ -465,6 +500,8 @@ def generate_warp_crop_mask():
 
     sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
+    d = {'result': 0}
+    return jsonify(**d)
 
 
 if __name__ == '__main__':

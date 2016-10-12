@@ -18,7 +18,7 @@ args = parser.parse_args()
 stack = args.stack_name
 
 t = time.time()
-sys.stderr.write('generating mask ...')
+sys.stderr.write('generating masks ...')
 
 exclude_nodes = [33, 47]
 

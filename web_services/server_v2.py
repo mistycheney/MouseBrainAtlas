@@ -406,6 +406,8 @@ def generate_masks():
     input_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
     output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack))
 
+    # !! For some reason (perhaps too much simultaneous write to disk), the distributed computation cannot finish, usually stuck with only a few sections left.
+
     run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s' % \
                     {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/generate_thumbnail_masks_v2.py',
                     'stack': stack,
@@ -413,6 +415,7 @@ def generate_masks():
                     'output_dir': output_dir},
                     kwargs_list=dict(filenames=filenames),
                     exclude_nodes=exclude_nodes,
+                    # use_nodes=[35],
                     argument_type='list2')
 
     print 'done in', time.time() - t, 'seconds'

@@ -98,43 +98,54 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir):
-        slice_str = '%04d' % section
+    def get_image_filepath(stack, section, version='rgb-jpg', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
 
-        if version == 'rgb-jpg':
-            # image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
-            # image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
-            # image_path = os.path.join(image_dir, image_name + '.jpg')
+        if fn is None:
+            slice_str = '%04d' % section
+            if version == 'rgb-jpg':
+                # image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
+                # image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
+                # image_path = os.path.join(image_dir, image_name + '.jpg')
 
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_compressed')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_compressed'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_compressed')
+                image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_compressed'])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
 
-        elif version == 'rgb':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-        # elif version == 'gray-jpg':
-        #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
-        #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
-        #     image_path = os.path.join(image_dir, image_name + '.jpg')
-        # elif version == 'gray':
-        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
-        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
-        #     image_path = os.path.join(image_dir, image_name + '.tif')
-        # elif version == 'rgb':
-        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
-        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-        #     image_path = os.path.join(image_dir, image_name + '.tif')
-        # elif version == 'stereotactic-rgb-jpg':
-        #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
-        #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
-        #     image_path = os.path.join(image_dir, image_name + '.jpg')
+            elif version == 'rgb':
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped')
+                image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
+                image_path = os.path.join(image_dir, image_name + '.tif')
+            # elif version == 'gray-jpg':
+            #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
+            #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
+            #     image_path = os.path.join(image_dir, image_name + '.jpg')
+            # elif version == 'gray':
+            #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
+            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
+            #     image_path = os.path.join(image_dir, image_name + '.tif')
+            # elif version == 'rgb':
+            #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
+            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
+            #     image_path = os.path.join(image_dir, image_name + '.tif')
+            # elif version == 'stereotactic-rgb-jpg':
+            #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
+            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
+            #     image_path = os.path.join(image_dir, image_name + '.jpg')
 
-        elif version == 'saturation':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_saturation')
-            image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
+            elif version == 'saturation':
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_saturation')
+                image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
+
+        else:
+            if version == 'rgb-jpg':
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([stack, slice_str, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
+            elif version == 'saturation':
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([stack, slice_str, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
 
         return image_path
 

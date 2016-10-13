@@ -531,6 +531,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
         self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
 
+        self.button_send_info_gordon.clicked.connect(self.send_info_gordon)
+        # self.button_send_info_workstation.clicked.connect(self.send_info_workstation)
+
         ################################
 
         self.placeholders = set([])
@@ -1103,6 +1106,18 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.save_sorted_filenames()
         self.save()
 
+
+    def send_info_gordon(self):
+        # Upload cropbox file, sorted filenames file, anchor file
+        execute_command(('scp %(stack_data_dir)s/%(stack)s_cropbox.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+                        'scp %(stack_data_dir)s/%(stack)s_anchor.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+                        'scp %(stack_data_dir)s/%(stack)s_sorted_filenames.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/') %\
+                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+
+
+    # def send_info_workstation(self):
+    #     pass
+
     def send_to_workstation(self):
 
         commands_on_brainstem_download_metadata = \
@@ -1187,18 +1202,18 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 stack_data_dir_gordon=self.stack_data_dir_gordon,
                 anchor_fn=self.anchor_fn)
 
-        # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_metadata))
-        #
         # execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_sorted_saturation))
         # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_saturation))
-        # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_saturation))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_saturation))
         #
         # execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_sorted_compressed))
         # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_compressed))
-        # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_compressed))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_compressed))
 
-        execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_masks))
-        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_masks))
+        execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_metadata))
+
+        # execute_command('ssh dm \"%(cmd)s\"' % dict(cmd=commands_gordon_tar_masks))
+        # execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_sorted_masks))
         execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_masks))
 
 
@@ -1244,13 +1259,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # self.send_to_workstation()
 
         self.save_everything()
-
-        # Upload cropbox file, sorted filenames file, anchor file
-        execute_command(('scp %(stack_data_dir)s/%(stack)s_cropbox.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
-                        'scp %(stack_data_dir)s/%(stack)s_anchor.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
-                        'scp %(stack_data_dir)s/%(stack)s_sorted_filenames.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/') %\
-                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
-
 
 
     def update_sorted_sections_gscene_from_sorted_filenames(self):

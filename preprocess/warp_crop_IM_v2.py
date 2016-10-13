@@ -3,10 +3,10 @@
 import sys
 import os
 import numpy as np
-# import cPickle as pickle
 import json
 
-# from joblib import Parallel, delayed
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import execute_command
 
 import argparse
 
@@ -82,6 +82,8 @@ d = {'sx':T[0,0],
     }
 
 if background_color == 'black':
-    os.system("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    execute_command("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    # os.system("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
 elif background_color == 'white':
-    os.system("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    execute_command("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    # os.system("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)

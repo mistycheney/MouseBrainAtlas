@@ -165,7 +165,7 @@ def generate_mask(fn):
         mask_fn = os.path.join(output_dir, '%(fn)s_mask.png' % dict(fn=fn))
 
         if os.path.exists(mask_fn):
-            sys.stderr.write('Mask exists, overwrite..\n')
+            sys.stderr.write('Mask exists, overwrite: %s\n' % mask_fn)
 
         imsave(mask_fn, img_as_ubyte(final_mask))
 
@@ -174,4 +174,4 @@ def generate_mask(fn):
         sys.stderr.write('%d, Mask error: %s\n' % (len(final_masks), fn))
         return
 
-_ = Parallel(n_jobs=8)(delayed(generate_mask)(fn) for fn in filenames)
+_ = Parallel(n_jobs=15)(delayed(generate_mask)(fn) for fn in filenames)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PreprocessTool.ui'
 #
-# Created: Tue Oct 11 10:01:28 2016
+# Created: Thu Oct 13 12:30:11 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_PreprocessGui(object):
     def setupUi(self, PreprocessGui):
         PreprocessGui.setObjectName(_fromUtf8("PreprocessGui"))
-        PreprocessGui.resize(1904, 1088)
+        PreprocessGui.resize(1906, 1088)
         self.centralwidget = QtGui.QWidget(PreprocessGui)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
         self.verticalLayout_3 = QtGui.QVBoxLayout(self.centralwidget)
@@ -126,13 +126,16 @@ class Ui_PreprocessGui(object):
         self.gridLayout_2.addWidget(self.button_align, 0, 1, 1, 1)
         self.button_syncWorkstation = QtGui.QPushButton(self.centralwidget)
         self.button_syncWorkstation.setObjectName(_fromUtf8("button_syncWorkstation"))
-        self.gridLayout_2.addWidget(self.button_syncWorkstation, 3, 3, 1, 1)
+        self.gridLayout_2.addWidget(self.button_syncWorkstation, 4, 3, 1, 1)
         self.button_warp_crop_mask = QtGui.QPushButton(self.centralwidget)
         self.button_warp_crop_mask.setObjectName(_fromUtf8("button_warp_crop_mask"))
-        self.gridLayout_2.addWidget(self.button_warp_crop_mask, 3, 2, 1, 1)
+        self.gridLayout_2.addWidget(self.button_warp_crop_mask, 4, 2, 1, 1)
         self.button_gen_mask = QtGui.QPushButton(self.centralwidget)
         self.button_gen_mask.setObjectName(_fromUtf8("button_gen_mask"))
-        self.gridLayout_2.addWidget(self.button_gen_mask, 3, 1, 1, 1)
+        self.gridLayout_2.addWidget(self.button_gen_mask, 4, 1, 1, 1)
+        self.button_send_info_gordon = QtGui.QPushButton(self.centralwidget)
+        self.button_send_info_gordon.setObjectName(_fromUtf8("button_send_info_gordon"))
+        self.gridLayout_2.addWidget(self.button_send_info_gordon, 4, 4, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout_2)
         self.horizontalLayout_9.addLayout(self.verticalLayout)
         self.verticalLayout_3.addLayout(self.horizontalLayout_9)
@@ -216,7 +219,7 @@ class Ui_PreprocessGui(object):
         self.verticalLayout_3.addLayout(self.horizontalLayout_5)
         PreprocessGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(PreprocessGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1904, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1906, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         PreprocessGui.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(PreprocessGui)
@@ -256,9 +259,10 @@ class Ui_PreprocessGui(object):
         self.button_save_crop.setText(_translate("PreprocessGui", "Save Crop", None))
         self.button_confirm_alignment.setText(_translate("PreprocessGui", "Compose", None))
         self.button_align.setText(_translate("PreprocessGui", "Align", None))
-        self.button_syncWorkstation.setText(_translate("PreprocessGui", "Sync to workstation", None))
+        self.button_syncWorkstation.setText(_translate("PreprocessGui", "Workstation Download", None))
         self.button_warp_crop_mask.setText(_translate("PreprocessGui", "Warp/Crop Masks", None))
         self.button_gen_mask.setText(_translate("PreprocessGui", "Generate Masks", None))
+        self.button_send_info_gordon.setText(_translate("PreprocessGui", "Send info to Gordon", None))
         self.label_section2_filename.setText(_translate("PreprocessGui", "File", None))
         self.label_section2_index.setText(_translate("PreprocessGui", "TextLabel", None))
         self.label_section3_filename.setText(_translate("PreprocessGui", "File", None))

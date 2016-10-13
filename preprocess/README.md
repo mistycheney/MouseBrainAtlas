@@ -4,7 +4,7 @@ The preprocessing involves the following steps:
 - Sort
 - Align
   - server Align
-  - download output images resulted from each consecutive transform.
+  - download output images resulted from each consecutive transform. `<stack>_elastix_output/*/result.0.tif`
   - (user) check consecutive alignments. In this case, the user should manually specify matching point pairs based on which program will compute the transform.
 - Compose
   - server compose
@@ -13,6 +13,7 @@ The preprocessing involves the following steps:
 - Crop
   - (user) specify crop box and FIRST, LAST
   - generate `<stack>_thumbnail_unsorted_alignedTo_<anchor_fn>_cropped` and `<stack>_lossless_unsorted_alignedTo_<anchor_fn>_cropped`; also `<stack>_lossless_unsorted_alignedTo_<anchor_fn>_cropped_saturation` and `<stack>_lossless_unsorted_alignedTo_<anchor_fn>_cropped_compressed`
+  (generating saturation or compressed versions take 10 minutes)
 
 - Generate mask
   - server gen mask

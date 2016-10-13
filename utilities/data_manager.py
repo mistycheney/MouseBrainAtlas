@@ -262,12 +262,17 @@ class DataManager(object):
 
     @staticmethod
     def get_image_dimension(stack):
+
         try:
             # sec = section_range_lookup[stack][0]
-            sec = DataManager.load_cropbox(stack)[4]
-            fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
+            # sec = DataManager.load_cropbox(stack)[4]
+            anchor_fn = DataManager.load_anchor_filename(stack)
+            filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+            fn = DataManager.get_image_filepath(stack=stack, version='rgb-jpg', data_dir=data_dir, fn=section_to_filename[1], anchor_fn=anchor_fn)
+            # fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
             if not os.path.exists(fn):
-                fn = DataManager.get_image_filepath(stack=stack, section=sec, version='saturation', data_dir=data_dir)
+                # fn = DataManager.get_image_filepath(stack=stack, section=sec, version='saturation', data_dir=data_dir)
+                fn = DataManager.get_image_filepath(stack=stack, version='saturation', data_dir=data_dir, fn=section_to_filename[1], anchor_fn=anchor_fn)
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
         except Exception as e:
             print e

@@ -27,6 +27,7 @@ for fn_pair in filename_pairs:
 	output_subdir = os.path.join(output_dir, curr_fn + '_to_' + prev_fn)
 
 	if os.path.exists(output_subdir):
+		sys.stderr.write('Result for aligning %s to %s already exists.\n' % (curr_fn, prev_fn))
 		continue
 
 	execute_command('rm -rf ' + output_subdir)

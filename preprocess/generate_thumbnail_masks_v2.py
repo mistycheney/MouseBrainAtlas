@@ -2,29 +2,38 @@
 
 import sys
 import os
-import numpy as np
-import cPickle as pickle
-import argparse
 
+import time
+
+# t = time.time()
+
+import numpy as np
 from joblib import Parallel, delayed
 
 from skimage.filters.rank import entropy
 from skimage.morphology import remove_small_objects, disk, remove_small_holes
-from skimage.measure import label, regionprops, find_contours
+from skimage.measure import label, regionprops
 from skimage.color import rgb2gray
 from skimage.io import imread, imsave
-from skimage import img_as_float
 from skimage.segmentation import active_contour
 from skimage.filters import gaussian
-from skimage.filter import threshold_adaptive, canny
+from skimage.filter import threshold_adaptive
+from skimage.util import img_as_ubyte
 
-from sklearn import mixture
+from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from annotation_utilities import *
+from annotation_utilities import points_inside_contour
+from registration_utilities import find_contour_points
+from utilities2015 import create_if_not_exists
+
+# sys.stderr.write('%f seconds.\n' % (time.time() - t))
+# sys.exit(0)
 
 #######################################################################################
+
+import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -39,11 +48,17 @@ stack = args.stack_name
 input_dir = args.input_dir
 output_dir = args.output_dir
 
+create_if_not_exists(output_dir)
+
 import json
+
+sys.stderr.write('%s\n' % args.filenames)
+
 filenames = json.loads(args.filenames)
+
 sys.stderr.write('%s\n' % filenames)
 
-thumbnail_fmt = 'tif'
+# thumbnail_fmt = 'tif'
 
 def generate_entropy_mask(img):
 
@@ -55,7 +70,7 @@ def generate_entropy_mask(img):
     bics = []
     clfs = []
     for nc in [2,3]:
-        clf = mixture.GMM(n_components=nc, covariance_type='full')
+        clf = GaussianMixture(n_components=nc, covariance_type='full')
         clf.fit(x)
         bic = clf.bic(x)
         bics.append(bic)
@@ -64,11 +79,16 @@ def generate_entropy_mask(img):
     print 'num. components', [2,3][np.argsort(bics)[0]]
 
     clf = clfs[np.argsort(bics)[0]]
+    covars = np.atleast_1d(np.squeeze(clf.covariances_))
+
+    if clf.n_components == 3:
+        invalid_component = np.where(covars > .4)[0]
+        if len(invalid_component) == 1:
+            clf = clfs[0]
+            covars = np.atleast_1d(np.squeeze(clf.covariances_))
 
     means = np.atleast_1d(np.squeeze(clf.means_))
-
     order = np.argsort(means)
-    covars = np.atleast_1d(np.squeeze(clf.covars_))
     weights = clf.weights_
 
     new_means = []
@@ -116,7 +136,7 @@ def generate_mask(fn):
 
         entropy_mask = generate_entropy_mask(img)
 
-        init_contours = [yxs[:,::-1] for yxs in find_contours(entropy_mask, .5) if len(yxs) > 50]
+        init_contours = [xys for xys in find_contour_points(entropy_mask.astype(np.int), sample_every=1)[1] if len(xys) > 50]
         assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
 
         img_adap = threshold_adaptive(img, 51)
@@ -126,11 +146,12 @@ def generate_mask(fn):
 
         for init_cnt in init_contours:
 
-        # init_cnt = init_contours[0]
-            snake = active_contour(img_adap, init_cnt,
-                                   alpha=1., beta=10., gamma=0.01,
-                                   w_line=0., w_edge=1.,
-                                   max_iterations=100)
+            img_adap_gauss = gaussian(img_adap.astype(np.float), 1)
+
+            snake = active_contour(img_adap_gauss, init_cnt.astype(np.float),
+                                   alpha=1., beta=1000., gamma=1.,
+                                   w_line=0., w_edge=10.,
+                                   max_iterations=1000)
 
             bg = np.zeros(img.shape[:2], bool)
             xys = points_inside_contour(snake.astype(np.int))
@@ -142,6 +163,10 @@ def generate_mask(fn):
         final_mask = np.any(final_masks, axis=0)
 
         mask_fn = os.path.join(output_dir, '%(fn)s_mask.png' % dict(fn=fn))
+
+        if os.path.exists(mask_fn):
+            sys.stderr.write('Mask exists, overwrite..\n')
+
         imsave(mask_fn, img_as_ubyte(final_mask))
 
     except Exception as e:
@@ -149,5 +174,4 @@ def generate_mask(fn):
         sys.stderr.write('%d, Mask error: %s\n' % (len(final_masks), fn))
         return
 
-
-_ = Parallel(n_jobs=16)(delayed(generate_mask)(fn) for fn in filenames)
+_ = Parallel(n_jobs=8)(delayed(generate_mask)(fn) for fn in filenames)

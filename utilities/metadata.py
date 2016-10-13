@@ -21,6 +21,8 @@ if hostname.endswith('sdsc.edu'):
     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
+    patch_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'

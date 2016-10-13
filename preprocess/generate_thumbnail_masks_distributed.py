@@ -2,7 +2,6 @@
 
 import sys
 import os
-import cPickle as pickle
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from preprocess_utility import *
@@ -19,9 +18,9 @@ args = parser.parse_args()
 stack = args.stack_name
 
 t = time.time()
-sys.stderr.write('generating mask ...')
+sys.stderr.write('generating masks ...')
 
-exclude_nodes = [33]
+exclude_nodes = [33, 47]
 
 input_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
 output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack))

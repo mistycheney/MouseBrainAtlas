@@ -525,6 +525,16 @@ def bbox_3d(img):
 #     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
 #     return points[sampled_indices]
 
+def apply_function_to_dict(func, d):
+    """
+    Func applies to the list consisting of all elements of d, and return a list.
+    """
+    from itertools import chain
+    result = func(list(chain(*d.values())))
+    csum = np.cumsum(map(len, d.values()))
+    new_d = {k: result[(0 if i == 0 else csum[i-1]):csum[i]] for i, k in enumerate(d.keys())}
+    return new_d
+
 import randomcolor
 
 def random_colors(count):

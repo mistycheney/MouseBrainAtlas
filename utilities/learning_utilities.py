@@ -52,6 +52,9 @@ def compute_predictions(H, abstain_label=-1):
     return predictions, no_decision_indices
 
 def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1):
+    """
+    probs: n_example x n_class
+    """
 
     n_labels = len(np.unique(labels))
 
@@ -149,7 +152,11 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
 #     return [index_to_name_mapping[i] for i in indices]
 
 
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None, grid_locations=None, version='rgb-jpg'):
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
+                                    grid_locations=None, version='rgb-jpg'):
+    """
+
+    """
 
     img = imread(DataManager.get_image_filepath(stack, sec, version=version))
 
@@ -376,6 +383,47 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
     #     return indices_allLandmarks_allSections_df
 
     return patch_indices_allSections_allStructures_df
+
+
+def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=None, num_samples_per_landmark=None):
+    """
+    Return address_list (section, grid_idx).
+    """
+
+    location_list = defaultdict(list)
+
+    for name in structures:
+
+        if name not in grid_indices_lookup.index:
+            continue
+
+        for sec, grid_indices in grid_indices_lookup.loc[name].dropna().to_dict().iteritems():
+
+            n = len(grid_indices)
+
+            if n == 0:
+                sys.stderr.write('Cell is empty.\n')
+                continue
+
+            if num_samples_per_polygon is None:
+                location_list[name] += [(sec, i) for i in grid_indices]
+
+            else:
+                random_sampled_indices = grid_indices[np.random.choice(range(n), min(n, num_samples_per_polygon), replace=False)]
+                location_list[name] += [(sec, i) for i in random_sampled_indices]
+
+    if num_samples_per_landmark is not None:
+
+        sampled_location_list = {}
+        for name_s, addresses in location_list.iteritems():
+            n = len(addresses)
+            random_sampled_indices = np.random.choice(range(n), min(n, num_samples_per_landmark), replace=False)
+            sampled_location_list[name_s] = [addresses[i] for i in random_sampled_indices]
+        return sampled_location_list
+
+    else:
+        location_list.default_factory = None
+        return location_list
 
 
 def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=None, w=None, h=None):

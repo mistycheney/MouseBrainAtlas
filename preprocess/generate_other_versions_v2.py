@@ -80,10 +80,16 @@ def generate_versions(fn, which=['compressed', 'saturation']):
     output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.jpg')
 
     if 'compressed' in which:
-        os.system("convert %(input_fn)s -format jpg %(output_compressed_fn)s" % \
+        if os.path.exists(output_saturation_fn):
+            sys.stderr.write('File exists: %s.\n' % output_compressed_fn)
+        else:
+            os.system("convert %(input_fn)s -format jpg %(output_compressed_fn)s" % \
                 dict(input_fn=input_fn, output_compressed_fn=output_compressed_fn))
 
     if 'saturation' in which:
-        convert_to_saturation(input_fn, output_saturation_fn, rescale=True)
+        if os.path.exists(output_saturation_fn):
+            sys.stderr.write('File exists: %s.\n' % output_saturation_fn)
+        else:
+            convert_to_saturation(input_fn, output_saturation_fn, rescale=True)
 
 Parallel(n_jobs=4)(delayed(generate_versions)(fn) for fn in filenames)

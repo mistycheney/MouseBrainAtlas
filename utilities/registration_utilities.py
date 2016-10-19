@@ -60,7 +60,7 @@ grad_m = None
 
 #########################################################################
 
-# from skimage.filters import gaussian
+from skimage.filters import gaussian
 
 class Aligner4(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
@@ -2109,7 +2109,7 @@ def find_contour_points(labelmap, sample_every=10):
     Note the returned result is a dict of lists.
     """
 
-    regions = regionprops(labelmap)
+    regions = regionprops(labelmap.astype(np.int))
 
     contour_points = {}
 

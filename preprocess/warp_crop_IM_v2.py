@@ -3,10 +3,10 @@
 import sys
 import os
 import numpy as np
-# import cPickle as pickle
 import json
 
-# from joblib import Parallel, delayed
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import execute_command
 
 import argparse
 
@@ -25,6 +25,7 @@ parser.add_argument("x", type=int, help="x on thumbnail", default=0)
 parser.add_argument("y", type=int, help="y on thumbnail", default=0)
 parser.add_argument("w", type=int, help="w on thumbnail", default=2000)
 parser.add_argument("h", type=int, help="h on thumbnail", default=1500)
+parser.add_argument("background_color", type=str, help="background color (black or white)", default='white')
 args = parser.parse_args()
 
 stack = args.stack_name
@@ -33,6 +34,7 @@ output_dir = args.output_dir
 output_fn = args.output_fn
 transform = np.reshape(map(np.float, args.transform.split(',')), (3,3))
 filename = args.filename
+background_color = args.background_color
 
 suffix = args.suffix
 
@@ -79,4 +81,9 @@ d = {'sx':T[0,0],
      'h': str(h * scale_factor),
     }
 
-os.system("convert %(input_fn)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+if background_color == 'black':
+    execute_command("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    # os.system("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+elif background_color == 'white':
+    execute_command("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    # os.system("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)

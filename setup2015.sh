@@ -43,7 +43,7 @@ else
 	# openblas
 	export LD_LIBRARY_PATH=$CSD395/OpenBLAS-release/lib:$LD_LIBRARY_PATH
 	
-	export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$PATH
+	#export PATH=/oasis/projects/nsf/csd181/yuncong/virtualenv-1.9.1/yuncongve/bin:$PATH
 	export LD_LIBRARY_PATH=/opt/python/lib:$LD_LIBRARY_PATH
 	
 	# elastix

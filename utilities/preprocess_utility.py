@@ -75,7 +75,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
             if argument_type == 'partition':
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'command': command % {'first_sec': kwargs_list_as_list['sections'][fi], 'last_sec': kwargs_list_as_list['sections'][li]}
+                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
             elif argument_type == 'list':
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \

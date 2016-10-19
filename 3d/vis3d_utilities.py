@@ -343,7 +343,9 @@ def save_mesh_stl(polydata, fn):
 
 
 
-def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, interactive=True, snapshot_fn=None, axes=True, background_color=(0,0,0)):
+def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
+            interactive=True, snapshot_fn=None, axes=True, background_color=(0,0,0),
+            animate=False, movie_fn=None):
 
     ren1 = vtk.vtkRenderer()
     ren1.SetBackground(background_color)
@@ -406,7 +408,6 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, inte
         camera.SetFocalPoint(0, 1, 0)
 
     ren1.SetActiveCamera(camera)
-
     ren1.ResetCamera()
 
     iren = vtk.vtkRenderWindowInteractor()
@@ -423,11 +424,53 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None, inte
     if window_size is not None:
         renWin.SetSize(window_size)
 
+    ##################
+    # http://www.vtk.org/Wiki/VTK/Examples/Python/Animation
+
+    if animate:
+
+        iren.Initialize()
+        # Sign up to receive TimerEvent
+        cb = vtkTimerCallback()
+        cb.actors = actors
+        cb.camera = camera
+        iren.AddObserver('TimerEvent', cb.execute)
+        timerId = iren.CreateRepeatingTimer(100);
+    ##################
+
     if interactive:
         iren.Start()
+
+        # if movie_fn is not None:
+        #
+        #     windowToImageFilter = vtk.vtkWindowToImageFilter()
+        #     windowToImageFilter.SetInput(renWin)
+        #     windowToImageFilter.SetInputBufferTypeToRGBA()
+        #     windowToImageFilter.ReadFrontBufferOff()
+        #     windowToImageFilter.Update()
+        #
+        #     movieWriter = vtk.vtkAVIWriter()
+        #     movieWriter.SetInputConnection(windowToImageFilter.GetOutputPort())
+        #     movieWriter.SetFileName(movie_fn)
+        #     movieWriter.Start()
+        #
+        #     imageFilter.Modified()
+        #     moviewriter.Write()
+        #
+        #     moviewriter.End()
     else:
         take_screenshot(renWin, snapshot_fn)
 
+
+class vtkTimerCallback():
+    def __init__(self):
+        self.timer_count = 0
+
+    def execute(self,obj,event):
+        iren = obj
+        iren.GetRenderWindow().Render()
+        self.camera.Azimuth(5.)
+        self.timer_count += 1
 
 ################## Functions for generating actors #######################
 

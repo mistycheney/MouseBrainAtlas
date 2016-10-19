@@ -152,7 +152,11 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
 #     return [index_to_name_mapping[i] for i in indices]
 
 
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None, grid_locations=None, version='rgb-jpg'):
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
+                                    grid_locations=None, version='rgb-jpg'):
+    """
+
+    """
 
     img = imread(DataManager.get_image_filepath(stack, sec, version=version))
 

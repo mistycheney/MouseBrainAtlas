@@ -35,13 +35,13 @@ singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 structures = paired_structures + singular_structures
 
 if not add_annotation:
-    export_filepath_fmt = scoremapViz_rootdir + '/%(name)s/%(stack)s/%(stack)s_%(sec)04d_roi1_scoremapViz_%(name)s.jpg'
-    export_scoremaps('original', stack, range(first_sec, last_sec+1),
-                     structures, 8,
-                     export_filepath_fmt=export_filepath_fmt, label_text=True)
-else:
-    outputViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremapPlusAnnotationViz'
-    export_filepath_fmt = outputViz_rootdir + '/%(name)s/%(stack)s/%(stack)s_%(sec)04d_roi1_scoremapPlusAnnotationViz_%(name)s_%(annofn)s.jpg'
-    export_scoremapPlusAnnotationVizs('original', stack, range(first_sec, last_sec+1),
-                                      structures, 8, export_filepath_fmt=export_filepath_fmt,
-                                      users=['yuncong', 'localAdjusted', 'autoAnnotate', 'globalAligned'])
+    export_filepath_fmt = scoremapViz_rootdir + '/%(name)s/%(stack)s/%(fn)s_alignedTo_%(anchor_fn)s_scoremapViz_%(name)s.jpg'
+    export_scoremaps('original', stack, sections=range(first_sec, last_sec+1),
+                     names=structures, downscale_factor=8,
+                     export_filepath_fmt=export_filepath_fmt, label_text=True) # 93s/section
+# else:
+#     outputViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremapPlusAnnotationViz'
+#     export_filepath_fmt = outputViz_rootdir + '/%(name)s/%(stack)s/%(stack)s_%(sec)04d_roi1_scoremapPlusAnnotationViz_%(name)s_%(annofn)s.jpg'
+#     export_scoremapPlusAnnotationVizs('original', stack, range(first_sec, last_sec+1),
+#                                       set(labels_unsided) - {'outerContour'}, 8, export_filepath_fmt=export_filepath_fmt,
+#                                       users=['yuncong', 'localAdjusted', 'autoAnnotate', 'globalAligned'])

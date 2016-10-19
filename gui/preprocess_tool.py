@@ -1252,7 +1252,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
                         'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') %\
                         dict(stack=self.stack, data_dir='/media/yuncong/YuncongPublic/CSHL_data_processed/', stack_data_dir_gordon=self.stack_data_dir_gordon))
-                        # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
+				# 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
 
         # Download unsorted lossless aligned cropped data MANUALLY !!
 

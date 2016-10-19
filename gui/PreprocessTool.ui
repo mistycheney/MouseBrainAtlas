@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1904</width>
+    <width>1906</width>
     <height>1088</height>
    </rect>
   </property>
@@ -174,28 +174,28 @@
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="1">
+          <item row="0" column="2">
            <widget class="QPushButton" name="button_edit_transform">
             <property name="text">
              <string>Edit Transform</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="3">
+          <item row="2" column="4">
            <widget class="QPushButton" name="button_crop">
             <property name="text">
              <string>Crop</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="2" column="2">
            <widget class="QPushButton" name="button_load_crop">
             <property name="text">
              <string>Load Crop</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="2" column="1">
            <widget class="QComboBox" name="comboBox_show">
             <item>
              <property name="text">
@@ -209,12 +209,12 @@
             </item>
             <item>
              <property name="text">
-              <string>Brainstem Cropped</string>
+              <string>Mask Contoured</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>Mask</string>
+              <string>Brainstem Cropped</string>
              </property>
             </item>
             <item>
@@ -224,38 +224,52 @@
             </item>
            </widget>
           </item>
-          <item row="2" column="2">
+          <item row="2" column="3">
            <widget class="QPushButton" name="button_save_crop">
             <property name="text">
              <string>Save Crop</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="2">
+          <item row="0" column="3">
            <widget class="QPushButton" name="button_confirm_alignment">
             <property name="text">
              <string>Compose</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
+          <item row="0" column="1">
            <widget class="QPushButton" name="button_align">
             <property name="text">
              <string>Align</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
-           <widget class="QPushButton" name="button_mask">
+          <item row="4" column="3">
+           <widget class="QPushButton" name="button_syncWorkstation">
             <property name="text">
-             <string>Generate/Warp/Crop Mask</string>
+             <string>Workstation Download</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
-           <widget class="QPushButton" name="button_syncWorkstation">
+          <item row="4" column="2">
+           <widget class="QPushButton" name="button_warp_crop_mask">
             <property name="text">
-             <string>Sync to workstation</string>
+             <string>Warp/Crop Masks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QPushButton" name="button_gen_mask">
+            <property name="text">
+             <string>Generate Masks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="4">
+           <widget class="QPushButton" name="button_send_info_gordon">
+            <property name="text">
+             <string>Send info to Gordon</string>
             </property>
            </widget>
           </item>
@@ -410,7 +424,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1904</width>
+     <width>1906</width>
      <height>25</height>
     </rect>
    </property>

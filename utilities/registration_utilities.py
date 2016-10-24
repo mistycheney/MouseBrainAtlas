@@ -70,7 +70,13 @@ class Aligner4(object):
         """
 
         self.labelIndexMap_m2f = labelIndexMap_m2f
-        self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & set(np.unique(volume_m_)))
+
+        if isinstance(volume_m_, dict): # probabilistic volume
+            labels_in_volume_m = set(np.unique(volume_m_.keys()))
+        else: # annotation volume
+            labels_in_volume_m = set(np.unique(volume_m_))
+
+        self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
         self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
 
         global volume_f
@@ -156,6 +162,7 @@ class Aligner4(object):
 
         if indices_f is None:
             indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
+            print indices_f
 
         global grad_f
         grad_f = {ind_f: np.empty((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
@@ -206,7 +213,11 @@ class Aligner4(object):
 
     def compute_score_and_gradient_one(self, T, num_samples=None, wrt_v=False, ind_m=None):
 
-        s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = self.compute_score_one(T, ind_m, return_valid=True)
+        try:
+            s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = self.compute_score_one(T, ind_m, return_valid=True)
+        except Exception as e:
+            sys.stderr.write(e.message + '\n')
+            return 0, 0
 
         xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indices].T
         S_m_valid_scores = volume_m[ind_m][ys_valid, xs_valid, zs_valid]
@@ -330,8 +341,8 @@ class Aligner4(object):
         res = self.get_valid_voxels_after_transform(T, ind_m, return_valid=True)
 
         if res is None:
-            sys.stderr.write('No valid voxels after transform.\n')
-            return 0
+            # sys.stderr.write('No valid voxels after transform.\n')
+            raise Exception('No valid voxels after transform: ind_m = %d' % ind_m)
 
         # if return_valid:
         xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = res
@@ -370,7 +381,11 @@ class Aligner4(object):
 
         score_all_landmarks = {}
         for ind_m in indices_m:
-            score_all_landmarks[ind_m] = self.compute_score_one(T, ind_m, return_valid=False)
+            try:
+                score_all_landmarks[ind_m] = self.compute_score_one(T, ind_m, return_valid=False)
+            except Exception as e:
+                sys.stderr.write(e.message + '\n')
+                score_all_landmarks[ind_m] = 0
 
         score = np.sum(score_all_landmarks.values())
 
@@ -472,7 +487,7 @@ class Aligner4(object):
             # empirical speedup 7x
             # parallel
             if parallel:
-                pool = Pool(processes=12)
+                pool = Pool(processes=8)
                 scores = pool.map(lambda (tx, ty, tz): self.compute_score(np.r_[1, 0, 0, tx, 0, 1, 0, ty, 0, 0, 1, tz], indices_m=indices_m), samples)
                 pool.close()
                 pool.join()
@@ -495,7 +510,7 @@ class Aligner4(object):
                 params_best_upToNow = tx_best, ty_best, tz_best
 
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
-
+        print 'params_best_upToNow', np.ravel(params_best_upToNow)
         return params_best_upToNow
 
 
@@ -526,7 +541,8 @@ class Aligner4(object):
 
         if grid_search_iteration_number > 0:
             tx_best, ty_best, tz_best = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
-                                                        init_n=grid_search_sample_number)
+                                                        init_n=grid_search_sample_number,
+                                                        std_tx=100, std_ty=100, std_tz=30)
             T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
         elif init_T is None:
             T = np.r_[1,0,0,0,0,1,0,0,0,0,1,0]
@@ -548,6 +564,9 @@ class Aligner4(object):
                 T, s, grad_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
                     grad_historical=grad_historical, verbose=False, num_samples=grad_computation_sample_number,
                     indices_m=indices_m)
+
+                # print 'New T:', np.ravel(T)
+
             elif type == 'affine':
                 # lr1, lr2 = (10., 1e-1)
                 T, s, grad_historical = self.step_gd(T, lr=np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1], \
@@ -593,7 +612,11 @@ class Aligner4(object):
         if indices_m is None:
             indices_m = self.all_indices_m
 
+        # print 'T:', np.ravel(T)
         score, grad = self.compute_score_and_gradient(T, num_samples=num_samples, wrt_v=True, indices_m=indices_m)
+
+        # print 'score:', score
+        # print 'grad:', grad
 
         grad_historical += grad**2
         grad_adjusted = grad / (1e-8 + np.sqrt(grad_historical))
@@ -2564,3 +2587,7 @@ def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered
     pts = np.dot(np.linalg.inv(A), (pts_prime_centered-t).T) + c[:,None]
 
     return pts.T
+
+
+def transform_volume(T, volume, c=None, c_prime=0):
+    pass

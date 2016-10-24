@@ -88,7 +88,7 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
         fig = plt.figure(figsize=figsize)
         axis = fig.add_subplot(1,1,1)
 
-    axis.imshow(cm, interpolation='nearest', cmap=cmap, **kwargs)
+    axis.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=1, **kwargs)
     axis.set_title(title)
 #     plt.colorbar()
     axis.set_xticks(np.arange(len(labels)))
@@ -447,6 +447,9 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
         - polygons can be a dict, keys are structure names, values are vertices (xy).
         - polygons can also be a list of (name, vertices) tuples.
     if shrinked to 30%% are completely within the polygons.
+
+    scheme: 1 - negative does not include other positive classes that are in the surround
+            2 - negative include other positive classes that are in the surround
     """
 
     if grid_spec is not None:
@@ -499,15 +502,20 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
         sample_locations_lr = sample_locations - (-margin, -margin)
 
         indices_inside = {}
-        indices_surround = {}
+        # indices_surround = {}
+
+        indices_allLandmarks = {}
 
         for label, poly in polygon_list:
 
             path = Path(poly)
-            indices_inside[label] =  np.where(path.contains_points(sample_locations_ll) &\
+            indices_inside[label] = np.where(path.contains_points(sample_locations_ll) &\
                                               path.contains_points(sample_locations_lr) &\
                                               path.contains_points(sample_locations_ul) &\
                                               path.contains_points(sample_locations_ur))[0]
+
+            indices_allLandmarks[label] = indices_inside[label]
+            print len(indices_allLandmarks[label]), 'patches in', label
 
         indices_allInside = np.concatenate(indices_inside.values())
 
@@ -522,111 +530,188 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
                                     path.contains_points(sample_locations_ur))[0]
 
             # surround classes do not include patches of any no-surround class
-            indices_surround[label] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+            indices_allLandmarks[label+'_surround_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+            print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
 
+            for l, inds in indices_inside.iteritems():
+                if l == label: continue
+                indices = np.intersect1d(indices_sur, inds)
+                if len(indices) > 0:
+                    indices_allLandmarks[label+'_surround_'+l] = indices
+                    print len(indices), 'patches in', label+'_surround_'+l
 
-        indices_allLandmarks = {}
-        for l, inds in indices_inside.iteritems():
-            indices_allLandmarks[l] = inds
-            print len(inds), 'patches in', l
-        for l, inds in indices_surround.iteritems():
-            indices_allLandmarks[l+'_surround'] = inds
-            print len(inds), 'patches in', l+'_surround'
+        # for l, inds in indices_inside.iteritems():
+        #     indices_allLandmarks[l] = inds
+        #     print len(inds), 'patches in', l
+        # for l, inds in indices_surround.iteritems():
+        #     indices_allLandmarks[l+'_surround_noclass'] = inds
+        #     print len(inds), 'patches in', l+'_surround_noclass'
         indices_allLandmarks['bg'] = indices_bg
         print len(indices_bg), 'patches in', 'bg'
 
     return indices_allLandmarks
 
 
-def locate_patches(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):
+# def locate_patches(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):
+#     """
+#     Return addresses of patches that are either in polygons or on mask.
+#     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
+#     - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
+#     - If polygons is given, the valid patches are those whose bounding boxes. polygons is a dict, keys are structure names, values are vertices (xy).
+#     if shrinked to 30%% are completely within the polygons.
+#     """
+#
+#     if grid_spec is not None:
+#         patch_size, stride, image_width, image_height = grid_spec
+#     elif image_shape is not None :
+#         image_width, image_height = image_shape
+#     else:
+#         image_width, image_height = DataManager.get_image_dimension(stack)
+#
+#     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
+#     half_size = patch_size/2
+#
+#     indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
+#     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
+#
+#     if bbox is not None:
+#         assert polygons is None, 'Can only supply one of bbox or polygons.'
+#
+#         box_x, box_y, box_w, box_h = detect_bbox_lookup[stack] if bbox is None else bbox
+#
+#         xmin = max(half_size, box_x*32)
+#         xmax = min(image_width-half_size-1, (box_x+box_w)*32)
+#         ymin = max(half_size, box_y*32)
+#         ymax = min(image_height-half_size-1, (box_y+box_h)*32)
+#
+#         indices_roi = np.where(np.all(np.c_[sample_locations[:,0] > xmin, sample_locations[:,1] > ymin,
+#                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
+#
+#         indices_roi = np.setdiff1d(indices_roi, indices_bg)
+#         print len(indices_roi), 'patches in ROI'
+#
+#         return indices_roi
+#
+#     else:
+#         assert polygons is not None, 'Can only supply one of bbox or polygons.'
+#
+#         # This means we require a patch to have 30% of its radius to be within the landmark boundary to be considered inside the landmark
+#         margin = int(.3*half_size)
+#
+#         sample_locations_ul = sample_locations - (margin, margin)
+#         sample_locations_ur = sample_locations - (-margin, margin)
+#         sample_locations_ll = sample_locations - (margin, -margin)
+#         sample_locations_lr = sample_locations - (-margin, -margin)
+#
+#         indices_inside = {}
+#         indices_surround = {}
+#
+#         for label, poly in polygons.iteritems():
+#
+#             path = Path(poly)
+#             indices_inside[label] =  np.where(path.contains_points(sample_locations_ll) &\
+#                                               path.contains_points(sample_locations_lr) &\
+#                                               path.contains_points(sample_locations_ul) &\
+#                                               path.contains_points(sample_locations_ur))[0]
+#
+#         indices_allInside = np.concatenate(indices_inside.values())
+#
+#         for label, poly in polygons.iteritems():
+#
+#             surround = Polygon(poly).buffer(500, resolution=2)
+#
+#             path = Path(list(surround.exterior.coords))
+#             indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
+#                                     path.contains_points(sample_locations_lr) &\
+#                                     path.contains_points(sample_locations_ul) &\
+#                                     path.contains_points(sample_locations_ur))[0]
+#
+#             # surround classes do not include patches of any no-surround class
+#             indices_surround[label] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+#
+#
+#         indices_allLandmarks = {}
+#         for l, inds in indices_inside.iteritems():
+#             indices_allLandmarks[l] = inds
+#             print len(inds), 'patches in', l
+#         for l, inds in indices_surround.iteritems():
+#             indices_allLandmarks[l+'_surround'] = inds
+#             print len(inds), 'patches in', l+'_surround'
+#         indices_allLandmarks['bg'] = indices_bg
+#         print len(indices_bg), 'patches in', 'bg'
+#
+#     return indices_allLandmarks
+
+
+def addresses_to_features(addresses):
     """
-    Return addresses of patches that are either in polygons or on mask.
-    - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
-    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
-    - If polygons is given, the valid patches are those whose bounding boxes. polygons is a dict, keys are structure names, values are vertices (xy).
-    if shrinked to 30%% are completely within the polygons.
+    If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
-    if grid_spec is not None:
-        patch_size, stride, image_width, image_height = grid_spec
-    elif image_shape is not None :
-        image_width, image_height = image_shape
-    else:
-        image_width, image_height = DataManager.get_image_dimension(stack)
+    feature_list = []
 
-    sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
-    half_size = patch_size/2
+    list_indices_all_stack_section = []
 
-    indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
-    indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
+    invalid_list_indices = []
 
-    if bbox is not None:
-        assert polygons is None, 'Can only supply one of bbox or polygons.'
+    for st_se, group in groupby(sorted(enumerate(addresses), key=lambda (i,(st,se,idx)): (st, se)),
+           key=lambda (i,(st,se,idx)): (st, se)):
 
-        box_x, box_y, box_w, box_h = detect_bbox_lookup[stack] if bbox is None else bbox
+        print st_se
 
-        xmin = max(half_size, box_x*32)
-        xmax = min(image_width-half_size-1, (box_x+box_w)*32)
-        ymin = max(half_size, box_y*32)
-        ymax = min(image_height-half_size-1, (box_y+box_h)*32)
+        list_indices, addrs = zip(*group)
 
-        indices_roi = np.where(np.all(np.c_[sample_locations[:,0] > xmin, sample_locations[:,1] > ymin,
-                                            sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
+        sampled_grid_indices = [idx for st, se, idx in addrs]
 
-        indices_roi = np.setdiff1d(indices_roi, indices_bg)
-        print len(indices_roi), 'patches in ROI'
+        stack, sec = st_se
 
-        return indices_roi
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-    else:
-        assert polygons is not None, 'Can only supply one of bbox or polygons.'
+        if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
+            sys.stderr.write('Image file is %s.\n' % (fn))
 
-        # This means we require a patch to have 30% of its radius to be within the landmark boundary to be considered inside the landmark
-        margin = int(.3*half_size)
+            feature_list += [None for _ in sampled_grid_indices]
+            list_indices_all_stack_section += list_indices
 
-        sample_locations_ul = sample_locations - (margin, margin)
-        sample_locations_ur = sample_locations - (-margin, margin)
-        sample_locations_ll = sample_locations - (margin, -margin)
-        sample_locations_lr = sample_locations - (-margin, -margin)
+        else:
 
-        indices_inside = {}
-        indices_surround = {}
+            # Load mapping grid index -> location
+            locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
-        for label, poly in polygons.iteritems():
+            with open(locations_fn, 'r') as f:
+                all_locations = [int(line.split()[0]) for line in f.readlines()]
 
-            path = Path(poly)
-            indices_inside[label] =  np.where(path.contains_points(sample_locations_ll) &\
-                                              path.contains_points(sample_locations_lr) &\
-                                              path.contains_points(sample_locations_ul) &\
-                                              path.contains_points(sample_locations_ur))[0]
+#             all_locations = [idx for idx, x, y in locations]
 
-        indices_allInside = np.concatenate(indices_inside.values())
+            sampled_list_indices = []
+#             list_indices2 = []
+            for gi, lst_idx in zip(sampled_grid_indices, list_indices):
+                if gi in all_locations:
+                    sampled_list_indices.append(all_locations.index(gi))
+#                     list_indices2.append(lst_idx)
+                else:
+                    sys.stderr.write('Patch in annotation but not in mask: %s %d %s alignedTo %s @%d\n' % (stack, sec, fn, anchor_fn, gi))
+                    invalid_list_indices.append(lst_idx)
+                    sampled_list_indices.append(None)
+#                     list_indices2.append(lst_idx)
 
-        for label, poly in polygons.iteritems():
+            feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
-            surround = Polygon(poly).buffer(500, resolution=2)
+            features = load_hdf(feature_fn)
+            # sampled_features = features[sampled_list_indices]
+            # sampled_features = [features[i] if i is not None else None for i in sampled_list_indices]
+            # feature_list += list(sampled_features)
 
-            path = Path(list(surround.exterior.coords))
-            indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
-                                    path.contains_points(sample_locations_lr) &\
-                                    path.contains_points(sample_locations_ul) &\
-                                    path.contains_points(sample_locations_ur))[0]
+            feature_list += [features[i].copy() if i is not None else None for i in sampled_list_indices]
+            del features
 
-            # surround classes do not include patches of any no-surround class
-            indices_surround[label] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+#             list_indices_all_stack_section += list_indices2
+            list_indices_all_stack_section += list_indices
 
 
-        indices_allLandmarks = {}
-        for l, inds in indices_inside.iteritems():
-            indices_allLandmarks[l] = inds
-            print len(inds), 'patches in', l
-        for l, inds in indices_surround.iteritems():
-            indices_allLandmarks[l+'_surround'] = inds
-            print len(inds), 'patches in', l+'_surround'
-        indices_allLandmarks['bg'] = indices_bg
-        print len(indices_bg), 'patches in', 'bg'
 
-    return indices_allLandmarks
+    return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
 
 
 def visualize_filters(model, name, input_channel=0, title=''):

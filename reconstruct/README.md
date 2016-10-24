@@ -1,7 +1,32 @@
 The *reconstruct* folder contains code for reconstructing volumes from sections. The sections might be annotated or are score maps.
 
+## Construct Score Volume ##
 
-## Construct Volumes
-- `compute_score_volume.ipynb`: reconstruct score volumes from score maps, and generates `[stack]_scoreVolume_[label].bp` and `[stack]_scoreVolume_limits.txt`.
-- `compute_thumbnail_volume.ipynb`: reconstruct volumes from thumbnail section images.
-- `compute_contour_volume.ipynb`:
+Under folder `reconstruct`,
+
+Run `construct_score_volumes_v2_distributed.ipynb`.
+Script `construct_score_volume_v2.py`.
+
+Score volumes are stored in `VOLUME_ROOTDIR`,
+`<stack>/score_volumes/<stack>_down32_scoreVolume_<label>.bp`
+
+This step takes 200 seconds.
+
+## Compute Score Volume Gradient ##
+
+Under folder `registration`,
+
+Run `compute_gradient.ipynb`
+
+Gradient files are stored in `VOLUME_ROOTDIR`,
+`<stack>/score_volume_gradient/<stack>_down32_scoreVolume_<label>_[gx|gy|gz].bp`
+
+This step is very fast.
+
+## Construct Thumbnail Volume ##
+
+Under folder `reconstruct`,
+Run `construct_thumbnail_volume.ipynb`
+
+Thumbnail volumes are stored in `VOLUME_ROOTDIR`,
+`<stack>/<stack>_down32Volume.bp`

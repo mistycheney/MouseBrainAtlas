@@ -291,12 +291,13 @@ def volume_to_imagedata(arr, origin=(0,0,0)):
 
 ############################### VTK Utils #####################################
 
-def take_screenshot(win, file_path):
+def take_screenshot(win, file_path, magnification=10):
 
     windowToImageFilter = vtk.vtkWindowToImageFilter()
 
     windowToImageFilter.SetInput(win);
-    windowToImageFilter.SetMagnification(3);
+    windowToImageFilter.SetMagnification(magnification);
+    # output image will be `magnification` times the render window size
     windowToImageFilter.SetInputBufferTypeToRGBA();
     windowToImageFilter.ReadFrontBufferOff();
     windowToImageFilter.Update();
@@ -342,15 +343,32 @@ def save_mesh_stl(polydata, fn):
     stlWriter.Write()
 
 
+# http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
+class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+
+    def __init__(self,parent=None, snapshot_fn=None):
+        self.parent = parent
+        self.snapshot_fn = snapshot_fn
+
+        self.AddObserver("KeyPressEvent",self.keyPressEvent)
+
+    def keyPressEvent(self,obj,event):
+        key = self.parent.GetKeySym()
+        if key == 's':
+            take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
+        return
 
 def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
-            interactive=True, snapshot_fn=None, axes=True, background_color=(0,0,0),
+            interactive=True, snapshot_fn=None, snapshot_magnification=3,
+            axes=True, background_color=(0,0,0),
             animate=False, movie_fn=None):
 
     ren1 = vtk.vtkRenderer()
     ren1.SetBackground(background_color)
 
     renWin = vtk.vtkRenderWindow()
+    renWin.SetSize(1200,1080)
+    # renWin.SetFullScreen(1)
     renWin.AddRenderer(ren1)
 
     for actor in actors:
@@ -383,7 +401,7 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
 
         # saggital
         camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(0, 0, -2)
+        camera.SetPosition(0, 0, -1)
         camera.SetFocalPoint(0, 0, 1)
 
     elif init_angle == 'coronal':
@@ -412,6 +430,7 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
 
     iren = vtk.vtkRenderWindowInteractor()
     iren.SetRenderWindow(renWin)
+    # iren.SetInteractorStyle(MyInteractorStyle(parent=iren, snapshot_fn=None))
 
     if axes:
         axes = add_axes(iren)
@@ -439,6 +458,9 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
     ##################
 
     if interactive:
+        # if not animate:
+        #     iren.Initialize()
+
         iren.Start()
 
         # if movie_fn is not None:
@@ -459,7 +481,7 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
         #
         #     moviewriter.End()
     else:
-        take_screenshot(renWin, snapshot_fn)
+        take_screenshot(renWin, snapshot_fn, magnification=snapshot_magnification)
 
 
 class vtkTimerCallback():
@@ -724,18 +746,6 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
 
     else:
         return tb_volume
-
-
-def load_score_volume(stack, name_u):
-
-    vol_fn = volume_dir + '/%(stack)s/%(stack)s_scoreVolume_%(name)s.bp' % {'stack':stack, 'name':name_u}
-
-    if not os.path.exists(vol_fn):
-        download_volume(stack, 'score', dest_dir=volume_dir + '/%(stack)s' % {'stack': stack}, name_u=name_u)
-
-    score_volume = bp.unpack_ndarray_file(vol_fn)
-
-    return score_volume
 
 def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1.):
 

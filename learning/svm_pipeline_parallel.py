@@ -26,52 +26,52 @@ args.e = last_detect_sec if args.e == -1 else args.e
 
 t = time.time()
 
-exclude_nodes = [33, 48] # 33 is yuncong's ipython notebook server; 48 is weitang's ipython notebook server
+exclude_nodes = [33] # 33 is yuncong's ipython notebook server
 
 if args.task == 'svm':
 
 	t = time.time()
 	sys.stderr.write('running svm classifier ...')
 
-	run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
-	                            {'script_path': '/home/yuncong/Brain/learning/apply_svm.py',
-	                            'stack': args.stack}, 
-	                first_sec=args.b,
-	                last_sec=args.e,
-	                exclude_nodes=exclude_nodes,
-	                take_one_section=False)
+	run_distributed4(command='%(script_path)s %(stack)s %%(first_sec)d %%(last_sec)d' % \
+                {'script_path': os.path.join(os.environ['REPO_DIR'], 'learning') + '/svm_predict.py',
+                'stack': stack},
+                kwargs_list=dict(sections=range(first_sec, last_sec+1)),
+                exclude_nodes=exclude_nodes,
+                argument_type='partition')
 
 	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~ 1000 seconds
-    
+
 elif args.task == 'interpolate':
 
 	t = time.time()
 	sys.stderr.write('interpolating scoremaps ...')
 
-	run_distributed3(command='%(script_path)s %(stack)s %%(f)d %%(l)d'%\
-	                            {'script_path': '/home/yuncong/Brain/learning/interpolate_scoremaps.py',
-	                            'stack': args.stack}, 
-	                first_sec=args.b,
-	                last_sec=args.e,
-	                exclude_nodes=exclude_nodes,
-	                take_one_section=False)
+	run_distributed4(command='%(script_path)s %(stack)s %%(first_sec)d %%(last_sec)d' % \
+                {'script_path': os.path.join(os.environ['REPO_DIR'], 'learning') + '/interpolate_scoremaps_v2.py',
+                'stack': stack},
+                kwargs_list=dict(sections=range(first_sec, last_sec+1)),
+                exclude_nodes=exclude_nodes,
+                argument_type='partition')
 
-	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~240 seconds 
+	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~240 seconds
 
 elif args.task == 'visualize':
+
+	add_annotation = False
 
 	t = time.time()
 	sys.stderr.write('visualize scoremaps ...')
 
-	run_distributed3(command='%(script_path)s %(stack)s -b %%(f)d -e %%(l)d -a'%\
-	                            {'script_path': '/home/yuncong/Brain/learning/visualize_scoremaps2.py',
-	                            'stack': args.stack}, 
-	                first_sec=args.b,
-	                last_sec=args.e,
-	                exclude_nodes=exclude_nodes,
-	                take_one_section=False)
+	run_distributed4(command='%(script_path)s %(stack)s -b %%(first_sec)d -e %%(last_sec)d %(add_annotation)s' % \
+                {'script_path': os.path.join(os.environ['REPO_DIR'], 'learning') + '/visualize_scoremaps_v2.py',
+                'stack': stack,
+                'add_annotation': '-a' if add_annotation else ''},
+                kwargs_list=dict(sections=range(first_sec, last_sec+1)),
+                exclude_nodes=exclude_nodes,
+                argument_type='partition')
 
 	sys.stderr.write('done in %f seconds\n' % (time.time() - t)) # ~ 40 seconds
 
-    
+
 print args.task, time.time() - t, 'seconds'

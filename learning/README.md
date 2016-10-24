@@ -17,6 +17,12 @@ This step takes 80 seconds per section (~25k patches).
 
 Train classifiers. Store in `SVM_DIR`. By default this is `CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers`. The classifiers are `<label>_svm.pkl`.
 
+
+## Prediction Pipeline ##
+
+`pipeline_features_to_scoremaps.ipynb`
+controls the following three components.
+
 ## Predict ##
 
 Run `svm_v2.ipynb`

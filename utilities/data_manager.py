@@ -73,9 +73,11 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v2(stack, section=None, version='aligned_cropped'):
-        anchor_fn = DataManager.load_anchor_filename(stack)
-        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        fn = section_to_filename[section]
+        # anchor_fn = DataManager.load_anchor_filename(stack)
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
             #
@@ -108,67 +110,200 @@ class DataManager(object):
         else:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
                             {'stack': stack, 'sec': section}
-
         return fn
 
 
     @staticmethod
+    def get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        def type_to_str(t):
+            if t == 'score':
+                return 'scoreVolume'
+            elif t == 'annotation':
+                return 'annotationVolume'
+
+        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
+                  {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                  'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+
+    @staticmethod
+    def get_global_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
+        return partial_fn + '_parameters.txt'
+
+    @staticmethod
+    def get_global_alignment_score_plot_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
+        return partial_fn + '_scoreEvolution.png'
+
+    @staticmethod
+    def get_global_alignment_viz_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        def type_to_str(t):
+            if t == 'score':
+                return 'scoreVolume'
+            elif t == 'annotation':
+                return 'annotationVolume'
+
+        # return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
+        #           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+        #           'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+        #           'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+
+        viz_dir = atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_viz' % \
+                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                    'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                    'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+        return viz_dir
+
+
+    @staticmethod
+    def get_svm_filepath(label, suffix=''):
+        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % {'label': label, 'suffix':suffix}
+
+    @staticmethod
+    def get_sparse_scores_filepath(stack, fn, anchor_fn, label, suffix):
+        # sparse_score_dir = os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
+        #                               {'fn': fn, 'anchor_fn': anchor_fn})
+        # return sparse_score_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf' % \
+        #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_'+suffix if suffix != '' else ''}
+
+        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
+        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_%(suffix)s.hdf') % \
+        {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': suffix}
+
+    @staticmethod
+    def get_score_volume_filepath(stack, label, downscale, suffix):
+        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(name)s_%(suffix)s.bp' % \
+                {'stack':stack, 'name':label, 'ds':downscale, 'suffix':suffix}
+        return vol_fn
+
+    @staticmethod
+    def load_score_volume(stack, label, downscale, suffix=''):
+
+        vol_fn = DataManager.get_score_volume_filepath(stack, label, downscale, suffix)
+        score_volume = bp.unpack_ndarray_file(vol_fn)
+        return score_volume
+
+
+    @staticmethod
+    def get_score_volume_bbox_filepath(stack, label, downscale):
+        score_volume_bbox_filepath = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(label)s_bbox.txt' % \
+                        dict(stack=stack, ds=downscale, label=label)
+        return score_volume_bbox_filepath
+
+
+    @staticmethod
+    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=1):
+
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+                raise Exception('Section is invalid: %s.' % fn)
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        scoremap_viz_filepath = SCOREMAP_VIZ_ROOTDIR + '/%(label)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_viz_trainSampleScheme_%(scheme)d.jpg' \
+            % {'stack': stack, 'fn': fn, 'label': label, 'anchor_fn': anchor_fn, 'scheme': train_sample_scheme}
+
+        return scoremap_viz_filepath
+
+
+    @staticmethod
+    def get_scoremap_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, return_bbox_fp=False, train_sample_scheme=1):
+
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+                raise Exception('Section is invalid: %s.' % fn)
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        scoremap_bp_filepath = SCOREMAPS_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_trainSampleScheme_%(scheme)d.hdf' \
+        % {'stack': stack, 'fn': fn, 'label': label, 'anchor_fn': anchor_fn, 'scheme':train_sample_scheme}
+
+        scoremap_bbox_filepath = SCOREMAPS_ROOTDIR + \
+        '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' \
+            % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
+
+        if return_bbox_fp:
+            return scoremap_bp_filepath, scoremap_bbox_filepath
+        else:
+            return scoremap_bp_filepath
+
+    @staticmethod
+    def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, suffix=''):
+
+        # Load scoremap
+
+        scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
+                                                    fn=fn, anchor_fn=anchor_fn, label=label, return_bbox_fp=True, suffix=suffix)
+        if not os.path.exists(scoremap_bp_filepath):
+            raise Exception('No scoremap for section %d for label %s\n' % (section, label))
+            # return None
+        scoremap = load_hdf(scoremap_bp_filepath)
+
+        # Load interpolation box
+        scoremap_bbox = np.loadtxt(scoremap_bbox_filepath).astype(np.int)
+
+        xmin, xmax, ymin, ymax = scoremap_bbox
+
+        ymin_downscaled = ymin / downscale_factor
+        xmin_downscaled = xmin / downscale_factor
+
+        # full_width, full_height = DataManager.get_image_dimension(stack)
+        # full_width, full_height = (16000, 13120)
+        full_width, full_height = metadata_cache['image_shape'][stack]
+        scoremap_downscaled = np.zeros((full_height/downscale_factor, full_width/downscale_factor), np.float32)
+
+        # To conserve memory, it is important to make a copy of the sub-scoremap and delete the original scoremap
+        scoremap_roi_downscaled = scoremap[::downscale_factor, ::downscale_factor].copy()
+        del scoremap
+
+        h_downscaled, w_downscaled = scoremap_roi_downscaled.shape
+
+        scoremap_downscaled[ymin_downscaled : ymin_downscaled + h_downscaled,
+                            xmin_downscaled : xmin_downscaled + w_downscaled] = scoremap_roi_downscaled
+
+        return scoremap_downscaled
+
+    @staticmethod
     def get_image_filepath(stack, section=None, version='rgb-jpg', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
-
-        # if fn is None:
-            # slice_str = '%04d' % section
-            # if version == 'rgb-jpg':
-            #     # image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled')
-            #     # image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled'])
-            #     # image_path = os.path.join(image_dir, image_name + '.jpg')
-            #
-            #     image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_compressed')
-            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_compressed'])
-            #     image_path = os.path.join(image_dir, image_name + '.jpg')
-            #
-            # elif version == 'rgb':
-            #     image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped')
-            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            #     image_path = os.path.join(image_dir, image_name + '.tif')
-            # # elif version == 'gray-jpg':
-            # #     image_dir = os.path.join(self.data_dir, stack+'_'+resol+'_cropped_grayscale_downscaled')
-            # #     image_name = '_'.join([stack, slice_str, resol, 'warped'])
-            # #     image_path = os.path.join(image_dir, image_name + '.jpg')
-            # # elif version == 'gray':
-            # #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_grayscale')
-            # #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_grayscale'])
-            # #     image_path = os.path.join(image_dir, image_name + '.tif')
-            # # elif version == 'rgb':
-            # #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped')
-            # #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped'])
-            # #     image_path = os.path.join(image_dir, image_name + '.tif')
-            # # elif version == 'stereotactic-rgb-jpg':
-            # #     image_dir = os.path.join(data_dir, stack+'_'+resol+'_aligned_cropped_downscaled_stereotactic')
-            # #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_downscaled_stereotactic'])
-            # #     image_path = os.path.join(image_dir, image_name + '.jpg')
-            #
-            # elif version == 'saturation':
-            #     image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_sorted_aligned_cropped_saturation')
-            #     image_name = '_'.join([stack, slice_str, resol, 'aligned_cropped_saturation'])
-            #     image_path = os.path.join(image_dir, image_name + '.jpg')
-
-        # unsorted files
 
         if section is not None:
             _, section_to_filename = DataManager.load_sorted_filenames(stack)
             fn = section_to_filename[section]
+            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+                raise Exception('Section is invalid: %s.' % fn)
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
-        if version == 'rgb-jpg':
+        if resol == 'lossless' and version == 'rgb-jpg':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.jpg')
-        elif version == 'saturation':
+        elif resol == 'lossless' and version == 'saturation':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.jpg')
+        elif resol == 'thumbnail' and version == 'cropped_tif':
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            image_path = os.path.join(image_dir, image_name + '.tif')
+        elif resol == 'thumbnail' and version == 'aligned_tif':
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
+            image_path = os.path.join(image_dir, image_name + '.tif')
 
         return image_path
 
@@ -288,23 +423,18 @@ class DataManager(object):
         """
         Return (image width, image height).
         """
-
-        try:
-            # sec = section_range_lookup[stack][0]
-            # sec = DataManager.load_cropbox(stack)[4]
-            first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-            anchor_fn = DataManager.load_anchor_filename(stack)
-            filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+        anchor_fn = DataManager.load_anchor_filename(stack)
+        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
             fn = DataManager.get_image_filepath(stack=stack, version='rgb-jpg', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
-            # fn = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg', data_dir=data_dir)
             if not os.path.exists(fn):
-                # fn = DataManager.get_image_filepath(stack=stack, section=sec, version='saturation', data_dir=data_dir)
                 fn = DataManager.get_image_filepath(stack=stack, version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
+                if not os.path.exists(fn):
+                    continue
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
-        except Exception as e:
-            print e
-            # sys.stderr.write('Cannot find image.\n')
+            break
 
         return image_width, image_height
 
@@ -641,3 +771,25 @@ class DataManager(object):
                 img = rgb2gray(img)
 
         return img
+
+##################################################
+
+# This module stores any meta information that is dynamic.
+metadata_cache = {}
+# metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+metadata_cache['image_shape'] =\
+{'MD585': (16384, 12000),
+ 'MD589': (15520, 11936),
+ 'MD590': (17536, 13056),
+ 'MD591': (16000, 13120),
+ 'MD592': (17440, 12384),
+ 'MD593': (17088, 12256),
+ 'MD594': (17216, 11104),
+ 'MD595': (18368, 13248),
+ 'MD598': (18400, 12608),
+ 'MD599': (18784, 12256),
+ 'MD602': (22336, 12288),
+ 'MD603': (20928, 13472)}
+metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
+metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
+metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}

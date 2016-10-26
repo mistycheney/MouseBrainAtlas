@@ -307,7 +307,7 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
 
     return patches_padded
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray):
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray, **kwargs):
 
     if maintain_shape:
 
@@ -324,7 +324,7 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
-            axes[i].imshow(vizs[i], cmap=cmap);
+            axes[i].imshow(vizs[i], cmap=cmap, **kwargs);
             if titles is not None:
                 axes[i].set_title(titles[i], fontsize=30);
             axes[i].set_xticks([]);

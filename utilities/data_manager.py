@@ -115,6 +115,7 @@ class DataManager(object):
 
     @staticmethod
     def get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+<<<<<<< HEAD
 
         atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
                      {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
@@ -164,6 +165,57 @@ class DataManager(object):
         return viz_dir
 
 
+=======
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        def type_to_str(t):
+            if t == 'score':
+                return 'scoreVolume'
+            elif t == 'annotation':
+                return 'annotationVolume'
+
+        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
+                  {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                  'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+
+    @staticmethod
+    def get_global_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
+        return partial_fn + '_parameters.txt'
+
+    @staticmethod
+    def get_global_alignment_score_plot_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
+        return partial_fn + '_scoreEvolution.png'
+
+    @staticmethod
+    def get_global_alignment_viz_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        def type_to_str(t):
+            if t == 'score':
+                return 'scoreVolume'
+            elif t == 'annotation':
+                return 'annotationVolume'
+
+        # return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
+        #           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+        #           'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+        #           'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+
+        viz_dir = atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_viz' % \
+                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                    'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                    'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+        return viz_dir
+
+
+>>>>>>> c7eca6c15502baa8e544252f4510f920c2cac50c
     @staticmethod
     def get_svm_filepath(label, suffix=''):
         return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % {'label': label, 'suffix':suffix}

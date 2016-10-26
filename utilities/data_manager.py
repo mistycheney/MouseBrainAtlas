@@ -73,9 +73,11 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v2(stack, section=None, version='aligned_cropped'):
-        anchor_fn = DataManager.load_anchor_filename(stack)
-        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        fn = section_to_filename[section]
+        # anchor_fn = DataManager.load_anchor_filename(stack)
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
             #

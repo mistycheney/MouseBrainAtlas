@@ -361,14 +361,15 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
 
-    filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+    # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+    sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
 
     grouped = contours.groupby('section')
 
     patch_indices_allSections_allStructures = {}
     for sec, group in grouped:
         sys.stderr.write('Analyzing section %d..\n' % sec)
-        if section_to_filename[sec] in ['Placeholder', 'Nonexisting, Rescan']:
+        if sections_to_filenames[sec] in ['Placeholder', 'Nonexisting, Rescan']:
             continue
         polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in group.iterrows()]
         mask_tb = DataManager.load_thumbnail_mask_v2(stack, sec)

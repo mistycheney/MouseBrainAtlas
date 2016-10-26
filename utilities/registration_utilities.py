@@ -44,6 +44,13 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
         return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
 
+def affine_components_to_vector(tx,ty,tz,theta_xy,c=(0,0,0)):
+    cos_theta = np.cos(theta_xy)
+    sin_theta = np.sin(theta_xy)
+    Rz = np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
+    tt = np.dot(Rz, np.r_[tx,ty,tz]-c) + c
+    return np.ravel(np.c_[Rz, tt])
+
 from joblib import Parallel, delayed
 import time
 from lie import matrix_exp_v
@@ -448,7 +455,7 @@ class Aligner4(object):
         return H
 
     def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True,
-                    std_tx=100, std_ty=100, std_tz=30):
+                    std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60)):
         """Grid search.
 
         Args:
@@ -458,7 +465,7 @@ class Aligner4(object):
             params_best_upToNow ((12,) float array): found parameters
 
         """
-        params_best_upToNow = (0, 0, 0)
+        params_best_upToNow = (0, 0, 0, 0)
         score_best_upToNow = 0
 
         if indices_m is None:
@@ -468,19 +475,21 @@ class Aligner4(object):
 
             # self.logger.info('grid search iteration %d', iteration)
 
-            init_tx, init_ty, init_tz  = params_best_upToNow
+            init_tx, init_ty, init_tz, init_theta_xy = params_best_upToNow
 
             n = int(init_n*np.exp(-iteration/3.))
 
             sigma_tx = std_tx*np.exp(-iteration/3.)
             sigma_ty = std_ty*np.exp(-iteration/3.)
             sigma_tz = std_tz*np.exp(-iteration/3.)
+            sigma_theta_xy = std_theta_xy*np.exp(-iteration/3.)
 
             tx_grid = init_tx + sigma_tx * np.r_[0, (2 * np.random.random(n) - 1)]
             ty_grid = init_ty + sigma_ty * np.r_[0, (2 * np.random.random(n) - 1)]
             tz_grid = init_tz + sigma_tz * np.r_[0, (2 * np.random.random(n) - 1)]
+            theta_xy_grid = init_theta_xy + sigma_theta_xy * np.r_[0, (2 * np.random.random(n) - 1)]
 
-            samples = np.c_[tx_grid, ty_grid, tz_grid]
+            samples = np.c_[tx_grid, ty_grid, tz_grid, theta_xy_grid]
 
             t = time.time()
 
@@ -488,26 +497,27 @@ class Aligner4(object):
             # parallel
             if parallel:
                 pool = Pool(processes=8)
-                scores = pool.map(lambda (tx, ty, tz): self.compute_score(np.r_[1, 0, 0, tx, 0, 1, 0, ty, 0, 0, 1, tz], indices_m=indices_m), samples)
+                scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy),
+                                                        indices_m=indices_m), samples)
                 pool.close()
                 pool.join()
             else:
             # serial
-                scores = [self.compute_score(np.r_[1, 0, 0, tx, 0, 1, 0, ty, 0, 0, 1, tz], indices_m=indices_m)
-                            for tx, ty, tz in samples]
+                scores = [self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m)
+                            for tx, ty, tz, theta_xy in samples]
 
             sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
 
             score_best = np.max(scores)
 
-            tx_best, ty_best, tz_best = samples[np.argmax(scores)]
+            tx_best, ty_best, tz_best, theta_xy_best = samples[np.argmax(scores)]
 
             if score_best > score_best_upToNow:
                 # self.logger.info('%f %f', score_best_upToNow, score_best)
                 sys.stderr.write('%f %f\n' % (score_best_upToNow, score_best))
 
                 score_best_upToNow = score_best
-                params_best_upToNow = tx_best, ty_best, tz_best
+                params_best_upToNow = tx_best, ty_best, tz_best, theta_xy_best
 
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
         print 'params_best_upToNow', np.ravel(params_best_upToNow)
@@ -540,10 +550,11 @@ class Aligner4(object):
             indices_m = self.all_indices_m
 
         if grid_search_iteration_number > 0:
-            tx_best, ty_best, tz_best = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
+            tx_best, ty_best, tz_best, theta_xy_best = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
                                                         init_n=grid_search_sample_number,
-                                                        std_tx=100, std_ty=100, std_tz=30)
-            T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
+                                                        std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60))
+            # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
+            T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
         elif init_T is None:
             T = np.r_[1,0,0,0,0,1,0,0,0,0,1,0]
         else:

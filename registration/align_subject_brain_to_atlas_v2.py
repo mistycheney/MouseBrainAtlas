@@ -16,7 +16,6 @@ from registration_utilities import parallel_where_binary, Aligner4
 from metadata import *
 from data_manager import *
 
-
 from joblib import Parallel, delayed
 import time
 
@@ -37,9 +36,6 @@ name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
 name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
-labelIndexMap_m2f = {}
-for label_m, name_m in label_to_name_moving.iteritems():
-    labelIndexMap_m2f[label_m] = name_to_label_fixed[name_m]
 
 volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
                                                     {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme}))
@@ -48,8 +44,7 @@ volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(V
 print volume_fixed.values()[0].shape
 
 vol_fixed_xmin, vol_fixed_ymin, vol_fixed_zmin = (0,0,0)
-vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = volume_fixed.values()[0].shape
-
+vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = np.array(volume_fixed.values()[0].shape) - 1
 
 volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
                                                     {'stack': stack_moving, 'name': name}))
@@ -58,7 +53,25 @@ volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join
 print volume_moving.values()[0].shape
 
 vol_moving_xmin, vol_moving_ymin, vol_moving_zmin = (0,0,0)
-vol_moving_ymax, vol_moving_xmax, vol_moving_zmax = volume_moving.values()[0].shape
+vol_moving_ymax, vol_moving_xmax, vol_moving_zmax = np.array(volume_moving.values()[0].shape) - 1
+
+
+volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
+
+def convert_to_original_name(name):
+    return name.split('_')[0]
+
+labelIndexMap_m2f = {}
+label_weights_m = {}
+for label_m, name_m in label_to_name_moving.iteritems():
+    labelIndexMap_m2f[label_m] = name_to_label_fixed[convert_to_original_name(name_m)]
+
+    if 'surround' in name_m:
+        label_weights_m[label_m] = 0
+    else:
+#         label_weights_m[label_m] = 1
+        label_weights_m[label_m] = np.minimum(1e5 / volume_moving_structure_sizes[label_m], 1.)
+
 
 #############################
 
@@ -86,31 +99,39 @@ aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f
 # plateus around iteration 100, but keep rising afterwards.
 # grad_computation_sample_number does not make a difference
 
-if global_transform_scheme == 1:
+trial_num = 5
 
-    T, scores = aligner.optimize(type='affine', max_iter_num=1000, history_len=50, terminate_thresh=1e-4,
-    #                              indices_m=[name_to_label_fixed['SNR_L']],
-                                 indices_m=None,
-                                grid_search_iteration_number=30,
-                                 grid_search_sample_number=100,
-                                 grad_computation_sample_number=1e5,
-                                 lr1=10, lr2=0.1)
+for trial_idx in range(trial_num):
 
-elif global_transform_scheme == 2:
+    if global_transform_scheme == 1:
 
-    T, scores = aligner.optimize(type='rigid', max_iter_num=1000, history_len=50, terminate_thresh=1e-4,
-    #                              indices_m=[name_to_label_fixed['SNR_L']],
-                                 indices_m=None,
-                                grid_search_iteration_number=50,
-                                 grid_search_sample_number=100,
-                                 grad_computation_sample_number=1e5,
-                                 lr1=10, lr2=0.1)
+        T, scores = aligner.optimize(type='affine', max_iter_num=1000, history_len=10, terminate_thresh=1e-4,
+                                     indices_m=None,
+                                    grid_search_iteration_number=30,
+                                     grid_search_sample_number=100,
+                                     grad_computation_sample_number=1e5,
+                                     lr1=10, lr2=0.1,
+                                     label_weights=label_weights_m,
+                                    std_tx=50, std_ty=50, std_tz=100, std_theta_xy=np.deg2rad(10))
+
+    elif global_transform_scheme == 2:
+
+        T, scores = aligner.optimize(type='rigid', max_iter_num=1000, history_len=10, terminate_thresh=1e-4,
+                                     indices_m=None,
+                                    grid_search_iteration_number=30,
+                                     grid_search_sample_number=100,
+                                     grad_computation_sample_number=1e5,
+                                     lr1=10, lr2=0.1,
+                                     label_weights=label_weights_m,
+                                    std_tx=50, std_ty=50, std_tz=100, std_theta_xy=np.deg2rad(10))
+
+
 
 # print T.reshape((3,4))
 # plt.plot(scores);
 # print max(scores), scores[-1]
 
-params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
+    params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
                                                                 stack_fixed=stack_fixed,
                                                                 train_sample_scheme=train_sample_scheme,
                                                                 global_transform_scheme=global_transform_scheme)
@@ -118,24 +139,27 @@ params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=st
 
 # with open(atlasAlignParams_dir + '/%(stack_moving)s_down32_scoreVolume_to_%(stack_fixed)s_down32_scoreVolume_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_parameters.txt' % \
 #           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}, 'w') as f:
-with open(params_fp, 'w') as f:
 
-    f.write(array_to_one_liner(T))
-    f.write(array_to_one_liner(aligner.centroid_m))
-    f.write(array_to_one_liner([aligner.xdim_m, aligner.ydim_m, aligner.zdim_m]))
-    f.write(array_to_one_liner(aligner.centroid_f))
-    f.write(array_to_one_liner([aligner.xdim_f, aligner.ydim_f, aligner.zdim_f]))
+    # with open(params_fp, 'w') as f:
+    with open(os.path.splitext(params_fp)[0] + '_trial_%d.txt' % trial_idx, 'w') as f:
+
+        f.write(array_to_one_liner(T))
+        f.write(array_to_one_liner(aligner.centroid_m))
+        f.write(array_to_one_liner([aligner.xdim_m, aligner.ydim_m, aligner.zdim_m]))
+        f.write(array_to_one_liner(aligner.centroid_f))
+        f.write(array_to_one_liner([aligner.xdim_f, aligner.ydim_f, aligner.zdim_f]))
 
 
-score_plot_fp = DataManager.get_global_alignment_score_plot_filepath(stack_moving=stack_moving,
-                                                                    stack_fixed=stack_fixed,
-                                                                    train_sample_scheme=train_sample_scheme,
-                                                                    global_transform_scheme=global_transform_scheme)
+    score_plot_fp = DataManager.get_global_alignment_score_plot_filepath(stack_moving=stack_moving,
+                                                                        stack_fixed=stack_fixed,
+                                                                        train_sample_scheme=train_sample_scheme,
+                                                                        global_transform_scheme=global_transform_scheme)
 
-fig = plt.figure();
-plt.plot(scores);
-plt.savefig(score_plot_fp, bbox_inches='tight')
-plt.close(fig)
+    fig = plt.figure();
+    plt.plot(scores);
+    # plt.savefig(score_plot_fp, bbox_inches='tight')
+    plt.savefig( os.path.splitext(score_plot_fp)[0] + '_trial_%d.png' % trial_idx, bbox_inches='tight')
+    plt.close(fig)
 
 #####################################
 
@@ -146,7 +170,8 @@ params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=st
                                                                 train_sample_scheme=train_sample_scheme,
                                                                 global_transform_scheme=global_transform_scheme)
 
-with open(params_fp, 'r') as f:
+# with open(params_fp, 'r') as f:
+with open(os.path.splitext(params_fp)[0] + '_trial_1.txt', 'r') as f:
 
     lines = f.readlines()
 
@@ -160,36 +185,28 @@ with open(params_fp, 'r') as f:
 volumes_annotation = {'MD594':bp.unpack_ndarray_file('/home/yuncong/csd395/CSHL_atlasAlignParams_atlas_v2/MD594_to_MD589/MD594_down32_annotationVolume_alignedTo_MD589_down32_annotationVolume.bp'),
                       'MD589': bp.unpack_ndarray_file(VOLUME_ROOTDIR + '/MD589/MD589_down32_annotationVolume.bp')}
 
-from registration_utilities import transform_points
+from registration_utilities import transform_volume
 
 annotation_volumes_volume_m_aligned_to_f = {}
 
 for stack, volume_annotation in volumes_annotation.iteritems():
-    all_indices_m = set(np.unique(volume_annotation)) - {0}
-    nzvoxels_m_temp = {i: parallel_where_binary(volume_annotation==i) for i in all_indices_m}
-    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
-    nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
-                                              c=centroid_m, c_prime=centroid_f).astype(np.int16)
-                      for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
+    annotation_volumes_volume_m_aligned_to_f[stack] = transform_volume(vol=volume_annotation,
+                                                                       global_params=global_params,
+                                                                       centroid_m=centroid_m,
+                                                                       centroid_f=centroid_f,
+                                                                      xdim_f=xdim_f,
+                                                                      ydim_f=ydim_f,
+                                                                      zdim_f=zdim_f)
 
-    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), np.int)
+    output_fn = DataManager.get_transformed_volume_filepath(stack_m=stack, type_m='annotation',
+                                                stack_f=stack_fixed, type_f='score',
+                                                downscale=32, train_sample_scheme_f=train_sample_scheme)
 
-    for ind_m in nzs_m_aligned_to_f.iterkeys():
+    create_if_not_exists(os.path.dirname(output_fn))
 
-        xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
+    bp.pack_ndarray_file(annotation_volumes_volume_m_aligned_to_f[stack], output_fn)
 
-        valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-        (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
-
-        xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
-
-        volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
-        volume_annotation[ys_m[valid], xs_m[valid], zs_m[valid]]
-
-    del nzs_m_aligned_to_f
-
-    annotation_volumes_volume_m_aligned_to_f[stack] = volume_m_aligned_to_f
 
 xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt('/home/yuncong/csd395/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
           dict(stack_fixed=stack_fixed)).astype(np.int)
@@ -247,3 +264,30 @@ for sec in range(first_sec, last_sec+1):
     viz_fn = os.path.join(viz_dir, '%(stack_moving)s_to_%(stack_fixed)s_%(sec)04d.jpg' % \
           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'sec': sec})
     imsave(viz_fn, viz)
+
+
+
+# Transform moving volume, sided
+
+structures_sided = sum([[n] if n in singular_structures else [convert_to_left_name(n), convert_to_right_name(n)]
+                        for n in structures], [])
+
+for name_s in structures_sided:
+
+    print name_s
+
+    vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
+
+    volume_m_alignedTo_f = \
+    transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,
+                      xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
+
+    volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',
+                                            stack_f=stack_fixed, type_f='score',
+                                            label=name_s,
+                                            downscale=32,
+                                            train_sample_scheme_f=1)
+
+    create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
+
+    bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)

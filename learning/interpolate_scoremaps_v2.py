@@ -37,8 +37,6 @@ sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
 anchor_fn = metadata_cache['anchor_fn'][stack]
 
 train_sample_scheme = 1
-svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
-
 
 for sec in range(first_sec, last_sec+1):
 
@@ -91,15 +89,9 @@ for sec in range(first_sec, last_sec+1):
                                                                     interpolation_xmax/shrink_factor),
                                                               indexing='ij')
 
-    # sparse_score_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
-    #                               {'fn': fn, 'anchor_fn': anchor_fn}))
-    #
-    # probs_allClasses = {label: bp.unpack_ndarray_file(sparse_score_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_trainSampleScheme_%(scheme)d.hdf' % \
-    #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme})
-    #                     for label in structures}
-    #
-    probs_allClasses = {label: bp.unpack_ndarray_file(DataManager.get_sparse_scores_filepath(stack, fn=fn, anchor_fn=anchor_fn, label=label, suffix=svm_suffix))
-                        for label in structures}
+    probs_allClasses = {label: DataManager.load_sparse_scores(stack, fn=fn, anchor_fn=anchor_fn,
+                                          label=label, train_sample_scheme=train_sample_scheme)
+                            for label in structures}
 
     sys.stderr.write('preprocess: %.2f seconds\n' % (time.time() - t))
 
@@ -131,29 +123,17 @@ for sec in range(first_sec, last_sec+1):
 
 #             t = time.time()
         dense_score_map[dense_score_map < 1e-1] = 0
+        dense_score_map[dense_score_map > 1.] = 1.
 #             sys.stderr.write('threshold: %.2f seconds\n' % (time.time() - t))
 
         if np.count_nonzero(dense_score_map) < 1e5:
             sys.stderr.write('No %s is detected on section %d\n' % (label, sec))
             return None
 
-#             t = time.time()
-#             bp.pack_ndarray_file(dense_score_map.astype(np.float32),
-#                                    os.path.join(scoremaps_dir, '%(dataset)s_denseScoreMapLossless_%(label)s.bp' % \
-#                                                 {'dataset': dataset, 'label': label}))
-
         scoremap_bp_filepath, scoremap_interpBox_filepath = DataManager.get_scoremap_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, label=label,
-                                                                    return_bbox_fp=True, suffix=svm_suffix)
-
-        # scoremap_bp_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_trainSampleScheme_%(scheme)d.hdf' % \
-        #                       {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme':train_sample_scheme})
+                                                                    return_bbox_fp=True, train_sample_scheme=train_sample_scheme)
 
         save_hdf(dense_score_map.astype(np.float16), scoremap_bp_filepath, complevel=5)
-#             sys.stderr.write('save: %.2f seconds\n' % (time.time() - t))
-
-        # scoremap_interpBox_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' % \
-        #                         {'fn': fn, 'anchor_fn': anchor_fn, 'label':label})
-
         np.savetxt(scoremap_interpBox_filepath,
                    np.array((interpolation_xmin, interpolation_xmax, interpolation_ymin, interpolation_ymax))[None],
                    fmt='%d')

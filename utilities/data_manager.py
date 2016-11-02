@@ -1,6 +1,25 @@
 from utilities2015 import *
 from metadata import *
 
+def volume_type_to_str(t):
+    if t == 'score':
+        return 'scoreVolume'
+    elif t == 'annotation':
+        return 'annotationVolume'
+
+def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, local_transform_scheme=None):
+
+    suffix = ''
+    if train_sample_scheme is not None:
+        suffix += 'trainSampleScheme_%d'%train_sample_scheme
+    if global_transform_scheme is not None:
+        suffix += 'globalTxScheme_%d'%global_transform_scheme
+    if local_transform_scheme is not None:
+        suffix += 'localTxScheme_%d'%local_transform_scheme
+
+    return suffix
+
+
 class DataManager(object):
 
     @staticmethod
@@ -112,29 +131,124 @@ class DataManager(object):
                             {'stack': stack, 'sec': section}
         return fn
 
+    @staticmethod
+    def get_local_alignment_viz_dir(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None, local_transform_scheme=None):
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_over_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        viz_dir = atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_over_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d_viz' % \
+                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                    'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
+                    'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme,
+                    'ltf_sheme':local_transform_scheme}
+        return viz_dir
+
+
+    @staticmethod
+    def get_local_alignment_parameters_filepath_prefix(stack_fixed, fixed_volume_type, stack_moving, moving_volume_type='score', label=None,
+    train_sample_scheme=1, global_transform_scheme=1, local_transform_scheme=1):
+
+        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_over_%(stack_fixed)s' % \
+                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
+
+        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_over_%(stack_fixed)s_down32_%(f_str)s_%(label)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d' % \
+                  {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                  'label': label,
+                  'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
+                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme':local_transform_scheme}
+
+    @staticmethod
+    def get_local_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', label=None,
+    train_sample_scheme=1, global_transform_scheme=1, local_transform_scheme=1, trial_idx=None):
+        partial_fn = DataManager.get_local_alignment_parameters_filepath_prefix(stack_fixed=stack_fixed,
+        fixed_volume_type=fixed_volume_type, stack_moving=stack_moving, moving_volume_type=moving_volume_type,
+        train_sample_scheme=train_sample_scheme, global_transform_scheme=global_transform_scheme, local_transform_scheme=local_transform_scheme,
+        label=label)
+
+        if trial_idx is not None:
+            return partial_fn + '_parameters_trial_%d.txt' % trial_idx
+        else:
+            return partial_fn + '_parameters.txt'
+
+    @staticmethod
+    def load_local_alignment_parameters(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', label=None,
+    train_sample_scheme=1, global_transform_scheme=1, local_transform_scheme=1, trial_idx=None):
+
+        params_fp = DataManager.get_local_alignment_parameters_filepath(stack_fixed=stack_fixed,
+                    fixed_volume_type=fixed_volume_type, stack_moving=stack_moving, moving_volume_type=moving_volume_type,
+                    train_sample_scheme=train_sample_scheme, global_transform_scheme=global_transform_scheme, local_transform_scheme=local_transform_scheme,
+                    label=label,
+                    trial_idx=trial_idx)
+
+        return DataManager.load_transform_parameters(params_fp)
+
+    @staticmethod
+    def save_alignment_parameters(fp, params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f):
+
+        create_if_not_exists(os.path.dirname(fp))
+
+        with open(fp, 'w') as f:
+
+            f.write(array_to_one_liner(params))
+            f.write(array_to_one_liner(centroid_m))
+            f.write(array_to_one_liner([xdim_m, ydim_m, zdim_m]))
+            f.write(array_to_one_liner(centroid_f))
+            f.write(array_to_one_liner([xdim_f, ydim_f, zdim_f]))
+
+    @staticmethod
+    def get_local_alignment_score_plot_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', label=None,
+    train_sample_scheme=1, global_transform_scheme=1, local_transform_scheme=1, trial_idx=None):
+        partial_fn = DataManager.get_local_alignment_parameters_filepath_prefix(stack_fixed=stack_fixed,
+        fixed_volume_type=fixed_volume_type, stack_moving=stack_moving, moving_volume_type=moving_volume_type,
+        train_sample_scheme=train_sample_scheme, global_transform_scheme=global_transform_scheme, local_transform_scheme=local_transform_scheme,
+        label=label)
+
+        if trial_idx is not None:
+            return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
+        else:
+            return partial_fn + '_scoreEvolution.png'
+
 
     @staticmethod
     def get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
-<<<<<<< HEAD
 
         atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
                      {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
 
-        def type_to_str(t):
-            if t == 'score':
-                return 'scoreVolume'
-            elif t == 'annotation':
-                return 'annotationVolume'
-
         return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
                   {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
-                  'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                  'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                   'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
 
     @staticmethod
     def get_global_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
         partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
+        # return partial_fn + '_parameters.txt'
         return partial_fn + '_parameters.txt'
+
+    @staticmethod
+    def load_transform_parameters(params_fp):
+        with open(params_fp, 'r') as f:
+            lines = f.readlines()
+
+            global_params = one_liner_to_arr(lines[0], float)
+            centroid_m = one_liner_to_arr(lines[1], float)
+            xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
+            centroid_f = one_liner_to_arr(lines[3], float)
+            xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
+
+        return global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f
+
+    @staticmethod
+    def load_global_alignment_parameters(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
+
+        params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
+                                                                    stack_fixed=stack_fixed,
+                                                                    train_sample_scheme=train_sample_scheme,
+                                                                    global_transform_scheme=global_transform_scheme)
+        return DataManager.load_transform_parameters(params_fp)
+
 
     @staticmethod
     def get_global_alignment_score_plot_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
@@ -147,12 +261,6 @@ class DataManager(object):
         atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
                      {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
 
-        def type_to_str(t):
-            if t == 'score':
-                return 'scoreVolume'
-            elif t == 'annotation':
-                return 'annotationVolume'
-
         # return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
         #           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
         #           'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
@@ -160,87 +268,142 @@ class DataManager(object):
 
         viz_dir = atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_viz' % \
                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
-                    'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
+                    'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                     'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
         return viz_dir
 
 
-=======
-
-        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
-                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
-
-        def type_to_str(t):
-            if t == 'score':
-                return 'scoreVolume'
-            elif t == 'annotation':
-                return 'annotationVolume'
-
-        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
-                  {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
-                  'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
-                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
-
-    @staticmethod
-    def get_global_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
-        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
-        return partial_fn + '_parameters.txt'
-
-    @staticmethod
-    def get_global_alignment_score_plot_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
-        partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
-        return partial_fn + '_scoreEvolution.png'
-
-    @staticmethod
-    def get_global_alignment_viz_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
-
-        atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
-                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
-
-        def type_to_str(t):
-            if t == 'score':
-                return 'scoreVolume'
-            elif t == 'annotation':
-                return 'annotationVolume'
-
-        # return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
-        #           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
-        #           'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
-        #           'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
-
-        viz_dir = atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_viz' % \
-                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
-                    'm_str': type_to_str(moving_volume_type), 'f_str': type_to_str(fixed_volume_type),
-                    'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
-        return viz_dir
-
-
->>>>>>> c7eca6c15502baa8e544252f4510f920c2cac50c
     @staticmethod
     def get_svm_filepath(label, suffix=''):
         return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % {'label': label, 'suffix':suffix}
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, fn, anchor_fn, label, suffix):
-        # sparse_score_dir = os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
-        #                               {'fn': fn, 'anchor_fn': anchor_fn})
-        # return sparse_score_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf' % \
-        #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_'+suffix if suffix != '' else ''}
+    def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
 
-        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_%(suffix)s.hdf') % \
-        {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': suffix}
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        return bp.unpack_ndarray_file(DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn,
+            label=label, train_sample_scheme=train_sample_scheme))
 
     @staticmethod
-    def get_score_volume_filepath(stack, label, downscale, suffix):
-        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(name)s_%(suffix)s.bp' % \
-                {'stack':stack, 'name':label, 'ds':downscale, 'suffix':suffix}
+    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
+        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
+                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
+                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
+
+    @staticmethod
+    def get_annotation_volume_filepath(stack, downscale):
+        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
+                {'stack':stack, 'ds':downscale}
+        return vol_fn
+
+
+    @staticmethod
+    def get_annotation_volume_bbox_filepath(stack, downscale):
+        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume_bbox.txt' % \
+                {'stack':stack, 'ds':downscale}
         return vol_fn
 
     @staticmethod
-    def load_score_volume(stack, label, downscale, suffix=''):
+    def get_annotation_volume_nameToLabel_filepath(stack, downscale):
+        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume_nameToLabel.txt' % \
+                {'stack':stack, 'ds':downscale}
+        return vol_fn
 
-        vol_fn = DataManager.get_score_volume_filepath(stack, label, downscale, suffix)
+    @staticmethod
+    def load_annotation_volume_nameToLabel(stack, downscale):
+        fn = DataManager.get_annotation_volume_nameToLabel_filepath(stack, downscale)
+        name_to_label = {}
+        with open(fn, 'r') as f:
+            for line in f.readlines():
+                name, label_str = line.split()
+                name_to_label[name] =  int(label_str)
+
+        return name_to_label
+
+
+    @staticmethod
+    def load_transformed_volume(stack_m, type_m, stack_f, type_f, downscale,
+                                        train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                        global_transform_scheme=None,
+                                        label=None):
+        fp = DataManager.get_transformed_volume_filepath(stack_m=stack_m, type_m=type_m, stack_f=stack_f, type_f=type_f,
+                                        downscale=downscale,
+                                            train_sample_scheme_m=train_sample_scheme_m,
+                                            train_sample_scheme_f=train_sample_scheme_f,
+                                            global_transform_scheme=global_transform_scheme,
+                                            label=label)
+        return bp.unpack_ndarray_file(fp)
+
+
+    @staticmethod
+    def get_transformed_volume_filepath(stack_m, type_m, stack_f, type_f, downscale,
+                                        train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                        global_transform_scheme=None,
+                                        label=None):
+
+        if label is None:
+
+            vol_fn = VOLUME_ROOTDIR + '/%(stack_m)s_to_%(stack_f)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(suffix_m)s_to_%(stack_f)s_down%(ds)d_%(type_f_str)s%(suffix_f)s.bp' % \
+                    {'stack_m':stack_m,
+                    'stack_f':stack_f,
+                    'type_m_str': volume_type_to_str(type_m),
+                    'type_f_str': volume_type_to_str(type_f),
+                    'ds':downscale,
+                    'suffix_m': '_trainSampleScheme_%d'%train_sample_scheme_m if train_sample_scheme_m is not None else '',
+                    'suffix_f': '_trainSampleScheme_%d'%train_sample_scheme_f if train_sample_scheme_f is not None else ''}
+
+        else:
+
+            clf_suffix_m = generate_suffix(train_sample_scheme=train_sample_scheme_m)
+            clf_suffix_f = generate_suffix(train_sample_scheme=train_sample_scheme_f)
+            gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)
+
+            vol_fn = VOLUME_ROOTDIR + '/%(stack_m)s_to_%(stack_f)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(clf_suffix_m)s_to_%(stack_f)s_down%(ds)d_%(type_f_str)s_%(label)s%(clf_suffix_f)s%(gtf_suffix)s.bp' % \
+                    {'stack_m':stack_m,
+                    'stack_f':stack_f,
+                    'type_m_str': volume_type_to_str(type_m),
+                    'type_f_str': volume_type_to_str(type_f),
+                    'ds':downscale,
+                    'label': label,
+                    'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
+                    'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
+                    'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else ''}
+
+        return vol_fn
+
+
+    @staticmethod
+    def get_score_volume_filepath(stack, label, downscale, train_sample_scheme=None):
+        suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
+
+        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(name)s%(suffix)s.bp' % \
+                {'stack':stack, 'name':label, 'ds':downscale, 'suffix':'_' + suffix if suffix != '' else ''}
+        return vol_fn
+
+    @staticmethod
+    def get_score_volume_gradient_filepath(stack, label, downscale, suffix, train_sample_scheme=1):
+
+        grad_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down%(ds)d_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%(suffix)s.bp' % \
+                {'stack': stack, 'label': label, 'scheme':train_sample_scheme, 'suffix': suffix, 'ds':downscale}
+
+        return grad_fn
+
+    @staticmethod
+    def load_score_volume(stack, label, downscale, train_sample_scheme=None):
+
+        vol_fn = DataManager.get_score_volume_filepath(stack=stack, label=label, downscale=downscale, train_sample_scheme=train_sample_scheme)
         score_volume = bp.unpack_ndarray_file(vol_fn)
         return score_volume
 
@@ -253,7 +416,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=1):
+    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -293,12 +456,12 @@ class DataManager(object):
             return scoremap_bp_filepath
 
     @staticmethod
-    def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, suffix=''):
+    def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, train_sample_scheme=None):
 
         # Load scoremap
 
         scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
-                                                    fn=fn, anchor_fn=anchor_fn, label=label, return_bbox_fp=True, suffix=suffix)
+                                                    fn=fn, anchor_fn=anchor_fn, label=label, return_bbox_fp=True, train_sample_scheme=train_sample_scheme)
         if not os.path.exists(scoremap_bp_filepath):
             raise Exception('No scoremap for section %d for label %s\n' % (section, label))
             # return None

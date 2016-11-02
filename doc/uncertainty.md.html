@@ -2,7 +2,7 @@
 <html>
   <head>
       <meta charset="utf-8" />
-      <title>bayesian</title>
+      <title>uncertainty</title>
 <script type="text/x-mathjax-config">
   MathJax.Hub.Config({
     jax: ["input/TeX","output/HTML-CSS"],
@@ -519,78 +519,82 @@ pre.editor-colors .fold-marker:after,
 }
 </style>
   </head>
-  <body class='markdown-preview'><h1>Bayesian Formulation of the Atlas Building Problem</h1>
-<!-- $$
-\begin{aligned}
-P(\{\Theta_k\} | \{F_k\}) &= \prod_k \mathbf{P}(\Theta_k | F_k) \\ &\propto \prod_k \mathbf{P}(\Theta_k) \mathbf{P}(F_k|\Theta_k) \\
-&\propto \prod_k \mathbf{P}(\Theta_k) \int dx_k \; da \; \mathbf{P}(F_k|a, x_k) \mathbf{P}(x_k| \Theta_k) \mathbf{P}(a) \\
-&= \int da \; \mathbf{P}(a) \prod_k \int  \mathbf{P}(F_k|a, x_k) \mathbf{P}(x_k | \Theta_k) \mathbf{P}(\Theta_k) d{x_k}\\
-\end{aligned}
-$$ -->
-<p>The parameters to estimate are</p>
+  <body class='markdown-preview'><h1>Uncertainty Analysis of the Atlas Building Problem</h1>
+<p>Suppose the atlas starts with a mean centroid location and mean shape for each structure. More precisely, the atlas defines a set of canonical structures <span class="math"><script type="math/tex">\{\bar{V_k}\}</script></span>, where each <span class="math"><script type="math/tex">\bar{V_k}</script></span> is a set of voxel locations for structure <span class="math"><script type="math/tex">k</script></span>. The locations are defined with respect to the atlas coordinate space <span class="math"><script type="math/tex">\Omega^0</script></span>.</p>
+<p>For each brain <span class="math"><script type="math/tex">i</script></span>, the degrees of freedom are,</p>
 <ul>
-<li>global (affine) transform <span class="math"><script type="math/tex">A</script></span>, and,</li>
-<li>distribution parameters for every structure <span class="math"><script type="math/tex">\{\Theta_k\}</script></span>.</li>
+<li>individual structure transform <span class="math"><script type="math/tex">\{B_k^i\}</script></span>. It includes shape variation <span class="math"><script type="math/tex">\{Q^i_k\}</script></span> and local 3D rigid transform of the centroid <span class="math"><script type="math/tex">\{R^i_k\}</script></span> (6 parameters)</li>
+<li>global 3D affine transform <span class="math"><script type="math/tex">A^i</script></span> (12 parameters)</li>
+<li>texture detector functions for each structure <span class="math"><script type="math/tex">\{f_k\}</script></span>.
+Denote the image volume of brain <span class="math"><script type="math/tex">i</script></span> by <span class="math"><script type="math/tex">\Omega^i</script></span>, these detectors give score volumes <span class="math"><script type="math/tex">\{F^i_k\}</script></span>. Each score volume <span class="math"><script type="math/tex">F^i_k(p) = f_k(I_p), \forall p\in \Omega^i</script></span>, where <span class="math"><script type="math/tex">I_p</script></span> is the patch centered at location <span class="math"><script type="math/tex">p</script></span> on the corresponding 2D section image.</li>
 </ul>
-<p>One possible setting for <span class="math"><script type="math/tex">\Theta_k</script></span> is a rigid transform. In this case the distribution of every structure is characterized by a random translation/rotation of a fixed 3D shape about a mean position. This is our current setting - the fixed structure shapes and the mean positions are derived from the average of the two annotated brains.</p>
-<p>To estimate <span class="math"><script type="math/tex">A</script></span> and <span class="math"><script type="math/tex">\{\Theta_k\}</script></span> given the detector score volumes <span class="math"><script type="math/tex">\{f_k\}</script></span>, we do the following two steps.</p>
-<p>First, give an initial estimate for <span class="math"><script type="math/tex">\{\Theta_k\} = \{\hat{\theta_k}\}</script></span>, estimate the global transform <span class="math"><script type="math/tex">\hat{a}</script></span>. Denote by <span class="math"><script type="math/tex">x_k</script></span> the <em>biological</em> shape and position (or phenoptype) of structure <span class="math"><script type="math/tex">k</script></span>.</p>
-<span class="math"><script type="math/tex; mode=display">\begin{aligned}
-\hat{a} &= \text{argmax} \; \mathbf{P}(a | \{\hat{\theta_k}\}, \{f_k\}) \\
-&\propto
-\prod_k
-\int
-\mathbf{P}(f_k | a, x_k)
-\mathbf{P}(x_k | \hat{\theta_k})
-d {x_k} \\
-&\approx
-\prod_k
-\mathbf{P}\left(f_k | a, \int \mathbf{P}(x_k | \hat{\theta_k}) dx_k\right)
- \\
-& =
-\prod_k
-\mathbf{P}(f_k | a, \mathbb{E}[X_k | \hat{\theta_k}])
-\end{aligned}
+<p>and the scores include:</p>
+<ul>
+<li>texture score for each structure <span class="math"><script type="math/tex">\{S_k\}</script></span>, and the overall texture score defined as the sum of per-structure scores, <span class="math"><script type="math/tex">S = \sum_k S_k</script></span>.</li>
+<li>each structure’s deviation from normal position <span class="math"><script type="math/tex">\{D_k\}</script></span></li>
+<li>deviations from normal global transform <span class="math"><script type="math/tex">E</script></span></li>
+</ul>
+<p>For a given set of parameters, the per-structure texture score <span class="math"><script type="math/tex">S_k</script></span> is defined as the sum of scores at voxels occupied by the transformed structure,</p>
+<span class="math"><script type="math/tex; mode=display">\begin{align}
+S_k(A^i, \{B^i_k\}, \{F^i_k\})
+&= \sum_{p \in V_k(B^i_k)} F^i_k(q(p; A^i)) \\
+&= \sum_{v \in \bar{V_k}} F^i_k(q(p(v; B^i_k); A^i)) \\
+\end{align}
 </script></span>
-<p>Here <span class="math"><script type="math/tex">\mathbb{E}[x_k | \theta_k]</script></span> are the <em>probabilistic structures</em>.</p>
-<p>In our current setting, the initial estimate <span class="math"><script type="math/tex">\{\hat{\theta_k}\}</script></span> are all identity transforms. Global transform is estimated assuming structures are at their mean positions.</p>
-<p>Then fix <span class="math"><script type="math/tex">\hat{a}</script></span>, update the structure distribution parameters <span class="math"><script type="math/tex">\{\Theta_k\}</script></span>,</p>
-<span class="math"><script type="math/tex; mode=display">\begin{aligned}
-\hat{\theta_k}
-&= \text{argmax} \; \mathbf{P}(\theta_k | \hat{a}, f_k) \\
-&\propto
-\int d x_k
-\mathbf{P}(f_k | \hat{a}, x_k)
-\mathbf{P}(x_k | \theta_k)
-\mathbf{P}(\theta_k) \\
-&=
-\int d x_k
-\mathbf{P}(\hat{g_k} | x_k)
-\mathbf{P}(x_k | \theta_k)
-\mathbf{P}(\theta_k) \\
-&\approx
-\mathbf{P}\left(\hat{g_k} | \int \mathbf{P}(x_k | \theta_k) dx_k \right)
-\mathbf{P}(\theta_k) \\
-&=
-\mathbf{P}(\hat{g_k} | \mathbb{E}[x_k | \theta_k])
-\mathbf{P}(\theta_k) \\
-\end{aligned}
+<p>Here <span class="math"><script type="math/tex">p(v; B^i_k)</script></span> maps a voxel location <span class="math"><script type="math/tex">v</script></span> in atlas space to another location, according to the transform <span class="math"><script type="math/tex">B_k^i</script></span>. <span class="math"><script type="math/tex">V_k(B^i_k)</script></span> is the set of locations that results from transforming all voxels in the canonical set <span class="math"><script type="math/tex">\bar{V_k}</script></span>.</p>
+<p><span class="math"><script type="math/tex">q(p; A^i)</script></span> is the affine transform function that maps a location <span class="math"><script type="math/tex">p</script></span> in atlas space <span class="math"><script type="math/tex">\Omega^0</script></span> to a location in subject space <span class="math"><script type="math/tex">\Omega^i</script></span>, according to parameters <span class="math"><script type="math/tex">A^i</script></span>.</p>
+<p>Now we discuss the case for one brain. For notation clarity, we drop the index <span class="math"><script type="math/tex">i</script></span> in the following discussion.</p>
+<p>Gradients of the texture score are,</p>
+<span class="math"><script type="math/tex; mode=display">\begin{align}
+\frac{\partial}{\partial A} S_k = \sum_{p \in V_k(R_k, Q_k)} \frac{\partial F_k(q)}{\partial q} \frac{\partial q(\hat{p}; A)}{\partial A}
+\end{align}
 </script></span>
-<p>Here <span class="math"><script type="math/tex">\hat{g_k}</script></span> is <span class="math"><script type="math/tex">f_k</script></span> transformed by the inverse of <span class="math"><script type="math/tex">\hat{a}</script></span>.</p>
-<h1>Quantify Uncertainty</h1>
-<p>We estimate the confidence intervals of <span class="math"><script type="math/tex">A</script></span> and <span class="math"><script type="math/tex">\{\Theta_k\}</script></span> by computing the observed Fisher information.</p>
-<p>The estimate for the global affine transform <span class="math"><script type="math/tex">A</script></span> is <span class="math"><script type="math/tex">\hat{a} \pm cI_n(\hat{a})^{-1/2}</script></span>.</p>
-<span class="math"><script type="math/tex; mode=display">\begin{aligned}
-I_n(\hat{a}) &= -\log \frac{\partial^2}{\partial a^2}\mathbf{P}(\{f_k\}|\hat{a}, \{\hat{\theta_k}\}) \\
-&= -\sum_k \frac{\partial^2}{\partial a^2} \log \mathbf{P}(f_k | \hat{a}, \hat{\theta_k}) \\
-&= -\frac{\partial^2}{\partial a^2} \sum_k S(f_k, \hat{a}, \hat{\theta_k}) \\
-&= -H(\hat{a})
-\end{aligned}
+<p>Let <span class="math"><script type="math/tex">B = \{R_k, Q_k\}</script></span> describe a combined individual transform that includes rigid transform, scaling and potentially other deformation.</p>
+<span class="math"><script type="math/tex; mode=display">\begin{align}
+\frac{\partial}{\partial B_k}S_k =
+\sum_{v\in \bar{V_k}}
+\frac{\partial F_k(q)} {\partial q}
+\frac{\partial q(p; \hat{A})} {\partial p}
+\frac{\partial p(v; B_k)}{\partial B_k}
+\end{align}
 </script></span>
-<span class="math"><script type="math/tex; mode=display">\begin{aligned}
-
-
-
-\end{aligned}
-</script></span></body>
+<h2>Uncertainty for global transform <span class="math"><script type="math/tex">A</script></span></h2>
+<p>If everything else are fixed, the overall score with respect to the global transform <span class="math"><script type="math/tex">A</script></span> is,</p>
+<span class="math"><script type="math/tex; mode=display">J(A) = S(A) - \lambda E(A)
+</script></span>
+<p>where texture score <span class="math"><script type="math/tex">S</script></span> is as previously defined, and the global transform penalty is a quadratic term,</p>
+<span class="math"><script type="math/tex; mode=display">E(A) = (A - \mu_A)^T \Sigma_A^{-1} (A - \mu_A)
+</script></span>
+<p>The parameters <span class="math"><script type="math/tex">\mu_A</script></span> and <span class="math"><script type="math/tex">\Sigma_A</script></span> are learned from data. The details will be described below.</p>
+<p>The optimal estimate <span class="math"><script type="math/tex">a^*</script></span> is the maximizer of <span class="math"><script type="math/tex">J(A)</script></span>,
+which is found using gradient descent. The gradients of score volumes <span class="math"><script type="math/tex">\{F_k\}</script></span> are pre-computed to speed up the optimization.</p>
+<p>To quantify the uncertainty, we also compute the Hessian,</p>
+<span class="math"><script type="math/tex; mode=display">H_A(a^*) =
+\frac{\partial^2}{\partial A^2} J(a^*) =
+\frac{\partial^2}{\partial A^2} S(a^*) - \lambda \Sigma_A^{-1}
+</script></span>
+<p>The Hessian of <span class="math"><script type="math/tex">S</script></span> can be computed either by drawing on pre-computed second derivatives of score volumes <span class="math"><script type="math/tex">\{F_k\}</script></span>, or by numerical differentiation around <span class="math"><script type="math/tex">a^*</script></span>.</p>
+<p>Based on <span class="math"><script type="math/tex">H_A</script></span>, we can construct confidence interval <span class="math"><script type="math/tex">[u_{\gamma,A}, v_{\gamma,A}]</script></span> with confidence level <span class="math"><script type="math/tex">\gamma</script></span>, centered at <span class="math"><script type="math/tex">a^*</script></span>.</p>
+<p>The confidence intervals <span class="math"><script type="math/tex">[u^\gamma_{A^i}, v^\gamma_{A^i}]</script></span> for all brains are then aggregated to give an estimate for <span class="math"><script type="math/tex">\mu_A</script></span> and <span class="math"><script type="math/tex">\Sigma_A</script></span>.</p>
+<h2>Uncertainty for individual transform <span class="math"><script type="math/tex">R_k</script></span> and <span class="math"><script type="math/tex">Q_k</script></span></h2>
+<p>If <span class="math"><script type="math/tex">R_k</script></span> is rigid transform, and <span class="math"><script type="math/tex">Q_k</script></span> is scaling and shearing, then the combined effect can be characterized by an 12 parameter affine transform <span class="math"><script type="math/tex">B_k</script></span>.
+The computed Hessian will be with respect to 12 parameters.</p>
+<p>To extract intuitive meaning from the Hessian,
+say the scale of the
+we can compute the</p>
+<span class="math"><script type="math/tex; mode=display">\frac{\partial^2}{\partial g^2} g(B)
+</script></span>
+<h2>Uncertainty for individual centroid transform <span class="math"><script type="math/tex">R_k</script></span></h2>
+<p>Assume the centroids of different structures are independent, the overall score with respect to <span class="math"><script type="math/tex">R_k</script></span> is,</p>
+<span class="math"><script type="math/tex; mode=display">J(R_k) = S(R_k) - \lambda D(R_k)
+</script></span>
+<p>The deviation penalty is also a quadratic term,</p>
+<span class="math"><script type="math/tex; mode=display">D(R_k) = (R_k - \mu_{R_k})^T \Sigma_{R_k}^{-1} (R_k - \mu_{R_k})
+</script></span>
+<p>Optimization also uses gradient descent.</p>
+<p>The Hessian is ,</p>
+<span class="math"><script type="math/tex; mode=display">H_{R_k}(r_k^*) = \frac{\partial^2}{\partial A^2}S(r_k^*) - \lambda \Sigma_{R_k}^{-1} 
+</script></span>
+<h2>Uncertainty for individual shape transform <span class="math"><script type="math/tex">Q_k</script></span></h2>
+<p>If <span class="math"><script type="math/tex">Q_k</script></span> is parameterized by scaling <span class="math"><script type="math/tex">s</script></span>,</p></body>
 </html>

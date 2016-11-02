@@ -35,7 +35,7 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
 
     # print 'Volume shape:', xdim, ydim, zdim
 
-    volume = np.zeros((ydim, xdim, zdim), np.uint8)
+    volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
 
     # bar = show_progress_bar(first_sec, last_sec)
 

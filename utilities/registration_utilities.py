@@ -71,7 +71,7 @@ from skimage.filters import gaussian
 
 class Aligner4(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
-                label_weights=None, labelIndexMap_m2f=None):
+                labelIndexMap_m2f=None):
         """
         Variant that takes in two probabilistic volumes.
         """
@@ -270,7 +270,25 @@ class Aligner4(object):
         # dMdA += label_weights[name] * q.sum(axis=0)
         # grad += q.sum(axis=0)
         # grad += (S_m_valid_scores[:,None] * q).sum(axis=0)
-        grad = q.sum(axis=0)
+        # grad = q.sum(axis=0)
+
+        # Whether to scale gradient to match the scores' scale depends on whether AdaGrad is used;
+        # if used, then the scale will be automatically adapted so the scaling does not matter
+        grad = q.sum(axis=0) / 1e6
+
+        # regularized version
+        tx = T[3]
+        ty = T[7]
+        tz = T[11]
+
+        if wrt_v:
+            grad[0] = grad[0] - 2 * self.reg_weights[0] * tx
+            grad[1] = grad[1] - 2 * self.reg_weights[1] * ty
+            grad[2] = grad[2] - 2 * self.reg_weights[2] * tz
+        else:
+            grad[3] = grad[3] - 2 * self.reg_weights[0] * tx
+            grad[7] = grad[7] - 2 * self.reg_weights[1] * ty
+            grad[11] = grad[11] - 2 * self.reg_weights[2] * tz
 
         # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
         del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, \
@@ -281,6 +299,7 @@ class Aligner4(object):
     def compute_score_and_gradient(self, T, num_samples=None, wrt_v=False, indices_m=None):
         """
         Compute score and gradient.
+        v is update on the Lie space.
 
         Args:
             T ((12,) vector): transform parameters
@@ -309,8 +328,10 @@ class Aligner4(object):
         # serial
         for ind_m in indices_m:
             score_one, grad_one = self.compute_score_and_gradient_one(T, num_samples, wrt_v, ind_m)
-            grad += grad_one
-            score += score_one
+            # grad += grad_one
+            # score += score_one
+            grad += self.label_weights[ind_m] * grad_one
+            score += self.label_weights[ind_m] * score_one
 
         # # parallel
         ## Parallel does not save time, maybe because the computation for each subprocess is too short.
@@ -368,7 +389,18 @@ class Aligner4(object):
 
         # print np.histogram(voxel_probs_valid)
 
+        # Unregularized version
+        # s = voxel_probs_valid.sum()
+
+        # Regularized version
         s = voxel_probs_valid.sum()
+
+        tx = T[3]
+        ty = T[7]
+        tz = T[11]
+        s_reg = self.reg_weights[0]*tx**2 + self.reg_weights[1]*ty**2 + self.reg_weights[2]*tz**2
+        s = s - s_reg
+
         # sys.stderr.write('score %f\n' % s)
 
         if return_valid:
@@ -391,10 +423,14 @@ class Aligner4(object):
             try:
                 score_all_landmarks[ind_m] = self.compute_score_one(T, ind_m, return_valid=False)
             except Exception as e:
-                sys.stderr.write(e.message + '\n')
+                # sys.stderr.write(e.message + '\n')
                 score_all_landmarks[ind_m] = 0
 
-        score = np.sum(score_all_landmarks.values())
+        # score = np.sum(score_all_landmarks.values())
+
+        score = 0
+        for ind_m, score_one in score_all_landmarks.iteritems():
+            score += self.label_weights[ind_m] * score_one
 
         if return_individual_score:
             return score, score_all_landmarks
@@ -455,18 +491,21 @@ class Aligner4(object):
         return H
 
     def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True,
-                    std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60)):
+                    std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60),
+                    return_best_score=True,
+                    eta=3.):
         """Grid search.
 
         Args:
             grid_search_iteration_number (int): number of iteration
+            eta: sample number and sigma = initial value * np.exp(-iter/eta), default = 3.
 
         Returns:
             params_best_upToNow ((12,) float array): found parameters
 
         """
         params_best_upToNow = (0, 0, 0, 0)
-        score_best_upToNow = 0
+        score_best_upToNow = -np.inf
 
         if indices_m is None:
             indices_m = self.all_indices_m
@@ -477,12 +516,12 @@ class Aligner4(object):
 
             init_tx, init_ty, init_tz, init_theta_xy = params_best_upToNow
 
-            n = int(init_n*np.exp(-iteration/3.))
+            n = int(init_n*np.exp(-iteration/eta))
 
-            sigma_tx = std_tx*np.exp(-iteration/3.)
-            sigma_ty = std_ty*np.exp(-iteration/3.)
-            sigma_tz = std_tz*np.exp(-iteration/3.)
-            sigma_theta_xy = std_theta_xy*np.exp(-iteration/3.)
+            sigma_tx = std_tx*np.exp(-iteration/eta)
+            sigma_ty = std_ty*np.exp(-iteration/eta)
+            sigma_tz = std_tz*np.exp(-iteration/eta)
+            sigma_theta_xy = std_theta_xy*np.exp(-iteration/eta)
 
             tx_grid = init_tx + sigma_tx * np.r_[0, (2 * np.random.random(n) - 1)]
             ty_grid = init_ty + sigma_ty * np.r_[0, (2 * np.random.random(n) - 1)]
@@ -521,24 +560,40 @@ class Aligner4(object):
 
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
         print 'params_best_upToNow', np.ravel(params_best_upToNow)
-        return params_best_upToNow
+
+        if return_best_score:
+            return params_best_upToNow, score_best_upToNow
+        else:
+            return params_best_upToNow
 
 
     def optimize(self, type='rigid', init_T=None, label_weights=None, \
                 grid_search_iteration_number=0, grid_search_sample_number=1000,
                 grad_computation_sample_number=10000,
                 max_iter_num=1000, history_len=200, terminate_thresh=.1, \
-                indices_m=None, lr1=None, lr2=None):
-        """Optimize"""
+                indices_m=None, lr1=None, lr2=None,
+                std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
+                reg_weights=None,
+                epsilon=1e-8):
+        """Optimize
+
+        reg_weights is for (tx,ty,tz)
+        obj = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        """
+
+        self.label_weights = label_weights
+        self.reg_weights = reg_weights
 
         if type == 'rigid':
             grad_historical = np.zeros((6,))
+            sq_updates_historical = np.zeros((6,))
             if lr1 is None:
                 lr1 = 10.
             if lr2 is None:
                 lr2 = 1e-1 # for Lie optimization, lr2 cannot be zero, otherwise causes error in computing scores.
         elif type == 'affine':
             grad_historical = np.zeros((12,))
+            sq_updates_historical = np.zeros((12,))
             if lr1 is None:
                 lr1 = 10
             if lr2 is None:
@@ -550,9 +605,10 @@ class Aligner4(object):
             indices_m = self.all_indices_m
 
         if grid_search_iteration_number > 0:
-            tx_best, ty_best, tz_best, theta_xy_best = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
+            (tx_best, ty_best, tz_best, theta_xy_best), grid_search_score = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
                                                         init_n=grid_search_sample_number,
-                                                        std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60))
+                                                        std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
+                                                        return_best_score=True)
             # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
             T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
         elif init_T is None:
@@ -560,7 +616,7 @@ class Aligner4(object):
         else:
             T = init_T
 
-        score_best = 0
+        score_best = -np.inf
         scores = []
 
         for iteration in range(max_iter_num):
@@ -572,16 +628,18 @@ class Aligner4(object):
 
             if type == 'rigid':
                 # lr1, lr2 = (.1, 1e-2) # lr2 cannot be zero, otherwise causes error in computing scores.
-                T, s, grad_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
-                    grad_historical=grad_historical, verbose=False, num_samples=grad_computation_sample_number,
-                    indices_m=indices_m)
+                T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
+                    grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
+                    verbose=False, num_samples=grad_computation_sample_number,
+                    indices_m=indices_m,
+                    epsilon=epsilon)
 
                 # print 'New T:', np.ravel(T)
 
             elif type == 'affine':
                 # lr1, lr2 = (10., 1e-1)
-                T, s, grad_historical = self.step_gd(T, lr=np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1], \
-                                                grad_historical=grad_historical,
+                T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1], \
+                                                grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
                                                 indices_m=indices_m)
             else:
                 raise Exception('Type must be either rigid or affine.')
@@ -601,16 +659,23 @@ class Aligner4(object):
                 best_gradient_descent_params = T
                 score_best = s
 
+        if grid_search_iteration_number > 0:
+            if scores[-1] <= grid_search_score:
+                # raise Exception('Gradient descent does not converge to higher than grid search score. Likely stuck at local minima.')
+                sys.stderr.write('Gradient descent does not converge to higher than grid search score. Likely stuck at local minima.\n')
+
         return best_gradient_descent_params, scores
 
-    def step_lie(self, T, lr, grad_historical, verbose=False, num_samples=1000, indices_m=None):
+    def step_lie(self, T, lr, grad_historical, sq_updates_historical, verbose=False, num_samples=1000, indices_m=None,
+                epsilon=1e-8):
         """
         One optimization step over Lie group SE(3).
 
         Args:
             T ((12,) vector): flattened vector of 3x4 transform matrix
             lr ((12,) vector): learning rate
-            grad_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad
+            grad_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad or AdaDelta
+            sq_updates_historical: accumulated squared update magnitude, for AdaDelta
 
         Returns:
             (tuple): tuple containing:
@@ -629,9 +694,24 @@ class Aligner4(object):
         # print 'score:', score
         # print 'grad:', grad
 
+        # # AdaGrad Rule
         grad_historical += grad**2
-        grad_adjusted = grad / (1e-8 + np.sqrt(grad_historical))
+        grad_adjusted = grad /  np.sqrt(grad_historical + epsilon)
+        # Note: It is wrong to do: grad_adjusted = grad /  (np.sqrt(grad_historical) + epsilon)
         v_opt = lr * grad_adjusted # no minus sign because maximizing
+
+        # AdaDelta Rule
+        # Does not work, very unstable!
+
+        # gamma = .9
+        # epsilon = 1e-8
+        # grad_historical = gamma * grad_historical + (1-gamma) * grad**2
+        # v_opt = np.sqrt(sq_updates_historical + epsilon)/np.sqrt(grad_historical + epsilon)*grad
+        # sq_updates_historical = gamma * sq_updates_historical + (1-gamma) * v_opt**2
+
+        # print 'grad = %s' % grad
+        # print 'grad_historical = %s' % grad_historical
+        # print 'sq_updates_historical = %s' % sq_updates_historical
 
         if verbose:
             print 'v_opt:', v_opt
@@ -656,9 +736,9 @@ class Aligner4(object):
         if verbose:
             print '\n'
 
-        return np.column_stack([R_new, t_new]).flatten(), score, grad_historical
+        return np.column_stack([R_new, t_new]).flatten(), score, grad_historical, sq_updates_historical
 
-    def step_gd(self, T, lr, grad_historical, surround=False, surround_weight=2., num_samples=None, indices_m=None):
+    def step_gd(self, T, lr, grad_historical, sq_updates_historical, surround=False, surround_weight=2., num_samples=None, indices_m=None):
         """
         One optimization step using gradient descent with Adagrad.
 
@@ -686,12 +766,20 @@ class Aligner4(object):
         #     dMdA -= surround_weight * dMdA_surr
         #     score -= surround_weight * s_surr
 
+        # AdaGrad Rule
         grad_historical += grad**2
-        grad_adjusted = grad / (1e-10 + np.sqrt(grad_historical))
-
+        grad_adjusted = grad / np.sqrt(grad_historical + 1e-10)
         new_T = T + lr*grad_adjusted
 
-        return new_T, score, grad_historical
+        # AdaDelta Rule
+        # gamma = .9
+        # epsilon = 1e-10
+        # grad_historical = gamma * grad_historical + (1-gamma) * grad**2
+        # update = np.sqrt(sq_updates_historical + epsilon)/np.sqrt(grad_historical + epsilon)*grad
+        # new_T = T + update
+        # sq_updates_historical = gamma * sq_updates_historical + (1-gamma) * update**2
+
+        return new_T, score, grad_historical, sq_updates_historical
 
 
 
@@ -2600,5 +2688,30 @@ def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered
     return pts.T
 
 
-def transform_volume(T, volume, c=None, c_prime=0):
-    pass
+def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
+
+    all_indices_m = set(np.unique(vol)) - {0}
+    nzvoxels_m_temp = {i: parallel_where_binary(vol==i) for i in all_indices_m}
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
+                                              c=centroid_m, c_prime=centroid_f).astype(np.int16)
+                      for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
+
+    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+
+    for ind_m in nzs_m_aligned_to_f.iterkeys():
+
+        xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
+
+        valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+        (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+
+        xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
+
+        volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+        vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+
+    del nzs_m_aligned_to_f
+
+    return volume_m_aligned_to_f

@@ -20,7 +20,7 @@ stack = sys.argv[1]
 label = sys.argv[2]
 
 train_sample_scheme = 1
-svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
+# svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
@@ -34,7 +34,7 @@ def load_scoremap_worker(sec, stack, label, downscale_factor):
     try:
         scoremap = DataManager.load_scoremap(stack=stack, section=sec, label=label,
                                             downscale_factor=downscale_factor,
-                                            suffix=svm_suffix)
+                                            train_sample_scheme=train_sample_scheme)
         return (sec-1, scoremap)
     except:
         pass
@@ -56,11 +56,9 @@ sys.stderr.write('Load scoremaps: %.2f seconds\n' % (time.time() - t))
 score_volume, score_volume_bbox = images_to_volume(images=scoremaps, voxel_size=(1, 1, voxel_z_size), first_sec=first_sec-1, last_sec=last_sec-1)
 
 output_dir = create_if_not_exists(os.path.join(VOLUME_ROOTDIR, stack, 'score_volumes'))
-# score_volume_filepath = os.path.join(output_dir, '%(stack)s_down%(ds)d_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d.bp' % \
-#                                     dict(stack=stack, ds=downscale_factor, label=label, scheme=train_sample_scheme))
 
-score_volume_filepath = DataManager.get_score_volume_filepath(stack=stack, downscale=downscale_factor, label=label, suffix=svm_suffix)
-bp.pack_ndarray_file(score_volume, score_volume_filepath)
+score_volume_filepath = DataManager.get_score_volume_filepath(stack=stack, downscale=downscale_factor, label=label, train_sample_scheme=train_sample_scheme)
+bp.pack_ndarray_file(score_volume.astype(np.float16), score_volume_filepath)
 
 score_volume_bbox_filepath = DataManager.get_score_volume_bbox_filepath(stack=stack, downscale=downscale_factor, label=label)
 np.savetxt(score_volume_bbox_filepath, np.array(score_volume_bbox)[None])

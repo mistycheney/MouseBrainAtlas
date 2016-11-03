@@ -2688,30 +2688,94 @@ def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered
     return pts.T
 
 
-def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
+def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights):
 
-    all_indices_m = set(np.unique(vol)) - {0}
-    nzvoxels_m_temp = {i: parallel_where_binary(vol==i) for i in all_indices_m}
-    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
 
-    nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
-                                              c=centroid_m, c_prime=centroid_f).astype(np.int16)
-                      for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
+    nzvoxels_weights = np.array([w*np.exp(-np.sqrt(np.sum((nzvoxels_m_temp - ap)**2, axis=1))/sigma**2) \
+                        for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+    nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+    # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
+    # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+    # n_components x n_voxels
+
+    nzs_m_aligned_to_f = np.zeros((len(nzvoxels_m_temp), 3), dtype=np.float16)
+
+    for i, rigid_params in enumerate(rigid_param_list):
+
+        params, centroid_m, centroid_f, \
+        xdim_m, ydim_m, zdim_m, \
+        xdim_f, ydim_f, zdim_f = rigid_params
+
+        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points(params, pts=nzvoxels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.float16)
+
+    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)
 
     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
 
-    for ind_m in nzs_m_aligned_to_f.iterkeys():
+    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
 
-        xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
+    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
 
-        valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-        (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
 
-        xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
+    volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+    vol[ys_m[valid], xs_m[valid], zs_m[valid]]
 
-        volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
-        vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+    return volume_m_aligned_to_f
+
+
+def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
+
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points(global_params, pts=nzvoxels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+
+    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
+
+    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+
+    volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+    vol[ys_m[valid], xs_m[valid], zs_m[valid]]
 
     del nzs_m_aligned_to_f
 
     return volume_m_aligned_to_f
+
+
+# def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
+#
+#     all_indices_m = set(np.unique(vol)) - {0}
+#     nzvoxels_m_temp = {i: parallel_where_binary(vol==i) for i in all_indices_m}
+#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+#
+#     nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
+#                                               c=centroid_m, c_prime=centroid_f).astype(np.int16)
+#                       for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
+#
+#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+#
+#     for ind_m in nzs_m_aligned_to_f.iterkeys():
+#
+#         xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
+#
+#         valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+#         (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+#
+#         xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
+#
+#         volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+#         vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+#
+#     del nzs_m_aligned_to_f
+#
+#     return volume_m_aligned_to_f

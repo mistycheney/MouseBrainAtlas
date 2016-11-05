@@ -1,5 +1,7 @@
 from utilities2015 import *
+import boto
 from metadata import *
+from boto.s3.key import Key
 
 def volume_type_to_str(t):
     if t == 'score':
@@ -42,20 +44,39 @@ class DataManager(object):
         return bbox
 
     @staticmethod
+    def get_file_from_s3(path_to_save):
+        s3_connection = boto.connect_s3()
+        bucket = s3_connection.get_bucket('ucsd-mousebrainatlas-home')
+        dir_name = os.path.dirname(path_to_save)
+        file_to_download = path_to_save.replace('/home/ubuntu/data', '')
+        key_file_to_download = Key(bucket, file_to_download)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        open(path_to_save, 'w+').close()
+        key_file_to_download.get_contents_to_filename(path_to_save)
+	return path_to_save
+        
+    @staticmethod
     def load_anchor_filename(stack):
-        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt'%dict(stack=stack), 'r') as f:
+        file_path = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt'%dict(stack=stack) 
+        DataManager.get_file_from_s3(file_path)
+        with open(file_path, 'r') as f:
             anchor_fn = f.readline()
         return anchor_fn
 
     @staticmethod
     def load_cropbox(stack):
-        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
+        file_path = thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack)
+        DataManager.get_file_from_s3(file_path)
+        with open(file_path) as f:
             cropbox = one_liner_to_arr(f.readline(), int)
         return cropbox
 
     @staticmethod
     def load_sorted_filenames(stack):
-        with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        file_path = thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack)
+        DataManager.get_file_from_s3(file_path)
+        with open(file_path) as f:
             fn_idx_tuples = [line.strip().split() for line in f.readlines()]
             filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
             section_to_filename = {int(idx): fn for fn, idx in fn_idx_tuples}
@@ -65,7 +86,8 @@ class DataManager(object):
     def load_transforms(stack, downsample_factor):
 
         import cPickle as pickle
-        Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+        file_path = thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        Ts = pickle.load(open(file_path, 'r'))
 
         Ts_inv_downsampled = {}
         for fn, T0 in Ts.iteritems():
@@ -1005,6 +1027,7 @@ metadata_cache['image_shape'] =\
  'MD599': (18784, 12256),
  'MD602': (22336, 12288),
  'MD603': (20928, 13472)}
-metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
-metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
-metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}
+#metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
+metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in ['MD593']}
+metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in ['MD593']}
+metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in ['MD593']}

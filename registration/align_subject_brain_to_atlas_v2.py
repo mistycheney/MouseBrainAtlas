@@ -36,7 +36,10 @@ name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
 name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
-
+for name in structures:
+    file_path = os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
+                                                    {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme})
+    DataManager.get_file_from_s3(file_path)
 volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
                                                     {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme}))
                for name in structures}
@@ -45,6 +48,11 @@ print volume_fixed.values()[0].shape
 
 vol_fixed_xmin, vol_fixed_ymin, vol_fixed_zmin = (0,0,0)
 vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = np.array(volume_fixed.values()[0].shape) - 1
+
+for name in structures:
+    file_path = os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
+                                                    {'stack': stack_moving, 'name': name})
+    DataManager.get_file_from_s3(file_path)
 
 volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
                                                     {'stack': stack_moving, 'name': name}))
@@ -79,9 +87,9 @@ aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=labelIndexMap_
 
 aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 # aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', indices_m=[name_to_label_moving['SNR_R']])
-
-gradient_filepath_map_f = {ind_f: VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
-                           {'stack': stack_fixed, 'label': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme}
+print(train_sample_scheme, label_to_name_fixed, stack_fixed)
+gradient_filepath_map_f = {ind_f: DataManager.get_file_from_s3(VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
+                           {'stack': stack_fixed, 'label': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme})
                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
@@ -162,132 +170,132 @@ for trial_idx in range(trial_num):
     plt.close(fig)
 
 #####################################
-
-stacks_annotation = ['MD589', 'MD594']
-
-params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
-                                                                stack_fixed=stack_fixed,
-                                                                train_sample_scheme=train_sample_scheme,
-                                                                global_transform_scheme=global_transform_scheme)
-
-# with open(params_fp, 'r') as f:
-with open(os.path.splitext(params_fp)[0] + '_trial_1.txt', 'r') as f:
-
-    lines = f.readlines()
-
-    global_params = one_liner_to_arr(lines[0], float)
-    centroid_m = one_liner_to_arr(lines[1], float)
-    xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
-    centroid_f = one_liner_to_arr(lines[3], float)
-    xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
-
-
-volumes_annotation = {'MD594':bp.unpack_ndarray_file('/home/yuncong/csd395/CSHL_atlasAlignParams_atlas_v2/MD594_to_MD589/MD594_down32_annotationVolume_alignedTo_MD589_down32_annotationVolume.bp'),
-                      'MD589': bp.unpack_ndarray_file(VOLUME_ROOTDIR + '/MD589/MD589_down32_annotationVolume.bp')}
-
-from registration_utilities import transform_volume
-
-annotation_volumes_volume_m_aligned_to_f = {}
-
-for stack, volume_annotation in volumes_annotation.iteritems():
-
-    annotation_volumes_volume_m_aligned_to_f[stack] = transform_volume(vol=volume_annotation,
-                                                                       global_params=global_params,
-                                                                       centroid_m=centroid_m,
-                                                                       centroid_f=centroid_f,
-                                                                      xdim_f=xdim_f,
-                                                                      ydim_f=ydim_f,
-                                                                      zdim_f=zdim_f)
-
-    output_fn = DataManager.get_transformed_volume_filepath(stack_m=stack, type_m='annotation',
-                                                stack_f=stack_fixed, type_f='score',
-                                                downscale=32, train_sample_scheme_f=train_sample_scheme)
-
-    create_if_not_exists(os.path.dirname(output_fn))
-
-    bp.pack_ndarray_file(annotation_volumes_volume_m_aligned_to_f[stack], output_fn)
-
-
-xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt('/home/yuncong/csd395/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
-          dict(stack_fixed=stack_fixed)).astype(np.int)
-print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
-
-
-from registration_utilities import find_contour_points
-
-downsample_factor = 32
-xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
-voxel_z_size = section_thickness / xy_pixel_distance_downsampled
-
-viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_filepath(stack_moving=stack_moving,
-                                                        stack_fixed=stack_fixed,
-                                                        train_sample_scheme=train_sample_scheme,
-                                                        global_transform_scheme=global_transform_scheme))
-
-first_sec, last_sec = metadata_cache['section_limits'][stack_fixed]
-
-stack_colors = {'MD589': (255,0,0), 'MD594': (0,255,0)}
-
-for sec in range(first_sec, last_sec+1):
-
-    if metadata_cache['sections_to_filenames'][stack_fixed][sec] in ['Placeholder', 'Rescan', 'Nonexisting']:
-        continue
-
-    img_fn = DataManager.get_image_filepath(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
-    img = imread(img_fn)
-
-    viz = img.copy()
-
-    z = voxel_z_size * (sec - 1) - zmin_vol_f
-
-    # Find fixed volume annotation contours
-#     contours_f_on_volume = find_contour_points(volume_fixed[..., int(z)])
-#     contours_f_on_cropped = {i: [cnt + (xmin_vol_f, ymin_vol_f) for cnt in cnts] for i, cnts in contours_f_on_volume.iteritems()}
-
-    # Find moving volume annotation contours
-
-    for stack, volume_m_aligned_to_f in annotation_volumes_volume_m_aligned_to_f.iteritems():
-        contours_m_alignedTo_f_on_volume = find_contour_points(volume_m_aligned_to_f[..., int(z)])
-        contours_m_alignedTo_f_on_cropped = {i: [cnt + (xmin_vol_f, ymin_vol_f) for cnt in cnts]
-                                             for i, cnts in contours_m_alignedTo_f_on_volume.iteritems()}
-
-    #     # Draw fixed volume annotation contours
-    #     for ind_f, cnts_f in contours_f_on_cropped.iteritems():
-    #         for cnt_f in cnts_f:
-    #             cv2.polylines(viz, [cnt_f.astype(np.int)], True, (0,255,0), 2)
-
-        # Draw moving volume annotation contours
-        for ind_m, cnts_m in contours_m_alignedTo_f_on_cropped.iteritems():
-            for cnt_m in cnts_m:
-                cv2.polylines(viz, [cnt_m.astype(np.int)], True, stack_colors[stack], 2)
-
-    viz_fn = os.path.join(viz_dir, '%(stack_moving)s_to_%(stack_fixed)s_%(sec)04d.jpg' % \
-          {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'sec': sec})
-    imsave(viz_fn, viz)
-
-
-
-# Transform moving volume, sided
-
-structures_sided = sum([[n] if n in singular_structures else [convert_to_left_name(n), convert_to_right_name(n)]
-                        for n in structures], [])
-
-for name_s in structures_sided:
-
-    print name_s
-
-    vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
-
-    volume_m_alignedTo_f = \
-    transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,
-                      xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
-
-    volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',
-                                            stack_f=stack_fixed, type_f='score',
-                                            label=name_s,
-                                            downscale=32,
-                                            train_sample_scheme_f=1)
-
-    create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
-
-    bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)
+#
+#stacks_annotation = ['MD589', 'MD594']
+#
+#params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
+#                                                                stack_fixed=stack_fixed,
+#                                                                train_sample_scheme=train_sample_scheme,
+#                                                                global_transform_scheme=global_transform_scheme)
+#
+## with open(params_fp, 'r') as f:
+#with open(os.path.splitext(params_fp)[0] + '_trial_1.txt', 'r') as f:
+#
+#    lines = f.readlines()
+#
+#    global_params = one_liner_to_arr(lines[0], float)
+#    centroid_m = one_liner_to_arr(lines[1], float)
+#    xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
+#    centroid_f = one_liner_to_arr(lines[3], float)
+#    xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
+#
+#
+#volumes_annotation = {'MD594':bp.unpack_ndarray_file('/home/yuncong/csd395/CSHL_atlasAlignParams_atlas_v2/MD594_to_MD589/MD594_down32_annotationVolume_alignedTo_MD589_down32_annotationVolume.bp'),
+#                      'MD589': bp.unpack_ndarray_file(VOLUME_ROOTDIR + '/MD589/MD589_down32_annotationVolume.bp')}
+#
+#from registration_utilities import transform_volume
+#
+#annotation_volumes_volume_m_aligned_to_f = {}
+#
+#for stack, volume_annotation in volumes_annotation.iteritems():
+#
+#    annotation_volumes_volume_m_aligned_to_f[stack] = transform_volume(vol=volume_annotation,
+#                                                                       global_params=global_params,
+#                                                                       centroid_m=centroid_m,
+#                                                                       centroid_f=centroid_f,
+#                                                                      xdim_f=xdim_f,
+#                                                                      ydim_f=ydim_f,
+#                                                                      zdim_f=zdim_f)
+#
+#    output_fn = DataManager.get_transformed_volume_filepath(stack_m=stack, type_m='annotation',
+#                                                stack_f=stack_fixed, type_f='score',
+#                                                downscale=32, train_sample_scheme_f=train_sample_scheme)
+#
+#    create_if_not_exists(os.path.dirname(output_fn))
+#
+#    bp.pack_ndarray_file(annotation_volumes_volume_m_aligned_to_f[stack], output_fn)
+#
+#
+#xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt('/home/yuncong/csd395/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
+#          dict(stack_fixed=stack_fixed)).astype(np.int)
+#print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
+#
+#
+#from registration_utilities import find_contour_points
+#
+#downsample_factor = 32
+#xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
+#voxel_z_size = section_thickness / xy_pixel_distance_downsampled
+#
+#viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_filepath(stack_moving=stack_moving,
+#                                                        stack_fixed=stack_fixed,
+#                                                        train_sample_scheme=train_sample_scheme,
+#                                                        global_transform_scheme=global_transform_scheme))
+#
+#first_sec, last_sec = metadata_cache['section_limits'][stack_fixed]
+#
+#stack_colors = {'MD589': (255,0,0), 'MD594': (0,255,0)}
+#
+#for sec in range(first_sec, last_sec+1):
+#
+#    if metadata_cache['sections_to_filenames'][stack_fixed][sec] in ['Placeholder', 'Rescan', 'Nonexisting']:
+#        continue
+#
+#    img_fn = DataManager.get_image_filepath(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
+#    img = imread(img_fn)
+#
+#    viz = img.copy()
+#
+#    z = voxel_z_size * (sec - 1) - zmin_vol_f
+#
+#    # Find fixed volume annotation contours
+##     contours_f_on_volume = find_contour_points(volume_fixed[..., int(z)])
+##     contours_f_on_cropped = {i: [cnt + (xmin_vol_f, ymin_vol_f) for cnt in cnts] for i, cnts in contours_f_on_volume.iteritems()}
+#
+#    # Find moving volume annotation contours
+#
+#    for stack, volume_m_aligned_to_f in annotation_volumes_volume_m_aligned_to_f.iteritems():
+#        contours_m_alignedTo_f_on_volume = find_contour_points(volume_m_aligned_to_f[..., int(z)])
+#        contours_m_alignedTo_f_on_cropped = {i: [cnt + (xmin_vol_f, ymin_vol_f) for cnt in cnts]
+#                                             for i, cnts in contours_m_alignedTo_f_on_volume.iteritems()}
+#
+#    #     # Draw fixed volume annotation contours
+#    #     for ind_f, cnts_f in contours_f_on_cropped.iteritems():
+#    #         for cnt_f in cnts_f:
+#    #             cv2.polylines(viz, [cnt_f.astype(np.int)], True, (0,255,0), 2)
+#
+#        # Draw moving volume annotation contours
+#        for ind_m, cnts_m in contours_m_alignedTo_f_on_cropped.iteritems():
+#            for cnt_m in cnts_m:
+#                cv2.polylines(viz, [cnt_m.astype(np.int)], True, stack_colors[stack], 2)
+#
+#    viz_fn = os.path.join(viz_dir, '%(stack_moving)s_to_%(stack_fixed)s_%(sec)04d.jpg' % \
+#          {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'sec': sec})
+#    imsave(viz_fn, viz)
+#
+#
+#
+## Transform moving volume, sided
+#
+#structures_sided = sum([[n] if n in singular_structures else [convert_to_left_name(n), convert_to_right_name(n)]
+#                        for n in structures], [])
+#
+#for name_s in structures_sided:
+#
+#    print name_s
+#
+#    vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
+#
+#    volume_m_alignedTo_f = \
+#    transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,
+#                      xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
+#
+#    volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',
+#                                            stack_f=stack_fixed, type_f='score',
+#                                            label=name_s,
+#                                            downscale=32,
+#                                            train_sample_scheme_f=1)
+#
+#    create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
+#
+#    bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)

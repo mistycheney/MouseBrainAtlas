@@ -139,6 +139,7 @@ class DataManager(object):
         #     fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned/%(stack)s_%(sec)04d_mask_aligned.png' % \
         #         dict(stack=stack, sec=section)
 
+        DataManager.get_file_from_s3(file_path)
         mask = imread(fn).astype(np.bool)
         return mask
 
@@ -151,7 +152,7 @@ class DataManager(object):
         else:
             fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
                             {'stack': stack, 'sec': section}
-        return fn
+        return DataManager.get_file_from_s3(fn)
 
     @staticmethod
     def get_local_alignment_viz_dir(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None, local_transform_scheme=None):
@@ -164,7 +165,7 @@ class DataManager(object):
                     'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                     'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme,
                     'ltf_sheme':local_transform_scheme}
-        return viz_dir
+        return DataManager.get_file_from_s3(viz_dir)
 
 
     @staticmethod
@@ -174,11 +175,11 @@ class DataManager(object):
         atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_over_%(stack_fixed)s' % \
                      {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
 
-        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_over_%(stack_fixed)s_down32_%(f_str)s_%(label)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d' % \
+        return DataManager.get_file_from_s3(atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_over_%(stack_fixed)s_down32_%(f_str)s_%(label)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d' % \
                   {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
                   'label': label,
                   'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
-                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme':local_transform_scheme}
+                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme':local_transform_scheme})
 
     @staticmethod
     def get_local_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', label=None,
@@ -189,9 +190,9 @@ class DataManager(object):
         label=label)
 
         if trial_idx is not None:
-            return partial_fn + '_parameters_trial_%d.txt' % trial_idx
+            return DataManager.get_file_from_s3(partial_fn + '_parameters_trial_%d.txt' % trial_idx)
         else:
-            return partial_fn + '_parameters.txt'
+            return DataManager.get_file_from_s3(partial_fn + '_parameters.txt')
 
     @staticmethod
     def load_local_alignment_parameters(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', label=None,
@@ -227,9 +228,9 @@ class DataManager(object):
         label=label)
 
         if trial_idx is not None:
-            return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
+            return DataManager.get_file_from_s3(partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx)
         else:
-            return partial_fn + '_scoreEvolution.png'
+            return DataManager.get_file_from_s3(partial_fn + '_scoreEvolution.png')
 
 
     @staticmethod
@@ -238,16 +239,16 @@ class DataManager(object):
         atlasAlignParams_dir = atlasAlignParams_rootdir + '/%(stack_moving)s_to_%(stack_fixed)s' % \
                      {'stack_moving': stack_moving, 'stack_fixed': stack_fixed}
 
-        return atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
+        return DataManager.get_file_from_s3(atlasAlignParams_dir + '/%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d' % \
                   {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
                   'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
-                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+                  'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme})
 
     @staticmethod
     def get_global_alignment_parameters_filepath(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=1, global_transform_scheme=1):
         partial_fn = DataManager.get_global_alignment_parameters_filepath_prefix(stack_fixed, stack_moving, fixed_volume_type, moving_volume_type, train_sample_scheme, global_transform_scheme)
         # return partial_fn + '_parameters.txt'
-        return partial_fn + '_parameters.txt'
+        return DataManager.get_file_from_s3(partial_fn + '_parameters.txt')
 
     @staticmethod
     def load_transform_parameters(params_fp):
@@ -292,7 +293,7 @@ class DataManager(object):
                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
                     'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                     'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
-        return viz_dir
+        return DataManager.get_file_from_s3(viz_dir)
 
 
     @staticmethod
@@ -320,28 +321,28 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
         suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
-        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
+        return DataManager.get_file_from_s3(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
+                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''})
 
     @staticmethod
     def get_annotation_volume_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
                 {'stack':stack, 'ds':downscale}
-        return vol_fn
+        return DataManager.get_file_from_s3(vol_fn)
 
 
     @staticmethod
     def get_annotation_volume_bbox_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume_bbox.txt' % \
                 {'stack':stack, 'ds':downscale}
-        return vol_fn
+        return DataManager.get_file_from_s3(vol_fn)
 
     @staticmethod
     def get_annotation_volume_nameToLabel_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume_nameToLabel.txt' % \
                 {'stack':stack, 'ds':downscale}
-        return vol_fn
+        return DataManager.get_file_from_s3(vol_fn)
 
     @staticmethod
     def load_annotation_volume_nameToLabel(stack, downscale):
@@ -403,7 +404,7 @@ class DataManager(object):
                     'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
                     'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else ''}
 
-        return vol_fn
+        return DataManager.get_file_from_s3(vol_fn)
 
 
     @staticmethod
@@ -412,7 +413,7 @@ class DataManager(object):
 
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(name)s%(suffix)s.bp' % \
                 {'stack':stack, 'name':label, 'ds':downscale, 'suffix':'_' + suffix if suffix != '' else ''}
-        return vol_fn
+        return DataManager.get_file_from_s3(vol_fn)
 
     @staticmethod
     def get_score_volume_gradient_filepath(stack, label, downscale, suffix, train_sample_scheme=1):
@@ -420,7 +421,7 @@ class DataManager(object):
         grad_fn = VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down%(ds)d_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%(suffix)s.bp' % \
                 {'stack': stack, 'label': label, 'scheme':train_sample_scheme, 'suffix': suffix, 'ds':downscale}
 
-        return grad_fn
+        return DataManager.get_file_from_s3(grad_fn)
 
     @staticmethod
     def load_score_volume(stack, label, downscale, train_sample_scheme=None):
@@ -434,7 +435,7 @@ class DataManager(object):
     def get_score_volume_bbox_filepath(stack, label, downscale):
         score_volume_bbox_filepath = VOLUME_ROOTDIR + '/%(stack)s/score_volumes/%(stack)s_down%(ds)d_scoreVolume_%(label)s_bbox.txt' % \
                         dict(stack=stack, ds=downscale, label=label)
-        return score_volume_bbox_filepath
+        return DataManager.get_file_from_s3(score_volume_bbox_filepath)
 
 
     @staticmethod
@@ -451,7 +452,7 @@ class DataManager(object):
         scoremap_viz_filepath = SCOREMAP_VIZ_ROOTDIR + '/%(label)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_viz_trainSampleScheme_%(scheme)d.jpg' \
             % {'stack': stack, 'fn': fn, 'label': label, 'anchor_fn': anchor_fn, 'scheme': train_sample_scheme}
 
-        return scoremap_viz_filepath
+        return DataManager.get_file_from_s3(scoremap_viz_filepath)
 
 
     @staticmethod
@@ -473,9 +474,9 @@ class DataManager(object):
             % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
 
         if return_bbox_fp:
-            return scoremap_bp_filepath, scoremap_bbox_filepath
+            return DataManager.get_file_from_s3(scoremap_bp_filepath), DataManager.get_file_from_s3(scoremap_bbox_filepath)
         else:
-            return scoremap_bp_filepath
+            return DataManager.get_file_from_s3(scoremap_bp_filepath)
 
     @staticmethod
     def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, train_sample_scheme=None):
@@ -542,7 +543,7 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
 
-        return image_path
+        return DataManager.get_file_from_s3(image_path)
 
 
     @staticmethod
@@ -577,7 +578,7 @@ class DataManager(object):
         else:
             raise Exception('Timestamp must be `latest`.')
 
-        return os.path.join(d, selected_f), selected_username, selected_timestamp
+        return DataManager.get_file_from_s3(os.path.join(d, selected_f), selected_username, selected_timestamp)
 
     @staticmethod
     def load_annotation_v2(stack=None, username=None, timestamp='latest', orientation=None, downsample=None, annotation_rootdir=None):
@@ -633,7 +634,7 @@ class DataManager(object):
         else:
             raise Exception('Timestamp must be `latest`.')
 
-        return os.path.join(d, selected_f), selected_username, selected_timestamp
+        return DataManager.get_file_from_s3(os.path.join(d, selected_f), selected_username, selected_timestamp)
 
     @staticmethod
     def load_annotation(stack=None, section=None, username=None, timestamp='latest', annotation_rootdir=None):

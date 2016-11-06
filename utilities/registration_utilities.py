@@ -43,11 +43,12 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
     else:
         return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
-
-def affine_components_to_vector(tx,ty,tz,theta_xy,c=(0,0,0)):
+def affine_components_to_vector(tx,ty,tz,theta_xy,theta_yz=None,theta_xz=None,c=(0,0,0)):
     cos_theta = np.cos(theta_xy)
     sin_theta = np.sin(theta_xy)
     Rz = np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
+    Rx = np.array([[0, 0, 0], [0, cos_theta, -sin_theta], [0, sin_theta, cos_theta]])
+    Ry = np.array([[cos_theta, 0, -sin_theta], [0, 0, 0], [sin_theta, 0, cos_theta]])
     tt = np.dot(Rz, np.r_[tx,ty,tz]-c) + c
     return np.ravel(np.c_[Rz, tt])
 
@@ -71,7 +72,7 @@ from skimage.filters import gaussian
 
 class Aligner4(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
-                labelIndexMap_m2f=None):
+                labelIndexMap_m2f=None, label_weights=None):
         """
         Variant that takes in two probabilistic volumes.
         """
@@ -136,6 +137,12 @@ class Aligner4(object):
             nzvoxels_m = nzvoxels_m_
 
 
+    def set_label_weights(self, label_weights):
+        self.label_weights = label_weights
+
+    def set_regularization_weights(self, reg_weights):
+        self.reg_weights = reg_weights
+
     def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
 
         if indices_m is None:
@@ -180,7 +187,7 @@ class Aligner4(object):
 
             t = time.time()
 
-            assert gradient_filepath_map_f is not None
+            # assert gradient_filepath_map_f is not None
             grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
             grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
             grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
@@ -282,13 +289,13 @@ class Aligner4(object):
         tz = T[11]
 
         if wrt_v:
-            grad[0] = grad[0] - 2 * self.reg_weights[0] * tx
-            grad[1] = grad[1] - 2 * self.reg_weights[1] * ty
-            grad[2] = grad[2] - 2 * self.reg_weights[2] * tz
+            grad[0] = grad[0] - 2*self.reg_weights[0] * tx
+            grad[1] = grad[1] - 2*self.reg_weights[1] * ty
+            grad[2] = grad[2] - 2*self.reg_weights[2] * tz
         else:
-            grad[3] = grad[3] - 2 * self.reg_weights[0] * tx
-            grad[7] = grad[7] - 2 * self.reg_weights[1] * ty
-            grad[11] = grad[11] - 2 * self.reg_weights[2] * tz
+            grad[3] = grad[3] - 2*self.reg_weights[0] * tx
+            grad[7] = grad[7] - 2*self.reg_weights[1] * ty
+            grad[11] = grad[11] - 2*self.reg_weights[2] * tz
 
         # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
         del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, \
@@ -581,8 +588,16 @@ class Aligner4(object):
         obj = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
         """
 
-        self.label_weights = label_weights
-        self.reg_weights = reg_weights
+        if label_weights is None:
+            raise Exception('Must set label weights.')
+        else:
+            self.label_weights = label_weights
+
+        if reg_weights is None:
+            sys.stderr.write('Regularization weights not set, default to 0.\n')
+            self.reg_weights = np.array([0,0,0])
+        else:
+            self.reg_weights = reg_weights
 
         if type == 'rigid':
             grad_historical = np.zeros((6,))
@@ -2687,13 +2702,22 @@ def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered
 
     return pts.T
 
+def mahalanobis_distance_sq(nzs, mu, sigma):
+    sigma_inv = np.linalg.inv(sigma)
+    ds = nzs - mu
+    dms = np.array([np.dot(d, np.dot(sigma_inv, d)) for d in ds])
+    return dms
 
 def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights):
 
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
 
-    nzvoxels_weights = np.array([w*np.exp(-np.sqrt(np.sum((nzvoxels_m_temp - ap)**2, axis=1))/sigma**2) \
-                        for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+    if sigmas[0].ndim == 2: # sigma is covariance matrix
+        nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(nzvoxels_m_temp, ap, sigma))
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+    elif sigmas[0].ndim == 1: # sigma is a single scalar
+        nzvoxels_weights = np.array([w*np.exp(-np.sum((nzvoxels_m_temp - ap)**2, axis=1)/sigma**2) \
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
@@ -2711,10 +2735,9 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
                             c=centroid_m, c_prime=centroid_f).astype(np.float16)
 
     nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)
+    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
 
     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
-
-    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
 
     valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
     (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)

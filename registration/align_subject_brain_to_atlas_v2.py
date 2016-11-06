@@ -33,12 +33,17 @@ structures = paired_structures + singular_structures
 label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
 name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 
-label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
+# label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
+# name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
+
+label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures) + sorted([s+'_surround' for s in structures]))}
 name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
+# volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
+#                                                     {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme}))
+#                for name in structures}
 
-volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
-                                                    {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme}))
+volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
                for name in structures}
 
 print volume_fixed.values()[0].shape
@@ -46,8 +51,11 @@ print volume_fixed.values()[0].shape
 vol_fixed_xmin, vol_fixed_ymin, vol_fixed_zmin = (0,0,0)
 vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = np.array(volume_fixed.values()[0].shape) - 1
 
-volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
-                                                    {'stack': stack_moving, 'name': name}))
+# volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
+#                                                     {'stack': stack_moving, 'name': name}))
+#                for name in structures}
+
+volume_moving = {name_to_label_moving[name]: DataManager.load_score_volume(stack=stack_moving, label=name, downscale=32, train_sample_scheme=None)
                for name in structures}
 
 print volume_moving.values()[0].shape
@@ -55,23 +63,22 @@ print volume_moving.values()[0].shape
 vol_moving_xmin, vol_moving_ymin, vol_moving_zmin = (0,0,0)
 vol_moving_ymax, vol_moving_xmax, vol_moving_zmax = np.array(volume_moving.values()[0].shape) - 1
 
-
 volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
 
 def convert_to_original_name(name):
     return name.split('_')[0]
 
 labelIndexMap_m2f = {}
-label_weights_m = {}
 for label_m, name_m in label_to_name_moving.iteritems():
     labelIndexMap_m2f[label_m] = name_to_label_fixed[convert_to_original_name(name_m)]
 
+label_weights_m = {}
+for label_m, name_m in label_to_name_moving.iteritems():
     if 'surround' in name_m:
         label_weights_m[label_m] = 0
     else:
 #         label_weights_m[label_m] = 1
         label_weights_m[label_m] = np.minimum(1e5 / volume_moving_structure_sizes[label_m], 1.)
-
 
 #############################
 
@@ -80,9 +87,13 @@ aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=labelIndexMap_
 aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 # aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', indices_m=[name_to_label_moving['SNR_R']])
 
-gradient_filepath_map_f = {ind_f: VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
-                           {'stack': stack_fixed, 'label': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme}
-                           for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
+# gradient_filepath_map_f = {ind_f: VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
+#                            {'stack': stack_fixed, 'label': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme}
+#                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
+
+gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath_template(stack=stack_fixed, label=label_to_name_fixed[ind_f],
+                            downscale=32, train_sample_scheme=train_sample_scheme)
+                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
 
@@ -134,58 +145,66 @@ for trial_idx in range(trial_num):
     params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
                                                                 stack_fixed=stack_fixed,
                                                                 train_sample_scheme=train_sample_scheme,
-                                                                global_transform_scheme=global_transform_scheme)
+                                                                global_transform_scheme=global_transform_scheme,
+                                                                trial_idx=trial_idx)
 
-
-# with open(atlasAlignParams_dir + '/%(stack_moving)s_down32_scoreVolume_to_%(stack_fixed)s_down32_scoreVolume_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_parameters.txt' % \
-#           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}, 'w') as f:
-
-    # with open(params_fp, 'w') as f:
-    with open(os.path.splitext(params_fp)[0] + '_trial_%d.txt' % trial_idx, 'w') as f:
-
-        f.write(array_to_one_liner(T))
-        f.write(array_to_one_liner(aligner.centroid_m))
-        f.write(array_to_one_liner([aligner.xdim_m, aligner.ydim_m, aligner.zdim_m]))
-        f.write(array_to_one_liner(aligner.centroid_f))
-        f.write(array_to_one_liner([aligner.xdim_f, aligner.ydim_f, aligner.zdim_f]))
+    DataManager.save_alignment_parameters(params_fp,
+                                          T, aligner.centroid_m, aligner.centroid_f,
+                                          aligner.xdim_m, aligner.ydim_m, aligner.zdim_m,
+                                          aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
 
 
     score_plot_fp = DataManager.get_global_alignment_score_plot_filepath(stack_moving=stack_moving,
                                                                         stack_fixed=stack_fixed,
                                                                         train_sample_scheme=train_sample_scheme,
-                                                                        global_transform_scheme=global_transform_scheme)
+                                                                        global_transform_scheme=global_transform_scheme,
+                                                                        trial_idx=trial_idx)
 
     fig = plt.figure();
     plt.plot(scores);
-    # plt.savefig(score_plot_fp, bbox_inches='tight')
-    plt.savefig( os.path.splitext(score_plot_fp)[0] + '_trial_%d.png' % trial_idx, bbox_inches='tight')
+    plt.savefig(score_plot_fp, bbox_inches='tight')
     plt.close(fig)
 
-#####################################
+############## Generate fixed-stack section images with aligned atlas overlay ################
 
-stacks_annotation = ['MD589', 'MD594']
+# stacks_annotation = ['MD589', 'MD594']
 
-params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
-                                                                stack_fixed=stack_fixed,
-                                                                train_sample_scheme=train_sample_scheme,
-                                                                global_transform_scheme=global_transform_scheme)
+# params_fp = DataManager.get_global_alignment_parameters_filepath(stack_moving=stack_moving,
+#                                                                 stack_fixed=stack_fixed,
+#                                                                 train_sample_scheme=train_sample_scheme,
+#                                                                 global_transform_scheme=global_transform_scheme)
+#
+# # with open(params_fp, 'r') as f:
+# with open(os.path.splitext(params_fp)[0] + '_trial_1.txt', 'r') as f:
+#
+#     lines = f.readlines()
+#
+#     global_params = one_liner_to_arr(lines[0], float)
+#     centroid_m = one_liner_to_arr(lines[1], float)
+#     xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
+#     centroid_f = one_liner_to_arr(lines[3], float)
+#     xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
 
-# with open(params_fp, 'r') as f:
-with open(os.path.splitext(params_fp)[0] + '_trial_1.txt', 'r') as f:
-
-    lines = f.readlines()
-
-    global_params = one_liner_to_arr(lines[0], float)
-    centroid_m = one_liner_to_arr(lines[1], float)
-    xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
-    centroid_f = one_liner_to_arr(lines[3], float)
-    xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
+global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
+DataManager.load_global_alignment_parameters(stack_moving=stack_moving,
+                                                    stack_fixed=stack_fixed,
+                                                    train_sample_scheme=train_sample_scheme,
+                                                    global_transform_scheme=global_transform_scheme)
 
 
-volumes_annotation = {'MD594':bp.unpack_ndarray_file('/home/yuncong/csd395/CSHL_atlasAlignParams_atlas_v2/MD594_to_MD589/MD594_down32_annotationVolume_alignedTo_MD589_down32_annotationVolume.bp'),
-                      'MD589': bp.unpack_ndarray_file(VOLUME_ROOTDIR + '/MD589/MD589_down32_annotationVolume.bp')}
+# volumes_annotation = {'MD594':bp.unpack_ndarray_file('/home/yuncong/csd395/CSHL_atlasAlignParams_atlas_v2/MD594_to_MD589/MD594_down32_annotationVolume_alignedTo_MD589_down32_annotationVolume.bp'),
+#                       'MD589': bp.unpack_ndarray_file(VOLUME_ROOTDIR + '/MD589/MD589_down32_annotationVolume.bp')}
 
 from registration_utilities import transform_volume
+
+volumes_annotation = {'MD594': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD594', type_m='annotation',
+                                                stack_f=stack_fixed, type_f='score',
+                                                downscale=32, train_sample_scheme_f=1)),
+
+                      'MD589': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD589', type_m='annotation',
+                                                stack_f=stack_fixed, type_f='score',
+                                                downscale=32, train_sample_scheme_f=1))}
+
 
 annotation_volumes_volume_m_aligned_to_f = {}
 

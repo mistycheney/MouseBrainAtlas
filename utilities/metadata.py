@@ -38,6 +38,7 @@ if hostname.endswith('sdsc.edu'):
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
+    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'

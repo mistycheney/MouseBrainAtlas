@@ -29,6 +29,16 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def save_pickle(obj, fp):
+    with open(fp, 'w') as f:
+        pickle.dump(obj, f)
+
+def load_pickle(fp):
+    with open(fp, 'r') as f:
+        obj = pickle.load(f)
+
+    return obj
+
 def one_liner_to_arr(line, func):
     return np.array(map(func, line.strip().split()))
 

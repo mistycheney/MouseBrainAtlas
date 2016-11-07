@@ -118,7 +118,7 @@ for trial_idx in range(trial_num):
 
         T, scores = aligner.optimize(type='affine', max_iter_num=1000, history_len=10, terminate_thresh=1e-4,
                                      indices_m=None,
-                                    grid_search_iteration_number=30,
+                                    grid_search_iteration_number=1,
                                      grid_search_sample_number=100,
                                      grad_computation_sample_number=1e5,
                                      lr1=10, lr2=0.1,

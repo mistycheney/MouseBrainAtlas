@@ -1,7 +1,6 @@
 """
 This module stores static meta information.
 """
-
 from utilities2015 import *
 
 ########### Data Directories #############
@@ -62,6 +61,14 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
+elif hostname.startswith('ip'):
+    print 'Setting environment for AWS compute node'
+    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2/'
+    atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2/'
+    thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
+    data_dir = '/home/ubuntu/data/CSHL_data_processed/'
+    REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
+    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
 else:
     print 'Setting environment for Brainstem workstation'
 

@@ -9,6 +9,7 @@ from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_
 from skimage.measure import find_contours, regionprops
 
 from shapely.geometry import Polygon
+from data_manager import *
 
 import cv2
 
@@ -188,9 +189,9 @@ class Aligner4(object):
             t = time.time()
 
             # assert gradient_filepath_map_f is not None
-            grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
-            grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
-            grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+            grad_f[ind_f][0] = bp.unpack_ndarray_file(DataManager.get_file_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}))
+            grad_f[ind_f][1] = bp.unpack_ndarray_file(DataManager.get_file_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}))
+            grad_f[ind_f][2] = bp.unpack_ndarray_file(DataManager.get_file_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}))
 
             sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
 

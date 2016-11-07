@@ -93,7 +93,7 @@ aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 
 gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath_template(stack=stack_fixed, label=label_to_name_fixed[ind_f],
                             downscale=32, train_sample_scheme=train_sample_scheme)
-                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
+                           for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
 
@@ -296,7 +296,6 @@ for name_s in structures_sided:
     print name_s
 
     vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
-
     volume_m_alignedTo_f = \
     transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,
                       xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
@@ -309,4 +308,4 @@ for name_s in structures_sided:
 
     create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
 
-    bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)
+bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)

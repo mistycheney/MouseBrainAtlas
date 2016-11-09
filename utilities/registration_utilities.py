@@ -544,7 +544,7 @@ class Aligner4(object):
             # empirical speedup 7x
             # parallel
             if parallel:
-                pool = Pool(processes=4)
+                pool = Pool(processes=8)
                 scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy),
                                                         indices_m=indices_m), samples)
                 pool.close()
@@ -642,7 +642,7 @@ class Aligner4(object):
 
             # self.logger.info('iteration %d', iteration)
             sys.stderr.write('iteration %d\n' % iteration)
-            start = time.clock()
+            start = time.time()
 
             if type == 'rigid':
                 # lr1, lr2 = (.1, 1e-2) # lr2 cannot be zero, otherwise causes error in computing scores.
@@ -663,7 +663,7 @@ class Aligner4(object):
                 raise Exception('Type must be either rigid or affine.')
 
             # self.logger.info('score: %f', s)
-            print("Optimze time: ", time.clock()-start)
+            print("Optimze time: ", time.time()-start)
             sys.stderr.write('score: %f\n' % s)
             scores.append(s)
 

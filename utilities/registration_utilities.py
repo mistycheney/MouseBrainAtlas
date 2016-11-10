@@ -644,6 +644,8 @@ class Aligner4(object):
             sys.stderr.write('iteration %d\n' % iteration)
             start = time.time()
 
+            t = time.time()
+
             if type == 'rigid':
                 # lr1, lr2 = (.1, 1e-2) # lr2 cannot be zero, otherwise causes error in computing scores.
                 T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
@@ -661,6 +663,8 @@ class Aligner4(object):
                                                 indices_m=indices_m)
             else:
                 raise Exception('Type must be either rigid or affine.')
+
+            sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
 
             # self.logger.info('score: %f', s)
             print("Optimze time: ", time.time()-start)

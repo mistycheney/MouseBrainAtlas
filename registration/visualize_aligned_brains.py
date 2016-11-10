@@ -60,8 +60,8 @@ for stack, volume_annotation in volumes_annotation.iteritems():
     bp.pack_ndarray_file(annotation_volumes_volume_m_aligned_to_f[stack], output_fn)
 
 
-xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt('/home/yuncong/csd395/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
-          dict(stack_fixed=stack_fixed)).astype(np.int)
+xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt(DataManager.get_file_from_s3('/home/ubuntu/data/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
+          dict(stack_fixed=stack_fixed))).astype(np.int)
 print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
 
 

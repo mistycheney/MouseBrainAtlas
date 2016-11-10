@@ -458,7 +458,7 @@ class DataManager(object):
                     'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
                     'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
                     'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else ''}
-
+	print vol_fn
         return DataManager.get_file_from_s3(vol_fn)
 
 
@@ -601,7 +601,7 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'thumbnail' and version == 'cropped_tif':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'aligned_tif':

@@ -35,11 +35,11 @@ class DataManager(object):
 
         return label_to_name, name_to_label
 
-    @staticmethod
-    def load_volume_bbox(stack):
-        with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_bbox.txt'), 'r') as f:
-            bbox = map(int, f.readline().strip().split())
-        return bbox
+    # @staticmethod
+    # def load_volume_bbox(stack):
+    #     with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_bbox.txt'), 'r') as f:
+    #         bbox = map(int, f.readline().strip().split())
+    #     return bbox
 
     @staticmethod
     def load_anchor_filename(stack):
@@ -104,10 +104,10 @@ class DataManager(object):
             # image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
             # image_path = os.path.join(image_dir, image_name + '.jpg')
 
-            fn = data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':
@@ -384,52 +384,108 @@ class DataManager(object):
     def load_transformed_volume(stack_m, type_m, stack_f, type_f, downscale,
                                         train_sample_scheme_m=None, train_sample_scheme_f=None,
                                         global_transform_scheme=None,
-                                        label=None):
+                                        local_transform_scheme=None,
+                                        label=None,
+                                        transitive=None):
         fp = DataManager.get_transformed_volume_filepath(stack_m=stack_m, type_m=type_m, stack_f=stack_f, type_f=type_f,
                                         downscale=downscale,
                                             train_sample_scheme_m=train_sample_scheme_m,
                                             train_sample_scheme_f=train_sample_scheme_f,
                                             global_transform_scheme=global_transform_scheme,
-                                            label=label)
+                                            local_transform_scheme=local_transform_scheme,
+                                            label=label,
+                                            transitive=transitive)
         return bp.unpack_ndarray_file(fp)
 
+
+    @staticmethod
+    def get_transformed_volume_file_basename(stack_m, type_m, stack_f, type_f, downscale,
+                                        train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                        global_transform_scheme=None,
+                                        local_transform_scheme=None,
+                                        label=None,
+                                        transitive=None):
+        clf_suffix_m = generate_suffix(train_sample_scheme=train_sample_scheme_m)
+        clf_suffix_f = generate_suffix(train_sample_scheme=train_sample_scheme_f)
+        gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)
+        ltf_suffix = generate_suffix(local_transform_scheme=local_transform_scheme)
+
+        def add_underscore(x):
+            return x if x == '' or x is None else '_' + x
+
+        if transitive is None:
+            if local_transform_scheme is None:
+                # loading globally transformed volume
+                transitive = 'to'
+            else:
+                # loading locally transformed volume
+                transitive = 'over'
+
+        assert transitive in ['to', 'over', 'by'], 'transitive must be among [to, over, by]'
+
+        if transitive == 'by':
+            vol_fn_basename = '%(stack_m)s_over_%(stack_f)s_to_%(stack_m)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(clf_suffix_m)s_over_%(stack_f)s_down%(ds)d_%(type_f_str)s_to_%(stack_m)s%(label)s%(clf_suffix_f)s%(gtf_suffix)s%(ltf_suffix)s' % \
+                    {'stack_m':stack_m,
+                    'stack_f':stack_f,
+                    'type_m_str': volume_type_to_str(type_m),
+                    'type_f_str': volume_type_to_str(type_f),
+                    'ds':downscale,
+                    'transitive': transitive,
+                    'label': add_underscore(label),
+                    'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
+                    'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
+                    'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else '',
+                    'ltf_suffix': '_' + ltf_suffix if ltf_suffix != '' else ''}
+        else:
+            vol_fn_basename = '%(stack_m)s_%(transitive)s_%(stack_f)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(clf_suffix_m)s_%(transitive)s_%(stack_f)s_down%(ds)d_%(type_f_str)s%(label)s%(clf_suffix_f)s%(gtf_suffix)s%(ltf_suffix)s' % \
+                    {'stack_m':stack_m,
+                    'stack_f':stack_f,
+                    'type_m_str': volume_type_to_str(type_m),
+                    'type_f_str': volume_type_to_str(type_f),
+                    'ds':downscale,
+                    'transitive': transitive,
+                    'label': add_underscore(label),
+                    'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
+                    'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
+                    'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else '',
+                    'ltf_suffix': '_' + ltf_suffix if ltf_suffix != '' else ''}
+
+        return vol_fn_basename
+
+
+    @staticmethod
+    def get_shell_mesh_filepath(stack, downscale):
+        shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)d_outerContourVolume_smoothed.stl" % {'stack': stack, 'ds':downscale})
+        return shell_mesh_fn
+
+    @staticmethod
+    def get_transformed_volume_mesh_filepath(stack_m, type_m, stack_f, type_f, downscale,
+                                        train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                        global_transform_scheme=None,
+                                        local_transform_scheme=None,
+                                        label=None,
+                                        transitive=None):
+        basename = DataManager.get_transformed_volume_file_basename(stack_m, type_m, stack_f, type_f, downscale,
+                                            train_sample_scheme_m, train_sample_scheme_f,
+                                            global_transform_scheme,
+                                            local_transform_scheme,
+                                            label,
+                                            transitive)
+        return os.path.join(MESH_ROOTDIR, basename + '.stl')
 
     @staticmethod
     def get_transformed_volume_filepath(stack_m, type_m, stack_f, type_f, downscale,
                                         train_sample_scheme_m=None, train_sample_scheme_f=None,
                                         global_transform_scheme=None,
-                                        label=None):
-
-        clf_suffix_m = generate_suffix(train_sample_scheme=train_sample_scheme_m)
-        clf_suffix_f = generate_suffix(train_sample_scheme=train_sample_scheme_f)
-        gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)
-
-        if label is None:
-
-            vol_fn = VOLUME_ROOTDIR + '/%(stack_m)s_to_%(stack_f)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(clf_suffix_m)s_to_%(stack_f)s_down%(ds)d_%(type_f_str)s%(clf_suffix_f)s%(gtf_suffix)s.bp' % \
-                    {'stack_m':stack_m,
-                    'stack_f':stack_f,
-                    'type_m_str': volume_type_to_str(type_m),
-                    'type_f_str': volume_type_to_str(type_f),
-                    'ds':downscale,
-                    'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
-                    'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
-                    'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else ''}
-
-        else:
-
-            vol_fn = VOLUME_ROOTDIR + '/%(stack_m)s_to_%(stack_f)s/%(stack_m)s_down%(ds)d_%(type_m_str)s%(clf_suffix_m)s_to_%(stack_f)s_down%(ds)d_%(type_f_str)s_%(label)s%(clf_suffix_f)s%(gtf_suffix)s.bp' % \
-                    {'stack_m':stack_m,
-                    'stack_f':stack_f,
-                    'type_m_str': volume_type_to_str(type_m),
-                    'type_f_str': volume_type_to_str(type_f),
-                    'ds':downscale,
-                    'label': label,
-                    'clf_suffix_m': '_' + clf_suffix_m if clf_suffix_m != '' else '',
-                    'clf_suffix_f': '_' + clf_suffix_f if clf_suffix_f != '' else '',
-                    'gtf_suffix': '_' + gtf_suffix if gtf_suffix != '' else ''}
-
-        return vol_fn
+                                        local_transform_scheme=None,
+                                        label=None, transitive=None):
+        basename = DataManager.get_transformed_volume_file_basename(stack_m, type_m, stack_f, type_f, downscale,
+                                            train_sample_scheme_m, train_sample_scheme_f,
+                                            global_transform_scheme,
+                                            local_transform_scheme,
+                                            label,
+                                            transitive)
+        return os.path.join(VOLUME_ROOTDIR, basename + '.bp')
 
 
     @staticmethod
@@ -468,14 +524,30 @@ class DataManager(object):
 
     @staticmethod
     def load_volume_bbox(stack, type, downscale, label=None):
+        """
+        annotation: with respect to aligned uncropped thumbnail
+        score/thumbnail: with respect to aligned cropped thumbnail
+        shell: with respect to aligned uncropped thumbnail
+        """
+
         if type == 'annotation':
             volume_bbox = np.loadtxt(DataManager.get_annotation_volume_bbox_filepath(stack, downscale)).astype(np.int)
         elif type == 'score':
             volume_bbox = np.loadtxt(DataManager.get_score_volume_bbox_filepath(stack, label, downscale)).astype(np.int)
+        elif type == 'shell':
+            volume_bbox = np.loadtxt(DataManager.get_shell_bbox_filepath(stack, label, downscale)).astype(np.int)
+        elif type == 'thumbnail':
+            volume_bbox = np.loadtxt(DataManager.get_score_volume_bbox_filepath(stack, '7N', downscale)).astype(np.int)
         else:
             raise Exception('Type must be annotation or score.')
 
         return volume_bbox
+
+    @staticmethod
+    def get_shell_bbox_filepath(stack, label, downscale):
+        bbox_filepath = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_outerContourVolume_bbox.txt' % \
+                        dict(stack=stack, ds=downscale)
+        return bbox_filepath
 
     @staticmethod
     def load_score_volume_bbox(stack, label, downscale):
@@ -567,7 +639,7 @@ class DataManager(object):
         return scoremap_downscaled
 
     @staticmethod
-    def get_image_filepath(stack, section=None, version='rgb-jpg', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
+    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
 
         if section is not None:
             _, section_to_filename = DataManager.load_sorted_filenames(stack)
@@ -578,14 +650,18 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
-        if resol == 'lossless' and version == 'rgb-jpg':
+        if resol == 'lossless' and version == 'compressed':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
+            image_path = os.path.join(image_dir, image_name + '.tif')
+        elif resol == 'lossless' and version == 'cropped':
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
@@ -1083,3 +1159,4 @@ metadata_cache['image_shape'] =\
 metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
 metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
 metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}
+metadata_cache['cropbox'] = {stack: DataManager.load_cropbox(stack)[:4] for stack in all_stacks}

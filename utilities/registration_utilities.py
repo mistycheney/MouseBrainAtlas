@@ -2779,30 +2779,39 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f,
     return volume_m_aligned_to_f
 
 
-# def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
-#
-#     all_indices_m = set(np.unique(vol)) - {0}
-#     nzvoxels_m_temp = {i: parallel_where_binary(vol==i) for i in all_indices_m}
-#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-#
-#     nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
-#                                               c=centroid_m, c_prime=centroid_f).astype(np.int16)
-#                       for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
-#
-#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
-#
-#     for ind_m in nzs_m_aligned_to_f.iterkeys():
-#
-#         xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
-#
-#         valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-#         (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
-#
-#         xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
-#
-#         volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
-#         vol[ys_m[valid], xs_m[valid], zs_m[valid]]
-#
-#     del nzs_m_aligned_to_f
-#
-#     return volume_m_aligned_to_f
+def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m):
+
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points_inverse(global_params, pts_prime=nzvoxels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    # volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+    volume_m_aligned_to_f = np.zeros((ydim_m, xdim_m, zdim_m), vol.dtype) # Notice when reversing, m becomes f
+
+    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
+
+    # valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    # (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+    # Notice when reversing, m becomes f
+    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    (xs_f < xdim_m) & (ys_f < ydim_m) & (zs_f < zdim_m)
+
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+
+    volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+    vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+
+    del nzs_m_aligned_to_f
+
+    return volume_m_aligned_to_f
+
+
+from skimage.morphology import closing, disk
+
+def fill_sparse_score_volume(vol):
+    dense_vol = np.zeros_like(vol)
+    for z in range(vol.shape[2]):
+        dense_vol[..., z] = closing((vol[..., z]*255).astype(np.int)/255., disk(1))
+    return dense_vol

@@ -234,27 +234,27 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness
 
 
-def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
-
-    section_thickness = 20 # in um
-    xy_pixel_distance_lossless = 0.46
-    xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
-    # factor = section_thickness/xy_pixel_distance_lossless
-
-    xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
-    z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
-
-    # build annotation volume
-    section_bs_begin, section_bs_end = section_range_lookup[stack]
-    print section_bs_begin, section_bs_end
-
-    map_z_to_section = {}
-    for s in range(section_bs_begin, section_bs_end+1):
-        for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin,
-                       int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
-            map_z_to_section[z] = s
-
-    return map_z_to_section
+# def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
+#
+#     section_thickness = 20 # in um
+#     xy_pixel_distance_lossless = 0.46
+#     xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
+#     # factor = section_thickness/xy_pixel_distance_lossless
+#
+#     xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
+#     z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
+#
+#     # build annotation volume
+#     section_bs_begin, section_bs_end = section_range_lookup[stack]
+#     print section_bs_begin, section_bs_end
+#
+#     map_z_to_section = {}
+#     for s in range(section_bs_begin, section_bs_end+1):
+#         for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin,
+#                        int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
+#             map_z_to_section[z] = s
+#
+#     return map_z_to_section
 
 def fit_ellipse_to_points(pts):
 

@@ -12,11 +12,13 @@ import os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
+from data_manager import *
 
 import time
 import mcubes # https://github.com/pmneila/PyMCubes
 
 #######################################################################
+
 
 def download_volume(stack, what, dest_dir, name_u=None):
 
@@ -41,19 +43,127 @@ def download_volume(stack, what, dest_dir, name_u=None):
 
 ################ Conversion between volume representations #################
 
+
+def move_polydata(polydata, d):
+    vs, fs = polydata_to_mesh(polydata)
+    return mesh_to_polydata(vs + d, fs)
+
+def poisson_reconstruct_meshlab(polydata=None, input_fn=None, output_fn=None):
+
+    tmp_output_fn = '/tmp/output.stl'
+    tmp_input_fn = '/tmp/input.ply'
+
+    if output_fn is None:
+        output_fn = tmp_output_fn
+
+    if input_fn is None:
+        assert polydata is not None
+        input_fn = tmp_input_fn
+        save_mesh(polydata, input_fn)
+
+    execute_command('meshlabserver -i %(input_fn)s -o %(output_fn)s -s %(script_fn)s -om vc vn' % \
+               dict(input_fn=input_fn, output_fn=output_fn,
+               script_fn=os.path.join(REPO_DIR, '3d/outerContour_poisson_reconstruct.mlx')))
+
+    # if input_fn == tmp_input_fn:
+    #     execute_command('rm %s' % tmp_input_fn)
+
+    if output_fn == tmp_output_fn:
+        output_polydata = load_mesh_stl(output_fn, return_polydata_only=True)
+        # execute_command('rm %s' % tmp_output_fn)
+        return output_polydata
+
+
 def polydata_to_mesh(polydata):
 
     vertices = np.array([polydata.GetPoint(i) for i in range(polydata.GetNumberOfPoints())])
 
-    face_data_arr = numpy_support.vtk_to_numpy(polydata.GetPolys().GetData())
+    try:
+        face_data_arr = numpy_support.vtk_to_numpy(polydata.GetPolys().GetData())
 
-    faces = np.c_[face_data_arr[1::4],
-                  face_data_arr[2::4],
-                  face_data_arr[3::4]]
+        faces = np.c_[face_data_arr[1::4],
+                      face_data_arr[2::4],
+                      face_data_arr[3::4]]
+    except:
+        sys.stderr.write('polydata_to_mesh: No faces are loaded.\n')
+        faces = []
 
     return vertices, faces
 
-def mesh_to_polydata(vertices, faces):
+
+def vertices_to_surface(vertices, num_simplify_iter=3, smooth=True):
+
+    polydata = mesh_to_polydata(vertices, [])
+
+    surf = vtk.vtkSurfaceReconstructionFilter()
+    surf.SetNeighborhoodSize(30)
+    surf.SetSampleSpacing(5)
+    surf.SetInputData(polydata)
+    surf.Update()
+
+    # Visualize signed distance function computed by VTK (VTK bug: error outside actual contour)
+    # q = surf.GetOutput()
+    # arr = numpy_support.vtk_to_numpy(q.GetPointData().GetScalars())
+    # sc = arr.reshape(q.GetDimensions()[::-1])
+    # plt.imshow(sc[40,:,:]);
+    # plt.colorbar();
+
+    cf = vtk.vtkContourFilter()
+    cf.SetInputConnection(surf.GetOutputPort());
+    cf.SetValue(0, 0.);
+    # print cf.GetNumberOfContours()
+    cf.Update()
+    # polydata = cf.GetOutput()
+
+    reverse = vtk.vtkReverseSense()
+    reverse.SetInputConnection(cf.GetOutputPort())
+    reverse.ReverseCellsOn()
+    reverse.ReverseNormalsOn()
+    reverse.Update()
+
+    polydata = reverse.GetOutput()
+
+    polydata = simplify_polydata(polydata, num_simplify_iter=num_simplify_iter, smooth=smooth)
+
+    return polydata
+
+
+def simplify_polydata(polydata, num_simplify_iter=0, smooth=False):
+    for simplify_iter in range(num_simplify_iter):
+
+        t = time.time()
+
+        deci = vtk.vtkQuadricDecimation()
+        deci.SetInputData(polydata)
+
+        deci.SetTargetReduction(0.8)
+        # 0.8 means each iteration causes the point number to drop to 20% the original
+
+        deci.Update()
+
+        polydata = deci.GetOutput()
+
+        if smooth:
+
+            smoother = vtk.vtkWindowedSincPolyDataFilter()
+    #         smoother.NormalizeCoordinatesOn()
+            smoother.SetPassBand(.1)
+            smoother.SetNumberOfIterations(20)
+            smoother.SetInputData(polydata)
+            smoother.Update()
+
+            polydata = smoother.GetOutput()
+
+        n_pts = polydata.GetNumberOfPoints()
+
+        if polydata.GetNumberOfPoints() < 200:
+            break
+
+        sys.stderr.write('simplify %d @ %d: %.2f seconds\n' % (simplify_iter, n_pts, time.time() - t)) #
+
+    return polydata
+
+def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
     polydata = vtk.vtkPolyData()
 
@@ -67,30 +177,34 @@ def mesh_to_polydata(vertices, faces):
     for pt_ind, (x,y,z) in enumerate(vertices):
         points.InsertPoint(pt_ind, x, y, z)
 
-    sys.stderr.write('fill point array: %.2f seconds\n' % (time.time() - t))
+    # sys.stderr.write('fill point array: %.2f seconds\n' % (time.time() - t))
 
     t = time.time()
 
-    cells = vtk.vtkCellArray()
-    # for ia, ib, ic in faces:
-    #     cells.InsertNextCell(3)
-    #     cells.InsertCellPoint(ia)
-    #     cells.InsertCellPoint(ib)
-    #     cells.InsertCellPoint(ic)
+    if len(faces) > 0:
 
-    cell_arr = np.empty((len(faces)*4, ), np.int)
-    cell_arr[::4] = 3
-    cell_arr[1::4] = faces[:,0]
-    cell_arr[2::4] = faces[:,1]
-    cell_arr[3::4] = faces[:,2]
-    cell_vtkArray = numpy_support.numpy_to_vtkIdTypeArray(cell_arr, deep=1)
-    cells.SetCells(len(faces), cell_vtkArray)
+        cells = vtk.vtkCellArray()
 
-    sys.stderr.write('fill cell array: %.2f seconds\n' % (time.time() - t))
+        cell_arr = np.empty((len(faces)*4, ), np.int)
+        cell_arr[::4] = 3
+        cell_arr[1::4] = faces[:,0]
+        cell_arr[2::4] = faces[:,1]
+        cell_arr[3::4] = faces[:,2]
+        cell_vtkArray = numpy_support.numpy_to_vtkIdTypeArray(cell_arr, deep=1)
+        cells.SetCells(len(faces), cell_vtkArray)
+
+    # sys.stderr.write('fill cell array: %.2f seconds\n' % (time.time() - t))
 
     polydata.SetPoints(points)
-    polydata.SetPolys(cells)
-    # polydata.SetVerts(cells)
+
+    if len(faces) > 0:
+        polydata.SetPolys(cells)
+        # polydata.SetVerts(cells)
+
+    if len(faces) > 0:
+        polydata = simplify_polydata(polydata, num_simplify_iter, smooth)
+    else:
+        sys.stderr.write('mesh_to_polydata: No faces are provided, so skip simplification.\n')
 
     return polydata
 
@@ -117,12 +231,10 @@ def volume_to_polydata(volume, origin, num_simplify_iter=0, smooth=False):
     vs = vs[:, [1,0,2]] + origin - (5,5,5)
     # vs = vs[:, [1,0,2]] + origin
 
-    t = time.time()
-    area = mesh_surface_area(vs, fs)
-
-    # print 'area: %.2f' % area
-
-    sys.stderr.write('compute surface area: %.2f seconds\n' % (time.time() - t)) #
+    # t = time.time()
+    # area = mesh_surface_area(vs, fs)
+    # # print 'area: %.2f' % area
+    # sys.stderr.write('compute surface area: %.2f seconds\n' % (time.time() - t)) #
 
     t = time.time()
 
@@ -342,6 +454,29 @@ def save_mesh_stl(polydata, fn):
     stlWriter.SetInputData(polydata)
     stlWriter.Write()
 
+def save_mesh_ply(polydata, fn, color=(255,255,255)):
+    # Export to rgb PLY file (STL file can not have color info)
+    # https://github.com/Kitware/VTK/blob/master/IO/PLY/Testing/Python/TestPLYReadWrite.py#L31
+    # http://www.vtk.org/doc/nightly/html/classvtkPLYWriter.html#aa7f0bdbb2decdc7a7360a890a6c10e8b
+
+    writer = vtk.vtkPLYWriter()
+    writer.SetFileName(fn)
+    writer.SetInputData(polydata)
+    writer.SetColorModeToUniformColor()
+    writer.SetColor(color[0],color[1],color[2])
+    writer.SetFileTypeToASCII();
+    writer.Write()
+
+def save_mesh(polydata, fn, color=(255,255,255)):
+
+    create_if_not_exists(os.path.dirname(fn))
+
+    if fn.endswith('.ply'):
+        save_mesh_ply(polydata, fn, color=color)
+    elif fn.endswith('.stl'):
+        save_mesh_stl(polydata, fn)
+    else:
+        raise Exception('Mesh format must be ply or stl')
 
 # http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
 class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
@@ -371,8 +506,33 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
     # renWin.SetFullScreen(1)
     renWin.AddRenderer(ren1)
 
+    ##########################################
+    # Enable depth peeling
+    # http://www.vtk.org/Wiki/VTK/Examples/Cxx/Visualization/CorrectlyRenderTranslucentGeometry
+
+    # 1. Use a render window with alpha bits (as initial value is 0 (false)):
+    renWin.SetAlphaBitPlanes(True)
+
+    # 2. Force to not pick a framebuffer with a multisample buffer
+    # (as initial value is 8):
+    renWin.SetMultiSamples(0);
+
+    # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
+    ren1.SetUseDepthPeeling(True);
+
+    # 4. Set depth peeling parameters
+    # - Set the maximum number of rendering passes (initial value is 4):
+    maxNoOfPeels = 8
+    ren1.SetMaximumNumberOfPeels(maxNoOfPeels);
+    # - Set the occlusion ratio (initial value is 0.0, exact image):
+    occlusionRatio = 0.0
+    ren1.SetOcclusionRatio(occlusionRatio);
+
+    ##########################################
+
     for actor in actors:
-        ren1.AddActor(actor)
+        if actor is not None:
+            ren1.AddActor(actor)
 
     camera = vtk.vtkCamera()
 
@@ -597,12 +757,12 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
     return a
 
 
-def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1)):
+def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
 
     imagedata = volume_to_imagedata(volume, origin=origin)
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
-    #     volumeMapper.SetBlendModeToComposite()
+    # volumeMapper.SetBlendModeToComposite()
     volumeMapper.SetInputData(imagedata)
 
     volumeProperty = vtk.vtkVolumeProperty()
@@ -612,50 +772,58 @@ def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1)):
     if what == 'tb':
 
         compositeOpacity = vtk.vtkPiecewiseFunction()
-        compositeOpacity.AddPoint(0.0, 0.0)
-        compositeOpacity.AddPoint(0.9, 1.)
-        compositeOpacity.AddPoint(1., 1.)
-        compositeOpacity.AddPoint(1.1, 0.)
-        compositeOpacity.AddPoint(240., 0.05)
-        compositeOpacity.AddPoint(255.0, 0.05)
+        compositeOpacity.AddPoint(0.0, 0.)
+
+        if tb_colors is not None:
+            for v, c in sorted(tb_colors.items()):
+                vl = v - .5
+                vr = v + .5
+                cp1 = vl-.25
+                cp2 = vr-.25
+                compositeOpacity.AddPoint(cp1, .5*cp1/200., .5, 1.)
+                compositeOpacity.AddPoint(v, 1., .5, 1.)
+                compositeOpacity.AddPoint(cp2, .5*cp2/200., .5, 1.)
+            compositeOpacity.AddPoint(vr, .5*vr/200.)
+        compositeOpacity.AddPoint(240., tb_opacity)
+        compositeOpacity.AddPoint(255.0, tb_opacity)
+        # compositeOpacity.AddPoint(240., .5)
+        # compositeOpacity.AddPoint(255.0, .5)
 
         color = vtk.vtkColorTransferFunction()
         color.AddRGBPoint(0.0, 0,0,0)
-        color.AddRGBPoint(.9, 1,0,0)
-        color.AddRGBPoint(1., 1,0,0)
-        color.AddRGBPoint(1.1, 0,0,0)
+
+        if tb_colors is not None:
+            for v, c in sorted(tb_colors.items()):
+                vl = v - .5
+                vr = v + .5
+                cp1 = vl-.25
+                cp2 = vr-.25
+                color.AddRGBPoint(cp1, .5*cp1/200., .5*cp1/200., .5*cp1/200., .5, 1.)
+                color.AddRGBPoint(v, c[0], c[1], c[2], .5, 1.)
+                color.AddRGBPoint(cp2, .5*cp2/200., .5*cp2/200., .5*cp2/200., .5, 1.)
+            color.AddRGBPoint(vr, .5*vr/200., .5*vr/200., .5*vr/200.)
         color.AddRGBPoint(200.0, .5,.5,.5)
         color.AddRGBPoint(255.0, 1,1,1)
 
-        # compositeOpacity = vtk.vtkPiecewiseFunction()
-        # compositeOpacity.AddPoint(0.0, 0.05)
-        # compositeOpacity.AddPoint(20.0, 0.05)
-        # compositeOpacity.AddPoint(240., 0.)
-        # compositeOpacity.AddPoint(1.1, 0.)
-        # compositeOpacity.AddPoint(240., 0.05)
-        # compositeOpacity.AddPoint(255.0, 0.05)
-        #
-        # color = vtk.vtkColorTransferFunction()
-        #
-        # color.AddRGBPoint(0.0, 0,0,0)
-        # color.AddRGBPoint(.9, 1,0,0)
-        # color.AddRGBPoint(1., 1,0,0)
-        # color.AddRGBPoint(1.1, 0,0,0)
-        # color.AddRGBPoint(200.0, .5,.5,.5)
-        # color.AddRGBPoint(255.0, 1,1,1)
+    # volumeGradientOpacity = vtk.vtkPiecewiseFunction()
+    # volumeGradientOpacity.AddPoint(0,   0.0)
+    # volumeGradientOpacity.AddPoint(1,  0.5)
+    # volumeGradientOpacity.AddPoint(2, 1.0)
 
     elif what == 'score':
 
         compositeOpacity = vtk.vtkPiecewiseFunction()
         compositeOpacity.AddPoint(0.0, 0.0)
-        compositeOpacity.AddPoint(0.95, 0.0)
-        compositeOpacity.AddPoint(1.0, 1.0)
+        # compositeOpacity.AddPoint(0.95, .0)
+        # compositeOpacity.AddPoint(0.96, .2)
+        compositeOpacity.AddPoint(0.9999, .0)
+        compositeOpacity.AddPoint(1.0, .2)
         volumeProperty.SetScalarOpacity(compositeOpacity)
 
         color = vtk.vtkColorTransferFunction()
-        c = (1., 1., 1.)
-        color.AddRGBPoint(0.0, c[0], c[1], c[2])
-        color.AddRGBPoint(255.0, c[0], c[1], c[2])
+        color.AddRGBPoint(0.0, 1, 1, 1)
+        color.AddRGBPoint(0.95, 1, 1, 1)
+        color.AddRGBPoint(1.0, 1,1,1)
 
     elif what == 'probability':
         compositeOpacity = vtk.vtkPiecewiseFunction()
@@ -700,6 +868,7 @@ def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1)):
 
     volumeProperty.SetScalarOpacity(compositeOpacity)
     volumeProperty.SetColor(color)
+    # volumeProperty.SetGradientOpacity(volumeGradientOpacity)
 
     volume = vtk.vtkVolume()
     volume.SetMapper(volumeMapper)
@@ -710,7 +879,7 @@ def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1)):
 
 def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=False):
 
-    tb_volume = bp.unpack_ndarray_file(volume_dir + "/%(stack)s/%(stack)s_thumbnailVolume.bp" % {'stack': stack})
+    tb_volume = bp.unpack_ndarray_file(volume_dir + "/%(stack)s/%(stack)s_down32Volume.bp" % {'stack': stack})
 
     if convert_to_scoreSpace:
 
@@ -721,7 +890,9 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
 
         if scoreVol_limit is None:
 
-            xmin, xmax, ymin, ymax, zmin, zmax = np.loadtxt(volume_dir + "/%(stack)s/%(stack)s_scoreVolume_limits.txt" % {'stack': stack}, np.int)
+            # xmin, xmax, ymin, ymax, zmin, zmax = np.loadtxt(volume_dir + "/%(stack)s/%(stack)s_scoreVolume_limits.txt" % {'stack': stack}, np.int)
+            xmin, xmax, ymin, ymax, zmin, zmax = \
+            DataManager.load_volume_bbox(stack=stack, type='annotation', downscale=32)
 
         else:
             xmin, xmax, ymin, ymax, zmin, zmax = scoreVol_limit
@@ -747,10 +918,24 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
     else:
         return tb_volume
 
-def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1.):
+def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(0,0,0)):
+
+    if polydata.GetNumberOfPoints() == 0:
+        return None
+
+    polydata_shifted = move_polydata(polydata, origin)
 
     m = vtk.vtkPolyDataMapper()
-    m.SetInputData(polydata)
+    m.SetInputData(polydata_shifted)
+
+    m.ScalarVisibilityOff()
+    # m.SetScalarModeToDefault()
+    # m.SetColorModeToDefault()
+    # m.InterpolateScalarsBeforeMappingOff()
+    # m.UseLookupTableScalarRangeOff()
+    # m.ImmediateModeRenderingOff()
+    # m.SetScalarMaterialModeToDefault()
+    # m.GlobalImmediateModeRenderingOff()
 
     a = vtk.vtkActor()
     a.SetMapper(m)
@@ -797,7 +982,10 @@ def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vm
 def mirror_volume(volume, origin):
     """
     Use to get the mirror image of the volume.
-    volume is the volume in right hand orientation.
+    volume argument is the volume in right hemisphere.
+    origin argument is the origin of the mirrored result volume.
+
+    !!! This assumes the mirror plane is vertical; Consider adding a mirror plane as argument
     """
     ydim, xdim, zdim = volume.shape
     real_origin = origin - (0,0, zdim-1)

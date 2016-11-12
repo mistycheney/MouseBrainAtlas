@@ -573,6 +573,15 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     interpolated_contours = get_interpolated_contours(contours_grouped_by_pos, len_interval)
 
     if return_contours:
+
+        # from skimage.draw import polygon_perimeter
+        # dense_contour_points = {}
+        # for i, contour_pts in interpolated_contours.iteritems():
+        #     xs = contour_pts[:,0]
+        #     ys = contour_pts[:,1]
+        #     dense_contour_points[i] = np.array(polygon_perimeter(ys, xs)).T[:, ::-1]
+        # return dense_contour_points
+
         return {i: contour_pts.astype(np.int) for i, contour_pts in interpolated_contours.iteritems()}
 
     interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}

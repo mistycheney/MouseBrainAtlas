@@ -31,13 +31,9 @@ DataManager.load_global_alignment_parameters(stack_moving=stack_moving,
 from registration_utilities import transform_volume
 
 volumes_annotation = {'MD594': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD594', type_m='annotation',
-                                                stack_f=stack_fixed, type_f='score',
-                                                downscale=32, train_sample_scheme_f=1)),
-
-                      'MD589': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD589', type_m='annotation',
-                                                stack_f=stack_fixed, type_f='score',
-                                                downscale=32, train_sample_scheme_f=1))}
-
+                                                stack_f='MD589', type_f='annotation',
+                                                downscale=32, global_transform_scheme=global_transform_scheme)),
+                      'MD589': bp.unpack_ndarray_file(DataManager.get_annotation_volume_filepath(stack='MD589', downscale=32))}
 
 annotation_volumes_volume_m_aligned_to_f = {}
 
@@ -60,8 +56,8 @@ for stack, volume_annotation in volumes_annotation.iteritems():
     bp.pack_ndarray_file(annotation_volumes_volume_m_aligned_to_f[stack], output_fn)
 
 
-xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt(DataManager.get_file_from_s3('/home/ubuntu/data/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
-          dict(stack_fixed=stack_fixed))).astype(np.int)
+xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = \
+DataManager.load_score_volume_bbox(stack=stack_fixed, label='7N', downscale=32)
 print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
 
 

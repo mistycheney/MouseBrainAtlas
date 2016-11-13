@@ -317,6 +317,13 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
 
     return patches_padded
 
+def display_volume_sections(vol, every=5, ncols=5):
+    zmin, zmax = bbox_3d(vol)[4:]
+    zs = range(zmin+1, zmax, every)
+    vizs = [vol[..., z] for z in zs]
+    titles = ['z=%d' % z  for z in zs]
+    display_images_in_grids(vizs, nc=ncols, titles=titles, vmin=0, vmax=1, cmap=plt.cm.gray)
+
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray, **kwargs):
 
     if maintain_shape:

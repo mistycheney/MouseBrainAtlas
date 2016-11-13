@@ -2634,6 +2634,9 @@ def pts_arr_setdiff(nz1, nz2):
 
 
 def get_surround_voxels(volume, fill=False, num_samples=10000):
+    """
+    This does not get surround voxels at both sides in z direction.
+    """
 
     if fill:
         from annotation_utilities import fill_sparse_volume
@@ -2776,7 +2779,15 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f,
 
     del nzs_m_aligned_to_f
 
-    return volume_m_aligned_to_f
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume
 
 
 def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m):
@@ -2805,13 +2816,39 @@ def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m,
 
     del nzs_m_aligned_to_f
 
-    return volume_m_aligned_to_f
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
 
+    return dense_volume
 
 from skimage.morphology import closing, disk
 
 def fill_sparse_score_volume(vol):
     dense_vol = np.zeros_like(vol)
-    for z in range(vol.shape[2]):
-        dense_vol[..., z] = closing((vol[..., z]*255).astype(np.int)/255., disk(1))
+    xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
+    roi = vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]
+    roi_dense_vol = np.zeros_like(roi)
+    for z in range(roi.shape[2]):
+        roi_dense_vol[..., z] = closing((roi[..., z]*255).astype(np.int)/255., disk(1))
+    dense_vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = roi_dense_vol.copy()
     return dense_vol
+
+
+def fill_sparse_volume(volume_sparse):
+
+    from registration_utilities import find_contour_points
+    from annotation_utilities import points_inside_contour
+
+    volume = np.zeros_like(volume_sparse, np.int8)
+
+    for z in range(volume_sparse.shape[-1]):
+        for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
+            cnt = cnts[np.argsort(map(len, cnts))[-1]]
+            pts = points_inside_contour(cnt)
+            volume[pts[:,1], pts[:,0], z] = ind
+    return volume

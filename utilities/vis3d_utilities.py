@@ -1,21 +1,21 @@
-import vtk
-from vtk.util import numpy_support
-
 import numpy as np
 import sys
+import time
+
+try:
+    import vtk
+    from vtk.util import numpy_support
+    import mcubes # https://github.com/pmneila/PyMCubes
+except:
+    sys.stderr.write('No vtk\n')
 
 from skimage.measure import marching_cubes, correct_mesh_orientation, mesh_surface_area
-
-from itertools import izip
 
 import os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
-
-import time
-import mcubes # https://github.com/pmneila/PyMCubes
 
 #######################################################################
 
@@ -432,6 +432,11 @@ def add_axes(iren):
     return widget
 
 def load_mesh_stl(fn, return_polydata_only=False):
+
+    if not os.path.exists(fn):
+        sys.stderr.write('load_mesh_stl: File does not exist\n')
+        return None
+
     reader = vtk.vtkSTLReader()
     reader.SetFileName(fn)
     reader.Update()
@@ -479,19 +484,19 @@ def save_mesh(polydata, fn, color=(255,255,255)):
         raise Exception('Mesh format must be ply or stl')
 
 # http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
-class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
-
-    def __init__(self,parent=None, snapshot_fn=None):
-        self.parent = parent
-        self.snapshot_fn = snapshot_fn
-
-        self.AddObserver("KeyPressEvent",self.keyPressEvent)
-
-    def keyPressEvent(self,obj,event):
-        key = self.parent.GetKeySym()
-        if key == 's':
-            take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
-        return
+# class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+#
+#     def __init__(self,parent=None, snapshot_fn=None):
+#         self.parent = parent
+#         self.snapshot_fn = snapshot_fn
+#
+#         self.AddObserver("KeyPressEvent",self.keyPressEvent)
+#
+#     def keyPressEvent(self,obj,event):
+#         key = self.parent.GetKeySym()
+#         if key == 's':
+#             take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
+#         return
 
 def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
@@ -919,6 +924,9 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
         return tb_volume
 
 def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(0,0,0)):
+    """
+    Origin is the initial shift for the mesh.
+    """
 
     if polydata.GetNumberOfPoints() == 0:
         return None

@@ -1,6 +1,9 @@
 from utilities2015 import *
 from metadata import *
 
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from vis3d_utilities import *
+
 def volume_type_to_str(t):
     if t == 'score':
         return 'scoreVolume'
@@ -350,6 +353,10 @@ class DataManager(object):
                 {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
 
     @staticmethod
+    def load_annotation_volume(stack, downscale):
+        return bp.unpack_ndarray_file(DataManager.get_annotation_volume_filepath(stack, downscale))
+
+    @staticmethod
     def get_annotation_volume_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
                 {'stack':stack, 'ds':downscale}
@@ -411,7 +418,7 @@ class DataManager(object):
         ltf_suffix = generate_suffix(local_transform_scheme=local_transform_scheme)
 
         def add_underscore(x):
-            return x if x == '' or x is None else '_' + x
+            return '' if x == '' or x is None else '_' + x
 
         if transitive is None:
             if local_transform_scheme is None:
@@ -453,10 +460,55 @@ class DataManager(object):
         return vol_fn_basename
 
 
+    ###################################
+    # Mesh related
+    ###################################
+
+    @staticmethod
+    def load_shell_mesh(stack, downscale, return_polydata_only=True):
+        shell_mesh_fn = DataManager.get_shell_mesh_filepath(stack, downscale)
+        return load_mesh_stl(shell_mesh_fn, return_polydata_only=return_polydata_only)
+
     @staticmethod
     def get_shell_mesh_filepath(stack, downscale):
         shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)d_outerContourVolume_smoothed.stl" % {'stack': stack, 'ds':downscale})
         return shell_mesh_fn
+
+    @staticmethod
+    def load_mesh(stack, label, return_polydata_only=True):
+        mesh_fn = DataManager.get_mesh_filepath(stack, label)
+        return load_mesh_stl(mesh_fn, return_polydata_only=return_polydata_only)
+
+    @staticmethod
+    def get_mesh_filepath(stack, label):
+        mesh_fn = os.path.join(MESH_ROOTDIR, stack, 'structure_mesh', 'mesh_%s.stl'%label)
+        return mesh_fn
+
+    @staticmethod
+    def get_annotation_volume_mesh_filepath(stack, downscale, label):
+        fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)s_annotationVolume_%(name)s_smoothed.stl" % {'stack': stack, 'name': label, 'ds':downscale})
+        return fn
+
+    @staticmethod
+    def load_annotation_volume_mesh(stack, downscale, label, return_polydata_only=True):
+        fn = DataManager.get_annotation_volume_mesh_filepath(stack, downscale, label)
+        return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
+
+    @staticmethod
+    def load_transformed_volume_mesh(stack_m, type_m, stack_f, type_f, downscale,
+                                    train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                    global_transform_scheme=None,
+                                    local_transform_scheme=None,
+                                    label=None,
+                                    transitive=None,
+                                    return_polydata_only=True):
+        fn = DataManager.get_transformed_volume_mesh_filepath(stack_m, type_m, stack_f, type_f, downscale,
+                                            train_sample_scheme_m, train_sample_scheme_f,
+                                            global_transform_scheme,
+                                            local_transform_scheme,
+                                            label,
+                                            transitive)
+        return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
 
     @staticmethod
     def get_transformed_volume_mesh_filepath(stack_m, type_m, stack_f, type_f, downscale,

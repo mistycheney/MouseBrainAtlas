@@ -398,6 +398,7 @@ class DataManager(object):
     def get_annotation_volume_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
                 {'stack':stack, 'ds':downscale}
+        print(vol_fn)
         return DataManager.get_file_from_s3(vol_fn)
 
 

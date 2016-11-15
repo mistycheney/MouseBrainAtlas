@@ -552,6 +552,42 @@ def apply_function_to_dict(func, d):
     new_d = {k: result[(0 if i == 0 else csum[i-1]):csum[i]] for i, k in enumerate(d.keys())}
     return new_d
 
+
+boynton_colors = dict(blue=(0,0,255),
+    red=(255,0,0),
+    green=(0,255,0),
+    yellow=(255,255,0),
+    magenta=(255,0,255),
+    pink=(255,128,128),
+    gray=(128,128,128),
+    brown=(128,0,0),
+    orange=(255,128,0))
+
+kelly_colors = dict(vivid_yellow=(255, 179, 0),
+                    strong_purple=(128, 62, 117),
+                    vivid_orange=(255, 104, 0),
+                    very_light_blue=(166, 189, 215),
+                    vivid_red=(193, 0, 32),
+                    grayish_yellow=(206, 162, 98),
+                    medium_gray=(129, 112, 102),
+
+                    # these aren't good for people with defective color vision:
+                    vivid_green=(0, 125, 52),
+                    strong_purplish_pink=(246, 118, 142),
+                    strong_blue=(0, 83, 138),
+                    strong_yellowish_pink=(255, 122, 92),
+                    strong_violet=(83, 55, 122),
+                    vivid_orange_yellow=(255, 142, 0),
+                    strong_purplish_red=(179, 40, 81),
+                    vivid_greenish_yellow=(244, 200, 0),
+                    strong_reddish_brown=(127, 24, 13),
+                    vivid_yellowish_green=(147, 170, 0),
+                    deep_yellowish_brown=(89, 51, 21),
+                    vivid_reddish_orange=(241, 58, 19),
+                    dark_olive_green=(35, 44, 22))
+
+high_contrast_colors = boynton_colors.values() + kelly_colors.values()
+
 import randomcolor
 
 def random_colors(count):
@@ -559,3 +595,16 @@ def random_colors(count):
     random_colors = [map(int, rgb_str[4:-1].replace(',', ' ').split())
                      for rgb_str in rand_color.generate(luminosity="bright", count=count, format_='rgb')]
     return random_colors
+
+def read_dict_from_txt(fn, converter=np.float):
+    d = {}
+    with open(fn, 'r') as f:
+        for line in f.readlines():
+            items = line.split()
+            d[items[0]] = np.array(map(converter, items[1:]))
+    return d
+
+def write_dict_to_txt(d, fn, fmt='%f'):
+    with open(fn, 'w') as f:
+        for k, vals in d.iteritems():
+            f.write(k + ' ' +  (' '.join([fmt]*len(vals))) % tuple(vals) + '\n')

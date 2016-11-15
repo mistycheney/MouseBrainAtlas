@@ -11,7 +11,7 @@ import os
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
-from registration_utilities import parallel_where_binary, Aligner4
+from registration_utilities import *
 from metadata import *
 from data_manager import *
 
@@ -24,6 +24,7 @@ stack_fixed = sys.argv[1]
 train_sample_scheme = int(sys.argv[2])
 global_transform_scheme = int(sys.argv[3])
 local_transform_scheme = int(sys.argv[4])
+atlas_name = sys.argv[5]
 
 # 1: no regularization, structures weight the same
 # 2: with regularization, structures weight the same
@@ -41,26 +42,28 @@ elif local_transform_scheme == 3:
 elif local_transform_scheme == 4:
     reg_weights = np.array([1e-4, 1e-4, 1e-4])
 
-stack_moving = 'atlas_on_MD589'
+stack_moving = atlas_name
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
 singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 structures = paired_structures + singular_structures
 
+structures_sided = sum([[n] if n in singular_structures
+                        else [convert_to_left_name(n), convert_to_right_name(n)]
+                        for n in structures], [])
+
+structures_sided_plus_surround = sum([[s, s+'_surround'] for s in structures_sided], [])
+
 label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
 name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 
-structures_sided = sum([[n] if n in singular_structures else [convert_to_left_name(n), convert_to_right_name(n)] for n in structures], [])
-
-if local_transform_scheme == 1 or local_transform_scheme == 2 or local_transform_scheme == 5 or local_transform_scheme == 6:
+if local_transform_scheme == 1 or local_transform_scheme == 2:
 
     label_to_name_moving = {i+1: name for i, name in enumerate(structures_sided)}
     name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
 elif local_transform_scheme == 3 or local_transform_scheme == 4:
-
-    structures_sided_plus_surround = sum([[s, s+'_surround'] for s in structures_sided], [])
 
     label_to_name_moving = {i+1: name for i, name in enumerate(structures_sided_plus_surround)}
     name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
@@ -73,46 +76,36 @@ volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=s
 print volume_fixed.values()[0].shape
 print volume_fixed.values()[0].dtype
 
-vol_fixed_xmin, vol_fixed_ymin, vol_fixed_zmin = (0,0,0)
-vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = np.array(volume_fixed.values()[0].shape) - 1
-vol_fixed_xdim = vol_fixed_xmax + 1 - vol_fixed_xmin
-vol_fixed_ydim = vol_fixed_ymax + 1 - vol_fixed_ymin
-vol_fixed_zdim = vol_fixed_zmax + 1 - vol_fixed_zmin
-
+vol_fixed_ydim, vol_fixed_xdim, vol_fixed_zdim = volume_fixed.values()[0].shape
 
 # Load moving volumes
 
 if local_transform_scheme == 3 or local_transform_scheme == 4:
 
-    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m='atlas_on_MD589',
+    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m=stack_moving,
                                                                                        type_m='score',
                                                                                        stack_f=stack_fixed,
                                                                                        type_f='score',
                                                                                        downscale=32,
                                                                                        train_sample_scheme_f=train_sample_scheme,
+                                                                                       global_transform_scheme=global_transform_scheme,
                                                                                        label=name_s)
                      for name_s in structures_sided_plus_surround}
 
 else:
 
-    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m='atlas_on_MD589',
+    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m=stack_moving,
                                                                                        type_m='score',
                                                                                        stack_f=stack_fixed,
                                                                                        type_f='score',
                                                                                        downscale=32,
                                                                                        train_sample_scheme_f=train_sample_scheme,
+                                                                                       global_transform_scheme=global_transform_scheme,
                                                                                        label=name_s)
                      for name_s in structures_sided}
 
-
 print volume_moving.values()[0].shape
 print volume_moving.values()[0].dtype
-
-vol_moving_xmin, vol_moving_ymin, vol_moving_zmin = (0,0,0)
-vol_moving_ymax, vol_moving_xmax, vol_moving_zmax = np.array(volume_moving.values()[0].shape) - 1
-
-
-volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
 
 def convert_to_original_name(name):
     return name.split('_')[0]
@@ -137,7 +130,7 @@ for name_s in structures_sided:
 
     print name_s
 
-    trial_num = 5
+    trial_num = 3
 
     for trial_idx in range(trial_num):
 
@@ -166,7 +159,7 @@ for name_s in structures_sided:
 
         T, scores = aligner.optimize(type='rigid', max_iter_num=10000, history_len=50, terminate_thresh=1e-5,
                                      indices_m=None,
-                                    grid_search_iteration_number=10,
+                                    grid_search_iteration_number=20,
                                      grid_search_sample_number=1000,
                                      grad_computation_sample_number=1e5,
                                      lr1=10, lr2=0.1,

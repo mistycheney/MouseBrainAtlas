@@ -276,7 +276,7 @@ class DataManager(object):
             return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
 
     @staticmethod
-    def get_global_alignment_viz_filepath(stack_fixed, stack_moving,
+    def get_global_alignment_viz_dir(stack_fixed, stack_moving,
     fixed_volume_type='score', moving_volume_type='score',
     train_sample_scheme=None, global_transform_scheme=None):
 
@@ -475,6 +475,12 @@ class DataManager(object):
         return shell_mesh_fn
 
     @staticmethod
+    def load_meshes(stack, labels, return_polydata_only=True):
+        meshes = {label: load_mesh_stl(DataManager.get_mesh_filepath(stack, label), return_polydata_only=return_polydata_only)
+         for label in labels}
+        return meshes
+
+    @staticmethod
     def load_mesh(stack, label, return_polydata_only=True):
         mesh_fn = DataManager.get_mesh_filepath(stack, label)
         return load_mesh_stl(mesh_fn, return_polydata_only=return_polydata_only)
@@ -493,6 +499,25 @@ class DataManager(object):
     def load_annotation_volume_mesh(stack, downscale, label, return_polydata_only=True):
         fn = DataManager.get_annotation_volume_mesh_filepath(stack, downscale, label)
         return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
+
+    @staticmethod
+    def load_transformed_volume_meshes(stack_m, type_m, stack_f, type_f, downscale,
+                                        train_sample_scheme_m=None, train_sample_scheme_f=None,
+                                        global_transform_scheme=None,
+                                        local_transform_scheme=None,
+                                        labels=None,
+                                        transitive=None,
+                                        return_polydata_only=True):
+        meshes = {label: DataManager.load_transformed_volume_mesh(\
+        stack_m=stack_m, type_m=type_m, stack_f=stack_f, type_f=type_f, downscale=downscale,\
+        train_sample_scheme_f=train_sample_scheme_f, train_sample_scheme_m=train_sample_scheme_m,\
+        global_transform_scheme=global_transform_scheme, \
+        local_transform_scheme=local_transform_scheme, \
+        label=label, transitive=transitive, \
+        return_polydata_only=return_polydata_only)
+                for label in labels}
+
+        return meshes
 
     @staticmethod
     def load_transformed_volume_mesh(stack_m, type_m, stack_f, type_f, downscale,

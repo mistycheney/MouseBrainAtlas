@@ -208,9 +208,9 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
     return polydata
 
-def volume_to_polydata(volume, origin, num_simplify_iter=0, smooth=False):
+def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0.):
 
-    vol = volume.astype(np.bool)
+    vol = volume > level
 
     # vol_padded = np.zeros(vol.shape+(10,10,10), np.bool)
     # vol_padded[5:-5, 5:-5, 5:-5] = vol
@@ -419,8 +419,29 @@ def take_screenshot(win, file_path, magnification=10):
     writer.SetInputConnection(windowToImageFilter.GetOutputPort());
     writer.Write();
 
+def actor_sphere(position=(0,0,0), radius=.5):
+    sphereSource = vtk.vtkSphereSource()
+    sphereSource.SetCenter(position[0], position[1], position[2])
+    sphereSource.SetRadius(radius)
+
+    #create a mapper
+    sphereMapper = vtk.vtkPolyDataMapper()
+    sphereMapper.SetInputConnection(sphereSource.GetOutputPort())
+
+    #create an actor
+    sphereActor = vtk.vtkActor()
+    sphereActor.SetMapper(sphereMapper)
+    return sphereActor
+
+
 def add_axes(iren):
+
     axes = vtk.vtkAxesActor()
+
+    # put axes at origin
+    transform = vtk.vtkTransform()
+    transform.Translate(0.0, 0.0, 0.0);
+    axes.SetUserTransform(transform)
 
     widget = vtk.vtkOrientationMarkerWidget()
     widget.SetOutlineColor( 0.9300, 0.5700, 0.1300 );
@@ -1099,7 +1120,7 @@ def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
     # return moving_pts_centered
 
 
-def average_shape(polydata_list, concensus_percentage=.5, num_simplify_iter=0, smooth=False):
+def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, smooth=False):
 
     volume_list = []
     origin_list = []
@@ -1134,6 +1155,7 @@ def average_shape(polydata_list, concensus_percentage=.5, num_simplify_iter=0, s
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
 
+    # Threshold prob. volumes to generate structure meshes
     average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*concensus_percentage)
 
     sys.stderr.write('find common: %.2f\n' % (time.time() - t))

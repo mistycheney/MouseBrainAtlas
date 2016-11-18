@@ -259,6 +259,90 @@ def export_scoremapPlusAnnotationVizs(bg, stack, names, downscale_factor, sectio
 #                                                         export_filepath_fmt=export_filepath_fmt)
 
 
+def annotation_v3_overlay_on(bg, stack, orientation=None,
+                            structure_names=None, downscale_factor=8,
+                            users=None, colors=None, show_labels=True, export_filepath_fmt=None,
+                            annotation_rootdir=None):
+    """
+    Works with annotation files version 3.
+    It is user's responsibility to ensure bg is the same downscaling as the labeling.
+    """
+
+    return
+
+    # contour_df, _ = DataManager.load_annotation_v3(stack=stack, annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+    #
+    # downsample_factor = 8
+    #
+    # anchor_filename = metadata_cache['anchor_fn'][stack]
+    # sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+    # filenames_to_sections = {f: s for s, f in sections_to_filenames.iteritems()
+    #                         if f not in ['Placeholder', 'Nonexisting', 'Rescan']}
+    #
+    # # Load transforms, defined on thumbnails
+    # import cPickle as pickle
+    # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+    #
+    # Ts_inv_downsampled = {}
+    # for fn, T0 in Ts.iteritems():
+    #     T = T0.copy()
+    #     T[:2, 2] = T[:2, 2] * 32 / downsample_factor
+    #     Tinv = np.linalg.inv(T)
+    #     Ts_inv_downsampled[fn] = Tinv
+    #
+    # # Load bounds
+    # crop_xmin, crop_xmax, crop_ymin, crop_ymax = metadata_cache['cropbox'][stack]
+    # print 'crop:', crop_xmin, crop_xmax, crop_ymin, crop_ymax
+    #
+    # #####################################
+    # paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
+    #                 'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
+    # singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
+    # structures = paired_structures + singular_structures
+    #
+    # structure_colors = {n: np.random.randint(0, 255, (3,)) for n in structures}
+    #
+    # #######################################
+    #
+    # first_sec, last_sec = metadata_cache['section_limits'][stack]
+    #
+    # bar = show_progress_bar(first_sec, last_sec)
+    #
+    # # for section in [270]:
+    # for section in range(first_sec, last_sec+1):
+    #
+    #     t = time.time()
+    #
+    #     bar.value = section
+    #
+    #     fn = sections_to_filenames[section]
+    #     if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+    #         continue
+    #
+    #     img = imread(DataManager.get_image_filepath(stack, fn=fn, resol='lossless', version='compressed'))
+    #     viz = img[::downsample_factor, ::downsample_factor].copy()
+    #
+    #     for name_u in structures:
+    #         matched_contours = contour_df[(contour_df['name'] == name_u) & (contour_df['filename'] == fn)]
+    #         for cnt_id, cnt in matched_contours.iterrows():
+    #             n = len(cnt['vertices'])
+    #
+    #             # Transform points
+    #             vertices_on_aligned = np.dot(Ts_inv_downsampled[fn], np.c_[cnt['vertices']/downsample_factor, np.ones((n,))].T).T[:, :2]
+    #
+    #             xs = vertices_on_aligned[:,0] - crop_xmin * 32 / downsample_factor
+    #             ys = vertices_on_aligned[:,1] - crop_ymin * 32 / downsample_factor
+    #
+    #             vertices_on_aligned_cropped = np.c_[xs, ys].astype(np.int)
+    #
+    #             cv2.polylines(viz, [vertices_on_aligned_cropped], True, structure_colors[name_u], 2)
+    #
+    #     sys.stderr.write('Overlay visualize: %.2f seconds\n' % (time.time() - t)) # 6 seconds
+    #
+    #     viz_fn = os.path.join(viz_dir, '%(fn)s_annotation.jpg' % dict(fn=fn))
+    #     imsave(viz_fn, viz)
+
+
 def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=None,
                             structure_names=None, downscale_factor=8,
                             users=None, colors=None, show_labels=True, export_filepath_fmt=None,

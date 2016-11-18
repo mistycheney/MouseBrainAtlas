@@ -12,7 +12,8 @@ import os
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
-from registration_utilities import parallel_where_binary, Aligner4
+from registration_utilities import *
+from annotation_utilities import *
 from metadata import *
 from data_manager import *
 
@@ -22,13 +23,20 @@ import time
 stack_fixed = sys.argv[1]
 train_sample_scheme = int(sys.argv[2])
 global_transform_scheme = int(sys.argv[3])
+atlas_name = sys.argv[4]
 
-stack_moving = 'atlas_on_MD589'
+# stack_moving = 'atlas_on_MD589'
+# stack_moving = 'atlasV2'
+stack_moving = atlas_name
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
 singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 structures = paired_structures + singular_structures
+
+structures_sided = sum([[n] if n in singular_structures
+                        else [convert_to_left_name(n), convert_to_right_name(n)]
+                        for n in structures], [])
 
 label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
 name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
@@ -36,7 +44,7 @@ name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 # label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
 # name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
-label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures) + sorted([s+'_surround' for s in structures]))}
+label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures_sided) + sorted([s+'_surround' for s in structures_sided]))}
 name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
 # volume_fixed = {name_to_label_fixed[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d.bp' % \
@@ -47,21 +55,13 @@ volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=s
                for name in structures}
 
 print volume_fixed.values()[0].shape
-
-vol_fixed_xmin, vol_fixed_ymin, vol_fixed_zmin = (0,0,0)
-vol_fixed_ymax, vol_fixed_xmax, vol_fixed_zmax = np.array(volume_fixed.values()[0].shape) - 1
-
-# volume_moving = {name_to_label_moving[name]: bp.unpack_ndarray_file(os.path.join(VOLUME_ROOTDIR, '%(stack)s/score_volumes/%(stack)s_down32_scoreVolume_%(name)s.bp' % \
-#                                                     {'stack': stack_moving, 'name': name}))
-#                for name in structures}
+print volume_fixed.values()[0].dtype
 
 volume_moving = {name_to_label_moving[name]: DataManager.load_score_volume(stack=stack_moving, label=name, downscale=32, train_sample_scheme=None)
-               for name in structures}
+               for name in structures_sided}
 
 print volume_moving.values()[0].shape
-
-vol_moving_xmin, vol_moving_ymin, vol_moving_zmin = (0,0,0)
-vol_moving_ymax, vol_moving_xmax, vol_moving_zmax = np.array(volume_moving.values()[0].shape) - 1
+print volume_moving.values()[0].dtype
 
 volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
 

@@ -1,9 +1,0 @@
-#ssh gcn-20-31.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD594 &
-#ssh gcn-20-32.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD585 &
-#ssh gcn-20-34.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD593 & 
-ssh gcn-20-35.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD592 &
-ssh gcn-20-36.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD590 &
-ssh gcn-20-37.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD591 &
-ssh gcn-20-38.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD595 &
-ssh gcn-20-41.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD598 &
-ssh gcn-20-42.sdsc.edu /home/yuncong/Brain/cross-brain/global_affine_alignment.py MD602 &

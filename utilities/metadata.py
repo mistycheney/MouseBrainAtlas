@@ -40,6 +40,7 @@ if hostname.endswith('sdsc.edu'):
     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
+    REPO_DIR = '/home/yuncong/Brain'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
     volume_dir = '/home/yuncong/CSHL_volumes2/'

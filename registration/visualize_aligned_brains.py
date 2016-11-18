@@ -67,7 +67,7 @@ downsample_factor = 32
 xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
 voxel_z_size = section_thickness / xy_pixel_distance_downsampled
 
-viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_filepath(stack_moving=stack_moving,
+viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_dir(stack_moving=stack_moving,
                                                         stack_fixed=stack_fixed,
                                                         train_sample_scheme=train_sample_scheme,
                                                         global_transform_scheme=global_transform_scheme))

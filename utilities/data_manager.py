@@ -48,6 +48,39 @@ class DataManager(object):
     #         bbox = map(int, f.readline().strip().split())
     #     return bbox
 
+    @staticmethod
+    def get_file_from_s3(path_to_save):
+        s3_connection = boto.connect_s3()
+        bucket = s3_connection.get_bucket('ucsd-mousebrainatlas-home')
+        dir_name = os.path.dirname(path_to_save)
+        file_to_download = path_to_save.replace('/home/ubuntu/data', '')
+        key_file_to_download = Key(bucket, file_to_download)
+        headers = {}
+        mode = 'wb'
+        updating = False
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        if os.path.isfile(path_to_save):
+            mode = 'r+b'
+            updating = True
+            modified_since = os.path.getmtime(path_to_save)
+            timestamp = datetime.datetime.utcfromtimestamp(modified_since)
+            headers['If-Modified-Since'] = timestamp.strftime("%a, %d %b %Y %H:%M:%S GMT")
+            try:
+                with open(path_to_save, mode) as f:
+                    key_file_to_download.get_contents_to_file(f, headers)
+                    f.truncate()
+            except boto.exception.S3ResponseError as e:
+                if not updating:
+                    os.remove(filename)
+        else:
+            open(path_to_save, 'w+').close()
+            with open(path_to_save, mode) as f:
+                key_file_to_download.get_contents_to_file(f, headers)
+                f.truncate()
+        return path_to_save
+
+    @staticmethod
     def load_anchor_filename(stack):
         file_path = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt'%dict(stack=stack) 
         DataManager.get_file_from_s3(file_path)
@@ -1247,7 +1280,7 @@ metadata_cache['image_shape'] =\
  'MD599': (18784, 12256),
  'MD602': (22336, 12288),
  'MD603': (20928, 13472)}
-all_stacks = ['MD593']
+all_stacks = ['MD602', 'MD603']
 metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
 metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
 metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}

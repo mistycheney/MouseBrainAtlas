@@ -6,10 +6,9 @@ from preprocess_utility import *
 from data_manager import *
 from metadata import *
 # Align
-all_stacks = ['MD602']
+all_stacks = ['MD602', 'MD603']
 t = time.time()
 sys.stderr.write('align all subjects to atlas ...')
-
 exclude_nodes = [33]
 
 run_distributed_aws(command='%(script_path)s %%(stack)s 1 1 atlasV2' % \

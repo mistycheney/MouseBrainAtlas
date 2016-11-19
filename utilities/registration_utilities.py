@@ -13,8 +13,9 @@ from shapely.geometry import Polygon
 from data_manager import *
 
 import cv2
-
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+from metadata import *
+#sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+sys.path.append('/home/ubuntu/MouseBrainAtlas/utilities')
 from utilities2015 import *
 
 

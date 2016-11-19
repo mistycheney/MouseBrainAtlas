@@ -13,7 +13,7 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     return first_last_tuples
 
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
-    all_nodes = ['ec2-54-153-73-171.us-west-1.compute.amazonaws.com', '127.0.0.1']
+    all_nodes = ['127.0.0.1']
     
     if use_nodes is not None:
         hostids = use_nodes
@@ -114,9 +114,9 @@ def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), ex
                         'command_template': command,
                         'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
                         }
+                print line
             else:
                 raise Exception('argument_type %s not recognized.' % argument_type)
-
             temp_f.write(line + '\n')
 
         temp_f.write('wait\n')

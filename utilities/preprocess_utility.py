@@ -94,12 +94,12 @@ def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), ex
                         {'hostname': hostids[i%n_hosts],
                         'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
-            elif argument_type == 'list':
-                # Specify kwargs_str
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': hostids[i%n_hosts],
-                        'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
-                        }
+#            elif argument_type == 'list':
+#                # Specify kwargs_str
+#                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
+#                        {'hostname': hostids[i%n_hosts],
+#                        'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
+#                        }
             elif argument_type == 'list2':
                 # Specify {key: list}
                 line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
@@ -108,7 +108,7 @@ def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), ex
                                             for key, vals in kwargs_list_as_dict.iteritems()}
                         }
             elif argument_type == 'single':
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
                         'command_template': command,

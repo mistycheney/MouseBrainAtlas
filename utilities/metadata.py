@@ -65,6 +65,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
+    SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
     thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
     data_dir = '/home/ubuntu/data/CSHL_data_processed'

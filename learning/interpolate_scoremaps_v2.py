@@ -5,7 +5,8 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+#sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+sys.path.append('/home/ubuntu/MouseBrainAtlas/utilities')
 from utilities2015 import *
 from metadata import *
 from data_manager import *

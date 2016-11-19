@@ -2,8 +2,9 @@ from utilities2015 import *
 import boto
 from metadata import *
 from boto.s3.key import Key
+print(DATA_DIR)
 
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+sys.path.append(REPO_DIR + 'utilities')
 from vis3d_utilities import *
 
 def volume_type_to_str(t):
@@ -984,9 +985,9 @@ class DataManager(object):
         # else:
         #     return sec_floor, sec_ceil
 
-    def __init__(self, data_dir=os.environ['DATA_DIR'],
-                 repo_dir=os.environ['REPO_DIR'],
-                 labeling_dir=os.environ['LABELING_DIR'],
+    def __init__(self, data_dir=DATA_DIR,
+                 repo_dir=REPO_DIR,
+                 labeling_dir=LABELING_DIR,
                 #  gabor_params_id=None,
                 #  segm_params_id='tSLIC200',
                 #  vq_params_id=None,

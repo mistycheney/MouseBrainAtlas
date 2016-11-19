@@ -6,10 +6,9 @@ import sys
 import time
 
 from joblib import Parallel, delayed
-
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from utilities2015 import *
+sys.path.append('/home/ubuntu/MouseBrainAtlas/utilities')
 from metadata import *
+from utilities2015 import *
 from data_manager import *
 
 import numpy as np

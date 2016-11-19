@@ -13,13 +13,13 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     return first_last_tuples
 
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
-    all_nodes = ['ec2-52-53-191-49.us-west-1.compute.amazonaws.com', '127.0.0.1']
+    all_nodes = ['ec2-54-153-73-171.us-west-1.compute.amazonaws.com', '127.0.0.1']
     
     if use_nodes is not None:
         hostids = use_nodes
     else:
-        for node in exclude_nodes:
-            print(node)
+        #for node in exclude_nodes:
+        #    print(node)
         hostids = [node for node in all_nodes if node not in exclude_nodes]
     n_hosts = len(hostids)
     ###
@@ -84,31 +84,31 @@ def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), ex
 
             if argument_type == 'partition':
                 # For cases with partition of first section / last section
-                line = "ssh ubuntu@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
             elif argument_type == 'list':
                 # Specify kwargs_str
-                line = "ssh ubuntu@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
             elif argument_type == 'list':
                 # Specify kwargs_str
-                line = "ssh ubuntu@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
                         }
             elif argument_type == 'list2':
                 # Specify {key: list}
-                line = "ssh ubuntu@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
                                             for key, vals in kwargs_list_as_dict.iteritems()}
                         }
             elif argument_type == 'single':
-                line = "ssh ubuntu@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
+                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': hostids[i%n_hosts],
                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
                         'command_template': command,
@@ -125,7 +125,7 @@ def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), ex
         temp_f.write('echo =================\n')
 
     os.chmod(temp_script, 0o777)
-    #call(temp_script, shell=True, stdout=stdout)
+    call(temp_script, shell=True, stdout=stdout)
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """

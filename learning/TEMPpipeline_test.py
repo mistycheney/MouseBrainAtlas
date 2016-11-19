@@ -1,8 +1,8 @@
 import os
 import sys
 import time
-
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+print(os.environ['REPO_DIR'])
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from preprocess_utility import *
 from data_manager import *
 from metadata import *
@@ -29,6 +29,7 @@ for stack in ['MD603']:
     sys.stderr.write('done in %f seconds\n' % (time.time() - t)) 
 
 #     #################################
+    print("CHECKING");
 
     t = time.time()
     sys.stderr.write('interpolating scoremaps ...')

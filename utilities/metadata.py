@@ -68,8 +68,10 @@ elif hostname.startswith('ip'):
     atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
     thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
     data_dir = '/home/ubuntu/data/CSHL_data_processed'
+    DATA_DIR = '/home/ubuntu/data/CSHL_data_processed'
     REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
     annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
+    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
 else:
     print 'Setting environment for Brainstem workstation'
 

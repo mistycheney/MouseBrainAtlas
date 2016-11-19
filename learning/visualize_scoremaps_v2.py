@@ -19,7 +19,7 @@ add_annotation = args.a
 
 import os
 import sys
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+sys.path.append(REPO_DIR, 'utilities'))
 from utilities2015 import *
 
 from visualization_utilities import *

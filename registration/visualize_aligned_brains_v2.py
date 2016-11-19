@@ -4,7 +4,7 @@ import numpy as np
 
 import sys
 import os
-
+print(os.environ['REPO_DIR'])
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from metadata import *

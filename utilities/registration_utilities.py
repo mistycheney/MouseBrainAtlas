@@ -642,6 +642,8 @@ class Aligner4(object):
             # self.logger.info('iteration %d', iteration)
             sys.stderr.write('iteration %d\n' % iteration)
 
+            t = time.time()
+
             if type == 'rigid':
                 # lr1, lr2 = (.1, 1e-2) # lr2 cannot be zero, otherwise causes error in computing scores.
                 T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
@@ -659,6 +661,8 @@ class Aligner4(object):
                                                 indices_m=indices_m)
             else:
                 raise Exception('Type must be either rigid or affine.')
+
+            sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
 
             # self.logger.info('score: %f', s)
             sys.stderr.write('score: %f\n' % s)
@@ -2631,6 +2635,9 @@ def pts_arr_setdiff(nz1, nz2):
 
 
 def get_surround_voxels(volume, fill=False, num_samples=10000):
+    """
+    This does not get surround voxels at both sides in z direction.
+    """
 
     if fill:
         from annotation_utilities import fill_sparse_volume
@@ -2773,33 +2780,76 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f,
 
     del nzs_m_aligned_to_f
 
-    return volume_m_aligned_to_f
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume
 
 
-# def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
-#
-#     all_indices_m = set(np.unique(vol)) - {0}
-#     nzvoxels_m_temp = {i: parallel_where_binary(vol==i) for i in all_indices_m}
-#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-#
-#     nzs_m_aligned_to_f = {ind_m: transform_points(global_params, pts=nzs_m,
-#                                               c=centroid_m, c_prime=centroid_f).astype(np.int16)
-#                       for ind_m, nzs_m in nzvoxels_m_temp.iteritems()}
-#
-#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
-#
-#     for ind_m in nzs_m_aligned_to_f.iterkeys():
-#
-#         xs_f, ys_f, zs_f = nzs_m_aligned_to_f[ind_m].T
-#
-#         valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-#         (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
-#
-#         xs_m, ys_m, zs_m = nzvoxels_m_temp[ind_m].T
-#
-#         volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
-#         vol[ys_m[valid], xs_m[valid], zs_m[valid]]
-#
-#     del nzs_m_aligned_to_f
-#
-#     return volume_m_aligned_to_f
+def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m):
+
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points_inverse(global_params, pts_prime=nzvoxels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    # volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+    volume_m_aligned_to_f = np.zeros((ydim_m, xdim_m, zdim_m), vol.dtype) # Notice when reversing, m becomes f
+
+    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
+
+    # valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    # (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+    # Notice when reversing, m becomes f
+    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+    (xs_f < xdim_m) & (ys_f < ydim_m) & (zs_f < zdim_m)
+
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+
+    volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+    vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+
+    del nzs_m_aligned_to_f
+
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume
+
+from skimage.morphology import closing, disk
+
+def fill_sparse_score_volume(vol):
+    dense_vol = np.zeros_like(vol)
+    xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
+    roi = vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]
+    roi_dense_vol = np.zeros_like(roi)
+    for z in range(roi.shape[2]):
+        roi_dense_vol[..., z] = closing((roi[..., z]*255).astype(np.int)/255., disk(1))
+    dense_vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = roi_dense_vol.copy()
+    return dense_vol
+
+
+def fill_sparse_volume(volume_sparse):
+
+    from registration_utilities import find_contour_points
+    from annotation_utilities import points_inside_contour
+
+    volume = np.zeros_like(volume_sparse, np.int8)
+
+    for z in range(volume_sparse.shape[-1]):
+        for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
+            cnt = cnts[np.argsort(map(len, cnts))[-1]]
+            pts = points_inside_contour(cnt)
+            volume[pts[:,1], pts[:,0], z] = ind
+    return volume

@@ -50,7 +50,7 @@ levels = [0.1, 0.25, 0.5, 0.75, .99]
 level_colors = {level: (int(level*255),0,0) for level in levels}
 
 # Set output folder
-viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_filepath(stack_moving=stack_moving,
+viz_dir = create_if_not_exists(DataManager.get_global_alignment_viz_dir(stack_moving=stack_moving,
                                                         stack_fixed=stack_fixed,
                                                         train_sample_scheme=train_sample_scheme,
                                                         global_transform_scheme=global_transform_scheme))

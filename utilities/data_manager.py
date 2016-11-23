@@ -47,17 +47,19 @@ class DataManager(object):
         return bbox
 
     @staticmethod
-    def get_file_from_s3(path_to_save):
+    def get_file_from_s3(local_path, s3_path = None):
         s3_connection = boto.connect_s3()
-        bucket = s3_connection.get_bucket('ucsd-mousebrainatlas-home')
-        dir_name = os.path.dirname(path_to_save)
-        file_to_download = path_to_save.replace('/home/ubuntu/data', '')
+        if s3_path == None:
+            s3_path = local_path.replace(data_dir, 's3://ucsd-mousebrainatlas-home')
+        bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
+        bucket = s3_connection.get_bucket(bucket)
+        dir_name = os.path.dirname(local_path)
         key_file_to_download = Key(bucket, file_to_download)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        open(path_to_save, 'w+').close()
-        key_file_to_download.get_contents_to_filename(path_to_save)
-	return path_to_save
+        open(local_path, 'w+').close()
+        key_file_to_download.get_contents_to_filename(local_path)
+	return local_path
         
     @staticmethod
     def load_anchor_filename(stack):

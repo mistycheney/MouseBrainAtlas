@@ -1,4 +1,6 @@
 from subprocess import call
+import subprocess
+import boto.ec2
 import os
 import sys
 import cPickle as pickle
@@ -12,8 +14,23 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
 
+
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
-    all_nodes = ['127.0.0.1']
+    def get_ec2_avail_instances(region):
+        ins = []
+        ec2_conn = boto.ec2.connect_to_region(region)
+        reservations = ec2_conn.get_all_reservations()
+        myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
+        for reservation in reservations:
+            for instance in reservation.instances: 
+                if instance.state != 'running' or instance.instance_type != 'm4.4xlarge': 
+                    continue
+                if instance.id != myid:
+                    ins.append(instance.public_dns_name) 
+                else: 
+                    ins.append('127.0.0.1')
+        return ins
+    all_nodes = get_ec2_avail_instances('us-west-1')
     
     if use_nodes is not None:
         hostids = use_nodes
@@ -22,10 +39,6 @@ def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
         #    print(node)
         hostids = [node for node in all_nodes if node not in exclude_nodes]
     n_hosts = len(hostids)
-    ###
-    ### TO DO
-    ### CHECK IF NODES ARE UP AND UPDATE HOSTIDS
-    ###
     return hostids
 
 def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):

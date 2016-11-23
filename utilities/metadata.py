@@ -64,6 +64,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
+    on_aws = True
+    s3_home = 'ucsd-mousebrainatlas-home'
     VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
     SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'

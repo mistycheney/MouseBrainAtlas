@@ -1,4 +1,6 @@
 from utilities2015 import *
+import subprocess
+import os
 import boto
 from metadata import *
 from boto.s3.key import Key
@@ -29,7 +31,7 @@ class DataManager(object):
 
     @staticmethod
     def map_local_filename_to_s3(local_fp):
-        s3_path = local_fp.replace(os.path.dirname(data_dir), s3_home)
+        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + s3_home)
         return s3_path
 
     @staticmethod
@@ -116,7 +118,7 @@ class DataManager(object):
     def download_from_s3(local_path, s3_path = None):
         s3_connection = boto.connect_s3()
         if s3_path == None:
-            s3_path = local_path.replace(data_dir, 's3://ucsd-mousebrainatlas-home')
+            s3_path = map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
         bucket = s3_connection.get_bucket(bucket)
         dir_name = os.path.dirname(local_path)
@@ -129,6 +131,33 @@ class DataManager(object):
         open(local_path, 'w+').close()
         key_file_to_download.get_contents_to_filename(local_path)
 	return local_path
+
+    @staticmethod
+    def upload_to_s3(local_path, s3_path = None):
+        s3_connection = boto.connect_s3()
+        if s3_path == None:
+            s3_path = map_local_filename_to_s3(local_path)
+        bucket, file_to_upload = s3_path.split("s3://")[1].split("/", 1)
+        bucket = s3_connection.get_bucket(bucket)
+        key_file_to_upload = Key(bucket, file_to_upload)
+        key_file_to_upload.set_contents_from_filename(file_to_upload)
+        return file_to_upload
+
+    def download_folder_from_s3(local_path, s3_path = None, output = False):
+        if s3_path == None:
+            s3_path = map_local_filename_to_s3(local_path)
+        if output == True:
+            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"])
+        else:
+            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+
+    def upload_folder_to_s3(local_path, s3_path = None, output = False):
+        if s3_path == None:
+            s3_path = map_local_filename_to_s3(local_path)
+        if output == True:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
+        else:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
         
     @staticmethod
     def load_anchor_filename(stack):
@@ -367,9 +396,7 @@ class DataManager(object):
             return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
 
     @staticmethod
-    def get_global_alignment_viz_dir(stack_fixed, stack_moving,
-    fixed_volume_type='score', moving_volume_type='score',
-    train_sample_scheme=None, global_transform_scheme=None):
+    def get_global_alignment_viz_dir(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None):
 
         # clf_suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
         # gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)
@@ -399,7 +426,7 @@ class DataManager(object):
                                 'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
-                                ))
+                                )
 
     @staticmethod
     def get_hessian_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type, label,
@@ -412,7 +439,7 @@ class DataManager(object):
                                 'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
-                                ))
+                                )
 
     @staticmethod
     def get_svm_filepath(label, suffix=''):
@@ -443,7 +470,7 @@ class DataManager(object):
         suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''})
+                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
 
     @staticmethod
     def load_annotation_volume(stack, downscale):

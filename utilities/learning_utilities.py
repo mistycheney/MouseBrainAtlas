@@ -2,9 +2,9 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
-from utilities2015 import *
 from metadata import *
+sys.path.append(REPO_DIR + '/utilities')
+from utilities2015 import *
 from data_manager import *
 
 import matplotlib.pyplot as plt

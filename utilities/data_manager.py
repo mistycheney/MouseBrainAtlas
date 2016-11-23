@@ -122,36 +122,23 @@ class DataManager(object):
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
         bucket = s3_connection.get_bucket(bucket)
         dir_name = os.path.dirname(local_path)
-        key_file_to_download = Key(bucket, file_to_download)
-        headers = {}
-        mode = 'wb'
-        updating = False
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        open(local_path, 'w+').close()
-        key_file_to_download.get_contents_to_filename(local_path)
+        if len(list(bucket.list(file_to_download))) >= 1:
+            #if output == True:
+            #    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"])
+            #else:
+            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        else:
+            key_file_to_download = Key(bucket, file_to_download)
+            headers = {}
+            mode = 'wb'
+            updating = False
+            open(local_path, 'w+').close()
+            key_file_to_download.get_contents_to_filename(local_path)
 	return local_path
 
-    @staticmethod
-    def upload_to_s3(local_path, s3_path = None):
-        s3_connection = boto.connect_s3()
-        if s3_path == None:
-            s3_path = map_local_filename_to_s3(local_path)
-        bucket, file_to_upload = s3_path.split("s3://")[1].split("/", 1)
-        bucket = s3_connection.get_bucket(bucket)
-        key_file_to_upload = Key(bucket, file_to_upload)
-        key_file_to_upload.set_contents_from_filename(file_to_upload)
-        return file_to_upload
-
-    def download_folder_from_s3(local_path, s3_path = None, output = False):
-        if s3_path == None:
-            s3_path = map_local_filename_to_s3(local_path)
-        if output == True:
-            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"])
-        else:
-            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-
-    def upload_folder_to_s3(local_path, s3_path = None, output = False):
+    def upload_to_s3(local_path, s3_path = None, output = False):
         if s3_path == None:
             s3_path = map_local_filename_to_s3(local_path)
         if output == True:

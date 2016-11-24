@@ -123,17 +123,15 @@ class DataManager(object):
         dir_name = os.path.dirname(local_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        #if len(list(bucket.list(file_to_download))) > 1:
-        #    print("FOLDER")
-        #    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-        #else:
-        print("FILE")
-        key_file_to_download = Key(bucket, file_to_download)
-        headers = {}
-        mode = 'wb'
-        updating = False
-        open(local_path, 'w+').close()
-        key_file_to_download.get_contents_to_filename(local_path)
+        if len(list(bucket.list(file_to_download))) > 1:
+            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        else:
+            key_file_to_download = Key(bucket, file_to_download)
+            headers = {}
+            mode = 'wb'
+            updating = False
+            open(local_path, 'w+').close()
+            key_file_to_download.get_contents_to_filename(local_path)
 	return local_path
 
     def upload_to_s3(local_path, s3_path = None, output = False):

@@ -1,9 +1,8 @@
 from utilities2015 import *
 import subprocess
 import os
-import boto
+import boto3
 from metadata import *
-from boto.s3.key import Key
 
 sys.path.append(REPO_DIR + 'utilities')
 from vis3d_utilities import *
@@ -115,26 +114,24 @@ class DataManager(object):
 
     @staticmethod
     def download_from_s3(local_path, s3_path = None):
-        s3_connection = boto.connect_s3()
+        s3_connection = boto3.resource('s3')
         if s3_path == None:
             s3_path = DataManager.map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
-        bucket = s3_connection.get_bucket(bucket)
+        bucket = s3_connection.Bucket(bucket)
         dir_name = os.path.dirname(local_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        if len(list(bucket.list(file_to_download))) > 1:
-            print file_to_download, "FOLDER"
-            print len(list(bucket.list(file_to_download)))
-            exit()
+        if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
             subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
-            key_file_to_download = Key(bucket, file_to_download)
-            headers = {}
-            mode = 'wb'
-            updating = False
-            open(local_path, 'w+').close()
-            key_file_to_download.get_contents_to_filename(local_path)
+            #key_file_to_download = Key(bucket, file_to_download)
+            #headers = {}
+            #mode = 'wb'
+            #updating = False
+            #open(local_path, 'w+').close()
+            #key_file_to_download.get_contents_to_filename(local_path)
+            bucket.download_file(file_to_download, local_path)
 	return local_path
 
     def upload_to_s3(local_path, s3_path = None, output = False):

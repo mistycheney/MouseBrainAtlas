@@ -1,7 +1,7 @@
 from subprocess import call
 from metadata import *
 import subprocess
-import boto.ec2
+import boto3
 import os
 import sys
 import cPickle as pickle
@@ -30,15 +30,16 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
     def get_ec2_avail_instances(region):
         ins = []
-        ec2_conn = boto.ec2.connect_to_region(region)
-        reservations = ec2_conn.get_all_reservations()
+        ec2_conn = boto3.client('ec2', region)
+        #reservations = ec2_conn.get_all_reservations()
+        response = ec2_conn.describe_instances()
         myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
-        for reservation in reservations:
-            for instance in reservation.instances: 
-                if instance.state != 'running' or instance.instance_type != 'm4.4xlarge': 
+        for reservation in response["Reservations"]:
+            for instance in reservation["Instances"]: 
+                if instance['State'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
                     continue
-                if instance.id != myid:
-                    ins.append(instance.public_dns_name) 
+                if instance['InstanceId'] != myid:
+                    ins.append(instance['PublicDnsName'])
                 else: 
                     ins.append('127.0.0.1')
         return ins

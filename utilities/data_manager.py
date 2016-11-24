@@ -129,12 +129,12 @@ class DataManager(object):
             exit()
             subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
-        key_file_to_download = Key(bucket, file_to_download)
-        headers = {}
-        mode = 'wb'
-        updating = False
-        open(local_path, 'w+').close()
-        key_file_to_download.get_contents_to_filename(local_path)
+            key_file_to_download = Key(bucket, file_to_download)
+            headers = {}
+            mode = 'wb'
+            updating = False
+            open(local_path, 'w+').close()
+            key_file_to_download.get_contents_to_filename(local_path)
 	return local_path
 
     def upload_to_s3(local_path, s3_path = None, output = False):

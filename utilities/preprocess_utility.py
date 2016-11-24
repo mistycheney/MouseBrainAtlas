@@ -1,4 +1,5 @@
 from subprocess import call
+from metadata import *
 import subprocess
 import boto.ec2
 import os

@@ -14,6 +14,17 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
 
+#def download_dir(client, resource, dist, local='/tmp', bucket='your_bucket'):
+#    paginator = client.get_paginator('list_objects')
+#    for result in paginator.paginate(Bucket=bucket, Delimiter='/', Prefix=dist):
+#        if result.get('CommonPrefixes') is not None:
+#            for subdir in result.get('CommonPrefixes'):
+#                download_dir(client, resource, subdir.get('Prefix'), local)
+#        if result.get('Contents') is not None:
+#            for file in result.get('Contents'):
+#                if not os.path.exists(os.path.dirname(local + os.sep + file.get('Key'))):
+#                     os.makedirs(os.path.dirname(local + os.sep + file.get('Key')))
+#                resource.meta.client.download_file(bucket, file.get('Key'), local + os.sep + file.get('Key'))
 
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
     def get_ec2_avail_instances(region):

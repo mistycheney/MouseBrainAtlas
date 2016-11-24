@@ -4,7 +4,6 @@ import os
 import boto
 from metadata import *
 from boto.s3.key import Key
-print(DATA_DIR)
 
 sys.path.append(REPO_DIR + 'utilities')
 from vis3d_utilities import *
@@ -124,10 +123,7 @@ class DataManager(object):
         dir_name = os.path.dirname(local_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        if len(list(bucket.list(file_to_download))) >= 1:
-            #if output == True:
-            #    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"])
-            #else:
+        if len(list(bucket.list(file_to_download))) > 1:
             subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
             key_file_to_download = Key(bucket, file_to_download)

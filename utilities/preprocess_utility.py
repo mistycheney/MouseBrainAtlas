@@ -145,8 +145,15 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
     There should be only one ssh connection to each node.
     """
 
-    hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
-    print 'Using nodes:', ['gcn-20-%d.sdsc.edu'%i for i in hostids]
+    if on_aws:
+        hostids = detect_responsive_nodes_aws(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
+        auth_str = "-i '/home/ubuntu/KeyCompute.pem' ubuntu"
+        print 'Using nodes:', hostids
+    else:
+        hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
+        hostids = ['gcn-20-%d.sdsc.edu'%i for i in hostids]
+        auth_str = "yuncong"
+        print 'Using nodes:', hostids
     n_hosts = len(hostids)
 
     temp_script = '/tmp/runall.sh'
@@ -172,26 +179,30 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 
             if argument_type == 'partition':
                 # For cases with partition of first section / last section
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
+                        {'authen_str': auth_str,
+                        'hostname': hostids[i%n_hosts],
                         'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
             elif argument_type == 'list':
                 # Specify kwargs_str
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
+                        {'authen_str': auth_str,
+                        'hostname': hostids[i%n_hosts],
                         'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
                         }
             elif argument_type == 'list2':
                 # Specify {key: list}
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+                line = "ssh %(authen_str)@%(hostname)s \"%(command)s\" &" % \
+                        {'authen_str': auth_str,
+                        'hostname': hostids[i%n_hosts],
                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
                                             for key, vals in kwargs_list_as_dict.iteritems()}
                         }
             elif argument_type == 'single':
-                line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+                line = "ssh %(authen_str)@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
+                        {'authen_str': auth_str,
+                        'hostname': hostids[i%n_hosts],
                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
                         'command_template': command,
                         'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')

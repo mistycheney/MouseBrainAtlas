@@ -44,7 +44,7 @@ class DataManager(object):
                 DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
         if filetype == 'bp':
-            eturn bp.unpack_ndarray_file(filepath)
+            return bp.unpack_ndarray_file(filepath)
         elif filetype == 'image':
             return imread(filepath)
         elif filetype == 'hdf':

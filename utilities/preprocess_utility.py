@@ -205,14 +205,14 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
                         }
             elif argument_type == 'list2':
                 # Specify {key: list}
-                line = "ssh %(authen_str)@%(hostname)s \"%(command)s\" &" % \
+                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
                         {'authen_str': auth_str,
                         'hostname': hostids[i%n_hosts],
                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
                                             for key, vals in kwargs_list_as_dict.iteritems()}
                         }
             elif argument_type == 'single':
-                line = "ssh %(authen_str)@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
+                line = "ssh %(authen_str)s@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
                         {'authen_str': auth_str,
                         'hostname': hostids[i%n_hosts],
                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',

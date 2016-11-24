@@ -36,12 +36,14 @@ def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
         myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
         for reservation in response["Reservations"]:
             for instance in reservation["Instances"]: 
-                if instance['State'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
+                if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
                     continue
                 if instance['InstanceId'] != myid:
+                    print(ins)
                     ins.append(instance['PublicDnsName'])
                 else: 
                     ins.append('127.0.0.1')
+        print(ins)
         return ins
     all_nodes = get_ec2_avail_instances('us-west-1')
     
@@ -83,75 +85,6 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
             print hostname, 'is down'
 
     return up_hostids
-
-def run_distributed_aws(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
-    hostids = detect_responsive_nodes_aws(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
-    n_hosts = len(hostids)
-
-    temp_script = '/tmp/runall.sh'
-    if isinstance(kwargs_list, dict):
-        keys, vals = zip(*kwargs_list.items())
-        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-        kwargs_list_as_dict = kwargs_list
-    else:
-        kwargs_list_as_list = kwargs_list
-
-        keys = kwargs_list[0].keys()
-        vals = [t.values() for t in kwargs_list]
-        kwargs_list_as_dict = dict(zip(keys, vals))
-
-    # for k,v in kwargs_list_as_dict.iteritems():
-    #     sys.stderr.write(k+'\n')
-    #     sys.stderr.write(str(v)+'\n')
-
-    with open(temp_script, 'w') as temp_f:
-
-        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
-
-            if argument_type == 'partition':
-                # For cases with partition of first section / last section
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': hostids[i%n_hosts],
-                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-                        }
-            elif argument_type == 'list':
-                # Specify kwargs_str
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': hostids[i%n_hosts],
-                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-                        }
-#            elif argument_type == 'list':
-#                # Specify kwargs_str
-#                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
-#                        {'hostname': hostids[i%n_hosts],
-#                        'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
-#                        }
-            elif argument_type == 'list2':
-                # Specify {key: list}
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': hostids[i%n_hosts],
-                        'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-                                            for key, vals in kwargs_list_as_dict.iteritems()}
-                        }
-            elif argument_type == 'single':
-                line = "ssh -i '/home/ubuntu/KeyCompute.pem' ubuntu@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
-                        {'hostname': hostids[i%n_hosts],
-                        'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
-                        'command_template': command,
-                        'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-                        }
-                print line
-            else:
-                raise Exception('argument_type %s not recognized.' % argument_type)
-            temp_f.write(line + '\n')
-
-        temp_f.write('wait\n')
-        temp_f.write('echo =================\n')
-        temp_f.write('echo all jobs are done!\n')
-        temp_f.write('echo =================\n')
-
-    os.chmod(temp_script, 0o777)
-    call(temp_script, shell=True, stdout=stdout)
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """

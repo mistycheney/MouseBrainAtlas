@@ -114,6 +114,9 @@ class DataManager(object):
 
     @staticmethod
     def download_from_s3(local_path, s3_path = None):
+    #downloading 500 files of 1Mb each
+    #boto3 - 36 seconds
+    #aws cli - 5 seconds
         s3_connection = boto3.resource('s3')
         if s3_path == None:
             s3_path = DataManager.map_local_filename_to_s3(local_path)
@@ -122,19 +125,17 @@ class DataManager(object):
         dir_name = os.path.dirname(local_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-            subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-        else:
-            #key_file_to_download = Key(bucket, file_to_download)
-            #headers = {}
-            #mode = 'wb'
-            #updating = False
-            #open(local_path, 'w+').close()
-            #key_file_to_download.get_contents_to_filename(local_path)
-            bucket.download_file(file_to_download, local_path)
+        #if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+        subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        #else:
+        #    bucket.download_file(file_to_download, local_path)
 	return local_path
 
+    @staticmethod
     def upload_to_s3(local_path, s3_path = None, output = False):
+    #uploading 500 files of 1Mb each
+    #boto3 - 1 minute 24  seconds
+    #aws cli - 7 seconds
         if s3_path == None:
             s3_path = map_local_filename_to_s3(local_path)
         if output == True:

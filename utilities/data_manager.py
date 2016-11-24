@@ -118,7 +118,7 @@ class DataManager(object):
     def download_from_s3(local_path, s3_path = None):
         s3_connection = boto.connect_s3()
         if s3_path == None:
-            s3_path = map_local_filename_to_s3(local_path)
+            s3_path = DataManager.map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
         bucket = s3_connection.get_bucket(bucket)
         dir_name = os.path.dirname(local_path)

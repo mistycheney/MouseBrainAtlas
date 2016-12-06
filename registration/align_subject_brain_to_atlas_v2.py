@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 # This must be before any other matplotlib imports
-print("right on top")
 import matplotlib
 matplotlib.use('Agg')
 
@@ -19,7 +18,6 @@ from annotation_utilities import *
 from data_manager import *
 
 from joblib import Parallel, delayed
-print("In align subject brain")
 import time
 
 stack_fixed = sys.argv[1]
@@ -94,7 +92,6 @@ gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath
                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
-print("just outside")
 
 # largely the same optimization path regardless of the starting condition
 
@@ -112,7 +109,6 @@ print("just outside")
 trial_num = 1
 
 for trial_idx in range(trial_num):
-    print("Inside loop")
 
     if global_transform_scheme == 1:
 

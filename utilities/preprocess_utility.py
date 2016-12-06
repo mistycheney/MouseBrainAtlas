@@ -39,11 +39,9 @@ def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
                 if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
                     continue
                 if instance['InstanceId'] != myid:
-                    print(ins)
                     ins.append(instance['PublicDnsName'])
                 else: 
                     ins.append('127.0.0.1')
-        print(ins)
         return ins
     all_nodes = get_ec2_avail_instances('us-west-1')
     
@@ -86,6 +84,30 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
+def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+    temp_script = '/tmp/runall.sh'
+    if isinstance(kwargs_list, dict):
+        keys, vals = zip(*kwargs_list.items())
+        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+        kwargs_list_as_dict = kwargs_list
+    else:
+        kwargs_list_as_list = kwargs_list
+        keys = kwargs_list[0].keys()
+        vals = [t.values() for t in kwargs_list]
+        kwargs_list_as_dict = dict(zip(keys, vals))
+
+    for arg in kwargs_list_as_list:
+        if argument_type == 'single':
+            temp_f = open(temp_script, 'w')
+            line = command % arg
+        else:
+            raise Exception('argument_type %s not recognized.' % argument_type)
+        print line
+        temp_f.write(line + '\n')
+        temp_f.close()
+        os.chmod(temp_script, 0o777)
+        call('qsub ' + temp_script, shell=True, stdout=stdout)
+
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """
     There should be only one ssh connection to each node.
@@ -110,7 +132,6 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         kwargs_list_as_dict = kwargs_list
     else:
         kwargs_list_as_list = kwargs_list
-
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
@@ -145,13 +166,13 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
                                         for key, vals in kwargs_list_as_dict.iteritems()}
                     }
         elif argument_type == 'single':
-			line = "%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' " % \
-					{'authen_str': auth_str,
-					'hostname': hostids[i%n_hosts],
-					'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
-					'command_template': command,
-					'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','"').replace("'",'"')
-					}
+            line = "%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' " % \
+                    {'authen_str': auth_str,
+                    'hostname': hostids[i%n_hosts],
+                    'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
+                    'command_template': command,
+                    'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','"').replace("'",'"')
+			        }
         else:
 			raise Exception('argument_type %s not recognized.' % argument_type)
         temp_f.write(line + '\n')

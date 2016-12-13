@@ -117,18 +117,23 @@ class DataManager(object):
     #downloading 500 files of 1Mb each
     #boto3 - 36 seconds
     #aws cli - 5 seconds
+        print(local_path)
         s3_connection = boto3.resource('s3')
         if s3_path == None:
             s3_path = DataManager.map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
+        #file_to_download = file_to_download.split("/", 1)[1]
+        print(file_to_download)
+        print(local_path)
+
         bucket = s3_connection.Bucket(bucket)
         dir_name = os.path.dirname(local_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        #if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-        subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-        #else:
-        #    bucket.download_file(file_to_download, local_path)
+        if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+	    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        else:
+            bucket.download_file(file_to_download, local_path)
 	return local_path
 
     @staticmethod

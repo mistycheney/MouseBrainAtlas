@@ -466,12 +466,13 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
     indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
 
-    if isinstance(polygons, dict):
-        polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
-    elif isinstance(polygons, list):
-        polygon_list = polygons
-    else:
-        raise Exception('Polygon must be either dict or list.')
+    if polygons is not None:
+        if isinstance(polygons, dict):
+            polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
+        elif isinstance(polygons, list):
+            polygon_list = polygons
+        else:
+            raise Exception('Polygon must be either dict or list.')
 
     if bbox is not None:
         assert polygons is None, 'Can only supply one of bbox or polygons.'

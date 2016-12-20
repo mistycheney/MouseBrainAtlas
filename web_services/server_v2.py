@@ -523,29 +523,29 @@ def warp_crop_masks():
 
     ########################################################
 
-    t = time.time()
-    print 'warping thumbnail mask...',
-
-    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
-    transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
-                                                            dict(stack=stack, anchor_fn=anchor_fn))
-    transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
-
-    execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)))
-
-    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 black' % \
-                    {'script_dir': script_dir,
-                    'stack': stack,
-                    'input_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted/'),
-                    'aligned_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)},
-                    kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
-                                'filename': fn + '_mask.png',
-                                'output_fn': fn + '_mask_alignedTo_' + anchor_fn + '.png'}
-                                for fn in filenames],
-                    exclude_nodes=exclude_nodes + [32],
-                    argument_type='single')
-
-    print 'done in', time.time() - t, 'seconds'
+    # t = time.time()
+    # print 'warping thumbnail mask...',
+    #
+    # elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    # transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+    #                                                         dict(stack=stack, anchor_fn=anchor_fn))
+    # transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
+    #
+    # execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)))
+    #
+    # run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 black' % \
+    #                 {'script_dir': script_dir,
+    #                 'stack': stack,
+    #                 'input_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted/'),
+    #                 'aligned_dir': os.path.join(data_dir, stack, stack + '_mask_unsorted_alignedTo_' + anchor_fn)},
+    #                 kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+    #                             'filename': fn + '_mask.png',
+    #                             'output_fn': fn + '_mask_alignedTo_' + anchor_fn + '.png'}
+    #                             for fn in filenames],
+    #                 exclude_nodes=exclude_nodes + [32],
+    #                 argument_type='single')
+    #
+    # print 'done in', time.time() - t, 'seconds'
 
     ########################################################
 

@@ -101,6 +101,18 @@ def convert_to_right_name(name):
 def convert_to_original_name(name):
     return name.split('_')[0]
 
+def convert_to_nonsurround_name(name):
+    if 'surround' in name:
+        return name[:-9]
+    else:
+        return name
+
+def convert_to_surround_name(name):
+    if 'surround' in name:
+        return name
+    else:
+        return name + '_surround'
+
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])
 

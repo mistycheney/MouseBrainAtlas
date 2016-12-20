@@ -2761,7 +2761,15 @@ def transform_slice(img, T, centroid_m, centroid_f, xdim_f, ydim_f):
 
     del nzs_m_aligned_to_f
 
-    return img_m_aligned_to_f
+    if np.issubdtype(img_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_img = fill_sparse_score_image(img_m_aligned_to_f)
+    # elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+    #     dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_slice: Slice image must be float.')
+
+    return dense_img
 
 def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered=None, c=0):
     '''
@@ -2900,6 +2908,16 @@ def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m,
     return dense_volume
 
 from skimage.morphology import closing, disk
+
+
+def fill_sparse_score_image(img):
+    dense_img = np.zeros_like(img)
+    xmin, xmax, ymin, ymax = bbox_2d(img)
+    roi = img[ymin:ymax+1, xmin:xmax+1]
+    roi_dense_img = np.zeros_like(roi)
+    roi_dense_img = closing((roi*255).astype(np.int)/255., disk(1))
+    dense_img[ymin:ymax+1, xmin:xmax+1] = roi_dense_img.copy()
+    return dense_img
 
 def fill_sparse_score_volume(vol):
     dense_vol = np.zeros_like(vol)

@@ -1,3 +1,5 @@
+This folder contains code related to preprocessing (aligning, cropping, mask generation).
+
 Preprocessing is supposed to be done with the GUI `/gui/preprocess_tool.py`.
 
 The preprocessing involves the following steps:

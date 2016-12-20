@@ -73,16 +73,19 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
 
             if argument_type == 'partition':
+                # For cases with partition of first section / last section
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'command': command % {'first_sec': kwargs_list_as_list['sections'][fi], 'last_sec': kwargs_list_as_list['sections'][li]}
+                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                         }
             elif argument_type == 'list':
+                # Specify kwargs_str
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
                         'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
                         }
             elif argument_type == 'list2':
+                # Specify {key: list}
                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')

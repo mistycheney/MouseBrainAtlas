@@ -40,28 +40,91 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
     return viz
 
 
-def scoremap_overlay(stack, sec, name, downscale_factor, image_shape=None, return_mask=True):
+# def scoremap_overlay(stack, sec, name, downscale_factor, image_shape=None, return_mask=True):
+#     '''
+#     Generate scoremap of structure.
+#     name: name
+#     '''
+#
+#     if image_shape is None:
+#         image_shape = DataManager(stack=stack).get_image_dimension()
+#
+#     scoremap_bp_filepath = scoremaps_rootdir + '/%(stack)s/%(slice)04d/%(stack)s_%(slice)04d_roi1_denseScoreMapLossless_%(label)s.hdf' \
+#         % {'stack': stack, 'slice': sec, 'label': name}
+#
+#     if not os.path.exists(scoremap_bp_filepath):
+#         sys.stderr.write('No scoremap for %s for section %d\n' % (name, sec))
+#         return
+#
+#     scoremap = load_hdf(scoremap_bp_filepath)
+#
+#     interpolation_xmin, interpolation_xmax, \
+#     interpolation_ymin, interpolation_ymax = np.loadtxt(os.path.join(scoremaps_rootdir,
+#                  '%(stack)s/%(sec)04d/%(stack)s_%(sec)04d_roi1_denseScoreMapLossless_%(label)s_interpBox.txt' % \
+#                                                      {'stack': stack, 'sec': sec, 'label': name})).astype(np.int)
+#
+#     dense_score_map_lossless = np.zeros(image_shape)
+#     dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
+#                              interpolation_xmin:interpolation_xmax+1] = scoremap
+#
+#     mask = dense_score_map_lossless > 0.
+#
+#     scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale_factor, ::downscale_factor])[..., :3]
+#     viz = img_as_ubyte(scoremap_viz)
+#
+#     if return_mask:
+#         return viz, mask
+#     else:
+#         return viz
+
+def scoremap_overlay(stack, label, downscale_factor, train_sample_scheme,
+                    image_shape=None, return_mask=False, sec=None, fn=None):
     '''
-    Generate scoremap of structure.
-    name: name
+    Generate scoremap image of structure.
+    name: structure name
     '''
 
     if image_shape is None:
-        image_shape = DataManager(stack=stack).get_image_dimension()
+        # image_shape = DataManager.get_image_dimension(stack)[::-1]
+        image_shape = metadata_cache['image_shape'][::-1]
 
-    scoremap_bp_filepath = scoremaps_rootdir + '/%(stack)s/%(slice)04d/%(stack)s_%(slice)04d_roi1_denseScoreMapLossless_%(label)s.hdf' \
-        % {'stack': stack, 'slice': sec, 'label': name}
+    if fn is None:
+        assert sec is not None
+        # _, sections_to_filenames = DataManager.load_sorted_filenames(stack)
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+    # anchor_fn = DataManager.load_anchor_filename(stack)
+    anchor_fn = metadata_cache['anchor_fn'][stack]
+
+    if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+        if sec is not None:
+            sys.stderr.write('Section %d is %s.\n' % (sec, fn))
+        return
+
+    # scoremaps_dir = os.path.join(scoremaps_rootdir, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
+    #                             dict(stack=stack, fn=fn, anchor_fn=anchor_fn))
+    # create_if_not_exists(scoremaps_dir)
+
+    scoremap_bp_filepath, scoremap_interpBox_filepath = DataManager.get_scoremap_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme,
+                                                        label=label, return_bbox_fp=True)
+
+    # scoremap_bp_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap.hdf' % \
+    #                         {'fn': fn, 'anchor_fn': anchor_fn, 'label':label})
 
     if not os.path.exists(scoremap_bp_filepath):
-        sys.stderr.write('No scoremap for %s for section %d\n' % (name, sec))
+        if sec is not None:
+            sys.stderr.write('No scoremap for %s for section %d: %s\n' % (label, sec, scoremap_bp_filepath))
+        else:
+            sys.stderr.write('No scoremap for %s for fn %s: %s\n' % (label, fn, scoremap_bp_filepath))
         return
 
     scoremap = load_hdf(scoremap_bp_filepath)
 
+    # scoremap_interpBox_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' % \
+    #                                     {'fn': fn, 'anchor_fn': anchor_fn, 'label':label})
+
     interpolation_xmin, interpolation_xmax, \
-    interpolation_ymin, interpolation_ymax = np.loadtxt(os.path.join(scoremaps_rootdir,
-                 '%(stack)s/%(sec)04d/%(stack)s_%(sec)04d_roi1_denseScoreMapLossless_%(label)s_interpBox.txt' % \
-                                                     {'stack': stack, 'sec': sec, 'label': name})).astype(np.int)
+    interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
 
     dense_score_map_lossless = np.zeros(image_shape)
     dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
@@ -77,13 +140,20 @@ def scoremap_overlay(stack, sec, name, downscale_factor, image_shape=None, retur
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, sec, name, downscale_factor, export_filepath=None, label_text=True):
+def scoremap_overlay_on(bg, stack, label, downscale_factor, train_sample_scheme,
+                        export_filepath=None, label_text=True, sec=None, fn=None):
 
     if bg == 'original':
         p = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg')
         bg = imread(p)
 
-    ret = scoremap_overlay(stack, sec, name, downscale_factor, image_shape=bg.shape[:2])
+    if fn is None:
+        # _, sections_to_filenames = DataManager.load_sorted_filenames(stack)
+        # fn = sections_to_filenames[sec]
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+    ret = scoremap_overlay(stack=stack, fn=fn, label=label, downscale_factor=downscale_factor,
+                            image_shape=bg.shape[:2], return_mask=True, train_sample_scheme=train_sample_scheme)
 
     if ret is None:
         return None
@@ -97,7 +167,7 @@ def scoremap_overlay_on(bg, stack, sec, name, downscale_factor, export_filepath=
 
     # put label name at left upper corner
     if label_text:
-        cv2.putText(viz, name, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
+        cv2.putText(viz, label, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
 
     # export image to disk
     if export_filepath is not None:
@@ -106,24 +176,42 @@ def scoremap_overlay_on(bg, stack, sec, name, downscale_factor, export_filepath=
 
     return viz
 
-def export_scoremaps_worker(bg, stack, sec, names, downscale_factor, export_filepath_fmt=None, label_text=True):
+def export_scoremaps_worker(bg, stack, names, downscale_factor, train_sample_scheme, label_text=True,
+                            sec=None, filename=None):
 
     if bg == 'original':
-        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
+        # if sec is not None:
+        #     bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
+        if filename is not None:
+            bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, version='rgb-jpg'))
+
+    # anchor_fn = DataManager.load_anchor_filename(stack)
+    anchor_fn = metadata_cache['anchor_fn'][stack]
 
     for name in names:
-        export_filepath = export_filepath_fmt % {'stack': stack, 'sec': sec, 'name': name}
-        scoremap_overlay_on(bg, stack, sec, name, downscale_factor, export_filepath, label_text)
+        # export_filepath = export_filepath_fmt % {'stack': stack, 'fn': filename, 'name': name, 'anchor_fn': anchor_fn}
+        export_filepath = DataManager.get_scoremap_viz_filepath(stack=stack, fn=filename, label=name, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme)
+        scoremap_overlay_on(bg=bg, stack=stack, label=name, downscale_factor=downscale_factor,
+                        export_filepath=export_filepath, label_text=label_text, fn=filename,
+                        train_sample_scheme=train_sample_scheme)
 
 
-def export_scoremaps(bg, stack, sections, names, downscale_factor, export_filepath_fmt=None, label_text=True):
+def export_scoremaps(bg, stack, names, downscale_factor, label_text=True,
+                    sections=None, filenames=None, train_sample_scheme=1):
+
+    if filenames is None:
+        # _, s2f = DataManager.load_sorted_filenames(stack)
+        s2f = metadata_cache['sections_to_filenames'][stack]
+        filenames = [s2f[sec] for sec in sections]
+        filenames = [fn for fn in filenames if fn not in ['Nonexisting', 'Placeholder', 'Rescan']]
 
     t = time.time()
 
-    Parallel(n_jobs=8)(delayed(export_scoremaps_worker)(bg, stack, sec, names, downscale_factor,
-                                                        export_filepath_fmt=export_filepath_fmt,
-                                                        label_text=label_text)
-                       for sec in sections)
+    Parallel(n_jobs=8)(delayed(export_scoremaps_worker)(bg=bg, stack=stack, names=names,
+                                                        downscale_factor=downscale_factor,
+                                                        label_text=label_text, filename=fn,
+                                                        train_sample_scheme=train_sample_scheme)
+                       for fn in filenames)
 
     print time.time() - t
 
@@ -136,26 +224,123 @@ def export_scoremaps(bg, stack, sections, names, downscale_factor, export_filepa
 #             scoremap_overlay_on(img, stack, sec, name, downscale_factor, export_filepath, label_text)
 
 
-def export_scoremapPlusAnnotationVizs_worker(bg, stack, sec, names, downscale_factor, users, export_filepath_fmt=None):
+def export_scoremapPlusAnnotationVizs_worker(bg, stack, names, downscale_factor, users,
+                                            export_filepath_fmt=None,
+                                            sec=None, filename=None):
 
     if bg == 'original':
-        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
+        if sec is not None:
+            bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
+        if filename is not None:
+            bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, version='rgb-jpg'))
 
     for name in names:
-        scoremap_overlaid = scoremap_overlay_on(bg, stack, sec, name, downscale_factor, label_text=True)
+        scoremap_overlaid = scoremap_overlay_on(bg, stack, name, downscale_factor, label_text=True,
+                                                sec=sec, fn=filename)
         if scoremap_overlaid is not None:
-            annotation_overlaid = annotation_overlay_on(scoremap_overlaid, stack, sec, [name], 8,
-                                               export_filepath_fmt=export_filepath_fmt, users=users)
+            annotation_overlaid = annotation_overlay_on(scoremap_overlaid, stack, [name], 8,
+                                               export_filepath_fmt=export_filepath_fmt, users=users,
+                                               sec=sec, fn=filename)
 
-def export_scoremapPlusAnnotationVizs(bg, stack, sections, names, downscale_factor, users=None, export_filepath_fmt=None):
+def export_scoremapPlusAnnotationVizs(bg, stack, names, downscale_factor, sections=None, filenames=None, users=None, export_filepath_fmt=None):
 
-    Parallel(n_jobs=4)(delayed(export_scoremapPlusAnnotationVizs_worker)(bg, stack, sec, names, downscale_factor,
+    if filenames is None:
+        filenames_to_sections, _ = DataManager.load_sorted_filenames(stack)
+        filenames = [filenames_to_sections[sec] for sec in sections]
+        filenames = [fn for fn in filenames if fn not in ['Nonexisting', 'Placeholder', 'Rescan']]
+
+    Parallel(n_jobs=4)(delayed(export_scoremapPlusAnnotationVizs_worker)(bg, stack, names, downscale_factor,
+                                filename=fn,
                                 export_filepath_fmt=export_filepath_fmt, users=users)
-                                for sec in sections)
+                                for fn in filenames)
 
 #     for sec in sections:
 #         export_scoremapPlusAnnotationVizs_worker(bg, stack, sec, names, downscale_factor,
 #                                                         export_filepath_fmt=export_filepath_fmt)
+
+
+def annotation_v3_overlay_on(bg, stack, orientation=None,
+                            structure_names=None, downscale_factor=8,
+                            users=None, colors=None, show_labels=True, export_filepath_fmt=None,
+                            annotation_rootdir=None):
+    """
+    Works with annotation files version 3.
+    It is user's responsibility to ensure bg is the same downscaling as the labeling.
+    """
+
+    return
+
+    # contour_df, _ = DataManager.load_annotation_v3(stack=stack, annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+    #
+    # downsample_factor = 8
+    #
+    # anchor_filename = metadata_cache['anchor_fn'][stack]
+    # sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+    # filenames_to_sections = {f: s for s, f in sections_to_filenames.iteritems()
+    #                         if f not in ['Placeholder', 'Nonexisting', 'Rescan']}
+    #
+    # # Load transforms, defined on thumbnails
+    # import cPickle as pickle
+    # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+    #
+    # Ts_inv_downsampled = {}
+    # for fn, T0 in Ts.iteritems():
+    #     T = T0.copy()
+    #     T[:2, 2] = T[:2, 2] * 32 / downsample_factor
+    #     Tinv = np.linalg.inv(T)
+    #     Ts_inv_downsampled[fn] = Tinv
+    #
+    # # Load bounds
+    # crop_xmin, crop_xmax, crop_ymin, crop_ymax = metadata_cache['cropbox'][stack]
+    # print 'crop:', crop_xmin, crop_xmax, crop_ymin, crop_ymax
+    #
+    # #####################################
+    # paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
+    #                 'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
+    # singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
+    # structures = paired_structures + singular_structures
+    #
+    # structure_colors = {n: np.random.randint(0, 255, (3,)) for n in structures}
+    #
+    # #######################################
+    #
+    # first_sec, last_sec = metadata_cache['section_limits'][stack]
+    #
+    # bar = show_progress_bar(first_sec, last_sec)
+    #
+    # # for section in [270]:
+    # for section in range(first_sec, last_sec+1):
+    #
+    #     t = time.time()
+    #
+    #     bar.value = section
+    #
+    #     fn = sections_to_filenames[section]
+    #     if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+    #         continue
+    #
+    #     img = imread(DataManager.get_image_filepath(stack, fn=fn, resol='lossless', version='compressed'))
+    #     viz = img[::downsample_factor, ::downsample_factor].copy()
+    #
+    #     for name_u in structures:
+    #         matched_contours = contour_df[(contour_df['name'] == name_u) & (contour_df['filename'] == fn)]
+    #         for cnt_id, cnt in matched_contours.iterrows():
+    #             n = len(cnt['vertices'])
+    #
+    #             # Transform points
+    #             vertices_on_aligned = np.dot(Ts_inv_downsampled[fn], np.c_[cnt['vertices']/downsample_factor, np.ones((n,))].T).T[:, :2]
+    #
+    #             xs = vertices_on_aligned[:,0] - crop_xmin * 32 / downsample_factor
+    #             ys = vertices_on_aligned[:,1] - crop_ymin * 32 / downsample_factor
+    #
+    #             vertices_on_aligned_cropped = np.c_[xs, ys].astype(np.int)
+    #
+    #             cv2.polylines(viz, [vertices_on_aligned_cropped], True, structure_colors[name_u], 2)
+    #
+    #     sys.stderr.write('Overlay visualize: %.2f seconds\n' % (time.time() - t)) # 6 seconds
+    #
+    #     viz_fn = os.path.join(viz_dir, '%(fn)s_annotation.jpg' % dict(fn=fn))
+    #     imsave(viz_fn, viz)
 
 
 def annotation_v2_overlay_on(bg, stack, section=None, index=None, orientation=None,

@@ -29,6 +29,16 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def save_pickle(obj, fp):
+    with open(fp, 'w') as f:
+        pickle.dump(obj, f)
+
+def load_pickle(fp):
+    with open(fp, 'r') as f:
+        obj = pickle.load(f)
+
+    return obj
+
 def one_liner_to_arr(line, func):
     return np.array(map(func, line.strip().split()))
 
@@ -224,27 +234,27 @@ def find_score_peaks(scores, min_size = 4, min_distance=10, threshold_rel=.3, th
     return high_peaks_sorted, high_peaks_peakedness
 
 
-def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
-
-    section_thickness = 20 # in um
-    xy_pixel_distance_lossless = 0.46
-    xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
-    # factor = section_thickness/xy_pixel_distance_lossless
-
-    xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
-    z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
-
-    # build annotation volume
-    section_bs_begin, section_bs_end = section_range_lookup[stack]
-    print section_bs_begin, section_bs_end
-
-    map_z_to_section = {}
-    for s in range(section_bs_begin, section_bs_end+1):
-        for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin,
-                       int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
-            map_z_to_section[z] = s
-
-    return map_z_to_section
+# def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
+#
+#     section_thickness = 20 # in um
+#     xy_pixel_distance_lossless = 0.46
+#     xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
+#     # factor = section_thickness/xy_pixel_distance_lossless
+#
+#     xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
+#     z_xy_ratio_downsampled = section_thickness / xy_pixel_distance_downsampled
+#
+#     # build annotation volume
+#     section_bs_begin, section_bs_end = section_range_lookup[stack]
+#     print section_bs_begin, section_bs_end
+#
+#     map_z_to_section = {}
+#     for s in range(section_bs_begin, section_bs_end+1):
+#         for z in range(int(z_xy_ratio_downsampled*s) - volume_zmin,
+#                        int(z_xy_ratio_downsampled*(s+1)) - volume_zmin + 1):
+#             map_z_to_section[z] = s
+#
+#     return map_z_to_section
 
 def fit_ellipse_to_points(pts):
 
@@ -307,7 +317,14 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
 
     return patches_padded
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray):
+def display_volume_sections(vol, every=5, ncols=5):
+    zmin, zmax = bbox_3d(vol)[4:]
+    zs = range(zmin+1, zmax, every)
+    vizs = [vol[..., z] for z in zs]
+    titles = ['z=%d' % z  for z in zs]
+    display_images_in_grids(vizs, nc=ncols, titles=titles, vmin=0, vmax=1, cmap=plt.cm.gray)
+
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray, **kwargs):
 
     if maintain_shape:
 
@@ -324,7 +341,7 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
-            axes[i].imshow(vizs[i], cmap=cmap);
+            axes[i].imshow(vizs[i], cmap=cmap, **kwargs);
             if titles is not None:
                 axes[i].set_title(titles[i], fontsize=30);
             axes[i].set_xticks([]);
@@ -535,6 +552,42 @@ def apply_function_to_dict(func, d):
     new_d = {k: result[(0 if i == 0 else csum[i-1]):csum[i]] for i, k in enumerate(d.keys())}
     return new_d
 
+
+boynton_colors = dict(blue=(0,0,255),
+    red=(255,0,0),
+    green=(0,255,0),
+    yellow=(255,255,0),
+    magenta=(255,0,255),
+    pink=(255,128,128),
+    gray=(128,128,128),
+    brown=(128,0,0),
+    orange=(255,128,0))
+
+kelly_colors = dict(vivid_yellow=(255, 179, 0),
+                    strong_purple=(128, 62, 117),
+                    vivid_orange=(255, 104, 0),
+                    very_light_blue=(166, 189, 215),
+                    vivid_red=(193, 0, 32),
+                    grayish_yellow=(206, 162, 98),
+                    medium_gray=(129, 112, 102),
+
+                    # these aren't good for people with defective color vision:
+                    vivid_green=(0, 125, 52),
+                    strong_purplish_pink=(246, 118, 142),
+                    strong_blue=(0, 83, 138),
+                    strong_yellowish_pink=(255, 122, 92),
+                    strong_violet=(83, 55, 122),
+                    vivid_orange_yellow=(255, 142, 0),
+                    strong_purplish_red=(179, 40, 81),
+                    vivid_greenish_yellow=(244, 200, 0),
+                    strong_reddish_brown=(127, 24, 13),
+                    vivid_yellowish_green=(147, 170, 0),
+                    deep_yellowish_brown=(89, 51, 21),
+                    vivid_reddish_orange=(241, 58, 19),
+                    dark_olive_green=(35, 44, 22))
+
+high_contrast_colors = boynton_colors.values() + kelly_colors.values()
+
 import randomcolor
 
 def random_colors(count):
@@ -542,3 +595,16 @@ def random_colors(count):
     random_colors = [map(int, rgb_str[4:-1].replace(',', ' ').split())
                      for rgb_str in rand_color.generate(luminosity="bright", count=count, format_='rgb')]
     return random_colors
+
+def read_dict_from_txt(fn, converter=np.float):
+    d = {}
+    with open(fn, 'r') as f:
+        for line in f.readlines():
+            items = line.split()
+            d[items[0]] = np.array(map(converter, items[1:]))
+    return d
+
+def write_dict_to_txt(d, fn, fmt='%f'):
+    with open(fn, 'w') as f:
+        for k, vals in d.iteritems():
+            f.write(k + ' ' +  (' '.join([fmt]*len(vals))) % tuple(vals) + '\n')

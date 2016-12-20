@@ -540,7 +540,6 @@ class DataManager(object):
     ###################################
     # Mesh related
     ###################################
->>>>>>> 5f3d4d2fc58555bd9d9a1504fc161a926eeac14f
 
     @staticmethod
     def load_shell_mesh(stack, downscale, return_polydata_only=True):

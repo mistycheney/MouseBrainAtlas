@@ -17,6 +17,22 @@ from skimage.measure import grid_points_in_poly
 
 # import scipy.ndimage as nd
 
+def contours_to_mask(contours, img_shape):
+
+    final_masks = []
+
+    for cnt in contours:
+
+        bg = np.zeros(img_shape, bool)
+        xys = points_inside_contour(cnt.astype(np.int))
+        bg[np.minimum(xys[:,1], bg.shape[0]-1), np.minimum(xys[:,0], bg.shape[1]-1)] = 1
+
+        final_masks.append(bg)
+
+    final_mask = np.any(final_masks, axis=0)
+    return final_mask
+
+
 def get_surround_volume(vol, distance=5, valid_level=0):
     from scipy.ndimage.morphology import distance_transform_edt
     eps = 5

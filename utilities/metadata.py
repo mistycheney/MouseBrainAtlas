@@ -98,6 +98,21 @@ def convert_to_left_name(name):
 def convert_to_right_name(name):
     return convert_name_to_unsided(name) + '_R'
 
+def convert_to_original_name(name):
+    return name.split('_')[0]
+
+def convert_to_nonsurround_name(name):
+    if 'surround' in name:
+        return name[:-9]
+    else:
+        return name
+
+def convert_to_surround_name(name):
+    if 'surround' in name:
+        return name
+    else:
+        return name + '_surround'
+
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])
 
@@ -133,7 +148,8 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
 
-all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
+all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603',
+'MD635']
 
 # section_number_lookup = { 'MD585': 440, 'MD589': 445,
 #                         'MD590': 419, 'MD591': 452, 'MD592': 454,

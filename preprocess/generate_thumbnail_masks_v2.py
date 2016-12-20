@@ -40,13 +40,15 @@ parser = argparse.ArgumentParser(
     description='Generate mask for thumbnail images')
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
-parser.add_argument("filenames", type=str, help="image filenames, json encoded")
+parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
 parser.add_argument("output_dir", type=str, help="output dir")
+parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='tif')
 args = parser.parse_args()
 
 stack = args.stack_name
 input_dir = args.input_dir
 output_dir = args.output_dir
+tb_fmt = args.tb_fmt
 
 create_if_not_exists(output_dir)
 
@@ -129,9 +131,9 @@ def generate_entropy_mask(img):
     return mask_rsh
 
 
-def generate_mask(fn):
+def generate_mask(fn, tb_fmt='tif'):
     try:
-        img_rgb = imread(os.path.join(input_dir, fn + '.tif'))
+        img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
         img = rgb2gray(img_rgb)
 
         entropy_mask = generate_entropy_mask(img)
@@ -144,9 +146,9 @@ def generate_mask(fn):
 
         final_masks = []
 
-        for init_cnt in init_contours:
+        img_adap_gauss = gaussian(img_adap.astype(np.float), 1)
 
-            img_adap_gauss = gaussian(img_adap.astype(np.float), 1)
+        for init_cnt in init_contours:
 
             snake = active_contour(img_adap_gauss, init_cnt.astype(np.float),
                                    alpha=1., beta=1000., gamma=1.,
@@ -171,7 +173,7 @@ def generate_mask(fn):
 
     except Exception as e:
         sys.stderr.write(e.message + '\n')
-        sys.stderr.write('%d, Mask error: %s\n' % (len(final_masks), fn))
+        sys.stderr.write('Mask error: %s\n' % fn)
         return
 
-_ = Parallel(n_jobs=15)(delayed(generate_mask)(fn) for fn in filenames)
+_ = Parallel(n_jobs=15)(delayed(generate_mask)(fn, tb_fmt=tb_fmt) for fn in filenames)

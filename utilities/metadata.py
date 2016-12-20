@@ -98,6 +98,9 @@ def convert_to_left_name(name):
 def convert_to_right_name(name):
     return convert_name_to_unsided(name) + '_R'
 
+def convert_to_original_name(name):
+    return name.split('_')[0]
+
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])
 

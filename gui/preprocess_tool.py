@@ -291,7 +291,6 @@ class SimpleGraphicsScene2(SimpleGraphicsScene):
             self.send_to_sorted_requested.emit(self.id)
 
 
-
 from subprocess import check_output
 from joblib import Parallel, delayed
 
@@ -310,6 +309,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.setupUi(self)
 
         self.stack = stack
+
+        # for fluorescent stack, tif is 16 bit (not visible in GUI), png is 8 bit
+        if self.stack == 'MD635':
+            self.tb_fmt = 'png'
+            self.pad_bg_color = 'black'
+        else:
+            self.tb_fmt = 'tif'
+            self.pad_bg_color = 'white'
+
         self.stack_data_dir = '/home/yuncong/CSHL_data_processed/' + stack
         self.stack_data_dir_gordon = '/home/yuncong/CSHL_data_processed/' + stack
 
@@ -390,7 +398,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.thumbnail_filenames = defaultdict(lambda: defaultdict(lambda: dict()))
         self.filename_to_slide = {}
 
-        for fp in glob(self.thumbnails_dir+'/*.tif'):
+        for fp in glob(self.thumbnails_dir+'/*.%s' % self.tb_fmt):
             fn = os.path.splitext(os.path.basename(fp))[0]
             _, prefix, slide_num, date, hour, _, position, index = re.findall('^(.*?)-([A-Z]+)([0-9]+)-(.*?)-(.*?)_(.*?)_([0-9])_([0-9]{4})$', fn)[0]
             # print prefix, slide_num, position, index
@@ -448,7 +456,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                                                     sections=filenames + ['Nonexisting', 'Rescan', 'Placeholder'],
                                                     use_data_manager=False)
             section_image_feeder.set_images(labels=filenames,
-                                            filenames=[os.path.join(self.thumbnails_dir, fn + '.tif') for fn in filenames],
+                                            filenames=[os.path.join(self.thumbnails_dir, fn + '.' + self.tb_fmt) for fn in filenames],
                                             downsample=32)
 
             section_image_feeder.set_downsample_factor(32)
@@ -826,7 +834,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                                             f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
                                             filenames=self.get_valid_sorted_filenames(),
                                             first_fn=self.sorted_filenames[self.first_section-1],
-                                            last_fn=self.sorted_filenames[self.last_section-1])
+                                            last_fn=self.sorted_filenames[self.last_section-1],
+                                            pad_bg_color=self.pad_bg_color)
 
         # Download unsorted thumbnail cropped images
         self.statusBar().showMessage('Downloading aligned cropped thumbnail images ...')
@@ -853,7 +862,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
 
         valid_sections_feeder = ImageDataFeeder('valid image feeder', stack=self.stack, sections=self.valid_section_indices, use_data_manager=False)
-        valid_sections_feeder.set_images(self.valid_section_indices, [os.path.join(self.thumbnails_dir, fn + '.tif') for fn in self.valid_section_filenames], downsample=32)
+        valid_sections_feeder.set_images(self.valid_section_indices, [os.path.join(self.thumbnails_dir, fn + '.' + self.tb_fmt) for fn in self.valid_section_filenames], downsample=32)
         valid_sections_feeder.set_downsample_factor(32)
 
         self.curr_gscene = SimpleGraphicsScene4(id='current', gview=self.alignment_ui.curr_gview)
@@ -915,7 +924,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         with open(custom_tf_fn, 'r') as f:
             t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
 
-        prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H /home/yuncong/CSHL_data/%(stack)s/%(prev_fn)s.tif" %dict(stack=self.stack, prev_fn=prev_section_fn),
+        prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H /home/yuncong/CSHL_data/%(stack)s/%(prev_fn)s.%(tb_fmt)s" %dict(stack=self.stack, prev_fn=prev_section_fn, tb_fmt=self.tb_fmt),
                                             shell=True).split('x'))
 
         output_image_fn = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
@@ -923,10 +932,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         curr_fn=curr_section_fn,
                         prev_fn=prev_section_fn) )
 
-        execute_command("convert /home/yuncong/CSHL_data/%(stack)s/%(curr_fn)s.tif -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
+        execute_command("convert /home/yuncong/CSHL_data/%(stack)s/%(curr_fn)s.%(tb_fmt)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
         dict(stack=self.stack,
             curr_fn=curr_section_fn,
             output_fn=output_image_fn,
+            tb_fmt=self.tb_fmt,
             sx=t11,
             sy=t22,
             rx=t21,
@@ -1043,26 +1053,33 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
 
-        if self.stack == 'MD639':
-
-            IHC_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 0}
-            N_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 1}
-
+        if self.stack == 'MD635':
+            # fluro
+            F_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'F'}
+            sorted_fns = []
+            for i in sorted(set(F_series.keys())):
+                sorted_fns += [F_series[i][pos] for pos in range(1, 4)]
         else:
+            if self.stack == 'MD639':
 
-            IHC_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'IHC'}
-            N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
+                IHC_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 0}
+                N_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 1}
 
-        sorted_fns = []
-        for i in sorted(set(IHC_series.keys() + N_series.keys())):
-            if i in N_series and i in IHC_series:
-                for pos in range(1, 4):
-                    sorted_fns.append(N_series[i][pos])
-                    sorted_fns.append(IHC_series[i][pos])
-            elif i in N_series:
-                sorted_fns += [N_series[i][pos] for pos in range(1, 4)]
-            elif i in IHC_series:
-                sorted_fns += [IHC_series[i][pos] for pos in range(1, 4)]
+            else:
+
+                IHC_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'IHC'}
+                N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
+
+            sorted_fns = []
+            for i in sorted(set(IHC_series.keys() + N_series.keys())):
+                if i in N_series and i in IHC_series:
+                    for pos in range(1, 4):
+                        sorted_fns.append(N_series[i][pos])
+                        sorted_fns.append(IHC_series[i][pos])
+                elif i in N_series:
+                    sorted_fns += [N_series[i][pos] for pos in range(1, 4)]
+                elif i in IHC_series:
+                    sorted_fns += [IHC_series[i][pos] for pos in range(1, 4)]
 
         self.sorted_filenames = [fn for fn in sorted_fns if fn != 'Nonexisting']
 
@@ -1276,7 +1293,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
             else:
-                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join('/home/yuncong/CSHL_data/', self.stack, img_fn + '.tif')) for img_fn in self.valid_section_filenames)
+                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join('/home/yuncong/CSHL_data/', self.stack, img_fn + '.' + self.tb_fmt)) for img_fn in self.valid_section_filenames)
                 largest_idx = np.argmax([h*w for h, w in shapes])
                 print 'largest section is ', self.valid_section_filenames[largest_idx]
                 self.set_anchor(self.valid_section_filenames[largest_idx])
@@ -1378,10 +1395,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def download(self):
 
-        execute_command("""mkdir %(local_data_dir)s/%(stack)s; scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.tif %(local_data_dir)s/%(stack)s/""" % \
+        execute_command("""mkdir %(local_data_dir)s/%(stack)s; scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.%(tb_fmt)s %(local_data_dir)s/%(stack)s/""" % \
                         {'gordon_data_dir': '/home/yuncong/CSHL_data',
                         'local_data_dir': '/home/yuncong/CSHL_data',
-                        'stack': self.stack})
+                        'stack': self.stack,
+                        'tb_fmt': self.tb_fmt})
 
         execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros_annotated/%(stack)s/ %(local_data_dir)s/macros_annotated/""" % \
                         {'gordon_data_dir': '/home/yuncong/CSHL_data',
@@ -1396,12 +1414,13 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     def generate_masks(self):
 
         self.web_service.convert_to_request('generate_masks',
-                                    stack=self.stack, filenames=self.get_valid_sorted_filenames())
+                                    stack=self.stack, filenames=self.get_valid_sorted_filenames(),
+                                    tb_fmt=self.tb_fmt)
 
-        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'stack': self.stack})
+        # execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted %(local_data_dir)s/%(stack)s/""" % \
+        #                 {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+        #                 'local_data_dir': '/home/yuncong/CSHL_data_processed',
+        #                 'stack': self.stack})
 
         execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted %(local_data_dir)s/%(stack)s/""" % \
                         {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
@@ -1458,7 +1477,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.statusBar().showMessage('Conmpose consecutive alignments...')
         self.web_service.convert_to_request(name='compose', stack=self.stack,
                                             filenames=self.get_valid_sorted_filenames(),
-                                            anchor_fn=self.anchor_fn)
+                                            anchor_fn=self.anchor_fn,
+                                            tb_fmt=self.tb_fmt,
+                                            pad_bg_color=self.pad_bg_color)
         self.statusBar().showMessage('Images aligned.')
 
         self.statusBar().showMessage('Downloading aligned images ...')

@@ -1,7 +1,7 @@
+import sys, os
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
-
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from vis3d_utilities import *
 
 def volume_type_to_str(t):
@@ -22,6 +22,33 @@ def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, loca
 
     return '_'.join(suffix)
 
+def save_file_to_s3(local_path, s3_path):
+    # upload to s3
+    return
+
+def save_to_s3(fpkw, fppos):
+    """
+    Decorator. Must provide both `fpkw` and `fppos` because we don't know if
+    filepath will be supplied to the decorated function as positional argument
+    or keyword argument.
+
+    fpkw: argument keyword for file path in the decorated function
+    fppos: argument position for file path in the decorated function
+
+    Reference: http://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html
+    """
+    def wrapper(func):
+        def wrapped_f(*args, **kwargs):
+            if fpkw in kwargs:
+                fp = kwargs[fpkw]
+            elif len(args) > fppos:
+                fp = args[fppos]
+            res = func(*args, **kwargs)
+            save_file_to_s3(fp, DataManager.map_local_filename_to_s3(fp))
+            return res
+        return wrapped_f
+    return wrapper
+
 class DataManager(object):
 
     @staticmethod
@@ -36,7 +63,7 @@ class DataManager(object):
             sys.stderr.write('File does not exist: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
-            on_aws = True # should be an env variable
+            on_aws = False # should be an env variable
             if on_aws:
                 DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
@@ -270,6 +297,7 @@ class DataManager(object):
 
         return DataManager.load_data(params_fp, 'transform_params')
 
+    @save_to_s3(fpkw='fp', fppos=0)
     @staticmethod
     def save_alignment_parameters(fp, params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f):
 
@@ -642,6 +670,11 @@ class DataManager(object):
                                             transitive)
         return os.path.join(VOLUME_ROOTDIR, basename + '.bp')
 
+    @staticmethod
+    def save_transformed_volume(vol, *args, **kwargs):
+        volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(*args, **kwargs)
+        create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
+        bp.pack_ndarray_file(vol, volume_m_alignedTo_f_fn)
 
     @staticmethod
     def get_score_volume_filepath(stack, label, downscale, train_sample_scheme=None):
@@ -797,6 +830,13 @@ class DataManager(object):
 
     @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
+        """
+        resol: can be either lossless or thumbnail
+        version:
+        - compressed: for regular nissl, RGB JPEG; for neurotrace, blue channel as grey JPEG
+        - saturation: for regular nissl, saturation as gray, tif; for NT, blue channel as grey, tif
+        - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
+        """
 
         if section is not None:
             _, section_to_filename = DataManager.load_sorted_filenames(stack)
@@ -812,9 +852,14 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.tif')
+            if stack in ['MD635']: # fluoerescent.
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.tif')
+            else: # Nissl
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])

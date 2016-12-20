@@ -72,9 +72,11 @@ from skimage.filters import gaussian
 
 class Aligner4(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
-                labelIndexMap_m2f=None, label_weights=None):
+                labelIndexMap_m2f=None, label_weights=None, zrange=None):
         """
         Variant that takes in two probabilistic volumes.
+
+        zrange: tuple
         """
 
         self.labelIndexMap_m2f = labelIndexMap_m2f
@@ -105,12 +107,18 @@ class Aligner4(object):
 
         if isinstance(volume_m_, dict): # probabilistic volume
             volume_m = volume_m_
-        else: # annotation volume
+        else: # annotation volume; also convert to dict, treated the same as prob. volume
             volume_m = {i: np.zeros_like(volume_m_, dtype=np.float16) for i in self.all_indices_m}
             for i in self.all_indices_m:
                 mask = volume_m_ == i
                 volume_m[i][mask] = 1.
                 del mask
+
+        # Slice volumes if arange is specified
+        if zrange is not None:
+            self.zl, self.zh = zrange
+            volume_f = {l: v[..., self.zl:self.zh+1] for l, v in volume_f.iteritems()}
+            volume_m = {l: v[..., self.zl:self.zh+1] for l, v in volume_m.iteritems()}
 
         # for i, v in volume_m.iteritems():
         #     volume_m[i] = gaussian(v, 3)
@@ -188,9 +196,15 @@ class Aligner4(object):
             t = time.time()
 
             # assert gradient_filepath_map_f is not None
-            grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
-            grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
-            grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+
+            if hasattr(self, 'zl'):
+                grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
+                grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
+                grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
+            else:
+                grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+                grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+                grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
 
             sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
 
@@ -578,7 +592,7 @@ class Aligner4(object):
                 grid_search_iteration_number=0, grid_search_sample_number=1000,
                 grad_computation_sample_number=10000,
                 max_iter_num=1000, history_len=200, terminate_thresh=.1, \
-                indices_m=None, lr1=None, lr2=None,
+                indices_m=None, lr1=None, lr2=None, full_lr=None,
                 std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                 reg_weights=None,
                 epsilon=1e-8):
@@ -645,7 +659,13 @@ class Aligner4(object):
 
             if type == 'rigid':
                 # lr1, lr2 = (.1, 1e-2) # lr2 cannot be zero, otherwise causes error in computing scores.
-                T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=np.r_[lr1,lr1,lr1,lr2,lr2,lr2],
+
+                if full_lr is not None:
+                    lr = full_lr
+                else:
+                    lr = np.r_[lr1,lr1,lr1,lr2,lr2,lr2]
+
+                T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=lr,
                     grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
                     verbose=False, num_samples=grad_computation_sample_number,
                     indices_m=indices_m,
@@ -654,10 +674,16 @@ class Aligner4(object):
                 # print 'New T:', np.ravel(T)
 
             elif type == 'affine':
-                # lr1, lr2 = (10., 1e-1)
-                T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1], \
-                                                grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
-                                                indices_m=indices_m)
+
+                if full_lr is not None:
+                    lr = full_lr
+                else:
+                    lr = np.r_[lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1, lr2, lr2, lr2, lr1]
+
+                T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=lr, \
+                                grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
+                                indices_m=indices_m)
+
             else:
                 raise Exception('Type must be either rigid or affine.')
 
@@ -2243,7 +2269,7 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
     return hessian
 
 
-def find_contour_points(labelmap, sample_every=10):
+def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5):
     """
     The value of sample_every can be interpreted as distance between points.
     return is (x,y)
@@ -2258,16 +2284,17 @@ def find_contour_points(labelmap, sample_every=10):
 
         (min_row, min_col, max_row, max_col) = r.bbox
 
-        padded = np.pad(r.filled_image, ((5,5),(5,5)), mode='constant', constant_values=0)
+        padded = np.pad(r.filled_image, ((padding,padding),(padding,padding)),
+                        mode='constant', constant_values=0)
 
         contours = find_contours(padded, .5, fully_connected='high')
-        contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > 10]
+        contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > min_length]
         if len(contours) > 0:
 #             if len(contours) > 1:
 #                 sys.stderr.write('%d: region has more than one part\n' % r.label)
 
             contours = sorted(contours, key=lambda c: len(c), reverse=True)
-            contours_list = [c-(5,5) for c in contours]
+            contours_list = [c-(padding, padding) for c in contours]
             contour_points[r.label] = sorted([c[np.arange(0, c.shape[0], sample_every)][:, ::-1] + (min_col, min_row)
                                 for c in contours_list], key=lambda c: len(c), reverse=True)
 
@@ -2665,6 +2692,29 @@ def get_surround_voxels(volume, fill=False, num_samples=10000):
 
     return surr_nzs
 
+def transform_points_2d(T, pts=None, c=None, pts_centered=None, c_prime=0):
+    '''
+    T: 1x6 vector
+    c: center of volume 1
+    c_prime: center of volume 2
+    pts: nx2
+    '''
+    if pts_centered is None:
+        pts_centered = pts - c
+
+    Tm = np.reshape(T, (2,3))
+    # print Tm
+    t = Tm[:, 2]
+    A = Tm[:, :2]
+
+    pts_prime = np.dot(A, pts_centered.T) + (t + c_prime)[:,None]
+
+    # print t, c_prime
+    # print pts_centered
+    # print pts_prime.T
+
+    return pts_prime.T
+
 
 def transform_points(T, pts=None, c=None, pts_centered=None, c_prime=0):
     '''
@@ -2689,6 +2739,29 @@ def transform_points(T, pts=None, c=None, pts_centered=None, c_prime=0):
     # print pts_prime.T
 
     return pts_prime.T
+
+def transform_slice(img, T, centroid_m, centroid_f, xdim_f, ydim_f):
+    nz_ys, nz_xs = np.where(img > 0)
+    nzpixels_m_temp = np.c_[nz_xs, nz_ys]
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points_2d(T, pts=nzpixels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    img_m_aligned_to_f = np.zeros((ydim_f, xdim_f), img.dtype)
+
+    xs_f, ys_f = nzs_m_aligned_to_f.T
+
+    valid = (xs_f >= 0) & (ys_f >= 0) & \
+            (xs_f < xdim_f) & (ys_f < ydim_f)
+
+    xs_m, ys_m = nzpixels_m_temp.T
+
+    img_m_aligned_to_f[ys_f[valid], xs_f[valid]] = img[ys_m[valid], xs_m[valid]]
+
+    del nzs_m_aligned_to_f
+
+    return img_m_aligned_to_f
 
 def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered=None, c=0):
     '''

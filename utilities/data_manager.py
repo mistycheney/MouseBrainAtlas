@@ -1357,7 +1357,8 @@ metadata_cache['image_shape'] =\
  'MD598': (18400, 12608),
  'MD599': (18784, 12256),
  'MD602': (22336, 12288),
- 'MD603': (20928, 13472)}
+ 'MD603': (20928, 13472),
+ 'MD635': (20960, 14240)}
 metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
 metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
 metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}

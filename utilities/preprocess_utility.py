@@ -92,6 +92,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
                                             for key, vals in kwargs_list_as_dict.iteritems()}
                         }
             elif argument_type == 'single':
+                # the command takes only one element of the list
                 line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',

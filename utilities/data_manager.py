@@ -4,6 +4,8 @@ from utilities2015 import *
 from metadata import *
 from vis3d_utilities import *
 
+from pandas import read_hdf
+
 def volume_type_to_str(t):
     if t == 'score':
         return 'scoreVolume'
@@ -76,7 +78,6 @@ class DataManager(object):
         elif filetype == 'bbox':
             return np.loadtxt(filepath).astype(np.int)
         elif filetype == 'annotation_hdf':
-            from pandas import read_hdf
             contour_df = read_hdf(filepath, 'contours')
             return contour_df
         elif filetype == 'pickle':
@@ -297,7 +298,7 @@ class DataManager(object):
 
         return DataManager.load_data(params_fp, 'transform_params')
 
-    @save_to_s3(fpkw='fp', fppos=0)
+    # @save_to_s3(fpkw='fp', fppos=0)
     @staticmethod
     def save_alignment_parameters(fp, params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f):
 
@@ -423,8 +424,9 @@ class DataManager(object):
                                 )
 
     @staticmethod
-    def get_svm_filepath(label, suffix=''):
-        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % {'label': label, 'suffix':suffix}
+    def get_svm_filepath(label, train_sample_scheme=None):
+        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
     @staticmethod
     def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
@@ -848,9 +850,14 @@ class DataManager(object):
             anchor_fn = DataManager.load_anchor_filename(stack)
 
         if resol == 'lossless' and version == 'compressed':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
+            if stack in ['MD635']:
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
+            else:
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
             if stack in ['MD635']: # fluoerescent.
                 image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
@@ -859,12 +866,18 @@ class DataManager(object):
             else: # Nissl
                 image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-                image_path = os.path.join(image_dir, image_name + '.tif')
+                # image_path = os.path.join(image_dir, image_name + '.tif')
+                image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'cropped':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
+            # if stack in ['MD635']:
+            #     image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            #     image_path = os.path.join(image_dir, image_name + '.tif')
+            # else:
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
@@ -872,6 +885,8 @@ class DataManager(object):
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
+        else:
+            sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
 
         return image_path
 
@@ -996,9 +1011,9 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fn = DataManager.get_image_filepath(stack=stack, version='rgb-jpg', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
+            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='compressed', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
             if not os.path.exists(fn):
-                fn = DataManager.get_image_filepath(stack=stack, version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
+                fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
                 if not os.path.exists(fn):
                     continue
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))

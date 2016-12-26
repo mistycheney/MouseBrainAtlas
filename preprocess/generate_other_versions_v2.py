@@ -92,7 +92,8 @@ def generate_versions(fn, which):
                     dict(input_fn=input_fn, output_compressed_fn=output_compressed_fn))
 
     if 'saturation' in which:
-        output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.jpg')
+        # output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.jpg') # why jpg?
+        output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.tif')
         if os.path.exists(output_saturation_fn):
             sys.stderr.write('File exists: %s.\n' % output_saturation_fn)
         else:

@@ -1,5 +1,59 @@
 import numpy as np
 from multiprocess import Pool
+import sys
+
+def allocate_radial_angular_bins(vectors, anchor_direction, angular_bins, radial_bins):
+
+    if isinstance(angular_bins, int):
+        angular_bins = np.linspace(-np.pi, np.pi, angular_bins)
+
+    distances = np.sqrt(np.sum(vectors**2, axis=1))
+    radial_bin_indices = np.digitize(distances, radial_bins)
+
+    angles = np.arctan2(vectors[:, 1], vectors[:, 0]) # -pi, pi
+    angles_relative_to_anchor = angles - anchor_direction
+    angular_bin_indices = np.digitize(angles_relative_to_anchor, angular_bins)
+
+    return radial_bin_indices, angular_bin_indices
+
+def allocate_bins_overlap(vs, bins):
+
+    bins = np.array(bins)
+
+    left_edges = bins[:,0]
+    right_edges = bins[:,1]
+    n_bins = len(bins)
+
+    left = np.searchsorted(left_edges, vs)
+    right = np.searchsorted(right_edges, vs)
+
+    allo = [None for i in range(len(vs))]
+
+    a = left - right == 1
+    single = np.where(a)[0]
+    dual = list(set(range(len(vs))) - set(single))
+
+    for i in single:
+        allo[i] = right[i]
+
+    for i in dual:
+        allo[i] = (right[i], left[i]-1)
+
+    return allo
+
+def allocate_radial_angular_bins_overlap(vectors, anchor_direction, angular_bins, radial_bins):
+    """
+    radial_bins: list of (left edge, right edge)
+    """
+
+    distances = np.sqrt(np.sum(vectors**2, axis=1))
+    radial_bin_indices = allocate_bins_overlap(distances, radial_bins)
+
+    angles = np.arctan2(vectors[:, 1], vectors[:, 0]) # -pi, pi
+    angles_relative_to_anchor = angles - anchor_direction
+    angular_bin_indices = allocate_bins_overlap(angles_relative_to_anchor, angular_bins)
+
+    return radial_bin_indices, angular_bin_indices
 
 selected_cell_arrays = None
 selected_cell_arrays_h = None
@@ -65,7 +119,7 @@ def kmeans(data, seed_indices, n_iter=100):
 
     return nearest_centroid_indices, np.asarray(centroids)
 
-def compute_jaccard_x_vs_list(t, x, t_sizes, x_size):
+def compute_jaccard_x_vs_list_v2(t, x, t_sizes, x_size):
     """
     t: n x d
     x: 1 x d - boolean array
@@ -75,6 +129,39 @@ def compute_jaccard_x_vs_list(t, x, t_sizes, x_size):
     unions_with_i = t_sizes + x_size - intersections_with_i
     return intersections_with_i.astype(np.float)/unions_with_i
 
+def compute_jaccard_x_vs_list(x, t, x_size=None, t_sizes=None, x_h=None, x_v=None, x_d=None):
+    """
+    t: n x d
+    x: 1 x d - boolean array
+    """
+
+    t = np.array(t)
+
+    x_size = np.count_nonzero(x)
+    t_sizes = np.sum(t, axis=1)
+    n = len(t)
+
+    intersections_with_x = t[:, x].sum(axis=1) # nx1
+    intersections_with_x_h = t[:, x_h].sum(axis=1)
+    intersections_with_x_v = t[:, x_v].sum(axis=1)
+    intersections_with_x_d = t[:, x_d].sum(axis=1)
+
+    intersections_all_mirrors = np.c_[intersections_with_x, intersections_with_x_h,
+                                    intersections_with_x_v, intersections_with_x_d] # nx4
+    temp = t_sizes + x_size # nx1
+
+    unions_with_x = temp - intersections_with_x
+    unions_with_x_h = temp - intersections_with_x_h
+    unions_with_x_v = temp - intersections_with_x_v
+    unions_with_x_d = temp - intersections_with_x_d
+
+    unions_all_mirrors = np.c_[unions_with_x, unions_with_x_h, unions_with_x_v, unions_with_x_d] # nx4
+
+    jaccards = intersections_all_mirrors.astype(np.float) / unions_all_mirrors # nx4
+    best_mirrors = np.argmax(jaccards, axis=1)
+    best_jaccards = jaccards[range(n), best_mirrors]
+
+    return best_jaccards, best_mirrors
 
 def compute_jaccard_i_vs_list(i, indices):
 
@@ -91,6 +178,9 @@ def compute_jaccard_i_vs_list(i, indices):
         intersections_with_i_d = selected_cell_arrays_d[:, selected_cell_arrays_d[i]].sum(axis=1)
 
         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i
+        unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_h
+        unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_v
+        unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_d
 
     else:
         intersections_with_i = selected_cell_arrays[indices, selected_cell_arrays[i]].sum(axis=1)
@@ -99,11 +189,20 @@ def compute_jaccard_i_vs_list(i, indices):
         intersections_with_i_d = selected_cell_arrays_d[indices, selected_cell_arrays_d[i]].sum(axis=1)
 
         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i
+        unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_h
+        unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_v
+        unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_d
 
     intersections_all_poses = np.c_[intersections_with_i, intersections_with_i_h, intersections_with_i_v, intersections_with_i_d] # nx4
-    max_poses = np.argmax(intersections_all_poses, axis=1)
-    max_intersection = intersections_all_poses[range(len(intersections_with_i)), max_poses]
-    return max_intersection.astype(np.float)/unions_with_i, max_poses
+    unions_all_poses = np.c_[unions_with_i, unions_with_i_h, unions_with_i_v, unions_with_i_d] # nx4
+    jaccards_all_poses = intersections_all_poses.astype(np.float)/unions_all_poses
+
+    n = len(jaccards_all_poses)
+
+    best_mirrors = np.argmax(jaccards_all_poses, axis=1)
+    best_jaccards = jaccards_all_poses[range(n), best_mirrors]
+
+    return best_jaccards, best_mirrors
 
 
 def compute_jaccard_i_vs_all(i, return_poses=False):

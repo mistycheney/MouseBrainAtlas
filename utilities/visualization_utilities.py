@@ -144,7 +144,7 @@ def scoremap_overlay_on(bg, stack, label, downscale_factor, train_sample_scheme,
                         export_filepath=None, label_text=True, sec=None, fn=None):
 
     if bg == 'original':
-        p = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg')
+        p = DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed')
         bg = imread(p)
 
     if fn is None:
@@ -163,6 +163,9 @@ def scoremap_overlay_on(bg, stack, label, downscale_factor, train_sample_scheme,
     m = mask[::downscale_factor, ::downscale_factor]
 
     viz = bg[::downscale_factor, ::downscale_factor].copy()
+
+    viz = gray2rgb(viz)
+
     viz[m] = (.3 * img_as_ubyte(scoremap_viz[m, :3]) + .7 * viz[m]).astype(np.uint8)
 
     # put label name at left upper corner
@@ -171,7 +174,11 @@ def scoremap_overlay_on(bg, stack, label, downscale_factor, train_sample_scheme,
 
     # export image to disk
     if export_filepath is not None:
-        create_if_not_exists(os.path.dirname(export_filepath))
+        # to prevent race creating this folder with multiple processes
+        try:
+            create_if_not_exists(os.path.dirname(export_filepath))
+        except:
+            pass
         cv2.imwrite(export_filepath, img_as_ubyte(viz[..., [2,1,0]]))
 
     return viz
@@ -183,7 +190,7 @@ def export_scoremaps_worker(bg, stack, names, downscale_factor, train_sample_sch
         # if sec is not None:
         #     bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
         if filename is not None:
-            bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, version='rgb-jpg'))
+            bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, resol='lossless',version='compressed'))
 
     # anchor_fn = DataManager.load_anchor_filename(stack)
     anchor_fn = metadata_cache['anchor_fn'][stack]

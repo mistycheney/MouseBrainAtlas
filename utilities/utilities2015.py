@@ -515,6 +515,8 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
 
 def bbox_2d(img):
+    if np.count_nonzero(img) == 0:
+        raise Exception('bbox2d: Image is empty.')
     rows = np.any(img, axis=1)
     cols = np.any(img, axis=0)
     rmin, rmax = np.where(rows)[0][[0, -1]]

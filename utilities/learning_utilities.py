@@ -336,7 +336,8 @@ def get_names_given_locations_multiple_sections(addresses, location_or_grid_inde
 
 
 def get_default_gridspec(stack, patch_size=224, stride=56):
-    image_width, image_height = DataManager.get_image_dimension(stack)
+    # image_width, image_height = DataManager.get_image_dimension(stack)
+    image_width, image_height = metadata_cache['image_shape'][stack]
     return (patch_size, stride, image_width, image_height)
 
 def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):

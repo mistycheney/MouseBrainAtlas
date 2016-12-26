@@ -560,7 +560,17 @@ class DrawableGraphicsScene(QGraphicsScene):
         if cycle:
             self.set_active_i((self.active_i + 1) % self.data_feeder.n)
         else:
-            self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
+            # If next image is not valid, show the one after the next
+            t = 1
+            while self.active_i + t <= self.data_feeder.n - 1:
+                try:
+                    self.set_active_i(min(self.active_i + t, self.data_feeder.n - 1))
+                    # self.set_active_i(min(self.active_i + t, np.max(self.data_feeder.sections)))
+                    break
+                except:
+                    t += 1
+
+            # self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1)
 
     def show_previous(self, cycle=False):
         # if self.indexing_mode == 'section':
@@ -571,7 +581,16 @@ class DrawableGraphicsScene(QGraphicsScene):
         if cycle:
             self.set_active_i((self.active_i - 1) % self.data_feeder.n)
         else:
-            self.set_active_i(max(self.active_i - 1, 0))
+            # If previous image is not valid, show the one before the previous
+            t = 1
+            while self.active_i - t >= 0:
+                try:
+                    self.set_active_i(max(self.active_i - t, 0))
+                    break
+                except:
+                    t += 1
+
+            # self.set_active_i(max(self.active_i - 1, 0))
 
     # def add_label_to_polygon(self, polygon, label, label_pos=None):
     #     '''
@@ -696,7 +715,8 @@ class DrawableGraphicsScene(QGraphicsScene):
 
     def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=None, vertex_color='b', vertex_radius=None,
                                             label='unknown', section=None, label_pos=None, index=None, type=None,
-                                            edit_history=[], side=None, side_manually_assigned=None):
+                                            edit_history=[], side=None, side_manually_assigned=None,
+                                            contour_id=None):
         '''
         Function for adding polygon, along with vertex circles.
         Step 1: create polygon
@@ -752,6 +772,7 @@ class DrawableGraphicsScene(QGraphicsScene):
         #     'type': 'add_polygon_by_vertices_label_end'
         #     })
 
+        polygon.set_contour_id(contour_id) # Could be None - will be generated new in convert_drawings_to_entries()
         return polygon
 
 
@@ -985,7 +1006,8 @@ class DrawableGraphicsScene(QGraphicsScene):
                                                         side=contour['side'],
                                                         # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
                                                         side_manually_assigned=contour['side_manually_assigned'],
-                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'])
+                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'],
+                                                        contour_id=contour_id)
 
         # grouped = contours.groupby('position')
         #
@@ -1036,6 +1058,9 @@ class DrawableGraphicsScene(QGraphicsScene):
     #     #     self.addItem(polygon)
 
     def convert_drawings_to_entries(self, timestamp, username):
+        """
+        Return dict, key=polygon_id, value=contour entry.
+        """
 
         import uuid
 
@@ -1045,7 +1070,10 @@ class DrawableGraphicsScene(QGraphicsScene):
 
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
-                polygon_id = str(uuid.uuid4().fields[-1])
+                if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
+                    polygon_id = polygon.contour_id
+                else:
+                    polygon_id = str(uuid.uuid4().fields[-1])
 
                 vertices = []
                 for c in polygon.vertex_circles:
@@ -1071,7 +1099,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                             'id': polygon_id}
 
         #     contour_entries.append(contour_entry)
-                assert polygon_id not in contour_entries
+                # assert polygon_id not in contour_entries
                 contour_entries[polygon_id] = contour_entry
 
         return contour_entries

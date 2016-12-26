@@ -107,11 +107,21 @@ def convert_to_nonsurround_name(name):
     else:
         return name
 
-def convert_to_surround_name(name):
-    if 'surround' in name:
-        return name
+def convert_to_surround_name(name, suffix=None):
+    # if 'surround' in name:
+    #     return name
+    # else:
+    elements = name.split('_')
+    if len(elements) > 1 and elements[1] == 'surround':
+        if suffix is not None:
+            return elements[0] + '_surround_' + suffix
+        else:
+            return elements[0] + '_surround'
     else:
-        return name + '_surround'
+        if suffix is not None:
+            return name + '_surround_' + suffix
+        else:
+            return name + '_surround'
 
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])

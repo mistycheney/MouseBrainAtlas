@@ -86,6 +86,8 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
 def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     temp_script = '/tmp/runall.sh'
+    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    #3 to remove the header lines
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
@@ -95,18 +97,24 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
-
-    for arg in kwargs_list_as_list:
-        if argument_type == 'single':
-            temp_f = open(temp_script, 'w')
+    if argument_type == 'single':
+        for arg in kwargs_list_as_list:
             line = command % arg
-        else:
-            raise Exception('argument_type %s not recognized.' % argument_type)
-        print line
-        temp_f.write(line + '\n')
-        temp_f.close()
-        os.chmod(temp_script, 0o777)
-        call('qsub -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
+    elif argument_type == 'partition':
+        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+        # For cases with partition of first section / last section
+            line = "%(command)s " % \
+                    {
+                    'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
+                    }
+    else:
+        raise Exception('argument_type %s not recognized.' % argument_type)
+    print(line)
+    temp_f = open(temp_script, 'w')
+    temp_f.write(line + '\n')
+    temp_f.close()
+    os.chmod(temp_script, 0o777)
+    call('qsub -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """
@@ -123,7 +131,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         auth_str = "yuncong"
         print 'Using nodes:', hostids
     n_hosts = len(hostids)
-
+    
     temp_script = '/tmp/runall.sh'
 
     if isinstance(kwargs_list, dict):
@@ -175,10 +183,11 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 			        }
         else:
 			raise Exception('argument_type %s not recognized.' % argument_type)
+        print(line)
         temp_f.write(line + '\n')
         temp_f.close()
         os.chmod(temp_script, 0o777)
-        call('qsub ' + temp_script, shell=True, stdout=stdout)
+        #call('qsub ' + temp_script, shell=True, stdout=stdout)
 
 	#temp_f.write('wait\n')
 	#temp_f.write('echo =================\n')

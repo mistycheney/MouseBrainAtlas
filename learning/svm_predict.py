@@ -4,9 +4,8 @@ import os
 import argparse
 import sys
 import time
-print("INSIDE SVM PREDICT")
 from joblib import Parallel, delayed
-sys.path.append('/home/ubuntu/MouseBrainAtlas/utilities')
+sys.path.append('/shared/MouseBrainAtlas/utilities')
 from metadata import *
 from utilities2015 import *
 from data_manager import *

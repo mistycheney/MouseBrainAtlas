@@ -76,11 +76,13 @@ elif hostname.startswith('ip'):
 #    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
 #    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
     VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
+    PATCH_FEATURES_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SVM_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     atlasAlignParams_rootdir = '/shared/data/CSHL_atlasAlignParams_atlas_v2'
     thumbnail_data_dir = '/shared/data/CSHL_data_processed'
     data_dir = '/shared/data/CSHL_data_processed'
     DATA_DIR = '/shared/data/CSHL_data_processed'
+    SPARSE_SCORES_ROOTDIR = '/shared/data/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     os.environ["DATA_DIR"] = DATA_DIR
     REPO_DIR = '/shared/MouseBrainAtlas'
     os.environ["REPO_DIR"] = REPO_DIR

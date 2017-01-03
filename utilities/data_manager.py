@@ -117,14 +117,11 @@ class DataManager(object):
     #downloading 500 files of 1Mb each
     #boto3 - 36 seconds
     #aws cli - 5 seconds
-        print(local_path)
         s3_connection = boto3.resource('s3')
         if s3_path == None:
             s3_path = DataManager.map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
         #file_to_download = file_to_download.split("/", 1)[1]
-        print(file_to_download)
-        print(local_path)
 
         bucket = s3_connection.Bucket(bucket)
         dir_name = os.path.dirname(local_path)
@@ -790,6 +787,8 @@ class DataManager(object):
         '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' \
             % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
 
+        #print("BP ", scoremap_bp_filepath)
+        #print("BBOX ", scoremap_bbox_filepath)
         if return_bbox_fp:
             return scoremap_bp_filepath, scoremap_bbox_filepath
         else:

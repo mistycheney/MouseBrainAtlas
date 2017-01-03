@@ -44,7 +44,6 @@ def svm_predict(stack, sec):
     fn = sections_to_filenames[sec]
     if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
         return
-
     feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
     try:
@@ -53,15 +52,17 @@ def svm_predict(stack, sec):
         sys.stderr.write(e.message + '\n')
         return
 
-    # output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
-    #                                   {'fn': fn, 'anchor_fn': anchor_fn}))
+    output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
+                                      {'fn': fn, 'anchor_fn': anchor_fn}))
 
     for label in structures:
         svc = svc_allClasses[label]
         probs = svc.predict_proba(features)[:, svc.classes_.tolist().index(1.)]
         output_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, label=label, suffix=svm_suffix)
+        output_dir = scoremaps_rootdir
         # output_fn = output_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_trainSampleScheme_%(scheme)d.hdf' % \
-        #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme}
+        #           {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme}
+        
         bp.pack_ndarray_file(probs, output_fn)
 
 

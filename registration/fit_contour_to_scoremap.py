@@ -54,7 +54,7 @@ for sec in range(sec_min, sec_max+1):
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         continue
-        
+
     z = voxel_z_size * (sec - 1) - zmin_vol_f
 
     # Extract initial contour

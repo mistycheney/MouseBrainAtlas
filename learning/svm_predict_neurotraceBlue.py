@@ -35,19 +35,10 @@ structures = paired_structures + singular_structures
 # train_sample_scheme = 1
 # svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
 
-# svc_allClasses = {}
-# for label in structures:
-#     svc_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, train_sample_scheme=train_sample_scheme))
-
 svc_allClasses = {}
 for label in structures:
     try:
-        if stack in ['MD635']:
-            # Neurotrace blue
-            svc_allClasses[label] = joblib.load(DataManager.get_svm_neurotraceBlue_filepath(label=label, train_sample_scheme=train_sample_scheme))
-        else:
-            # regular nissl
-            svc_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, train_sample_scheme=train_sample_scheme))
+        svc_allClasses[label] = joblib.load(DataManager.get_svm_neurotraceBlue_filepath(label=label, train_sample_scheme=train_sample_scheme))
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         sys.stderr.write('Detector for %s is not trained.\n' % label)
@@ -64,6 +55,7 @@ def svm_predict(stack, sec):
         return
 
     feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+    print feature_fn
 
     try:
         features = load_hdf(feature_fn)

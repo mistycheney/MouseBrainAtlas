@@ -36,7 +36,7 @@ class DataManager(object):
     def load_data(filepath, filetype):
 
         if not os.path.exists(filepath):
-            sys.stderr.write('File does not exist: %s\n' % filepath)
+            sys.stderr.write('File does not existdm: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
             if on_aws:

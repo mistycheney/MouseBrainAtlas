@@ -842,6 +842,7 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
+        image_path = ""
         if resol == 'lossless' and version == 'compressed':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
@@ -1334,7 +1335,7 @@ class DataManager(object):
 
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
-# metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+#metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
 metadata_cache['image_shape'] =\
 {'MD585': (16384, 12000),
  'MD589': (15520, 11936),

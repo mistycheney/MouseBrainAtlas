@@ -185,6 +185,7 @@ def export_scoremaps_worker(bg, stack, names, downscale_factor, train_sample_sch
         #     bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
         if filename is not None:
             bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, version='rgb-jpg'))
+    print(filename)
 
     # anchor_fn = DataManager.load_anchor_filename(stack)
     anchor_fn = metadata_cache['anchor_fn'][stack]

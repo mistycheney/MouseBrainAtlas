@@ -86,7 +86,8 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
 def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     temp_script = '/tmp/runall.sh'
-    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    #n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    n_hosts = 12
     #3 to remove the header lines
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())

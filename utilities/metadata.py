@@ -35,6 +35,7 @@ if hostname.endswith('sdsc.edu'):
     patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
     SVM_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
@@ -80,11 +81,14 @@ all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark
 labels_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
 labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
 
+def convert_to_unsided_name(name):
+    return convert_name_to_unsided(name)
+
 def convert_name_to_unsided(name):
     if '_' not in name:
         return name
     else:
-        return name[:-2]
+        return convert_to_original_name(name)
 
 def extract_side_from_name(name):
     if '_' in name:

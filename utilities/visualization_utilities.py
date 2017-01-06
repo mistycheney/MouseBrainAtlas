@@ -17,9 +17,10 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
     """
 
     if bg == 'original':
-        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))[::downscale_factor, ::downscale_factor]
+        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='compressed'))[::downscale_factor, ::downscale_factor]
 
-    viz = bg.copy()
+    # viz = bg.copy()
+    viz = gray2rgb(bg)
     half_size = patch_size/2/downscale_factor
     if isinstance(locs[0], list):
         if colors is None:
@@ -197,11 +198,13 @@ def export_scoremaps_worker(bg, stack, names, downscale_factor, train_sample_sch
 
     for name in names:
         # export_filepath = export_filepath_fmt % {'stack': stack, 'fn': filename, 'name': name, 'anchor_fn': anchor_fn}
-        export_filepath = DataManager.get_scoremap_viz_filepath(stack=stack, fn=filename, label=name, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme)
-        scoremap_overlay_on(bg=bg, stack=stack, label=name, downscale_factor=downscale_factor,
-                        export_filepath=export_filepath, label_text=label_text, fn=filename,
-                        train_sample_scheme=train_sample_scheme)
-
+        try:
+            export_filepath = DataManager.get_scoremap_viz_filepath(stack=stack, fn=filename, label=name, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme)
+            scoremap_overlay_on(bg=bg, stack=stack, label=name, downscale_factor=downscale_factor,
+                            export_filepath=export_filepath, label_text=label_text, fn=filename,
+                            train_sample_scheme=train_sample_scheme)
+        except:
+            sys.stderr.write('Scoremap for %s does not exist.\n' % name)
 
 def export_scoremaps(bg, stack, names, downscale_factor, label_text=True,
                     sections=None, filenames=None, train_sample_scheme=1):

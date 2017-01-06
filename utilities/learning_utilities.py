@@ -360,6 +360,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
 
     contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
 
     # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
@@ -464,8 +465,8 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
 
-    indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
-    indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
+    indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0] # patches in the foreground
+    indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg) # patches in the background
 
     if polygons is not None:
         if isinstance(polygons, dict):
@@ -518,7 +519,7 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
                                               path.contains_points(sample_locations_ur))[0]
 
             indices_allLandmarks[label] = indices_inside[label]
-            print len(indices_allLandmarks[label]), 'patches in', label
+            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label]), label))
 
         indices_allInside = np.concatenate(indices_inside.values())
 
@@ -534,14 +535,19 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
 
             # surround classes do not include patches of any no-surround class
             indices_allLandmarks[label+'_surround_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-            print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
+            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_noclass']), label+'_surround_noclass'))
+            # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
 
             for l, inds in indices_inside.iteritems():
                 if l == label: continue
                 indices = np.intersect1d(indices_sur, inds)
                 if len(indices) > 0:
                     indices_allLandmarks[label+'_surround_'+l] = indices
-                    print len(indices), 'patches in', label+'_surround_'+l
+                    sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+l))
+
+            # # all foreground patches except the particular label's inside patches
+            indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
+            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_negative']), label+'_negative'))
 
         # for l, inds in indices_inside.iteritems():
         #     indices_allLandmarks[l] = inds
@@ -550,7 +556,7 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
         #     indices_allLandmarks[l+'_surround_noclass'] = inds
         #     print len(inds), 'patches in', l+'_surround_noclass'
         indices_allLandmarks['bg'] = indices_bg
-        print len(indices_bg), 'patches in', 'bg'
+        sys.stderr.write('%d patches in %s\n' % (len(indices_bg), 'bg'))
 
     return indices_allLandmarks
 

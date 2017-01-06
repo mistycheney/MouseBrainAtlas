@@ -38,12 +38,13 @@ structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in structures], [])
 
-label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
-name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
+# label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
+# name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
 
 # label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures))}
 # name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
+# label starts from 1
 label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures_sided) + sorted([s+'_surround' for s in structures_sided]))}
 name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
@@ -51,8 +52,37 @@ name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 #                                                     {'stack': stack_fixed, 'name': name, 'scheme':train_sample_scheme}))
 #                for name in structures}
 
-volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
-               for name in structures}
+volume_fixed = {}
+name_to_label_fixed = {}
+c = 1 # label starts from 1
+for name in sorted(structures):
+    try:
+        volume_fixed[c] = \
+        DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
+        # valid_names_f.append(name)
+        name_to_label_fixed[name] = c
+        c += 1
+    except:
+        sys.stderr.write('Score volume for %s does not exist.\n' % name)
+
+# # If not all score volumes exist...
+# volume_fixed = {}
+# valid_names_f = []
+# for name in structures:
+#     try:
+#         volume_fixed[name_to_label_fixed[name]] = \
+#         DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
+#         valid_names_f.append(name)
+#     except:
+#         sys.stderr.write('Score volume for %s does not exist.\n' % name)
+
+label_to_name_fixed = {l: n for n, l in name_to_label_fixed.iteritems()}
+
+# label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(valid_names_f))}
+# name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
+
+# volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
+#                for name in structures}
 
 print volume_fixed.values()[0].shape
 print volume_fixed.values()[0].dtype
@@ -70,7 +100,9 @@ def convert_to_original_name(name):
 
 labelIndexMap_m2f = {}
 for label_m, name_m in label_to_name_moving.iteritems():
-    labelIndexMap_m2f[label_m] = name_to_label_fixed[convert_to_original_name(name_m)]
+    name_m_orig = convert_to_original_name(name_m)
+    if name_m_orig in name_to_label_fixed:
+        labelIndexMap_m2f[label_m] = name_to_label_fixed[name_m_orig]
 
 label_weights_m = {}
 for label_m, name_m in label_to_name_moving.iteritems():

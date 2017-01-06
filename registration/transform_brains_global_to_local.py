@@ -44,23 +44,27 @@ structures_sided_with_surround = sum([[n, convert_to_surround_name(n)] for n in 
 
 for name_s in structures_sided:
 
-    # Read local tx parameters
-    local_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
-    DataManager.load_local_alignment_parameters(stack_moving=stack_moving,
-                                                stack_fixed=stack_fixed,
-                                                train_sample_scheme=train_sample_scheme,
-                                                global_transform_scheme=global_transform_scheme,
-                                                 local_transform_scheme=local_transform_scheme,
-                                                trial_idx=trial_idx,
-                                               label=name_s)
+    try:
+        # Read local tx parameters
+        local_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
+        DataManager.load_local_alignment_parameters(stack_moving=stack_moving,
+                                                    stack_fixed=stack_fixed,
+                                                    train_sample_scheme=train_sample_scheme,
+                                                    global_transform_scheme=global_transform_scheme,
+                                                     local_transform_scheme=local_transform_scheme,
+                                                    trial_idx=trial_idx,
+                                                   label=name_s)
 
-    # Read global tx
-    global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
-                                       stack_f=stack_fixed, type_f='score',
-                                        downscale=32,
-                                        train_sample_scheme_f=train_sample_scheme,
-                                        global_transform_scheme=global_transform_scheme,
-                                        label=name_s)
+        # Read global tx
+        global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+                                           stack_f=stack_fixed, type_f='score',
+                                            downscale=32,
+                                            train_sample_scheme_f=train_sample_scheme,
+                                            global_transform_scheme=global_transform_scheme,
+                                            label=name_s)
+    except:
+        sys.stderr.write('Volumes for %s does not exist.\n' % name_s)
+        continue
 
     # Transform
     local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,
@@ -81,14 +85,21 @@ for name_s in structures_sided:
     bp.pack_ndarray_file(local_transformed_moving_structure_vol, local_transformed_moving_structure_fn)
 
 
-    # Read Global transformed Surround
+    try:
 
-    global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
-                                       stack_f=stack_fixed, type_f='score',
-                                        downscale=32,
-                                        train_sample_scheme_f=train_sample_scheme,
-                                        global_transform_scheme=global_transform_scheme,
-                                        label=name_s + '_surround')
+        # Read Global transformed Surround
+
+        global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+                                           stack_f=stack_fixed, type_f='score',
+                                            downscale=32,
+                                            train_sample_scheme_f=train_sample_scheme,
+                                            global_transform_scheme=global_transform_scheme,
+                                            label=name_s + '_surround')
+
+    except:
+        sys.stderr.write('Volumes for %s does not exist.\n' % name_s)
+        continue    
+
 
     # Transform
     local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,

@@ -429,6 +429,11 @@ class DataManager(object):
         {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
     @staticmethod
+    def get_svm_neurotraceBlue_filepath(label, train_sample_scheme=None):
+        return SVM_NTBLUE_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
+
+    @staticmethod
     def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
 
         if fn is None:

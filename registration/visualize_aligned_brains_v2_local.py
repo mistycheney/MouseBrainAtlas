@@ -39,13 +39,27 @@ structures_sided = sum([[n] if n in singular_structures
 
 # Read transformed volumes
 
-vols_m_aligned_to_f = {name_s: DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
-                                         stack_f=stack_fixed, type_f='score',
-                                         label=name_s, downscale=32,
-                                         train_sample_scheme_f=train_sample_scheme,
-                                         global_transform_scheme=global_transform_scheme,
-                                        local_transform_scheme=local_transform_scheme)
-                        for name_s in structures_sided}
+vols_m_aligned_to_f = {}
+for name_s in structures_sided:
+    try:
+        vols_m_aligned_to_f[name_s] = \
+        DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+                                                 stack_f=stack_fixed, type_f='score',
+                                                 label=name_s, downscale=32,
+                                                 train_sample_scheme_f=train_sample_scheme,
+                                                 global_transform_scheme=global_transform_scheme,
+                                                 local_transform_scheme=local_transform_scheme)
+    except:
+        sys.stderr.write('No transformed volume for %s.\n' % name_s)
+
+#
+# vols_m_aligned_to_f = {name_s: DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+#                                          stack_f=stack_fixed, type_f='score',
+#                                          label=name_s, downscale=32,
+#                                          train_sample_scheme_f=train_sample_scheme,
+#                                          global_transform_scheme=global_transform_scheme,
+#                                         local_transform_scheme=local_transform_scheme)
+#                         for name_s in structures_sided}
 
 # Set colors for different contour level
 levels = [0.1, 0.25, 0.5, 0.75, .99]

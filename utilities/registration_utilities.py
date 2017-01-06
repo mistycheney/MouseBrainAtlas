@@ -86,8 +86,22 @@ class Aligner4(object):
         else: # annotation volume
             labels_in_volume_m = set(np.unique(volume_m_))
 
-        self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
-        self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
+        if isinstance(volume_f_, dict): # probabilistic volume
+            labels_in_volume_f = set(np.unique(volume_f_.keys()))
+        else: # annotation volume
+            labels_in_volume_f = set(np.unique(volume_f_))
+
+        self.all_indices_f = set([])
+        self.all_indices_m = set([])
+        for idx_m in set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m:
+            idx_f = self.labelIndexMap_m2f[idx_m]
+            if idx_f in labels_in_volume_f:
+                self.all_indices_f.add(idx_f)
+                self.all_indices_m.add(idx_m)
+        # self.all_indices_m = list(self.all_indices_m)
+
+        # self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
+        # self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
 
         global volume_f
 
@@ -166,9 +180,8 @@ class Aligner4(object):
             # pool.terminate()
             # pool.join()
 
-            nzvoxels_m_ = [parallel_where_binary(volume_m[i] > 0) for i in self.all_indices_m]
-
-            nzvoxels_m = dict(zip(self.all_indices_m, nzvoxels_m_))
+            nzvoxels_m_ = [parallel_where_binary(volume_m[i] > 0) for i in list(self.all_indices_m)]
+            nzvoxels_m = dict(zip(list(self.all_indices_m), nzvoxels_m_))
         else:
             nzvoxels_m = nzvoxels_m_
 

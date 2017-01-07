@@ -35,26 +35,33 @@ parser.add_argument("image_dir", type=str, help="original image dir")
 parser.add_argument("mask_dir", type=str, help="mask dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded")
 parser.add_argument("output_dir", type=str, help="output dir")
+parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='tif')
 args = parser.parse_args()
 
 stack = args.stack_name
 image_dir = args.image_dir
 mask_dir = args.mask_dir
 output_dir = args.output_dir
+tb_fmt = args.tb_fmt
 
 import json
 filenames = json.loads(args.filenames)
 
-def generate_mask_contour_visualization(fn):
+def generate_mask_contour_visualization(fn, tb_fmt):
     try:
         mask_fn = os.path.join(mask_dir, '%(fn)s_mask.png' % dict(fn=fn))
         mask = imread(mask_fn)
 
         contour_xys = find_contour_points(mask.astype(np.bool), sample_every=1)[1]
 
-        image_fn = os.path.join(image_dir, '%(fn)s.tif' % dict(fn=fn))
+        image_fn = os.path.join(image_dir, '%(fn)s.%(tb_fmt)s' % dict(fn=fn, tb_fmt=tb_fmt))
         image = imread(image_fn)
-        viz = image.copy()
+        if image.ndim == 2:
+            viz = gray2rgb(image)
+        elif image.ndim == 3:
+            viz = image.copy()
+        else:
+            raise
 
         for cnt in contour_xys:
             cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1)
@@ -72,4 +79,4 @@ def generate_mask_contour_visualization(fn):
         return
 
 
-_ = Parallel(n_jobs=16)(delayed(generate_mask_contour_visualization)(fn) for fn in filenames)
+_ = Parallel(n_jobs=16)(delayed(generate_mask_contour_visualization)(fn, tb_fmt) for fn in filenames)

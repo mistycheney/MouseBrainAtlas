@@ -34,16 +34,20 @@ atlas_name = sys.argv[5]
 # 5: no regularization, structure weight inversely prop to size
 # 6: with regularization, structure weight inversely prop to size
 
-if local_transform_scheme == 1:
+###############################
+# Set regularization weights
+
+if local_transform_scheme == [1,3,5]:
     reg_weights = np.array([0.,0.,0.])
 elif local_transform_scheme == 2:
     reg_weights = np.array([1e-6, 1e-6, 1e-6])
-elif local_transform_scheme == 3:
-    reg_weights = np.array([0.,0.,0.])
 elif local_transform_scheme == 4:
     reg_weights = np.array([1e-4, 1e-4, 1e-4])
 
 stack_moving = atlas_name
+
+###########################
+# All structures in atlas
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
@@ -56,104 +60,124 @@ structures_sided = sum([[n] if n in singular_structures
 
 structures_sided_plus_surround = sum([[s, s+'_surround'] for s in structures_sided], [])
 
-label_to_name_fixed = {i+1: name for i, name in enumerate(sorted(structures))}
-name_to_label_fixed = {n:l for l, n in label_to_name_fixed.iteritems()}
+####################################
+# Load moving
+####################################
 
-if local_transform_scheme == 1 or local_transform_scheme == 2:
+if local_transform_scheme in [1,2,5,6]:
+    label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures_sided))}
+elif local_transform_scheme in [3,4]:
+    label_to_name_moving = {i+1: name for i, name in enumerate(sorted(structures_sided) + \
+                                sorted([s+'_surround' for s in structures_sided]))}
 
-    label_to_name_moving = {i+1: name for i, name in enumerate(structures_sided)}
-    name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
+name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
 
-elif local_transform_scheme == 3 or local_transform_scheme == 4:
+#####################################
 
-    label_to_name_moving = {i+1: name for i, name in enumerate(structures_sided_plus_surround)}
-    name_to_label_moving = {n:l for l, n in label_to_name_moving.iteritems()}
+if local_transform_scheme in [3,4]:
 
-# Load fixed volumes
-
-volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
-               for name in structures}
-
-print volume_fixed.values()[0].shape
-print volume_fixed.values()[0].dtype
-
-vol_fixed_ydim, vol_fixed_xdim, vol_fixed_zdim = volume_fixed.values()[0].shape
-
-# Load moving volumes
-
-if local_transform_scheme == 3 or local_transform_scheme == 4:
-
-    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m=stack_moving,
-                                                                                       type_m='score',
-                                                                                       stack_f=stack_fixed,
-                                                                                       type_f='score',
-                                                                                       downscale=32,
-                                                                                       train_sample_scheme_f=train_sample_scheme,
-                                                                                       global_transform_scheme=global_transform_scheme,
-                                                                                       label=name_s)
+    volume_moving = {name_to_label_moving[name_s]: \
+    DataManager.load_transformed_volume(stack_m=stack_moving,
+                                       type_m='score',
+                                       stack_f=stack_fixed,
+                                       type_f='score',
+                                       downscale=32,
+                                       train_sample_scheme_f=train_sample_scheme,
+                                       global_transform_scheme=global_transform_scheme,
+                                       label=name_s)
                      for name_s in structures_sided_plus_surround}
 
 else:
 
-    volume_moving = {name_to_label_moving[name_s]: DataManager.load_transformed_volume(stack_m=stack_moving,
-                                                                                       type_m='score',
-                                                                                       stack_f=stack_fixed,
-                                                                                       type_f='score',
-                                                                                       downscale=32,
-                                                                                       train_sample_scheme_f=train_sample_scheme,
-                                                                                       global_transform_scheme=global_transform_scheme,
-                                                                                       label=name_s)
+    volume_moving = {name_to_label_moving[name_s]: \
+    DataManager.load_transformed_volume(stack_m=stack_moving,
+                                       type_m='score',
+                                       stack_f=stack_fixed,
+                                       type_f='score',
+                                       downscale=32,
+                                       train_sample_scheme_f=train_sample_scheme,
+                                       global_transform_scheme=global_transform_scheme,
+                                       label=name_s)
                      for name_s in structures_sided}
 
 print volume_moving.values()[0].shape
 print volume_moving.values()[0].dtype
 
-def convert_to_original_name(name):
-    return name.split('_')[0]
+####################################
+# Load fixed
+####################################
+
+volume_fixed = {}
+name_to_label_fixed = {}
+c = 1 # label starts from 1
+for name in sorted(structures):
+    try:
+        volume_fixed[c] = \
+        DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
+        # valid_names_f.append(name)
+        name_to_label_fixed[name] = c
+        c += 1
+    except:
+        sys.stderr.write('Score volume for %s does not exist.\n' % name)
+
+label_to_name_fixed = {l: n for n, l in name_to_label_fixed.iteritems()}
+print volume_fixed.values()[0].shape
+print volume_fixed.values()[0].dtype
+
+vol_fixed_ydim, vol_fixed_xdim, vol_fixed_zdim = volume_fixed.values()[0].shape
+
+######################################
 
 labelIndexMap_m2f = {}
 for label_m, name_m in label_to_name_moving.iteritems():
-    labelIndexMap_m2f[label_m] = name_to_label_fixed[convert_to_original_name(name_m)]
+    name_m_orig = convert_to_original_name(name_m)
+    if name_m_orig in name_to_label_fixed:
+        labelIndexMap_m2f[label_m] = name_to_label_fixed[name_m_orig]
 
-label_weights_m = {}
-for label_m, name_m in label_to_name_moving.iteritems():
-    if 'surround' in name_m:
-        if local_transform_scheme == 3 or local_transform_scheme == 4:
-            label_weights_m[label_m] = -1
-        else:
-            label_weights_m[label_m] = 0
-    else:
-        label_weights_m[label_m] = 1
-
-#####################################################
+#######################################
 
 for name_s in structures_sided:
 
     print name_s
 
+    label_m = name_to_label_moving[name_s]
+
+    name_u = convert_to_unsided_name(name_s)
+    if name_u not in name_to_label_fixed:
+        sys.stderr.write('Ignore %s.\n' % name_s)
+        continue
+    else:
+        label_f = name_to_label_fixed[name_u]
+
     trial_num = 3
 
     for trial_idx in range(trial_num):
 
-        if local_transform_scheme == 3 or local_transform_scheme == 4:
+        if local_transform_scheme in [3,4]:
+            # consider two structures: x and x_surround
 
-            aligner = Aligner4(volume_fixed, {name_to_label_moving[name_s]: volume_moving[name_to_label_moving[name_s]],
-                                             name_to_label_moving[name_s+'_surround']: volume_moving[name_to_label_moving[name_s+'_surround']]}, \
-                            labelIndexMap_m2f={name_to_label_moving[name_s]: name_to_label_fixed[convert_name_to_unsided(name_s)],
-                                              name_to_label_moving[name_s+'_surround']: name_to_label_fixed[convert_to_original_name(name_s+'_surround')]})
+            name_s_surr = convert_to_surround_name(name_s)
+            label_surr_m = name_to_label_moving[name_s_surr]
+
+            aligner = Aligner4(volume_fixed, \
+                            {label_m: volume_moving[label_m],
+                            label_surr_m: volume_moving[label_surr_m]}, \
+                            labelIndexMap_m2f={label_m: label_f, label_surr_m: label_f})
+            label_weights_m = {label_m: 1, label_surr_m: -1}
+
         else:
-            aligner = Aligner4(volume_fixed, {name_to_label_moving[name_s]:
-                                              volume_moving[name_to_label_moving[name_s]]}, \
-                               labelIndexMap_m2f={name_to_label_moving[name_s]:
-                                                  name_to_label_fixed[convert_name_to_unsided(name_s)]})
+            # consider one structure: x
 
+            aligner = Aligner4(volume_fixed, {label_m: volume_moving[label_m]}, \
+                               labelIndexMap_m2f={label_m: label_f})
+            label_weights_m = {label_m: 1}
 
         # aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
         aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m',
-                             indices_m=[name_to_label_moving[name_s]])
+                             indices_m=[label_m])
 
-        gradient_filepath_map_f = {ind_f: VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(label)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
-                               {'stack': stack_fixed, 'label': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme}
+        gradient_filepath_map_f = {ind_f: VOLUME_ROOTDIR + '/%(stack)s/score_volume_gradients/%(stack)s_down32_scoreVolume_%(name)s_trainSampleScheme_%(scheme)d_%%(suffix)s.bp' % \
+                               {'stack': stack_fixed, 'name': label_to_name_fixed[ind_f], 'scheme':train_sample_scheme}
                                for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
         aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
@@ -200,124 +224,3 @@ for name_s in structures_sided:
         plt.plot(scores);
         plt.savefig(score_plot_fp, bbox_inches='tight')
         plt.close(fig)
-
-#####################################################
-
-
-# from registration_utilities import transform_volume, transform_points, find_contour_points
-#
-# volumes_annotation = {'MD594': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD594', type_m='annotation',
-#                                                 stack_f=stack_fixed, type_f='score',
-#                                                 downscale=32, train_sample_scheme_f=1)),
-#
-#                       'MD589': bp.unpack_ndarray_file(DataManager.get_transformed_volume_filepath(stack_m='MD589', type_m='annotation',
-#                                                 stack_f=stack_fixed, type_f='score',
-#                                                 downscale=32, train_sample_scheme_f=1))}
-#
-# name_to_label_annotation = DataManager.load_annotation_volume_nameToLabel('MD589', downscale=32)
-# label_to_name_annotation = {l: n for n, l in name_to_label_annotation.iteritems()}
-#
-# stack_colors = {'MD589': (255,0,0), 'MD594': (0,255,0)}
-#
-# first_sec, last_sec = metadata_cache['section_limits'][stack_fixed]
-#
-# xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = np.loadtxt('/home/yuncong/csd395/CSHL_volumes2/%(stack_fixed)s/score_volumes/%(stack_fixed)s_down32_scoreVolume_7N_bbox.txt' %\
-#           dict(stack_fixed=stack_fixed)).astype(np.int)
-# print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
-#
-# downsample_factor = 32
-# xy_pixel_distance_downsampled = xy_pixel_distance_lossless * downsample_factor
-# voxel_z_size = section_thickness / xy_pixel_distance_downsampled
-#
-#
-# viz_dir = create_if_not_exists(DataManager.get_local_alignment_viz_dir(stack_moving=stack_moving,
-#                                                         stack_fixed=stack_fixed,
-#                                                         moving_volume_type='score',
-#                                                         fixed_volume_type='score',
-#                                                         train_sample_scheme=train_sample_scheme,
-#                                                         global_transform_scheme=global_transform_scheme,
-#                                                         local_transform_scheme=local_transform_scheme))
-#
-# # Transforming each volume (only relevant structure is activated) according to computed local transforms
-#
-# volume_m_aligned_to_f_allNames = {'MD589': {}, 'MD594': {}}
-#
-# for name_s in structures_sided:
-#
-#     print name_s
-#
-#     try:
-#         tx_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
-#         DataManager.load_local_alignment_parameters(stack_moving=stack_moving,
-#                                                     moving_volume_type='score',
-#                                                     stack_fixed=stack_fixed,
-#                                                     fixed_volume_type='score',
-#                                                     train_sample_scheme=train_sample_scheme,
-#                                                     global_transform_scheme=global_transform_scheme,
-#                                                     local_transform_scheme=local_transform_scheme,
-#                                                    label=name_s,
-#                                                    trial_idx=1)
-#
-#     except Exception as e:
-#
-#         sys.stderr.write(e.message + '\n')
-#
-#         tx_params = (1,0,0,0,0,1,0,0,0,0,1,0)
-#         centroid_m = (0,0,0)
-#         centroid_f = (0,0,0)
-#         xdim_f, ydim_f, zdim_f = (vol_fixed_xdim, vol_fixed_ydim, vol_fixed_zdim)
-#
-#
-#     for stack, volume_annotation in volumes_annotation.iteritems():
-#         volume_m_aligned_to_f_allNames[stack][name_s] = \
-#         transform_volume(vol=volume_annotation==name_to_label_annotation[name_s],
-#                            global_params=tx_params,
-#                            centroid_m=centroid_m,
-#                            centroid_f=centroid_f,
-#                           xdim_f=xdim_f,
-#                           ydim_f=ydim_f,
-#                           zdim_f=zdim_f)
-#
-# for sec in range(first_sec, last_sec+1):
-# # for sec in range(281, 282):
-#
-#     if metadata_cache['sections_to_filenames'][stack_fixed][sec] in ['Placeholder', 'Rescan', 'Nonexisting']:
-#             continue
-#
-#     img_fn = DataManager.get_image_filepath(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
-#     img = imread(img_fn)
-#
-# #         img_fn = DataManager.get_scoremap_viz_filepath(stack=stack_fixed, section=sec, label='7N', train_sample_scheme=train_sample_scheme)
-# #         img = imread(img_fn)[::4, ::4]
-#
-#     viz = img.copy()
-#
-#     z = voxel_z_size * (sec - 1) - zmin_vol_f
-#
-#     ##############################################
-#
-#     for stack, x in volume_m_aligned_to_f_allNames.iteritems():
-#         for name_s, volume_m_aligned_to_f in x.iteritems():
-#
-#             contours_m_alignedTo_f_on_volume = find_contour_points(volume_m_aligned_to_f[..., int(z)])
-#             contours_m_alignedTo_f_on_cropped = {i: [cnt + (xmin_vol_f, ymin_vol_f) for cnt in cnts]
-#                                                  for i, cnts in contours_m_alignedTo_f_on_volume.iteritems()}
-#
-#         #     # Draw fixed volume annotation contours
-#         #     for ind_f, cnts_f in contours_f_on_cropped.iteritems():
-#         #         for cnt_f in cnts_f:
-#         #             cv2.polylines(viz, [cnt_f.astype(np.int)], True, (0,255,0), 2)
-#
-#             # Draw moving volume annotation contours
-#             for ind_m, cnts_m in contours_m_alignedTo_f_on_cropped.iteritems():
-#                 for cnt_m in cnts_m:
-#                     cv2.polylines(viz, [cnt_m.astype(np.int)], True, stack_colors[stack], 2)
-#
-#                     # put label texts
-#                     label_pos = cnt_m.mean(axis=0).astype(np.int)
-#                     cv2.putText(viz, convert_name_to_unsided(name_s), tuple(label_pos),
-#                                 cv2.FONT_HERSHEY_DUPLEX, .5, ((0,0,0)), 1)
-#
-#     viz_fn = os.path.join(viz_dir, '%(stack_moving)s_over_%(stack_fixed)s_%(sec)04d.jpg' % \
-#           {'stack_moving': stack_moving, 'stack_fixed': stack_fixed, 'sec': sec})
-#     imsave(viz_fn, viz)

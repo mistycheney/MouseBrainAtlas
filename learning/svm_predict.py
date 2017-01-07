@@ -5,8 +5,8 @@ import argparse
 import sys
 import time
 from joblib import Parallel, delayed
-sys.path.append('/shared/MouseBrainAtlas/utilities')
-from metadata import *
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
 
@@ -20,6 +20,7 @@ from sklearn.externals import joblib
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
 last_sec = int(sys.argv[3])
+train_sample_scheme = int(sys.argv[4])
 
 ####################################################
 
@@ -29,12 +30,27 @@ singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 structures = paired_structures + singular_structures
 
 # Load pre-computed svm classifiers
-train_sample_scheme = 1
-svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
+# train_sample_scheme = 1
+# svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
+
+# svc_allClasses = {}
+# for label in structures:
+#     svc_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, train_sample_scheme=train_sample_scheme))
 
 svc_allClasses = {}
 for label in structures:
-    svc_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, suffix=svm_suffix))
+    try:
+        if stack in ['MD635']:
+            # Neurotrace blue
+            svc_allClasses[label] = joblib.load(DataManager.get_svm_neurotraceBlue_filepath(label=label, train_sample_scheme=train_sample_scheme))
+        else:
+            # regular nissl
+            svc_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, train_sample_scheme=train_sample_scheme))
+    except Exception as e:
+        sys.stderr.write('%s\n' % e)
+        sys.stderr.write('Detector for %s is not trained.\n' % label)
+
+structures = svc_allClasses.keys()
 
 filenames_to_sections, sections_to_filenames = DataManager.load_sorted_filenames(stack)
 # first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
@@ -58,8 +74,8 @@ def svm_predict(stack, sec):
     for label in structures:
         svc = svc_allClasses[label]
         probs = svc.predict_proba(features)[:, svc.classes_.tolist().index(1.)]
-        output_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, label=label, suffix=svm_suffix)
-        output_dir = scoremaps_rootdir
+        output_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, label=label, train_sample_scheme=train_sample_scheme)
+        create_if_not_exists(os.path.dirname(output_fn))
         # output_fn = output_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_trainSampleScheme_%(scheme)d.hdf' % \
         #           {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme}
         

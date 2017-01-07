@@ -20,6 +20,7 @@ from skimage.transform import resize
 stack = sys.argv[1]
 first_sec = int(sys.argv[2])
 last_sec = int(sys.argv[3])
+train_sample_scheme = int(sys.argv[4])
 
 ##################################################
 
@@ -37,7 +38,7 @@ sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
 # first_sec, last_sec = metadata_cache['section_limits'][stack]
 anchor_fn = metadata_cache['anchor_fn'][stack]
 
-train_sample_scheme = 1
+# train_sample_scheme = 1
 
 for sec in range(first_sec, last_sec+1):
 
@@ -90,9 +91,21 @@ for sec in range(first_sec, last_sec+1):
                                                                     interpolation_xmax/shrink_factor),
                                                               indexing='ij')
 
-    probs_allClasses = {label: DataManager.load_sparse_scores(stack, fn=fn, anchor_fn=anchor_fn,
-                                          label=label, train_sample_scheme=train_sample_scheme)
-                            for label in structures}
+    # probs_allClasses = {label: DataManager.load_sparse_scores(stack, fn=fn, anchor_fn=anchor_fn,
+    #                                       label=label, train_sample_scheme=train_sample_scheme)
+    #                         for label in structures}
+
+    probs_allClasses = {}
+    for label in structures:
+        try:
+            probs_allClasses[label] = DataManager.load_sparse_scores(stack, fn=fn, anchor_fn=anchor_fn,
+                                           label=label, train_sample_scheme=train_sample_scheme)
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+            sys.stderr.write('Patch predictions for %s do not exist.\n' % label)
+
+    structures = probs_allClasses.keys()
+
 
     sys.stderr.write('preprocess: %.2f seconds\n' % (time.time() - t))
 

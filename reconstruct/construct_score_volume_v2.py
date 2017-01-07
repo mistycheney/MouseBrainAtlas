@@ -19,13 +19,14 @@ from conversion import images_to_volume
 stack = sys.argv[1]
 label = sys.argv[2]
 
-train_sample_scheme = 1
+train_sample_scheme = int(sys.argv[3])
+# train_sample_scheme = 1
 # svm_suffix = 'trainSampleScheme_%d'%train_sample_scheme
 
-paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
-                    'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
-singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
-structures = paired_structures + singular_structures
+# paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
+#                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
+# singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
+# structures = paired_structures + singular_structures
 
 downscale_factor = 32
 voxel_z_size = section_thickness/(xy_pixel_distance_lossless * downscale_factor)
@@ -50,6 +51,10 @@ first_sec, last_sec = metadata_cache['section_limits'][stack]
 
 t = time.time()
 scoremaps = load_scoremaps_parallel(stack=stack, sections=range(first_sec, last_sec+1), label=label, downscale_factor=downscale_factor)
+if len(scoremaps) < 2:
+    sys.stderr.write('Number of valid scoremaps for %s is less than 2.\n' % label)
+    sys.exit(1)
+
 sys.stderr.write('Load scoremaps: %.2f seconds\n' % (time.time() - t))
 
 score_volume, score_volume_bbox = images_to_volume(images=scoremaps, voxel_size=(1, 1, voxel_z_size), first_sec=first_sec-1, last_sec=last_sec-1)

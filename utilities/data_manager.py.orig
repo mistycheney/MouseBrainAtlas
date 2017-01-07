@@ -1,11 +1,18 @@
+import sys, os
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
-import boto
+import subprocess
+import os
+import boto3
 from metadata import *
-from boto.s3.key import Key
-print(DATA_DIR)
+<<<<<<< HEAD
 
 sys.path.append(REPO_DIR + 'utilities')
+=======
+>>>>>>> superorigin/aws-cfncluster
 from vis3d_utilities import *
+
+from pandas import read_hdf
 
 def volume_type_to_str(t):
     if t == 'score':
@@ -25,11 +32,38 @@ def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, loca
 
     return '_'.join(suffix)
 
+def save_file_to_s3(local_path, s3_path):
+    # upload to s3
+    return
+
+def save_to_s3(fpkw, fppos):
+    """
+    Decorator. Must provide both `fpkw` and `fppos` because we don't know if
+    filepath will be supplied to the decorated function as positional argument
+    or keyword argument.
+
+    fpkw: argument keyword for file path in the decorated function
+    fppos: argument position for file path in the decorated function
+
+    Reference: http://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html
+    """
+    def wrapper(func):
+        def wrapped_f(*args, **kwargs):
+            if fpkw in kwargs:
+                fp = kwargs[fpkw]
+            elif len(args) > fppos:
+                fp = args[fppos]
+            res = func(*args, **kwargs)
+            save_file_to_s3(fp, DataManager.map_local_filename_to_s3(fp))
+            return res
+        return wrapped_f
+    return wrapper
+
 class DataManager(object):
 
     @staticmethod
     def map_local_filename_to_s3(local_fp):
-        s3_path = local_fp.replace(os.path.dirname(data_dir), s3_home)
+        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + s3_home)
         return s3_path
 
     @staticmethod
@@ -39,6 +73,10 @@ class DataManager(object):
             sys.stderr.write('File does not exist: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
+<<<<<<< HEAD
+=======
+            on_aws = False # should be an env variable
+>>>>>>> superorigin/aws-cfncluster
             if on_aws:
                 DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
@@ -51,7 +89,6 @@ class DataManager(object):
         elif filetype == 'bbox':
             return np.loadtxt(filepath).astype(np.int)
         elif filetype == 'annotation_hdf':
-            from pandas import read_hdf
             contour_df = read_hdf(filepath, 'contours')
             return contour_df
         elif filetype == 'pickle':
@@ -114,45 +151,37 @@ class DataManager(object):
 
     @staticmethod
     def download_from_s3(local_path, s3_path = None):
-        s3_connection = boto.connect_s3()
+    #downloading 500 files of 1Mb each
+    #boto3 - 36 seconds
+    #aws cli - 5 seconds
+        s3_connection = boto3.resource('s3')
         if s3_path == None:
-            s3_path = local_path.replace(data_dir, 's3://ucsd-mousebrainatlas-home')
+            s3_path = DataManager.map_local_filename_to_s3(local_path)
         bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
-        bucket = s3_connection.get_bucket(bucket)
+        #file_to_download = file_to_download.split("/", 1)[1]
+
+        bucket = s3_connection.Bucket(bucket)
         dir_name = os.path.dirname(local_path)
-        key_file_to_download = Key(bucket, file_to_download)
-        headers = {}
-        mode = 'wb'
-        updating = False
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-<<<<<<< HEAD
-        open(local_path, 'w+').close()
-        key_file_to_download.get_contents_to_filename(local_path)
-	return local_path
-        
-=======
-        if os.path.isfile(path_to_save):
-            mode = 'r+b'
-            updating = True
-            modified_since = os.path.getmtime(path_to_save)
-            timestamp = datetime.datetime.utcfromtimestamp(modified_since)
-            headers['If-Modified-Since'] = timestamp.strftime("%a, %d %b %Y %H:%M:%S GMT")
-            try:
-                with open(path_to_save, mode) as f:
-                    key_file_to_download.get_contents_to_file(f, headers)
-                    f.truncate()
-            except boto.exception.S3ResponseError as e:
-                if not updating:
-                    os.remove(filename)
+        if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+	    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
-            open(path_to_save, 'w+').close()
-            with open(path_to_save, mode) as f:
-                key_file_to_download.get_contents_to_file(f, headers)
-                f.truncate()
-        return path_to_save
+            bucket.download_file(file_to_download, local_path)
+	return local_path
 
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
+    @staticmethod
+    def upload_to_s3(local_path, s3_path = None, output = False):
+    #uploading 500 files of 1Mb each
+    #boto3 - 1 minute 24  seconds
+    #aws cli - 7 seconds
+        if s3_path == None:
+            s3_path = map_local_filename_to_s3(local_path)
+        if output == True:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
+        else:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        
     @staticmethod
     def load_anchor_filename(stack):
         fn = DataManager.get_anchor_filename_filename(stack)
@@ -313,6 +342,7 @@ class DataManager(object):
 
         return DataManager.load_data(params_fp, 'transform_params')
 
+    # @save_to_s3(fpkw='fp', fppos=0)
     @staticmethod
     def save_alignment_parameters(fp, params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f):
 
@@ -366,22 +396,6 @@ class DataManager(object):
             return partial_fn + '_parameters.txt'
         else:
             return partial_fn + '_parameters_trial_%d.txt' % trial_idx
-<<<<<<< HEAD
-=======
-
-    @staticmethod
-    def load_transform_parameters(params_fp):
-        with open(params_fp, 'r') as f:
-            lines = f.readlines()
-
-            global_params = one_liner_to_arr(lines[0], float)
-            centroid_m = one_liner_to_arr(lines[1], float)
-            xdim_m, ydim_m, zdim_m  = one_liner_to_arr(lines[2], int)
-            centroid_f = one_liner_to_arr(lines[3], float)
-            xdim_f, ydim_f, zdim_f  = one_liner_to_arr(lines[4], int)
-
-        return global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
 
     @staticmethod
     def load_global_alignment_parameters(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None, trial_idx=None):
@@ -406,9 +420,7 @@ class DataManager(object):
             return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
 
     @staticmethod
-    def get_global_alignment_viz_dir(stack_fixed, stack_moving,
-    fixed_volume_type='score', moving_volume_type='score',
-    train_sample_scheme=None, global_transform_scheme=None):
+    def get_global_alignment_viz_dir(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None):
 
         # clf_suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
         # gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)
@@ -438,7 +450,7 @@ class DataManager(object):
                                 'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
-                                ))
+                                )
 
     @staticmethod
     def get_hessian_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type, label,
@@ -451,11 +463,17 @@ class DataManager(object):
                                 'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
-                                ))
+                                )
 
     @staticmethod
-    def get_svm_filepath(label, suffix=''):
-        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % {'label': label, 'suffix':suffix}
+    def get_svm_filepath(label, train_sample_scheme=None):
+        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
+
+    @staticmethod
+    def get_svm_neurotraceBlue_filepath(label, train_sample_scheme=None):
+        return SVM_NTBLUE_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
     @staticmethod
     def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
@@ -472,7 +490,7 @@ class DataManager(object):
         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None, suffix = None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
@@ -482,7 +500,7 @@ class DataManager(object):
         suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''})
+                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
 
     @staticmethod
     def load_annotation_volume(stack, downscale):
@@ -493,12 +511,7 @@ class DataManager(object):
     def get_annotation_volume_filepath(stack, downscale):
         vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
                 {'stack':stack, 'ds':downscale}
-<<<<<<< HEAD
         return vol_fn
-=======
-        print(vol_fn)
-        return DataManager.get_file_from_s3(vol_fn)
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
 
 
     @staticmethod
@@ -705,12 +718,12 @@ class DataManager(object):
                                             label,
                                             transitive)
         return os.path.join(VOLUME_ROOTDIR, basename + '.bp')
-<<<<<<< HEAD
-=======
 
-
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
-
+    @staticmethod
+    def save_transformed_volume(vol, *args, **kwargs):
+        volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(*args, **kwargs)
+        create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
+        bp.pack_ndarray_file(vol, volume_m_alignedTo_f_fn)
 
     @staticmethod
     def get_score_volume_filepath(stack, label, downscale, train_sample_scheme=None):
@@ -823,6 +836,8 @@ class DataManager(object):
         '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' \
             % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
 
+        #print("BP ", scoremap_bp_filepath)
+        #print("BBOX ", scoremap_bbox_filepath)
         if return_bbox_fp:
             return scoremap_bp_filepath, scoremap_bbox_filepath
         else:
@@ -866,6 +881,13 @@ class DataManager(object):
 
     @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
+        """
+        resol: can be either lossless or thumbnail
+        version:
+        - compressed: for regular nissl, RGB JPEG; for neurotrace, blue channel as grey JPEG
+        - saturation: for regular nissl, saturation as gray, tif; for NT, blue channel as grey, tif
+        - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
+        """
 
         if section is not None:
             _, section_to_filename = DataManager.load_sorted_filenames(stack)
@@ -876,26 +898,49 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
+        image_path = ""
         if resol == 'lossless' and version == 'compressed':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.jpg')
+            if stack in ['MD635']:
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
+            else:
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.tif')
+            if stack in ['MD635']: # fluoerescent.
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn}])
+                image_path = os.path.join(image_dir, image_name + '.tif')
+            else: # Nissl
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+                image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
+                # image_path = os.path.join(image_dir, image_name + '.tif')
+                image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'cropped':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
+<<<<<<< HEAD
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+=======
+            # if stack in ['MD635']:
+            #     image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            #     image_path = os.path.join(image_dir, image_name + '.tif')
+            # else:
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+>>>>>>> superorigin/aws-cfncluster
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'aligned_tif':
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
+        else:
+            sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
 
         return image_path
 
@@ -1020,9 +1065,9 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fn = DataManager.get_image_filepath(stack=stack, version='rgb-jpg', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
+            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='compressed', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
             if not os.path.exists(fn):
-                fn = DataManager.get_image_filepath(stack=stack, version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
+                fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
                 if not os.path.exists(fn):
                     continue
             image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
@@ -1086,7 +1131,6 @@ class DataManager(object):
         # else:
         #     return sec_floor, sec_ceil
 
-<<<<<<< HEAD
 #     def __init__(self, data_dir=os.environ['DATA_DIR'],
 #                  repo_dir=os.environ['REPO_DIR'],
 #                  labeling_dir=os.environ['LABELING_DIR'],
@@ -1115,117 +1159,6 @@ class DataManager(object):
 #
 #         # self.root_results_dir = result_dir
 #
-=======
-    def __init__(self, data_dir=DATA_DIR,
-                 repo_dir=REPO_DIR,
-                 labeling_dir=LABELING_DIR,
-                #  gabor_params_id=None,
-                #  segm_params_id='tSLIC200',
-                #  vq_params_id=None,
-                 stack=None,
-                 resol='lossless',
-                 section=None,
-                 load_mask=False):
-
-        self.data_dir = data_dir
-        self.repo_dir = repo_dir
-        self.params_dir = os.path.join(repo_dir, 'params')
-
-        self.annotation_rootdir = labeling_dir
-
-        # self.labelnames_path = os.path.join(labeling_dir, 'labelnames.txt')
-
-        # if os.path.isfile(self.labelnames_path):
-        #     with open(self.labelnames_path, 'r') as f:
-        #         self.labelnames = [n.strip() for n in f.readlines()]
-        #         self.labelnames = [n for n in self.labelnames if len(n) > 0]
-        # else:
-        #     self.labelnames = []
-
-        # self.root_results_dir = result_dir
-
-        self.slice_ind = None
-        self.image_name = None
-
-        # if gabor_params_id is None:
-        #     self.set_gabor_params('blueNisslWide')
-        # else:
-        #     self.set_gabor_params(gabor_params_id)
-        #
-        # if segm_params_id is None:
-        #     self.set_segmentation_params('blueNisslRegular')
-        # else:
-        #     self.set_segmentation_params(segm_params_id)
-        #
-        # if vq_params_id is None:
-        #     self.set_vq_params('blueNissl')
-        # else:
-        #     self.set_vq_params(vq_params_id)
-
-        if stack is not None:
-            self.set_stack(stack)
-
-        if resol is not None:
-            self.set_resol(resol)
-
-        if self.resol == 'lossless':
-            if hasattr(self, 'stack') and self.stack is not None:
-                self.image_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped')
-                self.image_rgb_jpg_dir = os.path.join(self.data_dir, self.stack+'_'+self.resol+'_aligned_cropped_downscaled')
-
-        if section is not None:
-            self.set_slice(section)
-        else:
-            try:
-                random_image_fn = os.listdir(self.image_dir)[0]
-                self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(self.image_dir, random_image_fn), shell=True).split('x'))
-            except:
-                d = os.path.join(self.data_dir, 'MD589_lossless_aligned_cropped_downscaled')
-                if os.path.exists(d):
-                    random_image_fn = os.listdir(d)[0]
-                    self.image_width, self.image_height = map(int, check_output("identify -format %%Wx%%H %s" % os.path.join(d, random_image_fn), shell=True).split('x'))
-
-        if load_mask:
-            self.thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_cropped_mask/%(stack)s_%(slice_str)s_thumbnail_aligned_cropped_mask.png' % {'stack': self.stack, 'slice_str': self.slice_str})
-            self.mask = rescale(self.thumbmail_mask.astype(np.bool), 32).astype(np.bool)
-            # self.mask[:500, :] = False
-            # self.mask[:, :500] = False
-            # self.mask[-500:, :] = False
-            # self.mask[:, -500:] = False
-
-            xs_valid = np.any(self.mask, axis=0)
-            ys_valid = np.any(self.mask, axis=1)
-            self.xmin = np.where(xs_valid)[0][0]
-            self.xmax = np.where(xs_valid)[0][-1]
-            self.ymin = np.where(ys_valid)[0][0]
-            self.ymax = np.where(ys_valid)[0][-1]
-
-            self.h = self.ymax-self.ymin+1
-            self.w = self.xmax-self.xmin+1
-
-
-    def _load_thumbnail_mask(self):
-        thumbmail_mask = imread(self.data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(slice_str)s_thumbnail_aligned_mask_cropped.png' % {'stack': self.stack,
-            'slice_str': self.slice_str}).astype(np.bool)
-        return thumbmail_mask
-
-    def add_labelnames(self, labelnames, filename):
-        existing_labelnames = {}
-        with open(filename, 'r') as f:
-            for ln in f.readlines():
-                abbr, fullname = ln.split('\t')
-                existing_labelnames[abbr] = fullname.strip()
-
-        with open(filename, 'a') as f:
-            for abbr, fullname in labelnames.iteritems():
-                if abbr not in existing_labelnames:
-                    f.write(abbr+'\t'+fullname+'\n')
-
-    def set_stack(self, stack):
-        self.stack = stack
-        self._get_image_dimension()
-#         self.stack_path = os.path.join(self.data_dir, self.stack)
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
 #         self.slice_ind = None
 #         self.image_name = None
 #
@@ -1480,7 +1413,7 @@ class DataManager(object):
 
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
-# metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+#metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
 metadata_cache['image_shape'] =\
 {'MD585': (16384, 12000),
  'MD589': (15520, 11936),
@@ -1493,11 +1426,13 @@ metadata_cache['image_shape'] =\
  'MD598': (18400, 12608),
  'MD599': (18784, 12256),
  'MD602': (22336, 12288),
- 'MD603': (20928, 13472)}
 <<<<<<< HEAD
+ 'MD603': (20928, 13472)}
+all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 =======
-all_stacks = ['MD602', 'MD603']
->>>>>>> 284b195e608cfc2f6fe703ca0af3bb6d65fd6be4
+ 'MD603': (20928, 13472),
+ 'MD635': (20960, 14240)}
+>>>>>>> superorigin/aws-cfncluster
 metadata_cache['anchor_fn'] = {stack: DataManager.load_anchor_filename(stack) for stack in all_stacks}
 metadata_cache['sections_to_filenames'] = {stack: DataManager.load_sorted_filenames(stack)[1] for stack in all_stacks}
 metadata_cache['section_limits'] = {stack: DataManager.load_cropbox(stack)[4:] for stack in all_stacks}

@@ -85,6 +85,8 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
 
+    def set_contour_id(self, contour_id):
+        self.contour_id = contour_id
 
     def set_edit_history(self, edit_history):
         self.edit_history = edit_history

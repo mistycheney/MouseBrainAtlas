@@ -17,9 +17,9 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir", default=None)
-parser.add_argument("filenames", type=str, help="filenames, json string")
-parser.add_argument("output_compressed_dir", type=str, help="output compressed dir", default=None)
-parser.add_argument("output_saturation_dir", type=str, help="output saturation dir", default=None)
+parser.add_argument("filenames", type=str, help="filenames (with extensions), json string")
+parser.add_argument("--output_compressed_dir", type=str, help="output compressed dir", default=None)
+parser.add_argument("--output_saturation_dir", type=str, help="output saturation dir", default=None)
 args = parser.parse_args()
 
 stack = args.stack_name
@@ -30,8 +30,14 @@ input_dir = args.input_dir
 output_compressed_dir = args.output_compressed_dir
 output_saturation_dir = args.output_saturation_dir
 
-os.system('mkdir ' + output_compressed_dir)
-os.system('mkdir ' + output_saturation_dir)
+which = []
+if output_compressed_dir is not None:
+    which.append('compressed')
+    os.system('mkdir ' + output_compressed_dir)
+
+if output_saturation_dir is not None:
+    which.append('saturation')
+    os.system('mkdir ' + output_saturation_dir)
 
 from skimage.io import imread
 from skimage.util import img_as_ubyte
@@ -71,25 +77,26 @@ def convert_to_saturation(fn, out_fn, rescale=True):
 #     sys.stderr.write('Compute saturation: %.2f seconds\n' % (time.time() - t1)) # skimage 6.5s; opencv 5s
 
 
-def generate_versions(fn, which=['compressed', 'saturation']):
+def generate_versions(fn, which):
 
     input_fn=os.path.join(input_dir, fn)
-
     basename = os.path.splitext(os.path.basename(fn))[0]
-    output_compressed_fn = os.path.join(output_compressed_dir, basename + '_compressed.jpg')
-    output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.jpg')
 
     if 'compressed' in which:
-        if os.path.exists(output_saturation_fn):
-            sys.stderr.write('File exists: %s.\n' % output_compressed_fn)
-        else:
-            os.system("convert %(input_fn)s -format jpg %(output_compressed_fn)s" % \
-                dict(input_fn=input_fn, output_compressed_fn=output_compressed_fn))
+        output_compressed_fn = os.path.join(output_compressed_dir, basename + '_compressed.jpg')
+        if 'compressed' in which:
+            if os.path.exists(output_compressed_fn):
+                sys.stderr.write('File exists: %s.\n' % output_compressed_fn)
+            else:
+                os.system("convert %(input_fn)s -format jpg %(output_compressed_fn)s" % \
+                    dict(input_fn=input_fn, output_compressed_fn=output_compressed_fn))
 
     if 'saturation' in which:
+        # output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.jpg') # why jpg?
+        output_saturation_fn = os.path.join(output_saturation_dir, basename + '_saturation.tif')
         if os.path.exists(output_saturation_fn):
             sys.stderr.write('File exists: %s.\n' % output_saturation_fn)
         else:
             convert_to_saturation(input_fn, output_saturation_fn, rescale=True)
 
-Parallel(n_jobs=4)(delayed(generate_versions)(fn) for fn in filenames)
+Parallel(n_jobs=4)(delayed(generate_versions)(fn, which) for fn in filenames)

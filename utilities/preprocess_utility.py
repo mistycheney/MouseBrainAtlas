@@ -115,7 +115,7 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
     temp_f.write(line + '\n')
     temp_f.close()
     os.chmod(temp_script, 0o777)
-    call('qsub -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
+    call('qsub -V -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """

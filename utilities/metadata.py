@@ -85,13 +85,14 @@ elif hostname.startswith('ip'):
     VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
     labelingViz_root = '/shared/data/CSHL_annotationsViz'
     scoremaps_rootdir = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
-    SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+    SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     annotationViz_rootdir = '/shared/data/CSHL_annotationsViz'
     annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_v2_rootdir = '/shared/data/CSHL_labelings_v3/'
     patch_training_features_rootdir = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/shared/data/CSHL_data_patches/'
     SVM_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    SVM_NTBLUE_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/shared/data/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     SCOREMAPS_ROOTDIR = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
@@ -199,8 +200,8 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
 
-all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603',
-'MD635']
+all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
+#'MD635']
 
 # section_number_lookup = { 'MD585': 440, 'MD589': 445,
 #                         'MD590': 419, 'MD591': 452, 'MD592': 454,

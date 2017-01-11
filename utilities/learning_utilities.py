@@ -82,11 +82,15 @@ def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_
     else:
         return M
 
-def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blues, figsize=(4,4), text=True, axis=None, **kwargs):
+def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blues, figsize=(4,4), text=True, axis=None,
+xlabel='Predicted label', ylabel='True label', **kwargs):
 
     if axis is None:
         fig = plt.figure(figsize=figsize)
         axis = fig.add_subplot(1,1,1)
+        return_fig = True
+    else:
+        return_fig = False
 
     axis.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=1, **kwargs)
     axis.set_title(title)
@@ -96,8 +100,8 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
     axis.set_xticklabels(labels)
     axis.set_yticklabels(labels)
 
-    axis.set_ylabel('True label')
-    axis.set_xlabel('Predicted label')
+    axis.set_ylabel(ylabel)
+    axis.set_xlabel(xlabel)
 
     if cm.dtype.type is np.int_:
         fmt = '%d'
@@ -111,6 +115,9 @@ def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blue
                     axis.text(x,y, fmt % cm[y,x],
                              horizontalalignment='center',
                              verticalalignment='center');
+
+    if return_fig:
+        return fig
 
 # def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
 #     """
@@ -525,25 +532,29 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
 
         for label, poly in polygon_list:
 
-            surround = Polygon(poly).buffer(500, resolution=2)
+            ############# surrround = 500 #############
+            for margin in [100,200,300,400,500,600,700,800,900,1000]:
+            # margin = 500
+                surround = Polygon(poly).buffer(margin, resolution=2)
+                # 500 pixels (original resolution, ~ 250um) away from landmark contour
 
-            path = Path(list(surround.exterior.coords))
-            indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
-                                    path.contains_points(sample_locations_lr) &\
-                                    path.contains_points(sample_locations_ul) &\
-                                    path.contains_points(sample_locations_ur))[0]
+                path = Path(list(surround.exterior.coords))
+                indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
+                                        path.contains_points(sample_locations_lr) &\
+                                        path.contains_points(sample_locations_ul) &\
+                                        path.contains_points(sample_locations_ur))[0]
 
-            # surround classes do not include patches of any no-surround class
-            indices_allLandmarks[label+'_surround_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_noclass']), label+'_surround_noclass'))
-            # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
+                # surround classes do not include patches of any no-surround class
+                indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+                sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
+                # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
 
-            for l, inds in indices_inside.iteritems():
-                if l == label: continue
-                indices = np.intersect1d(indices_sur, inds)
-                if len(indices) > 0:
-                    indices_allLandmarks[label+'_surround_'+l] = indices
-                    sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+l))
+                for l, inds in indices_inside.iteritems():
+                    if l == label: continue
+                    indices = np.intersect1d(indices_sur, inds)
+                    if len(indices) > 0:
+                        indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
+                        sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
 
             # # all foreground patches except the particular label's inside patches
             indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
@@ -557,6 +568,9 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
         #     print len(inds), 'patches in', l+'_surround_noclass'
         indices_allLandmarks['bg'] = indices_bg
         sys.stderr.write('%d patches in %s\n' % (len(indices_bg), 'bg'))
+
+        indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
+        sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks['noclass']), 'noclass'))
 
     return indices_allLandmarks
 

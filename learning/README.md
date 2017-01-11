@@ -64,3 +64,10 @@ By default is `CSHL_scoremap_viz_Sat16ClassFinetuned_v2`.
 Under `<label>/<stack>/<fn>_alignedTo_<anchor_fn>_scoremapViz_<label>.jpg`.
 
 This step takes 500 seconds per stack.
+
+
+## Evaluation / Analysis ##
+
+The algorithm's goal is texture classification. The tasks are to separate textures inside a structure from textures outside the structure. Because we already have a strong location prior, we don't need strong texture score signal at places far from the structure's true location, so we take as negative examples only textures at the surrounding of the structure.
+
+If annotations are available, we can compute the true positive, true negative, false positive and false negative rates of classifying each structure. We plot ACC as a function of the margin of the surrounding where negative samples are collected.

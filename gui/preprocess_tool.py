@@ -318,8 +318,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.tb_fmt = 'tif'
             self.pad_bg_color = 'white'
 
-        self.stack_data_dir = '/home/yuncong/CSHL_data_processed/' + stack
-        self.stack_data_dir_gordon = '/home/yuncong/CSHL_data_processed/' + stack
+        self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
+        self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
 
         self.web_service = WebService()
 
@@ -329,7 +329,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.slide_gview.setScene(self.slide_gscene)
 
         # slide_indices = ['N11, N12, IHC28']
-        macros_dir = '/home/yuncong/CSHL_data/macros/%(stack)s/' % {'stack': self.stack}
+        macros_dir = os.path.join(RAW_DATA_DIR, 'macros/%(stack)s/' % {'stack': self.stack})
 
         slide_filenames = {}
         import re
@@ -392,7 +392,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         ###############
 
-        self.thumbnails_dir = '/home/yuncong/CSHL_data/%(stack)s/' % {'stack': self.stack}
+        self.thumbnails_dir = os.path.join(RAW_DATA_DIR, '%(stack)s/' % {'stack': self.stack})
         from glob import glob
 
         self.thumbnail_filenames = defaultdict(lambda: defaultdict(lambda: dict()))
@@ -797,7 +797,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.set_show_option('aligned')
 
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'r') as f:
+        with open(os.path.join(thumbnail_data_dir, '/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'r')) as f:
             ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section = map(int, f.readline().split())
             self.sorted_sections_gscene.set_box(ul_x, lr_x, ul_y, lr_y)
             print ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section
@@ -815,7 +815,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if ul_x == 100 and ul_y == 100 and lr_x == 200 and lr_y == 200:
             return
 
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'w') as f:
+        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'w')) as f:
             f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
 
     def crop(self):
@@ -924,7 +924,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         with open(custom_tf_fn, 'r') as f:
             t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
 
-        prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H /home/yuncong/CSHL_data/%(stack)s/%(prev_fn)s.%(tb_fmt)s" %dict(stack=self.stack, prev_fn=prev_section_fn, tb_fmt=self.tb_fmt),
+        prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H %(raw_data_dir)s/%(stack)s/%(prev_fn)s.%(tb_fmt)s" %dict(stack=self.stack, prev_fn=prev_section_fn, tb_fmt=self.tb_fmt, raw_data_dir=RAW_DATA_DIR),
                                             shell=True).split('x'))
 
         output_image_fn = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
@@ -932,7 +932,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         curr_fn=curr_section_fn,
                         prev_fn=prev_section_fn) )
 
-        execute_command("convert /home/yuncong/CSHL_data/%(stack)s/%(curr_fn)s.%(tb_fmt)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
+        execute_command("convert %(raw_data_dir)s/%(stack)s/%(curr_fn)s.%(tb_fmt)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
         dict(stack=self.stack,
             curr_fn=curr_section_fn,
             output_fn=output_image_fn,
@@ -946,7 +946,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             w=prev_img_w,
             h=prev_img_h,
             x='+0',
-            y='+0'))
+            y='+0',
+            raw_data_dir=RAW_DATA_DIR))
 
         execute_command(('ssh gcn-20-33.sdsc.edu mkdir %(stack_data_dir_gordon)s/%(stack)s_custom_transforms; '
                         'scp -r %(stack_data_dir)s/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_custom_transforms/') %\
@@ -1240,11 +1241,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         # Download sorted data folder symbolic links
         download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned.tar %(stack)s_thumbnail_sorted_aligned\" && '
-                'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
                 'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar . &&'
                 'rm -rf %(stack)s_thumbnail_sorted_aligned && tar -xf %(stack)s_thumbnail_sorted_aligned.tar &&'
                 'rm -r %(stack)s_thumbnail_sorted_aligned.tar') %\
-                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
+                thumbnail_data_dir=thumbnail_data_dir)
                 # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
 
         execute_command(download_sorted_thumbnails_symlinks_cmd)
@@ -1253,11 +1255,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         # Download sorted thumbnail cropped data folder symbolic links
         download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned_cropped.tar %(stack)s_thumbnail_sorted_aligned_cropped\" && '
-                'cd /home/yuncong/CSHL_data_processed && mkdir %(stack)s ; cd %(stack)s &&'
+                'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
                 'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar . &&'
                 'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped && tar -xf %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
                 'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar') %\
-                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon)
+                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
+                thumbnail_data_dir=thumbnail_data_dir)
                 # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
 
         execute_command(download_sorted_thumbnails_symlinks_cmd)
@@ -1268,7 +1271,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
                         'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
                         'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') %\
-                        dict(stack=self.stack, data_dir='/media/yuncong/YuncongPublic/CSHL_data_processed/', stack_data_dir_gordon=self.stack_data_dir_gordon))
+                        dict(stack=self.stack, data_dir=data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
 				# 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
 
         # Download unsorted lossless aligned cropped data MANUALLY !!
@@ -1293,7 +1296,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
             else:
-                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join('/home/yuncong/CSHL_data/', self.stack, img_fn + '.' + self.tb_fmt)) for img_fn in self.valid_section_filenames)
+                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join(RAW_DATA_DIR, self.stack, img_fn + '.' + self.tb_fmt)) for img_fn in self.valid_section_filenames)
                 largest_idx = np.argmax([h*w for h, w in shapes])
                 print 'largest section is ', self.valid_section_filenames[largest_idx]
                 self.set_anchor(self.valid_section_filenames[largest_idx])
@@ -1396,19 +1399,19 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     def download(self):
 
         execute_command("""mkdir %(local_data_dir)s/%(stack)s; scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.%(tb_fmt)s %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data',
-                        'local_data_dir': '/home/yuncong/CSHL_data',
+                        {'gordon_data_dir': GORDON_RAW_DATA_DIR,
+                        'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack,
                         'tb_fmt': self.tb_fmt})
 
         execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros_annotated/%(stack)s/ %(local_data_dir)s/macros_annotated/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data',
-                        'local_data_dir': '/home/yuncong/CSHL_data',
+                        {'gordon_data_dir': GORDON_RAW_DATA_DIR,
+                        'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack})
 
         execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros/%(stack)s/ %(local_data_dir)s/macros/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data',
-                        'local_data_dir': '/home/yuncong/CSHL_data',
+                        {'gordon_data_dir': GORDON_RAW_DATA_DIR,
+                        'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack})
 
     def generate_masks(self):
@@ -1423,8 +1426,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         #                 'stack': self.stack})
 
         execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        {'gordon_data_dir': gordon_thumbnail_data_dir,
+                        'local_data_dir': thumbnail_data_dir,
                         'stack': self.stack})
 
     def warp_crop_masks(self):
@@ -1440,14 +1443,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                                             x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
 
         execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        {'gordon_data_dir': gordon_thumbnail_data_dir,
+                        'local_data_dir': thumbnail_data_dir,
                         'anchor_fn': self.anchor_fn,
                         'stack': self.stack})
 
         execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-                        'local_data_dir': '/home/yuncong/CSHL_data_processed',
+                        {'gordon_data_dir': gordon_thumbnail_data_dir,
+                        'local_data_dir': thumbnail_data_dir,
                         'anchor_fn': self.anchor_fn,
                         'stack': self.stack})
 
@@ -1471,7 +1474,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def compose(self):
 
-        with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}, 'w') as f:
+        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}, 'w')) as f:
             f.write(self.anchor_fn)
 
         self.statusBar().showMessage('Conmpose consecutive alignments...')

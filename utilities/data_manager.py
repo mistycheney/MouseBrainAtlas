@@ -398,9 +398,11 @@ class DataManager(object):
         return viz_dir
 
     @staticmethod
-    def get_zscore_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type, label,
-                            train_sample_scheme, global_transform_scheme, local_transform_scheme):
-        return os.path.join(HESSIAN_ROOTDIR,
+    def get_zscore_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type,
+                            train_sample_scheme, global_transform_scheme, local_transform_scheme=None, label=None):
+        if label is not None:
+            # local
+            return os.path.join(HESSIAN_ROOTDIR,
                     '%(stack_moving)s_to_%(stack_fixed)s' % \
                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed},
                     '%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_%(label)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d_zscores.pkl' % \
@@ -409,11 +411,25 @@ class DataManager(object):
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
                                 )
+        else:
+            # global
+            assert local_transform_scheme is None
+            return os.path.join(HESSIAN_ROOTDIR,
+                    '%(stack_moving)s_to_%(stack_fixed)s' % \
+                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed},
+                    '%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_zscores.pkl' % \
+                                {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                                'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
+                                'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
+                                )
 
     @staticmethod
-    def get_hessian_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type, label,
-                            train_sample_scheme, global_transform_scheme, local_transform_scheme):
-        return os.path.join(HESSIAN_ROOTDIR,
+    def get_hessian_filepath(stack_moving, stack_fixed, moving_volume_type, fixed_volume_type,
+                            train_sample_scheme, global_transform_scheme, local_transform_scheme=None,
+                             label=None):
+        if label is not None:
+            # local
+            return os.path.join(HESSIAN_ROOTDIR,
                     '%(stack_moving)s_to_%(stack_fixed)s' % \
                     {'stack_moving': stack_moving, 'stack_fixed': stack_fixed},
                     '%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_%(label)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_localTxScheme_%(ltf_sheme)d_hessians.pkl' % \
@@ -421,6 +437,17 @@ class DataManager(object):
                                 'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme, 'ltf_sheme': local_transform_scheme,
                                 'label': label}
+                                )
+        else:
+            # global
+            assert local_transform_scheme is None
+            return os.path.join(HESSIAN_ROOTDIR,
+                    '%(stack_moving)s_to_%(stack_fixed)s' % \
+                    {'stack_moving': stack_moving, 'stack_fixed': stack_fixed},
+                    '%(stack_moving)s_down32_%(m_str)s_to_%(stack_fixed)s_down32_%(f_str)s_trainSampleScheme_%(scheme)d_globalTxScheme_%(gtf_sheme)d_hessians.pkl' % \
+                                {'stack_moving': stack_moving, 'stack_fixed': stack_fixed,
+                                'm_str': volume_type_to_str(moving_volume_type), 'f_str': volume_type_to_str(fixed_volume_type),
+                                'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
                                 )
 
     @staticmethod

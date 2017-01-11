@@ -1,1 +1,1 @@
-- [ ] Show reconstructed images
+- [x] Show reconstructed images

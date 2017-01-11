@@ -50,7 +50,11 @@ overall x 50 structures (sided) =
 *Generate overlay images*
 - x 250 sections =
 
-
 ## Compute Hessians
+1st version
+
+2nd version
 - `compute_global_alignment_hessian.ipynb`
 - `compute_individual_alignment_hessian.ipynb`
+3rd version
+- `hessian_v2`

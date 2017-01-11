@@ -42,9 +42,15 @@ if hostname.endswith('sdsc.edu'):
     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
+
     REPO_DIR = '/home/yuncong/Brain'
+
+    RAW_DATA_DIR = '/home/yuncong/CSHL_data'
+    GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
+    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes2/'
     # mesh_rootdir = '/home/yuncong/CSHL_meshes'
@@ -111,21 +117,33 @@ def convert_to_nonsurround_name(name):
     else:
         return name
 
-def convert_to_surround_name(name, suffix=None):
-    # if 'surround' in name:
-    #     return name
-    # else:
+def convert_to_surround_name(name, margin=None, suffix=None):
+
     elements = name.split('_')
-    if len(elements) > 1 and elements[1] == 'surround':
-        if suffix is not None:
-            return elements[0] + '_surround_' + suffix
+    if margin is None:
+        if len(elements) > 1 and elements[1] == 'surround':
+            if suffix is not None:
+                return elements[0] + '_surround_' + suffix
+            else:
+                return elements[0] + '_surround'
         else:
-            return elements[0] + '_surround'
+            if suffix is not None:
+                return name + '_surround_' + suffix
+            else:
+                return name + '_surround'
     else:
-        if suffix is not None:
-            return name + '_surround_' + suffix
+        if len(elements) > 1 and elements[1] == 'surround':
+            if suffix is not None:
+                return elements[0] + '_surround_' + str(margin) + '_' + suffix
+            else:
+                return elements[0] + '_surround_' + str(margin)
         else:
-            return name + '_surround'
+            if suffix is not None:
+                return name + '_surround_' + str(margin) + '_' + suffix
+            else:
+                return name + '_surround_' + str(margin)
+
+
 
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])

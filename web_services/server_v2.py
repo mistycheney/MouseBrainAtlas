@@ -52,7 +52,7 @@ def align():
     run_distributed4("%(script_dir)s/align_consecutive_v2.py %(stack)s %(input_dir)s %(elastix_output_dir)s \'%%(kwargs_str)s\'" % \
                     {'stack': stack,
                     'script_dir': script_dir,
-                    'input_dir': '/home/yuncong/CSHL_data/' + stack,
+                    'input_dir': os.path.join(RAW_DATA_DIR, stack),
                     'elastix_output_dir': os.path.join(data_dir, stack, stack+'_elastix_output')},
                     kwargs_list=[{'prev_fn': filenames[i-1], 'curr_fn': filenames[i]} for i in range(1, len(filenames))],
                     exclude_nodes=exclude_nodes,
@@ -119,7 +119,7 @@ def compose():
     run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 %(pad_bg_color)s' % \
                     {'script_dir': script_dir,
                     'stack': stack,
-                    'input_dir': '/home/yuncong/CSHL_data/' + stack,
+                    'input_dir': RAW_DATA_DIR + stack,
                     'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnail_unsorted_alignedTo_' + anchor_fn),
                     'pad_bg_color': pad_bg_color},
                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
@@ -227,7 +227,7 @@ def crop():
         print 'Regularize colorspace for neurotrace images...',
 
         input_dir = os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped')
-        output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn))
+        output_dir = create_if_not_exists(os.path.join(DATA_DIR, '%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
 
         run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
                         {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/neurotrace_blue_to_nissl.py',
@@ -281,144 +281,144 @@ def confirm_order():
 
     ###### Generate thumbnail sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_thumbnail_sorted_aligned &&'
             'mkdir %(stack)s_thumbnail_sorted_aligned') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn,  data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif '
                 '%(stack)s_thumbnail_sorted_aligned/%(stack)s_%(idx)04d_thumbnail_aligned.tif') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
 
     ###### Generate thumbnail cropped sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped &&'
             'mkdir %(stack)s_thumbnail_sorted_aligned_cropped') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s_cropped.tif' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s_cropped.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_thumbnail_alignedTo_%(anchor_fn)s_cropped.tif '
                 '%(stack)s_thumbnail_sorted_aligned_cropped/%(stack)s_%(idx)04d_thumbnail_aligned_cropped.tif') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
 
     ###### Generate lossless sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_lossless_sorted_aligned_cropped &&'
             'mkdir %(stack)s_lossless_sorted_aligned_cropped') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.tif' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.tif' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.tif '
                 '%(stack)s_lossless_sorted_aligned_cropped/%(stack)s_%(idx)04d_lossless_aligned_cropped.tif') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
     ###### Generate compressed sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed &&'
             'mkdir %(stack)s_lossless_sorted_aligned_cropped_compressed') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_compressed.jpg '
                 '%(stack)s_lossless_sorted_aligned_cropped_compressed/%(stack)s_%(idx)04d_lossless_aligned_cropped_compressed.jpg') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
     ###### Generate saturation sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_lossless_sorted_aligned_cropped_saturation &&'
             'mkdir %(stack)s_lossless_sorted_aligned_cropped_saturation') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_saturation.jpg' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_saturation.jpg' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_saturation.jpg '
                 '%(stack)s_lossless_sorted_aligned_cropped_saturation/%(stack)s_%(idx)04d_lossless_aligned_cropped_saturation.jpg') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
     ###### Generate thumbnail aligned mask sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_mask_sorted_aligned &&'
             'mkdir %(stack)s_mask_sorted_aligned') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_mask_alignedTo_%(anchor_fn)s.png' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_mask_alignedTo_%(anchor_fn)s.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(fn)s_mask_alignedTo_%(anchor_fn)s.png '
                 '%(stack)s_mask_sorted_aligned/%(stack)s_%(idx)04d_mask_aligned.png') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
     ###### Generate thumbnail aligned cropped mask sorted symlinks ######
 
-    cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+    cmd = ('cd %(data_dir)s/%(stack)s &&'
             'rm -rf %(stack)s_mask_sorted_aligned_cropped &&'
             'mkdir %(stack)s_mask_sorted_aligned_cropped') % \
-            dict(stack=stack)
+            dict(stack=stack, data_dir=DATA_DIR)
     execute_command(cmd)
 
     for idx, fn in enumerate(sorted_filenames):
 
-        if not os.path.exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)):
+        if not os.path.exists('%(data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn, data_dir=DATA_DIR)):
             continue
 
-        cmd = ('cd /home/yuncong/CSHL_data_processed/%(stack)s &&'
+        cmd = ('cd %(data_dir)s/%(stack)s &&'
                 'ln -s ../%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png '
                 '%(stack)s_mask_sorted_aligned_cropped/%(stack)s_%(idx)04d_mask_aligned_cropped.png') % \
-                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn)
+                dict(stack=stack, fn=fn, idx=idx+1, anchor_fn=anchor_fn, data_dir=DATA_DIR)
         execute_command(cmd)
 
 
@@ -489,10 +489,10 @@ def generate_masks():
     t = time.time()
     print 'Generating visualization of mask contours overlayed on thumbnail images ...',
 
-    image_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
+    image_dir = '%(raw_data_dir)s/%(stack)s' % dict(stack=stack, raw_data_dir=RAW_DATA_DIR)
     # image_dir = '/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_brightfieldized' % dict(stack=stack)
-    mask_dir = '/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack)
-    output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
+    mask_dir = '%(data_dir)s/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack, data_dir=DATA_DIR)
+    output_dir = create_if_not_exists('%(data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack, data_dir=DATA_DIR))
 
     run_distributed4(command='%(script_path)s %(stack)s %(image_dir)s %(mask_dir)s \'%%(filenames)s\' %(output_dir)s --tb_fmt %(tb_fmt)s' % \
                     {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/generate_thumbnail_mask_contour_viz.py',

@@ -1,0 +1,4 @@
+- [ ] Assign weights to samples. All samples inside a landmark should have high weights. Use all samples outside landmark as negative, but sample weights reduce by the distance to landmark center.
+- [x] More detailed confusion matrix.
+- [ ] Investigate false positives around a landmark.
+- [ ] Derive a result quality measure - score peakedness, etc.

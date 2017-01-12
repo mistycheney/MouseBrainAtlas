@@ -448,11 +448,12 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
     sample_locations = np.c_[xs.flat, ys.flat]
     return sample_locations
 
-def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):
+def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None,
+bbox_lossless=None):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
-    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
+    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h) in thumbnail resol.
     - If polygons is given, the valid patches are those whose bounding boxes.
         - polygons can be a dict, keys are structure names, values are vertices (xy).
         - polygons can also be a list of (name, vertices) tuples.
@@ -462,12 +463,19 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
             2 - negative include other positive classes that are in the surround
     """
 
-    if grid_spec is not None:
-        patch_size, stride, image_width, image_height = grid_spec
-    elif image_shape is not None :
+    if grid_spec is None:
+        grid_spec = get_default_gridspec(stack)
+
+    if image_shape is not None :
         image_width, image_height = image_shape
     else:
-        image_width, image_height = DataManager.get_image_dimension(stack)
+        image_width, image_height = metadata_cache['image_shape'][stack]
+
+    if patch_size is None:
+        patch_size = grid_spec[0]
+
+    if stride is None:
+        stride = grid_spec[1]
 
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
@@ -483,15 +491,28 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, ima
         else:
             raise Exception('Polygon must be either dict or list.')
 
-    if bbox is not None:
+    if bbox is not None or bbox_lossless is not None:
         assert polygons is None, 'Can only supply one of bbox or polygons.'
 
-        box_x, box_y, box_w, box_h = detect_bbox_lookup[stack] if bbox is None else bbox
+        if bbox is not None:
 
-        xmin = max(half_size, box_x*32)
-        xmax = min(image_width-half_size-1, (box_x+box_w)*32)
-        ymin = max(half_size, box_y*32)
-        ymax = min(image_height-half_size-1, (box_y+box_h)*32)
+            # box_x, box_y, box_w, box_h = detect_bbox_lookup[stack]
+
+            xmin = max(half_size, box_x*32)
+            xmax = min(image_width-half_size-1, (box_x+box_w)*32)
+            ymin = max(half_size, box_y*32)
+            ymax = min(image_height-half_size-1, (box_y+box_h)*32)
+
+        else:
+            box_x, box_y, box_w, box_h = bbox_lossless
+            # print box_x, box_y, box_w, box_h
+
+            xmin = max(half_size, box_x)
+            xmax = min(image_width-half_size-1, box_x+box_w-1)
+            ymin = max(half_size, box_y)
+            ymax = min(image_height-half_size-1, box_y+box_h-1)
+
+        # print xmin, xmax, ymin, ymax
 
         indices_roi = np.where(np.all(np.c_[sample_locations[:,0] > xmin, sample_locations[:,1] > ymin,
                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]

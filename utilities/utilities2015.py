@@ -292,9 +292,12 @@ def display_image(vis, filename='tmp.jpg'):
     return FileLink(filename)
 
 
-def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
+def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
 
-    common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+    # If common_shape is not given, use the largest of all data
+    if common_shape is None:
+        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+
     dt = vizs[0].dtype
     ndim = vizs[0].ndim
 
@@ -543,6 +546,18 @@ def bbox_3d(img):
 #     n = len(points)
 #     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
 #     return points[sampled_indices]
+
+def apply_function_to_nested_list(func, l):
+    """
+    Func applies to the list consisting of all elements of l, and return a list.
+    l: a list of list
+    """
+    from itertools import chain
+    result = func(list(chain(*l)))
+    csum = np.cumsum(map(len, l))
+    new_l = [result[(0 if i == 0 else csum[i-1]):csum[i]] for i in range(len(l))]
+    return new_l
+
 
 def apply_function_to_dict(func, d):
     """

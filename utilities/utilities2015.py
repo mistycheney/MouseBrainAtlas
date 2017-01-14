@@ -1,3 +1,4 @@
+from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -5,7 +6,6 @@ from skimage.morphology import binary_dilation, binary_erosion, watershed, remov
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
-from skimage.io import imread, imsave
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
@@ -97,6 +97,14 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
+
+def save_hdf_v2(data, fn, key='data'):
+    import pandas
+    pandas.Series(data=data).to_hdf(fn % {'fn': fn}, key, mode='w')
+
+def load_hdf_v2(fn, key='data'):
+    import pandas
+    return pandas.read_hdf(fn, key)
 
 def save_hdf(data, fn, complevel=9, key='data'):
     filters = Filters(complevel=complevel, complib='blosc')

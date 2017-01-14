@@ -13,15 +13,26 @@ This step takes 80 seconds per section (~25k patches).
 
 ## Train ##
 
-`svm_v2.ipynb`
+Code for training classifiers is in `train_classifier_v2.ipynb`.
+It works for both regular nissl and Neurotrace blue.
 
-Train classifiers. Store in `SVM_DIR`. By default this is `CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers`. The classifiers are `<label>_svm.pkl`.
+Store in `SVM_DIR`. By default this is `CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers`. The classifiers are `<label>_svm.pkl`.
 
+`Cluster executable`
+`svm_v2.py`
 
-## Prediction Pipeline ##
+Performance of trained classifiers can be visually analyzed in `test_classifier_performance.ipynb`.
 
-`pipeline_features_to_scoremaps.ipynb`
-controls the following three components.
+## Pipeline ##
+
+The pipeline takes as input a stack whose DNN features are available.
+It goes through the following stages:
+- apply classifiers, generate score volumes
+- global alignment with atlas
+- local alignment with atlas
+
+The pipeline can be controlled by `pipeline_features_to_scoremaps.ipynb`. It launches the proper
+executable for each task on the computing cluster.
 
 ## Predict ##
 

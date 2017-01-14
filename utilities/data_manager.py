@@ -863,6 +863,42 @@ class DataManager(object):
         return scoremap_downscaled
 
     @staticmethod
+    def load_dnn_feature_locations(stack, section=None, fn=None, anchor_fn=None):
+        fp = DataManager.get_dnn_feature_locations_filepath(stack, section=section, fn=fn, anchor_fn=anchor_fn)
+        locs = np.loadtxt(fp).astype(np.int)
+        return locs[:, 0], locs[:, 1:]
+
+    @staticmethod
+    def get_dnn_feature_locations_filepath(stack, section=None, fn=None, anchor_fn=None):
+
+        if section is not None:
+            section_to_filename = metadata_cache['sections_to_filenames'][stack]
+            fn = section_to_filename[section]
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        output_dir = create_if_not_exists(os.path.join(PATCH_FEATURES_ROOTDIR, stack,
+                                       '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % dict(fn=fn, anchor_fn=anchor_fn)))
+        output_indices_fn = os.path.join(output_dir,
+                                         '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
+                                         dict(fn=fn, anchor_fn=anchor_fn))
+        return output_indices_fn
+
+    @staticmethod
+    def get_dnn_features_filepath(stack, section=None, fn=None, anchor_fn=None):
+
+        if section is not None:
+            section_to_filename = metadata_cache['sections_to_filenames'][stack]
+            fn = section_to_filename[section]
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        return feature_fn
+
+    @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
         """
         resol: can be either lossless or thumbnail
@@ -968,9 +1004,18 @@ class DataManager(object):
     #     else:
     #         return obj, usr, ts
 
+    @staticmethod
+    def get_annotated_structures(stack):
+        """
+        Return existing structures on every section in annotation.
+        """
+        contours, _ = load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
+        annotated_structures = {sec: list(set(contours[contours['section']==sec]['name']))
+                                for sec in range(first_sec, last_sec+1)}
+        return annotated_structures
 
     @staticmethod
-    def load_annotation_v3(stack=None, annotation_rootdir=None):
+    def load_annotation_v3(stack=None, annotation_rootdir=ANNOTATION_ROOTDIR):
         fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
         contour_df = DataManager.load_data(fn, filetype='annotation_hdf')
 

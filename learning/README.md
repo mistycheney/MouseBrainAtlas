@@ -13,15 +13,26 @@ This step takes 80 seconds per section (~25k patches).
 
 ## Train ##
 
-`svm_v2.ipynb`
+Code for training classifiers is in `train_classifier_v2.ipynb`.
+It works for both regular nissl and Neurotrace blue.
 
-Train classifiers. Store in `SVM_DIR`. By default this is `CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers`. The classifiers are `<label>_svm.pkl`.
+Store in `SVM_DIR`. By default this is `CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers`. The classifiers are `<label>_svm.pkl`.
 
+`Cluster executable`
+`svm_v2.py`
 
-## Prediction Pipeline ##
+Performance of trained classifiers can be visually analyzed in `test_classifier_performance.ipynb`.
 
-`pipeline_features_to_scoremaps.ipynb`
-controls the following three components.
+## Pipeline ##
+
+The pipeline takes as input a stack whose DNN features are available.
+It goes through the following stages:
+- apply classifiers, generate score volumes
+- global alignment with atlas
+- local alignment with atlas
+
+The pipeline can be controlled by `pipeline_features_to_scoremaps.ipynb`. It launches the proper
+executable for each task on the computing cluster.
 
 ## Predict ##
 
@@ -64,3 +75,10 @@ By default is `CSHL_scoremap_viz_Sat16ClassFinetuned_v2`.
 Under `<label>/<stack>/<fn>_alignedTo_<anchor_fn>_scoremapViz_<label>.jpg`.
 
 This step takes 500 seconds per stack.
+
+
+## Evaluation / Analysis ##
+
+The algorithm's goal is texture classification. The tasks are to separate textures inside a structure from textures outside the structure. Because we already have a strong location prior, we don't need strong texture score signal at places far from the structure's true location, so we take as negative examples only textures at the surrounding of the structure.
+
+If annotations are available, we can compute the true positive, true negative, false positive and false negative rates of classifying each structure. We plot ACC as a function of the margin of the surrounding where negative samples are collected.

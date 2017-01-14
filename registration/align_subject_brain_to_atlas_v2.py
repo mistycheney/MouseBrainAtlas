@@ -64,6 +64,9 @@ for name in sorted(structures):
     except:
         sys.stderr.write('Score volume for %s does not exist.\n' % name)
 
+print volume_fixed.values()[0].shape
+print volume_fixed.values()[0].dtype
+
 # # If not all score volumes exist...
 # volume_fixed = {}
 # valid_names_f = []
@@ -83,8 +86,6 @@ label_to_name_fixed = {l: n for n, l in name_to_label_fixed.iteritems()}
 # volume_fixed = {name_to_label_fixed[name]: DataManager.load_score_volume(stack=stack_fixed, label=name, downscale=32, train_sample_scheme=train_sample_scheme)
 #                for name in structures}
 
-print volume_fixed.values()[0].shape
-print volume_fixed.values()[0].dtype
 
 volume_moving = {name_to_label_moving[name]: DataManager.load_score_volume(stack=stack_moving, label=name, downscale=32, train_sample_scheme=None)
                for name in structures_sided}
@@ -94,8 +95,8 @@ print volume_moving.values()[0].dtype
 
 volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
 
-def convert_to_original_name(name):
-    return name.split('_')[0]
+# def convert_to_original_name(name):
+#     return name.split('_')[0]
 
 labelIndexMap_m2f = {}
 for label_m, name_m in label_to_name_moving.iteritems():

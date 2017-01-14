@@ -9,12 +9,11 @@ import numpy as np
 
 import sys
 import os
-
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
+from metadata import *
 from registration_utilities import *
 from annotation_utilities import *
-from metadata import *
 from data_manager import *
 
 from joblib import Parallel, delayed
@@ -121,7 +120,7 @@ aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 
 gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath_template(stack=stack_fixed, label=label_to_name_fixed[ind_f],
                             downscale=32, train_sample_scheme=train_sample_scheme)
-                            for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
+                           for ind_m, ind_f in labelIndexMap_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f, indices_f=None)
 

@@ -48,7 +48,6 @@ def load_scoremaps_parallel(sections, stack, label, downscale_factor):
 
 first_sec, last_sec = metadata_cache['section_limits'][stack]
 
-print label
 
 t = time.time()
 scoremaps = load_scoremaps_parallel(stack=stack, sections=range(first_sec, last_sec+1), label=label, downscale_factor=downscale_factor)

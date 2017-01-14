@@ -21,7 +21,7 @@ train_sample_scheme = args.t
 
 import os
 import sys
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
 from visualization_utilities import *

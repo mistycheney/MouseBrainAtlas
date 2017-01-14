@@ -1,4 +1,7 @@
 from subprocess import call
+from metadata import *
+import subprocess
+import boto3
 import os
 import sys
 import cPickle as pickle
@@ -11,6 +14,45 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     else:
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
+
+#def download_dir(client, resource, dist, local='/tmp', bucket='your_bucket'):
+#    paginator = client.get_paginator('list_objects')
+#    for result in paginator.paginate(Bucket=bucket, Delimiter='/', Prefix=dist):
+#        if result.get('CommonPrefixes') is not None:
+#            for subdir in result.get('CommonPrefixes'):
+#                download_dir(client, resource, subdir.get('Prefix'), local)
+#        if result.get('Contents') is not None:
+#            for file in result.get('Contents'):
+#                if not os.path.exists(os.path.dirname(local + os.sep + file.get('Key'))):
+#                     os.makedirs(os.path.dirname(local + os.sep + file.get('Key')))
+#                resource.meta.client.download_file(bucket, file.get('Key'), local + os.sep + file.get('Key'))
+
+def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
+    def get_ec2_avail_instances(region):
+        ins = []
+        ec2_conn = boto3.client('ec2', region)
+        #reservations = ec2_conn.get_all_reservations()
+        response = ec2_conn.describe_instances()
+        myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
+        for reservation in response["Reservations"]:
+            for instance in reservation["Instances"]: 
+                if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
+                    continue
+                if instance['InstanceId'] != myid:
+                    ins.append(instance['PublicDnsName'])
+                else: 
+                    ins.append('127.0.0.1')
+        return ins
+    all_nodes = get_ec2_avail_instances('us-west-1')
+    
+    if use_nodes is not None:
+        hostids = use_nodes
+    else:
+        #for node in exclude_nodes:
+        #    print(node)
+        hostids = [node for node in all_nodes if node not in exclude_nodes]
+    n_hosts = len(hostids)
+    return hostids
 
 def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
@@ -42,6 +84,39 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
+def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+    temp_script = '/tmp/runall.sh'
+    #n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    n_hosts = 12
+    #3 to remove the header lines
+    if isinstance(kwargs_list, dict):
+        keys, vals = zip(*kwargs_list.items())
+        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+        kwargs_list_as_dict = kwargs_list
+    else:
+        kwargs_list_as_list = kwargs_list
+        keys = kwargs_list[0].keys()
+        vals = [t.values() for t in kwargs_list]
+        kwargs_list_as_dict = dict(zip(keys, vals))
+    if argument_type == 'single':
+        for arg in kwargs_list_as_list:
+            line = command % arg
+    elif argument_type == 'partition':
+        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+        # For cases with partition of first section / last section
+            line = "%(command)s " % \
+                    {
+                    'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
+                    }
+    else:
+        raise Exception('argument_type %s not recognized.' % argument_type)
+    print(line)
+    temp_f = open(temp_script, 'w')
+    temp_f.write(line + '\n')
+    temp_f.close()
+    os.chmod(temp_script, 0o777)
+    call('qsub -V -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
+
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """
     There should be only one ssh connection to each node.
@@ -50,7 +125,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
     hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
     print 'Using nodes:', ['gcn-20-%d.sdsc.edu'%i for i in hostids]
     n_hosts = len(hostids)
-
+    
     temp_script = '/tmp/runall.sh'
 
     if isinstance(kwargs_list, dict):
@@ -59,7 +134,6 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         kwargs_list_as_dict = kwargs_list
     else:
         kwargs_list_as_list = kwargs_list
-
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
@@ -109,9 +183,88 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         temp_f.write('echo all jobs are done!\n')
         temp_f.write('echo =================\n')
 
-    os.chmod(temp_script, 0o777)
-    call(temp_script, shell=True, stdout=stdout)
 
+#def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+#    """
+#    There should be only one ssh connection to each node.
+#    """
+#
+#    if on_aws:
+#        hostids = detect_responsive_nodes_aws(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
+#        auth_str = "-i '/home/ubuntu/KeyCompute.pem' ubuntu"
+#        print 'Using nodes:', hostids
+#    else:
+#        hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
+#        hostids = ['gcn-20-%d.sdsc.edu'%i for i in hostids]
+#        auth_str = "yuncong"
+#        print 'Using nodes:', hostids
+#    n_hosts = len(hostids)
+#
+#    temp_script = '/tmp/runall.sh'
+#
+#    if isinstance(kwargs_list, dict):
+#        keys, vals = zip(*kwargs_list.items())
+#        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+#        kwargs_list_as_dict = kwargs_list
+#    else:
+#        kwargs_list_as_list = kwargs_list
+#
+#        keys = kwargs_list[0].keys()
+#        vals = [t.values() for t in kwargs_list]
+#        kwargs_list_as_dict = dict(zip(keys, vals))
+#
+#    # for k,v in kwargs_list_as_dict.iteritems():
+#    #     sys.stderr.write(k+'\n')
+#    #     sys.stderr.write(str(v)+'\n')
+#
+#    with open(temp_script, 'w') as temp_f:
+#
+#        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+#
+#            if argument_type == 'partition':
+#                # For cases with partition of first section / last section
+#                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
+#                        {'authen_str': auth_str,
+#                        'hostname': hostids[i%n_hosts],
+#                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
+#                        }
+#            elif argument_type == 'list':
+#                # Specify kwargs_str
+#                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
+#                        {'authen_str': auth_str,
+#                        'hostname': hostids[i%n_hosts],
+#                        'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
+#                        }
+#            elif argument_type == 'list2':
+#                # Specify {key: list}
+#                line = "ssh %(authen_str)s@%(hostname)s \"%(command)s\" &" % \
+#                        {'authen_str': auth_str,
+#                        'hostname': hostids[i%n_hosts],
+#                        'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
+#                                            for key, vals in kwargs_list_as_dict.iteritems()}
+#                        }
+#            elif argument_type == 'single':
+#                line = "ssh %(authen_str)s@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
+#                        {'authen_str': auth_str,
+#                        'hostname': hostids[i%n_hosts],
+#                        'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
+#                        'command_template': command,
+#                        'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
+#                        }
+#            else:
+#                raise Exception('argument_type %s not recognized.' % argument_type)
+#
+#            temp_f.write(line + '\n')
+#            print(line + "\n")
+#
+#        temp_f.write('wait\n')
+#        temp_f.write('echo =================\n')
+#        temp_f.write('echo all jobs are done!\n')
+#        temp_f.write('echo =================\n')
+#    os.chmod(temp_script, 0o777)
+#    call(temp_script, shell=True, stdout=stdout)
+#
+#
 
 # def run_distributed3(command, first_sec=None, last_sec=None, interval=1, section_list=None, stdout=None, exclude_nodes=[], take_one_section=True):
 #     """

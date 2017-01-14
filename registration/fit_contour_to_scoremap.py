@@ -58,7 +58,9 @@ for sec in range(sec_min, sec_max+1):
         sys.stderr.write(e.message + '\n')
         continue
 
-    z = voxel_z_size * (sec - 1) - zmin_vol_f
+    # z = voxel_z_size * (sec - 1) - zmin_vol_f
+    zl, zh = DataManager.convert_section_to_z(stack=stack, sec=sec, downsample=32)
+    z = (zl + zh) / 2
 
     # Extract initial contour
     nz = np.count_nonzero(vol[..., z])

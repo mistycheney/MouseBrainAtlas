@@ -518,7 +518,7 @@ bbox_lossless=None):
                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
 
         indices_roi = np.setdiff1d(indices_roi, indices_bg)
-        print len(indices_roi), 'patches in ROI'
+        # print len(indices_roi), 'patches in ROI'
 
         return indices_roi
 
@@ -685,6 +685,54 @@ bbox_lossless=None):
 #         print len(indices_bg), 'patches in', 'bg'
 #
 #     return indices_allLandmarks
+
+def addresses_to_structure_distances(addresses, structure_centers_all_secs_all_names):
+    """
+    Return a list of dict {structure_name: distance}.
+    """
+    augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]
+
+    all_stacks = set([ad[0] for ad in addresses])
+    grid_locations = {st: grid_parameters_to_sample_locations(get_default_gridspec(st)) for st in all_stacks}
+
+    sorted_addresses = sorted(augmented_addresses, key=lambda (st,sec,gp_ind,list_ind): (st,sec))
+
+    distances_to_structures = defaultdict(list)
+
+    for (st, sec), address_group_ in groupby(sorted_addresses, lambda (st,sec,gp_ind,list_ind): (st,sec)):
+        address_group = list(address_group_) # otherwise it is an iteraror, which can only be used once
+        locations_this_group = np.array([grid_locations[st][gp_ind] for st,sec,gp_ind,list_ind in address_group])
+        list_indices_this_group = [list_ind for st,sec,gp_ind,list_ind in address_group]
+
+        for structure_name in structure_centers_all_secs_all_names[sec].keys():
+            distances = np.sqrt(np.sum((locations_this_group - structure_centers_all_secs_all_names[sec][structure_name])**2, axis=1))
+            distances_to_structures[structure_name] += zip(list_indices_this_group, distances)
+
+    distances_to_structures.default_factory = None
+
+    d = {structure_name: dict(lst) for structure_name, lst in distances_to_structures.iteritems()}
+
+    import pandas
+    df = pandas.DataFrame(d)
+    return df.T.to_dict().values()
+
+def addresses_to_locations(addresses):
+    """
+    Take a list of (stack, section, gridpoint_index),
+    return x,y coordinates (lossless).
+    """
+
+    augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]
+    sorted_addresses = sorted(augmented_addresses, key=lambda (st,sec,gp_ind,list_ind): st)
+
+    locations = []
+    for st, address_group in groupby(sorted_addresses, lambda (st,sec,gp_ind,list_ind): st):
+        grid_locations = grid_parameters_to_sample_locations(get_default_gridspec(st))
+        locations_this_group = [(list_inf, grid_locations[gp_ind]) for st,sec,gp_ind,list_ind in address_group]
+        locations.append(locations_this_group)
+
+    locations = list(chain(*locations))
+    return [v for i, v in sorted(locations)]
 
 
 def addresses_to_features(addresses):

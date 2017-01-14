@@ -24,8 +24,8 @@ import time
 # args = parser.parse_args()
 
 # print args.labels
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
@@ -37,7 +37,6 @@ exclude_nodes = [33, 47]
 
 @app.route('/')
 def index():
-    print("HELLO")
     return "Brainstem Web Service"
 
 @app.route('/align')
@@ -575,4 +574,4 @@ def warp_crop_masks():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', use_reloader=False)

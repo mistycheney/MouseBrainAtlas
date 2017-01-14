@@ -4,10 +4,12 @@ import os
 import argparse
 import sys
 import time
+
 from joblib import Parallel, delayed
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+from metadata import *
 from data_manager import *
 
 import numpy as np
@@ -60,6 +62,7 @@ def svm_predict(stack, sec):
     fn = sections_to_filenames[sec]
     if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
         return
+
     feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
     try:
@@ -68,8 +71,8 @@ def svm_predict(stack, sec):
         sys.stderr.write(e.message + '\n')
         return
 
-    output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
-                                      {'fn': fn, 'anchor_fn': anchor_fn}))
+    # output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
+    #                                   {'fn': fn, 'anchor_fn': anchor_fn}))
 
     for label in structures:
         svc = svc_allClasses[label]
@@ -77,8 +80,7 @@ def svm_predict(stack, sec):
         output_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, label=label, train_sample_scheme=train_sample_scheme)
         create_if_not_exists(os.path.dirname(output_fn))
         # output_fn = output_dir + '/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores_trainSampleScheme_%(scheme)d.hdf' % \
-        #           {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme}
-        
+        #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'scheme': train_sample_scheme}
         bp.pack_ndarray_file(probs, output_fn)
 
 

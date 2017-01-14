@@ -3,9 +3,9 @@ import numpy as np
 import sys
 import os
 
-from metadata import *
-sys.path.append(REPO_DIR + '/utilities')
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
+from metadata import *
 from data_manager import *
 
 import pandas as pd

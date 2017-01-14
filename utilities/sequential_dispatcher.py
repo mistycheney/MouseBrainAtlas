@@ -16,6 +16,7 @@ parser.add_argument("command", type=str, help="command")
 # parser.add_argument("-i", "--interval", type=int, help="interval")
 parser.add_argument('kwargs_list_str', type=str, help="pickled string of list of arguments")
 args = parser.parse_args()
+
 kwargs_list = json.loads(args.kwargs_list_str)
 
 # sys.stderr.write(args.kwargs_list_str+'\n')

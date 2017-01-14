@@ -9,8 +9,7 @@ import numpy as np
 
 import sys
 import os
-#sys.path.append(os.environ['REPO_DIR'] + '/utilities')
-sys.path.append('/shared/MouseBrainAtlas/utilities')
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from metadata import *
 from registration_utilities import *

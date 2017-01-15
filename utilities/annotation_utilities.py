@@ -4,7 +4,7 @@ import sys
 import os
 
 from metadata import *
-sys.path.append(REPO_DIR + '/utilities')
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
 

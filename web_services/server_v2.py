@@ -37,7 +37,6 @@ exclude_nodes = [33, 47]
 
 @app.route('/')
 def index():
-    print("HELLO")
     return "Brainstem Web Service"
 
 @app.route('/align')

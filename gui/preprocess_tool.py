@@ -329,7 +329,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.slide_gview.setScene(self.slide_gscene)
 
         # slide_indices = ['N11, N12, IHC28']
-        macros_dir = '/home/saienthan/data/CSHL_data/macros/%(stack)s/' % {'stack': self.stack}
+        macros_dir = os.path.join(RAW_DATA_DIR, 'macros/%(stack)s/' % {'stack': self.stack})
 
         slide_filenames = {}
         import re

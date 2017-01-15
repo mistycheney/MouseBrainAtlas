@@ -120,6 +120,8 @@ elif hostname.endswith('GL502VM'):
     thumbnail_data_dir = data_dir
     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+    GORDON_RAW_DATA_DIR = '/shared/data/CSHL_data'
 else:
     print 'Setting environment for Brainstem workstation'
 

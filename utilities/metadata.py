@@ -95,6 +95,7 @@ elif hostname.startswith('ip'):
     SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     annotationViz_rootdir = '/shared/data/CSHL_annotationsViz'
     annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_v2_rootdir = '/shared/data/CSHL_labelings_v3/'
     patch_training_features_rootdir = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/shared/data/CSHL_data_patches/'

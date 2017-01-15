@@ -109,6 +109,17 @@ elif hostname.startswith('ip'):
     os.environ["REPO_DIR"] = REPO_DIR
     annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
+elif hostname.endswith('GL502VM'):
+    print 'Setting environment for Local Machine Saienthan'
+    on_aws = False
+    REPO_DIR = '/home/saienthan/MouseBrainAtlas'
+    os.environ["REPO_DIR"] = REPO_DIR
+    RAW_DATA_DIR = '/home/saienthan/data/CSHL_data'
+    data_dir = '/home/saienthan/data/CSHL_data_processed'
+    DATA_DIR = '/home/saienthan/data/CSHL_data_processed'
+    thumbnail_data_dir = data_dir
+    volume_dir = '/home/saienthan/data/CSHL_volumes2/'
+    annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
 else:
     print 'Setting environment for Brainstem workstation'
 

@@ -318,8 +318,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.tb_fmt = 'tif'
             self.pad_bg_color = 'white'
 
-        self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
-        self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
+        self.stack_data_dir = data_dir + stack
+        self.stack_data_dir_gordon = data_dir + stack
 
         self.web_service = WebService()
 
@@ -329,7 +329,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.slide_gview.setScene(self.slide_gscene)
 
         # slide_indices = ['N11, N12, IHC28']
-        macros_dir = os.path.join(RAW_DATA_DIR, 'macros/%(stack)s/' % {'stack': self.stack})
+        macros_dir = '/home/saienthan/data/CSHL_data/macros/%(stack)s/' % {'stack': self.stack}
 
         slide_filenames = {}
         import re

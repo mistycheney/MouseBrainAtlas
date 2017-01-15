@@ -54,23 +54,27 @@ for name_s in structures_sided:
                                                      local_transform_scheme=local_transform_scheme,
                                                     trial_idx=trial_idx,
                                                    label=name_s)
-
-        # Read global tx
-        global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
-                                           stack_f=stack_fixed, type_f='score',
-                                            downscale=32,
-                                            train_sample_scheme_f=train_sample_scheme,
-                                            global_transform_scheme=global_transform_scheme,
-                                            label=name_s)
+        use_global = False
     except:
-        sys.stderr.write('Volumes for %s does not exist.\n' % name_s)
-        continue
+        sys.stderr.write('Local transform parameters for %s do not exist.\n' % name_s)
+        use_global = True
 
-    # Transform
-    local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,
-                                             global_params=local_params,
-                                             centroid_m=centroid_m, centroid_f=centroid_f,
-                                             xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
+    # Read global tx
+    global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+                                       stack_f=stack_fixed, type_f='score',
+                                        downscale=32,
+                                        train_sample_scheme_f=train_sample_scheme,
+                                        global_transform_scheme=global_transform_scheme,
+                                        label=name_s)
+
+    if use_global:
+        local_transformed_moving_structure_vol = global_transformed_moving_structure_vol
+    else:
+        # Transform
+        local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,
+                                                 global_params=local_params,
+                                                 centroid_m=centroid_m, centroid_f=centroid_f,
+                                                 xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
 
     # Save
     local_transformed_moving_structure_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',
@@ -85,27 +89,22 @@ for name_s in structures_sided:
     bp.pack_ndarray_file(local_transformed_moving_structure_vol, local_transformed_moving_structure_fn)
 
 
-    try:
+    # Read Global transformed SURROUND
+    global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
+                                       stack_f=stack_fixed, type_f='score',
+                                        downscale=32,
+                                        train_sample_scheme_f=train_sample_scheme,
+                                        global_transform_scheme=global_transform_scheme,
+                                        label=name_s + '_surround')
 
-        # Read Global transformed Surround
-
-        global_transformed_moving_structure_vol = DataManager.load_transformed_volume(stack_m=stack_moving, type_m='score',
-                                           stack_f=stack_fixed, type_f='score',
-                                            downscale=32,
-                                            train_sample_scheme_f=train_sample_scheme,
-                                            global_transform_scheme=global_transform_scheme,
-                                            label=name_s + '_surround')
-
-    except:
-        sys.stderr.write('Volumes for %s does not exist.\n' % name_s)
-        continue    
-
-
-    # Transform
-    local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,
-                                             global_params=local_params,
-                                             centroid_m=centroid_m, centroid_f=centroid_f,
-                                             xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
+    if use_global:
+        local_transformed_moving_structure_vol = global_transformed_moving_structure_vol
+    else:
+        # Transform
+        local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol,
+                                                 global_params=local_params,
+                                                 centroid_m=centroid_m, centroid_f=centroid_f,
+                                                 xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
 
     # Save
     local_transformed_moving_structure_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',

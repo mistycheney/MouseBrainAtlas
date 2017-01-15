@@ -1,5 +1,9 @@
 The *registration* folder contains code for volume-to-volume registration. This includes global alignment and individual structure alignment.
 
+Two attempts for more fine-grained contouring of structures:
+- `fit_contour_to_scoremap_graphcut.ipynb`: Apply graph-cut to an ROI of scoremap. Use structure-wise aligned contours to identify the right connected component in case multiple CCs are generated.
+- `fit_contour_to_scoreVolume_inSection.ipynb`: Find the best 2D affine transform of structure-wise aligned contours on every section.
+
 # Compute Gradients
 - `compute_gradient.py`: compute gradients, save as `[stack]_scoreVolume_[label]_[gx|gy|gz].bp` files.
 
@@ -50,7 +54,11 @@ overall x 50 structures (sided) =
 *Generate overlay images*
 - x 250 sections =
 
-
 ## Compute Hessians
+1st version
+
+2nd version
 - `compute_global_alignment_hessian.ipynb`
 - `compute_individual_alignment_hessian.ipynb`
+3rd version
+- `hessian_v2`

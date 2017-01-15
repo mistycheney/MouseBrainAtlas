@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
-
+from metadata import *
 import numpy as np
 
 from learning_utilities import *
@@ -68,7 +68,7 @@ def svm_predict(stack, sec):
         sys.stderr.write(e.message + '\n')
         return
 
-    output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
+    #output_dir = create_if_not_exists(os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
                                       {'fn': fn, 'anchor_fn': anchor_fn}))
 
     for label in structures:

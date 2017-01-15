@@ -10,7 +10,6 @@ from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_
 from skimage.measure import find_contours, regionprops
 
 from shapely.geometry import Polygon
-from data_manager import *
 
 import cv2
 
@@ -697,7 +696,6 @@ class Aligner4(object):
 
             # self.logger.info('iteration %d', iteration)
             sys.stderr.write('iteration %d\n' % iteration)
-            start = time.time()
 
             t = time.time()
 
@@ -734,7 +732,6 @@ class Aligner4(object):
             sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
 
             # self.logger.info('score: %f', s)
-            print("Optimze time: ", time.time()-start)
             sys.stderr.write('score: %f\n' % s)
             scores.append(s)
 

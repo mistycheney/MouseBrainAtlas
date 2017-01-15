@@ -117,6 +117,7 @@ elif hostname.endswith('GL502VM'):
     data_dir = '/home/saienthan/data/CSHL_data_processed/'
     DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
     thumbnail_data_dir = data_dir
+    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
     ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
@@ -231,8 +232,7 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
 
-all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
-#'MD635']
+all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603', 'MD635']
 
 # section_number_lookup = { 'MD585': 440, 'MD589': 445,
 #                         'MD590': 419, 'MD591': 452, 'MD592': 454,

@@ -1473,7 +1473,6 @@ class DataManager(object):
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
 #metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-all_stacks = ['MD589']
 metadata_cache['image_shape'] =\
 {'MD585': (16384, 12000),
  'MD589': (15520, 11936),

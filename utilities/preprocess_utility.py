@@ -127,6 +127,12 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """
     There should be only one ssh connection to each node.
+    os.chmod(temp_script, 0o777)
+    call('qsub -V -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
+
+def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+    """
+    There should be only one ssh connection to each node.
     """
 
     hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)

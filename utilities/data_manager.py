@@ -1477,8 +1477,6 @@ metadata_cache = {}
 #metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
 metadata_cache['image_shape'] =\
 {'MD585': (16384, 12000),
-metadata_cache['image_shape'] =\
-{'MD585': (16384, 12000),
  'MD589': (15520, 11936),
  'MD590': (17536, 13056),
  'MD591': (16000, 13120),

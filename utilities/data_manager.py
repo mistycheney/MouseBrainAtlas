@@ -856,8 +856,6 @@ class DataManager(object):
         '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' \
             % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
 
-        #print("BP ", scoremap_bp_filepath)
-        #print("BBOX ", scoremap_bbox_filepath)
         if return_bbox_fp:
             return scoremap_bp_filepath, scoremap_bbox_filepath
         else:
@@ -954,7 +952,6 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
-        image_path = ""
         if resol == 'lossless' and version == 'compressed':
             if stack in ['MD635']:
                 image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn})

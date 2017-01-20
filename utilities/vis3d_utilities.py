@@ -1,7 +1,6 @@
 import numpy as np
 import sys
 import time
-from metadata import *
 
 try:
     import vtk

@@ -82,15 +82,11 @@ def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_
     else:
         return M
 
-def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blues, figsize=(4,4), text=True, axis=None,
-xlabel='Predicted label', ylabel='True label', **kwargs):
+def plot_confusion_matrix(cm, labels, title='Confusion matrix', cmap=plt.cm.Blues, figsize=(4,4), text=True, axis=None, **kwargs):
 
     if axis is None:
         fig = plt.figure(figsize=figsize)
         axis = fig.add_subplot(1,1,1)
-        return_fig = True
-    else:
-        return_fig = False
 
     axis.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=1, **kwargs)
     axis.set_title(title)
@@ -100,8 +96,8 @@ xlabel='Predicted label', ylabel='True label', **kwargs):
     axis.set_xticklabels(labels)
     axis.set_yticklabels(labels)
 
-    axis.set_ylabel(ylabel)
-    axis.set_xlabel(xlabel)
+    axis.set_ylabel('True label')
+    axis.set_xlabel('Predicted label')
 
     if cm.dtype.type is np.int_:
         fmt = '%d'
@@ -115,9 +111,6 @@ xlabel='Predicted label', ylabel='True label', **kwargs):
                     axis.text(x,y, fmt % cm[y,x],
                              horizontalalignment='center',
                              verticalalignment='center');
-
-    if return_fig:
-        return fig
 
 # def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
 #     """
@@ -343,8 +336,7 @@ def get_names_given_locations_multiple_sections(addresses, location_or_grid_inde
 
 
 def get_default_gridspec(stack, patch_size=224, stride=56):
-    # image_width, image_height = DataManager.get_image_dimension(stack)
-    image_width, image_height = metadata_cache['image_shape'][stack]
+    image_width, image_height = DataManager.get_image_dimension(stack)
     return (patch_size, stride, image_width, image_height)
 
 def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
@@ -367,7 +359,6 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
 
     contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
-    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
 
     # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
@@ -448,12 +439,11 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
     sample_locations = np.c_[xs.flat, ys.flat]
     return sample_locations
 
-def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None,
-bbox_lossless=None):
+def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
-    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h) in thumbnail resol.
+    - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
     - If polygons is given, the valid patches are those whose bounding boxes.
         - polygons can be a dict, keys are structure names, values are vertices (xy).
         - polygons can also be a list of (name, vertices) tuples.
@@ -463,62 +453,41 @@ bbox_lossless=None):
             2 - negative include other positive classes that are in the surround
     """
 
-    if grid_spec is None:
-        grid_spec = get_default_gridspec(stack)
-
-    if image_shape is not None :
+    if grid_spec is not None:
+        patch_size, stride, image_width, image_height = grid_spec
+    elif image_shape is not None :
         image_width, image_height = image_shape
     else:
-        image_width, image_height = metadata_cache['image_shape'][stack]
-
-    if patch_size is None:
-        patch_size = grid_spec[0]
-
-    if stride is None:
-        stride = grid_spec[1]
+        image_width, image_height = DataManager.get_image_dimension(stack)
 
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
 
-    indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0] # patches in the foreground
-    indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg) # patches in the background
+    indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
+    indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
 
-    if polygons is not None:
-        if isinstance(polygons, dict):
-            polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
-        elif isinstance(polygons, list):
-            polygon_list = polygons
-        else:
-            raise Exception('Polygon must be either dict or list.')
+    if isinstance(polygons, dict):
+        polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
+    elif isinstance(polygons, list):
+        polygon_list = polygons
+    else:
+        raise Exception('Polygon must be either dict or list.')
 
-    if bbox is not None or bbox_lossless is not None:
+    if bbox is not None:
         assert polygons is None, 'Can only supply one of bbox or polygons.'
 
-        if bbox is not None:
+        box_x, box_y, box_w, box_h = detect_bbox_lookup[stack] if bbox is None else bbox
 
-            # box_x, box_y, box_w, box_h = detect_bbox_lookup[stack]
-
-            xmin = max(half_size, box_x*32)
-            xmax = min(image_width-half_size-1, (box_x+box_w)*32)
-            ymin = max(half_size, box_y*32)
-            ymax = min(image_height-half_size-1, (box_y+box_h)*32)
-
-        else:
-            box_x, box_y, box_w, box_h = bbox_lossless
-            # print box_x, box_y, box_w, box_h
-
-            xmin = max(half_size, box_x)
-            xmax = min(image_width-half_size-1, box_x+box_w-1)
-            ymin = max(half_size, box_y)
-            ymax = min(image_height-half_size-1, box_y+box_h-1)
-
-        # print xmin, xmax, ymin, ymax
+        xmin = max(half_size, box_x*32)
+        xmax = min(image_width-half_size-1, (box_x+box_w)*32)
+        ymin = max(half_size, box_y*32)
+        ymax = min(image_height-half_size-1, (box_y+box_h)*32)
 
         indices_roi = np.where(np.all(np.c_[sample_locations[:,0] > xmin, sample_locations[:,1] > ymin,
                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
 
         indices_roi = np.setdiff1d(indices_roi, indices_bg)
-        # print len(indices_roi), 'patches in ROI'
+        print len(indices_roi), 'patches in ROI'
 
         return indices_roi
 
@@ -547,39 +516,30 @@ bbox_lossless=None):
                                               path.contains_points(sample_locations_ur))[0]
 
             indices_allLandmarks[label] = indices_inside[label]
-            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label]), label))
+            print len(indices_allLandmarks[label]), 'patches in', label
 
         indices_allInside = np.concatenate(indices_inside.values())
 
         for label, poly in polygon_list:
 
-            ############# surrround = 500 #############
-            for margin in [100,200,300,400,500,600,700,800,900,1000]:
-            # margin = 500
-                surround = Polygon(poly).buffer(margin, resolution=2)
-                # 500 pixels (original resolution, ~ 250um) away from landmark contour
+            surround = Polygon(poly).buffer(500, resolution=2)
 
-                path = Path(list(surround.exterior.coords))
-                indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
-                                        path.contains_points(sample_locations_lr) &\
-                                        path.contains_points(sample_locations_ul) &\
-                                        path.contains_points(sample_locations_ur))[0]
+            path = Path(list(surround.exterior.coords))
+            indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
+                                    path.contains_points(sample_locations_lr) &\
+                                    path.contains_points(sample_locations_ul) &\
+                                    path.contains_points(sample_locations_ur))[0]
 
-                # surround classes do not include patches of any no-surround class
-                indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-                sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
-                # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
+            # surround classes do not include patches of any no-surround class
+            indices_allLandmarks[label+'_surround_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+            print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
 
-                for l, inds in indices_inside.iteritems():
-                    if l == label: continue
-                    indices = np.intersect1d(indices_sur, inds)
-                    if len(indices) > 0:
-                        indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
-                        sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
-
-            # # all foreground patches except the particular label's inside patches
-            indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
-            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_negative']), label+'_negative'))
+            for l, inds in indices_inside.iteritems():
+                if l == label: continue
+                indices = np.intersect1d(indices_sur, inds)
+                if len(indices) > 0:
+                    indices_allLandmarks[label+'_surround_'+l] = indices
+                    print len(indices), 'patches in', label+'_surround_'+l
 
         # for l, inds in indices_inside.iteritems():
         #     indices_allLandmarks[l] = inds
@@ -588,10 +548,7 @@ bbox_lossless=None):
         #     indices_allLandmarks[l+'_surround_noclass'] = inds
         #     print len(inds), 'patches in', l+'_surround_noclass'
         indices_allLandmarks['bg'] = indices_bg
-        sys.stderr.write('%d patches in %s\n' % (len(indices_bg), 'bg'))
-
-        indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
-        sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks['noclass']), 'noclass'))
+        print len(indices_bg), 'patches in', 'bg'
 
     return indices_allLandmarks
 
@@ -685,54 +642,6 @@ bbox_lossless=None):
 #         print len(indices_bg), 'patches in', 'bg'
 #
 #     return indices_allLandmarks
-
-def addresses_to_structure_distances(addresses, structure_centers_all_secs_all_names):
-    """
-    Return a list of dict {structure_name: distance}.
-    """
-    augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]
-
-    all_stacks = set([ad[0] for ad in addresses])
-    grid_locations = {st: grid_parameters_to_sample_locations(get_default_gridspec(st)) for st in all_stacks}
-
-    sorted_addresses = sorted(augmented_addresses, key=lambda (st,sec,gp_ind,list_ind): (st,sec))
-
-    distances_to_structures = defaultdict(list)
-
-    for (st, sec), address_group_ in groupby(sorted_addresses, lambda (st,sec,gp_ind,list_ind): (st,sec)):
-        address_group = list(address_group_) # otherwise it is an iteraror, which can only be used once
-        locations_this_group = np.array([grid_locations[st][gp_ind] for st,sec,gp_ind,list_ind in address_group])
-        list_indices_this_group = [list_ind for st,sec,gp_ind,list_ind in address_group]
-
-        for structure_name in structure_centers_all_secs_all_names[sec].keys():
-            distances = np.sqrt(np.sum((locations_this_group - structure_centers_all_secs_all_names[sec][structure_name])**2, axis=1))
-            distances_to_structures[structure_name] += zip(list_indices_this_group, distances)
-
-    distances_to_structures.default_factory = None
-
-    d = {structure_name: dict(lst) for structure_name, lst in distances_to_structures.iteritems()}
-
-    import pandas
-    df = pandas.DataFrame(d)
-    return df.T.to_dict().values()
-
-def addresses_to_locations(addresses):
-    """
-    Take a list of (stack, section, gridpoint_index),
-    return x,y coordinates (lossless).
-    """
-
-    augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]
-    sorted_addresses = sorted(augmented_addresses, key=lambda (st,sec,gp_ind,list_ind): st)
-
-    locations = []
-    for st, address_group in groupby(sorted_addresses, lambda (st,sec,gp_ind,list_ind): st):
-        grid_locations = grid_parameters_to_sample_locations(get_default_gridspec(st))
-        locations_this_group = [(list_inf, grid_locations[gp_ind]) for st,sec,gp_ind,list_ind in address_group]
-        locations.append(locations_this_group)
-
-    locations = list(chain(*locations))
-    return [v for i, v in sorted(locations)]
 
 
 def addresses_to_features(addresses):

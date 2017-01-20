@@ -12,9 +12,8 @@ except:
 from skimage.measure import marching_cubes, correct_mesh_orientation, mesh_surface_area
 
 import os
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+sys.path.append(REPO_DIR + 'utilities')
 from utilities2015 import *
-from metadata import *
 from data_manager import *
 
 #######################################################################

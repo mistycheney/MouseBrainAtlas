@@ -53,20 +53,19 @@ DataManager.load_global_alignment_parameters(stack_moving=stack_moving,
 for name_s in structures_sided_with_surround:
     print name_s
 
-    try:
-        vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
-    except:
-        sys.stderr.write('Score volumes for %s does not exist.\n' % name_s)
-        continue
+    vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
 
     volume_m_alignedTo_f = \
     transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,
                       xdim_f=xdim_f, ydim_f=ydim_f, zdim_f=zdim_f)
 
-    DataManager.save_transformed_volume(volume_m_alignedTo_f,
-                                        stack_m=stack_moving, type_m='score',
+    volume_m_alignedTo_f_fn = DataManager.get_transformed_volume_filepath(stack_m=stack_moving, type_m='score',
                                             stack_f=stack_fixed, type_f='score',
                                             label=name_s,
                                             downscale=32,
                                             train_sample_scheme_f=train_sample_scheme,
                                             global_transform_scheme=global_transform_scheme)
+
+    create_if_not_exists(os.path.dirname(volume_m_alignedTo_f_fn))
+
+    bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)

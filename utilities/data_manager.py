@@ -411,7 +411,9 @@ class DataManager(object):
             return partial_fn + '_scoreEvolution_trial_%d.png' % trial_idx
 
     @staticmethod
-    def get_global_alignment_viz_dir(stack_fixed, stack_moving, fixed_volume_type='score', moving_volume_type='score', train_sample_scheme=None, global_transform_scheme=None):
+    def get_global_alignment_viz_dir(stack_fixed, stack_moving, 
+    fixed_volume_type='score', moving_volume_type='score', 
+    train_sample_scheme=None, global_transform_scheme=None):
 
         # clf_suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
         # gtf_suffix = generate_suffix(global_transform_scheme=global_transform_scheme)

@@ -232,8 +232,7 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 #######################################
 
-#all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603', 'MD635']
-all_stacks = ['MD589']
+all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 
 # section_number_lookup = { 'MD585': 440, 'MD589': 445,
 #                         'MD590': 419, 'MD591': 452, 'MD592': 454,

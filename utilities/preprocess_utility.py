@@ -108,12 +108,25 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
                     {
                     'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
                     }
+    elif argument_type == 'list':
+	# Specify kwargs_str
+        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+	    line = "%(command)s " % \
+		    {
+		    'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
+		    }
     else:
         raise Exception('argument_type %s not recognized.' % argument_type)
     print(line)
     temp_f = open(temp_script, 'w')
     temp_f.write(line + '\n')
     temp_f.close()
+    os.chmod(temp_script, 0o777)
+    call('qsub -V -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
+
+def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+    """
+    There should be only one ssh connection to each node.
     os.chmod(temp_script, 0o777)
     call('qsub -V -l mem_free=60G ' + temp_script, shell=True, stdout=stdout)
 

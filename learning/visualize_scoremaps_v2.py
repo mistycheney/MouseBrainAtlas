@@ -9,6 +9,7 @@ parser.add_argument("stack", help="stack name, e.g. MD593")
 parser.add_argument("-b", type=int, help="beginning slide (default: first_detect_sec)", default=0)
 parser.add_argument("-e", type=int, help="ending slide (default: last_detect_sec)", default=-1)
 parser.add_argument("-a", help="add annotation", action='store_true')
+parser.add_argument("-t", help="train sample scheme", type=int)
 
 args = parser.parse_args()
 
@@ -16,10 +17,11 @@ stack = args.stack
 first_sec = first_detect_sec if args.b == 0 else args.b
 last_sec = last_detect_sec if args.e == -1 else args.e
 add_annotation = args.a
+train_sample_scheme = args.t
 
 import os
 import sys
-sys.path.append(REPO_DIR, 'utilities'))
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 
 from visualization_utilities import *
@@ -39,7 +41,7 @@ if not add_annotation:
 
     export_scoremaps('original', stack, sections=range(first_sec, last_sec+1),
                      names=structures, downscale_factor=8, label_text=True,
-                     train_sample_scheme=1) # 93s/section
+                     train_sample_scheme=train_sample_scheme) # 93s/section
 
     # export_scoremaps('original', stack, sections=range(first_sec, last_sec+1),
     #                  names=structures, downscale_factor=8,

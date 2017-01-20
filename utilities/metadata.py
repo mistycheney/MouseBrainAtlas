@@ -22,7 +22,7 @@ if hostname.endswith('sdsc.edu'):
     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes2/'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     # scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'
-    scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
+    scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     # scoremapViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremapViz_svm_Sat16ClassFinetuned_v3'
     # scoremapViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
@@ -30,19 +30,27 @@ if hostname.endswith('sdsc.edu'):
     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
+    ANNOTATION_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
     # patch_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
     SVM_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
-    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
+    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
+
     REPO_DIR = '/home/yuncong/Brain'
+
+    RAW_DATA_DIR = '/home/yuncong/CSHL_data'
+    GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
+    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes2/'
     # mesh_rootdir = '/home/yuncong/CSHL_meshes'
@@ -64,14 +72,57 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
-    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
-    atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
-    thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
-    data_dir = '/home/ubuntu/data/CSHL_data_processed'
-    DATA_DIR = '/home/ubuntu/data/CSHL_data_processed'
-    REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
-    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
-    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
+    on_aws = True
+    s3_home = 'ucsd-mousebrainatlas-home'
+#    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
+#    SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+#    atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
+#    thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
+#    data_dir = '/home/ubuntu/data/CSHL_data_processed'
+#    DATA_DIR = '/home/ubuntu/data/CSHL_data_processed'
+#    REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
+#    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
+#    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
+    RAW_DATA_DIR = '/shared/data/CSHL_data'
+    data_dir = '/shared/data/CSHL_data_processed'
+    DATA_DIR = '/shared/data/CSHL_data_processed'
+    thumbnail_data_dir = data_dir
+    atlasAlignParams_rootdir = '/shared/data/CSHL_atlasAlignParams_atlas_v2'
+    atlasAlignOptLogs_dir = '/shared/data/CSHL_atlasAlignOptLogs_atlas_v2'
+    VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
+    labelingViz_root = '/shared/data/CSHL_annotationsViz'
+    scoremaps_rootdir = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+    SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
+    annotationViz_rootdir = '/shared/data/CSHL_annotationsViz'
+    annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+    annotation_midbrainIncluded_v2_rootdir = '/shared/data/CSHL_labelings_v3/'
+    patch_training_features_rootdir = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
+    patch_rootdir = '/shared/data/CSHL_data_patches/'
+    SVM_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    SVM_NTBLUE_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    PATCH_FEATURES_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    SPARSE_SCORES_ROOTDIR = '/shared/data/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
+    SCOREMAPS_ROOTDIR = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+    HESSIAN_ROOTDIR = '/shared/data/CSHL_hessians/'
+    os.environ["DATA_DIR"] = DATA_DIR
+    REPO_DIR = '/shared/MouseBrainAtlas'
+    os.environ["REPO_DIR"] = REPO_DIR
+    annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+    LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
+elif hostname.endswith('GL502VM'):
+    print 'Setting environment for Local Machine Saienthan'
+    on_aws = False
+    REPO_DIR = '/home/saienthan/MouseBrainAtlas'
+    os.environ["REPO_DIR"] = REPO_DIR
+    RAW_DATA_DIR = '/home/saienthan/data/CSHL_data'
+    data_dir = '/home/saienthan/data/CSHL_data_processed'
+    DATA_DIR = '/home/saienthan/data/CSHL_data_processed'
+    thumbnail_data_dir = data_dir
+    volume_dir = '/home/saienthan/data/CSHL_volumes2/'
+    annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+    GORDON_RAW_DATA_DIR = '/shared/data/CSHL_data'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -89,11 +140,14 @@ all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark
 labels_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
 labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
 
+def convert_to_unsided_name(name):
+    return convert_name_to_unsided(name)
+
 def convert_name_to_unsided(name):
     if '_' not in name:
         return name
     else:
-        return name[:-2]
+        return convert_to_original_name(name)
 
 def extract_side_from_name(name):
     if '_' in name:
@@ -106,6 +160,43 @@ def convert_to_left_name(name):
 
 def convert_to_right_name(name):
     return convert_name_to_unsided(name) + '_R'
+
+def convert_to_original_name(name):
+    return name.split('_')[0]
+
+def convert_to_nonsurround_name(name):
+    if 'surround' in name:
+        return name[:-9]
+    else:
+        return name
+
+def convert_to_surround_name(name, margin=None, suffix=None):
+
+    elements = name.split('_')
+    if margin is None:
+        if len(elements) > 1 and elements[1] == 'surround':
+            if suffix is not None:
+                return elements[0] + '_surround_' + suffix
+            else:
+                return elements[0] + '_surround'
+        else:
+            if suffix is not None:
+                return name + '_surround_' + suffix
+            else:
+                return name + '_surround'
+    else:
+        if len(elements) > 1 and elements[1] == 'surround':
+            if suffix is not None:
+                return elements[0] + '_surround_' + str(margin) + '_' + suffix
+            else:
+                return elements[0] + '_surround_' + str(margin)
+        else:
+            if suffix is not None:
+                return name + '_surround_' + str(margin) + '_' + suffix
+            else:
+                return name + '_surround_' + str(margin)
+
+
 
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])
@@ -143,6 +234,7 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 #######################################
 
 all_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
+#'MD635']
 
 # section_number_lookup = { 'MD585': 440, 'MD589': 445,
 #                         'MD590': 419, 'MD591': 452, 'MD592': 454,

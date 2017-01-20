@@ -1,3 +1,4 @@
+from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -5,7 +6,6 @@ from skimage.morphology import binary_dilation, binary_erosion, watershed, remov
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
-from skimage.io import imread, imsave
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
@@ -97,6 +97,14 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
+
+def save_hdf_v2(data, fn, key='data'):
+    import pandas
+    pandas.Series(data=data).to_hdf(fn % {'fn': fn}, key, mode='w')
+
+def load_hdf_v2(fn, key='data'):
+    import pandas
+    return pandas.read_hdf(fn, key)
 
 def save_hdf(data, fn, complevel=9, key='data'):
     filters = Filters(complevel=complevel, complib='blosc')
@@ -292,9 +300,12 @@ def display_image(vis, filename='tmp.jpg'):
     return FileLink(filename)
 
 
-def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
+def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
 
-    common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+    # If common_shape is not given, use the largest of all data
+    if common_shape is None:
+        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+
     dt = vizs[0].dtype
     ndim = vizs[0].ndim
 
@@ -515,6 +526,8 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
 
 def bbox_2d(img):
+    if np.count_nonzero(img) == 0:
+        raise Exception('bbox2d: Image is empty.')
     rows = np.any(img, axis=1)
     cols = np.any(img, axis=0)
     rmin, rmax = np.where(rows)[0][[0, -1]]
@@ -541,6 +554,18 @@ def bbox_3d(img):
 #     n = len(points)
 #     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
 #     return points[sampled_indices]
+
+def apply_function_to_nested_list(func, l):
+    """
+    Func applies to the list consisting of all elements of l, and return a list.
+    l: a list of list
+    """
+    from itertools import chain
+    result = func(list(chain(*l)))
+    csum = np.cumsum(map(len, l))
+    new_l = [result[(0 if i == 0 else csum[i-1]):csum[i]] for i in range(len(l))]
+    return new_l
+
 
 def apply_function_to_dict(func, d):
     """

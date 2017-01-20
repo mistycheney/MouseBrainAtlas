@@ -510,7 +510,7 @@ class DataManager(object):
         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None, suffix = None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
@@ -1474,8 +1474,9 @@ class DataManager(object):
 
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
-# metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-all_stacks = ['MD589']
+#metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+metadata_cache['image_shape'] =\
+{'MD585': (16384, 12000),
 metadata_cache['image_shape'] =\
 {'MD585': (16384, 12000),
  'MD589': (15520, 11936),

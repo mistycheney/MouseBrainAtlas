@@ -318,8 +318,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.tb_fmt = 'tif'
             self.pad_bg_color = 'white'
 
-        self.stack_data_dir = data_dir + stack
-        self.stack_data_dir_gordon = data_dir + stack
+        self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
+        self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
 
         self.web_service = WebService()
 

@@ -72,7 +72,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
-    on_aws = True
+    ON_AWS = True
     s3_home = 'ucsd-mousebrainatlas-home'
 #    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
 #    SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
@@ -111,7 +111,7 @@ elif hostname.startswith('ip'):
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
-    on_aws = False
+    ON_AWS = False
     os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
     RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
     data_dir = '/home/saienthan/data/CSHL_data_processed/'

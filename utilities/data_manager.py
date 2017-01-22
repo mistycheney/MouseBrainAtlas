@@ -68,7 +68,7 @@ class DataManager(object):
             sys.stderr.write('File does not exist: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
-            if ON_AWS == True:
+            if ON_AWS:
                 DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
         if filetype == 'bp':

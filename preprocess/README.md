@@ -19,8 +19,14 @@ The preprocessing involves the following steps:
 
 - Generate mask
   - server gen mask
+  notebook `generate_mask_entropy.ipynb`
+
+  tune TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE
   - download folder `<stack>_mask_unsorted` and visualization `<stack>_maskContourViz_unsorted`
+  1500 seconds
+  `learn_to_identify_wrong_masks`
   - (user) check mask contoured images
+
 - Warp crop mask
   - server warp crop masks
   - download folder `<stack>_mask_unsorted_alignedTo_<anchor_fn>` and ``<stack>_mask_unsorted_alignedTo_<anchor_fn>_cropped``

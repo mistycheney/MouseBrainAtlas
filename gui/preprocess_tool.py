@@ -17,6 +17,8 @@ else:
 from ui_PreprocessGui import Ui_PreprocessGui
 # from ui_GalleryDialog import Ui_gallery_dialog
 from ui_AlignmentGui import Ui_AlignmentGui
+from ui_MaskEditingGui import Ui_MaskEditingGui
+from ui_MaskParametersGui import Ui_MaskParametersGui
 
 import cPickle as pickle
 
@@ -45,7 +47,19 @@ class SimpleGraphicsScene4(SimpleGraphicsScene):
     def __init__(self, id, gview=None, parent=None):
         super(SimpleGraphicsScene4, self).__init__(id=id, gview=gview, parent=parent)
         self.anchor_circle_items = []
+        self.anchor_label_items = []
         self.mode = 'idle'
+        self.active_image_updated.connect(self.clear_points)
+
+    def clear_points(self):
+        # pass
+        for circ in self.anchor_circle_items:
+            self.removeItem(circ)
+        self.anchor_circle_items = []
+
+        for lbl in self.anchor_label_items:
+            self.removeItem(lbl)
+        self.anchor_label_items = []
 
     def show_context_menu(self, pos):
         myMenu = QMenu(self.gview)
@@ -86,6 +100,7 @@ class SimpleGraphicsScene4(SimpleGraphicsScene):
                 label.setScale(1)
                 label.setBrush(Qt.black)
                 label.setZValue(50)
+                self.anchor_label_items.append(label)
 
                 self.anchor_point_added.emit(index)
 
@@ -311,12 +326,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.stack = stack
 
         # for fluorescent stack, tif is 16 bit (not visible in GUI), png is 8 bit
-        if self.stack == 'MD635':
+        if self.stack in all_ntb_stacks or self.stack in all_alt_nissl_ntb_stacks:
             self.tb_fmt = 'png'
-            self.pad_bg_color = 'black'
+            # self.pad_bg_color = 'black'
         else:
             self.tb_fmt = 'tif'
-            self.pad_bg_color = 'white'
+            # self.pad_bg_color = 'white'
 
         self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
         self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
@@ -524,7 +539,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_save_slide_position_map.clicked.connect(self.save)
         self.button_load_slide_position_map.clicked.connect(self.load_slide_position_map)
         self.button_sort.clicked.connect(self.sort)
-        self.button_confirm_order.clicked.connect(self.confirm_order)
+        # self.button_confirm_order.clicked.connect(self.confirm_order)
         self.button_load_sorted_filenames.clicked.connect(self.load_sorted_filenames)
         self.button_save_sorted_filenames.clicked.connect(self.save_sorted_filenames)
         self.button_align.clicked.connect(self.align)
@@ -538,6 +553,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_gen_mask.clicked.connect(self.generate_masks)
         self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
         self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
+        self.button_edit_masks.clicked.connect(self.edit_masks)
 
         self.button_send_info_gordon.clicked.connect(self.send_info_gordon)
         # self.button_send_info_workstation.clicked.connect(self.send_info_workstation)
@@ -797,7 +813,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.set_show_option('aligned')
 
-        with open(os.path.join(thumbnail_data_dir, '/%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'r')) as f:
+        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}), 'r') as f:
             ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section = map(int, f.readline().split())
             self.sorted_sections_gscene.set_box(ul_x, lr_x, ul_y, lr_y)
             print ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section
@@ -815,7 +831,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if ul_x == 100 and ul_y == 100 and lr_x == 200 and lr_y == 200:
             return
 
-        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}, 'w')) as f:
+        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}), 'w') as f:
             f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
 
     def crop(self):
@@ -830,12 +846,19 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         lr_x = int(lr_pos.x())
         lr_y = int(lr_pos.y())
 
+        if self.stack in all_nissl_stacks:
+            pad_bg_color = 'white'
+        elif self.stack in all_ntb_stacks:
+            pad_bg_color = 'black'
+        elif self.stack in all_alt_nissl_ntb_stacks:
+            pad_bg_color = 'auto'
+
         self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y,
                                             f=self.first_section, l=self.last_section, anchor_fn=self.anchor_fn,
                                             filenames=self.get_valid_sorted_filenames(),
                                             first_fn=self.sorted_filenames[self.first_section-1],
                                             last_fn=self.sorted_filenames[self.last_section-1],
-                                            pad_bg_color=self.pad_bg_color)
+                                            pad_bg_color=pad_bg_color)
 
         # Download unsorted thumbnail cropped images
         self.statusBar().showMessage('Downloading aligned cropped thumbnail images ...')
@@ -849,6 +872,280 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                             stack=self.stack,
                             anchor_fn=self.anchor_fn))
 
+    ##############
+    # Edit Masks #
+    ##############
+
+    def cleanup_mask_review(self, d):
+
+        labels_reviewed = {}
+
+        for fn, alg_labels in d.iteritems():
+            alg_positives = [index for index, l in alg_labels.iteritems() if l == 1]
+            if len(alg_positives) > 0:
+                assert len(alg_positives) == 1
+                correct_index = alg_positives[0]
+            else:
+                correct_index = 1
+
+            alg_labels[correct_index] = 1
+            for idx in alg_labels:
+                if idx != correct_index:
+                    alg_labels[idx] = -1
+
+            labels_reviewed[fn] = {i: r == 1 for i, r in alg_labels.iteritems()}
+
+        return labels_reviewed
+
+    def edit_masks(self):
+
+        self.n_slots = 5
+
+        self.bad_mask_fn_list = []
+
+        self.mask_ui = Ui_MaskEditingGui()
+        self.mask_gui = QDialog(self)
+        self.mask_ui.setupUi(self.mask_gui)
+
+        self.bad_mask_list_model = QStandardItemModel()
+        self.mask_ui.listview_bad.setModel(self.bad_mask_list_model)
+        self.mask_ui.listview_bad.clicked.connect(self.bad_mask_list_clicked)
+
+        self.mask_ui.button_addToList.clicked.connect(self.add_button_clicked)
+        self.mask_ui.button_removeFromList.clicked.connect(self.remove_button_clicked)
+        # self.mask_ui.button_exportList.clicked.connect(self.export_button_clicked)
+        # self.mask_ui.button_finish.clicked.connect(self.finish_button_clicked)
+        self.mask_ui.button_redoList.clicked.connect(self.redo_mask_button_clicked)
+        self.mask_ui.button_closeMaskGui.clicked.connect(self.close_mask_gui_button_clicked)
+        self.mask_ui.button_confirmMasks.clicked.connect(self.confirm_masks_button_clicked)
+
+        self.mask_good_buttons = dict(zip(range(1, 1+self.n_slots), [self.mask_ui.button_good_1, self.mask_ui.button_good_2, self.mask_ui.button_good_3, \
+                        self.mask_ui.button_good_4, self.mask_ui.button_good_5]))
+
+        self.mask_gviews = dict(zip(range(1, 1+self.n_slots), [self.mask_ui.gview_1, self.mask_ui.gview_2, self.mask_ui.gview_3, \
+                        self.mask_ui.gview_4, self.mask_ui.gview_5]))
+
+        # self.mask_review_results = self.read_mask_review_csv('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_check.csv' % {'stack': self.stack})
+        # self.mask_is_good = {False: for _ in range(1, 7)}# Read from list file
+
+        self.valid_section_filenames = [fn for fn in self.sorted_filenames if fn != 'Placeholder' and fn != 'Rescan']
+        self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
+        self.valid_sections_to_filenames = dict(zip(self.valid_section_indices, self.valid_section_filenames))
+        self.valid_filenames_to_sections = {f: s for s, f in self.valid_sections_to_filenames.iteritems()}
+
+        all_mask_filenames = defaultdict(dict)
+        for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
+            for mask_ind in range(1, 1+self.n_slots):
+                mask_fn = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submask_%(mask_ind)d_overlayViz.tif" % \
+                    dict(stack=self.stack, img_fn=img_fn, mask_ind=mask_ind)
+                if os.path.exists(mask_fn):
+                    all_mask_filenames[mask_ind][sec] = mask_fn
+        all_mask_filenames.default_factory = None
+
+        self.mask_alg_review_results = defaultdict(dict)
+        for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
+            mask_fn = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submasksAlgReview.txt" % \
+                dict(stack=self.stack, img_fn=img_fn)
+            if os.path.exists(mask_fn):
+                with open(mask_fn, 'r') as f:
+                    for line in f:
+                        mask_ind, decision = map(int, line.split())
+                        self.mask_alg_review_results[img_fn][mask_ind] = decision == 1
+        self.mask_alg_review_results.default_factory = None
+        self.mask_review_results = self.cleanup_mask_review(self.mask_alg_review_results)
+
+        self.mask_gscenes = {}
+        for gview_i, gview in self.mask_gviews.iteritems():
+            gscene = SimpleGraphicsScene(id=gview_i, gview=gview)
+            gview.setScene(gscene)
+            if gview_i not in all_mask_filenames:
+                continue
+
+            feeder = ImageDataFeeder(name=gview_i, stack=self.stack, sections=all_mask_filenames[gview_i].keys(), use_data_manager=False)
+            feeder.set_images(labels=all_mask_filenames[gview_i].keys(),
+                            filenames=all_mask_filenames[gview_i].values(),
+                            downsample=32)
+            feeder.set_downsample_factor(32)
+
+            gscene.set_data_feeder(feeder)
+            try:
+                gscene.set_active_section(160, emit_changed_signal=False)
+            except:
+                pass
+
+            gscene.active_image_updated.connect(self.mask_section_changed)
+            self.mask_gscenes[gview_i] = gscene
+
+            self.mask_good_buttons[gview_i].clicked.connect(self.mask_good_button_clicked)
+
+        self.mask_gui.show()
+
+    def confirm_masks_button_clicked(self):
+        """
+        Confirm masks.
+        """
+
+        # Save submask review results.
+        import pandas
+        submask_review_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_review_results.csv" % dict(stack=self.stack)
+        pandas.DataFrame(self.mask_review_results).T.to_csv(submask_review_fp)
+        sys.stderr.write('Submask review results written to %s.\n' % submask_review_fp)
+        self.statusBar().showMessage('Submask review results written to %s.' % submask_review_fp)
+
+        # Clone the accepted submask, assign a formal name.
+        formal_masks_dir = create_if_not_exists("/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_masks" % dict(stack=self.stack))
+
+        for img_fn, decisions in self.mask_review_results.iteritems():
+            accepted_submask_indices = [slot for slot, decision in decisions.iteritems() if decision]
+            assert len(accepted_submask_indices) == 1, 'Do not yet support more than one accepted masks.'
+            # If more than one, take the union of submasks.
+            from_mask_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submask_%(submask_ind)d.png" % \
+                            dict(stack=self.stack, img_fn=img_fn, submask_ind=accepted_submask_indices[0])
+            to_mask_fp = os.path.join(formal_masks_dir, "%(img_fn)s_mask.png" % dict(img_fn=img_fn))
+            execute_command('cp %s %s' % (from_mask_fp, to_mask_fp))
+        self.statusBar().showMessage('Formal masks generated.')
+
+    def bad_mask_list_clicked(self, index):
+        self.mask_ui_selected_item = self.bad_mask_list_model.itemFromIndex(index)
+        self.mask_ui_curr_fn, sec_with_parentheses = str(self.bad_mask_list_model.itemData(index)[0]).split()
+        self.mask_ui_curr_sec = int(sec_with_parentheses[1:-1])
+        for gscene_i, gscene in self.mask_gscenes.iteritems():
+            try:
+                gscene.set_active_section(self.mask_ui_curr_sec, emit_changed_signal=False)
+            except:
+                pass
+
+    def train_distance_percentile_changed(self, value):
+        """
+        Mask parameters GUI callback - "train_distance_percentile" spinbox.
+        """
+        self.train_distance_percentile = int(value)
+        # self.train_distance_percentile = int(self.mask_params_ui.spinBox_trainDistPercentile.value())
+
+    def close_mask_parameters(self):
+        """
+        Mask parameters GUI callback - "Close" button.
+        """
+
+        self.mask_params_gui.close()
+
+    def confirm_mask_parameters(self):
+        """
+        Mask parameters GUI callback - "Confirm" button.
+        """
+
+        # self.bad_mask_fn_list = [str(self.bad_mask_list_model.itemData(index)[0]).split()[0] for index in range(self.bad_mask_list_model.rowCount())]
+        # self.bad_mask_sec_list = [self.valid_filenames_to_sections[f] for f in self.bad_mask_fn_list]
+
+        self.web_service.convert_to_request('generate_masks',
+                                    stack=self.stack, filenames=self.bad_mask_fn_list,
+                                    tb_fmt=self.tb_fmt,
+                                    train_distance_percentile=self.train_distance_percentile)
+
+        # execute_command("""rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_mask_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted %(local_data_dir)s/%(stack)s/""" % \
+        #                 {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
+        #                 'local_data_dir': '/home/yuncong/CSHL_data_processed',
+        #                 'stack': self.stack})
+
+        # execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submask_overlayViz && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submask_overlayViz %(local_data_dir)s/%(stack)s/" % \
+        #                 {'gordon_data_dir': gordon_thumbnail_data_dir,
+        #                 'local_data_dir': thumbnail_data_dir,
+        #                 'stack': self.stack})
+
+        for fn in self.bad_mask_fn_list:
+            execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s && scp -rf oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s" % \
+                            {'gordon_data_dir': gordon_thumbnail_data_dir,
+                            'local_data_dir': thumbnail_data_dir,
+                            'stack': self.stack,
+                            'fn': fn})
+
+    def close_mask_gui_button_clicked(self):
+        self.mask_gui.close()
+
+    def redo_mask_button_clicked(self):
+        """
+        Launch Mask Parameter GUI.
+        """
+        # Launch parameter selection gui
+
+        self.mask_params_ui = Ui_MaskParametersGui()
+        self.mask_params_gui = QDialog(self)
+        self.mask_params_ui.setupUi(self.mask_params_gui)
+
+        train_distance_percentile_default = 10
+        self.mask_params_ui.spinBox_trainDistPercentile.setValue(train_distance_percentile_default)
+        self.mask_params_ui.spinBox_trainDistPercentile.valueChanged.connect(self.train_distance_percentile_changed)
+        self.mask_params_ui.button_confirmMaskParameters.clicked.connect(self.confirm_mask_parameters)
+        self.mask_params_ui.button_closeMaskParameters.clicked.connect(self.close_mask_parameters)
+
+        self.mask_params_gui.show()
+
+    def add_button_clicked(self):
+        item_text = self.mask_ui_curr_fn + ' (' + str(self.mask_ui_curr_sec) + ')'
+        if item_text in self.bad_mask_fn_list:
+            sys.stderr.write('%s already exists.\n' % item_text)
+            return
+
+        self.bad_mask_list_model.appendRow(QStandardItem(item_text))
+
+        self.bad_mask_fn_list = [str(self.bad_mask_list_model.data(self.bad_mask_list_model.index(index,0))).split()[0] \
+                                for index in range(self.bad_mask_list_model.rowCount())]
+
+    def remove_button_clicked(self):
+        self.bad_mask_list_model.removeRow(self.mask_ui_selected_item.row())
+
+    # def export_button_clicked(self):
+    #     pass
+
+    # def finish_button_clicked(self):
+        # self.bad_mask_fn_list = [str(self.bad_mask_list_model.itemData(index)[0]).split()[0] for index in range(self.bad_mask_list_model.rowCount())]
+        # self.bad_mask_sec_list = [self.valid_filenames_to_sections[f] for f in self.bad_mask_fn_list]
+
+    def mask_good_button_clicked(self):
+        sender_id = self.mask_good_buttons.keys()[self.mask_good_buttons.values().index(self.sender())]
+        # img_fn = self.valid_sections_to_filenames[self.mask_gscenes[sender_id].active_section]
+        if self.mask_review_results[self.mask_ui_curr_fn][sender_id]:
+            self.mask_review_results[self.mask_ui_curr_fn][sender_id] = False
+            self.mask_good_buttons[sender_id].setText('Accept')
+            self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
+        else:
+            self.mask_review_results[self.mask_ui_curr_fn][sender_id] = True
+            self.mask_good_buttons[sender_id].setText('Reject')
+            self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
+
+        print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
+
+    def mask_section_changed(self):
+
+        sender_id = self.sender().id
+        print 'sender', sender_id
+        self.mask_ui_curr_sec  = self.mask_gscenes[sender_id].active_section
+        for gscene_i, gscene in self.mask_gscenes.iteritems():
+            if gscene_i != sender_id:
+                try:
+                    print 'set %d' % gscene_i
+                    gscene.set_active_section(self.mask_ui_curr_sec, emit_changed_signal=False)
+                except:
+                    pass
+                print gscene.active_section
+
+        self.mask_ui_curr_fn = self.valid_sections_to_filenames[self.mask_ui_curr_sec]
+        print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
+        for button_i, button in self.mask_good_buttons.iteritems():
+            if button_i in self.mask_review_results[self.mask_ui_curr_fn]:
+                if self.mask_review_results[self.mask_ui_curr_fn][button_i]: # review is good
+                    button.setText('Reject')
+                else:
+                    button.setText('Accept')
+            else:
+                button.setText('')
+
+        self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
+
+    ##################
+    # Edit Alignment #
+    ##################
+
     def edit_transform(self):
 
         self.alignment_ui = Ui_AlignmentGui()
@@ -857,6 +1154,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.alignment_ui.button_anchor.clicked.connect(self.add_anchor_pair_clicked)
         self.alignment_ui.button_upload_transform.clicked.connect(self.upload_custom_transform)
+        # self.alignment_ui.button_align.connect(self.upload_custom_transform)
+        self.alignment_ui.button_compute.clicked.connect(self.compute_custom_transform)
 
         self.valid_section_filenames = [fn for fn in self.sorted_filenames if fn != 'Placeholder' and fn != 'Rescan']
         self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
@@ -916,6 +1215,70 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.alignment_gui.show()
 
+    def anchor_point_added(self, index):
+        gscene_id = self.sender().id
+        if gscene_id == 'current':
+            self.current_section_anchor_received = True
+            # self.curr_gscene.anchor_points.index
+        elif gscene_id == 'previous':
+            self.previous_section_anchor_received = True
+
+        if self.current_section_anchor_received and self.previous_section_anchor_received:
+            self.curr_gscene.set_mode('idle')
+            self.prev_gscene.set_mode('idle')
+            self.current_section_anchor_received = False
+            self.previous_section_anchor_received = False
+            self.alignment_ui.button_anchor.setEnabled(True)
+
+    def compute_custom_transform(self):
+        """
+        Compute transform based on added control points.
+        """
+
+        curr_points = []
+        for i, c in enumerate(self.curr_gscene.anchor_circle_items):
+            pos = c.scenePos()
+            curr_points.append((pos.x(), pos.y()))
+
+        prev_points = []
+        for i, c in enumerate(self.prev_gscene.anchor_circle_items):
+            pos = c.scenePos()
+            prev_points.append((pos.x(), pos.y()))
+
+        print self.curr_gscene.active_section, np.array(curr_points)
+        print self.prev_gscene.active_section, np.array(prev_points)
+
+        curr_points = np.array(curr_points)
+        prev_points = np.array(prev_points)
+        curr_centroid = curr_points.mean(axis=0)
+        prev_centroid = prev_points.mean(axis=0)
+        curr_points0 = curr_points - curr_centroid
+        prev_points0 = prev_points - prev_centroid
+
+        H = np.dot(curr_points0.T, prev_points0)
+        U, S, VT = np.linalg.svd(H)
+        R = np.dot(VT.T, U.T)
+
+        t = -np.dot(R, curr_centroid) + prev_centroid
+
+        print R, t
+
+        # Write to custom transform file
+        curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
+        prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+
+        create_if_not_exists(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/' % \
+                            dict(stack=self.stack,
+                                curr_fn=curr_section_fn,
+                                prev_fn=prev_section_fn))
+
+        with open(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_to_%(prev_fn)s_customTransform.txt' %\
+                    dict(stack=self.stack,
+                        curr_fn=curr_section_fn,
+                        prev_fn=prev_section_fn), 'w') as f:
+            f.write('%f %f %f %f %f %f\n' % (R[0,0], R[0,1], t[0], R[1,0], R[1,1], t[1]))
+
+
     def upload_custom_transform(self):
         curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
         prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
@@ -957,72 +1320,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                             curr_fn=curr_section_fn,
                             prev_fn=prev_section_fn))
 
-
-
     def add_anchor_pair_clicked(self):
         self.curr_gscene.set_mode('add point')
         self.prev_gscene.set_mode('add point')
         self.current_section_anchor_received = False
         self.previous_section_anchor_received = False
         self.alignment_ui.button_anchor.setEnabled(False)
-
-    def anchor_point_added(self, index):
-        gscene_id = self.sender().id
-        if gscene_id == 'current':
-            self.current_section_anchor_received = True
-            # self.curr_gscene.anchor_points.index
-        elif gscene_id == 'previous':
-            self.previous_section_anchor_received = True
-
-        if self.current_section_anchor_received and self.previous_section_anchor_received:
-            self.curr_gscene.set_mode('idle')
-            self.prev_gscene.set_mode('idle')
-            self.current_section_anchor_received = False
-            self.previous_section_anchor_received = False
-            self.alignment_ui.button_anchor.setEnabled(True)
-
-            curr_points = []
-            for i, c in enumerate(self.curr_gscene.anchor_circle_items):
-                pos = c.scenePos()
-                curr_points.append((pos.x(), pos.y()))
-
-            prev_points = []
-            for i, c in enumerate(self.prev_gscene.anchor_circle_items):
-                pos = c.scenePos()
-                prev_points.append((pos.x(), pos.y()))
-
-            print self.curr_gscene.active_section, np.array(curr_points)
-            print self.prev_gscene.active_section, np.array(prev_points)
-
-            curr_points = np.array(curr_points)
-            prev_points = np.array(prev_points)
-            curr_centroid = curr_points.mean(axis=0)
-            prev_centroid = prev_points.mean(axis=0)
-            curr_points0 = curr_points - curr_centroid
-            prev_points0 = prev_points - prev_centroid
-
-            H = np.dot(curr_points0.T, prev_points0)
-            U, S, VT = np.linalg.svd(H)
-            R = np.dot(VT.T, U.T)
-
-            t = -np.dot(R, curr_centroid) + prev_centroid
-
-            print R, t
-
-            curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
-            prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
-
-            create_if_not_exists(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/' % \
-                                dict(stack=self.stack,
-                                    curr_fn=curr_section_fn,
-                                    prev_fn=prev_section_fn))
-
-            with open(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_to_%(prev_fn)s_customTransform.txt' %\
-                        dict(stack=self.stack,
-                            curr_fn=curr_section_fn,
-                            prev_fn=prev_section_fn), 'w') as f:
-                f.write('%f %f %f %f %f %f\n' % (R[0,0], R[0,1], t[0], R[1,0], R[1,1], t[1]))
-
 
     def aligned_image_changed(self):
         pass
@@ -1054,7 +1357,23 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
 
-        if self.stack == 'MD635':
+        if self.stack in all_alt_nissl_ntb_stacks:
+
+            F_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'F'}
+            N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
+
+            sorted_fns = []
+            for i in sorted(set(F_series.keys() + N_series.keys())):
+                if i in N_series and i in F_series:
+                    for pos in range(1, 4):
+                        sorted_fns.append(N_series[i][pos])
+                        sorted_fns.append(F_series[i][pos])
+                elif i in N_series:
+                    sorted_fns += [N_series[i][pos] for pos in range(1, 4)]
+                elif i in F_series:
+                    sorted_fns += [F_series[i][pos] for pos in range(1, 4)]
+
+        elif self.stack in all_ntb_stacks:
             # fluro
             F_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'F'}
             sorted_fns = []
@@ -1398,17 +1717,20 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def download(self):
 
+        # Download thumbnails from Gordon
         execute_command("""mkdir %(local_data_dir)s/%(stack)s; scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/*.%(tb_fmt)s %(local_data_dir)s/%(stack)s/""" % \
                         {'gordon_data_dir': GORDON_RAW_DATA_DIR,
                         'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack,
                         'tb_fmt': self.tb_fmt})
 
+        # Download macros (annotated with bounding boxes)
         execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros_annotated/%(stack)s/ %(local_data_dir)s/macros_annotated/""" % \
                         {'gordon_data_dir': GORDON_RAW_DATA_DIR,
                         'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack})
 
+        # Download macros (without bounding boxes).
         execute_command("""scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/macros/%(stack)s/ %(local_data_dir)s/macros/""" % \
                         {'gordon_data_dir': GORDON_RAW_DATA_DIR,
                         'local_data_dir': RAW_DATA_DIR,
@@ -1416,16 +1738,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def generate_masks(self):
 
-        self.web_service.convert_to_request('generate_masks',
-                                    stack=self.stack, filenames=self.get_valid_sorted_filenames(),
-                                    tb_fmt=self.tb_fmt)
+        self.web_service.convert_to_request('generate_masks', stack=self.stack,
+                                            filenames=self.get_valid_sorted_filenames(),
+                                            tb_fmt=self.tb_fmt)
 
-        # execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted %(local_data_dir)s/%(stack)s/""" % \
-        #                 {'gordon_data_dir': '/home/yuncong/CSHL_data_processed',
-        #                 'local_data_dir': '/home/yuncong/CSHL_data_processed',
-        #                 'stack': self.stack})
-
-        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_maskContourViz_unsorted %(local_data_dir)s/%(stack)s/""" % \
+        execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks %(local_data_dir)s/%(stack)s/" % \
                         {'gordon_data_dir': gordon_thumbnail_data_dir,
                         'local_data_dir': thumbnail_data_dir,
                         'stack': self.stack})
@@ -1474,15 +1791,22 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def compose(self):
 
-        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}, 'w')) as f:
+        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}), 'w') as f:
             f.write(self.anchor_fn)
+
+        if self.stack in all_nissl_stacks:
+            pad_bg_color = 'white'
+        elif self.stack in all_ntb_stacks:
+            pad_bg_color = 'black'
+        elif self.stack in all_alt_nissl_ntb_stacks:
+            pad_bg_color = 'auto'
 
         self.statusBar().showMessage('Conmpose consecutive alignments...')
         self.web_service.convert_to_request(name='compose', stack=self.stack,
                                             filenames=self.get_valid_sorted_filenames(),
                                             anchor_fn=self.anchor_fn,
                                             tb_fmt=self.tb_fmt,
-                                            pad_bg_color=self.pad_bg_color)
+                                            pad_bg_color=pad_bg_color)
         self.statusBar().showMessage('Images aligned.')
 
         self.statusBar().showMessage('Downloading aligned images ...')

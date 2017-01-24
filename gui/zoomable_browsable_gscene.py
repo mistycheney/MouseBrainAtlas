@@ -236,8 +236,6 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
 
         return False
 
-
-
 class SimpleGraphicsScene(QGraphicsScene):
 
     active_image_updated = pyqtSignal()
@@ -298,6 +296,8 @@ class SimpleGraphicsScene(QGraphicsScene):
 
     def set_active_i(self, i, emit_changed_signal=True):
 
+        # print self.id, 'goal active_i =', i, 'current active_i =', self.active_i
+
         if i == self.active_i:
             return
 
@@ -308,29 +308,40 @@ class SimpleGraphicsScene(QGraphicsScene):
         self.active_i = i
         if hasattr(self.data_feeder, 'sections'):
             self.active_section = self.data_feeder.all_sections[self.active_i]
-            print self.id, ': Set active label to', self.active_section
+            print self.id, ': Set active section to', self.active_section
 
         try:
             self.update_image()
         except Exception as e: # if failed, do not change active_i or active_section
+            sys.stderr.write('Error setting index to %d\n' % i)
+            # self.active_i = old_i
+            # self.active_section = self.data_feeder.all_sections[old_i]
+            self.pixmapItem.setVisible(False)
             raise e
-            self.active_i = old_i
-            self.active_section = self.data_feeder.all_sections[old_i]
 
         if emit_changed_signal:
             self.active_image_updated.emit()
 
     def set_active_section(self, sec, emit_changed_signal=True):
 
+        # print self.id, 'current active_section = ', self.active_section
+
         if sec == self.active_section:
             return
 
         print self.id, ': Set active section to', sec
+        self.active_section = sec
 
         if hasattr(self.data_feeder, 'sections'):
-            assert sec in self.data_feeder.all_sections, 'Section %s is not loaded.' % str(sec)
-            i = self.data_feeder.all_sections.index(sec)
-            self.set_active_i(i, emit_changed_signal=emit_changed_signal)
+
+            if sec not in self.data_feeder.all_sections:
+                self.pixmapItem.setVisible(False)
+                self.active_i = None
+                sys.stderr.write('Section %d is not loaded.\n' % sec)
+                raise
+            else:
+                i = self.data_feeder.all_sections.index(sec)
+                self.set_active_i(i, emit_changed_signal=emit_changed_signal)
 
         # self.active_section = sec
 
@@ -351,12 +362,8 @@ class SimpleGraphicsScene(QGraphicsScene):
 
         histology_pixmap = QPixmap.fromImage(image)
 
-        # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
         self.pixmapItem.setPixmap(histology_pixmap)
         self.pixmapItem.setVisible(True)
-        # self.showing_which = 'histology'
-
-        self.set_active_i(i)
 
 
     def set_downsample_factor(self, downsample):
@@ -368,7 +375,6 @@ class SimpleGraphicsScene(QGraphicsScene):
         # self.downsample = downsample
         self.data_feeder.set_downsample_factor(downsample)
         self.update_image()
-
 
     def show_next(self, cycle=False):
         if cycle:

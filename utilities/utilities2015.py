@@ -29,6 +29,46 @@ import matplotlib.pyplot as plt
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def plot_histograms(hists, bins, titles=None, ncols=4, xlabel='', ylabel='', suptitle='', normalize=False, cellsize=(2, 1.5), **kwargs):
+    """
+    cellsize: (w,h) for each cell
+    """
+
+    if isinstance(hists, dict):
+        titles = hists.keys()
+        hists = hists.values()
+
+    if normalize:
+        hists = hists/np.sum(hists, axis=1).astype(np.float)[:,None]
+
+    if titles is None:
+        titles = ['' for _ in range(len(hists))]
+
+    n = len(hists)
+    nrows = int(np.ceil(n/float(ncols)))
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, \
+                            figsize=(ncols*cellsize[0], nrows*cellsize[1]), **kwargs)
+    axes = axes.flatten()
+
+    width = np.abs(np.mean(np.diff(bins)))*.8
+
+    c = 0
+    for name_u, h in zip(titles, hists):
+
+        axes[c].bar(bins, h/float(h.sum()), width=width);
+        axes[c].set_xlabel(xlabel);
+        axes[c].set_ylabel(ylabel);
+        axes[c].set_title(name_u);
+        c += 1
+
+    for i in range(c, len(axes)):
+        axes[i].axis('off')
+
+    plt.suptitle(suptitle);
+    plt.tight_layout();
+    plt.show()
+
 def save_pickle(obj, fp):
     with open(fp, 'w') as f:
         pickle.dump(obj, f)
@@ -73,6 +113,7 @@ def execute_command(cmd):
             print >>sys.stderr, "Child was terminated by signal", -retcode
         else:
             print >>sys.stderr, "Child returned", retcode
+        return retcode
     except OSError as e:
         print >>sys.stderr, "Execution failed:", e
         raise e
@@ -301,6 +342,9 @@ def display_image(vis, filename='tmp.jpg'):
 
 
 def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
+    """
+    If patch size is larger than common shape, crop to common shape.
+    """
 
     # If common_shape is not given, use the largest of all data
     if common_shape is None:
@@ -319,14 +363,68 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
         patch_padded = common_box.copy()
 
         if keep_center:
+
             top_margin = (common_shape[0] - p.shape[0])/2
+            if top_margin < 0:
+                ymin = 0
+                ymax = common_shape[0]-1
+                ymin2 = -top_margin
+                ymax2 = -top_margin+common_shape[0]-1
+            else:
+                ymin = top_margin
+                ymax = top_margin + p.shape[0] - 1
+                ymin2 = 0
+                ymax2 = p.shape[0]-1
+
             left_margin = (common_shape[1] - p.shape[1])/2
-            patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
+            if left_margin < 0:
+                xmin = 0
+                xmax = common_shape[1]-1
+                xmin2 = -left_margin
+                xmax2 = -left_margin+common_shape[1]-1
+            else:
+                xmin = left_margin
+                xmax = left_margin + p.shape[1] - 1
+                xmin2 = 0
+                xmax2 = p.shape[1]-1
+
+            patch_padded[ymin:ymax+1, xmin:xmax+1] = p[ymin2:ymax2+1, xmin2:xmax2+1]
+#             patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
         else:
+            # assert p.shape[0] < common_shape[0] and p.shape[1] < common_shape[1]
             patch_padded[:p.shape[0], :p.shape[1]] = p
+
         patches_padded.append(patch_padded)
 
     return patches_padded
+
+# def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
+#
+#     # If common_shape is not given, use the largest of all data
+#     if common_shape is None:
+#         common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+#
+#     dt = vizs[0].dtype
+#     ndim = vizs[0].ndim
+#
+#     if ndim == 2:
+#         common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
+#     elif ndim == 3:
+#         common_box = (pad_value*np.ones((common_shape[0], common_shape[1], 3))).astype(dt)
+#
+#     patches_padded = []
+#     for p in vizs:
+#         patch_padded = common_box.copy()
+#
+#         if keep_center:
+#             top_margin = (common_shape[0] - p.shape[0])/2
+#             left_margin = (common_shape[1] - p.shape[1])/2
+#             patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
+#         else:
+#             patch_padded[:p.shape[0], :p.shape[1]] = p
+#         patches_padded.append(patch_padded)
+#
+#     return patches_padded
 
 def display_volume_sections(vol, every=5, ncols=5):
     zmin, zmax = bbox_3d(vol)[4:]

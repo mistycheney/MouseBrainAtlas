@@ -37,6 +37,27 @@ from collections import defaultdict, OrderedDict, deque
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
+# class CustomImageDataFeeder(object):
+#     def __init__(self, name, labels=None, filenames=None):
+#         self.name = name
+#         self.image_cache = {}
+#         if labels is not None and filenames is not None:
+#             self.set_images(labels, filenames)
+#
+#     def set_image(self, qimage, sec):
+#         self.image_cache[sec] = qimage
+#
+#     # def set_images(self, labels, filenames, load_with_cv2=False):
+#     def set_images(self, labels, filenames):
+#         """
+#         Set the images used by the data feeder.
+#         """
+#         self.n = len(labels)
+#
+#         for lbl, fn in zip(labels, filenames):
+#             qimage = QImage(fn)
+#             self.set_image(qimage, lbl)
+
 class ImageDataFeeder(object):
 
     def __init__(self, name, stack, sections, version='aligned_cropped', use_data_manager=True):
@@ -190,6 +211,8 @@ class ImageDataFeeder(object):
             self.image_cache[downsample] = {}
 
         if sec not in self.image_cache[downsample]:
+            # print sec
+            # print self.image_cache[downsample]
             # sys.stderr.write('Image is not loaded.\n')
             raise Exception('Image is not loaded.')
             # raise Exception('Image is not loaded.')

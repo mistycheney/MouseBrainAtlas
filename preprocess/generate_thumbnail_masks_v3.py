@@ -13,11 +13,10 @@ import cv2
 from skimage.filters.rank import entropy
 from skimage.morphology import remove_small_objects, disk, remove_small_holes, binary_dilation, disk, binary_closing
 from skimage.measure import label, regionprops
-from skimage.color import rgb2gray
+from skimage.color import rgb2gray, gray2rgb
 from skimage.io import imread, imsave
 from skimage.segmentation import active_contour
-from skimage.filters import gaussian
-from skimage.filter import threshold_adaptive
+from skimage.filters import gaussian, threshold_adaptive
 from skimage.util import img_as_ubyte
 
 from sklearn.mixture import GaussianMixture
@@ -25,7 +24,7 @@ from sklearn.cluster import KMeans
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
-from annotation_utilities import contours_to_mask
+from annotation_utilities import contours_to_mask, points_inside_contour
 from registration_utilities import find_contour_points
 
 import morphsnakes
@@ -41,240 +40,436 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Generate mask for thumbnail images')
+    description='Generate mask for thumbnail images - fluorescent')
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
-parser.add_argument("output_dir", type=str, help="output dir")
+# parser.add_argument("output_dir", type=str, help="output dir")
+parser.add_argument("method", type=str, help="nissl or fluorescent- use the entropy method for Nissl or Graphcut method for Fluorescent")
 parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='tif')
+parser.add_argument("--train_distance_percentile", type=int, help="distance percentile; used for fluorescent", default=10)
 args = parser.parse_args()
 
 stack = args.stack_name
 input_dir = args.input_dir
-output_dir = create_if_not_exists(args.output_dir)
+# output_dir = create_if_not_exists(args.output_dir)
 tb_fmt = args.tb_fmt
+method = args.method
 
-output_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
+# Used for fluorescent
+TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE = args.train_distance_percentile
+
+# output_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
 
 import json
 
 filenames = json.loads(args.filenames)
 
+##############################################
+
+def generate_entropy_mask(img):
+
+    h, w = img.shape
+    e = entropy(img, disk(5))
+
+    x = np.atleast_2d(e[e > .1]).T
+
+    bics = []
+    clfs = []
+    for nc in [2,3]:
+        clf = GaussianMixture(n_components=nc, covariance_type='full')
+        clf.fit(x)
+        bic = clf.bic(x)
+        bics.append(bic)
+        clfs.append(clf)
+
+    print 'num. components', [2,3][np.argsort(bics)[0]]
+
+    clf = clfs[np.argsort(bics)[0]]
+    covars = np.atleast_1d(np.squeeze(clf.covariances_))
+
+    if clf.n_components == 3:
+        invalid_component = np.where(covars > .4)[0]
+        if len(invalid_component) == 1:
+            clf = clfs[0]
+            covars = np.atleast_1d(np.squeeze(clf.covariances_))
+
+    means = np.atleast_1d(np.squeeze(clf.means_))
+    order = np.argsort(means)
+    weights = clf.weights_
+
+    new_means = []
+    new_covs = []
+    new_weights = []
+
+    # Force into 2 classes: foreground and background
+    km = KMeans(2)
+    km.fit([[x]for x in means])
+    for l in set(km.labels_):
+        new_mean = means[km.labels_ == l].mean()
+        new_cov = covars[km.labels_ == l].mean()
+        new_weight = weights[km.labels_ == l].sum()
+
+        new_means.append(new_mean)
+        new_covs.append(new_cov)
+        new_weights.append(new_weight)
+
+    order = np.argsort(new_means)
+    new_means = np.array(new_means)[order]
+    new_covs = np.array(new_covs)[order]
+    new_weights = np.array(new_weights)[order]
+
+    counts, bins = np.histogram(e.flat, bins=100, density=True);
+
+    # ignore small components
+    gs = np.array([w * 1./np.sqrt(2*np.pi*c) * np.exp(-(bins-m)**2/(2*c)) for m, c, w in zip(new_means, new_covs, new_weights)])
+
+    thresh = bins[np.where(gs[-1] - gs[-2] < 0)[0][-1]]
+
+    mask = e > thresh
+
+    max_area = np.max([p.area for p in regionprops(label(mask))])
+    min_size = min(max_area, 5000)
+
+    mask_rso = remove_small_objects(mask, min_size=min_size, connectivity=8)
+    mask_rsh = remove_small_holes(mask_rso, min_size=20000, connectivity=8)
+    return mask_rsh
+
+
 def generate_mask(fn, tb_fmt='tif'):
     try:
-        img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
+        if method == 'fluorescent':
 
-        # Auto-level
+            img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
 
-        img_rgb_bf = np.zeros_like(img_rgb, np.uint8)
+            # Auto-level
 
-        for i in range(3):
-            img = img_rgb[..., i].copy()
+            img_rgb_bf = np.zeros_like(img_rgb, np.uint8)
 
-            img_flattened = img.flatten()
-            vmax = np.percentile(img_flattened, 99)
-            vmin = np.percentile(img_flattened, 1)
-            img[(img <= vmax) & (img >= vmin)] = (255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)).astype(np.uint8)
-            img[img > vmax] = 255
-            img[img < vmin] = 0
+            for i in range(3):
+                img = img_rgb[..., i].copy()
 
-            img_rgb_bf[..., i] = img
+                img_flattened = img.flatten()
+                vmax = np.percentile(img_flattened, 99)
 
-        img_bf = np.max(img_rgb_bf, axis=2)
-        img = 255 - img_bf
+                vmin_perc = 1
+                while True:
+                    vmin = np.percentile(img_flattened, vmin_perc)
+                    if vmin > 0:
+                        break
+                    else:
+                        vmin_perc += 1
 
-        # Option 1: Graph cut based method.
+                img[(img <= vmax) & (img >= vmin)] = (255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)).astype(np.uint8)
+                img[img > vmax] = 255
+                img[img < vmin] = 0
 
-        slic_labels = slic(img.astype(np.float), sigma=3, compactness=10, n_segments=1000,
-                           multichannel=False, max_iter=100);
+                img_rgb_bf[..., i] = img
 
-        sim_graph = rag_mean_color(img, slic_labels, mode='similarity', sigma=200.)
+            img_bf = np.max(img_rgb_bf, axis=2)
+            img = 255 - img_bf
 
-        # Normalized cut - merge superpixels.
+            # Option 1: Graph cut based method.
 
-        superpixel_merge_sim_thresh = .2
+            slic_labels = slic(img.astype(np.float), sigma=3, compactness=10, n_segments=1000,
+                               multichannel=False, max_iter=100);
 
-        ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=superpixel_merge_sim_thresh)
+            sim_graph = rag_mean_color(img, slic_labels, mode='similarity', sigma=200.)
 
-        # Find background superpixels.
+            # Normalized cut - merge superpixels.
 
-        background_labels = np.unique(np.concatenate([ncut_labels[:,0],
-                                              ncut_labels[:,-1],
-                                              ncut_labels[0,:],
-                                              ncut_labels[-1,:]]))
+            superpixel_merge_sim_thresh = .2
 
-        # background_labels = np.unique(np.concatenate([ncut_labels[:20,0], ncut_labels[-20:,0],
-        #                                               ncut_labels[:20,-1], ncut_labels[-20:,-1],
-        #                                               ncut_labels[0,:20], ncut_labels[0,-20:],
-        #                                               ncut_labels[-1,:20], ncut_labels[-1,-20:]]))
+            ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=superpixel_merge_sim_thresh, num_cuts=20)
 
-        # Collect training superpixels.
+            # Find background superpixels.
 
-        train_histos = []
-        for b in background_labels:
-            histo = np.histogram(img[ncut_labels == b], bins=np.arange(0,256,5))[0].astype(np.float)
-            histo = histo/np.sum(histo)
-            train_histos.append(histo)
+            background_labels = np.unique(np.concatenate([ncut_labels[:,0],
+                                                  ncut_labels[:,-1],
+                                                  ncut_labels[0,:],
+                                                  ncut_labels[-1,:]]))
 
-        # Compute superpixel distances to training superpixels.
+            # background_labels = np.unique(np.concatenate([ncut_labels[:20,0], ncut_labels[-20:,0],
+            #                                               ncut_labels[:20,-1], ncut_labels[-20:,-1],
+            #                                               ncut_labels[0,:20], ncut_labels[0,-20:],
+            #                                               ncut_labels[-1,:20], ncut_labels[-1,-20:]]))
 
-        histos = {}
-        for l in np.unique(ncut_labels):
-            histo = np.histogram(img[ncut_labels == l], bins=np.arange(0,256,5))[0].astype(np.float)
-            histo = histo/np.sum(histo)
-            histos[l] = histo
+            # Collect training superpixels.
 
-        TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE = 10
+            train_histos = []
+            for b in background_labels:
+                histo = np.histogram(img[ncut_labels == b], bins=np.arange(0,256,5))[0].astype(np.float)
+                histo = histo/np.sum(histo)
+                train_histos.append(histo)
 
-        hist_distances = {}
-        for l, h in histos.iteritems():
-            # hist_distances[l] = np.min([chi2(h, th) for th in train_histos])
-            hist_distances[l] = np.percentile([chi2(h, th) for th in train_histos], TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE)
+            # Compute superpixel distances to training superpixels.
 
-        # Generate mask for snake's initial contours.
+            histos = {}
+            for l in np.unique(ncut_labels):
+                histo = np.histogram(img[ncut_labels == l], bins=np.arange(0,256,5))[0].astype(np.float)
+                histo = histo/np.sum(histo)
+                histos[l] = histo
 
-        chi2_threshold = .5
-        MIN_SIZE = 4000
+            # TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE = 10
 
-        entropy_mask = np.zeros_like(img, np.bool)
-        for l, d in hist_distances.iteritems():
-            if d > chi2_threshold:
-                entropy_mask[ncut_labels == l] = 1
+            hist_distances = {}
+            for l, h in histos.iteritems():
+                # hist_distances[l] = np.min([chi2(h, th) for th in train_histos])
+                hist_distances[l] = np.percentile([chi2(h, th) for th in train_histos], TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE)
 
-        dilated_entropy_mask = binary_dilation(entropy_mask, disk(10))
-        dilated_entropy_mask = remove_small_holes(dilated_entropy_mask, min_size=2000)
-        dilated_entropy_mask = remove_small_objects(dilated_entropy_mask, min_size=MIN_SIZE)
+            # Generate mask for snake's initial contours.
 
-        # Enhance intensity.
+            chi2_threshold = .5
+            MIN_SIZE = 4000
 
-        cc = np.concatenate([img[ncut_labels == b] for b in background_labels])
-        bg_high = np.percentile(cc, 99)
-        bg_low = np.percentile(cc, 10)
+            entropy_mask = np.zeros_like(img, np.bool)
+            for l, d in hist_distances.iteritems():
+                if d > chi2_threshold:
+                    entropy_mask[ncut_labels == l] = 1
 
-        foreground_mask = img < bg_low
-        foreground_mask[~dilated_entropy_mask] = 0
+            dilated_entropy_mask = binary_dilation(entropy_mask, disk(10))
+            dilated_entropy_mask = remove_small_holes(dilated_entropy_mask, min_size=2000)
+            dilated_entropy_mask = remove_small_objects(dilated_entropy_mask, min_size=MIN_SIZE)
 
-        foreground_mask = remove_small_objects(foreground_mask, min_size=2000)
-        foreground_mask = remove_small_holes(foreground_mask, min_size=2000)
+            # Enhance intensity.
 
-        # Enhance edges.
+            cc = np.concatenate([img[ncut_labels == b] for b in background_labels])
+            bg_high = np.percentile(cc, 99)
+            bg_low = np.percentile(cc, 10)
 
-        is_edge = canny(img, sigma=1, low_threshold=.2, high_threshold=.5)
-        is_edge[~foreground_mask] = 0
+            foreground_mask = img < bg_low
+            foreground_mask[~dilated_entropy_mask] = 0
 
-        # Enhance image - combine intensity and edge enhancement.
+            foreground_mask = remove_small_objects(foreground_mask, min_size=2000)
+            foreground_mask = remove_small_holes(foreground_mask, min_size=2000)
 
-        img_enhanced = img.copy()
-        img_enhanced[is_edge] = 0
+            # Enhance edges.
 
+            is_edge = canny(img, sigma=1, low_threshold=.2, high_threshold=.5)
+            is_edge[~foreground_mask] = 0
 
-        # Find contours from mask.
+            # Enhance image - combine intensity and edge enhancement.
 
-        init_contours = [xys for xys in find_contour_points(dilated_entropy_mask.astype(np.int), sample_every=1)[1]
-                         if len(xys) > 50]
+            img_enhanced = img.copy()
+            img_enhanced[is_edge] = 0
 
-        # assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
-        print 'Extracted %d contours from mask.' % len(init_contours)
+            # Find contours from mask.
 
-        # Option 1: Morphsnake approach
+            init_contours = [xys for xys in find_contour_points(dilated_entropy_mask.astype(np.int), sample_every=1)[1]
+                             if len(xys) > 50]
 
-        # Create initial levelset
+            # assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
+            print 'Extracted %d contours from mask.' % len(init_contours)
 
-        init_levelsets = []
-        for cnt in init_contours:
-            init_levelset = np.zeros_like(img, np.float)
-            init_levelset[contours_to_mask([cnt], img.shape[:2])] = 1.
-            init_levelset[:10, :] = 0
-            init_levelset[-10:, :] = 0
-            init_levelset[:, :10] = 0
-            init_levelset[:, -10:] = 0
+            # Option 1: Morphsnake approach
 
-            # val_entropy = entropy(img_rgb[init_levelset.astype(np.bool), 2])
-            # sys.stderr.write('Entropy: %.2f.\n' % val_entropy)
-            #
-            # val_std = np.std(img_rgb[init_levelset.astype(np.bool), 2])
-            # sys.stderr.write('Contrast: %.2f.\n' % val_std)
-            # #
-            # if val_std < 60:
-            #     sys.stderr.write('Contrast too low, ignore.\n')
-            #     continue
+            # Create initial levelset
 
-            init_levelsets.append(init_levelset)
+            init_levelsets = []
+            for cnt in init_contours:
+                init_levelset = np.zeros_like(img, np.float)
+                init_levelset[contours_to_mask([cnt], img.shape[:2])] = 1.
+                init_levelset[:10, :] = 0
+                init_levelset[-10:, :] = 0
+                init_levelset[:, :10] = 0
+                init_levelset[:, -10:] = 0
 
-        # Evolve morphsnake
+                # val_entropy = entropy(img_rgb[init_levelset.astype(np.bool), 2])
+                # sys.stderr.write('Entropy: %.2f.\n' % val_entropy)
+                #
+                # val_std = np.std(img_rgb[init_levelset.astype(np.bool), 2])
+                # sys.stderr.write('Contrast: %.2f.\n' % val_std)
+                # #
+                # if val_std < 60:
+                #     sys.stderr.write('Contrast too low, ignore.\n')
+                #     continue
 
-        final_levelsets = []
+                init_levelsets.append(init_levelset)
 
-        for init_levelset in init_levelsets:
+            # Evolve morphsnake
 
-            t = time.time()
+            final_masks = []
 
-            msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=3, lambda1=1., lambda2=2.)
+            for init_levelset in init_levelsets:
 
-            msnake.levelset = init_levelset.copy()
+                discard = False
+                init_area = np.count_nonzero(init_levelset)
 
-            dq = deque([None, None])
-            for i in range(200):
+                t = time.time()
 
-                # at stable stage, the levelset (thus contour) will oscilate,
-                # so instead of comparing to previous levelset, must compare to the one before the previous
-                oneBefore_levelset = dq.popleft()
+                msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=3, lambda1=1., lambda2=2.)
 
-                if i > 10:
-                    if np.count_nonzero(msnake.levelset - oneBefore_levelset) < 3:
+                msnake.levelset = init_levelset.copy()
+
+                dq = deque([None, None])
+                for i in range(200):
+
+                    # at stable stage, the levelset (thus contour) will oscilate,
+                    # so instead of comparing to previous levelset, must compare to the one before the previous
+                    oneBefore_levelset = dq.popleft()
+
+                    # If less than 3 pixels are changed, stop.
+                    if i > 10:
+                        if np.count_nonzero(msnake.levelset - oneBefore_levelset) < 3:
+                            break
+
+                    # If area changes more than 2, stop.
+                    area_change_ratio = np.count_nonzero(msnake.levelset)/float(init_area)
+            #         sys.stderr.write('Area change: %.2f.\n' % area_change_ratio)
+                    if np.abs(np.log2(area_change_ratio)) > 1.:
+                        discard = True
+                        sys.stderr.write('Area change too much, ignore.')
                         break
 
-                dq.append(msnake.levelset)
+                    dq.append(msnake.levelset)
 
-                msnake.step()
+            #         t = time.time()
+                    msnake.step()
+            #         sys.stderr.write('Step: %f seconds\n' % (time.time()-t)) # 0.6 second / step
 
-            sys.stderr.write('Snake finished at iteration %d.\n' % i)
-            sys.stderr.write('Snake: %.2f seconds\n' % (time.time()-t)) # 72s
+                sys.stderr.write('Snake finished at iteration %d.\n' % i)
+                sys.stderr.write('Snake: %.2f seconds\n' % (time.time()-t)) # 72s
 
-            mask = msnake.levelset.astype(np.bool)
-            final_levelsets.append(mask)
+                if discard:
+                    sys.stderr.write('Discarded.')
+                    continue
+                else:
+                    labeled_mask = label(msnake.levelset.astype(np.bool))
+                    for l in np.unique(labeled_mask):
+                        if l != 0:
+                            final_masks.append(labeled_mask == l)
 
-        final_mask = np.any(final_levelsets, axis=0)
+        elif method == 'nissl':
 
+            img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
+            img = rgb2gray(img_rgb)
 
-        submask_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/MD635/MD635_submasks/%(fn)s' % {'fn':fn})
-        i = 0
-        for final_levelset in final_levelsets:
-            l = label(final_levelset)
-            for ll in np.unique(l):
-                if ll != 0:
-                    mask = l == ll
-                    # vals = img_rgb[mask, 2]
-                    # val_entropy = entropy(vals)
-                    # sys.stderr.write('Entropy: %.2f.\n' % val_entropy)
-                    # val_std = np.std(vals)
-                    # sys.stderr.write('Contrast: %.2f.\n' % val_std)
-                    #
-                    i += 1
-                    imsave(submask_dir + '/%(fn)s_submasks_%(i)d.png' % {'fn': fn, 'i':i}, img_as_ubyte(mask))
+            entropy_mask = generate_entropy_mask(img)
+
+            init_contours = [xys for xys in find_contour_points(entropy_mask.astype(np.int), sample_every=1)[1] if len(xys) > 50]
+            assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
+
+            img_adap = threshold_adaptive(img, 51)
+            img_adap[~entropy_mask] = 1
+
+            final_masks = []
+
+            img_adap_gauss = gaussian(img_adap.astype(np.float), 1)
+
+            for init_cnt in init_contours:
+
+                snake = active_contour(img_adap_gauss, init_cnt.astype(np.float),
+                                       alpha=1., beta=1000., gamma=1.,
+                                       w_line=0., w_edge=10.,
+                                       max_iterations=1000)
+
+                bg = np.zeros(img.shape[:2], bool)
+                xys = points_inside_contour(snake.astype(np.int))
+                bg[np.minimum(xys[:,1], bg.shape[0]-1), np.minimum(xys[:,0], bg.shape[1]-1)] = 1
+
+                final_mask = bg & entropy_mask
+
+                if np.count_nonzero(final_mask) < 100:
+                    continue
+
+                final_masks.append(final_mask)
+
+        else:
+            raise 'Method not recognized.'
+
+        submask_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(fn)s' % {'fn':fn, 'stack':stack})
+        execute_command('rm -f %s/*' % submask_dir)
+        # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
+        # execute_command('rm %s/*' % submask_viz_dir)
+
+        img_rgb = imread(os.path.join(input_dir, fn + '.png'))
+
+        for i, mask in enumerate(final_masks):
+            imsave(os.path.join(submask_dir,'%(fn)s_submask_%(i)d.png' % {'fn': fn, 'i':i+1}), img_as_ubyte(mask))
+
+            viz = img_rgb.copy()
+            for cnt in find_contour_points(mask)[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
+            viz_fn = os.path.join(submask_dir, '%(fn)s_submask_%(i)d_overlayViz.tif' % dict(fn=fn, i=i+1))
+            sys.stderr.write(viz_fn + '\n')
+            imsave(viz_fn, viz)
+
+        ################################################
+        # Automatically judge the goodness of each mask
+        ################################################
+
+        n = len(final_masks)
+        decisions = [0 for _ in range(n)]
+        undecided = []
+        negatives = []
+        positives = []
+
+        if n == 1: # If only one mask, assign it positive.
+            decisions[0] = 1
+            undecided.append(0)
+        else:
+            for i in range(n):
+                if np.count_nonzero(final_masks[i]) < 10000:
+                    decisions[i] = -1
+                    negatives.append(i)
+                else:
+                    decisions[i] = 0
+                    positives.append(i)
+
+        # If only one undecided and the rest are negative, make the undecided positive.
+        if len(undecided) == 1 and len(negatives) == n - len(undecided):
+            decisions[undecided[0]] = 1
+
+        # If there are more than one positives, make all other undecided negative.
+        if len(positives) >= 1:
+            for u in undecided:
+                decisions[u] = -1
+
+        # Write to file. Slot index starts with 1.
+        with open(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn, stack=stack)), 'w') as f:
+            for i, dec in enumerate(decisions):
+                f.write('%d %d\n' % (i+1, dec))
 
         # Save binary mask as png
-        mask_fn = os.path.join(output_dir, '%(fn)s_mask.png' % dict(fn=fn))
-        if os.path.exists(mask_fn):
-            sys.stderr.write('Mask exists, overwrite: %s\n' % mask_fn)
-        imsave(mask_fn, img_as_ubyte(final_mask))
+        # mask_fn = os.path.join(output_dir, '%(fn)s_mask.png' % dict(fn=fn))
+        # if os.path.exists(mask_fn):
+        #     sys.stderr.write('Mask exists, overwrite: %s\n' % mask_fn)
+        # imsave(mask_fn, img_as_ubyte(final_mask))
+
+        # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
+
+        # img_rgb = imread(os.path.join(input_dir, fn + '.png'))
+
+        # Save partial mask images
+        # for i in range(1, 7):
+        #     try:
+        #         mask = imread(os.path.join(submask_dir, '%(fn)s_submasks_%(i)d.png' % {'fn': fn, 'i':i})).astype(np.uint8)/255
+        #     except:
+        #         continue
+        #
+        #     viz = img_rgb.copy()
+        #     for cnt in find_contour_points(mask)[1]:
+        #         cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
+        #
+        #     viz_fn = os.path.join(submask_viz_dir, '%(fn)s_submask_%(i)d_overlayViz.tif' % dict(fn=fn, i=i))
+        #     imsave(viz_fn, viz)
 
         # Save outline overlayed image
 
-        viz = gray2rgb(img)
-        for final_levelset, init_levelset in zip(final_levelsets, init_levelsets):
-
-            for cnt in find_contour_points(final_levelset)[1]:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
-
-            for cnt in find_contour_points(init_levelset)[1]:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
-
-        contour_fn = os.path.join(output_viz_dir, '%(fn)s_mask_contour_viz.tif' % dict(fn=fn))
-        if os.path.exists(contour_fn):
-            execute_command('rm -rf %s' % contour_fn)
-        imsave(contour_fn, viz)
-
+        # viz = gray2rgb(img)
+        # for final_levelset, init_levelset in zip(final_levelsets, init_levelsets):
+        #
+        #     for cnt in find_contour_points(final_levelset)[1]:
+        #         cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
+        #
+        #     for cnt in find_contour_points(init_levelset)[1]:
+        #         cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
+        #
+        # contour_fn = os.path.join(output_viz_dir, '%(fn)s_mask_contour_viz.tif' % dict(fn=fn))
+        # if os.path.exists(contour_fn):
+        #     execute_command('rm -rf %s' % contour_fn)
+        # imsave(contour_fn, viz)
+        #
             # viz = gray2rgb(img)
             # final_contours = find_contour_points(final_mask, sample_every=1)[1]
             # for cnt in final_contours:
@@ -287,6 +482,10 @@ def generate_mask(fn, tb_fmt='tif'):
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         sys.stderr.write('Mask error: %s\n' % fn)
+        # import socket
+        # hostname = socket.gethostname()
+        # with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskError_%(hostname)s.txt' % dict(stack=stack, hostname=hostname), 'w') as f:
+        #     f.write(fn + '\n')
         return
 
 _ = Parallel(n_jobs=15)(delayed(generate_mask)(fn, tb_fmt=tb_fmt) for fn in filenames)

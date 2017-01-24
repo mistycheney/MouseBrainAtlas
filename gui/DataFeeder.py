@@ -32,6 +32,7 @@ sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from data_manager import DataManager
 from metadata import *
+from qt_utilities import *
 
 from collections import defaultdict, OrderedDict, deque
 
@@ -60,7 +61,7 @@ gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 class ImageDataFeeder(object):
 
-    def __init__(self, name, stack, sections, version='aligned_cropped', use_data_manager=True):
+    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True):
         self.name = name
         self.stack = stack
 
@@ -97,6 +98,9 @@ class ImageDataFeeder(object):
         if downsample not in self.image_cache:
             self.image_cache[downsample] = {}
 
+        # self.sections.append(sec)
+        # self.all_sections.append(sec)
+
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
 
@@ -109,12 +113,14 @@ class ImageDataFeeder(object):
                 if img is None:
                     continue
 
-                h, w = img.shape[:2]
-                if img.ndim == 3:
-                    qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
-                else:
-                    qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
-                    qimage.setColorTable(gray_color_table)
+                qimage = numpy_to_qimage(img)
+
+                # h, w = img.shape[:2]
+                # if img.ndim == 3:
+                #     qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
+                # else:
+                #     qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
+                #     qimage.setColorTable(gray_color_table)
             else:
                 qimage = QImage(fn)
             self.set_image(qimage, lbl, downsample=downsample)

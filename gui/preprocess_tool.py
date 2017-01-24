@@ -33,9 +33,9 @@ from drawable_gscene import *
 from zoomable_browsable_gscene import SimpleGraphicsScene, MultiplePixmapsGraphicsScene
 
 from gui_utilities import *
+from qt_utilities import *
 from web_service import WebService
 
-gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 class SimpleGraphicsScene4(SimpleGraphicsScene):
     """
@@ -899,7 +899,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def edit_masks(self):
 
-        self.n_slots = 5
+        self.n_slots = 4
 
         self.bad_mask_fn_list = []
 
@@ -918,15 +918,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.mask_ui.button_redoList.clicked.connect(self.redo_mask_button_clicked)
         self.mask_ui.button_closeMaskGui.clicked.connect(self.close_mask_gui_button_clicked)
         self.mask_ui.button_confirmMasks.clicked.connect(self.confirm_masks_button_clicked)
+        self.mask_ui.button_saveReview.clicked.connect(self.save_review_button_clicked)
+        self.mask_ui.button_uploadMasks.clicked.connect(self.upload_masks_button_clicked)
+        self.mask_ui.button_acceptAllSubmasks.clicked.connect(self.accept_all_submasks_button_clicked)
 
         self.mask_good_buttons = dict(zip(range(1, 1+self.n_slots), [self.mask_ui.button_good_1, self.mask_ui.button_good_2, self.mask_ui.button_good_3, \
-                        self.mask_ui.button_good_4, self.mask_ui.button_good_5]))
+                        self.mask_ui.button_good_4]))
 
         self.mask_gviews = dict(zip(range(1, 1+self.n_slots), [self.mask_ui.gview_1, self.mask_ui.gview_2, self.mask_ui.gview_3, \
-                        self.mask_ui.gview_4, self.mask_ui.gview_5]))
-
-        # self.mask_review_results = self.read_mask_review_csv('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_check.csv' % {'stack': self.stack})
-        # self.mask_is_good = {False: for _ in range(1, 7)}# Read from list file
+                        self.mask_ui.gview_4]))
 
         self.valid_section_filenames = [fn for fn in self.sorted_filenames if fn != 'Placeholder' and fn != 'Rescan']
         self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
@@ -941,6 +941,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 if os.path.exists(mask_fn):
                     all_mask_filenames[mask_ind][sec] = mask_fn
         all_mask_filenames.default_factory = None
+
+        self.all_actual_mask_filenames = defaultdict(dict)
+        for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
+            for mask_ind in range(1, 1+self.n_slots):
+                mask_fn = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submask_%(mask_ind)d.png" % \
+                    dict(stack=self.stack, img_fn=img_fn, mask_ind=mask_ind)
+                if os.path.exists(mask_fn):
+                    self.all_actual_mask_filenames[mask_ind][sec] = mask_fn
+        self.all_actual_mask_filenames.default_factory = None
 
         self.mask_alg_review_results = defaultdict(dict)
         for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
@@ -978,19 +987,97 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
             self.mask_good_buttons[gview_i].clicked.connect(self.mask_good_button_clicked)
 
+        ###########
+        self.final_mask_feeder = ImageDataFeeder(name='finalMask', stack=self.stack, \
+                        sections=self.valid_section_indices, use_data_manager=False)
+        self.final_mask_feeder.set_downsample_factor(32)
+
+        gray_color_table = [qRgb(i, i, i) for i in range(256)]
+
+        for fn, decisions in self.mask_review_results.iteritems():
+            sec = self.valid_filenames_to_sections[fn]
+
+            submask_indices = [submask_ind for submask_ind, dec in decisions.iteritems() if dec]
+            final_mask = np.any([imread(self.all_actual_mask_filenames[submask_ind][sec]).astype(np.bool) \
+                            for submask_ind in submask_indices], axis=0)
+            final_mask = img_as_ubyte(final_mask.astype(np.int)*255)
+
+            h, w = final_mask.shape[:2]
+            qimage = QImage(final_mask.flatten(), w, h, w, QImage.Format_Indexed8)
+            qimage.setColorTable(gray_color_table)
+
+            self.final_mask_feeder.set_image(qimage, sec=sec)
+
+        self.gscene_finalMask = SimpleGraphicsScene(id='finalMask', gview=self.mask_ui.gview_finalMask)
+        self.mask_ui.gview_finalMask.setScene(self.gscene_finalMask)
+        self.gscene_finalMask.set_data_feeder(self.final_mask_feeder)
+
+        try:
+            self.gscene_finalMask.set_active_section(160, emit_changed_signal=False)
+        except:
+            pass
+
+        self.gscene_finalMask.active_image_updated.connect(self.final_mask_section_changed)
+        ###########
+
         self.mask_gui.show()
 
-    def confirm_masks_button_clicked(self):
+    def final_mask_section_changed(self):
+        self.mask_ui_curr_sec = self.gscene_finalMask.active_section
+        for gscene_i, gscene in self.mask_gscenes.iteritems():
+            try:
+                gscene.set_active_section(self.mask_ui_curr_sec, emit_changed_signal=False)
+            except:
+                pass
+
+        self.mask_ui_curr_fn = self.valid_sections_to_filenames[self.mask_ui_curr_sec]
+        print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
+        for button_i, button in self.mask_good_buttons.iteritems():
+            if button_i in self.mask_review_results[self.mask_ui_curr_fn]:
+                if self.mask_review_results[self.mask_ui_curr_fn][button_i]: # review is good
+                    button.setText('Reject')
+                else:
+                    button.setText('Accept')
+            else:
+                button.setText('')
+
+        self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
+
+    def accept_all_submasks_button_clicked(self):
+        for submask_ind in self.mask_review_results[self.mask_ui_curr_fn].iterkeys():
+            self.mask_review_results[self.mask_ui_curr_fn][submask_ind] = True
+            self.mask_good_buttons[submask_ind].setText('Reject')
+            self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
+
+        print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
+
+    def upload_masks_button_clicked(self):
         """
-        Confirm masks.
+        Upload formal masks to Gordon.
         """
 
-        # Save submask review results.
+        pass
+
+    def save_review_button_clicked(self):
+        """
+        Save submask review results.
+        """
+
         import pandas
         submask_review_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_review_results.csv" % dict(stack=self.stack)
         pandas.DataFrame(self.mask_review_results).T.to_csv(submask_review_fp)
         sys.stderr.write('Submask review results written to %s.\n' % submask_review_fp)
         self.statusBar().showMessage('Submask review results written to %s.' % submask_review_fp)
+
+        bad_list_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_bad_submask_list.txt" % dict(stack=self.stack)
+        with open(bad_list_fp, 'w') as f:
+            for fn in self.bad_mask_fn_list:
+                f.write(fn+'\n')
+
+    def confirm_masks_button_clicked(self):
+        """
+        Confirm masks.
+        """
 
         # Clone the accepted submask, assign a formal name.
         formal_masks_dir = create_if_not_exists("/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_masks" % dict(stack=self.stack))
@@ -1004,6 +1091,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             to_mask_fp = os.path.join(formal_masks_dir, "%(img_fn)s_mask.png" % dict(img_fn=img_fn))
             execute_command('cp %s %s' % (from_mask_fp, to_mask_fp))
         self.statusBar().showMessage('Formal masks generated.')
+
+
 
     def bad_mask_list_clicked(self, index):
         self.mask_ui_selected_item = self.bad_mask_list_model.itemFromIndex(index)
@@ -1053,7 +1142,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         #                 'stack': self.stack})
 
         for fn in self.bad_mask_fn_list:
-            execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s && scp -rf oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s" % \
+            execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s %(local_data_dir)s/%(stack)s/%(stack)s_submasks/%(fn)s" % \
                             {'gordon_data_dir': gordon_thumbnail_data_dir,
                             'local_data_dir': thumbnail_data_dir,
                             'stack': self.stack,
@@ -1113,7 +1202,18 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.mask_good_buttons[sender_id].setText('Reject')
             self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
 
+        self.update_final_mask()
+
         print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
+
+    def update_final_mask(self):
+        decisions = self.mask_review_results[self.mask_ui_curr_fn]
+        submask_indices = [submask_ind for submask_ind, dec in decisions.iteritems() if dec]
+        final_mask = np.any([imread(self.all_actual_mask_filenames[submask_ind][self.mask_ui_curr_sec]).astype(np.bool) \
+                        for submask_ind in submask_indices], axis=0)
+        final_mask = img_as_ubyte(final_mask.astype(np.int)*255)
+        self.final_mask_feeder.set_image(numpy_to_qimage(final_mask), sec=self.mask_ui_curr_sec)
+        self.gscene_finalMask.update_image(sec=self.mask_ui_curr_sec)
 
     def mask_section_changed(self):
 
@@ -1123,11 +1223,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         for gscene_i, gscene in self.mask_gscenes.iteritems():
             if gscene_i != sender_id:
                 try:
-                    print 'set %d' % gscene_i
                     gscene.set_active_section(self.mask_ui_curr_sec, emit_changed_signal=False)
                 except:
                     pass
                 print gscene.active_section
+
+        self.gscene_finalMask.set_active_section(self.mask_ui_curr_sec, emit_changed_signal=False)
 
         self.mask_ui_curr_fn = self.valid_sections_to_filenames[self.mask_ui_curr_sec]
         print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]

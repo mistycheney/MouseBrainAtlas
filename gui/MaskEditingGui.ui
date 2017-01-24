@@ -13,114 +13,65 @@
   <property name="windowTitle">
    <string>Review Masks </string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
+  <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
-    <widget class="QSplitter" name="splitter">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout">
-       <item>
-        <widget class="QGraphicsView" name="gview_1"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_good_1">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_3">
-       <item>
-        <widget class="QGraphicsView" name="gview_2"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_good_2">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_2">
-       <item>
-        <widget class="QGraphicsView" name="gview_3"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_good_3">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </widget>
-   </item>
-   <item row="1" column="0">
     <widget class="QSplitter" name="splitter_2">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_4">
-       <item>
-        <widget class="QGraphicsView" name="gview_4"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_good_4">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_5">
-       <item>
-        <widget class="QGraphicsView" name="gview_5"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_good_5">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_6">
-       <item>
-        <widget class="QListView" name="listview_bad"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout">
+     <widget class="QWidget" name="">
+      <layout class="QGridLayout" name="gridLayout">
+       <item row="0" column="0">
+        <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <widget class="QPushButton" name="button_addToList">
+          <widget class="QGraphicsView" name="gview_1"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_good_1">
            <property name="text">
-            <string>Add to List</string>
+            <string/>
            </property>
           </widget>
          </item>
+        </layout>
+       </item>
+       <item row="0" column="1">
+        <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <widget class="QPushButton" name="button_removeFromList">
+          <widget class="QGraphicsView" name="gview_2"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_good_2">
            <property name="text">
-            <string>Remove from List</string>
+            <string/>
            </property>
           </widget>
          </item>
+        </layout>
+       </item>
+       <item row="1" column="0">
+        <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
-          <widget class="QPushButton" name="button_redoList">
+          <widget class="QGraphicsView" name="gview_3"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_good_3">
            <property name="text">
-            <string>Redo for List</string>
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="1">
+        <layout class="QVBoxLayout" name="verticalLayout_5">
+         <item>
+          <widget class="QGraphicsView" name="gview_4"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_good_4">
+           <property name="text">
+            <string/>
            </property>
           </widget>
          </item>
@@ -128,6 +79,51 @@
        </item>
       </layout>
      </widget>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <widget class="QGraphicsView" name="gview_finalMask"/>
+      <widget class="QWidget" name="">
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QListView" name="listview_bad"/>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QPushButton" name="button_addToList">
+            <property name="text">
+             <string>Add to List</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="button_removeFromList">
+            <property name="text">
+             <string>Remove from List</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="button_redoList">
+            <property name="text">
+             <string>Redo for List</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="button_acceptAllSubmasks">
+     <property name="text">
+      <string>Accept All</string>
+     </property>
     </widget>
    </item>
    <item row="2" column="0">
@@ -136,6 +132,20 @@
       <widget class="QPushButton" name="button_confirmMasks">
        <property name="text">
         <string>Confirm</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_saveReview">
+       <property name="text">
+        <string>Save Review</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_uploadMasks">
+       <property name="text">
+        <string>Upload to Gordon</string>
        </property>
       </widget>
      </item>
@@ -149,6 +159,10 @@
     </layout>
    </item>
   </layout>
+  <zorder>splitter</zorder>
+  <zorder>splitter_2</zorder>
+  <zorder>button_acceptAllSubmasks</zorder>
+  <zorder>gview_finalMask</zorder>
  </widget>
  <resources/>
  <connections/>

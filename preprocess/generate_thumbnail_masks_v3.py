@@ -331,7 +331,7 @@ def generate_mask(fn, tb_fmt='tif'):
                 sys.stderr.write('Snake: %.2f seconds\n' % (time.time()-t)) # 72s
 
                 if discard:
-                    sys.stderr.write('Discarded.')
+                    sys.stderr.write('Discarded.\n')
                     continue
                 else:
                     labeled_mask = label(msnake.levelset.astype(np.bool))

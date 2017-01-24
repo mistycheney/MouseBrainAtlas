@@ -131,7 +131,7 @@
      <item>
       <widget class="QPushButton" name="button_confirmMasks">
        <property name="text">
-        <string>Confirm</string>
+        <string>Generate Final Masks</string>
        </property>
       </widget>
      </item>

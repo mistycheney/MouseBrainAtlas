@@ -35,7 +35,7 @@ from zoomable_browsable_gscene import SimpleGraphicsScene, MultiplePixmapsGraphi
 from gui_utilities import *
 from qt_utilities import *
 from web_service import WebService
-
+import pandas
 
 class SimpleGraphicsScene4(SimpleGraphicsScene):
     """
@@ -951,17 +951,25 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                     self.all_actual_mask_filenames[mask_ind][sec] = mask_fn
         self.all_actual_mask_filenames.default_factory = None
 
-        self.mask_alg_review_results = defaultdict(dict)
-        for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
-            mask_fn = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submasksAlgReview.txt" % \
-                dict(stack=self.stack, img_fn=img_fn)
-            if os.path.exists(mask_fn):
-                with open(mask_fn, 'r') as f:
-                    for line in f:
-                        mask_ind, decision = map(int, line.split())
-                        self.mask_alg_review_results[img_fn][mask_ind] = decision == 1
-        self.mask_alg_review_results.default_factory = None
-        self.mask_review_results = self.cleanup_mask_review(self.mask_alg_review_results)
+        # Load or generate submask review results.
+        review_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_review_results.csv" % dict(stack=self.stack)
+        if os.path.exists(review_fp):
+            sys.stderr.write('Load submask review results.\n')
+            review_df = pandas.read_csv(review_fp, header=0, index_col=0)
+            self.mask_review_results = {fn: {int(submask_i): dec for submask_i, dec in decisions.dropna().iteritems()} for fn, decisions in review_df.iterrows()}
+        else:
+            sys.stderr.write('Generate submask review...\n')
+            self.mask_alg_review_results = defaultdict(dict)
+            for sec, img_fn in zip(self.valid_section_indices, self.valid_section_filenames):
+                mask_fn = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submasksAlgReview.txt" % \
+                    dict(stack=self.stack, img_fn=img_fn)
+                if os.path.exists(mask_fn):
+                    with open(mask_fn, 'r') as f:
+                        for line in f:
+                            mask_ind, decision = map(int, line.split())
+                            self.mask_alg_review_results[img_fn][mask_ind] = decision == 1
+            self.mask_alg_review_results.default_factory = None
+            self.mask_review_results = self.cleanup_mask_review(self.mask_alg_review_results)
 
         self.mask_gscenes = {}
         for gview_i, gview in self.mask_gviews.iteritems():
@@ -1049,6 +1057,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.mask_good_buttons[submask_ind].setText('Reject')
             self.mask_gui.setWindowTitle('%s %s' % (self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]))
 
+        self.update_final_mask()
+
         print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
 
     def upload_masks_button_clicked(self):
@@ -1063,7 +1073,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         Save submask review results.
         """
 
-        import pandas
         submask_review_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_review_results.csv" % dict(stack=self.stack)
         pandas.DataFrame(self.mask_review_results).T.to_csv(submask_review_fp)
         sys.stderr.write('Submask review results written to %s.\n' % submask_review_fp)
@@ -1083,15 +1092,16 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         formal_masks_dir = create_if_not_exists("/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_masks" % dict(stack=self.stack))
 
         for img_fn, decisions in self.mask_review_results.iteritems():
-            accepted_submask_indices = [slot for slot, decision in decisions.iteritems() if decision]
-            assert len(accepted_submask_indices) == 1, 'Do not yet support more than one accepted masks.'
+            # accepted_submask_indices = [slot for slot, decision in decisions.iteritems() if decision]
+            # assert len(accepted_submask_indices) == 1, 'Do not yet support more than one accepted masks.'
             # If more than one, take the union of submasks.
-            from_mask_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submask_%(submask_ind)d.png" % \
-                            dict(stack=self.stack, img_fn=img_fn, submask_ind=accepted_submask_indices[0])
+            final_mask = self.generate_final_mask(fn=img_fn)
+            # from_mask_fp = "/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submask_%(submask_ind)d.png" % \
+            #                 dict(stack=self.stack, img_fn=img_fn, submask_ind=accepted_submask_indices[0])
             to_mask_fp = os.path.join(formal_masks_dir, "%(img_fn)s_mask.png" % dict(img_fn=img_fn))
-            execute_command('cp %s %s' % (from_mask_fp, to_mask_fp))
+            imsave(final_mask, to_mask_fp)
+            # execute_command('cp %s %s' % (from_mask_fp, to_mask_fp))
         self.statusBar().showMessage('Formal masks generated.')
-
 
 
     def bad_mask_list_clicked(self, index):
@@ -1206,14 +1216,28 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         print self.valid_filenames_to_sections[self.mask_ui_curr_fn], self.mask_ui_curr_fn, self.mask_review_results[self.mask_ui_curr_fn]
 
-    def update_final_mask(self):
-        decisions = self.mask_review_results[self.mask_ui_curr_fn]
+    def generate_final_mask(self, sec=None, fn=None):
+        if fn is None:
+            fn = self.mask_ui_curr_fn
+            sec = self.valid_filenames_to_sections[fn]
+
+        if sec is None:
+            sec = self.mask_ui_curr_sec
+            fn = self.valid_sections_to_filenames[sec]
+
+        decisions = self.mask_review_results[fn]
         submask_indices = [submask_ind for submask_ind, dec in decisions.iteritems() if dec]
-        final_mask = np.any([imread(self.all_actual_mask_filenames[submask_ind][self.mask_ui_curr_sec]).astype(np.bool) \
+        final_mask = np.any([imread(self.all_actual_mask_filenames[submask_ind][sec]).astype(np.bool) \
                         for submask_ind in submask_indices], axis=0)
         final_mask = img_as_ubyte(final_mask.astype(np.int)*255)
-        self.final_mask_feeder.set_image(numpy_to_qimage(final_mask), sec=self.mask_ui_curr_sec)
-        self.gscene_finalMask.update_image(sec=self.mask_ui_curr_sec)
+        return final_mask
+
+    def update_final_mask(self):
+
+        sec = self.mask_ui_curr_sec
+        final_mask = self.generate_final_mask(sec=sec)
+        self.final_mask_feeder.set_image(numpy_to_qimage(final_mask), sec=sec)
+        self.gscene_finalMask.update_image(sec=sec)
 
     def mask_section_changed(self):
 

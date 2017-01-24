@@ -132,7 +132,7 @@ class Ui_MaskEditingGui(object):
         self.button_removeFromList.setText(_translate("MaskEditingGui", "Remove from List", None))
         self.button_redoList.setText(_translate("MaskEditingGui", "Redo for List", None))
         self.button_acceptAllSubmasks.setText(_translate("MaskEditingGui", "Accept All", None))
-        self.button_confirmMasks.setText(_translate("MaskEditingGui", "Confirm", None))
+        self.button_confirmMasks.setText(_translate("MaskEditingGui", "Generate Final Masks", None))
         self.button_saveReview.setText(_translate("MaskEditingGui", "Save Review", None))
         self.button_uploadMasks.setText(_translate("MaskEditingGui", "Upload to Gordon", None))
         self.button_closeMaskGui.setText(_translate("MaskEditingGui", "Close", None))

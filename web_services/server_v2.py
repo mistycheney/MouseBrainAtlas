@@ -171,18 +171,18 @@ def crop():
 
     ##################################################
 
-    # t = time.time()
-    # sys.stderr.write('cropping thumbnail...')
-    #
-    # os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
-    #             'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
-    # 	{'stack': stack,
-    # 	'stack_data_dir': os.path.join(data_dir, stack),
-    # 	'w':w, 'h':h, 'x':x, 'y':y,
-    #     'anchor_fn': anchor_fn})
-    #
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-    #
+    t = time.time()
+    sys.stderr.write('cropping thumbnail...')
+
+    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
+                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
+    	{'stack': stack,
+    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'w':w, 'h':h, 'x':x, 'y':y,
+        'anchor_fn': anchor_fn})
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
     # # #################################################
     #
     # t = time.time()
@@ -256,50 +256,50 @@ def crop():
 
     #########################################
 
-    t = time.time()
-    print 'Regularize colorspace for neurotrace images...',
-
-    input_dir = os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped')
-    output_dir = create_if_not_exists(os.path.join(DATA_DIR, '%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
-
-    run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
-                    {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/neurotrace_blue_to_nissl.py',
-                    'input_dir': input_dir,
-                    'output_dir': output_dir},
-                    kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1] \
-                                                if f.split('-')[1][0] == 'F']),
-                    exclude_nodes=exclude_nodes,
-                    # use_nodes=[35],
-                    argument_type='single')
-
-    print 'done in', time.time() - t, 'seconds'
-
-    t = time.time()
-    print 'Generating compressed version and/or saturation as grayscale...',
-
-    # if stack in all_alt_nissl_ntb_stacks or stack in all_ntb_stacks:
-    run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
-                    dict(script_dir=script_dir,
-                    stack=stack,
-                    input_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale'),
-                    compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale_compressed')),
-                    kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1] \
-                                                    if fn.split('-')[1][0] == 'F']},
-                    exclude_nodes=exclude_nodes + [32],
-                    argument_type='list2')
-    # else:
-    run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
-                    dict(script_dir=script_dir,
-                    stack=stack,
-                    input_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
-                    compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_compressed'),
-                    saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_saturation')),
-                    kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]\
-                                                    if fn.split('-')[1][0] == 'N']},
-                    exclude_nodes=exclude_nodes + [32],
-                    argument_type='list2')
-
-    print 'done in', time.time() - t, 'seconds'
+    # t = time.time()
+    # print 'Regularize colorspace for neurotrace images...',
+    #
+    # input_dir = os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped')
+    # output_dir = create_if_not_exists(os.path.join(DATA_DIR, '%(stack)s/%(stack)s_lossless_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
+    #
+    # run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
+    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess') + '/neurotrace_blue_to_nissl.py',
+    #                 'input_dir': input_dir,
+    #                 'output_dir': output_dir},
+    #                 kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1] \
+    #                                             if f.split('-')[1][0] == 'F']),
+    #                 exclude_nodes=exclude_nodes,
+    #                 # use_nodes=[35],
+    #                 argument_type='single')
+    #
+    # print 'done in', time.time() - t, 'seconds'
+    #
+    # t = time.time()
+    # print 'Generating compressed version and/or saturation as grayscale...',
+    #
+    # # if stack in all_alt_nissl_ntb_stacks or stack in all_ntb_stacks:
+    # run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
+    #                 dict(script_dir=script_dir,
+    #                 stack=stack,
+    #                 input_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale'),
+    #                 compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale_compressed')),
+    #                 kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1] \
+    #                                                 if fn.split('-')[1][0] == 'F']},
+    #                 exclude_nodes=exclude_nodes + [32],
+    #                 argument_type='list2')
+    # # else:
+    # run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
+    #                 dict(script_dir=script_dir,
+    #                 stack=stack,
+    #                 input_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
+    #                 compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_compressed'),
+    #                 saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped_saturation')),
+    #                 kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]\
+    #                                                 if fn.split('-')[1][0] == 'N']},
+    #                 exclude_nodes=exclude_nodes + [32],
+    #                 argument_type='list2')
+    #
+    # print 'done in', time.time() - t, 'seconds'
 
     #########################################
 

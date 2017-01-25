@@ -536,7 +536,7 @@ bbox_lossless=None, surround_margins=None):
 
         return indices_roi
 
-    elif polygon is not None:
+    else:
         assert polygons is not None, 'Can only supply one of bbox or polygons.'
 
         # This means we require a patch to have 30% of its radius to be within the landmark boundary to be considered inside the landmark

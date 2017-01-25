@@ -90,7 +90,7 @@ class ImageDataFeeder(object):
         self.orientation = orientation
         self.compute_dimension()
 
-    def set_image(self, qimage, sec, downsample=None):
+    def set_image(self, sec, qimage=None, fp=None, downsample=None):
 
         if downsample is None:
             downsample = self.downsample
@@ -101,10 +101,19 @@ class ImageDataFeeder(object):
         # self.sections.append(sec)
         # self.all_sections.append(sec)
 
+        if qimage is None:
+            assert fp is not None
+            qimage = QImage(fp)
+
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
 
-    def set_images(self, labels, filenames, downsample=None, load_with_cv2=False):
+    def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
+
+        if labeled_filenames is not None:
+            assert isinstance(labeled_filenames, dict)
+            labels = labeled_filenames.keys()
+            filenames = labeled_filenames.values()
 
         for lbl, fn in zip(labels, filenames):
             if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
@@ -123,7 +132,7 @@ class ImageDataFeeder(object):
                 #     qimage.setColorTable(gray_color_table)
             else:
                 qimage = QImage(fn)
-            self.set_image(qimage, lbl, downsample=downsample)
+            self.set_image(qimage=qimage, sec=lbl, downsample=downsample)
 
 
     def load_images(self, downsample=None, selected_sections=None):

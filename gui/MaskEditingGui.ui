@@ -19,7 +19,7 @@
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QGridLayout" name="gridLayout">
        <item row="0" column="0">
         <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -84,7 +84,7 @@
        <enum>Qt::Vertical</enum>
       </property>
       <widget class="QGraphicsView" name="gview_finalMask"/>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
          <widget class="QListView" name="listview_bad"/>
@@ -143,26 +143,29 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="button_uploadMasks">
-       <property name="text">
-        <string>Upload to Gordon</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="button_closeMaskGui">
        <property name="text">
         <string>Close</string>
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="button_loadReview">
+       <property name="text">
+        <string>Load Review</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_uploadMasks">
+       <property name="text">
+        <string>Upload to Gordon</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>
-  <zorder>splitter</zorder>
-  <zorder>splitter_2</zorder>
-  <zorder>button_acceptAllSubmasks</zorder>
-  <zorder>gview_finalMask</zorder>
  </widget>
  <resources/>
  <connections/>

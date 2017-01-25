@@ -58,6 +58,7 @@ method = args.method
 
 # Used for fluorescent
 TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE = args.train_distance_percentile
+AREA_CHANGE_RATIO_TERMINATE_CRITERIA = 2. # When area changes more than this ratio, stop iteration.
 
 # output_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
 
@@ -316,7 +317,7 @@ def generate_mask(fn, tb_fmt='tif'):
                     # If area changes more than 2, stop.
                     area_change_ratio = np.count_nonzero(msnake.levelset)/float(init_area)
             #         sys.stderr.write('Area change: %.2f.\n' % area_change_ratio)
-                    if np.abs(np.log2(area_change_ratio)) > 1.:
+                    if np.abs(np.log2(area_change_ratio)) > AREA_CHANGE_RATIO_TERMINATE_CRITERIA:
                         discard = True
                         sys.stderr.write('Area change too much, ignore.')
                         break

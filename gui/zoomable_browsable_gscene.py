@@ -236,7 +236,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
 
         return False
 
-class SimpleGraphicsScene(QGraphicsScene):
+class ZoomableBrowsableGraphicsScene(QGraphicsScene):
 
     active_image_updated = pyqtSignal()
     # gscene_clicked = pyqtSignal(object)
@@ -280,6 +280,19 @@ class SimpleGraphicsScene(QGraphicsScene):
 
     # def set_mode(self, mode):
     #     self.mode = mode
+
+    def get_requested_index_and_section(self, i=None, sec=None):
+        if i is None and sec is None:# if index is None and section is None:
+            if hasattr(self, 'active_i'):
+                i = self.active_i
+        elif sec is not None:
+            # if section in self.data_feeder.sections:
+            if sec in self.data_feeder.all_sections:
+                # index = self.data_feeder.sections.index(section)
+                i = self.data_feeder.all_sections.index(sec)
+            else:
+                raise Exception('Not implemented.')
+        return i, sec
 
     def set_data_feeder(self, feeder):
         if hasattr(self, 'data_feeder') and self.data_feeder == feeder:
@@ -421,3 +434,6 @@ class SimpleGraphicsScene(QGraphicsScene):
         #     self.gscene_clicked.emit(self)
 
         return False
+
+
+SimpleGraphicsScene = ZoomableBrowsableGraphicsScene

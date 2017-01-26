@@ -8,22 +8,31 @@ else:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
 
-from SignalEmittingItems import *
-from zoomable_browsable_gscene import ZoomableBrowsableGraphicsScene
+from SignalEmittingGraphicsPathItem import SignalEmittingGraphicsPathItem
+from ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene
 
 from collections import defaultdict
 
-class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsScene):
+class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphicsScene):
+    """
+    Read-only polygons.
+    """
 
     polygon_pressed = pyqtSignal(object)
 
     def __init__(self, id, gview=None, parent=None):
-        super(DrawableZoomableBrowsableGraphicsScene, self).__init__(id=id, gview=gview, parent=parent)
+        super(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon, self).__init__(id=id, gview=gview, parent=parent)
 
         self.drawings = defaultdict(list)
         self.drawings_mapping = {}
 
-    def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, section=None, index=None, z_value=50):
+    def set_default_line_color(self, color):
+        """
+        color is one of r,g,b
+        """
+        self.default_line_color = color
+
+    def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50):
         '''
         Add a polygon to a specified section.
 
@@ -35,8 +44,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsScene):
             QGraphicsPathItemModified: added polygon
         '''
 
-        # if path is None:
-        #     path = QPainterPath()
+        if color is None:
+            color = self.default_line_color
 
         if color == 'r':
             pen = QPen(Qt.red)
@@ -80,16 +89,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsScene):
 
     def set_active_i(self, i, emit_changed_signal=True):
 
-        old_i = self.active_i
-
-        for polygon in self.drawings[old_i]:
+        for polygon in self.drawings[self.active_i]:
             self.removeItem(polygon)
 
-        try:
-            super(DrawableZoomableBrowsableGraphicsScene, self).set_active_i(i, emit_changed_signal=emit_changed_signal)
+        super(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon, self).set_active_i(i, emit_changed_signal=emit_changed_signal)
 
-            for polygon in self.drawings[i]:
-                self.addItem(polygon)
-        except Exception as e:
-            sys.stderr.write('%s: Error setting index to %d\n' % (self.id, i))
-            raise e
+        for polygon in self.drawings[i]:
+            self.addItem(polygon)

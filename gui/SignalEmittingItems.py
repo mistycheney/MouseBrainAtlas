@@ -26,44 +26,6 @@ from gui_utilities import *
 
 from datetime import datetime
 
-# class Mode(Enum):
-#     REVIEW_PROPOSAL = 'review proposal'
-#     IDLE = 'idle'
-#     MOVING_POLYGON = 'moving polygon'
-#     MOVING_VERTEX = 'moving vertex'
-#     CREATING_NEW_POLYGON = 'create new polygon'
-#     ADDING_VERTICES_CONSECUTIVELY = 'adding vertices consecutively'
-#     ADDING_VERTICES_RANDOMLY = 'adding vertices randomly'
-#     KEEP_SELECTION = 'keep selection'
-#     SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
-#     DELETE_ROI_MERGE = 'delete roi (merge)'
-#     DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
-#     DELETE_BETWEEN = 'delete edges between two vertices'
-#     CONNECT_VERTICES = 'connect two vertices'
-
-# VERTEX_CIRCLE_RADIUS = 20
-
-class SignalEmittingGraphicsPathItem(QGraphicsPathItem):
-    def __init__(self, path, parent=None, gscene=None):
-        super(self.__class__, self).__init__(path, parent=parent)
-        self.setPath(path)
-        self.signal_emitter = PolygonSignalEmitter(parent=self)
-        self.gscene = gscene
-
-    def add_vertex(self, x, y, new_index=-1):
-        if new_index == -1:
-            polygon_goto(self, x, y)
-        else:
-            new_path = insert_vertex(self.path())
-            self.setPath(new_path)
-
-    def set_closed(self, closed):
-        self.closed = closed
-
-    def mousePressEvent(self, event):
-        QGraphicsPathItem.mousePressEvent(self, event)
-        self.signal_emitter.press.emit(self)
-
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
     # def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, vertex_radius=None):

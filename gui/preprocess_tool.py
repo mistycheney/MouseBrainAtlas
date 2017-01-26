@@ -27,11 +27,14 @@ sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from metadata import *
 from data_manager import *
+from annotation_utilities import points_inside_contour
 
 from DataFeeder import ImageDataFeeder
+from ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene
+from ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBrowsableGraphicsSceneWithReadonlyPolygon
+from MultiplePixmapsGraphicsScene import MultiplePixmapsGraphicsScene
+from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 from drawable_gscene import *
-from zoomable_browsable_gscene import SimpleGraphicsScene, MultiplePixmapsGraphicsScene
-from drawable_zoomable_browsable_gscene import DrawableZoomableBrowsableGraphicsScene
 
 from gui_utilities import *
 from qt_utilities import *
@@ -39,7 +42,7 @@ from web_service import WebService
 import pandas
 from preprocess2_utilities import *
 
-class SimpleGraphicsScene4(SimpleGraphicsScene):
+class SimpleGraphicsScene4(ZoomableBrowsableGraphicsScene):
     """
     Variant that supports adding points.
     """
@@ -108,7 +111,7 @@ class SimpleGraphicsScene4(SimpleGraphicsScene):
 
         return super(SimpleGraphicsScene4, self).eventFilter(obj, event)
 
-class SimpleGraphicsScene3(SimpleGraphicsScene):
+class SimpleGraphicsScene3(ZoomableBrowsableGraphicsScene):
     """
     Variant for sorted section gscene.
     Support context menu to specify FIRST, LAST, ANCHOR.
@@ -276,7 +279,7 @@ class SimpleGraphicsScene3(SimpleGraphicsScene):
         # self.last_section_indicator.setVisible(self.active_section == self.last_section)
 
 
-class SimpleGraphicsScene2(SimpleGraphicsScene):
+class SimpleGraphicsScene2(ZoomableBrowsableGraphicsScene):
     """
     Variant for slide position gscenes.
     """
@@ -344,7 +347,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         ###############################################
 
-        self.slide_gscene = SimpleGraphicsScene(id='section', gview=self.slide_gview)
+        self.slide_gscene = ZoomableBrowsableGraphicsScene(id='section', gview=self.slide_gview)
         self.slide_gview.setScene(self.slide_gscene)
 
         # slide_indices = ['N11, N12, IHC28']
@@ -904,9 +907,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             decisions = self.generate_submask_review_results_one_section(img_fn=img_fn)
             if decisions is None:
                 sys.stderr.write('No review results found: %s.\n' % img_fn)
+                mask_alg_review_results[img_fn] = {}
             else:
                 mask_alg_review_results[img_fn] = decisions
-                
+
         return cleanup_mask_review(mask_alg_review_results)
 
     def edit_masks(self):
@@ -939,20 +943,22 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.valid_sections_to_filenames = dict(zip(self.valid_section_indices, self.valid_section_filenames))
         self.valid_filenames_to_sections = {f: s for s, f in self.valid_sections_to_filenames.iteritems()}
 
-        # sys.stderr.write('\nThe following valid sections have no masks:\n')
-        # for sec in set(self.valid_section_indices) - set(self.all_mask_filenames[1].keys()):
-        #     sys.stderr.write('%d %s\n' % (sec, self.valid_sections_to_filenames[sec]))
-        # sys.stderr.write('\n')
-
         # Generate submask review results.
         sys.stderr.write('Generate submask review...\n')
         self.mask_review_results = self.generate_submask_review_results()
+
+        # sys.stderr.write('\nThe following valid sections have no masks:\n')
+        # for fn in set(self.valid_section_filenames) - set(self.mask_review_results.keys()):
+        #     sys.stderr.write('%s (%d)\n' % (fn, self.valid_filenames_to_sections[fn]))
+        # sys.stderr.write('\n')
 
         # Initialize bad submask list.
         self.bad_mask_fn_list = []
 
         sys.stderr.write('Initialize gscene...\n')
-        self.gscene_finalMask = DrawableZoomableBrowsableGraphicsScene(id='finalMask', gview=self.mask_ui.gview_finalMask)
+        # self.gscene_finalMask = DrawableZoomableBrowsableGraphicsScene(id='finalMask', gview=self.mask_ui.gview_finalMask)
+        self.gscene_finalMask = ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(id='finalMask', gview=self.mask_ui.gview_finalMask)
+        self.gscene_finalMask.set_default_line_color('g')
 
         # Initialize Mask gview.
         self.final_mask_feeder = ImageDataFeeder(name='finalMask', stack=self.stack, \
@@ -980,13 +986,16 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         raise Exception('ERROR: %s, %d, %d - no contour' % (fn, mask_ind, len(cnts)))
                     elif len(cnts) > 1:
                         sys.stderr.write('WARNING: %s, %d, %d - multiple contours\n' % (fn, mask_ind, len(cnts)))
-                    # assert len(cnts) == 1, '%s, %d, %d' % (fn, mask_ind, len(cnts))
-                    cnt = cnts[0]
+                        cnt = sorted(cnts, key=lambda c: len(c), reverse=True)[0]
+                    else:
+                        cnt = cnts[0]
+
                     if decisions[mask_ind]:
                         color = 'g'
                     else:
                         color = 'r'
                     self.gscene_finalMask.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=10, color=color)
+
         self.all_submasks.default_factory = None
 
         self.mask_ui.gview_finalMask.setScene(self.gscene_finalMask)
@@ -997,9 +1006,25 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             pass
 
         self.gscene_finalMask.active_image_updated.connect(self.final_mask_section_changed)
+        # self.gscene_finalMask.drawings_updated.connect(self.submask_added)
         self.gscene_finalMask.polygon_pressed.connect(self.submask_clicked)
 
         self.mask_gui.show()
+
+    def submask_added(self, polygon):
+        curr_fn = self.valid_sections_to_filenames[elf.gscene_finalMask.active_section]
+        curr_submask_num = len(self.mask_review_results[curr_fn])
+        new_submask_ind = curr_submask_num + 1
+
+        # Update submask review result
+        self.mask_review_results[curr_fn][new_submask_ind] = True
+
+        # Update submask list
+        new_submask_contours = vertices_from_polygon(polygon)
+        new_submask = contours_to_mask([new_submask_contours])
+        self.all_submasks[curr_fn][new_submask_ind] = new_submask
+
+        sys.stderr.write('Submask %d added.\n' % new_submask_ind)
 
     def submask_clicked(self, polygon):
         submask_ind = self.gscene_finalMask.drawings[self.gscene_finalMask.active_i].index(polygon) + 1
@@ -1080,10 +1105,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         formal_masks_dir = create_if_not_exists("/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted" % dict(stack=self.stack))
 
         for img_fn, decisions in self.mask_review_results.iteritems():
-            final_mask = self.generate_final_mask(fn=img_fn)
-            to_mask_fp = os.path.join(formal_masks_dir, "%(img_fn)s_mask.png" % dict(img_fn=img_fn))
-            imsave(to_mask_fp, final_mask)
+            try:
+                final_mask = self.generate_final_mask(fn=img_fn)
+                to_mask_fp = os.path.join(formal_masks_dir, "%(img_fn)s_mask.png" % dict(img_fn=img_fn))
+                imsave(to_mask_fp, final_mask)
+            except Exception as e:
+                sys.stderr.write(e.message + '\n')
+
         self.statusBar().showMessage('Formal masks generated.')
+        sys.stderr.write('Formal masks generated.\n')
 
     def bad_mask_list_clicked(self, index):
         self.mask_ui_selected_item = self.bad_mask_list_model.itemFromIndex(index)
@@ -1226,7 +1256,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     def generate_final_mask(self, sec=None, fn=None):
         sec, fn = self.get_mask_sec_fn(sec=sec, fn=fn)
         decisions = self.mask_review_results[fn]
-        final_mask = np.any([self.all_submasks[fn][submask_ind] for submask_ind, dec in decisions.iteritems() if dec], axis=0)
+        accepted_submask_indices = [submask_ind for submask_ind, dec in decisions.iteritems() if dec]
+        assert len(accepted_submask_indices) > 0, 'No submasks accepted. %s' % fn
+        final_mask = np.any([self.all_submasks[fn][submask_ind] for submask_ind in accepted_submask_indices], axis=0)
         final_mask = img_as_ubyte(final_mask.astype(np.int)*255)
         return final_mask
 

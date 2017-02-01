@@ -21,12 +21,23 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
     """
 
     drawings_updated = pyqtSignal(object)
+    polygon_deleted = pyqtSignal(object)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene, self).__init__(id=id, gview=gview, parent=parent)
 
         self.drawings = defaultdict(list)
         self.mode = 'idle'
+
+
+    def set_default_vertex_color(self, color):
+        """
+        color is one of r,g,b
+        """
+        self.default_vertex_color = color
+
+    def set_default_vertex_radius(self, size):
+        self.default_vertex_radius = size
 
     def set_mode(self, mode):
         if hasattr(self, 'mode'):
@@ -39,17 +50,24 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         self.mode = mode
 
-    def add_polygon_with_circles_and_label(self, path, linecolor=None, linewidth=None, vertex_color='b', vertex_radius=None,
+    def add_polygon_with_circles_and_label(self, path, linecolor=None, linewidth=None, vertex_color=None, vertex_radius=None,
                                             label='unknown', section=None, label_pos=None, index=None, type=None,
                                             edit_history=[], side=None, side_manually_assigned=None,
                                             contour_id=None):
 
         polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
+
+        if vertex_color is None:
+            vertex_color = self.default_vertex_color
+
+        if vertex_radius is None:
+            vertex_radius = self.default_vertex_radius
+
         polygon.add_circles_for_all_vertices(radius=vertex_radius, color=vertex_color)
         polygon.set_closed(True)
 
 
-    def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50):
+    def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50, vertex_color=None, vertex_radius=None):
         '''
         Add a polygon to a specified section.
 
@@ -71,11 +89,16 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         elif color == 'b':
             pen = QPen(Qt.blue)
 
+        if linewidth is None:
+            linewidth = self.default_line_width
         pen.setWidth(linewidth)
+
+        if vertex_radius is None:
+            vertex_radius = self.default_vertex_radius
 
         index, section = self.get_requested_index_and_section(i=index, sec=section)
 
-        polygon = SignalEmittingGraphicsPathItemWithVertexCircles(path, gscene=self)
+        polygon = SignalEmittingGraphicsPathItemWithVertexCircles(path, gscene=self, vertex_radius=vertex_radius)
 
         polygon.setPen(pen)
         polygon.setZValue(z_value)
@@ -140,6 +163,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             self.set_mode('add vertices consecutively')
 
         elif selected_action == action_deletePolygon:
+            self.polygon_deleted.emit(self.active_polygon)
+            sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
             self.drawings[self.active_i].remove(self.active_polygon)
             self.removeItem(self.active_polygon)
 

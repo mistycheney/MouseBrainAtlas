@@ -44,21 +44,33 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
-# parser.add_argument("output_dir", type=str, help="output dir")
+parser.add_argument("output_dir", type=str, help="output dir")
 parser.add_argument("method", type=str, help="nissl or fluorescent- use the entropy method for Nissl or Graphcut method for Fluorescent")
 parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='tif')
 parser.add_argument("--train_distance_percentile", type=int, help="distance percentile; used for fluorescent", default=10)
+parser.add_argument("--chi2_threshold", type=float, help="chi2 threshold; used for fluorescent", default=.2)
+parser.add_argument("--min_size", type=int, help="minimum submask size", default=1000)
+parser.add_argument("--vmax_percentile", type=int, help="percentile of graylevel values of vmax", default=100)
 args = parser.parse_args()
 
 stack = args.stack_name
 input_dir = args.input_dir
-# output_dir = create_if_not_exists(args.output_dir)
+output_dir = create_if_not_exists(args.output_dir)
 tb_fmt = args.tb_fmt
 method = args.method
 
 # Used for fluorescent
 TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE = args.train_distance_percentile
+CHI2_THRESHOLD = args.chi2_threshold
+VMAX_PERCENTILE = args.vmax_percentile
+MIN_SIZE = args.min_size
 AREA_CHANGE_RATIO_TERMINATE_CRITERIA = 2. # When area changes more than this ratio, stop iteration.
+
+sys.stderr.write('Train distance percentile: %d\n' % TRAIN_DISTANCES_AS_DISTANCE_PERCENTILE)
+sys.stderr.write('Chi2 threshold: %.2f\n' % CHI2_THRESHOLD)
+sys.stderr.write('Minimum size: %.2f\n' % MIN_SIZE)
+sys.stderr.write('Vmax percentile: %.2f\n' % VMAX_PERCENTILE)
+
 
 # output_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskContourViz_unsorted' % dict(stack=stack))
 
@@ -130,7 +142,7 @@ def generate_entropy_mask(img):
     mask = e > thresh
 
     max_area = np.max([p.area for p in regionprops(label(mask))])
-    min_size = min(max_area, 5000)
+    min_size = min(max_area, MIN_SIZE)
 
     mask_rso = remove_small_objects(mask, min_size=min_size, connectivity=8)
     mask_rsh = remove_small_holes(mask_rso, min_size=20000, connectivity=8)
@@ -151,7 +163,7 @@ def generate_mask(fn, tb_fmt='tif'):
                 img = img_rgb[..., i].copy()
 
                 img_flattened = img.flatten()
-                vmax = np.percentile(img_flattened, 99)
+                vmax = np.percentile(img_flattened, VMAX_PERCENTILE)
 
                 vmin_perc = 1
                 while True:
@@ -220,12 +232,9 @@ def generate_mask(fn, tb_fmt='tif'):
 
             # Generate mask for snake's initial contours.
 
-            chi2_threshold = .5
-            MIN_SIZE = 4000
-
             entropy_mask = np.zeros_like(img, np.bool)
             for l, d in hist_distances.iteritems():
-                if d > chi2_threshold:
+                if d > CHI2_THRESHOLD:
                     entropy_mask[ncut_labels == l] = 1
 
             dilated_entropy_mask = binary_dilation(entropy_mask, disk(10))
@@ -319,7 +328,7 @@ def generate_mask(fn, tb_fmt='tif'):
             #         sys.stderr.write('Area change: %.2f.\n' % area_change_ratio)
                     if np.abs(np.log2(area_change_ratio)) > AREA_CHANGE_RATIO_TERMINATE_CRITERIA:
                         discard = True
-                        sys.stderr.write('Area change too much, ignore.')
+                        sys.stderr.write('Area change too much, ignore.\n')
                         break
 
                     dq.append(msnake.levelset)
@@ -378,7 +387,10 @@ def generate_mask(fn, tb_fmt='tif'):
         else:
             raise 'Method not recognized.'
 
-        submask_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks/%(fn)s' % {'fn':fn, 'stack':stack})
+        # Sort submasks by size.
+        final_masks = sorted(final_masks, key=lambda x: len(x), reverse=True)
+
+        submask_dir = create_if_not_exists(os.path.join(output_dir, fn))
         execute_command('rm -f %s/*' % submask_dir)
         # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
         # execute_command('rm %s/*' % submask_viz_dir)
@@ -426,10 +438,12 @@ def generate_mask(fn, tb_fmt='tif'):
             for u in undecided:
                 decisions[u] = -1
 
+        decisions = consolidate_alg_submask_review(dict(zip(range(1, 1+len(decisions)), decisions)))
+
         # Write to file. Slot index starts with 1.
-        with open(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn, stack=stack)), 'w') as f:
-            for i, dec in enumerate(decisions):
-                f.write('%d %d\n' % (i+1, dec))
+        with open(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn)), 'w') as f:
+            for i, dec in decisions.iteritems():
+                f.write('%d %d\n' % (i, dec))
 
         # Save binary mask as png
         # mask_fn = os.path.join(output_dir, '%(fn)s_mask.png' % dict(fn=fn))
@@ -488,5 +502,28 @@ def generate_mask(fn, tb_fmt='tif'):
         # with open('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_maskError_%(hostname)s.txt' % dict(stack=stack, hostname=hostname), 'w') as f:
         #     f.write(fn + '\n')
         return
+
+def consolidate_alg_submask_review(alg_decisions):
+    """
+    Return {submask_ind: bool}
+    """
+
+    consolidated_decisions = {}
+
+    if len(alg_decisions) == 0:
+        return {}
+    else:
+        alg_positives = [index for index, l in alg_decisions.iteritems() if l == 1]
+        if len(alg_positives) > 0:
+            assert len(alg_positives) == 1
+            correct_index = alg_positives[0]
+        else:
+            correct_index = 1
+
+        consolidated_decisions[correct_index] = 1
+        for idx in alg_decisions:
+            if idx != correct_index:
+                consolidated_decisions[idx] = -1
+        return {i: r == 1 for i, r in consolidated_decisions.iteritems()}
 
 _ = Parallel(n_jobs=15)(delayed(generate_mask)(fn, tb_fmt=tb_fmt) for fn in filenames)

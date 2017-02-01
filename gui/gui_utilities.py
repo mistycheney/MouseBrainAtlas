@@ -26,6 +26,8 @@ import re
 #
 #             extract_names(d[key], structure_tree_dict[name], structure_tree_dict)
 
+def get_list_from_model(model):
+    return [str(model.data(model.index(index, 0))) for index in range(model.rowCount())]
 
 def fill_item_to_tree_widget(item, value):
     # http://stackoverflow.com/questions/21805047/qtreewidget-to-mirror-python-dictionary

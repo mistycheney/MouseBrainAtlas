@@ -18,6 +18,9 @@ from skimage.measure import grid_points_in_poly
 # import scipy.ndimage as nd
 
 def contours_to_mask(contours, img_shape):
+    """
+    img_shape: h,w
+    """
 
     final_masks = []
 

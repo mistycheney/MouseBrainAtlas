@@ -836,6 +836,9 @@ class DataManager(object):
 
     @staticmethod
     def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, train_sample_scheme=None):
+        """
+        Return scoremaps.
+        """
 
         # Load scoremap
 

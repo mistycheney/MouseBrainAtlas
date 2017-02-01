@@ -4,5 +4,7 @@
 `compute_features`: compute features. The core function `compute_features_regions()` is defined in `cell_utilities.py`.
 `train_classifiers_cell_based`:
 
-`size_aware_spectral_clustering`: spectral embedding of shape
+`spectral_embedding_size_normalized_v2`: spectral embedding of shape
+One section has ~100k cells.
+
 `reconstruct_images`: reconstruct images

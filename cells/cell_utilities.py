@@ -8,8 +8,10 @@ import pandas
 import bloscpack as bp
 from matplotlib.path import Path
 
-DETECTED_CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/detected_cells/'
-PROCESSED_CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/processed_cells'
+CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
+DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
+CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
+D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
 
 ###############
 n_radial = 4
@@ -654,10 +656,15 @@ def load_data(fp):
         data = imread(fp)
     elif fp.endswith('hdf'):
         data = load_hdf_v2(fp).tolist()
+    elif fp.endswith('pkl'):
+        data = pickle.load(open(fp, 'r'))
     else:
         raise Exception('Not recognized.')
 
     return data
+
+def load_cell_classifier_data(what, stack, sec=None, fn=None, anchor_fn=None, ext=None):
+    return load_data(get_cell_classifier_data_filepath(what, stack, sec, fn, anchor_fn, ext))
 
 def get_cell_classifier_data_filepath(what, stack, sec=None, fn=None, anchor_fn=None, ext=None):
     if fn is None:
@@ -734,9 +741,9 @@ def get_cell_data_filepath(what, stack, sec=None, fn=None, ext=None):
     fp = os.path.join(DETECTED_CELLS_ROOTDIR, stack, fn, fn_template % {'fn': fn})
     return fp
 
-def load_cell_data(what, stack, sec):
+def load_cell_data(what, stack, sec, ext=None):
 
-    fp = get_cell_data_filepath(what, stack, sec)
+    fp = get_cell_data_filepath(what, stack, sec, ext=ext)
     if fp is None:
         raise 'Cannot load data for section %d.'
 
@@ -804,23 +811,32 @@ def allocate_radial_angular_bins_overlap(vectors, anchor_direction, angular_bins
     return radial_bin_indices, angular_bin_indices
 
 selected_cell_arrays = None
-selected_cell_arrays_h = None
-selected_cell_arrays_v = None
-selected_cell_arrays_d = None
 selected_cell_sizes = None
 
-def set_selected_cell_arrays(a, h, v, d, s):
+def set_selected_cell_arrays(a, s):
     global selected_cell_arrays
-    global selected_cell_arrays_h
-    global selected_cell_arrays_v
-    global selected_cell_arrays_d
     global selected_cell_sizes
     selected_cell_arrays = a
-    selected_cell_arrays_h = h
-    selected_cell_arrays_v = v
-    selected_cell_arrays_d = d
     selected_cell_sizes = s
 
+# selected_cell_arrays = None
+# selected_cell_arrays_h = None
+# selected_cell_arrays_v = None
+# selected_cell_arrays_d = None
+# selected_cell_sizes = None
+#
+# def set_selected_cell_arrays(a, h, v, d, s):
+#     global selected_cell_arrays
+#     global selected_cell_arrays_h
+#     global selected_cell_arrays_v
+#     global selected_cell_arrays_d
+#     global selected_cell_sizes
+#     selected_cell_arrays = a
+#     selected_cell_arrays_h = h
+#     selected_cell_arrays_v = v
+#     selected_cell_arrays_d = d
+#     selected_cell_sizes = s
+#
 
 def parallel_cdist(data1, data2, n_rows_per_job=100):
 
@@ -867,99 +883,124 @@ def kmeans(data, seed_indices, n_iter=100):
 
     return nearest_centroid_indices, np.asarray(centroids)
 
-def compute_jaccard_x_vs_list_v2(t, x, t_sizes, x_size):
+def compute_jaccard_x_vs_list_v2(t, x, t_sizes=None, x_size=None):
     """
     t: n x d
     x: 1 x d - boolean array
     """
+
+    if t_sizes is None:
+        t_sizes = np.sum(t, axis=1)
+
+    if x_size is None:
+        x_size = np.count_nonzero(x)
 
     intersections_with_i = t[:, x].sum(axis=1)
     unions_with_i = t_sizes + x_size - intersections_with_i
     return intersections_with_i.astype(np.float)/unions_with_i
 
-def compute_jaccard_x_vs_list(x, t, x_size=None, t_sizes=None, x_h=None, x_v=None, x_d=None):
-    """
-    t: n x d
-    x: 1 x d - boolean array
-    """
+# def compute_jaccard_x_vs_list(x, t, x_size=None, t_sizes=None, x_h=None, x_v=None, x_d=None):
+#     """
+#     t: n x d
+#     x: 1 x d - boolean array
+#     """
+#
+#     t = np.array(t)
+#
+#     x_size = np.count_nonzero(x)
+#     t_sizes = np.sum(t, axis=1)
+#     n = len(t)
+#
+#     intersections_with_x = t[:, x].sum(axis=1) # nx1
+#     intersections_with_x_h = t[:, x_h].sum(axis=1)
+#     intersections_with_x_v = t[:, x_v].sum(axis=1)
+#     intersections_with_x_d = t[:, x_d].sum(axis=1)
+#
+#     intersections_all_mirrors = np.c_[intersections_with_x, intersections_with_x_h,
+#                                     intersections_with_x_v, intersections_with_x_d] # nx4
+#     temp = t_sizes + x_size # nx1
+#
+#     unions_with_x = temp - intersections_with_x
+#     unions_with_x_h = temp - intersections_with_x_h
+#     unions_with_x_v = temp - intersections_with_x_v
+#     unions_with_x_d = temp - intersections_with_x_d
+#
+#     unions_all_mirrors = np.c_[unions_with_x, unions_with_x_h, unions_with_x_v, unions_with_x_d] # nx4
+#
+#     jaccards = intersections_all_mirrors.astype(np.float) / unions_all_mirrors # nx4
+#     best_mirrors = np.argmax(jaccards, axis=1)
+#     best_jaccards = jaccards[range(n), best_mirrors]
+#
+#     return best_jaccards, best_mirrors
 
-    t = np.array(t)
+# def compute_jaccard_i_vs_list(i, indices):
+#
+#     global selected_cell_arrays
+#     global selected_cell_arrays_h
+#     global selected_cell_arrays_v
+#     global selected_cell_arrays_d
+#     global selected_cell_sizes
+#
+#     if indices == 'all':
+#         intersections_with_i = selected_cell_arrays[:, selected_cell_arrays[i]].sum(axis=1)
+#         intersections_with_i_h = selected_cell_arrays_h[:, selected_cell_arrays_h[i]].sum(axis=1)
+#         intersections_with_i_v = selected_cell_arrays_v[:, selected_cell_arrays_v[i]].sum(axis=1)
+#         intersections_with_i_d = selected_cell_arrays_d[:, selected_cell_arrays_d[i]].sum(axis=1)
+#
+#         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i
+#         unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_h
+#         unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_v
+#         unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_d
+#
+#     else:
+#         intersections_with_i = selected_cell_arrays[indices, selected_cell_arrays[i]].sum(axis=1)
+#         intersections_with_i_h = selected_cell_arrays_h[indices, selected_cell_arrays_h[i]].sum(axis=1)
+#         intersections_with_i_v = selected_cell_arrays_v[indices, selected_cell_arrays_v[i]].sum(axis=1)
+#         intersections_with_i_d = selected_cell_arrays_d[indices, selected_cell_arrays_d[i]].sum(axis=1)
+#
+#         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i
+#         unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_h
+#         unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_v
+#         unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_d
+#
+#     intersections_all_poses = np.c_[intersections_with_i, intersections_with_i_h, intersections_with_i_v, intersections_with_i_d] # nx4
+#     unions_all_poses = np.c_[unions_with_i, unions_with_i_h, unions_with_i_v, unions_with_i_d] # nx4
+#     jaccards_all_poses = intersections_all_poses.astype(np.float)/unions_all_poses
+#
+#     n = len(jaccards_all_poses)
+#
+#     best_mirrors = np.argmax(jaccards_all_poses, axis=1)
+#     best_jaccards = jaccards_all_poses[range(n), best_mirrors]
+#
+#     return best_jaccards, best_mirrors
 
-    x_size = np.count_nonzero(x)
-    t_sizes = np.sum(t, axis=1)
-    n = len(t)
-
-    intersections_with_x = t[:, x].sum(axis=1) # nx1
-    intersections_with_x_h = t[:, x_h].sum(axis=1)
-    intersections_with_x_v = t[:, x_v].sum(axis=1)
-    intersections_with_x_d = t[:, x_d].sum(axis=1)
-
-    intersections_all_mirrors = np.c_[intersections_with_x, intersections_with_x_h,
-                                    intersections_with_x_v, intersections_with_x_d] # nx4
-    temp = t_sizes + x_size # nx1
-
-    unions_with_x = temp - intersections_with_x
-    unions_with_x_h = temp - intersections_with_x_h
-    unions_with_x_v = temp - intersections_with_x_v
-    unions_with_x_d = temp - intersections_with_x_d
-
-    unions_all_mirrors = np.c_[unions_with_x, unions_with_x_h, unions_with_x_v, unions_with_x_d] # nx4
-
-    jaccards = intersections_all_mirrors.astype(np.float) / unions_all_mirrors # nx4
-    best_mirrors = np.argmax(jaccards, axis=1)
-    best_jaccards = jaccards[range(n), best_mirrors]
-
-    return best_jaccards, best_mirrors
 
 def compute_jaccard_i_vs_list(i, indices):
 
     global selected_cell_arrays
-    global selected_cell_arrays_h
-    global selected_cell_arrays_v
-    global selected_cell_arrays_d
     global selected_cell_sizes
 
     if indices == 'all':
         intersections_with_i = selected_cell_arrays[:, selected_cell_arrays[i]].sum(axis=1)
-        intersections_with_i_h = selected_cell_arrays_h[:, selected_cell_arrays_h[i]].sum(axis=1)
-        intersections_with_i_v = selected_cell_arrays_v[:, selected_cell_arrays_v[i]].sum(axis=1)
-        intersections_with_i_d = selected_cell_arrays_d[:, selected_cell_arrays_d[i]].sum(axis=1)
-
         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i
-        unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_h
-        unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_v
-        unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes - intersections_with_i_d
-
     else:
         intersections_with_i = selected_cell_arrays[indices, selected_cell_arrays[i]].sum(axis=1)
-        intersections_with_i_h = selected_cell_arrays_h[indices, selected_cell_arrays_h[i]].sum(axis=1)
-        intersections_with_i_v = selected_cell_arrays_v[indices, selected_cell_arrays_v[i]].sum(axis=1)
-        intersections_with_i_d = selected_cell_arrays_d[indices, selected_cell_arrays_d[i]].sum(axis=1)
-
         unions_with_i = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i
-        unions_with_i_h = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_h
-        unions_with_i_v = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_v
-        unions_with_i_d = selected_cell_sizes[i] + selected_cell_sizes[indices] - intersections_with_i_d
 
-    intersections_all_poses = np.c_[intersections_with_i, intersections_with_i_h, intersections_with_i_v, intersections_with_i_d] # nx4
-    unions_all_poses = np.c_[unions_with_i, unions_with_i_h, unions_with_i_v, unions_with_i_d] # nx4
-    jaccards_all_poses = intersections_all_poses.astype(np.float)/unions_all_poses
+    jaccards = intersections_with_i.astype(np.float)/unions_with_i
+    return jaccards
 
-    n = len(jaccards_all_poses)
+def compute_jaccard_i_vs_all(i):
+    scores = compute_jaccard_i_vs_list(i, 'all')
+    return scores
 
-    best_mirrors = np.argmax(jaccards_all_poses, axis=1)
-    best_jaccards = jaccards_all_poses[range(n), best_mirrors]
-
-    return best_jaccards, best_mirrors
-
-
-def compute_jaccard_i_vs_all(i, return_poses=False):
-    scores, poses = compute_jaccard_i_vs_list(i, 'all')
-
-    if return_poses:
-        return scores, poses
-    else:
-        return scores
+# def compute_jaccard_i_vs_all(i, return_poses=False):
+#     scores, poses = compute_jaccard_i_vs_list(i, 'all')
+#
+#     if return_poses:
+#         return scores, poses
+#     else:
+#         return scores
 
 def compute_jaccard_pairwise(indices, square_form=True, parallel=True, return_poses=False):
     n = len(indices)
@@ -984,22 +1025,28 @@ def compute_jaccard_pairwise(indices, square_form=True, parallel=True, return_po
     else:
         return pairwise_scores
 
-
-def compute_jaccard_list_vs_all(seed_indices, return_poses=False):
-
+def compute_jaccard_list_vs_all(seed_indices):
     pool = Pool(14)
-
-    if return_poses:
-        scores_poses_tuples = pool.map(lambda i: compute_jaccard_i_vs_all(i, return_poses=True), seed_indices)
-        affinities_to_seeds = np.array([scores for scores, poses in scores_poses_tuples])
-    else:
-        affinities_to_seeds = np.array(pool.map(lambda i: compute_jaccard_i_vs_all(i), seed_indices))
-
+    affinities_to_seeds = np.array(pool.map(lambda i: compute_jaccard_i_vs_all(i), seed_indices))
     pool.close()
     pool.join()
+    return affinities_to_seeds
 
-    if return_poses:
-        poses = np.array([poses for scores, poses in scores_poses_tuples])
-        return affinities_to_seeds, poses
-    else:
-        return affinities_to_seeds
+# def compute_jaccard_list_vs_all(seed_indices, return_poses=False):
+#
+#     pool = Pool(14)
+#
+#     if return_poses:
+#         scores_poses_tuples = pool.map(lambda i: compute_jaccard_i_vs_all(i, return_poses=True), seed_indices)
+#         affinities_to_seeds = np.array([scores for scores, poses in scores_poses_tuples])
+#     else:
+#         affinities_to_seeds = np.array(pool.map(lambda i: compute_jaccard_i_vs_all(i), seed_indices))
+#
+#     pool.close()
+#     pool.join()
+#
+#     if return_poses:
+#         poses = np.array([poses for scores, poses in scores_poses_tuples])
+#         return affinities_to_seeds, poses
+#     else:
+#         return affinities_to_seeds

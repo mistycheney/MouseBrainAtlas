@@ -466,7 +466,14 @@ def generate_masks():
     stack = request.args.get('stack', type=str)
     filenames = map(str, request.args.getlist('filenames'))
     tb_fmt = request.args.get('tb_fmt', type=str)
-    train_distance_percentile = request.args.get('train_distance_percentile', default=10, type=int)
+    # train_distance_percentile_fluoro = request.args.get('train_distance_percentile_fluoro', default=10, type=int)
+    # chi2_threshold_fluoro = request.args.get('chi2_threshold_fluoro', default=0.5, type=float)
+    # train_distance_percentile_nissl = request.args.get('train_distance_percentile_nissl', default=10, type=int)
+    # chi2_threshold_nissl = request.args.get('chi2_threshold_nissl', default=0.2, type=float)
+    border_dissim_percentile = request.args.get('border_dissim_percentile', default=30, type=int)
+    fg_dissim_thresh = request.args.get('fg_dissim_thresh', default=0.4, type=float)
+    min_size = request.args.get('min_size', default=1000, type=int)
+    output_mode = request.args.get('output_mode', default='normal', type=str)
 
     ##################################################
 
@@ -495,33 +502,67 @@ def generate_masks():
     print 'Generating thumbnail mask...',
 
     input_dir = '/home/yuncong/CSHL_data/%(stack)s' % dict(stack=stack)
-    # output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_mask_unsorted' % dict(stack=stack))
+    if output_mode == 'normal':
+        output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submasks' % dict(stack=stack))
+    elif output_mode == 'alternative':
+        output_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_alternative_submasks' % dict(stack=stack))
 
-    script_name = 'generate_thumbnail_masks_v3.py'
+    script_name = 'generate_thumbnail_masks_v4.py'
     # !! For some reason (perhaps too much simultaneous write to disk), the distributed computation cannot finish, usually stuck with only a few sections left.
 
-    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s --train_distance_percentile %(train_dist_perc)d' % \
-    run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(method)s --train_distance_percentile %(train_dist_perc)d' % \
-                    {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
-                    'stack': stack,
-                    'input_dir': input_dir,
-                    # 'output_dir': output_dir,
-                    'method': 'fluorescent',
-                    'train_dist_perc': train_distance_percentile},
-                    kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'F']),
-                    exclude_nodes=exclude_nodes,
-                    argument_type='list2')
+    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(modality)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
+    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
+    #                 'stack': stack,
+    #                 'input_dir': input_dir,
+    #                 'output_dir': output_dir,
+    #                 'modality': 'fluorescent',
+    #                 'border_dissim_percentile': border_dissim_percentile,
+    #                 'fg_dissim_thresh': fg_dissim_thresh,
+    #                 'min_size': min_size},
+    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'F']),
+    #                 exclude_nodes=exclude_nodes,
+    #                 argument_type='list2')
 
-    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s' % \
-    run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(method)s' % \
+    run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(modality)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
                     {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
                     'stack': stack,
                     'input_dir': input_dir,
-                    # 'output_dir': output_dir,
-                    'method': 'nissl'},
+                    'output_dir': output_dir,
+                    'modality': 'nissl',
+                    'border_dissim_percentile': border_dissim_percentile,
+                    'fg_dissim_thresh': fg_dissim_thresh,
+                    'min_size': min_size},
                     kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'N']),
                     exclude_nodes=exclude_nodes,
                     argument_type='list2')
+
+    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s --train_distance_percentile %(train_dist_perc)d --chi2_threshold %(chi2_threshold).2f --min_size %(min_size)d --vmax_percentile %(vmax_percentile)d' % \
+    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
+    #                 'stack': stack,
+    #                 'input_dir': input_dir,
+    #                 'output_dir': output_dir,
+    #                 'method': 'fluorescent',
+    #                 'train_dist_perc': train_distance_percentile_fluoro,
+    #                 'chi2_threshold': chi2_threshold_fluoro,
+    #                 'min_size': min_size,
+    #                 'vmax_percentile': 99},
+    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'F']),
+    #                 exclude_nodes=exclude_nodes,
+    #                 argument_type='list2')
+    #
+    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s --train_distance_percentile %(train_dist_perc)d --chi2_threshold %(chi2_threshold).2f --min_size %(min_size)d --vmax_percentile %(vmax_percentile)d' % \
+    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
+    #                 'stack': stack,
+    #                 'input_dir': input_dir,
+    #                 'output_dir': output_dir,
+    #                 'method': 'fluorescent',
+    #                 'train_dist_perc': train_distance_percentile_nissl,
+    #                 'chi2_threshold': chi2_threshold_nissl,
+    #                 'min_size': min_size,
+    #                 'vmax_percentile': 100},
+    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'N']),
+    #                 exclude_nodes=exclude_nodes,
+    #                 argument_type='list2')
 
     print 'done in', time.time() - t, 'seconds' # 1600s
 
@@ -547,6 +588,25 @@ def generate_masks():
     #                 argument_type='list2')
 
     # print 'done in', time.time() - t, 'seconds'
+
+    # if output_mode == 'alternative':
+
+        # review_results_all_images = {}
+        # all_submasks_encoded = defaultdict(dict)
+        # for fn in filenames:
+        #     submask_dir = '/home/yuncong/csd395/CSHL_data_processed/%(stack)s/%(stack)s_alternative_submasks/%(fn)s' % dict(stack=stack, fn=fn)
+        #     review_result_fp = os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn))
+        #     review_result = read_dict_from_txt(review_result_fp, converter=np.int, key_converter=np.int)
+        #     review_results_all_images[fn] = review_result
+        #     for submask_ind, decision in review_result.iteritems():
+        #         submask_fp = os.path.join(submask_dir, '%(fn)s_submask_%(submask_ind)d.png' % dict(fn=fn, submask_ind=submask_ind))
+                # submask = (imread(submask_fp) > 0).astype(np.int)
+                # all_submasks_encoded[fn][submask_ind] = bp.pack_ndarray_str(submask)
+                # all_submasks_encoded[fn][submask_ind] = submask_fp
+
+        # d = {'result': 0, 'submasks_filepaths': all_submasks_encoded, 'review_decisions': review_results_all_images}
+    # else:
+        # d = {'result': 0}
 
     d = {'result': 0}
     return jsonify(**d)

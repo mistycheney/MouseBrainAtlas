@@ -26,11 +26,25 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
         self.drawings = defaultdict(list)
         self.drawings_mapping = {}
 
+    def set_default_line_width(self, width):
+        self.default_line_width = width
+
     def set_default_line_color(self, color):
         """
         color is one of r,g,b
         """
         self.default_line_color = color
+
+    def remove_polygon(self, polygon):
+        self.polygon_deleted.emit(polygon)
+        sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+        self.drawings[self.active_i].remove(polygon)
+        self.removeItem(polygon)
+
+    def remove_all_polygons(self, sec=None, i=None):
+        self.get_requested_index_and_section(sec=sec, i=i)
+        for p in self.drawings[index]:
+            self.remove_polygon(p)
 
     def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50):
         '''
@@ -53,6 +67,9 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
             pen = QPen(Qt.green)
         elif color == 'b':
             pen = QPen(Qt.blue)
+
+        if linewidth is None:
+            linewidth = self.default_line_width
 
         pen.setWidth(linewidth)
 

@@ -51,7 +51,9 @@ elif hostname == 'yuncong-MacbookPro':
     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
     data_dir = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
+    THUMBNAIL_DATA_DIR = '/home/yuncong/CSHL_data_processed'
     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+    GORDON_THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes2/'

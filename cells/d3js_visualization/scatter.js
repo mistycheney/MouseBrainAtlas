@@ -124,19 +124,19 @@ var tip = d3.tip()
 
 
 // var dataset = 'random10';
-var dataset = 'mediumCells'
-var cell_number = '10'
-var nystrom_sample_num = '1000'
+var dataset = 'largest30p'
+var cell_number = '100'
+var nystrom_sample_num = '100'
 
 var datadir;
 
-if (location.hostname == 'localhost') {
-  datadir = '../../../CSHL_cells_v2/gallery/random/'; // <-- Change this to the data folder
-} else {
-  // datadir = '../../../csd395/CSHL_cells/gallery/random/'; // <-- Change this to the data folder
-  // datadir = '../../../csd395/CSHL_cells/gallery/largeCells/'; // <-- Change this to the data folder
-  datadir = '../../../csd395/CSHL_cells_v2/gallery/'; // <-- Change this to the data folder
-}
+datadir = '../../../CSHL_cells_v2/d3js/';
+
+// if (location.hostname == 'localhost') {
+//   datadir = '/home/yuncong/CSHL_cells_v2/d3js/'; // <-- Change this to the data folder
+// } else {
+//   datadir = '/home/yuncong/csd395/CSHL_cells_v2/d3js/'; // <-- Change this to the data folder
+// }
 
 var show_blob = true;
 

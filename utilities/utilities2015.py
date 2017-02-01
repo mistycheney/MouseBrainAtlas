@@ -719,12 +719,15 @@ def random_colors(count):
                      for rgb_str in rand_color.generate(luminosity="bright", count=count, format_='rgb')]
     return random_colors
 
-def read_dict_from_txt(fn, converter=np.float):
+def read_dict_from_txt(fn, converter=np.float, key_converter=np.int):
     d = {}
     with open(fn, 'r') as f:
         for line in f.readlines():
             items = line.split()
-            d[items[0]] = np.array(map(converter, items[1:]))
+            if len(items) == 2:
+                d[key_converter(items[0])] = converter(items[1])
+            else:
+                d[key_converter(items[0])] = np.array(map(converter, items[1:]))
     return d
 
 def write_dict_to_txt(d, fn, fmt='%f'):

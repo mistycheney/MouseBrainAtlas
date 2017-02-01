@@ -56,3 +56,9 @@ Since we already have the corrected order file, you can click "Load Sorted Filen
 This will load the corrected order.
 
 After successfully loading the order, you should see images showing in the upper right panel
+
+# 3. Align
+# 4. Crop
+# 5. Generate Masks
+
+Loose pieces, detached tissues on slide...

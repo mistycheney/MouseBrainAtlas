@@ -3,7 +3,7 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+sys.path.append(os.path.join(os.environ['REPO_DIR'] , 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
@@ -18,6 +18,9 @@ from skimage.measure import grid_points_in_poly
 # import scipy.ndimage as nd
 
 def contours_to_mask(contours, img_shape):
+    """
+    img_shape: h,w
+    """
 
     final_masks = []
 

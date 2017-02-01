@@ -61,7 +61,11 @@ CROSSLINE_PEN_WIDTH = 2
 CROSSLINE_RED_PEN = QPen(Qt.red)
 CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
 
+
 class DrawableGraphicsScene(QGraphicsScene):
+    """
+    Used for annotation GUI.
+    """
 
     drawings_updated = pyqtSignal(object)
     crossline_updated = pyqtSignal(int, int, int, str)

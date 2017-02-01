@@ -15,10 +15,17 @@ suffix = 'thumbnail'
 
 parameter_dir = os.path.join(os.environ['REPO_DIR'], "preprocess/parameters")
 
-rg_param = os.path.join(parameter_dir, "Parameters_Rigid.txt")
+rg_param_rigid = os.path.join(parameter_dir, "Parameters_Rigid.txt")
 rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.txt")
-rg_param_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_noNumberOfSpatialSamples.txt")
+rg_param_mutualinfo_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo_noNumberOfSpatialSamples.txt")
 rg_param_requiredRatioOfValidSamples = os.path.join(parameter_dir, "Parameters_Rigid_RequiredRatioOfValidSamples.txt")
+
+if stack in all_alt_nissl_ntb_stacks:
+	rg_param = rg_param_mutualinfo
+else:
+	rg_param = rg_param_rigid
+
+failed_pairs = []
 
 for fn_pair in filename_pairs:
 	prev_fn = fn_pair['prev_fn']
@@ -33,10 +40,21 @@ for fn_pair in filename_pairs:
 	execute_command('rm -rf ' + output_subdir)
 	os.makedirs(output_subdir)
 
-	execute_command('%(elastix_bin)s -f %(fixed_fn)s -m %(moving_fn)s -out %(output_subdir)s -p %(rg_param)s' % \
+	ret = execute_command('%(elastix_bin)s -f %(fixed_fn)s -m %(moving_fn)s -out %(output_subdir)s -p %(rg_param)s' % \
 			{'elastix_bin': os.environ['ELASTIX_BIN'],
 			'rg_param': rg_param,
 			'output_subdir': output_subdir,
 			'fixed_fn': os.path.join(input_dir, prev_fn + '.tif'),
 			'moving_fn': os.path.join(input_dir, curr_fn + '.tif')
 			})
+
+	if ret == 1:
+		# sys.stderr.write(prev_fn + ' vs. ' + curr_fn + ' failed.\n')
+		failed_pairs.append((prev_fn, curr_fn))
+
+import subprocess
+hostname = subprocess.check_output("hostname", shell=True).strip()
+
+with open(os.path.join(output_dir, '%s_failed_pairs_%s.txt' % (stack, hostname.split('.')[0])), 'w') as f:
+	for pf, cf in failed_pairs:
+		f.write(pf + ' ' + cf + '\n')

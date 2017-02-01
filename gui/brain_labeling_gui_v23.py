@@ -211,7 +211,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
-        self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
+        self.gscenes['sagittal'].data_feeder.set_image(sec=sec, qimage=qimage)
         print 'Image', sec, 'received.'
         if self.gscenes['sagittal'].active_section == sec:
             self.gscenes['sagittal'].load_histology()

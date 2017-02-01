@@ -13,11 +13,10 @@ from joblib import Parallel, delayed
 from skimage.filters.rank import entropy
 from skimage.morphology import remove_small_objects, disk, remove_small_holes
 from skimage.measure import label, regionprops
-from skimage.color import rgb2gray
+from skimage.color import rgb2gray, gray2rgb
 from skimage.io import imread, imsave
 from skimage.segmentation import active_contour
-from skimage.filters import gaussian
-from skimage.filter import threshold_adaptive
+from skimage.filters import gaussian, threshold_adaptive
 from skimage.util import img_as_ubyte
 
 from sklearn.mixture import GaussianMixture
@@ -37,7 +36,7 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Generate mask for thumbnail images')
+    description='Generate mask for thumbnail images - nissl')
 parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
@@ -170,6 +169,23 @@ def generate_mask(fn, tb_fmt='tif'):
             sys.stderr.write('Mask exists, overwrite: %s\n' % mask_fn)
 
         imsave(mask_fn, img_as_ubyte(final_mask))
+
+
+        # Save outline overlayed image
+
+        viz = gray2rgb(img)
+        for final_levelset, init_levelset in zip(final_levelsets, init_levelsets):
+
+            for cnt in find_contour_points(final_levelset)[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
+
+            for cnt in find_contour_points(init_levelset)[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
+
+        contour_fn = os.path.join(output_viz_dir, '%(fn)s_mask_contour_viz.tif' % dict(fn=fn))
+        if os.path.exists(contour_fn):
+            execute_command('rm -rf %s' % contour_fn)
+        imsave(contour_fn, viz)
 
     except Exception as e:
         sys.stderr.write(e.message + '\n')

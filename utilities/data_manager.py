@@ -6,6 +6,14 @@ from vis3d_utilities import *
 
 from pandas import read_hdf
 
+def is_invalid(fn=None, sec=None, stack=None):
+    if sec is not None:
+        assert stack is not None
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+    else:
+        assert fn is not None
+    return fn in ['Nonexisting', 'Rescan', 'Placeholder']
+
 def volume_type_to_str(t):
     if t == 'score':
         return 'scoreVolume'
@@ -828,6 +836,9 @@ class DataManager(object):
 
     @staticmethod
     def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, train_sample_scheme=None):
+        """
+        Return scoremaps.
+        """
 
         # Load scoremap
 

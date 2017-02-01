@@ -160,9 +160,9 @@ xlabel='Predicted label', ylabel='True label', **kwargs):
 
 
 def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
-                                    grid_locations=None, version='rgb-jpg'):
+                                    grid_locations=None, version='compressed'):
     """
-
+    Return a list of patches.
     """
 
     img = imread(DataManager.get_image_filepath(stack, sec, version=version))
@@ -347,7 +347,7 @@ def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = metadata_cache['image_shape'][stack]
     return (patch_size, stride, image_width, image_height)
 
-def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
+def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_margins=None):
     """
     If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
 
@@ -365,7 +365,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -377,12 +377,16 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
 
     patch_indices_allSections_allStructures = {}
     for sec, group in grouped:
+        if sections is not None:
+            if sec not in sections:
+                continue
         sys.stderr.write('Analyzing section %d..\n' % sec)
-        if sections_to_filenames[sec] in ['Placeholder', 'Nonexisting, Rescan']:
+        if is_invalid(sec=sec, stack=stack):
             continue
         polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in group.iterrows()]
         mask_tb = DataManager.load_thumbnail_mask_v2(stack, sec)
-        patch_indices = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec)
+        patch_indices = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                                            surround_margins=surround_margins)
         patch_indices_allSections_allStructures[sec] = patch_indices
 
     patch_indices_allSections_allStructures_df = DataFrame(patch_indices_allSections_allStructures)
@@ -448,8 +452,8 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
     sample_locations = np.c_[xs.flat, ys.flat]
     return sample_locations
 
-def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None,
-bbox_lossless=None):
+def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, image_shape=None, mask_tb=None, polygons=None, bbox=None,
+bbox_lossless=None, surround_margins=None):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
@@ -466,7 +470,9 @@ bbox_lossless=None):
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    if image_shape is not None :
+    image_shape = grid_spec[2:]
+
+    if image_shape is not None:
         image_width, image_height = image_shape
     else:
         image_width, image_height = metadata_cache['image_shape'][stack]
@@ -477,11 +483,19 @@ bbox_lossless=None):
     if stride is None:
         stride = grid_spec[1]
 
+    if surround_margins is None:
+        surround_margins = [100,200,300,400,500,600,700,800,900,1000]
+
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
 
     indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0] # patches in the foreground
+    sys.stderr.write('%d patches in fg\n' % len(indices_fg))
+
     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg) # patches in the background
+
+    if polygons is None and bbox is None and bbox_lossless is None:
+        return indices_fg
 
     if polygons is not None:
         if isinstance(polygons, dict):
@@ -554,7 +568,7 @@ bbox_lossless=None):
         for label, poly in polygon_list:
 
             ############# surrround = 500 #############
-            for margin in [100,200,300,400,500,600,700,800,900,1000]:
+            for margin in surround_margins:
             # margin = 500
                 surround = Polygon(poly).buffer(margin, resolution=2)
                 # 500 pixels (original resolution, ~ 250um) away from landmark contour
@@ -593,7 +607,7 @@ bbox_lossless=None):
         indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
         sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks['noclass']), 'noclass'))
 
-    return indices_allLandmarks
+        return indices_allLandmarks
 
 
 # def locate_patches(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):

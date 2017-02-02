@@ -74,9 +74,12 @@ class ReadImagesThread(QThread):
 
     def run(self):
         for sec in self.sections:
-            print DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir)
-            image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-            self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
+            try:
+                print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed', data_dir=data_dir)
+                image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed', data_dir=data_dir))
+                self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
+            except Exception as e:
+                sys.stderr.write('%s\n' % e.message)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
@@ -208,7 +211,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
-        self.gscenes['sagittal'].data_feeder.set_image(qimage, sec)
+        self.gscenes['sagittal'].data_feeder.set_image(sec=sec, qimage=qimage)
         print 'Image', sec, 'received.'
         if self.gscenes['sagittal'].active_section == sec:
             self.gscenes['sagittal'].load_histology()
@@ -432,6 +435,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['sagittal'].infer_side()
         self.gscenes['coronal'].infer_side()
         self.gscenes['horizontal'].infer_side()
+    #
+    # def merge_contour_entries(self, new_entries_df):
+    #     """
+    #     Merge new entries into loaded entries.
+    #     new_entries: dict. {polygon_id: entry}
+    #     Return: new dict.
+    #     """
+    #
+    #     self.contour_df_loaded.update(new_entries_df)
+
+
 
     @pyqtSlot()
     def save(self):
@@ -459,12 +473,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
         #     contour_entries_all += contour_entries.items()
 
-        contour_entries_all = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+        sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
 
-        fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+        if hasattr(self, 'contour_df_loaded'):
+            d = self.contour_df_loaded.T.to_dict()
+        else:
+            d = {}
+        print 'loaded', d.keys()
+        d.update(sagittal_contour_entries_curr_session)
+
+        print 'updated', d.keys()
 
         from pandas import DataFrame
-        df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
+        df_aligned_cropped = DataFrame(dict(d)).T
+
+        # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
+
+        fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
         df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
         df_original.to_hdf(fn, 'contours')
 
@@ -530,6 +555,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack, annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
         contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
 
+        print contour_df.index
+
+        self.contour_df_loaded = contour_df
+
         sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours)
 
@@ -538,6 +567,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
         self.gscenes['horizontal'].load_drawings(horizontal_contours)
+
+        # self.sagittal_contours_loaded = sagittal_contours
+        # self.coronal_contours_loaded = coronal_contours
+        # self.horizontal_contours_loaded = horizontal_contours
 
     @pyqtSlot()
     def active_image_updated(self):

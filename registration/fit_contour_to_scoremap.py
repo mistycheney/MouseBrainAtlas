@@ -21,23 +21,26 @@ voxel_z_size = section_thickness / xy_pixel_distance_downsampled
 
 stack = sys.argv[1]
 name_sided = sys.argv[2]
+train_sample_scheme = int(sys.argv[3])
 
 anchor_fn = DataManager.load_anchor_filename(stack=stack)
 first_sec, last_sec = metadata_cache['section_limits'][stack]
 sec2fn = metadata_cache['sections_to_filenames'][stack]
 
-SNAKE_DIR = create_if_not_exists('/home/yuncong/csd395/CSHL_snakeViz/%(stack)s/%(name_sided)s' % \
+FITTED_CONTOUR_DIR = create_if_not_exists('/home/yuncong/csd395/CSHL_Viz/%(stack)s/%(name_sided)s' % \
                                  dict(stack=stack, name_sided=name_sided))
 
 xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = \
 DataManager.load_volume_bbox(stack=stack, type='score', label=convert_name_to_unsided(name_sided), downscale=32)
 
+# load locally transformed volumes to get an initial contour
+# Use the initial contour to choose the right connected component, in the case multiple connected component is identified.
 vol = DataManager.load_transformed_volume(stack_m='atlasV2', type_m='score', stack_f=stack, type_f='score', downscale=32,
-                                   train_sample_scheme_f=1, global_transform_scheme=1, local_transform_scheme=2,
+                                   train_sample_scheme_f=train_sample_scheme, global_transform_scheme=1, local_transform_scheme=2,
                                    label=name_sided, transitive='over')
 
 xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
-print 'Structure bnounding box:', xmin, xmax, ymin, ymax, zmin, zmax
+print 'Structure bounding box:', xmin, xmax, ymin, ymax, zmin, zmax
 
 sec_min = DataManager.convert_z_to_section(stack=stack, z=zmin, downsample=32)
 sec_max = DataManager.convert_z_to_section(stack=stack, z=zmax, downsample=32)
@@ -50,12 +53,14 @@ for sec in range(sec_min, sec_max+1):
 
     try:
         scoremap = DataManager.load_scoremap(stack=stack, section=sec, label=convert_name_to_unsided(name_sided),
-                                             train_sample_scheme=1, downscale_factor=1)
+                                             train_sample_scheme=train_sample_scheme, downscale_factor=1)
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         continue
-        
-    z = voxel_z_size * (sec - 1) - zmin_vol_f
+
+    # z = voxel_z_size * (sec - 1) - zmin_vol_f
+    zl, zh = DataManager.convert_section_to_z(stack=stack, sec=sec, downsample=32)
+    z = (zl + zh) / 2
 
     # Extract initial contour
     nz = np.count_nonzero(vol[..., z])
@@ -197,4 +202,4 @@ for sec in range(sec_min, sec_max+1):
     #     plt.title('Binary overlayed');
     #     plt.show();
 
-    imsave(SNAKE_DIR + '/%(fn)s_%(name_sided)s_snakeViz.jpg' % dict(fn=sec2fn[sec], name_sided=name_sided), viz)
+    imsave(FITTED_CONTOUR_DIR + '/%(fn)s_%(name_sided)s_snakeViz.jpg' % dict(fn=sec2fn[sec], name_sided=name_sided), viz)

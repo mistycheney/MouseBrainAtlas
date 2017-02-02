@@ -159,14 +159,14 @@
           <item>
            <widget class="QLabel" name="label_sorted_sections_filename">
             <property name="text">
-             <string>TextLabel</string>
+             <string>Filename</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_sorted_sections_index">
             <property name="text">
-             <string>TextLabel</string>
+             <string>Section Index</string>
             </property>
            </widget>
           </item>
@@ -174,28 +174,28 @@
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="2">
+          <item row="1" column="4">
+           <widget class="QPushButton" name="button_confirm_alignment">
+            <property name="text">
+             <string>Compose</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="button_align">
+            <property name="text">
+             <string>Align</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
            <widget class="QPushButton" name="button_edit_transform">
             <property name="text">
              <string>Edit Transform</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="4">
-           <widget class="QPushButton" name="button_crop">
-            <property name="text">
-             <string>Crop</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QPushButton" name="button_load_crop">
-            <property name="text">
-             <string>Load Crop</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
+          <item row="0" column="3">
            <widget class="QComboBox" name="comboBox_show">
             <item>
              <property name="text">
@@ -224,49 +224,63 @@
             </item>
            </widget>
           </item>
-          <item row="2" column="3">
-           <widget class="QPushButton" name="button_save_crop">
-            <property name="text">
-             <string>Save Crop</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="3">
-           <widget class="QPushButton" name="button_confirm_alignment">
-            <property name="text">
-             <string>Compose</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="button_align">
-            <property name="text">
-             <string>Align</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="3">
-           <widget class="QPushButton" name="button_syncWorkstation">
-            <property name="text">
-             <string>Workstation Download</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="2">
-           <widget class="QPushButton" name="button_warp_crop_mask">
-            <property name="text">
-             <string>Warp/Crop Masks</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
+          <item row="5" column="1">
            <widget class="QPushButton" name="button_gen_mask">
             <property name="text">
              <string>Generate Masks</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="4">
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Viewing Option</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QPushButton" name="button_load_crop">
+            <property name="text">
+             <string>Load Crop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QPushButton" name="button_save_crop">
+            <property name="text">
+             <string>Save Crop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="4">
+           <widget class="QPushButton" name="button_crop">
+            <property name="text">
+             <string>Crop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QPushButton" name="button_syncWorkstation">
+            <property name="text">
+             <string>Workstation Download</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="4">
+           <widget class="QPushButton" name="button_warp_crop_mask">
+            <property name="text">
+             <string>Warp/Crop Masks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="3">
+           <widget class="QPushButton" name="button_edit_masks">
+            <property name="text">
+             <string>Edit Masks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="3">
            <widget class="QPushButton" name="button_send_info_gordon">
             <property name="text">
              <string>Send info to Gordon</string>
@@ -303,7 +317,7 @@
         <item>
          <widget class="QLabel" name="label_section2_index">
           <property name="text">
-           <string>TextLabel</string>
+           <string>Index</string>
           </property>
          </widget>
         </item>
@@ -321,7 +335,7 @@
         <item>
          <widget class="QLabel" name="label_section3_index">
           <property name="text">
-           <string>TextLabel</string>
+           <string>Index</string>
           </property>
          </widget>
         </item>
@@ -349,7 +363,7 @@
         <item>
          <widget class="QLabel" name="label_section1_index">
           <property name="text">
-           <string>TextLabel</string>
+           <string>Index</string>
           </property>
          </widget>
         </item>
@@ -390,13 +404,6 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QPushButton" name="button_confirm_order">
-        <property name="text">
-         <string>Confirm Order</string>
-        </property>
-       </widget>
-      </item>
      </layout>
     </item>
     <item>
@@ -425,7 +432,7 @@
      <x>0</x>
      <y>0</y>
      <width>1906</width>
-     <height>25</height>
+     <height>19</height>
     </rect>
    </property>
   </widget>

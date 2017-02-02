@@ -53,7 +53,11 @@ DataManager.load_global_alignment_parameters(stack_moving=stack_moving,
 for name_s in structures_sided_with_surround:
     print name_s
 
-    vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
+    try:
+        vol_m = DataManager.load_score_volume(stack=stack_moving, label=name_s, downscale=32)
+    except:
+        sys.stderr.write('Score volumes for %s does not exist.\n' % name_s)
+        continue
 
     volume_m_alignedTo_f = \
     transform_volume(vol=vol_m, global_params=global_params, centroid_m=centroid_m, centroid_f=centroid_f,

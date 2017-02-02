@@ -26,23 +26,6 @@ from gui_utilities import *
 
 from datetime import datetime
 
-# class Mode(Enum):
-#     REVIEW_PROPOSAL = 'review proposal'
-#     IDLE = 'idle'
-#     MOVING_POLYGON = 'moving polygon'
-#     MOVING_VERTEX = 'moving vertex'
-#     CREATING_NEW_POLYGON = 'create new polygon'
-#     ADDING_VERTICES_CONSECUTIVELY = 'adding vertices consecutively'
-#     ADDING_VERTICES_RANDOMLY = 'adding vertices randomly'
-#     KEEP_SELECTION = 'keep selection'
-#     SELECT_UNCERTAIN_SEGMENT = 'select uncertain segment'
-#     DELETE_ROI_MERGE = 'delete roi (merge)'
-#     DELETE_ROI_DUPLICATE = 'delete roi (duplicate)'
-#     DELETE_BETWEEN = 'delete edges between two vertices'
-#     CONNECT_VERTICES = 'connect two vertices'
-
-# VERTEX_CIRCLE_RADIUS = 20
-
 class QGraphicsPathItemModified(QGraphicsPathItem):
 
     # def __init__(self, path, parent=None, gscene=None, orientation=None, position=None, vertex_radius=None):
@@ -85,6 +68,8 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         # self.o.vertex_added = pyqtSignal(object)
         # self.o.pressed = pyqtSignal()
 
+    def set_contour_id(self, contour_id):
+        self.contour_id = contour_id
 
     def set_edit_history(self, edit_history):
         self.edit_history = edit_history

@@ -8,3 +8,4 @@
 
 ## Preprocessing GUI
 - [ ] Individual alignment adjustment
+- [ ] Fix the issue - when first time launching the GUI, should not expect macros to be present locally.

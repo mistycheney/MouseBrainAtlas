@@ -86,13 +86,29 @@ class Aligner4(object):
         else: # annotation volume
             labels_in_volume_m = set(np.unique(volume_m_))
 
-        self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
-        self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
+        if isinstance(volume_f_, dict): # probabilistic volume
+            labels_in_volume_f = set(np.unique(volume_f_.keys()))
+        else: # annotation volume
+            labels_in_volume_f = set(np.unique(volume_f_))
+
+        self.all_indices_f = set([])
+        self.all_indices_m = set([])
+        for idx_m in set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m:
+            idx_f = self.labelIndexMap_m2f[idx_m]
+            if idx_f in labels_in_volume_f:
+                self.all_indices_f.add(idx_f)
+                self.all_indices_m.add(idx_m)
+        # self.all_indices_m = list(self.all_indices_m)
+
+        # self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
+        # self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
 
         global volume_f
 
         if isinstance(volume_f_, dict): # probabilistic volume
-            volume_f = volume_f_
+            # volume_f = volume_f_
+            volume_f = {i: volume_f_[i] for i in self.all_indices_f}
+
         else: # annotation volume
             volume_f = {i: np.zeros_like(volume_f_, dtype=np.float16) for i in self.all_indices_f}
             for i in self.all_indices_f:
@@ -106,7 +122,8 @@ class Aligner4(object):
         global volume_m
 
         if isinstance(volume_m_, dict): # probabilistic volume
-            volume_m = volume_m_
+            # volume_m = volume_m_
+            volume_m = {i: volume_m_[i] for i in self.all_indices_m}
         else: # annotation volume; also convert to dict, treated the same as prob. volume
             volume_m = {i: np.zeros_like(volume_m_, dtype=np.float16) for i in self.all_indices_m}
             for i in self.all_indices_m:
@@ -120,6 +137,29 @@ class Aligner4(object):
             volume_f = {l: v[..., self.zl:self.zh+1] for l, v in volume_f.iteritems()}
             volume_m = {l: v[..., self.zl:self.zh+1] for l, v in volume_m.iteritems()}
 
+            volume_f_sliced = {}
+            for l, v in volume_f.iteritems():
+                if np.count_nonzero(v) == 0:
+                    sys.stderr.write('Fixed volume %(label)s at z=(%(zl)d,%(zh)d) is empty.\n' % dict(label=l, zl=self.zl, zh=self.zh))
+                else:
+                    volume_f_sliced[l] = v
+
+            volume_m_sliced = {}
+            for l, v in volume_m.iteritems():
+                if np.count_nonzero(v) == 0:
+                    sys.stderr.write('Moving volume %(label)s at z=(%(zl)d,%(zh)d) is empty.\n' % dict(label=l, zl=self.zl, zh=self.zh))
+                else:
+                    volume_m_sliced[l] = v
+
+            if len(volume_f_sliced) == 0:
+                raise Exception('All fixed volumes at z=(%(zl)d,%(zh)d) is empty.\n' % dict(zl=self.zl, zh=self.zh))
+
+            if len(volume_m_sliced) == 0:
+                raise Exception('All moving volumes at z=(%(zl)d,%(zh)d) is empty.\n' % dict(zl=self.zl, zh=self.zh))
+
+            volume_f = volume_f_sliced
+            volume_m = volume_m_sliced
+
         # for i, v in volume_m.iteritems():
         #     volume_m[i] = gaussian(v, 3)
 
@@ -132,15 +172,16 @@ class Aligner4(object):
         global nzvoxels_m
         if nzvoxels_m_ is None:
 
-            pool = Pool(16)
-            # nzvoxels_m_ = pool.map(lambda i: parallel_where_binary(volume_m[i] > 0, num_samples=int(1e6)),
+            # pool = Pool(16)
+            # # nzvoxels_m_ = pool.map(lambda i: parallel_where_binary(volume_m[i] > 0, num_samples=int(1e6)),
+            # #                         self.all_indices_m)
+            # nzvoxels_m_ = pool.map(lambda i: parallel_where_binary(volume_m[i] > 0),
             #                         self.all_indices_m)
-            nzvoxels_m_ = pool.map(lambda i: parallel_where_binary(volume_m[i] > 0),
-                                    self.all_indices_m)
-            pool.close()
-            pool.join()
+            # pool.terminate()
+            # pool.join()
 
-            nzvoxels_m = dict(zip(self.all_indices_m, nzvoxels_m_))
+            nzvoxels_m_ = [parallel_where_binary(volume_m[i] > 0) for i in list(self.all_indices_m)]
+            nzvoxels_m = dict(zip(list(self.all_indices_m), nzvoxels_m_))
         else:
             nzvoxels_m = nzvoxels_m_
 

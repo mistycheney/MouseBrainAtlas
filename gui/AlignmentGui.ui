@@ -14,153 +14,183 @@
    <string>Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="1">
-    <layout class="QVBoxLayout" name="verticalLayout_2">
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Previous</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGraphicsView" name="prev_gview"/>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_3">
+   <item row="0" column="0">
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <widget class="QWidget" name="">
+      <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
-        <widget class="QLabel" name="label_previous_filename">
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Previous</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGraphicsView" name="prev_gview"/>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QLabel" name="label_previous_filename">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_previous_index">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
        </item>
        <item>
-        <widget class="QLabel" name="label_previous_index">
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QPushButton" name="button_anchor">
+           <property name="text">
+            <string>Add anchor pair</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_compute">
+           <property name="text">
+            <string>Compute Transform</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="">
+      <layout class="QVBoxLayout" name="verticalLayout_5">
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Current</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGraphicsView" name="curr_gview"/>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_current_filename">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_current_index">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Elastix parameters</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboBox_parameters">
+           <item>
+            <property name="text">
+             <string>Rigid</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Rigid_MutualInformation</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Rigid_RequiredRatioOfValidSamples</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Rigid_noNumberOfSpatialSamples</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Affine</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>BSpline</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Translation</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="button_align">
+           <property name="text">
+            <string>align using Elastix</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="">
+      <layout class="QVBoxLayout" name="verticalLayout_6">
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>Current aligned to Previous</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGraphicsView" name="aligned_gview"/>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QPushButton" name="button_upload_transform">
          <property name="text">
-          <string>TextLabel</string>
+          <string>Upload transform to server</string>
          </property>
         </widget>
        </item>
       </layout>
-     </item>
-    </layout>
-   </item>
-   <item row="0" column="3">
-    <layout class="QVBoxLayout" name="verticalLayout_3">
-     <item>
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string>Current aligned to Previous</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGraphicsView" name="aligned_gview"/>
-     </item>
-    </layout>
-   </item>
-   <item row="0" column="2">
-    <layout class="QVBoxLayout" name="verticalLayout">
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Current</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGraphicsView" name="curr_gview"/>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
-       <item>
-        <widget class="QLabel" name="label_current_filename">
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_current_index">
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </item>
-   <item row="1" column="2">
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label_4">
-       <property name="text">
-        <string>Elastix parameters</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="comboBox_parameters">
-       <item>
-        <property name="text">
-         <string>Rigid</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Rigid_MutualInformation</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Rigid_RequiredRatioOfValidSamples</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Rigid_noNumberOfSpatialSamples</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Affine</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>BSpline</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Translation</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="button_align">
-       <property name="text">
-        <string>align</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="1" column="1">
-    <widget class="QPushButton" name="button_anchor">
-     <property name="text">
-      <string>Add anchor pair</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="3">
-    <widget class="QPushButton" name="button_upload_transform">
-     <property name="text">
-      <string>Upload transform to server</string>
-     </property>
+     </widget>
     </widget>
    </item>
   </layout>

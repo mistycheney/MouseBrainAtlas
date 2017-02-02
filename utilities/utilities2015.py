@@ -1,3 +1,4 @@
+from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
 from skimage.segmentation import clear_border
@@ -5,7 +6,6 @@ from skimage.morphology import binary_dilation, binary_erosion, watershed, remov
 from skimage.measure import regionprops, label
 from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
-from skimage.io import imread, imsave
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
@@ -28,6 +28,46 @@ import matplotlib.pyplot as plt
 
 from ipywidgets import FloatProgress
 from IPython.display import display
+
+def plot_histograms(hists, bins, titles=None, ncols=4, xlabel='', ylabel='', suptitle='', normalize=False, cellsize=(2, 1.5), **kwargs):
+    """
+    cellsize: (w,h) for each cell
+    """
+
+    if isinstance(hists, dict):
+        titles = hists.keys()
+        hists = hists.values()
+
+    if normalize:
+        hists = hists/np.sum(hists, axis=1).astype(np.float)[:,None]
+
+    if titles is None:
+        titles = ['' for _ in range(len(hists))]
+
+    n = len(hists)
+    nrows = int(np.ceil(n/float(ncols)))
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, \
+                            figsize=(ncols*cellsize[0], nrows*cellsize[1]), **kwargs)
+    axes = axes.flatten()
+
+    width = np.abs(np.mean(np.diff(bins)))*.8
+
+    c = 0
+    for name_u, h in zip(titles, hists):
+
+        axes[c].bar(bins, h/float(h.sum()), width=width);
+        axes[c].set_xlabel(xlabel);
+        axes[c].set_ylabel(ylabel);
+        axes[c].set_title(name_u);
+        c += 1
+
+    for i in range(c, len(axes)):
+        axes[i].axis('off')
+
+    plt.suptitle(suptitle);
+    plt.tight_layout();
+    plt.show()
 
 def save_pickle(obj, fp):
     with open(fp, 'w') as f:
@@ -73,6 +113,7 @@ def execute_command(cmd):
             print >>sys.stderr, "Child was terminated by signal", -retcode
         else:
             print >>sys.stderr, "Child returned", retcode
+        return retcode
     except OSError as e:
         print >>sys.stderr, "Execution failed:", e
         raise e
@@ -97,6 +138,14 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
 
+
+def save_hdf_v2(data, fn, key='data'):
+    import pandas
+    pandas.Series(data=data).to_hdf(fn % {'fn': fn}, key, mode='w')
+
+def load_hdf_v2(fn, key='data'):
+    import pandas
+    return pandas.read_hdf(fn, key)
 
 def save_hdf(data, fn, complevel=9, key='data'):
     filters = Filters(complevel=complevel, complib='blosc')
@@ -292,9 +341,15 @@ def display_image(vis, filename='tmp.jpg'):
     return FileLink(filename)
 
 
-def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
+def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
+    """
+    If patch size is larger than common shape, crop to common shape.
+    """
 
-    common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+    # If common_shape is not given, use the largest of all data
+    if common_shape is None:
+        common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+
     dt = vizs[0].dtype
     ndim = vizs[0].ndim
 
@@ -308,14 +363,68 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False):
         patch_padded = common_box.copy()
 
         if keep_center:
+
             top_margin = (common_shape[0] - p.shape[0])/2
+            if top_margin < 0:
+                ymin = 0
+                ymax = common_shape[0]-1
+                ymin2 = -top_margin
+                ymax2 = -top_margin+common_shape[0]-1
+            else:
+                ymin = top_margin
+                ymax = top_margin + p.shape[0] - 1
+                ymin2 = 0
+                ymax2 = p.shape[0]-1
+
             left_margin = (common_shape[1] - p.shape[1])/2
-            patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
+            if left_margin < 0:
+                xmin = 0
+                xmax = common_shape[1]-1
+                xmin2 = -left_margin
+                xmax2 = -left_margin+common_shape[1]-1
+            else:
+                xmin = left_margin
+                xmax = left_margin + p.shape[1] - 1
+                xmin2 = 0
+                xmax2 = p.shape[1]-1
+
+            patch_padded[ymin:ymax+1, xmin:xmax+1] = p[ymin2:ymax2+1, xmin2:xmax2+1]
+#             patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
         else:
+            # assert p.shape[0] < common_shape[0] and p.shape[1] < common_shape[1]
             patch_padded[:p.shape[0], :p.shape[1]] = p
+
         patches_padded.append(patch_padded)
 
     return patches_padded
+
+# def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=None):
+#
+#     # If common_shape is not given, use the largest of all data
+#     if common_shape is None:
+#         common_shape = np.max([p.shape[:2] for p in vizs], axis=0)
+#
+#     dt = vizs[0].dtype
+#     ndim = vizs[0].ndim
+#
+#     if ndim == 2:
+#         common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
+#     elif ndim == 3:
+#         common_box = (pad_value*np.ones((common_shape[0], common_shape[1], 3))).astype(dt)
+#
+#     patches_padded = []
+#     for p in vizs:
+#         patch_padded = common_box.copy()
+#
+#         if keep_center:
+#             top_margin = (common_shape[0] - p.shape[0])/2
+#             left_margin = (common_shape[1] - p.shape[1])/2
+#             patch_padded[top_margin:top_margin+p.shape[0], left_margin:left_margin+p.shape[1]] = p
+#         else:
+#             patch_padded[:p.shape[0], :p.shape[1]] = p
+#         patches_padded.append(patch_padded)
+#
+#     return patches_padded
 
 def display_volume_sections(vol, every=5, ncols=5):
     zmin, zmax = bbox_3d(vol)[4:]
@@ -515,6 +624,8 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
 
 def bbox_2d(img):
+    if np.count_nonzero(img) == 0:
+        raise Exception('bbox2d: Image is empty.')
     rows = np.any(img, axis=1)
     cols = np.any(img, axis=0)
     rmin, rmax = np.where(rows)[0][[0, -1]]
@@ -541,6 +652,18 @@ def bbox_3d(img):
 #     n = len(points)
 #     sampled_indices = np.random.choice(range(n), min(num_samples, n), replace=False)
 #     return points[sampled_indices]
+
+def apply_function_to_nested_list(func, l):
+    """
+    Func applies to the list consisting of all elements of l, and return a list.
+    l: a list of list
+    """
+    from itertools import chain
+    result = func(list(chain(*l)))
+    csum = np.cumsum(map(len, l))
+    new_l = [result[(0 if i == 0 else csum[i-1]):csum[i]] for i in range(len(l))]
+    return new_l
+
 
 def apply_function_to_dict(func, d):
     """
@@ -596,12 +719,15 @@ def random_colors(count):
                      for rgb_str in rand_color.generate(luminosity="bright", count=count, format_='rgb')]
     return random_colors
 
-def read_dict_from_txt(fn, converter=np.float):
+def read_dict_from_txt(fn, converter=np.float, key_converter=np.int):
     d = {}
     with open(fn, 'r') as f:
         for line in f.readlines():
             items = line.split()
-            d[items[0]] = np.array(map(converter, items[1:]))
+            if len(items) == 2:
+                d[key_converter(items[0])] = converter(items[1])
+            else:
+                d[key_converter(items[0])] = np.array(map(converter, items[1:]))
     return d
 
 def write_dict_to_txt(d, fn, fmt='%f'):

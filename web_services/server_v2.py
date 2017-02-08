@@ -30,6 +30,7 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 from preprocess_utility import *
+from preprocess2_utilities import *
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess')
 
@@ -171,20 +172,20 @@ def crop():
 
     ##################################################
 
-    t = time.time()
-    sys.stderr.write('cropping thumbnail...')
-
-    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
-                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
-    	{'stack': stack,
-    	'stack_data_dir': os.path.join(data_dir, stack),
-    	'w':w, 'h':h, 'x':x, 'y':y,
-        'anchor_fn': anchor_fn})
-
-    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-
-    # # #################################################
+    # t = time.time()
+    # sys.stderr.write('cropping thumbnail...')
     #
+    # os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
+    #             'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
+    # 	{'stack': stack,
+    # 	'stack_data_dir': os.path.join(data_dir, stack),
+    # 	'w':w, 'h':h, 'x':x, 'y':y,
+    #     'anchor_fn': anchor_fn})
+    #
+    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
+    #################################################
+
     # t = time.time()
     # sys.stderr.write('expanding...')
     #
@@ -203,56 +204,56 @@ def crop():
     #                 argument_type='single')
     #
     # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
-    #
-    # # #################################################
-    #
-    # t = time.time()
-    # sys.stderr.write('warping and cropping lossless...')
-    #
-    # elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
-    # transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
-    # # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
-    #
-    # # print transforms_to_anchor.keys()
-    #
-    # if pad_bg_color == 'auto':
-    #     # If alternating, then black padding for F sections, white padding for N sections.
-    #     run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
-    #                     {'script_path': script_dir + '/warp_crop_IM_v2.py',
-    #                     'stack': stack,
-    #                     'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
-    #                     'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
-    #                     'x': x,
-    #                     'y': y,
-    #                     'w': w,
-    #                     'h': h},
-    #                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
-    #                                 'filename': fn + '_lossless.tif',
-    #                                 'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif',
-    #                                 'pad_bg_color': 'black' if fn.split('-')[1][0] == 'F' else 'white'}
-    #                                 for fn in filenames[first_idx:last_idx+1]],
-    #                     exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
-    #                     argument_type='single')
-    # else:
-    #     run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
-    #                     {'script_path': script_dir + '/warp_crop_IM_v2.py',
-    #                     'stack': stack,
-    #                     'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
-    #                     'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
-    #                     'x': x,
-    #                     'y': y,
-    #                     'w': w,
-    #                     'h': h,
-    #                     'pad_bg_color': pad_bg_color},
-    #                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
-    #                                 'filename': fn + '_lossless.tif',
-    #                                 'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif'}
-    #                                 for fn in filenames[first_idx:last_idx+1]],
-    #                     exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
-    #                     argument_type='single')
-    #
-    #
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
+    #################################################
+
+    t = time.time()
+    sys.stderr.write('warping and cropping lossless...')
+
+    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
+    # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
+
+    # print transforms_to_anchor.keys()
+
+    if pad_bg_color == 'auto':
+        # If alternating, then black padding for F sections, white padding for N sections.
+        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
+                        {'script_path': script_dir + '/warp_crop_IM_v2.py',
+                        'stack': stack,
+                        'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
+                        'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
+                        'x': x,
+                        'y': y,
+                        'w': w,
+                        'h': h},
+                        kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                    'filename': fn + '_lossless.tif',
+                                    'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif',
+                                    'pad_bg_color': 'black' if fn.split('-')[1][0] == 'F' else 'white'}
+                                    for fn in filenames[first_idx:last_idx+1]],
+                        exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
+                        argument_type='single')
+    else:
+        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
+                        {'script_path': script_dir + '/warp_crop_IM_v2.py',
+                        'stack': stack,
+                        'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
+                        'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
+                        'x': x,
+                        'y': y,
+                        'w': w,
+                        'h': h,
+                        'pad_bg_color': pad_bg_color},
+                        kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                    'filename': fn + '_lossless.tif',
+                                    'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif'}
+                                    for fn in filenames[first_idx:last_idx+1]],
+                        exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
+                        argument_type='single')
+
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
     #########################################
 
@@ -463,17 +464,14 @@ def crop():
 
 @app.route('/generate_masks')
 def generate_masks():
-    stack = request.args.get('stack', type=str)
-    filenames = map(str, request.args.getlist('filenames'))
-    tb_fmt = request.args.get('tb_fmt', type=str)
-    # train_distance_percentile_fluoro = request.args.get('train_distance_percentile_fluoro', default=10, type=int)
-    # chi2_threshold_fluoro = request.args.get('chi2_threshold_fluoro', default=0.5, type=float)
-    # train_distance_percentile_nissl = request.args.get('train_distance_percentile_nissl', default=10, type=int)
-    # chi2_threshold_nissl = request.args.get('chi2_threshold_nissl', default=0.2, type=float)
-    border_dissim_percentile = request.args.get('border_dissim_percentile', default=30, type=int)
-    fg_dissim_thresh = request.args.get('fg_dissim_thresh', default=0.8, type=float)
-    min_size = request.args.get('min_size', default=1000, type=int)
-    output_mode = request.args.get('output_mode', default='normal', type=str)
+
+    args = request.args
+
+    stack = args.get('stack', type=str)
+    filenames = map(str, args.getlist('filenames'))
+    border_dissim_percentile = args.get('border_dissim_percentile', default=DEFAULT_BORDER_DISSIMILARITY_PERCENTILE, type=int)
+    min_size = args.get('min_size', default=DEFAULT_MINSIZE, type=int)
+    output_mode = args.get('output_mode', default='normal', type=str)
 
     ##################################################
 
@@ -510,59 +508,31 @@ def generate_masks():
     script_name = 'generate_thumbnail_masks_v4.py'
     # !! For some reason (perhaps too much simultaneous write to disk), the distributed computation cannot finish, usually stuck with only a few sections left.
 
-    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(modality)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
-    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
-    #                 'stack': stack,
-    #                 'input_dir': input_dir,
-    #                 'output_dir': output_dir,
-    #                 'modality': 'fluorescent',
-    #                 'border_dissim_percentile': border_dissim_percentile,
-    #                 'fg_dissim_thresh': fg_dissim_thresh,
-    #                 'min_size': min_size},
-    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'F']),
-    #                 exclude_nodes=exclude_nodes,
-    #                 argument_type='list2')
+    if 'fg_dissim_thresh' in args:
+        fg_dissim_thresh = args.get('fg_dissim_thresh', type=float)
 
-    run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(modality)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
-                    {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
-                    'stack': stack,
-                    'input_dir': input_dir,
-                    'output_dir': output_dir,
-                    'modality': 'nissl',
-                    'border_dissim_percentile': border_dissim_percentile,
-                    'fg_dissim_thresh': fg_dissim_thresh,
-                    'min_size': min_size},
-                    kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'N']),
-                    exclude_nodes=exclude_nodes,
-                    argument_type='list2')
-
-    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s --train_distance_percentile %(train_dist_perc)d --chi2_threshold %(chi2_threshold).2f --min_size %(min_size)d --vmax_percentile %(vmax_percentile)d' % \
-    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
-    #                 'stack': stack,
-    #                 'input_dir': input_dir,
-    #                 'output_dir': output_dir,
-    #                 'method': 'fluorescent',
-    #                 'train_dist_perc': train_distance_percentile_fluoro,
-    #                 'chi2_threshold': chi2_threshold_fluoro,
-    #                 'min_size': min_size,
-    #                 'vmax_percentile': 99},
-    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'F']),
-    #                 exclude_nodes=exclude_nodes,
-    #                 argument_type='list2')
-    #
-    # run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s %(method)s --train_distance_percentile %(train_dist_perc)d --chi2_threshold %(chi2_threshold).2f --min_size %(min_size)d --vmax_percentile %(vmax_percentile)d' % \
-    #                 {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
-    #                 'stack': stack,
-    #                 'input_dir': input_dir,
-    #                 'output_dir': output_dir,
-    #                 'method': 'fluorescent',
-    #                 'train_dist_perc': train_distance_percentile_nissl,
-    #                 'chi2_threshold': chi2_threshold_nissl,
-    #                 'min_size': min_size,
-    #                 'vmax_percentile': 100},
-    #                 kwargs_list=dict(filenames=[fn for fn in filenames if fn.split('-')[1][0] == 'N']),
-    #                 exclude_nodes=exclude_nodes,
-    #                 argument_type='list2')
+        run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
+                        {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
+                        'stack': stack,
+                        'input_dir': input_dir,
+                        'output_dir': output_dir,
+                        'border_dissim_percentile': border_dissim_percentile,
+                        'fg_dissim_thresh': fg_dissim_thresh,
+                        'min_size': min_size},
+                        kwargs_list=dict(filenames=filenames),
+                        exclude_nodes=exclude_nodes,
+                        argument_type='list2')
+    else:
+        run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --min_size %(min_size)d' % \
+                        {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
+                        'stack': stack,
+                        'input_dir': input_dir,
+                        'output_dir': output_dir,
+                        'border_dissim_percentile': border_dissim_percentile,
+                        'min_size': min_size},
+                        kwargs_list=dict(filenames=filenames),
+                        exclude_nodes=exclude_nodes,
+                        argument_type='list2')
 
     print 'done in', time.time() - t, 'seconds' # 1600s
 

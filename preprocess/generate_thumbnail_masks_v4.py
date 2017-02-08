@@ -1,12 +1,16 @@
 #! /usr/bin/env python
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import os
 import time
 import sys
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
-from annotation_utilities import contours_to_mask, points_inside_contour
+from annotation_utilities import contours_to_mask
 from registration_utilities import find_contour_points
 
 import numpy as np
@@ -23,6 +27,9 @@ import morphsnakes
 from collections import deque
 
 from multiprocess import Pool
+from preprocess2_utilities import *
+
+from scipy.sparse.linalg import ArpackError
 
 #######################################################################################
 
@@ -36,11 +43,11 @@ parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
 parser.add_argument("output_dir", type=str, help="output dir")
-parser.add_argument("modality", type=str, help="nissl or fluorescent")
+# parser.add_argument("modality", type=str, help="nissl or fluorescent")
 parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='png')
-parser.add_argument("--border_dissim_percentile", type=int, help="distance percentile", default=30)
-parser.add_argument("--fg_dissim_thresh", type=float, help="Superpixels more dissimilar to border sp. than this threshold is foreground.", default=.8)
-parser.add_argument("--min_size", type=int, help="minimum submask size", default=1000)
+parser.add_argument("--border_dissim_percentile", type=int, help="distance percentile", default=DEFAULT_BORDER_DISSIMILARITY_PERCENTILE)
+parser.add_argument("--fg_dissim_thresh", type=float, help="Superpixels more dissimilar to border sp. than this threshold is foreground.", default=None)
+parser.add_argument("--min_size", type=int, help="minimum submask size", default=DEFAULT_MINSIZE)
 args = parser.parse_args()
 
 stack = args.stack_name
@@ -48,7 +55,7 @@ input_dir = args.input_dir
 filenames = json.loads(args.filenames)
 output_dir = create_if_not_exists(args.output_dir)
 tb_fmt = args.tb_fmt
-modality = args.modality
+# modality = args.modality
 
 VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
@@ -56,49 +63,80 @@ VMIN_PERCENTILE = 1
 
 SLIC_SIGMA = 3
 SLIC_COMPACTNESS = 10
-SLIC_N_SEGMENTS = 1000
+SLIC_N_SEGMENTS = 200
 SLIC_MAXITER = 100
 
-SUPERPIXEL_SIMILARITY_SIGMA = 200.
+SUPERPIXEL_SIMILARITY_SIGMA = 50.
 SUPERPIXEL_MERGE_SIMILARITY_THRESH = .2
 GRAPHCUT_NUM_CUTS = 20
 
 BORDER_DISSIMILARITY_PERCENTILE = args.border_dissim_percentile
-FOREGROUND_DISSIMILARITY_THRESHOLD = args.fg_dissim_thresh
-MIN_SIZE = args.min_size
 sys.stderr.write('BORDER_DISSIMILARITY_PERCENTILE: %d\n' % BORDER_DISSIMILARITY_PERCENTILE)
-sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % FOREGROUND_DISSIMILARITY_THRESHOLD)
+MIN_SIZE = args.min_size
 sys.stderr.write('MIN_SIZE: %.2f\n' % MIN_SIZE)
+FOREGROUND_DISSIMILARITY_THRESHOLD = args.fg_dissim_thresh
 
-# INTENSITY_FOREGROUND_PERCENTILE = 10
-# INTENSITY_BACKGROUND_PERCENTILE = 99
-#
-# CANNY_EDGE_SIGMA = 1
-# CANNY_LOW_THRESH = .2
-# CANNY_HIGH_THRESH = .5
+FOREGROUND_DISSIMILARITY_THRESHOLD_MAX = 1.5
+INIT_CONTOUR_COVERAGE_MAX = .5
 
 INIT_CONTOUR_MINLEN = 50
 
 MORPHSNAKE_SMOOTHING = 2
 MORPHSNAKE_LAMBDA1 = .1
 MORPHSNAKE_LAMBDA2 = 2.
-MORPHSNAKE_MAXITER = 200
+MORPHSNAKE_MAXITER = 600
 MORPHSNAKE_MINITER = 10
 PIXEL_CHANGE_TERMINATE_CRITERIA = 3
-AREA_CHANGE_RATIO_TERMINATE_CRITERIA = 2.
+AREA_CHANGE_RATIO_MAX = 1.1
+AREA_CHANGE_RATIO_MIN = .1
 
 ##############################################
 
 def generate_mask(fn, tb_fmt='png'):
 
     try:
-        img_rgb = imread(os.path.join(input_dir, '%(fn)s.%(tb_fmt)s' % dict(fn=fn, tb_fmt=tb_fmt))) # uint16 for fluoro, uint8 for nissl.
+        submask_dir = create_if_not_exists(os.path.join(output_dir, fn))
+        execute_command('rm -f %s/*' % submask_dir)
+
+        img_rgb = imread(os.path.join(input_dir, '%(fn)s.%(tb_fmt)s' % dict(fn=fn, tb_fmt=tb_fmt)))
 
         # Don't use blue channel, dim bright at the background; the other channels are in fact more contrasty.
+        rmax = img_rgb[..., 0].max()
+        rmin = img_rgb[..., 0].min()
+        rrange = rmax - rmin
+        gmax = img_rgb[..., 1].max()
+        gmin = img_rgb[..., 1].min()
+        grange = gmax - gmin
+        bmax = img_rgb[..., 2].max()
+        bmin = img_rgb[..., 2].min()
+        brange = bmax - bmin
 
-        img = img_rgb[..., 1].copy()      # G is better than R as R sometimes are contaminated on fluorescent slices.
+        rborder = np.median(np.r_[img_rgb[:10, :, 0].flatten(),
+                                 img_rgb[-10:, :, 0].flatten(),
+                                 img_rgb[:, :10, 0].flatten(),
+                                 img_rgb[:, -10:, 0].flatten()])
+        gborder = np.median(np.r_[img_rgb[:10, :, 1].flatten(),
+                                 img_rgb[-10:, :, 1].flatten(),
+                                 img_rgb[:, :10, 1].flatten(),
+                                 img_rgb[:, -10:, 1].flatten()])
+        bborder = np.median(np.r_[img_rgb[:10, :, 2].flatten(),
+                                 img_rgb[-10:, :, 2].flatten(),
+                                 img_rgb[:, :10, 2].flatten(),
+                                 img_rgb[:, -10:, 2].flatten()])
 
-        if modality == 'fluorescent':
+        r_std = np.std(img_rgb[..., 0])
+        g_std = np.std(img_rgb[..., 1])
+        b_std = np.std(img_rgb[..., 2])
+
+        if r_std > g_std:
+            img = img_rgb[..., 0].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
+            print 'Using RED channel.'
+        else:
+            img = img_rgb[..., 1].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
+            print 'Using GREEN channel.'
+
+        if rborder < 123 and gborder < 123 and bborder < 123:
+            # dark background, fluorescent
             img = img.max() - img # invert, make tissue dark on bright background
 
         # Stretch contrast
@@ -121,7 +159,7 @@ def generate_mask(fn, tb_fmt='png'):
             else:
                 vmin_perc += 1
 
-        print '%d(%d percentile), %d(%d percentile)' % (vmin, vmin_perc, vmax, vmax_perc)
+        sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
 
         img[(img <= vmax) & (img >= vmin)] = 255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)
         img[img > vmax] = 255
@@ -140,23 +178,31 @@ def generate_mask(fn, tb_fmt='png'):
 
         # Normalized cut - merge superpixels.
 
-        ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=SUPERPIXEL_MERGE_SIMILARITY_THRESH,
-                                    num_cuts=GRAPHCUT_NUM_CUTS)
+        for _ in range(3):
+            try:
+                t = time.time()
+                ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=SUPERPIXEL_MERGE_SIMILARITY_THRESH,
+                                            num_cuts=GRAPHCUT_NUM_CUTS)
+                sys.stderr.write('Normalized Cut: %.2f seconds.\n' % (time.time() - t))
+                break
+            except ArpackError as e:
+                sys.stderr.write('ArpackError encountered.\n')
+                continue
+
+        ncut_boundaries_viz = mark_boundaries(img, label_img=ncut_labels, background_label=-1)
+        # imsave(os.path.join(submask_dir, '%(fn)s_.png' % dict(fn=fn)), ncut_boundaries_viz)
 
         # Find background superpixels.
 
-        background_labels = np.unique(np.concatenate([ncut_labels[:,0],
-                                                  ncut_labels[:,-1],
-                                                  ncut_labels[0,:],
-                                                  ncut_labels[-1,:]]))
+        background_labels = np.unique(np.concatenate([ncut_labels[:,0], ncut_labels[:,-1], ncut_labels[0,:], ncut_labels[-1,:]]))
 
         # Collect training superpixels.
 
-        train_histos = []
+        border_histos = []
         for b in background_labels:
             histo = np.histogram(img[ncut_labels == b], bins=np.arange(0,256,5))[0].astype(np.float)
             histo = histo/np.sum(histo)
-            train_histos.append(histo)
+            border_histos.append(histo)
 
         histos = {}
         for l in np.unique(ncut_labels):
@@ -166,8 +212,54 @@ def generate_mask(fn, tb_fmt='png'):
 
         hist_distances = {}
         for l, h in histos.iteritems():
-            hist_distances[l] = np.percentile([chi2(h, th) for th in train_histos], BORDER_DISSIMILARITY_PERCENTILE)
+            hist_distances[l] = np.percentile([chi2(h, th) for th in border_histos], BORDER_DISSIMILARITY_PERCENTILE)
             # min is too sensitive if there is a blob at the border
+
+        global FOREGROUND_DISSIMILARITY_THRESHOLD
+        # sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % BORDER_DISSIMILARITY_PERCENTILE2)
+        if FOREGROUND_DISSIMILARITY_THRESHOLD is None:
+            # Automatically determine this value
+
+            dist_vals = np.asarray(hist_distances.values())
+            ticks = np.linspace(0, dist_vals.max(), 100)
+            percentages = [np.count_nonzero(dist_vals < th) / float(len(dist_vals)) for th in ticks]
+
+            h = np.gradient(np.gradient(percentages, 3), 3)
+
+            plt.figure();
+            plt.plot(ticks, h);
+            plt.title('Hessian - minima is the plateau point of cum. distr.');
+            plt.xlabel('Dissimlarity threshold');
+            plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
+            # plt.close();
+
+            ticks_sorted = ticks[h.argsort()]
+            ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
+
+            init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)
+                                                           for l, d in hist_distances.iteritems()
+                                                           if d > th]) / float(img.size)
+                                                   for th in ticks_sorted_reduced])
+
+            threshold_candidates = ticks_sorted_reduced[(init_contour_percentages < INIT_CONTOUR_COVERAGE_MAX) &\
+                                                              (init_contour_percentages > 0)]
+            np.savetxt(os.path.join(submask_dir, '%(fn)s_spThreshCandidates.txt' % dict(fn=fn)), threshold_candidates, fmt='%.3f')
+            print threshold_candidates[:10]
+            FOREGROUND_DISSIMILARITY_THRESHOLD = threshold_candidates[0]
+
+        sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % FOREGROUND_DISSIMILARITY_THRESHOLD)
+
+        # Visualize superpixel border distance map
+        superpixel_border_distances = np.zeros_like(img, np.float)
+        for l, s in hist_distances.iteritems():
+            superpixel_border_distances[ncut_labels == l] = s
+
+        plt.figure();
+        im = plt.imshow(superpixel_border_distances, vmin=0, vmax=2);
+        plt.title('Superpixels distance to border');
+        plt.colorbar(im, fraction=0.025, pad=0.02);
+        plt.savefig(os.path.join(submask_dir, '%(fn)s_spBorderDissim.png' % dict(fn=fn)));
+        # plt.close();
 
         # Generate mask for snake's initial contours.
 
@@ -176,48 +268,42 @@ def generate_mask(fn, tb_fmt='png'):
             if d > FOREGROUND_DISSIMILARITY_THRESHOLD:
                 superpixel_mask[ncut_labels == l] = 1
 
-        # Dilate mask to make room for snake operation.
+        labelmap, n_submasks = label(superpixel_mask, return_num=True)
 
-        dilated_superpixel_mask = binary_dilation(superpixel_mask, disk(10))
-        dilated_superpixel_mask = remove_small_holes(dilated_superpixel_mask, min_size=2000)
-        dilated_superpixel_mask = remove_small_objects(dilated_superpixel_mask, min_size=MIN_SIZE)
+        superpixel_submasks = []
+        dilated_superpixel_submasks = []
 
-        # # Enhance intensity.
-        #
-        # cc = np.concatenate([img[ncut_labels == b] for b in background_labels])
-        #
-        # bg_high = np.percentile(cc, INTENSITY_BACKGROUND_PERCENTILE)
-        # bg_low = np.percentile(cc, INTENSITY_FOREGROUND_PERCENTILE)
-        #
-        # foreground_mask = img < bg_low
-        #
-        # foreground_mask[~dilated_superpixel_mask] = 0
-        #
-        # foreground_mask = remove_small_objects(foreground_mask, min_size=2000)
-        # foreground_mask = remove_small_holes(foreground_mask, min_size=2000)
-        #
-        # # Enhance edges.
-        #
-        # is_edge = canny(img, sigma=CANNY_EDGE_SIGMA, low_threshold=CANNY_LOW_THRESH, high_threshold=CANNY_HIGH_THRESH)
-        # is_edge[~foreground_mask] = 0
+        for i in range(1, n_submasks+1):
+            m = labelmap == i
+            superpixel_submasks.append(m)
 
-        # Enhanced image - combine intensity and edge enhancement.
+            dilated_m = binary_dilation(m, disk(10))
+            dilated_m = remove_small_objects(remove_small_holes(dilated_m, min_size=2000), min_size=MIN_SIZE)
+            dilated_superpixel_submasks.append(dilated_m)
 
-        # img_enhanced = img.copy()
+        # Visualize
 
-        # Enhance edges.
+        viz = img_as_ubyte(ncut_boundaries_viz)
+        for submask in superpixel_submasks:
+            for cnt in find_contour_points(submask)[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
+        for submask in dilated_superpixel_submasks:
+            for cnt in find_contour_points(submask)[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
+        imsave(os.path.join(submask_dir, '%(fn)s_ncutSubmasks.png' % dict(fn=fn)), viz)
 
-        # img_enhanced[is_edge] = 0
+        #####################
 
         img_enhanced = img
 
         # Find contours from mask.
 
-        init_contours = [xys for xys in find_contour_points(dilated_superpixel_mask.astype(np.int), sample_every=1)[1]
-                         if len(xys) > INIT_CONTOUR_MINLEN]
+        init_contours = [xys for submask in dilated_superpixel_submasks
+                 for xys in find_contour_points(submask.astype(np.int), sample_every=1)[1]
+                 if len(xys) > INIT_CONTOUR_MINLEN]
 
         # assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
-        print 'Extracted %d contours from mask.' % len(init_contours)
+        sys.stderr.write('Extracted %d contours from mask.\n' % len(init_contours))
 
         # Create initial levelset
 
@@ -271,10 +357,14 @@ def generate_mask(fn, tb_fmt='png'):
 
                 # If area changes more than 2, stop.
                 area_change_ratio = area/float(init_area)
-        #         sys.stderr.write('Area change: %.2f.\n' % area_change_ratio)
-                if np.abs(np.log2(area_change_ratio)) > AREA_CHANGE_RATIO_TERMINATE_CRITERIA:
+
+                if area_change_ratio > AREA_CHANGE_RATIO_MAX:
                     discard = True
-                    sys.stderr.write('Area change too much, stop iteration.\n')
+                    sys.stderr.write('Area increases too much, stop iteration.\n')
+                    break
+                elif area_change_ratio < AREA_CHANGE_RATIO_MIN:
+                    discard = True
+                    sys.stderr.write('Area shrinks too much, stop iteration.\n')
                     break
 
                 dq.append(msnake.levelset)
@@ -299,94 +389,74 @@ def generate_mask(fn, tb_fmt='png'):
                             final_masks.append(m)
                             sys.stderr.write('Final masks added.\n')
 
-            # Sort submasks by size.
-            final_masks = sorted(final_masks, key=lambda x: len(x), reverse=True)
+        ############
+        ## Export ##
+        ############
 
-            submask_dir = create_if_not_exists(os.path.join(output_dir, fn))
-            execute_command('rm -f %s/*' % submask_dir)
-            # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
-            # execute_command('rm %s/*' % submask_viz_dir)
+        # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
+        # execute_command('rm %s/*' % submask_viz_dir)
 
-            img_rgb = imread(os.path.join(input_dir, fn + '.png'))
+        img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
 
-            for i, mask in enumerate(final_masks):
-                imsave(os.path.join(submask_dir,'%(fn)s_submask_%(i)d.png' % {'fn': fn, 'i':i+1}), img_as_ubyte(mask))
+        all_init_cnts = []
+        for i, init_levelset in enumerate(init_levelsets):
+            all_init_cnts += find_contour_points(init_levelset)[1]
 
-                viz = img_rgb.copy()
-                for cnt in find_contour_points(mask)[1]:
-                    cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
-                viz_fn = os.path.join(submask_dir, '%(fn)s_submask_%(i)d_overlayViz.tif' % dict(fn=fn, i=i+1))
-                sys.stderr.write(viz_fn + '\n')
-                imsave(viz_fn, viz)
+        for i, mask in enumerate(final_masks):
+            imsave(os.path.join(submask_dir,'%(fn)s_submask_%(i)d.png' % {'fn': fn, 'i':i+1}), img_as_ubyte(mask))
+
+            viz = img_rgb.copy()
+
+            cnts = find_contour_points(mask)
+            if len(cnts) == 0:
+                raise
+            for cnt in cnts[1]:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
+
+            for cnt in all_init_cnts:
+                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,255,0), 3) # green
+
+            viz_fn = os.path.join(submask_dir, '%(fn)s_submask_%(i)d_overlayViz.png' % dict(fn=fn, i=i+1))
+            sys.stderr.write(viz_fn + '\n')
+            imsave(viz_fn, viz)
 
         ################################################
         # Automatically judge the goodness of each mask
         ################################################
 
         n = len(final_masks)
+
+        rank1 = np.argsort([np.count_nonzero(m) for m in final_masks])[::-1]
+
+        bbox_to_image_center_distance = []
+        for m in final_masks:
+            xmin, xmax, ymin, ymax = bbox_2d(m)
+            dist = np.sqrt(np.sum((np.r_[img.shape[1]/2, img.shape[0]/2] - ((xmin + xmax)/2, (ymin+ymax)/2))**2))
+            bbox_to_image_center_distance.append(dist)
+
+        rank2 = np.argsort(bbox_to_image_center_distance)
+
+        r1 = np.asarray([r for r, i in sorted(enumerate(rank1), key=lambda (r,i): i)])
+        r2 = np.asarray([r for r, i in sorted(enumerate(rank2), key=lambda (r,i): i)])
+        rank = np.argsort(r1 + 1.01 * r2) # weight being close to center a bit more to break tie
+        best_mask_ind = rank[0]
+
         decisions = [0 for _ in range(n)]
-        undecided = []
-        negatives = []
-        positives = []
-
-        if n == 1: # If only one mask, assign it positive.
-            decisions[0] = 1
-            undecided.append(0)
-        else:
-            for i in range(n):
-                if np.count_nonzero(final_masks[i]) < 10000:
-                    decisions[i] = -1
-                    negatives.append(i)
-                else:
-                    decisions[i] = 0
-                    positives.append(i)
-
-        # If only one undecided and the rest are negative, make the undecided positive.
-        if len(undecided) == 1 and len(negatives) == n - len(undecided):
-            decisions[undecided[0]] = 1
-
-        # If there are more than one positives, make all other undecided negative.
-        if len(positives) >= 1:
-            for u in undecided:
-                decisions[u] = -1
-
-        decisions = consolidate_alg_submask_review(dict(zip(range(1, 1+len(decisions)), decisions)))
+        decisions[best_mask_ind] = 1
 
         # Write to file. Slot index starts with 1.
         with open(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn)), 'w') as f:
-            for i, dec in decisions.iteritems():
-                f.write('%d %d\n' % (i, dec))
+            for i, dec in enumerate(decisions):
+                f.write('%d %d\n' % (i+1, dec))
 
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         sys.stderr.write('Mask error: %s\n' % fn)
         return
 
-
-def consolidate_alg_submask_review(alg_decisions):
-    """
-    Return {submask_ind: bool}
-    """
-
-    consolidated_decisions = {}
-
-    if len(alg_decisions) == 0:
-        return {}
-    else:
-        alg_positives = [index for index, l in alg_decisions.iteritems() if l == 1]
-        if len(alg_positives) > 0:
-            assert len(alg_positives) == 1
-            correct_index = alg_positives[0]
-        else:
-            correct_index = 1
-
-        consolidated_decisions[correct_index] = 1
-        for idx in alg_decisions:
-            if idx != correct_index:
-                consolidated_decisions[idx] = -1
-        return {i: r == 1 for i, r in consolidated_decisions.iteritems()}
-
-pool = Pool(15)
+t = time.time()
+pool = Pool(12)
 pool.map(lambda fn: generate_mask(fn, tb_fmt=tb_fmt), filenames)
 pool.close()
 pool.join()
+sys.stderr.write('Generate masks: %.2f\n' % (time.time()-t))

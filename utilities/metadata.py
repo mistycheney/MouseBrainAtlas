@@ -187,7 +187,7 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
-all_alt_nissl_ntb_stacks = ['MD653', 'MD652']
+all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_stacks = all_nissl_stacks + all_ntb_stacks
 all_annotated_stacks = ['MD585', 'MD589', 'MD594']
 # all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks

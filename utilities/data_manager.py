@@ -910,6 +910,10 @@ class DataManager(object):
         return feature_fn
 
     @staticmethod
+    def load_dnn_features(stack, section=None, fn=None, anchor_fn=None):
+        return load_hdf(DataManager.get_dnn_features_filepath(stack, section=section, fn=fn, anchor_fn=anchor_fn))
+
+    @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
         """
         resol: can be either lossless or thumbnail

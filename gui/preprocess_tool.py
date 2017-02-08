@@ -333,11 +333,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.stack = stack
 
         # for fluorescent stack, tif is 16 bit (not visible in GUI), png is 8 bit
-        if self.stack in all_ntb_stacks or self.stack in all_alt_nissl_ntb_stacks:
-            self.tb_fmt = 'png'
+        # if self.stack in all_ntb_stacks or self.stack in all_alt_nissl_ntb_stacks:
+        self.tb_fmt = 'png'
             # self.pad_bg_color = 'black'
-        else:
-            self.tb_fmt = 'tif'
+        # else:
+            # self.tb_fmt = 'tif'
             # self.pad_bg_color = 'white'
 
         self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
@@ -1234,16 +1234,20 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         elif self.redo_which == 'list':
             filenames_to_redo = self.get_redo_list_from_model()
 
-        response = self.web_service.convert_to_request('generate_masks',
-                                stack=self.stack, filenames=filenames_to_redo, tb_fmt=self.tb_fmt,
-                                border_dissim_percentile=self.mask_params_ui.spinBox_trainDistPercentile_fluoro.value(),
-                                fg_dissim_thresh=self.mask_params_ui.spinBox_chi2Threshold_fluoro.value(),
-                                # train_distance_percentile_fluoro=self.mask_params_ui.spinBox_trainDistPercentile_fluoro.value(),
-                                # chi2_threshold_fluoro=self.mask_params_ui.spinBox_chi2Threshold_fluoro.value(),
-                                # train_distance_percentile_nissl=self.mask_params_ui.spinBox_trainDistPercentile_nissl.value(),
-                                # chi2_threshold_nissl=self.mask_params_ui.spinBox_chi2Threshold_nissl.value(),
-                                min_size=self.mask_params_ui.spinBox_minSize.value(),
-                                output_mode='alternative')
+        fg_dissim_thresh = self.mask_params_ui.spinBox_chi2Threshold_fluoro.value()
+        if fg_dissim_thresh == 0:
+            response = self.web_service.convert_to_request('generate_masks',
+                                    stack=self.stack, filenames=filenames_to_redo, tb_fmt=self.tb_fmt,
+                                    border_dissim_percentile=self.mask_params_ui.spinBox_trainDistPercentile_fluoro.value(),
+                                    min_size=self.mask_params_ui.spinBox_minSize.value(),
+                                    output_mode='alternative')
+        else:
+            response = self.web_service.convert_to_request('generate_masks',
+                                    stack=self.stack, filenames=filenames_to_redo, tb_fmt=self.tb_fmt,
+                                    border_dissim_percentile=self.mask_params_ui.spinBox_trainDistPercentile_fluoro.value(),
+                                    fg_dissim_thresh=fg_dissim_thresh,
+                                    min_size=self.mask_params_ui.spinBox_minSize.value(),
+                                    output_mode='alternative')
 
         for fn in filenames_to_redo:
 
@@ -1335,17 +1339,17 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.mask_params_gui = QDialog(self)
         self.mask_params_ui.setupUi(self.mask_params_gui)
 
-        default_train_distance_percentile_fluoro = 30
-        default_chi2_threshold_fluoro = .4
+        # default_train_distance_percentile_fluoro = 30
+        # default_chi2_threshold_fluoro = .4
         # default_train_distance_percentile_nissl = 10
         # default_chi2_threshold_nissl = .2
-        default_min_size = 1000
+        # default_min_size = 1000
 
-        self.mask_params_ui.spinBox_trainDistPercentile_fluoro.setValue(default_train_distance_percentile_fluoro)
+        self.mask_params_ui.spinBox_trainDistPercentile_fluoro.setValue(DEFAULT_BORDER_DISSIMILARITY_PERCENTILE)
         self.mask_params_ui.spinBox_trainDistPercentile_fluoro.setSingleStep(10)
 
-        self.mask_params_ui.spinBox_chi2Threshold_fluoro.setValue(default_chi2_threshold_fluoro)
-        self.mask_params_ui.spinBox_chi2Threshold_fluoro.setSingleStep(.1)
+        # self.mask_params_ui.spinBox_chi2Threshold_fluoro.setValue(DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD)
+        self.mask_params_ui.spinBox_chi2Threshold_fluoro.setSingleStep(.01)
 
         # self.mask_params_ui.spinBox_trainDistPercentile_nissl.setValue(default_train_distance_percentile_nissl)
         # self.mask_params_ui.spinBox_trainDistPercentile_nissl.setSingleStep(10)
@@ -1354,7 +1358,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # self.mask_params_ui.spinBox_chi2Threshold_nissl.setSingleStep(.1)
 
         self.mask_params_ui.spinBox_minSize.setMaximum(10000)
-        self.mask_params_ui.spinBox_minSize.setValue(default_min_size)
+        self.mask_params_ui.spinBox_minSize.setValue(DEFAULT_MINSIZE)
         self.mask_params_ui.spinBox_minSize.setSingleStep(500)
 
         self.mask_params_ui.button_confirmMaskParameters.clicked.connect(self.confirm_mask_parameters)

@@ -3,8 +3,10 @@ import sys
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 
-
-
+DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
+# DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2
+# DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = None
+DEFAULT_MINSIZE = 1000
 
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)

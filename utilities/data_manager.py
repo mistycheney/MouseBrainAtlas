@@ -459,13 +459,14 @@ class DataManager(object):
                                 )
 
     @staticmethod
-    def get_svm_filepath(label, train_sample_scheme=None):
-        return SVM_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+    def get_classifier_filepath(label, train_sample_scheme=None):
+        return CLF_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
         {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
+
     @staticmethod
-    def get_svm_neurotraceBlue_filepath(label, train_sample_scheme=None):
-        return SVM_NTBLUE_ROOTDIR + '/classifiers/%(label)s_svm_%(suffix)s.pkl' % \
+    def get_classifier_neurotraceBlue_filepath(label, train_sample_scheme=None):
+        return CLF_NTBLUE_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
         {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
     @staticmethod

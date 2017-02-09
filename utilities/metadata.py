@@ -35,8 +35,13 @@ if hostname.endswith('sdsc.edu'):
     # patch_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
-    SVM_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
-    SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    # SVM_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    # SVM_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    # SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    # CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
+    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     CELL_FEATURES_CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/classifiers/'
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
@@ -80,8 +85,14 @@ else:
 
 ############ Class Labels #############
 
-paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', '3N', '4N']
+# paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', '3N', '4N']
+# singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
+
+paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
+                    'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
+# singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
+all_known_structures = paired_structures + singular_structures
 
 # volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
 #                                  'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
@@ -189,5 +200,7 @@ all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_stacks = all_nissl_stacks + all_ntb_stacks
-all_annotated_stacks = ['MD585', 'MD589', 'MD594']
 # all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
+all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
+all_annotated_ntb_stacks = ['MD635']
+all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks

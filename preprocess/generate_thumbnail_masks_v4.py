@@ -62,7 +62,7 @@ VMIN_PERCENTILE = 1
 # GAMMA = 2. # if gamma > 1, image is darker.
 
 SLIC_SIGMA = 3
-SLIC_COMPACTNESS = 10
+SLIC_COMPACTNESS = 1
 SLIC_N_SEGMENTS = 200
 SLIC_MAXITER = 100
 
@@ -215,8 +215,6 @@ def generate_mask(fn, tb_fmt='png'):
             hist_distances[l] = np.percentile([chi2(h, th) for th in border_histos], BORDER_DISSIMILARITY_PERCENTILE)
             # min is too sensitive if there is a blob at the border
 
-        global FOREGROUND_DISSIMILARITY_THRESHOLD
-        # sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % BORDER_DISSIMILARITY_PERCENTILE2)
         if FOREGROUND_DISSIMILARITY_THRESHOLD is None:
             # Automatically determine this value
 
@@ -245,9 +243,11 @@ def generate_mask(fn, tb_fmt='png'):
                                                               (init_contour_percentages > 0)]
             np.savetxt(os.path.join(submask_dir, '%(fn)s_spThreshCandidates.txt' % dict(fn=fn)), threshold_candidates, fmt='%.3f')
             print threshold_candidates[:10]
-            FOREGROUND_DISSIMILARITY_THRESHOLD = threshold_candidates[0]
+            foreground_dissimilarity_threshold = threshold_candidates[0]
+        else:
+            foreground_dissimilarity_threshold = FOREGROUND_DISSIMILARITY_THRESHOLD
 
-        sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % FOREGROUND_DISSIMILARITY_THRESHOLD)
+        sys.stderr.write('FOREGROUND_DISSIMILARITY_THRESHOLD: %.2f\n' % foreground_dissimilarity_threshold)
 
         # Visualize superpixel border distance map
         superpixel_border_distances = np.zeros_like(img, np.float)
@@ -265,7 +265,7 @@ def generate_mask(fn, tb_fmt='png'):
 
         superpixel_mask = np.zeros_like(img, np.bool)
         for l, d in hist_distances.iteritems():
-            if d > FOREGROUND_DISSIMILARITY_THRESHOLD:
+            if d > foreground_dissimilarity_threshold:
                 superpixel_mask[ncut_labels == l] = 1
 
         labelmap, n_submasks = label(superpixel_mask, return_num=True)
@@ -293,8 +293,6 @@ def generate_mask(fn, tb_fmt='png'):
         imsave(os.path.join(submask_dir, '%(fn)s_ncutSubmasks.png' % dict(fn=fn)), viz)
 
         #####################
-
-        img_enhanced = img
 
         # Find contours from mask.
 
@@ -331,7 +329,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             t = time.time()
 
-            msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
+            msnake = morphsnakes.MorphACWE(img.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
                                            lambda1=MORPHSNAKE_LAMBDA1, lambda2=MORPHSNAKE_LAMBDA2)
 
             msnake.levelset = init_levelset.copy()

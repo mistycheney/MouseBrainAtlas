@@ -35,7 +35,7 @@ structures = paired_structures + singular_structures
 clf_ntb_allClasses = {}
 for label in structures:
     try:
-        clf_ntb_allClasses[label] = joblib.load(DataManager.get_svm_neurotraceBlue_filepath(label=label, train_sample_scheme=train_sample_scheme))
+        clf_ntb_allClasses[label] = joblib.load(DataManager.get_classifier_neurotraceBlue_filepath(label=label, train_sample_scheme=train_sample_scheme))
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         sys.stderr.write('NTB detector for %s is not trained.\n' % label)
@@ -43,14 +43,17 @@ for label in structures:
 clf_nissl_allClasses = {}
 for label in structures:
     try:
-        clf_nissl_allClasses[label] = joblib.load(DataManager.get_svm_filepath(label=label, train_sample_scheme=train_sample_scheme))
+        clf_nissl_allClasses[label] = joblib.load(DataManager.get_classifier_filepath(label=label, train_sample_scheme=train_sample_scheme))
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         sys.stderr.write('Nissl detector for %s is not trained.\n' % label)
 
-structures = set(clf_ntb_allClasses.keys()) & set(clf_nissl_allClasses.keys())
+structures = set(clf_ntb_allClasses.keys()) | set(clf_nissl_allClasses.keys())
 
 def clf_predict(stack, sec):
+
+    if is_invalid(metadata_cache['sections_to_filenames'][stack][sec]):
+        return
 
     try:
         features = DataManager.load_dnn_features(stack=stack, section=sec)
@@ -59,13 +62,15 @@ def clf_predict(stack, sec):
         return
 
     for label in structures:
-        
-        if stack in all_ntb_stacks:
-            clf = clf_ntb_allClasses[label]
-        elif stack in all_nissl_stacks:
-            clf = clf_nissl_allClasses[label]
-        else:
-            raise Exception('Not implemented.')
+
+        # if stack in all_ntb_stacks:
+        #     clf = clf_ntb_allClasses[label]
+        # elif stack in all_nissl_stacks:
+        #     clf = clf_nissl_allClasses[label]
+        # else:
+        #     raise Exception('Not implemented.')
+
+        clf = clf_nissl_allClasses[label]
 
         probs = clf.predict_proba(features)[:, clf.classes_.tolist().index(1.)]
 
@@ -78,7 +83,7 @@ def clf_predict(stack, sec):
 t = time.time()
 
 pool = Pool(8)
-pool.map(lambda sec: clf_predict(stack=stack, sec=sec), range(200, 201))
+pool.map(lambda sec: clf_predict(stack=stack, sec=sec), range(first_sec, last_sec+1))
 pool.close()
 pool.join()
 

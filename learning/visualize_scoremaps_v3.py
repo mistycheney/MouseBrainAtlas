@@ -17,7 +17,7 @@ args = parser.parse_args()
 stack = args.stack
 setting = args.setting
 add_annotation = args.a
-downscale = arg.d
+downscale = args.d
 
 import os
 import sys

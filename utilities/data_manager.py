@@ -458,19 +458,39 @@ class DataManager(object):
                                 'scheme':train_sample_scheme, 'gtf_sheme':global_transform_scheme}
                                 )
 
-    @staticmethod
-    def get_classifier_filepath(label, train_sample_scheme=None):
-        return CLF_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
-        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
+    # @staticmethod
+    # def get_classifier_filepath(label, train_sample_scheme=None):
+    #     return CLF_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
+    #     {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
+    #
+    #
+    # @staticmethod
+    # def get_classifier_neurotraceBlue_filepath(label, train_sample_scheme=None):
+    #     return CLF_NTBLUE_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
+    #     {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
 
+    @staticmethod
+    def get_classifier_filepath(structure, setting):
+        clf_fp = os.path.join(CLF_ROOTDIR, 'setting_%(setting)s', 'classifiers', '%(structure)s_clf_setting_%(setting)d.dump') % {'structure': structure, 'setting':setting}
+        return clf_fp
 
     @staticmethod
-    def get_classifier_neurotraceBlue_filepath(label, train_sample_scheme=None):
-        return CLF_NTBLUE_ROOTDIR + '/classifiers/%(label)s_clf_%(suffix)s.dump' % \
-        {'label': label, 'suffix':'trainSampleScheme_%d' % train_sample_scheme}
+    def load_classifiers(setting, structures=all_known_structures):
+
+        from sklearn.externals import joblib
+
+        clf_allClasses = {}
+        for structure in structures:
+            clf_fp = DataManager.get_classifier_filepath(structure=structure, setting=setting)
+            if os.path.exists(clf_fp):
+                clf_allClasses[structure] = joblib.load(clf_fp)
+            else:
+                sys.stderr.write('Setting %d: No classifier found for %s.\n' % (setting, structure))
+
+        return clf_allClasses
 
     @staticmethod
-    def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
+    def load_sparse_scores(stack, structure, setting, sec=None, fn=None, anchor_fn=None):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -478,23 +498,57 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn,
-            label=label, train_sample_scheme=train_sample_scheme)
+        sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure,
+                                            setting=setting, fn=fn, anchor_fn=anchor_fn)
 
         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
+
+    # @staticmethod
+    # def load_sparse_scores(stack, sec=None, fn=None, anchor_fn=None, label='', train_sample_scheme=None):
+    #
+    #     if fn is None:
+    #         fn = metadata_cache['sections_to_filenames'][stack][sec]
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = metadata_cache['anchor_fn'][stack]
+    #
+    #     sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn,
+    #         label=label, train_sample_scheme=train_sample_scheme)
+    #
+    #     return DataManager.load_data(sparse_scores_fn, filetype='bp')
+
     @staticmethod
-    def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+    def get_sparse_scores_filepath(stack, structure, setting, sec=None, fn=None, anchor_fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
+        # setting_suffix = []
+        # if setting_ntb is not None:
+        #     setting_suffix.append('settingNtb_' + str(setting_ntb))
+        # if setting_nissl is not None:
+        #     setting_suffix.append('settingNissl_' + str(setting_nissl))
+        # setting_suffix = '_'.join(suffix)
+
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
-                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
+                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(setting)s.hdf') % \
+                {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'setting': setting}
+
+    # @staticmethod
+    # def get_sparse_scores_filepath(stack, sec=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+    #     if fn is None:
+    #         fn = metadata_cache['sections_to_filenames'][stack][sec]
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = metadata_cache['anchor_fn'][stack]
+    #
+    #     suffix = generate_suffix(train_sample_scheme=train_sample_scheme)
+    #     return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
+    #             '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_sparseScores%(suffix)s.hdf') % \
+    #             {'fn': fn, 'anchor_fn': anchor_fn, 'label':label, 'suffix': '_' + suffix if suffix != '' else ''}
 
     @staticmethod
     def load_annotation_volume(stack, downscale):
@@ -796,39 +850,39 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, train_sample_scheme=None):
+    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
-                raise Exception('Section is invalid: %s.' % fn)
+            if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        scoremap_viz_filepath = SCOREMAP_VIZ_ROOTDIR + '/%(label)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_viz_trainSampleScheme_%(scheme)d.jpg' \
-            % {'stack': stack, 'fn': fn, 'label': label, 'anchor_fn': anchor_fn, 'scheme': train_sample_scheme}
+        scoremap_viz_filepath = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(structure)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_viz_setting_%(setting)d.jpg') \
+            % {'stack': stack, 'fn': fn, 'structure': structure, 'anchor_fn': anchor_fn, 'setting': setting}
 
         return scoremap_viz_filepath
 
 
     @staticmethod
-    def get_scoremap_filepath(stack, section=None, fn=None, anchor_fn=None, label=None, return_bbox_fp=False, train_sample_scheme=1):
+    def get_scoremap_filepath(stack, structure, setting, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+            if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        scoremap_bp_filepath = SCOREMAPS_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_trainSampleScheme_%(scheme)d.hdf' \
-        % {'stack': stack, 'fn': fn, 'label': label, 'anchor_fn': anchor_fn, 'scheme':train_sample_scheme}
+        scoremap_bp_filepath = os.path.join(SCOREMAPS_ROOTDIR, \
+        '%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_setting_%(setting)d.hdf') \
+        % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn, setting=setting)
 
-        scoremap_bbox_filepath = SCOREMAPS_ROOTDIR + \
-        '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' \
-            % dict(stack=stack, fn=fn, label=label, anchor_fn=anchor_fn)
+        scoremap_bbox_filepath = os.path.join(SCOREMAPS_ROOTDIR, \
+        '%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_interpBox.txt') \
+            % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn)
 
         if return_bbox_fp:
             return scoremap_bp_filepath, scoremap_bbox_filepath
@@ -878,7 +932,9 @@ class DataManager(object):
     def load_dnn_feature_locations(stack, section=None, fn=None, anchor_fn=None):
         fp = DataManager.get_dnn_feature_locations_filepath(stack, section=section, fn=fn, anchor_fn=anchor_fn)
         locs = np.loadtxt(fp).astype(np.int)
-        return locs[:, 0], locs[:, 1:]
+        indices = locs[:, 0]
+        locations = locs[:, 1:]
+        return indices, locations
 
     @staticmethod
     def get_dnn_feature_locations_filepath(stack, section=None, fn=None, anchor_fn=None):

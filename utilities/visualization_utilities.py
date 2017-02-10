@@ -78,51 +78,30 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 #     else:
 #         return viz
 
-def scoremap_overlay(stack, label, downscale_factor, train_sample_scheme,
+def scoremap_overlay(stack, structure, downscale, setting,
                     image_shape=None, return_mask=False, sec=None, fn=None):
     '''
     Generate scoremap image of structure.
     name: structure name
     '''
 
-    if image_shape is None:
-        # image_shape = DataManager.get_image_dimension(stack)[::-1]
-        image_shape = metadata_cache['image_shape'][::-1]
-
     if fn is None:
         assert sec is not None
-        # _, sections_to_filenames = DataManager.load_sorted_filenames(stack)
         fn = metadata_cache['sections_to_filenames'][stack][sec]
+        if is_invalid(fn): return
 
-    # anchor_fn = DataManager.load_anchor_filename(stack)
-    anchor_fn = metadata_cache['anchor_fn'][stack]
+    if image_shape is None:
+        image_shape = metadata_cache['image_shape'][::-1]
 
-    if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
-        if sec is not None:
-            sys.stderr.write('Section %d is %s.\n' % (sec, fn))
-        return
-
-    # scoremaps_dir = os.path.join(scoremaps_rootdir, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % \
-    #                             dict(stack=stack, fn=fn, anchor_fn=anchor_fn))
-    # create_if_not_exists(scoremaps_dir)
-
-    scoremap_bp_filepath, scoremap_interpBox_filepath = DataManager.get_scoremap_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme,
-                                                        label=label, return_bbox_fp=True)
-
-    # scoremap_bp_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap.hdf' % \
-    #                         {'fn': fn, 'anchor_fn': anchor_fn, 'label':label})
+    scoremap_bp_filepath, scoremap_interpBox_filepath = \
+    DataManager.get_scoremap_filepath(stack=stack, section=sec, fn=fn, setting=setting,
+                                        structure=structure, return_bbox_fp=True)
 
     if not os.path.exists(scoremap_bp_filepath):
-        if sec is not None:
-            sys.stderr.write('No scoremap for %s for section %d: %s\n' % (label, sec, scoremap_bp_filepath))
-        else:
-            sys.stderr.write('No scoremap for %s for fn %s: %s\n' % (label, fn, scoremap_bp_filepath))
-        return
+        # sys.stderr.write('No scoremap of %s for filename %s.\n' % (structure, fn))
+        raise Exception('No scoremap of %s for filename %s.' % (structure, fn))
 
     scoremap = load_hdf(scoremap_bp_filepath)
-
-    # scoremap_interpBox_filepath = os.path.join(scoremaps_dir, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(label)s_denseScoreMap_interpBox.txt' % \
-    #                                     {'fn': fn, 'anchor_fn': anchor_fn, 'label':label})
 
     interpolation_xmin, interpolation_xmax, \
     interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
@@ -133,7 +112,7 @@ def scoremap_overlay(stack, label, downscale_factor, train_sample_scheme,
 
     mask = dense_score_map_lossless > 0.
 
-    scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale_factor, ::downscale_factor])[..., :3]
+    scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale, ::downscale])[..., :3]
     viz = img_as_ubyte(scoremap_viz)
 
     if return_mask:
@@ -141,89 +120,65 @@ def scoremap_overlay(stack, label, downscale_factor, train_sample_scheme,
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, label, downscale_factor, train_sample_scheme,
-                        export_filepath=None, label_text=True, sec=None, fn=None):
-
-    if bg == 'original':
-        p = DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed')
-        bg = imread(p)
+def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=True, sec=None, fn=None):
 
     if fn is None:
-        # _, sections_to_filenames = DataManager.load_sorted_filenames(stack)
-        # fn = sections_to_filenames[sec]
+        assert sec is not None
         fn = metadata_cache['sections_to_filenames'][stack][sec]
+        if is_invalid(fn): return
 
-    ret = scoremap_overlay(stack=stack, fn=fn, label=label, downscale_factor=downscale_factor,
-                            image_shape=bg.shape[:2], return_mask=True, train_sample_scheme=train_sample_scheme)
+    if bg == 'original':
+        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed'))
 
-    if ret is None:
-        return None
+    # t = time.time()
+    ret = scoremap_overlay(stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale,
+                            image_shape=bg.shape[:2], return_mask=True, setting=setting)
+    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
 
     scoremap_viz, mask = ret
 
-    m = mask[::downscale_factor, ::downscale_factor]
+    m = mask[::downscale, ::downscale]
 
-    viz = bg[::downscale_factor, ::downscale_factor].copy()
-
+    viz = bg[::downscale, ::downscale].copy()
     viz = gray2rgb(viz)
 
     viz[m] = (.3 * img_as_ubyte(scoremap_viz[m, :3]) + .7 * viz[m]).astype(np.uint8)
 
     # put label name at left upper corner
     if label_text:
-        cv2.putText(viz, label, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
-
-    # export image to disk
-    if export_filepath is not None:
-        # to prevent race creating this folder with multiple processes
-        try:
-            create_if_not_exists(os.path.dirname(export_filepath))
-        except:
-            pass
-        cv2.imwrite(export_filepath, img_as_ubyte(viz[..., [2,1,0]]))
+        cv2.putText(viz, structure, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
 
     return viz
 
-def export_scoremaps_worker(bg, stack, names, downscale_factor, train_sample_scheme, label_text=True,
-                            sec=None, filename=None):
+# def export_scoremaps(bg, stack, structures, downscale, setting, label_text=True, sec=None, fn=None):
+#
+#     if bg == 'original':
+#         bg = imread(DataManager.get_image_filepath(stack=stack, fn=fn, resol='lossless',version='compressed'))
+#
+#     for structure in structures:
+#         try:
+#             export_filepath = DataManager.get_scoremap_viz_filepath(stack=stack, sec=sec, fn=fn, structure=structure, setting=setting)
+#             scoremap_overlay_on(bg=bg, stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale, label_text=label_text, setting=setting)
+#         except:
+#             sys.stderr.write('Scoremap for %s does not exist.\n' % name)
 
-    if bg == 'original':
-        # if sec is not None:
-        #     bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg'))
-        if filename is not None:
-            bg = imread(DataManager.get_image_filepath(stack=stack, fn=filename, resol='lossless',version='compressed'))
-
-    # anchor_fn = DataManager.load_anchor_filename(stack)
-    anchor_fn = metadata_cache['anchor_fn'][stack]
-
-    for name in names:
-        # export_filepath = export_filepath_fmt % {'stack': stack, 'fn': filename, 'name': name, 'anchor_fn': anchor_fn}
-        try:
-            export_filepath = DataManager.get_scoremap_viz_filepath(stack=stack, fn=filename, label=name, anchor_fn=anchor_fn, train_sample_scheme=train_sample_scheme)
-            scoremap_overlay_on(bg=bg, stack=stack, label=name, downscale_factor=downscale_factor,
-                            export_filepath=export_filepath, label_text=label_text, fn=filename,
-                            train_sample_scheme=train_sample_scheme)
-        except:
-            sys.stderr.write('Scoremap for %s does not exist.\n' % name)
-
-def export_scoremaps(bg, stack, names, downscale_factor, label_text=True,
-                    sections=None, filenames=None, train_sample_scheme=1):
-
-    if filenames is None:
-        # _, s2f = DataManager.load_sorted_filenames(stack)
-        s2f = metadata_cache['sections_to_filenames'][stack]
-        filenames = [s2f[sec] for sec in sections]
-        filenames = [fn for fn in filenames if fn not in ['Nonexisting', 'Placeholder', 'Rescan']]
-
-    t = time.time()
-
-    Parallel(n_jobs=8)(delayed(export_scoremaps_worker)(bg=bg, stack=stack, names=names,
-                                                        downscale_factor=downscale_factor,
-                                                        label_text=label_text, filename=fn,
-                                                        train_sample_scheme=train_sample_scheme)
-                       for fn in filenames)
-
-    print time.time() - t
+# def export_scoremaps_multiprocess(bg, stack, structures, downscale_factor, setting,
+#                     label_text=True, sections=None, filenames=None):
+#
+#     if filenames is None:
+#         s2f = metadata_cache['sections_to_filenames'][stack]
+#         filenames = [s2f[sec] for sec in sections]
+#         filenames = [fn for fn in filenames if is_invalid(fn)]
+#
+#     t = time.time()
+#
+#     Parallel(n_jobs=8)(delayed(export_scoremaps)(bg=bg, stack=stack, structures=structures,
+#                                                         downscale_factor=downscale_factor,
+#                                                         label_text=label_text, filename=fn,
+#                                                         setting=setting)
+#                        for fn in filenames)
+#
+#     print time.time() - t
 
 #     for sec in sections:
 #         if bg == 'original':

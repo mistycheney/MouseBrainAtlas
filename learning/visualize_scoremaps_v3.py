@@ -24,6 +24,7 @@ import sys
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
+from data_manager import *
 
 limits = metadata_cache['section_limits'][stack]
 first_sec = args.b if args.b is not None else limits[0]

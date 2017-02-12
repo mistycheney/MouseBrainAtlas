@@ -61,9 +61,9 @@ VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
 # GAMMA = 2. # if gamma > 1, image is darker.
 
-SLIC_SIGMA = 3
-SLIC_COMPACTNESS = 1
-SLIC_N_SEGMENTS = 200
+SLIC_SIGMA = 2
+SLIC_COMPACTNESS = 5
+SLIC_N_SEGMENTS = 1000
 SLIC_MAXITER = 100
 
 SUPERPIXEL_SIMILARITY_SIGMA = 50.
@@ -82,12 +82,12 @@ INIT_CONTOUR_COVERAGE_MAX = .5
 INIT_CONTOUR_MINLEN = 50
 
 MORPHSNAKE_SMOOTHING = 2
-MORPHSNAKE_LAMBDA1 = .1
-MORPHSNAKE_LAMBDA2 = 2.
+MORPHSNAKE_LAMBDA1 = 1
+MORPHSNAKE_LAMBDA2 = 1
 MORPHSNAKE_MAXITER = 600
 MORPHSNAKE_MINITER = 10
 PIXEL_CHANGE_TERMINATE_CRITERIA = 3
-AREA_CHANGE_RATIO_MAX = 1.1
+AREA_CHANGE_RATIO_MAX = 1.2
 AREA_CHANGE_RATIO_MIN = .1
 
 ##############################################
@@ -99,17 +99,6 @@ def generate_mask(fn, tb_fmt='png'):
         execute_command('rm -f %s/*' % submask_dir)
 
         img_rgb = imread(os.path.join(input_dir, '%(fn)s.%(tb_fmt)s' % dict(fn=fn, tb_fmt=tb_fmt)))
-
-        # Don't use blue channel, dim bright at the background; the other channels are in fact more contrasty.
-        rmax = img_rgb[..., 0].max()
-        rmin = img_rgb[..., 0].min()
-        rrange = rmax - rmin
-        gmax = img_rgb[..., 1].max()
-        gmin = img_rgb[..., 1].min()
-        grange = gmax - gmin
-        bmax = img_rgb[..., 2].max()
-        bmin = img_rgb[..., 2].min()
-        brange = bmax - bmin
 
         rborder = np.median(np.r_[img_rgb[:10, :, 0].flatten(),
                                  img_rgb[-10:, :, 0].flatten(),
@@ -124,47 +113,54 @@ def generate_mask(fn, tb_fmt='png'):
                                  img_rgb[:, :10, 2].flatten(),
                                  img_rgb[:, -10:, 2].flatten()])
 
-        r_std = np.std(img_rgb[..., 0])
-        g_std = np.std(img_rgb[..., 1])
-        b_std = np.std(img_rgb[..., 2])
+        stds = []
+        images = []
 
-        if r_std > g_std:
-            img = img_rgb[..., 0].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
-            print 'Using RED channel.'
-        else:
-            img = img_rgb[..., 1].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
-            print 'Using GREEN channel.'
+        for c in range(3):
 
-        if rborder < 123 and gborder < 123 and bborder < 123:
-            # dark background, fluorescent
-            img = img.max() - img # invert, make tissue dark on bright background
+            img = img_rgb[..., c].copy()
 
-        # Stretch contrast
+            if rborder < 123 and gborder < 123 and bborder < 123:
+                # dark background, fluorescent
+                img = img.max() - img # invert, make tissue dark on bright background
 
-        img_flattened = img.flatten()
+            # Stretch contrast
 
-        vmax_perc = VMAX_PERCENTILE
-        while vmax_perc > 80:
-            vmax = np.percentile(img_flattened, vmax_perc)
-            if vmax < 255:
-                break
-            else:
-                vmax_perc -= 1
+            img_flattened = img.flatten()
 
-        vmin_perc = VMIN_PERCENTILE
-        while vmin_perc < 20:
-            vmin = np.percentile(img_flattened, vmin_perc)
-            if vmin > 0:
-                break
-            else:
-                vmin_perc += 1
+            vmax_perc = VMAX_PERCENTILE
+            while vmax_perc > 80:
+                vmax = np.percentile(img_flattened, vmax_perc)
+                if vmax < 255:
+                    break
+                else:
+                    vmax_perc -= 1
 
-        sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
+            vmin_perc = VMIN_PERCENTILE
+            while vmin_perc < 20:
+                vmin = np.percentile(img_flattened, vmin_perc)
+                if vmin > 0:
+                    break
+                else:
+                    vmin_perc += 1
 
-        img[(img <= vmax) & (img >= vmin)] = 255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)
-        img[img > vmax] = 255
-        img[img < vmin] = 0
-        img = img.astype(np.uint8)
+            sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
+
+            img[(img <= vmax) & (img >= vmin)] = 255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)
+            img[img > vmax] = 255
+            img[img < vmin] = 0
+            img = img.astype(np.uint8)
+
+            images.append(img)
+
+            std = np.std(img)
+            stds.append(std)
+
+            sys.stderr.write('std: %.2f\n' % (std))
+
+        best_channel_id = np.argmax(stds)
+        sys.stderr.write('Use channel %s.\n' % ['RED', 'GREEN', 'BLUE'][best_channel_id])
+        img = images[best_channel_id]
 
         #############################
         ## Graph cut based method. ##
@@ -222,16 +218,29 @@ def generate_mask(fn, tb_fmt='png'):
             ticks = np.linspace(0, dist_vals.max(), 100)
             percentages = [np.count_nonzero(dist_vals < th) / float(len(dist_vals)) for th in ticks]
 
-            h = np.gradient(np.gradient(percentages, 3), 3)
+            def moving_average(interval, window_size):
+                window = np.ones(int(window_size))/float(window_size)
+                return np.convolve(interval, window, 'same')
+
+            grad= np.gradient(percentages, 5)
+            smoothed_grad = moving_average(grad, 1)
 
             plt.figure();
-            plt.plot(ticks, h);
-            plt.title('Hessian - minima is the plateau point of cum. distr.');
-            plt.xlabel('Dissimlarity threshold');
-            plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
+            plt.plot(ticks, grad, label='grad');
+            plt.plot(ticks, smoothed_grad, label='smoothed');
+            plt.legend();
+            plt.xlabel('Chi2 distance');
+            plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistGradient.png' % dict(fn=fn)));
+            plt.close();
+
+            # plt.figure();
+            # plt.plot(ticks, h);
+            # plt.title('Hessian - minima is the plateau point of cum. distr.');
+            # plt.xlabel('Dissimlarity threshold');
+            # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
             # plt.close();
 
-            ticks_sorted = ticks[h.argsort()]
+            ticks_sorted = ticks[np.argsort(smoothed_grad, kind='mergesort')]
             ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
 
             init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)
@@ -316,6 +325,12 @@ def generate_mask(fn, tb_fmt='png'):
 
             init_levelsets.append(init_levelset)
 
+        #######################
+        # Binary Thresholding #
+        #######################
+
+        img_enhanced = img
+
         #####################
         # Evolve morphsnake #
         #####################
@@ -329,7 +344,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             t = time.time()
 
-            msnake = morphsnakes.MorphACWE(img.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
+            msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
                                            lambda1=MORPHSNAKE_LAMBDA1, lambda2=MORPHSNAKE_LAMBDA2)
 
             msnake.levelset = init_levelset.copy()
@@ -353,14 +368,15 @@ def generate_mask(fn, tb_fmt='png'):
                     sys.stderr.write('Too small, stop iteration.\n')
                     break
 
-                # If area changes more than 2, stop.
-                area_change_ratio = area/float(init_area)
+                labeled_mask = label(msnake.levelset.astype(np.bool))
+                for l in np.unique(labeled_mask):
+                    if l != 0:
+                        m = labeled_mask == l
+                        if np.count_nonzero(m)/float(init_area) > AREA_CHANGE_RATIO_MAX:
+                            msnake.levelset[m] = 0
+                            sys.stderr.write('Area nullified.\n')
 
-                if area_change_ratio > AREA_CHANGE_RATIO_MAX:
-                    discard = True
-                    sys.stderr.write('Area increases too much, stop iteration.\n')
-                    break
-                elif area_change_ratio < AREA_CHANGE_RATIO_MIN:
+                if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                     discard = True
                     sys.stderr.write('Area shrinks too much, stop iteration.\n')
                     break

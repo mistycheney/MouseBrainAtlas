@@ -120,7 +120,7 @@ def scoremap_overlay(stack, structure, downscale, setting,
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=True, sec=None, fn=None):
+def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=None, sec=None, fn=None):
 
     if fn is None:
         assert sec is not None
@@ -145,8 +145,8 @@ def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=Tru
     viz[m] = (.3 * img_as_ubyte(scoremap_viz[m, :3]) + .7 * viz[m]).astype(np.uint8)
 
     # put label name at left upper corner
-    if label_text:
-        cv2.putText(viz, structure, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
+    if label_text is not None:
+        cv2.putText(viz, label_text, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
 
     return viz
 

@@ -3,10 +3,9 @@ This folder contains code related to learning texture detectors. This include ex
 
 ## Naming Convention ##
 
-A classifier is uniquely determined by (1) training set and (2) model.
-The training set further depends on (a) feature extractor (b) the positive/negative patch selection strategy ( c) the image type (stain protocol etc.) and (d) the structure name.
-Therefore the name of a classifier is composed of five parts: `[stain_type]_[structure_name]_[network_name]_[patch_strategy]_[model]`.
-This can be shortened into `[stain_type]_[structure_name]_classifier` once the other parameters are fixed after experiments. For example `Nissl_7N_Sat16ClassFinetunedV2_1_LR` becomes `Nissl_7N_classifier`.
+A classifier is uniquely determined by a setting.
+A setting specifies (1) training set and (2) model.
+The training set further depends on (a) feature extractor (b) the positive/negative patch selection strategy ( c) stain type and (d) the structure name.
 
 Each classifier has its own folder under `$CLF_ROOTDIR`.
 
@@ -164,7 +163,7 @@ Training set = 3
 model = 1
 Training set = 3
 
-12: use 2 for nissl patches, and use 10 fir ntb patches.
+12: use 2 for nissl patches, and use 10 for ntb patches.
 
 
 ## Evaluation ##
@@ -185,18 +184,18 @@ A: Nissl classifiers are clearly inferior to NTB classifiers when applied to NTB
 Classifiers are in `$CLF_ROOTDIR`.
 Sparse scores are in `$SPARSE_SCORES_ROOTDIR`.
 Dense score maps are in `$SCOREMAPS_ROOTDIR`.
-
+Scoremap visualizations are in `$SCOREMAP_VIZ_ROOTDIR`.
 
 ## Timing ##
 
-Applying classifier: 4 min
+Applying classifier: 2 min
 Interpolate: 40 min
 - each section (x 250): 120s
   - preprocess: 3s
   - evaluate spline (x 28): 5s for shrink=4; doubling shrink reduces time quadratically
   - upscale (x 28): 10s
   - save to hdf (x 28): 4s
-Generate score map visualization: 15 min
+Generate score map visualization: 13 min
 
 
 ## Feature extraction ##

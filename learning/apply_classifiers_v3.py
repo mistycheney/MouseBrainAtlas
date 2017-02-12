@@ -38,6 +38,9 @@ else:
 
 def clf_predict(stack, sec):
 
+    if is_invalid(metadata_cache['sections_to_filenames'][stack][sec]):
+        return
+
     try:
         features = DataManager.load_dnn_features(stack=stack, section=sec)
     except Exception as e:

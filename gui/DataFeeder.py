@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
-import sip
-sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
+# import sip
+# sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
 
 import sys
 import os
@@ -17,16 +17,19 @@ from operator import itemgetter
 
 import numpy as np
 
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+# from matplotlib.backends import qt4_compat
+# use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
+# if use_pyside:
+#     #print 'Using PySide'
+#     from PySide.QtCore import *
+#     from PySide.QtGui import *
+# else:
+#     #print 'Using PyQt4'
+#     from PyQt4.QtCore import *
+#     from PyQt4.QtGui import *
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
@@ -38,30 +41,9 @@ from collections import defaultdict, OrderedDict, deque
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
-# class CustomImageDataFeeder(object):
-#     def __init__(self, name, labels=None, filenames=None):
-#         self.name = name
-#         self.image_cache = {}
-#         if labels is not None and filenames is not None:
-#             self.set_images(labels, filenames)
-#
-#     def set_image(self, qimage, sec):
-#         self.image_cache[sec] = qimage
-#
-#     # def set_images(self, labels, filenames, load_with_cv2=False):
-#     def set_images(self, labels, filenames):
-#         """
-#         Set the images used by the data feeder.
-#         """
-#         self.n = len(labels)
-#
-#         for lbl, fn in zip(labels, filenames):
-#             qimage = QImage(fn)
-#             self.set_image(qimage, lbl)
-
 class ImageDataFeeder(object):
 
-    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True):
+    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True, downscale=None):
         self.name = name
         self.stack = stack
 
@@ -86,11 +68,14 @@ class ImageDataFeeder(object):
 
         self.version = version
 
+        if downscale is not None:
+            self.set_downsample_factor(downscale)
+
     def set_orientation(self, orientation):
         self.orientation = orientation
         self.compute_dimension()
 
-    def set_image(self, sec, qimage=None, fp=None, downsample=None):
+    def set_image(self, sec, qimage=None, numpy_image=None, fp=None, downsample=None):
 
         if downsample is None:
             downsample = self.downsample
@@ -102,8 +87,12 @@ class ImageDataFeeder(object):
         # self.all_sections.append(sec)
 
         if qimage is None:
-            assert fp is not None
-            qimage = QImage(fp)
+            if fp is not None:
+                qimage = QImage(fp)
+            elif numpy_image is not None:
+                qimage = numpy_to_qimage(numpy_image)
+            else:
+                raise Exception('Either filepath or numpy_image must be provided.')
 
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
@@ -205,32 +194,13 @@ class ImageDataFeeder(object):
             return
 
         if sec is None:
-            # sec = self.sections[i]
             sec = self.all_sections[i]
-
-        # if downsample not in self.image_cache:
-        #     t = time.time()
-        #     self.load_images(downsample)
-        #     sys.stderr.write('Load images: %.2f\n' % (time.time() - t))
-
-        # if sec not in self.image_cache[downsample]:
-        #     if downsample == 1:
-        #         self.image_cache[downsample][sec] = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-        #     elif downsample == 32:
-        #         # self.image_cache[downsample][i] = QImage(DataManager.get_image_filepath(stack=self.stack, section=i, resol='thumbnail', version='rgb', data_dir=data_dir))
-        #         self.image_cache[downsample][sec] = QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnnail_aligned_cropped.tif'
-        #                                         % dict(stack=self.stack, sec=sec))
-        #
 
         if downsample not in self.image_cache:
             self.image_cache[downsample] = {}
 
         if sec not in self.image_cache[downsample]:
-            # print sec
-            # print self.image_cache[downsample]
-            # sys.stderr.write('Image is not loaded.\n')
-            raise Exception('Image is not loaded.')
-            # raise Exception('Image is not loaded.')
+            raise Exception('Image is not loaded: %d' % sec)
 
         return self.image_cache[downsample][sec]
 

@@ -1,13 +1,16 @@
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+# from matplotlib.backends import qt4_compat
+# use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
+# if use_pyside:
+#     #print 'Using PySide'
+#     from PySide.QtCore import *
+#     from PySide.QtGui import *
+# else:
+#     #print 'Using PyQt4'
+#     from PyQt4.QtCore import *
+#     from PyQt4.QtGui import *
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 from custom_widgets import *
 from SignalEmittingItems import *
@@ -29,6 +32,8 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         self.pixmapItem = QGraphicsPixmapItem()
         self.addItem(self.pixmapItem)
 
+        gview.setScene(self)
+
         # self.gui = gui
         self.gview = gview
         self.id = id
@@ -39,8 +44,6 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         # self.active_dataset = None
 
         self.installEventFilter(self)
-
-        self.showing_which = 'histology'
 
         self.gview.setMouseTracking(False)
         self.gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
@@ -68,9 +71,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             if hasattr(self, 'active_i'):
                 i = self.active_i
         elif sec is not None:
-            # if section in self.data_feeder.sections:
             if sec in self.data_feeder.all_sections:
-                # index = self.data_feeder.sections.index(section)
                 i = self.data_feeder.all_sections.index(sec)
             else:
                 raise Exception('Not implemented.')
@@ -142,22 +143,18 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
 
     def update_image(self, i=None, sec=None):
 
-        if i is None:
-            i = self.active_i
-            assert i >= 0 and i < len(self.data_feeder.all_sections)
-        elif self.data_feeder.all_sections is not None:
-        # elif self.data_feeder.sections is not None:
-            if sec is None:
-                sec = self.active_section
-            # i = self.data_feeder.sections.index(sec)
+        if sec is not None:
             assert sec in self.data_feeder.all_sections
             i = self.data_feeder.all_sections.index(sec)
+        elif i is None:
+            assert self.active_i is not None
+            i = self.active_i
 
         image = self.data_feeder.retrive_i(i=i)
 
-        histology_pixmap = QPixmap.fromImage(image)
+        pixmap = QPixmap.fromImage(image)
 
-        self.pixmapItem.setPixmap(histology_pixmap)
+        self.pixmapItem.setPixmap(pixmap)
         self.pixmapItem.setVisible(True)
 
 

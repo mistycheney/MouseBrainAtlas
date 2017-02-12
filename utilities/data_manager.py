@@ -989,7 +989,9 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
-        if resol == 'lossless' and version == 'compressed':
+        if resol == 'thumbnail' and version == 'original_png':
+            image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
+        elif resol == 'lossless' and version == 'compressed':
             if stack in ['MD635']:
                 image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])

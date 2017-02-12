@@ -40,7 +40,7 @@ from gui_utilities import *
 from qt_utilities import *
 from web_service import WebService
 import pandas
-from preprocess2_utilities import *
+from preprocess_utilities import *
 
 class SimpleGraphicsScene4(ZoomableBrowsableGraphicsScene):
     """
@@ -908,7 +908,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.n_slots = 4
 
         # self.mask_ui = Ui_MaskEditingGui()
-        self.mask_ui = Ui_MaskEditingGui2()
+        self.mask_ui = Ui_MaskEditingGui3()
         self.mask_gui = QDialog(self)
         self.mask_ui.setupUi(self.mask_gui)
 
@@ -916,15 +916,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # Bad mask list. #
         ##################
 
-        self.redo_list_model = QStandardItemModel()
-        self.mask_ui.listview_bad.setModel(self.redo_list_model)
-        self.mask_ui.listview_bad.clicked.connect(self.redo_list_clicked)
+        # self.redo_list_model = QStandardItemModel()
+        # self.mask_ui.listview_bad.setModel(self.redo_list_model)
+        # self.mask_ui.listview_bad.clicked.connect(self.redo_list_clicked)
 
-        self.mask_ui.button_addToList.clicked.connect(self.add_button_clicked)
-        self.mask_ui.button_removeFromList.clicked.connect(self.remove_button_clicked)
+        # self.mask_ui.button_addToList.clicked.connect(self.add_button_clicked)
+        # self.mask_ui.button_removeFromList.clicked.connect(self.remove_button_clicked)
         # self.mask_ui.button_exportList.clicked.connect(self.export_button_clicked)
         # self.mask_ui.button_finish.clicked.connect(self.finish_button_clicked)
-        self.mask_ui.button_redoList.clicked.connect(self.redo_list_button_clicked)
+        # self.mask_ui.button_redoList.clicked.connect(self.redo_list_button_clicked)
         self.mask_ui.button_closeMaskGui.clicked.connect(self.close_mask_gui_button_clicked)
         self.mask_ui.button_confirmMasks.clicked.connect(self.confirm_masks_button_clicked)
         self.mask_ui.button_saveReview.clicked.connect(self.save_review_button_clicked)

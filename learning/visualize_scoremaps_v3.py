@@ -46,7 +46,12 @@ for sec in range(first_sec, last_sec+1):
     def f(structure):
         viz_fp = DataManager.get_scoremap_viz_filepath(stack=stack, section=sec, structure=structure, setting=setting)
         try:
-            viz = scoremap_overlay_on(bg=bg, stack=stack, sec=sec, structure=structure, downscale=downscale, label_text=add_annotation, setting=setting)
+            if add_annotation:
+                label_text = str(structure)
+            else:
+                label_text = None
+
+            viz = scoremap_overlay_on(bg=bg, stack=stack, sec=sec, structure=structure, downscale=downscale, label_text=label_text, setting=setting)
             create_if_not_exists(os.path.dirname(viz_fp))
             imsave(viz_fp, img_as_ubyte(viz))
         except Exception as e:

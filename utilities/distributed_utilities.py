@@ -4,6 +4,20 @@ import sys
 import cPickle as pickle
 import json
 
+def delete_file_or_directory(fp):
+    execute_command("rm -rf %s" % fp)
+
+def download_from_remote(fp_remote, fp_local):
+    execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
+                    dict(fp_remote=fp_remote, fp_local=fp_local))
+
+def download_from_remote_synced(fp_relative, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
+    remote_fp = os.path.join(remote_root, fp_relative)
+    local_fp = os.path.join(local_root, fp_relative)
+    create_if_not_exists(os.path.dirname(local_fp))
+    execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
+                    dict(fp_remote=remote_fp, fp_local=local_fp))
+
 def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     secs_per_job = (last_sec - first_sec + 1)/float(n_host)
     if secs_per_job < 1:
@@ -163,23 +177,3 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 #
 #     os.chmod(temp_script, 0o777)
 #     call(temp_script, shell=True, stdout=stdout)
-
-def create_if_not_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path
-
-def execute_command(cmd, dryrun=False):
-    print cmd
-
-    try:
-        if dryrun: return
-
-        retcode = call(cmd, shell=True)
-        if retcode < 0:
-            print >>sys.stderr, "Child was terminated by signal", -retcode
-        else:
-            print >>sys.stderr, "Child returned", retcode
-    except OSError as e:
-        print >>sys.stderr, "Execution failed:", e
-        raise e

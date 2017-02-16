@@ -1528,7 +1528,8 @@ metadata_cache['image_shape'] =\
  'MD599': (18784, 12256),
  'MD602': (22336, 12288),
  'MD603': (20928, 13472),
- 'MD635': (20960, 14240)}
+ 'MD635': (20960, 14240),
+ 'MD642': (28704, 15584)}
 metadata_cache['anchor_fn'] = {}
 metadata_cache['sections_to_filenames'] = {}
 metadata_cache['section_limits'] = {}

@@ -980,11 +980,16 @@ class DataManager(object):
         - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
         """
 
+        is_fluorescent = False
+
         if section is not None:
-            _, section_to_filename = DataManager.load_sorted_filenames(stack)
-            fn = section_to_filename[section]
-            if fn in ['Nonexisting', 'Rescan', 'Placeholder']:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
+            if (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks) and fn.split('-')[1][0] == 'F':
+                is_fluorescent = True
+        else:
+            assert fn is not None
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
@@ -992,7 +997,7 @@ class DataManager(object):
         if resol == 'thumbnail' and version == 'original_png':
             image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
         elif resol == 'lossless' and version == 'compressed':
-            if stack in ['MD635']:
+            if is_fluorescent:
                 image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
@@ -1001,15 +1006,14 @@ class DataManager(object):
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
-            if stack in ['MD635']: # fluoerescent.
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+            if is_fluorescent: # fluorescent.
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
             else: # Nissl
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-                # image_path = os.path.join(image_dir, image_name + '.tif')
-                image_path = os.path.join(image_dir, image_name + '.jpg')
+                image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])

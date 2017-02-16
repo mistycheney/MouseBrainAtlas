@@ -43,7 +43,7 @@ gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 class ImageDataFeeder(object):
 
-    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True, downscale=None):
+    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True, downscale=None, labeled_filenames=None):
         self.name = name
         self.stack = stack
 
@@ -70,6 +70,9 @@ class ImageDataFeeder(object):
 
         if downscale is not None:
             self.set_downsample_factor(downscale)
+
+        if labeled_filenames is not None:
+            self.set_images(labeled_filenames=labeled_filenames)
 
     def set_orientation(self, orientation):
         self.orientation = orientation

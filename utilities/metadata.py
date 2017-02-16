@@ -40,15 +40,16 @@ if hostname.endswith('sdsc.edu'):
     # SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     # CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
-    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
-    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
+    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
     CELL_FEATURES_CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/classifiers/'
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
     # SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
-    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps/'
+    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
     SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz'
-    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
+    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
+    WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
 
@@ -83,7 +84,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     # patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
-    ANNOTATION_ROOTDIR = None    
+    ANNOTATION_ROOTDIR = None
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -203,8 +204,8 @@ xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_stacks = all_nissl_stacks + all_ntb_stacks
-# all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
+# all_stacks = all_nissl_stacks + all_ntb_stacks
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks

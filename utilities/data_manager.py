@@ -196,20 +196,6 @@ class DataManager(object):
 
         return Ts_inv_downsampled
 
-    # @staticmethod
-    # def save_thumbnail_mask(mask, stack, section, cerebellum_removed=False):
-    #
-    #     fn = DataManager.get_thumbnail_mask_filepath(stack, section, cerebellum_removed=cerebellum_removed)
-    #     create_if_not_exists(os.path.dirname(fn))
-    #     imsave(fn, mask)
-    #     sys.stderr.write('Thumbnail mask for section %s, %d saved to %s.\n' % (stack, section, fn))
-
-    # @staticmethod
-    # def load_thumbnail_mask(stack, section, cerebellum_removed=False):
-    #     fn = DataManager.get_thumbnail_mask_filepath(stack, section, cerebellum_removed=cerebellum_removed)
-    #     thumbmail_mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
-    #     return thumbmail_mask
-
     @staticmethod
     def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):
         # anchor_fn = DataManager.load_anchor_filename(stack)
@@ -219,15 +205,10 @@ class DataManager(object):
         fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
-            #
-            # image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
-            # image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
-            # image_path = os.path.join(image_dir, image_name + '.jpg')
-
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':

@@ -7,9 +7,43 @@ import json
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
-def download_from_remote(fp_remote, fp_local):
-    execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
-                    dict(fp_remote=fp_remote, fp_local=fp_local))
+def transfer_data(from_fp, to_fp, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu'):
+    if from_hostname == 'localhost':
+        to_parent = os.path.dirname(to_fp)
+        execute_command("ssh %(to_hostname)s 'mkfir -p %(to_parent)s'; scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
+    elif to_hostname == 'oasis-dm.sdsc.edu':
+        execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname))
+    else:
+        execute_command("ssh %(from_hostname)s \"scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\"" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname))
+
+# def upload_to_remote(fp_local, fp_remote, remote_hostname='oasis-dm.sdsc.edu'):
+#     execute_command("scp -r %(fp_local)s %(remote_hostname)s:%(fp_remote)s" % \
+#                     dict(fp_remote=fp_remote, fp_local=fp_local, remote_hostname=remote_hostname))
+
+# def download_from_remote(fp_remote, fp_local, remote_hostname='oasis-dm.sdsc.edu'):
+#     execute_command("scp -r %(remote_hostname)s:%(fp_remote)s %(fp_local)s" % \
+#                     dict(fp_remote=fp_remote, fp_local=fp_local, remote_hostname=remote_hostname))
+
+def transfer_data_synced(fp_relative, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu',
+                        from_root='/home/yuncong/csd395/CSHL_data_processed',
+                        to_root='/home/yuncong/CSHL_data_processed'):
+    from_fp = os.path.join(from_root, fp_relative)
+    to_fp = os.path.join(to_root, fp_relative)
+    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname)
+
+# def upload_to_remote_synced(fp_relative, stack=None, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
+#     if stack is not None:
+#         remote_fp = os.path.join(remote_root, stack, fp_relative)
+#         local_fp = os.path.join(local_root, stack, fp_relative)
+#     else:
+#         remote_fp = os.path.join(remote_root, fp_relative)
+#         local_fp = os.path.join(local_root, fp_relative)
+#     create_if_not_exists(os.path.dirname(local_fp))
+#     execute_command("scp -r %(fp_local)s oasis-dm.sdsc.edu:%(fp_remote)s" % \
+#                     dict(fp_remote=remote_fp, fp_local=local_fp))
 
 def download_from_remote_synced(fp_relative, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
     remote_fp = os.path.join(remote_root, fp_relative)

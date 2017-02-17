@@ -38,6 +38,8 @@ from drawable_gscene import *
 
 from gui_utilities import *
 from qt_utilities import *
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'web_services'))
 from web_service import WebService
 import pandas
 from preprocess_utilities import *
@@ -557,8 +559,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.button_crop.clicked.connect(self.crop)
         self.button_load_crop.clicked.connect(self.load_crop)
         self.button_save_crop.clicked.connect(self.save_crop)
-        self.button_gen_mask.clicked.connect(self.generate_masks)
-        self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
+        # self.button_gen_mask.clicked.connect(self.generate_masks)
+        # self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
         self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
         # self.button_edit_masks.clicked.connect(self.edit_masks)
 
@@ -1780,7 +1782,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def send_to_workstation(self):
 
-        upload_to_remote_synced(stack=self.stack, fp_relative=self.stack + '_cropbox.txt'))
+        return
+
+        upload_to_remote_synced(stack=self.stack, fp_relative=self.stack + '_cropbox.txt')
 
         remote_sorted_filenames_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_sorted_filenames.txt')
         upload_to_remote(fp_remote=remote_sorted_filenames_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
@@ -2095,40 +2099,40 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         'local_data_dir': RAW_DATA_DIR,
                         'stack': self.stack})
 
-    def generate_masks(self):
-
-        self.web_service.convert_to_request('generate_masks', stack=self.stack,
-                                            filenames=self.get_valid_sorted_filenames(),
-                                            tb_fmt=self.tb_fmt)
-
-        execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks %(local_data_dir)s/%(stack)s/" % \
-                        {'gordon_data_dir': gordon_thumbnail_data_dir,
-                        'local_data_dir': thumbnail_data_dir,
-                        'stack': self.stack})
-
-    def warp_crop_masks(self):
-        ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
-        lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
-        ul_x = int(ul_pos.x())
-        ul_y = int(ul_pos.y())
-        lr_x = int(lr_pos.x())
-        lr_y = int(lr_pos.y())
-
-        self.web_service.convert_to_request('warp_crop_masks',
-                                            stack=self.stack, filenames=self.get_valid_sorted_filenames(),
-                                            x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
-
-        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': gordon_thumbnail_data_dir,
-                        'local_data_dir': thumbnail_data_dir,
-                        'anchor_fn': self.anchor_fn,
-                        'stack': self.stack})
-
-        execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped %(local_data_dir)s/%(stack)s/""" % \
-                        {'gordon_data_dir': gordon_thumbnail_data_dir,
-                        'local_data_dir': thumbnail_data_dir,
-                        'anchor_fn': self.anchor_fn,
-                        'stack': self.stack})
+    # def generate_masks(self):
+    #
+    #     self.web_service.convert_to_request('generate_masks', stack=self.stack,
+    #                                         filenames=self.get_valid_sorted_filenames(),
+    #                                         tb_fmt=self.tb_fmt)
+    #
+    #     execute_command("rm -rf %(local_data_dir)s/%(stack)s/%(stack)s_submasks && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_submasks %(local_data_dir)s/%(stack)s/" % \
+    #                     {'gordon_data_dir': gordon_thumbnail_data_dir,
+    #                     'local_data_dir': thumbnail_data_dir,
+    #                     'stack': self.stack})
+    #
+    # def warp_crop_masks(self):
+    #     ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
+    #     lr_pos = self.sorted_sections_gscene.corners['lr'].scenePos()
+    #     ul_x = int(ul_pos.x())
+    #     ul_y = int(ul_pos.y())
+    #     lr_x = int(lr_pos.x())
+    #     lr_y = int(lr_pos.y())
+    #
+    #     self.web_service.convert_to_request('warp_crop_masks',
+    #                                         stack=self.stack, filenames=self.get_valid_sorted_filenames(),
+    #                                         x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y, anchor_fn=self.anchor_fn)
+    #
+    #     execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s %(local_data_dir)s/%(stack)s/""" % \
+    #                     {'gordon_data_dir': gordon_thumbnail_data_dir,
+    #                     'local_data_dir': thumbnail_data_dir,
+    #                     'anchor_fn': self.anchor_fn,
+    #                     'stack': self.stack})
+    #
+    #     execute_command("""rm -rf %(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped && scp -r oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s/%(stack)s_mask_unsorted_alignedTo_%(anchor_fn)s_cropped %(local_data_dir)s/%(stack)s/""" % \
+    #                     {'gordon_data_dir': gordon_thumbnail_data_dir,
+    #                     'local_data_dir': thumbnail_data_dir,
+    #                     'anchor_fn': self.anchor_fn,
+    #                     'stack': self.stack})
 
 
     def align(self):

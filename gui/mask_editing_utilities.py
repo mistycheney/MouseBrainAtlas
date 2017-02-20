@@ -14,6 +14,8 @@ from skimage.future.graph import rag_mean_color, cut_normalized
 
 from multiprocess import Pool
 
+from distributed_utilities import transfer_data_synced
+
 VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
 
@@ -30,7 +32,7 @@ SUPERPIXEL_MERGE_SIMILARITY_THRESH = .2
 GRAPHCUT_NUM_CUTS = 20
 
 BORDER_DISSIMILARITY_PERCENTILE = 30
-MIN_SIZE = 200
+MIN_SIZE = 100
 
 INIT_CONTOUR_MINLEN = 50
 
@@ -97,17 +99,24 @@ def generate_submask_review_results_one_section(submasks_rootdir, fn, which):
 
 
 def load_masking_parameters(submasks_rootdir):
-    intensity_threshold_allFiles = {}
+    # intensity_threshold_allFiles = {}
     dissim_threshold_allFiles = {}
     channel_allFiles = {}
     for fn in os.listdir(submasks_rootdir):
+        # try:
         params_fp = os.path.join(submasks_rootdir, fn, fn + '_maskingParameters.txt')
         with open(params_fp, 'r') as f:
-            intensity_threshold_allFiles[fn] = int(f.readline().split()[1])
+            # intensity_threshold_allFiles[fn] = int(f.readline().split()[1])
             dissim_threshold_allFiles[fn] = float(f.readline().split()[1])
             channel_allFiles[fn] = int(f.readline().split()[1])
-
-    return intensity_threshold_allFiles, dissim_threshold_allFiles, channel_allFiles
+        # except:
+        #     params_fp = os.path.join(submasks_rootdir, fn, fn + '_maskingParameters.txt')
+        #     with open(params_fp, 'r') as f:
+        #         _ = int(f.readline().split()[1])
+        #         dissim_threshold_allFiles[fn] = float(f.readline().split()[1])
+        #         channel_allFiles[fn] = int(f.readline().split()[1])
+    # return intensity_threshold_allFiles, dissim_threshold_allFiles, channel_allFiles
+    return dissim_threshold_allFiles, channel_allFiles
 
 
 def load_final_decisions(stack):

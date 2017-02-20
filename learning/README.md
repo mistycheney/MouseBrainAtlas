@@ -197,10 +197,18 @@ Interpolate: 40 min
   - save to hdf (x 28): 4s
 Generate score map visualization: 13 min
 
-
-## Feature extraction ##
+## Feature Extraction Using Deep Neural Network ##
 
 `extract_test_features_dnn.ipynb` runs on the Workstation equipped with GPU. It calls MXNet to compute features for patches through forward pass over a deep neural network.
+
+To save computation time, only patches within foreground mask are extracted. Roughly 70k patches per section.
+60s per section.
+load saturation image: 51.70 seconds
+extract, reshape, normalize: 114.39 seconds
+predict: 288.41 seconds
+save: 7.29 seconds
+An entire image is roughly twice the mask area.
+
 
 The generated features are place in `PATCH_FEATURES_ROOTDIR`. By default this is
 `/media/yuncong/BstemAtlasData/CSHL_patch_features_Sat16ClassFinetuned_v2`.

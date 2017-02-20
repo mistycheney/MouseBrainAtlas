@@ -43,7 +43,6 @@ parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
 parser.add_argument("output_dir", type=str, help="output dir")
-# parser.add_argument("modality", type=str, help="nissl or fluorescent")
 parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='png')
 parser.add_argument("--border_dissim_percentile", type=int, help="distance percentile", default=DEFAULT_BORDER_DISSIMILARITY_PERCENTILE)
 parser.add_argument("--fg_dissim_thresh", type=float, help="Superpixels more dissimilar to border sp. than this threshold is foreground.", default=None)
@@ -63,7 +62,7 @@ VMIN_PERCENTILE = 1
 
 SLIC_SIGMA = 2
 SLIC_COMPACTNESS = 5
-SLIC_N_SEGMENTS = 1000
+SLIC_N_SEGMENTS = 400
 SLIC_MAXITER = 100
 
 SUPERPIXEL_SIMILARITY_SIGMA = 50.
@@ -81,9 +80,12 @@ INIT_CONTOUR_COVERAGE_MAX = .5
 
 INIT_CONTOUR_MINLEN = 50
 
-MORPHSNAKE_SMOOTHING = 2
+MORPHSNAKE_SMOOTHING = 1
 MORPHSNAKE_LAMBDA1 = 1
-MORPHSNAKE_LAMBDA2 = 1
+MORPHSNAKE_LAMBDA2 = 20
+# MORPHSNAKE_SMOOTHING = 2
+# MORPHSNAKE_LAMBDA1 = 1
+# MORPHSNAKE_LAMBDA2 = 1
 MORPHSNAKE_MAXITER = 600
 MORPHSNAKE_MINITER = 10
 PIXEL_CHANGE_TERMINATE_CRITERIA = 3
@@ -105,7 +107,8 @@ def generate_mask(fn, tb_fmt='png'):
         stds = []
         images = []
 
-        for c in range(3):
+        # for c in range(3):
+        for c in [0]:
 
             img = img_rgb[..., c].copy()
 
@@ -221,7 +224,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             grad = np.gradient(percentages, 3)
             # smoothed_grad = moving_average(grad, 1)
-            hessian = np.gradient(grad, 3)
+            # hessian = np.gradient(grad, 3)
 
             # plt.figure();
             # plt.plot(ticks, grad, label='grad');
@@ -238,8 +241,9 @@ def generate_mask(fn, tb_fmt='png'):
             # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
             # plt.close();
 
+            ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
             # ticks_sorted = ticks[np.argsort(smoothed_grad, kind='mergesort')]
-            ticks_sorted = ticks[10:][hessian[10:].argsort()]
+            # ticks_sorted = ticks[10:][hessian[10:].argsort()]
             ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
 
             init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)
@@ -442,7 +446,7 @@ def generate_mask(fn, tb_fmt='png'):
         ################################################
 
         submasks = final_masks
-        
+
         n = len(final_masks)
 
         rank1 = np.argsort([np.count_nonzero(m) for m in submasks])[::-1]

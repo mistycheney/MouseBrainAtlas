@@ -510,7 +510,7 @@ bbox_lossless=None, surround_margins=None):
 
         if bbox is not None:
 
-            # box_x, box_y, box_w, box_h = detect_bbox_lookup[stack]
+            box_x, box_y, box_w, box_h = bbox
 
             xmin = max(half_size, box_x*32)
             xmax = min(image_width-half_size-1, (box_x+box_w)*32)

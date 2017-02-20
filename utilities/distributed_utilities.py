@@ -4,20 +4,26 @@ import sys
 import cPickle as pickle
 import json
 
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+from utilities2015 import execute_command
+
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
 def transfer_data(from_fp, to_fp, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu'):
+    to_parent = os.path.dirname(to_fp)
     if from_hostname == 'localhost':
-        to_parent = os.path.dirname(to_fp)
-        execute_command("ssh %(to_hostname)s 'mkfir -p %(to_parent)s'; scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
-    elif to_hostname == 'oasis-dm.sdsc.edu':
-        execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname))
+        # upload
+        execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
+                    dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
+    elif to_hostname == 'localhost':
+        # download
+        execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_parent=to_parent))
     else:
-        execute_command("ssh %(from_hostname)s \"scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\"" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname))
+        # log onto another machine and perform upload from there.
+        execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
 # def upload_to_remote(fp_local, fp_remote, remote_hostname='oasis-dm.sdsc.edu'):
 #     execute_command("scp -r %(fp_local)s %(remote_hostname)s:%(fp_remote)s" % \
@@ -27,9 +33,14 @@ def transfer_data(from_fp, to_fp, from_hostname='localhost', to_hostname='oasis-
 #     execute_command("scp -r %(remote_hostname)s:%(fp_remote)s %(fp_local)s" % \
 #                     dict(fp_remote=fp_remote, fp_local=fp_local, remote_hostname=remote_hostname))
 
-def transfer_data_synced(fp_relative, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu',
-                        from_root='/home/yuncong/csd395/CSHL_data_processed',
-                        to_root='/home/yuncong/CSHL_data_processed'):
+default_root_mapping = dict(localhost='/home/yuncong/CSHL_data_processed', dm='/home/yuncong/csd395/CSHL_data_processed')
+
+def transfer_data_synced(fp_relative, from_hostname='localhost', to_hostname='dm', from_root=None, to_root=None):
+    if from_root is None:
+        from_root = default_root_mapping[from_hostname]
+    if to_root is None:
+        to_root = default_root_mapping[to_hostname]
+
     from_fp = os.path.join(from_root, fp_relative)
     to_fp = os.path.join(to_root, fp_relative)
     transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname)

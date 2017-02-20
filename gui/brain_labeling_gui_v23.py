@@ -1,65 +1,38 @@
 #! /usr/bin/env python
 
-import sip
-sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
-
 import sys
 import os
 import datetime
-from random import random
-import subprocess
 import time
 import json
-from pprint import pprint
 import cPickle as pickle
-from itertools import groupby
-from operator import itemgetter
+from collections import defaultdict, OrderedDict
 
 import numpy as np
 
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
-
-from ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
-# from ui_RectificationTool import Ui_RectificationGUI
-# from rectification_tool import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import LineString as ShapelyLineString
 from shapely.geometry import LinearRing as ShapelyLineRing
-
 from skimage.color import label2rgb
-
-from gui_utilities import *
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from data_manager import DataManager
 from metadata import *
+from annotation_utilities import convert_annotation_v3_original_to_aligned_cropped
+from gui_utilities import *
 
-from collections import defaultdict, OrderedDict, deque
+from ui.ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
 
-from operator import attrgetter
+from widgets.custom_widgets import *
+from widgets.SignalEmittingItems import *
+from widgets.DrawableZoomableBrowsableGraphicsScene_ForLabeling import DrawableZoomableBrowsableGraphicsScene_ForLabeling
 
-import requests
-
-from joblib import Parallel, delayed
-
-# from LabelingPainter import LabelingPainter
-from custom_widgets import *
-from SignalEmittingItems import *
 from DataFeeder import ImageDataFeeder, VolumeResectionDataFeeder
-
-from drawable_gscene import *
 
 #######################################################################
 
@@ -117,13 +90,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.volume = self.volume_cache[self.downsample_factor]
         # self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
-        self.coronal_gscene = DrawableGraphicsScene(id='coronal', gui=self, gview=self.coronal_gview)
+        self.coronal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='coronal', gui=self, gview=self.coronal_gview)
         self.coronal_gview.setScene(self.coronal_gscene)
 
-        self.horizontal_gscene = DrawableGraphicsScene(id='horizontal', gui=self, gview=self.horizontal_gview)
+        self.horizontal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='horizontal', gui=self, gview=self.horizontal_gview)
         self.horizontal_gview.setScene(self.horizontal_gscene)
 
-        self.sagittal_gscene = DrawableGraphicsScene(id='sagittal', gui=self, gview=self.sagittal_gview)
+        self.sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal', gui=self, gview=self.sagittal_gview)
         self.sagittal_gview.setScene(self.sagittal_gscene)
 
         self.gscenes = {'coronal': self.coronal_gscene, 'sagittal': self.sagittal_gscene, 'horizontal': self.horizontal_gscene}

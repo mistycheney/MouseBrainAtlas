@@ -6,9 +6,6 @@ import numpy as np
 import json
 from joblib import Parallel, delayed
 
-# sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-# from utilities2015 import create_if_not_exists
-
 import argparse
 
 parser = argparse.ArgumentParser(
@@ -23,8 +20,6 @@ parser.add_argument("--output_saturation_dir", type=str, help="output saturation
 args = parser.parse_args()
 
 stack = args.stack_name
-# sys.stderr.write('==='+args.filenames + '\n')
-
 filenames = json.loads(args.filenames)
 input_dir = args.input_dir
 output_compressed_dir = args.output_compressed_dir
@@ -33,11 +28,11 @@ output_saturation_dir = args.output_saturation_dir
 which = []
 if output_compressed_dir is not None:
     which.append('compressed')
-    os.system('mkdir ' + output_compressed_dir)
+    os.system('mkdir -p ' + output_compressed_dir)
 
 if output_saturation_dir is not None:
     which.append('saturation')
-    os.system('mkdir ' + output_saturation_dir)
+    os.system('mkdir -p ' + output_saturation_dir)
 
 from skimage.io import imread
 from skimage.util import img_as_ubyte

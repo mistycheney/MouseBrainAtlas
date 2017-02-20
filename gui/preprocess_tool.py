@@ -17,7 +17,7 @@ else:
 from ui_PreprocessGui import Ui_PreprocessGui
 # from ui_GalleryDialog import Ui_gallery_dialog
 from ui_AlignmentGui import Ui_AlignmentGui
-from ui_MaskEditingGui2 import Ui_MaskEditingGui2
+from ui_MaskEditingGui3 import Ui_MaskEditingGui3
 from ui_MaskParametersGui import Ui_MaskParametersGui
 
 import cPickle as pickle

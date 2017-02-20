@@ -27,7 +27,7 @@ import morphsnakes
 from collections import deque
 
 from multiprocess import Pool
-from preprocess2_utilities import *
+from preprocess_utilities import *
 
 from scipy.sparse.linalg import ArpackError
 
@@ -43,7 +43,6 @@ parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("input_dir", type=str, help="input dir")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
 parser.add_argument("output_dir", type=str, help="output dir")
-# parser.add_argument("modality", type=str, help="nissl or fluorescent")
 parser.add_argument("--tb_fmt", type=str, help="thumbnail format (tif or png)", default='png')
 parser.add_argument("--border_dissim_percentile", type=int, help="distance percentile", default=DEFAULT_BORDER_DISSIMILARITY_PERCENTILE)
 parser.add_argument("--fg_dissim_thresh", type=float, help="Superpixels more dissimilar to border sp. than this threshold is foreground.", default=None)
@@ -61,9 +60,9 @@ VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
 # GAMMA = 2. # if gamma > 1, image is darker.
 
-SLIC_SIGMA = 3
-SLIC_COMPACTNESS = 1
-SLIC_N_SEGMENTS = 200
+SLIC_SIGMA = 2
+SLIC_COMPACTNESS = 5
+SLIC_N_SEGMENTS = 400
 SLIC_MAXITER = 100
 
 SUPERPIXEL_SIMILARITY_SIGMA = 50.
@@ -81,16 +80,21 @@ INIT_CONTOUR_COVERAGE_MAX = .5
 
 INIT_CONTOUR_MINLEN = 50
 
-MORPHSNAKE_SMOOTHING = 2
-MORPHSNAKE_LAMBDA1 = .1
-MORPHSNAKE_LAMBDA2 = 2.
+MORPHSNAKE_SMOOTHING = 1
+MORPHSNAKE_LAMBDA1 = 1
+MORPHSNAKE_LAMBDA2 = 20
+# MORPHSNAKE_SMOOTHING = 2
+# MORPHSNAKE_LAMBDA1 = 1
+# MORPHSNAKE_LAMBDA2 = 1
 MORPHSNAKE_MAXITER = 600
 MORPHSNAKE_MINITER = 10
 PIXEL_CHANGE_TERMINATE_CRITERIA = 3
-AREA_CHANGE_RATIO_MAX = 1.1
+AREA_CHANGE_RATIO_MAX = 1.2
 AREA_CHANGE_RATIO_MIN = .1
 
 ##############################################
+
+from skimage.exposure import rescale_intensity
 
 def generate_mask(fn, tb_fmt='png'):
 
@@ -100,71 +104,61 @@ def generate_mask(fn, tb_fmt='png'):
 
         img_rgb = imread(os.path.join(input_dir, '%(fn)s.%(tb_fmt)s' % dict(fn=fn, tb_fmt=tb_fmt)))
 
-        # Don't use blue channel, dim bright at the background; the other channels are in fact more contrasty.
-        rmax = img_rgb[..., 0].max()
-        rmin = img_rgb[..., 0].min()
-        rrange = rmax - rmin
-        gmax = img_rgb[..., 1].max()
-        gmin = img_rgb[..., 1].min()
-        grange = gmax - gmin
-        bmax = img_rgb[..., 2].max()
-        bmin = img_rgb[..., 2].min()
-        brange = bmax - bmin
+        stds = []
+        images = []
 
-        rborder = np.median(np.r_[img_rgb[:10, :, 0].flatten(),
-                                 img_rgb[-10:, :, 0].flatten(),
-                                 img_rgb[:, :10, 0].flatten(),
-                                 img_rgb[:, -10:, 0].flatten()])
-        gborder = np.median(np.r_[img_rgb[:10, :, 1].flatten(),
-                                 img_rgb[-10:, :, 1].flatten(),
-                                 img_rgb[:, :10, 1].flatten(),
-                                 img_rgb[:, -10:, 1].flatten()])
-        bborder = np.median(np.r_[img_rgb[:10, :, 2].flatten(),
-                                 img_rgb[-10:, :, 2].flatten(),
-                                 img_rgb[:, :10, 2].flatten(),
-                                 img_rgb[:, -10:, 2].flatten()])
+        # for c in range(3):
+        for c in [0]:
 
-        r_std = np.std(img_rgb[..., 0])
-        g_std = np.std(img_rgb[..., 1])
-        b_std = np.std(img_rgb[..., 2])
+            img = img_rgb[..., c].copy()
 
-        if r_std > g_std:
-            img = img_rgb[..., 0].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
-            print 'Using RED channel.'
-        else:
-            img = img_rgb[..., 1].copy() # G channel is better than R as R sometimes are contaminated on fluorescent slices.
-            print 'Using GREEN channel.'
+            border = np.median(np.r_[img[:10, :].flatten(),
+                                     img[-10:, :].flatten(),
+                                     img[:, :10].flatten(),
+                                     img[:, -10:].flatten()])
 
-        if rborder < 123 and gborder < 123 and bborder < 123:
-            # dark background, fluorescent
-            img = img.max() - img # invert, make tissue dark on bright background
+            if border < 123:
+                # dark background, fluorescent
+                img = img.max() - img # invert, make tissue dark on bright background
 
-        # Stretch contrast
+            # Stretch contrast
+            img_flattened = img.flatten()
 
-        img_flattened = img.flatten()
+            vmax_perc = VMAX_PERCENTILE
+            while vmax_perc > 80:
+                vmax = np.percentile(img_flattened, vmax_perc)
+                if vmax < 255:
+                    break
+                else:
+                    vmax_perc -= 1
 
-        vmax_perc = VMAX_PERCENTILE
-        while vmax_perc > 80:
-            vmax = np.percentile(img_flattened, vmax_perc)
-            if vmax < 255:
-                break
-            else:
-                vmax_perc -= 1
+            vmin_perc = VMIN_PERCENTILE
+            while vmin_perc < 20:
+                vmin = np.percentile(img_flattened, vmin_perc)
+                if vmin > 0:
+                    break
+                else:
+                    vmin_perc += 1
 
-        vmin_perc = VMIN_PERCENTILE
-        while vmin_perc < 20:
-            vmin = np.percentile(img_flattened, vmin_perc)
-            if vmin > 0:
-                break
-            else:
-                vmin_perc += 1
+            sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
 
-        sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
+            img = img_as_ubyte(rescale_intensity(img, in_range=(vmin, vmax)))
 
-        img[(img <= vmax) & (img >= vmin)] = 255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)
-        img[img > vmax] = 255
-        img[img < vmin] = 0
-        img = img.astype(np.uint8)
+            # img[(img <= vmax) & (img >= vmin)] = 255./(vmax-vmin)*(img[(img <= vmax) & (img >= vmin)]-vmin)
+            # img[img > vmax] = 255
+            # img[img < vmin] = 0
+            # img = img.astype(np.uint8)
+
+            images.append(img)
+
+            std = np.std(img)
+            stds.append(std)
+
+            sys.stderr.write('std: %.2f\n' % (std))
+
+        best_channel_id = np.argmax(stds)
+        sys.stderr.write('Use channel %s.\n' % ['RED', 'GREEN', 'BLUE'][best_channel_id])
+        img = images[best_channel_id]
 
         #############################
         ## Graph cut based method. ##
@@ -174,23 +168,25 @@ def generate_mask(fn, tb_fmt='png'):
         slic_labels = slic(img.astype(np.float), sigma=SLIC_SIGMA, compactness=SLIC_COMPACTNESS, n_segments=SLIC_N_SEGMENTS,
                    multichannel=False, max_iter=SLIC_MAXITER)
 
-        sim_graph = rag_mean_color(img, slic_labels, mode='similarity', sigma=SUPERPIXEL_SIMILARITY_SIGMA)
+        # sim_graph = rag_mean_color(img, slic_labels, mode='similarity', sigma=SUPERPIXEL_SIMILARITY_SIGMA)
 
         # Normalized cut - merge superpixels.
 
-        for _ in range(3):
-            try:
-                t = time.time()
-                ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=SUPERPIXEL_MERGE_SIMILARITY_THRESH,
-                                            num_cuts=GRAPHCUT_NUM_CUTS)
-                sys.stderr.write('Normalized Cut: %.2f seconds.\n' % (time.time() - t))
-                break
-            except ArpackError as e:
-                sys.stderr.write('ArpackError encountered.\n')
-                continue
+        # for _ in range(3):
+        #     try:
+        #         t = time.time()
+        #         ncut_labels = cut_normalized(slic_labels, sim_graph, in_place=False, thresh=SUPERPIXEL_MERGE_SIMILARITY_THRESH,
+        #                                     num_cuts=GRAPHCUT_NUM_CUTS)
+        #         sys.stderr.write('Normalized Cut: %.2f seconds.\n' % (time.time() - t))
+        #         break
+        #     except ArpackError as e:
+        #         sys.stderr.write('ArpackError encountered.\n')
+        #         continue
 
-        ncut_boundaries_viz = mark_boundaries(img, label_img=ncut_labels, background_label=-1)
+        # ncut_boundaries_viz = mark_boundaries(img, label_img=ncut_labels, background_label=-1)
         # imsave(os.path.join(submask_dir, '%(fn)s_.png' % dict(fn=fn)), ncut_boundaries_viz)
+
+        ncut_labels = slic_labels
 
         # Find background superpixels.
 
@@ -222,16 +218,32 @@ def generate_mask(fn, tb_fmt='png'):
             ticks = np.linspace(0, dist_vals.max(), 100)
             percentages = [np.count_nonzero(dist_vals < th) / float(len(dist_vals)) for th in ticks]
 
-            h = np.gradient(np.gradient(percentages, 3), 3)
+            def moving_average(interval, window_size):
+                window = np.ones(int(window_size))/float(window_size)
+                return np.convolve(interval, window, 'same')
 
-            plt.figure();
-            plt.plot(ticks, h);
-            plt.title('Hessian - minima is the plateau point of cum. distr.');
-            plt.xlabel('Dissimlarity threshold');
-            plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
+            grad = np.gradient(percentages, 3)
+            # smoothed_grad = moving_average(grad, 1)
+            # hessian = np.gradient(grad, 3)
+
+            # plt.figure();
+            # plt.plot(ticks, grad, label='grad');
+            # plt.plot(ticks, smoothed_grad, label='smoothed');
+            # plt.legend();
+            # plt.xlabel('Chi2 distance');
+            # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistGradient.png' % dict(fn=fn)));
             # plt.close();
 
-            ticks_sorted = ticks[h.argsort()]
+            # plt.figure();
+            # plt.plot(ticks, h);
+            # plt.title('Hessian - minima is the plateau point of cum. distr.');
+            # plt.xlabel('Dissimlarity threshold');
+            # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
+            # plt.close();
+
+            ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
+            # ticks_sorted = ticks[np.argsort(smoothed_grad, kind='mergesort')]
+            # ticks_sorted = ticks[10:][hessian[10:].argsort()]
             ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
 
             init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)
@@ -241,7 +253,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             threshold_candidates = ticks_sorted_reduced[(init_contour_percentages < INIT_CONTOUR_COVERAGE_MAX) &\
                                                               (init_contour_percentages > 0)]
-            np.savetxt(os.path.join(submask_dir, '%(fn)s_spThreshCandidates.txt' % dict(fn=fn)), threshold_candidates, fmt='%.3f')
+            # np.savetxt(os.path.join(submask_dir, '%(fn)s_spThreshCandidates.txt' % dict(fn=fn)), threshold_candidates, fmt='%.3f')
             print threshold_candidates[:10]
             foreground_dissimilarity_threshold = threshold_candidates[0]
         else:
@@ -254,11 +266,11 @@ def generate_mask(fn, tb_fmt='png'):
         for l, s in hist_distances.iteritems():
             superpixel_border_distances[ncut_labels == l] = s
 
-        plt.figure();
-        im = plt.imshow(superpixel_border_distances, vmin=0, vmax=2);
-        plt.title('Superpixels distance to border');
-        plt.colorbar(im, fraction=0.025, pad=0.02);
-        plt.savefig(os.path.join(submask_dir, '%(fn)s_spBorderDissim.png' % dict(fn=fn)));
+        # plt.figure();
+        # im = plt.imshow(superpixel_border_distances, vmin=0, vmax=2);
+        # plt.title('Superpixels distance to border');
+        # plt.colorbar(im, fraction=0.025, pad=0.02);
+        # plt.savefig(os.path.join(submask_dir, '%(fn)s_spBorderDissim.png' % dict(fn=fn)));
         # plt.close();
 
         # Generate mask for snake's initial contours.
@@ -268,43 +280,47 @@ def generate_mask(fn, tb_fmt='png'):
             if d > foreground_dissimilarity_threshold:
                 superpixel_mask[ncut_labels == l] = 1
 
+        superpixel_mask = remove_small_objects(superpixel_mask, min_size=200)
+
         labelmap, n_submasks = label(superpixel_mask, return_num=True)
 
-        superpixel_submasks = []
+        # superpixel_submasks = []
         dilated_superpixel_submasks = []
 
         for i in range(1, n_submasks+1):
             m = labelmap == i
-            superpixel_submasks.append(m)
-
+            # superpixel_submasks.append(m)
             dilated_m = binary_dilation(m, disk(10))
-            dilated_m = remove_small_objects(remove_small_holes(dilated_m, min_size=2000), min_size=MIN_SIZE)
+            dilated_m = remove_small_objects(dilated_m, min_size=MIN_SIZE)
             dilated_superpixel_submasks.append(dilated_m)
 
         # Visualize
 
-        viz = img_as_ubyte(ncut_boundaries_viz)
-        for submask in superpixel_submasks:
-            for cnt in find_contour_points(submask)[1]:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
-        for submask in dilated_superpixel_submasks:
-            for cnt in find_contour_points(submask)[1]:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
-        imsave(os.path.join(submask_dir, '%(fn)s_ncutSubmasks.png' % dict(fn=fn)), viz)
+        # viz = img_as_ubyte(ncut_boundaries_viz)
+        # for submask in superpixel_submasks:
+        #     for cnt in find_contour_points(submask)[1]:
+        #         cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 1) # red
+        # for submask in dilated_superpixel_submasks:
+        #     for cnt in find_contour_points(submask)[1]:
+        #         cv2.polylines(viz, [cnt.astype(np.int)], True, (0,0,255), 1) # blue
+        # imsave(os.path.join(submask_dir, '%(fn)s_ncutSubmasks.png' % dict(fn=fn)), viz)
 
         #####################
 
         # Find contours from mask.
-
-        init_contours = [xys for submask in dilated_superpixel_submasks
-                 for xys in find_contour_points(submask.astype(np.int), sample_every=1)[1]
-                 if len(xys) > INIT_CONTOUR_MINLEN]
+        init_contours = []
+        for submask in dilated_superpixel_submasks:
+            cnts = find_contour_points(submask.astype(np.int), sample_every=1)
+            if 1 not in cnts or len(cnts[1]) == 0:
+                continue
+            for cnt in cnts[1]:
+                if len(cnt) > INIT_CONTOUR_MINLEN:
+                    init_contours.append(cnt)
 
         # assert len(init_contours) > 0, 'No contour is detected from entropy mask %s' % fn
         sys.stderr.write('Extracted %d contours from mask.\n' % len(init_contours))
 
         # Create initial levelset
-
         init_levelsets = []
         for cnt in init_contours:
             init_levelset = np.zeros_like(img, np.float)
@@ -315,6 +331,12 @@ def generate_mask(fn, tb_fmt='png'):
             init_levelset[:, -10:] = 0
 
             init_levelsets.append(init_levelset)
+
+        #######################
+        # Binary Thresholding #
+        #######################
+
+        img_enhanced = img
 
         #####################
         # Evolve morphsnake #
@@ -329,7 +351,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             t = time.time()
 
-            msnake = morphsnakes.MorphACWE(img.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
+            msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
                                            lambda1=MORPHSNAKE_LAMBDA1, lambda2=MORPHSNAKE_LAMBDA2)
 
             msnake.levelset = init_levelset.copy()
@@ -353,14 +375,15 @@ def generate_mask(fn, tb_fmt='png'):
                     sys.stderr.write('Too small, stop iteration.\n')
                     break
 
-                # If area changes more than 2, stop.
-                area_change_ratio = area/float(init_area)
+                labeled_mask = label(msnake.levelset.astype(np.bool))
+                for l in np.unique(labeled_mask):
+                    if l != 0:
+                        m = labeled_mask == l
+                        if np.count_nonzero(m)/float(init_area) > AREA_CHANGE_RATIO_MAX:
+                            msnake.levelset[m] = 0
+                            sys.stderr.write('Area nullified.\n')
 
-                if area_change_ratio > AREA_CHANGE_RATIO_MAX:
-                    discard = True
-                    sys.stderr.write('Area increases too much, stop iteration.\n')
-                    break
-                elif area_change_ratio < AREA_CHANGE_RATIO_MIN:
+                if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                     discard = True
                     sys.stderr.write('Area shrinks too much, stop iteration.\n')
                     break
@@ -394,42 +417,46 @@ def generate_mask(fn, tb_fmt='png'):
         # submask_viz_dir = create_if_not_exists('/home/yuncong/CSHL_data_processed/%(stack)s/%(stack)s_submask_overlayViz/%(fn)s' % dict(stack=stack, fn=fn))
         # execute_command('rm %s/*' % submask_viz_dir)
 
-        img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
+        # img_rgb = imread(os.path.join(input_dir, fn + '.' + tb_fmt))
 
-        all_init_cnts = []
-        for i, init_levelset in enumerate(init_levelsets):
-            all_init_cnts += find_contour_points(init_levelset)[1]
+        # all_init_cnts = []
+        # for i, init_levelset in enumerate(init_levelsets):
+        #     all_init_cnts += find_contour_points(init_levelset)[1]
 
         for i, mask in enumerate(final_masks):
-            imsave(os.path.join(submask_dir,'%(fn)s_submask_%(i)d.png' % {'fn': fn, 'i':i+1}), img_as_ubyte(mask))
+            imsave(os.path.join(submask_dir,'%(fn)s_submask_%(i)d.png' % {'fn': fn, 'i':i}), img_as_ubyte(mask))
 
-            viz = img_rgb.copy()
+            # viz = img_rgb.copy()
+            #
+            # cnts = find_contour_points(mask)
+            # if len(cnts) == 0:
+            #     raise
+            # for cnt in cnts[1]:
+            #     cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
+            #
+            # for cnt in all_init_cnts:
+            #     cv2.polylines(viz, [cnt.astype(np.int)], True, (0,255,0), 3) # green
 
-            cnts = find_contour_points(mask)
-            if len(cnts) == 0:
-                raise
-            for cnt in cnts[1]:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (255,0,0), 3) # red
-
-            for cnt in all_init_cnts:
-                cv2.polylines(viz, [cnt.astype(np.int)], True, (0,255,0), 3) # green
-
-            viz_fn = os.path.join(submask_dir, '%(fn)s_submask_%(i)d_overlayViz.png' % dict(fn=fn, i=i+1))
-            sys.stderr.write(viz_fn + '\n')
-            imsave(viz_fn, viz)
+            # viz_fn = os.path.join(submask_dir, '%(fn)s_submask_%(i)d_overlayViz.png' % dict(fn=fn, i=i+1))
+            # sys.stderr.write(viz_fn + '\n')
+            # imsave(viz_fn, viz)
 
         ################################################
         # Automatically judge the goodness of each mask
         ################################################
 
+        submasks = final_masks
+
         n = len(final_masks)
 
-        rank1 = np.argsort([np.count_nonzero(m) for m in final_masks])[::-1]
+        rank1 = np.argsort([np.count_nonzero(m) for m in submasks])[::-1]
+
+        image_center = np.r_[submasks[0].shape[1]/2, submasks[0].shape[0]/2]
 
         bbox_to_image_center_distance = []
-        for m in final_masks:
+        for m in submasks:
             xmin, xmax, ymin, ymax = bbox_2d(m)
-            dist = np.sqrt(np.sum((np.r_[img.shape[1]/2, img.shape[0]/2] - ((xmin + xmax)/2, (ymin+ymax)/2))**2))
+            dist = np.sqrt(np.sum((image_center - ((xmin + xmax)/2, (ymin+ymax)/2))**2))
             bbox_to_image_center_distance.append(dist)
 
         rank2 = np.argsort(bbox_to_image_center_distance)
@@ -439,13 +466,10 @@ def generate_mask(fn, tb_fmt='png'):
         rank = np.argsort(r1 + 1.01 * r2) # weight being close to center a bit more to break tie
         best_mask_ind = rank[0]
 
-        decisions = [0 for _ in range(n)]
-        decisions[best_mask_ind] = 1
+        decisions = [False for _ in range(n)]
+        decisions[best_mask_ind] = True
 
-        # Write to file. Slot index starts with 1.
-        with open(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn)), 'w') as f:
-            for i, dec in enumerate(decisions):
-                f.write('%d %d\n' % (i+1, dec))
+        np.savetxt(os.path.join(submask_dir, '%(fn)s_submasksAlgReview.txt' % dict(fn=fn)), decisions, fmt='%d')
 
     except Exception as e:
         sys.stderr.write('%s\n' % e)

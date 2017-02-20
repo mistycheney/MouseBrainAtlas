@@ -174,6 +174,23 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         elif selected_action == action_deleteVertices:
             self.set_mode('delete vertices')
 
+    def delete_all_polygons_one_section(self, section):
+        index, section = self.get_requested_index_and_section(sec=section)
+        for polygon in self.drawings[index]:
+            self.polygon_deleted.emit(polygon)
+            sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+            self.removeItem(polygon)
+        self.drawings[index] = []
+
+    @pyqtSlot()
+    def delete_polygon(self, section, polygon_ind):
+        index, section = self.get_requested_index_and_section(i=index, sec=section)
+        polygon = self.drawings[index][polygon_ind]
+        self.polygon_deleted.emit(polygon)
+        sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+        self.drawings[index].remove(polygon)
+        self.removeItem(polygon)
+
     @pyqtSlot()
     def vertex_clicked(self):
         # pass

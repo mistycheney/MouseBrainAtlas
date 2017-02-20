@@ -163,23 +163,3 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 #
 #     os.chmod(temp_script, 0o777)
 #     call(temp_script, shell=True, stdout=stdout)
-
-def create_if_not_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path
-
-def execute_command(cmd, dryrun=False):
-    print cmd
-
-    try:
-        if dryrun: return
-
-        retcode = call(cmd, shell=True)
-        if retcode < 0:
-            print >>sys.stderr, "Child was terminated by signal", -retcode
-        else:
-            print >>sys.stderr, "Child returned", retcode
-    except OSError as e:
-        print >>sys.stderr, "Execution failed:", e
-        raise e

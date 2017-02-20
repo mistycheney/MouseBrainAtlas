@@ -79,7 +79,8 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 #         return viz
 
 def scoremap_overlay(stack, structure, downscale, setting,
-                    image_shape=None, return_mask=False, sec=None, fn=None):
+                    image_shape=None, return_mask=False, sec=None, fn=None,
+                    color=(1,0,0)):
     '''
     Generate scoremap image of structure.
     name: structure name
@@ -91,28 +92,42 @@ def scoremap_overlay(stack, structure, downscale, setting,
         if is_invalid(fn): return
 
     if image_shape is None:
-        image_shape = metadata_cache['image_shape'][::-1]
+        image_shape = metadata_cache['image_shape'][stack][::-1]
 
-    scoremap_bp_filepath, scoremap_interpBox_filepath = \
-    DataManager.get_scoremap_filepath(stack=stack, section=sec, fn=fn, setting=setting,
-                                        structure=structure, return_bbox_fp=True)
+    try:
+        dense_score_map_lossless = DataManager.load_scoremap(stack=stack, section=sec, fn=fn, setting=setting, structure=structure,
+                                downscale=1)
+    except:
+        raise Exception('Error loading scoremap of %s for image %s.' % (structure, fn))
 
-    if not os.path.exists(scoremap_bp_filepath):
-        # sys.stderr.write('No scoremap of %s for filename %s.\n' % (structure, fn))
-        raise Exception('No scoremap of %s for filename %s.' % (structure, fn))
-
-    scoremap = load_hdf(scoremap_bp_filepath)
-
-    interpolation_xmin, interpolation_xmax, \
-    interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
-
-    dense_score_map_lossless = np.zeros(image_shape)
-    dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
-                             interpolation_xmin:interpolation_xmax+1] = scoremap
+    # scoremap_bp_filepath, scoremap_interpBox_filepath = \
+    # DataManager.get_scoremap_filepath(stack=stack, section=sec, fn=fn, setting=setting,
+    #                                     structure=structure, return_bbox_fp=True)
+    #
+    # if not os.path.exists(scoremap_bp_filepath):
+    #     # sys.stderr.write('No scoremap of %s for filename %s.\n' % (structure, fn))
+    #     raise Exception('No scoremap of %s for filename %s.' % (structure, fn))
+    #
+    # scoremap = load_hdf(scoremap_bp_filepath)
+    #
+    # interpolation_xmin, interpolation_xmax, \
+    # interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
+    #
+    # dense_score_map_lossless = np.zeros(image_shape)
+    # dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
+    #                          interpolation_xmin:interpolation_xmax+1] = scoremap
 
     mask = dense_score_map_lossless > 0.
 
-    scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale, ::downscale])[..., :3]
+    # scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale, ::downscale])[..., :3]
+
+    scoremap_d = dense_score_map_lossless[::downscale, ::downscale]
+    h, w = scoremap_d.shape
+    scoremap_viz = np.ones((h, w, 4))
+    scoremap_viz[..., :3] = color
+    scoremap_n = scoremap_d/scoremap_d.max()
+    scoremap_viz[..., 3] = scoremap_n**3
+
     viz = img_as_ubyte(scoremap_viz)
 
     if return_mask:
@@ -120,7 +135,7 @@ def scoremap_overlay(stack, structure, downscale, setting,
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=True, sec=None, fn=None):
+def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=None, sec=None, fn=None):
 
     if fn is None:
         assert sec is not None
@@ -145,8 +160,8 @@ def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=Tru
     viz[m] = (.3 * img_as_ubyte(scoremap_viz[m, :3]) + .7 * viz[m]).astype(np.uint8)
 
     # put label name at left upper corner
-    if label_text:
-        cv2.putText(viz, structure, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
+    if label_text is not None:
+        cv2.putText(viz, label_text, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
 
     return viz
 

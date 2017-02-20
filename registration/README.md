@@ -4,44 +4,41 @@ Two attempts for more fine-grained contouring of structures:
 - `fit_contour_to_scoremap_graphcut.ipynb`: Apply graph-cut to an ROI of scoremap. Use structure-wise aligned contours to identify the right connected component in case multiple CCs are generated.
 - `fit_contour_to_scoreVolume_inSection.ipynb`: Find the best 2D affine transform of structure-wise aligned contours on every section.
 
-# Compute Gradients
-- `compute_gradient.py`: compute gradients, save as `[stack]_scoreVolume_[label]_[gx|gy|gz].bp` files.
-
 # Registration
 
-## Global Alignment
+## Registration Setting ##
 
-- `run_global_registration_distributed.sh`: wrapper script for distributing global alignment of multiple brains over multiple machines. It calls `global_affine_alignment.py`.
+1:
+Preceeding warping: None
+Score volume: classifier setting 2
+Transform: global affine (One parameter set)
 
-- `global_affine_alignment.py`: global alignment. Experimental notebook is `align_3d_v2_affine_atlas.ipynb`.
+2:
+Preceeding warping: warping setting 1
+Score volume: classifier setting 2
+Transform: structure-wise rigid (One parameter set for each structure)
 
-Final version of the notebook is `align_atlas_global.ipynb`
+## Global Registration
 
-
-### Timing
-
-*Compute transforms*
-- load gradient: 1s x 28 structures = 28s
-- grid search: 60s
-- gradient descent: 10s x 80 iteration = 800s
-
+`global_registration_v3.ipynb`
+`global_registration_v3.py`
 
 ## Align two annotated Volumes
 - `align_3d_v2_affine_annotations.ipynb`
 
-## Individual Structure Alignment
+## Structure-wise Registration
 
-- `run_align_individual_landmarks_distributed.sh`: wrapper script for running individual structure alignment for multiple brains. It calls `align_individual_landmarks.py`.
-
-- `align_individual_landmarks.py`: individual structure alignment. Experimental notebook is `align_3d_v2_affine_atlas_individual_lie_twoSides.ipynb`.
-
-Final version of the notebook is `align_atlas_individual.ipynb`
-
-`fit_altlas_structure_to_subject_v2.ipynb`
+`local_registration_v3.ipynb`
+`local_registration_v3.py`
 
 ### Timing
 
-*Compute transforms*
+Global
+- load gradient: 1s x 28 structures = 28s
+- grid search: 60s
+- gradient descent: 10s x 80 iteration = 800s
+
+Local
 - load gradient: 2s
 - grid search: 0.3s x 30 iterations = 9s
 - gradient descent: 0.04s x 200 iterations = 8s

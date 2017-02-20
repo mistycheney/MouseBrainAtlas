@@ -2,7 +2,6 @@ from utilities2015 import *
 from metadata import *
 from itertools import groupby
 
-
 def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_bbox=True):
     """
     images_grouped_by_z: dict of images, key is section index. First brain section should have index 0.

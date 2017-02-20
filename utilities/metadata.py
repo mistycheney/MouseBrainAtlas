@@ -16,11 +16,14 @@ if hostname.endswith('sdsc.edu'):
     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     thumbnail_data_dir = data_dir
     # atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas'
-    atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas_v2'
+    # atlasAlignParams_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignParams_atlas_v2'
+    REGISTRTION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
+    REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
     # atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas'
-    atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas_v2'
+    # atlasAlignOptLogs_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_atlasAlignOptLogs_atlas_v2'
     # volume_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes2/'
-    VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes2/'
+    # VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes2/'
+    VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
     # scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremaps_lossless_svm_Sat16ClassFinetuned_v3/'
     # scoremaps_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
@@ -40,15 +43,17 @@ if hostname.endswith('sdsc.edu'):
     # SVM_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     # CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
-    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
-    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
+    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
     CELL_FEATURES_CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/classifiers/'
     PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
     # SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
-    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps/'
+    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
     SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz'
-    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians/'
+    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
+    WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
+
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
 
@@ -81,29 +86,13 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
-    patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    # patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
+    ANNOTATION_ROOTDIR = None
 else:
     print 'Setting environment for Brainstem workstation'
 
-############ Class Labels #############
-
-# paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'R', 'SNC', 'SNR', '3N', '4N']
-# singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
-
-paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
-                    'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
-# singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
-singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
-all_known_structures = paired_structures + singular_structures
-
-# volume_landmark_names_unsided = ['12N', '5N', '6N', '7N', '7n', 'AP', 'Amb', 'LC',
-#                                  'LRt', 'Pn', 'R', 'RtTg', 'Tz', 'VLL', 'sp5']
-linear_landmark_names_unsided = ['outerContour']
-volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
-all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
-
-labels_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
-labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
+#################### Name conversions ##################
 
 def convert_to_unsided_name(name):
     return convert_name_to_unsided(name)
@@ -162,27 +151,25 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin)
 
 
+############ Class Labels #############
+
+paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
+                    'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
+singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
+all_known_structures = paired_structures + singular_structures
+all_known_structures_sided = sum([[n] if n in singular_structures
+                        else [convert_to_left_name(n), convert_to_right_name(n)]
+                        for n in all_known_structures], [])
+
+linear_landmark_names_unsided = ['outerContour']
+volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
+all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
+
+labels_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
+labels_unsided_indices = dict((j, i+1) for i, j in enumerate(labels_unsided))  # BackG always 0
 
 labelMap_unsidedToSided = dict([(name, [name+'_L', name+'_R']) for name in paired_structures] + \
                             [(name, [name]) for name in singular_structures])
-
-# labelMap_unsidedToSided = {'12N': ['12N'],
-#                             '5N': ['5N_L', '5N_R'],
-#                             '6N': ['6N_L', '6N_R'],
-#                             '7N': ['7N_L', '7N_R'],
-#                             '7n': ['7n_L', '7n_R'],
-#                             'AP': ['AP'],
-#                             'Amb': ['Amb_L', 'Amb_R'],
-#                             'LC': ['LC_L', 'LC_R'],
-#                             'LRt': ['LRt_L', 'LRt_R'],
-#                             'Pn': ['Pn_L', 'Pn_R'],
-#                             'R': ['R_L', 'R_R'],
-#                             'RtTg': ['RtTg'],
-#                             'Tz': ['Tz_L', 'Tz_R'],
-#                             'VLL': ['VLL_L', 'VLL_R'],
-#                             'sp5': ['sp5'],
-#
-#                            'outerContour': ['outerContour']}
 
 labelMap_sidedToUnsided = {n: nu for nu, ns in labelMap_unsidedToSided.iteritems() for n in ns}
 
@@ -192,17 +179,19 @@ labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # Back
 
 ############ Physical Dimension #############
 
-section_thickness = 20 # in um
-xy_pixel_distance_lossless = 0.46
-xy_pixel_distance_tb = xy_pixel_distance_lossless * 32 # in um, thumbnail
+# section_thickness = 20 # in um
+SECTION_THICKNESS = 20 # in um
+# xy_pixel_distance_lossless = 0.46
+XY_PIXEL_DISTANCE_LOSSLESS = 0.46
+XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 
 #######################################
 
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_stacks = all_nissl_stacks + all_ntb_stacks
-# all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
+# all_stacks = all_nissl_stacks + all_ntb_stacks
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks

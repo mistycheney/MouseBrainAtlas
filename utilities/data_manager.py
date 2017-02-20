@@ -205,10 +205,10 @@ class DataManager(object):
         fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_mask_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':

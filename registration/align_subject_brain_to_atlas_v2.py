@@ -88,8 +88,22 @@ label_to_name_fixed = {l: n for n, l in name_to_label_fixed.iteritems()}
 #                for name in structures}
 
 
-volume_moving = {name_to_label_moving[name]: DataManager.load_score_volume(stack=stack_moving, label=name, downscale=32, train_sample_scheme=None)
-               for name in structures_sided}
+# volume_moving = {name_to_label_moving[name]: DataManager.load_score_volume(stack=stack_moving, label=name, downscale=32, train_sample_scheme=None)
+#                for name in structures_sided}
+#
+# print volume_moving.values()[0].shape
+# print volume_moving.values()[0].dtype
+
+volume_moving = {}
+name_to_label_moving = {}
+c = 1 # label starts from 1
+for structure in sorted(structures_sided):
+    try:
+        volume_moving[c] = DataManager.load_score_volume(stack=stack_moving, structure=structure, downscale=32)
+        name_to_label_moving[name] = c
+        c += 1
+    except:
+        sys.stderr.write('Score volume for %s does not exist.\n' % name)
 
 print volume_moving.values()[0].shape
 print volume_moving.values()[0].dtype

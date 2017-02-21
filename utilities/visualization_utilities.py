@@ -94,22 +94,28 @@ def scoremap_overlay(stack, structure, downscale, setting,
     if image_shape is None:
         image_shape = metadata_cache['image_shape'][stack][::-1]
 
-    scoremap_bp_filepath, scoremap_interpBox_filepath = \
-    DataManager.get_scoremap_filepath(stack=stack, section=sec, fn=fn, setting=setting,
-                                        structure=structure, return_bbox_fp=True)
+    try:
+        dense_score_map_lossless = DataManager.load_scoremap(stack=stack, section=sec, fn=fn, setting=setting, structure=structure,
+                                downscale=1)
+    except:
+        raise Exception('Error loading scoremap of %s for image %s.' % (structure, fn))
 
-    if not os.path.exists(scoremap_bp_filepath):
-        # sys.stderr.write('No scoremap of %s for filename %s.\n' % (structure, fn))
-        raise Exception('No scoremap of %s for filename %s.' % (structure, fn))
-
-    scoremap = load_hdf(scoremap_bp_filepath)
-
-    interpolation_xmin, interpolation_xmax, \
-    interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
-
-    dense_score_map_lossless = np.zeros(image_shape)
-    dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
-                             interpolation_xmin:interpolation_xmax+1] = scoremap
+    # scoremap_bp_filepath, scoremap_interpBox_filepath = \
+    # DataManager.get_scoremap_filepath(stack=stack, section=sec, fn=fn, setting=setting,
+    #                                     structure=structure, return_bbox_fp=True)
+    #
+    # if not os.path.exists(scoremap_bp_filepath):
+    #     # sys.stderr.write('No scoremap of %s for filename %s.\n' % (structure, fn))
+    #     raise Exception('No scoremap of %s for filename %s.' % (structure, fn))
+    #
+    # scoremap = load_hdf(scoremap_bp_filepath)
+    #
+    # interpolation_xmin, interpolation_xmax, \
+    # interpolation_ymin, interpolation_ymax = np.loadtxt(scoremap_interpBox_filepath).astype(np.int)
+    #
+    # dense_score_map_lossless = np.zeros(image_shape)
+    # dense_score_map_lossless[interpolation_ymin:interpolation_ymax+1,
+    #                          interpolation_xmin:interpolation_xmax+1] = scoremap
 
     mask = dense_score_map_lossless > 0.
 

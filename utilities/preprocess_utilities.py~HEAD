@@ -2,25 +2,32 @@ import os
 import sys
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+from metadata import *
 
 DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = None
 DEFAULT_MINSIZE = 1000
 
-def delete_file_or_directory(fp):
-    execute_command("rm -rf %s" % fp)
+def generate_submask_review_results(stack, filenames):
+    sys.stderr.write('Generate submask review...\n')
 
-def download_from_remote(fp_remote, fp_local):
-    execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
-                    dict(fp_remote=fp_remote, fp_local=fp_local))
+    mask_alg_review_results = {}
+    for img_fn in filenames:
+        decisions = generate_submask_review_results_one_section(stack=stack, fn=img_fn)
+        if decisions is None:
+            sys.stderr.write('No review results found: %s.\n' % img_fn)
+            mask_alg_review_results[img_fn] = {}
+        else:
+            mask_alg_review_results[img_fn] = decisions
 
-def download_from_remote_synced(fp_relative, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
-    remote_fp = os.path.join(remote_root, fp_relative)
-    local_fp = os.path.join(local_root, fp_relative)
-    create_if_not_exists(os.path.dirname(local_fp))
-    execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
-                    dict(fp_remote=remote_fp, fp_local=local_fp))
+    return cleanup_mask_review(mask_alg_review_results)
+
+
+def generate_submask_review_results_one_section(stack, fn):
+    review_fp = os.path.join(THUMBNAIL_DATA_DIR, "%(stack)s/%(stack)s_submasks/%(img_fn)s/%(img_fn)s_submasksAlgReview.txt") % \
+                dict(stack=stack, img_fn=fn)
+    return parse_submask_review_results_one_section_from_file(review_fp)
 
 def parse_submask_review_results_one_section_from_file(review_fp):
 

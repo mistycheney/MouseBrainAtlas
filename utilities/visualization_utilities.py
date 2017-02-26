@@ -95,8 +95,8 @@ def scoremap_overlay(stack, structure, downscale, setting,
         image_shape = metadata_cache['image_shape'][stack][::-1]
 
     try:
-        dense_score_map_lossless = DataManager.load_scoremap(stack=stack, section=sec, fn=fn, setting=setting, structure=structure,
-                                downscale=1)
+        dense_score_map_lossless = DataManager.load_scoremap(stack=stack, section=sec, fn=fn,
+                            setting=setting, structure=structure, downscale=1)
     except:
         raise Exception('Error loading scoremap of %s for image %s.' % (structure, fn))
 
@@ -119,14 +119,14 @@ def scoremap_overlay(stack, structure, downscale, setting,
 
     mask = dense_score_map_lossless > 0.
 
-    # scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale, ::downscale])[..., :3]
+    scoremap_viz = plt.cm.hot(dense_score_map_lossless[::downscale, ::downscale])[..., :3]
 
-    scoremap_d = dense_score_map_lossless[::downscale, ::downscale]
-    h, w = scoremap_d.shape
-    scoremap_viz = np.ones((h, w, 4))
-    scoremap_viz[..., :3] = color
-    scoremap_n = scoremap_d/scoremap_d.max()
-    scoremap_viz[..., 3] = scoremap_n**3
+    # scoremap_d = dense_score_map_lossless[::downscale, ::downscale]
+    # h, w = scoremap_d.shape
+    # scoremap_viz = np.ones((h, w, 4))
+    # scoremap_viz[..., :3] = color
+    # scoremap_n = scoremap_d/scoremap_d.max()
+    # scoremap_viz[..., 3] = scoremap_n**3
 
     viz = img_as_ubyte(scoremap_viz)
 

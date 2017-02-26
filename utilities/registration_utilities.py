@@ -747,6 +747,7 @@ class Aligner4(object):
 
         score_best = -np.inf
         scores = []
+        self.Ts = []
 
         for iteration in range(max_iter_num):
 
@@ -792,6 +793,8 @@ class Aligner4(object):
             # self.logger.info('score: %f', s)
             sys.stderr.write('score: %f\n' % s)
             scores.append(s)
+
+            self.Ts.append(T)
 
             # sys.stderr.write('%f seconds\n' % (time.time()-t)) # 1.77s/iteration
 

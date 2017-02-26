@@ -28,6 +28,8 @@ anchor_fn = metadata_cache['anchor_fn'][stack]
 
 for sec in range(first_sec, last_sec+1):
 
+    actual_setting = resolve_actual_setting(setting=setting, stack=stack, sec=sec)
+
     sys.stderr.write('Section %d\n' % sec)
 
     fn = sections_to_filenames[sec]
@@ -42,7 +44,7 @@ for sec in range(first_sec, last_sec+1):
 
     t = time.time()
 
-    _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, fn=fn, anchor_fn=anchor_fn)
+    _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
 
     ## interpolate
 
@@ -76,7 +78,7 @@ for sec in range(first_sec, last_sec+1):
     for structure in all_known_structures:
         try:
             probs_allClasses[structure] = DataManager.load_sparse_scores(stack, fn=fn, anchor_fn=anchor_fn,
-                                                                     structure=structure, setting=setting)
+                                                                     structure=structure, setting=actual_setting)
         except Exception as e:
             sys.stderr.write('Patch predictions for %s do not exist.\n' % structure)
 
@@ -123,7 +125,7 @@ for sec in range(first_sec, last_sec+1):
 
         scoremap_bp_filepath, scoremap_interpBox_filepath = \
         DataManager.get_scoremap_filepath(stack=stack, fn=fn, anchor_fn=anchor_fn, structure=structure,
-                                          return_bbox_fp=True, setting=setting)
+                                          return_bbox_fp=True, setting=actual_setting)
 
         save_hdf(dense_score_map.astype(np.float16), scoremap_bp_filepath, complevel=5)
         np.savetxt(scoremap_interpBox_filepath,

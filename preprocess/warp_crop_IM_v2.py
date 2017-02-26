@@ -81,6 +81,8 @@ d = {'sx':T[0,0],
      'h': str(h * scale_factor),
     }
 
+sys.stderr.write(background_color + '\n')
+
 if background_color == 'black':
     execute_command("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
     # os.system("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)

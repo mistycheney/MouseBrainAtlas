@@ -39,8 +39,14 @@ trial_idx = args.trial_idx
 
 if warp_setting == 1:
     upstream_warp_setting = None
+    transform_type = 'affine'
 elif warp_setting == 2:
     upstream_warp_setting = 1
+    transform_type = 'rigid'
+elif warp_setting == 4:
+    upstream_warp_setting = 1
+    transform_type = 'rigid'
+    reg_weights = np.array([1e-4, 1e-4, 1e-4])
 else:
     raise Exception('Warp setting not recognized.')
 

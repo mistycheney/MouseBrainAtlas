@@ -1,24 +1,27 @@
 #! /usr/bin/env python
 
-import sip
-sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
+# import sip
+# sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
+#
+# from matplotlib.backends import qt4_compat
+# use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
+# if use_pyside:
+#     #print 'Using PySide'
+#     from PySide.QtCore import *
+#     from PySide.QtGui import *
+# else:
+#     #print 'Using PyQt4'
+#     from PyQt4.QtCore import *
+#     from PyQt4.QtGui import *
 
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
-from ui_PreprocessGui import Ui_PreprocessGui
+from ui.ui_PreprocessGui import Ui_PreprocessGui
 # from ui_GalleryDialog import Ui_gallery_dialog
-from ui_AlignmentGui import Ui_AlignmentGui
-from ui_MaskEditingGui3 import Ui_MaskEditingGui3
-from ui_MaskParametersGui import Ui_MaskParametersGui
+from ui.ui_AlignmentGui import Ui_AlignmentGui
+# from ui.ui_MaskEditingGui3 import Ui_MaskEditingGui3
+# from ui.ui_MaskParametersGui import Ui_MaskParametersGui
 
 import cPickle as pickle
 
@@ -30,11 +33,12 @@ from data_manager import *
 from annotation_utilities import points_inside_contour
 
 from DataFeeder import ImageDataFeeder
-from ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene
-from ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBrowsableGraphicsSceneWithReadonlyPolygon
-from MultiplePixmapsGraphicsScene import MultiplePixmapsGraphicsScene
-from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
-from drawable_gscene import *
+from widgets.ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene
+from widgets.ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBrowsableGraphicsSceneWithReadonlyPolygon
+from widgets.MultiplePixmapsGraphicsScene import MultiplePixmapsGraphicsScene
+from widgets.DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
+from widgets.SignalEmittingItems import *
+# from drawable_gscene import *
 
 from gui_utilities import *
 from qt_utilities import *
@@ -1682,7 +1686,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
 
-        if self.stack in all_alt_nissl_ntb_stacks:
+        if self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
 
             F_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'F'}
             N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
@@ -1725,6 +1729,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                     sorted_fns += [N_series[i][pos] for pos in range(1, 4)]
                 elif i in IHC_series:
                     sorted_fns += [IHC_series[i][pos] for pos in range(1, 4)]
+
+        if len(sorted_fns) == 0:
+            raise Exception('sorted fns list is empty.')
 
         self.sorted_filenames = [fn for fn in sorted_fns if fn != 'Nonexisting']
 
@@ -1973,7 +1980,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         if not hasattr(self, 'anchor_fn'):
 
-            anchor_fp = self.stack_data_dir + '/%(stack)s_anchor.txt' % dict(stack=self.stack)
+            anchor_fp = os.path.join(self.stack_data_dir, '%(stack)s_anchor.txt' % dict(stack=self.stack))
             if os.path.exists(anchor_fp):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
@@ -2007,10 +2014,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
             self.aligned_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
                                                     sections=self.valid_section_indices, use_data_manager=False)
-            self.aligned_images_dir = self.stack_data_dir + '/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/' % {'stack': self.stack, 'anchor_fn':self.anchor_fn}
-            # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(stack)s_%(fn)s_aligned.tif' % \
-            #                             {'stack':self.stack, 'fn': self.sorted_filenames[i]}) for i in self.valid_section_indices]
 
+            self.aligned_images_dir = os.path.join(self.stack_data_dir, '%(stack)s_thumbnails_alignedTo_%(anchor_fn)s' % {'stack': self.stack, 'anchor_fn':self.anchor_fn})
             aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
                                         {'fn': fn, 'anchor_fn': self.anchor_fn}) for fn in self.valid_section_filenames]
 
@@ -2154,7 +2159,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def compose(self):
 
-        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_anchor.txt' % {'stack': self.stack}), 'w') as f:
+        with open(os.path.join(thumbnail_data_dir, self.stack, self.stack + '_anchor.txt'), 'w') as f:
             f.write(self.anchor_fn)
 
         if self.stack in all_nissl_stacks:
@@ -2165,18 +2170,22 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             pad_bg_color = 'auto'
 
         self.statusBar().showMessage('Conmpose consecutive alignments...')
-        self.web_service.convert_to_request(name='compose', stack=self.stack,
-                                            filenames=self.get_valid_sorted_filenames(),
-                                            anchor_fn=self.anchor_fn,
-                                            tb_fmt=self.tb_fmt,
-                                            pad_bg_color=pad_bg_color)
-        self.statusBar().showMessage('Images aligned.')
+        try:
+            self.web_service.convert_to_request(name='compose', stack=self.stack,
+                                                filenames=self.get_valid_sorted_filenames(),
+                                                anchor_fn=self.anchor_fn,
+                                                tb_fmt=self.tb_fmt,
+                                                pad_bg_color=pad_bg_color)
+        except Exception as e:
+            sys.stderr.write('Server error: compose\n')
+            return
 
+        self.statusBar().showMessage('Images aligned.')
         self.statusBar().showMessage('Downloading aligned images ...')
 
-        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif\" && '
-                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
-                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s.tar.gz && '
+        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnails_alignedTo_%(anchor_fn)s/*.tif\" && '
+                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
+                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && '
                         'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output/%(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_elastix_output/ && '
                         'cd %(stack)s_elastix_output && rm -f %(stack)s_transformsTo_anchor.pkl && ln -s %(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_transformsTo_anchor.pkl ') % \
                         dict(gordon_data_dir=self.stack_data_dir_gordon,

@@ -26,15 +26,10 @@ setting = int(sys.argv[4])
 ############################
 
 if setting == 12:
-
-    setting_nissl = 2
-    setting_ntb = 10
-
-    clf_nissl_allClasses = DataManager.load_classifiers(setting=setting_nissl)
-    clf_ntb_allClasses = DataManager.load_classifiers(setting=setting_ntb)
-
+    available_classifiers = {2: DataManager.load_classifiers(setting=2),
+                             10: DataManager.load_classifiers(setting=10)}
 else:
-    clf_allClasses = DataManager.load_classifiers(setting=setting)
+    available_classifiers = {setting: DataManager.load_classifiers(setting=setting)}
 
 def clf_predict(stack, sec):
 
@@ -42,29 +37,19 @@ def clf_predict(stack, sec):
         return
 
     try:
-        features = DataManager.load_dnn_features(stack=stack, section=sec)
+        features = DataManager.load_dnn_features(stack=stack, model_name='Sat16ClassFinetuned', section=sec)
     except Exception as e:
         sys.stderr.write('%s\n' % e.message)
         return
 
-    if setting == 12:
-        stain = 'nissl' # use some heuristic to decide the stain of current section
-
-        if stain == 'nissl':
-            setting_ = setting_nissl
-            clf_allClasses_ = clf_nissl_allClasses
-        else:
-            setting_ = setting_ntb
-            clf_allClasses_ = clf_ntb_allClasses
-    else:
-        setting_ = setting
-        clf_allClasses_ = clf_allClasses
+    actual_setting = resolve_actual_setting(setting=setting, stack=stack, sec=sec)
+    clf_allClasses_ = available_classifiers[actual_setting]
 
     for structure, clf in clf_allClasses_.iteritems():
 
         probs = clf.predict_proba(features)[:, clf.classes_.tolist().index(1.)]
 
-        output_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure, setting=setting_, sec=sec)
+        output_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure, setting=actual_setting, sec=sec)
         create_if_not_exists(os.path.dirname(output_fn))
 
         bp.pack_ndarray_file(probs, output_fn)

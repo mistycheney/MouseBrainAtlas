@@ -6,6 +6,7 @@ import json
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities/')
 from metadata import *
+from utilities2015 import *
 
 stack = sys.argv[1]
 input_dir = sys.argv[2]

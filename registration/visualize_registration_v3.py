@@ -55,7 +55,8 @@ voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
 
 # For getting correct contour location
 xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = \
-DataManager.load_volume_bbox(stack=stack_fixed, type='score', label='7N', downscale=32)
+DataManager.load_volume_bbox(stack=stack_fixed, type='score', structure='7N',
+                            downscale=32, classifier_setting=classifier_setting)
 print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
 
 # Generate atlas overlay image for every section

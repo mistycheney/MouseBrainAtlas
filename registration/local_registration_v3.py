@@ -41,96 +41,131 @@ if warp_setting == 1:
 elif warp_setting == 2:
     upstream_warp_setting = 1
     transform_type = 'rigid'
+    include_surround = False
+elif warp_setting == 4:
+    upstream_warp_setting = 1
+    transform_type = 'rigid'
+    reg_weights = np.array([1e-6, 1e-6, 1e-6])
+    include_surround = False
+elif warp_setting == 5:
+    upstream_warp_setting = 1
+    transform_type = 'rigid'
+    reg_weights = np.array([0,0,0])
+    include_surround = True
 else:
     raise Exception('Warp setting not recognized.')
 
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_score_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting)
 
-volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
-                                                                         classifier_setting_m=classifier_setting,
-                                                                         classifier_setting_f=classifier_setting,
-                                                                         warp_setting=upstream_warp_setting, sided=True)
+gradient_filepath_map_f = {ind_f: \
+                           DataManager.get_score_volume_gradient_filepath_template(\
+                            stack=stack_fixed, structure=struct_f, classifier_setting=classifier_setting)
+                           for ind_f, struct_f in label_to_structure_fixed.iteritems()}
 
-structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
-label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
-volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
+std_tx_um = 600.
+std_ty_um = 600.
+std_tz_um = 1000.
+std_theta_xy = np.deg2rad(10)
+grid_search_sample_number = 10000
+terminate_thresh=1e-6
+surround_weight = -.1
 
-label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
-                     for label_m, name_m in label_to_structure_moving.iteritems()}
+trial_num = 2
 
-# 1: no regularization, structures weight the same
-# 2: with regularization, structures weight the same
-# 3: no regularization, with surround
-# 4: with regularization, with surround
-# 5: no regularization, structure weight inversely prop to size
-# 6: with regularization, structure weight inversely prop to size
-#
-# if local_transform_scheme == [1,3,5]:
-#     reg_weights = np.array([0.,0.,0.])
-# elif local_transform_scheme == 2:
-#     reg_weights = np.array([1e-6, 1e-6, 1e-6])
-# elif local_transform_scheme == 4:
-#     reg_weights = np.array([1e-4, 1e-4, 1e-4])
+for trial_idx in range(trial_num):
 
-gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath_template(\
-                            stack=stack_fixed, structure=label_to_structure_fixed[ind_f],
-                                setting=classifier_setting)
-                           for ind_m, ind_f in label_mapping_m2f.iteritems()}
+    if trial_idx in [0, 1]:
+        upstream_trial_idx = 0
 
-for structure in all_known_structures_sided:
+    for structure in all_known_structures_sided:
 
-    try:
+        try:
 
-        label_mapping_m2f_one_structure = {label_m: label_f for label_m, label_f in label_mapping_m2f.iteritems()
-                                           if label_to_structure_moving[label_m] == structure}
+            if include_surround:
+                volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
+                                                                             classifier_setting_m=classifier_setting,
+                                                                             classifier_setting_f=classifier_setting,
+                                                                             warp_setting=upstream_warp_setting,
+                                                                             trial_idx=upstream_trial_idx,
+                                                                             structures=[structure,
+                                                                                         convert_to_surround_name(structure, margin='x1.5')])
+            else:
+                volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
+                                                                             classifier_setting_m=classifier_setting,
+                                                                             classifier_setting_f=classifier_setting,
+                                                                             warp_setting=upstream_warp_setting,
+                                                                             trial_idx=upstream_trial_idx,
+                                                                             structures=[structure])
 
-        volume_moving_one_structure = {l: v for l, v in volume_moving.items()
-                                       if label_to_structure_moving[l] == structure}
+            structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
+            label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
+            volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
 
-        aligner = Aligner4(volume_fixed, volume_moving_one_structure,
-                           labelIndexMap_m2f=label_mapping_m2f_one_structure)
+            label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
+                                 for label_m, name_m in label_to_structure_moving.iteritems()}
 
-        aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m',
-                             indices_m=[structure_to_label_moving[structure]])
+            label_weights_m = {label_m: surround_weight if 'surround' in name_m else 1 \
+                               for label_m, name_m in label_to_structure_moving.iteritems()}
 
-        aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 
-        T, scores = aligner.optimize(type=transform_type,
-                                     max_iter_num=1000, history_len=50, terminate_thresh=1e-5,
-                                     indices_m=None,
-                                    grid_search_iteration_number=20,
-                                     grid_search_sample_number=1000,
-                                     grad_computation_sample_number=1e5,
-                                     lr1=10, lr2=0.1,
-                                    std_tx=50, std_ty=50, std_tz=100, std_theta_xy=np.deg2rad(10),
-                                    epsilon=1e-8)
+            aligner = Aligner4(volume_fixed, volume_moving,
+                               labelIndexMap_m2f=label_mapping_m2f)
 
-        params_fp = \
-        DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,
-                                                      classifier_setting_m=classifier_setting,
-                                                      classifier_setting_f=classifier_setting,
-                                                      warp_setting=warp_setting,
-                                                      param_suffix=structure,
-                                                      trial_idx=0)
+            aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m',
+                                 indices_m=[structure_to_label_moving[structure]])
 
-        DataManager.save_alignment_parameters(params_fp, T,
-                                              aligner.centroid_m, aligner.centroid_f,
-                                              aligner.xdim_m, aligner.ydim_m, aligner.zdim_m,
-                                              aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
+            aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 
-        score_plot_fp = \
-        DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
-                                                             classifier_setting_m=classifier_setting,
-                                                             classifier_setting_f=classifier_setting,
-                                                             warp_setting=warp_setting,
-                                                      param_suffix=structure,
-                                                             trial_idx=0)
-        fig = plt.figure();
-        plt.plot(scores);
-        plt.savefig(score_plot_fp, bbox_inches='tight')
-        plt.close(fig)
+            aligner.set_regularization_weights(reg_weights)
+            aligner.set_label_weights(label_weights_m)
 
-    except Exception as e:
-        sys.stderr.write('%s\n' % e)
-        sys.stderr.write('Error transforming volume %s.\n' % structure)
+            std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+            std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+            std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+
+            T, scores = aligner.optimize(type=transform_type,
+                                         max_iter_num=1000, history_len=50, terminate_thresh=terminate_thresh,
+                                        grid_search_iteration_number=20,
+                                         grid_search_sample_number=grid_search_sample_number,
+                                         grad_computation_sample_number=1e5,
+                                         lr1=10, lr2=0.1,
+                                         std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
+                                        epsilon=1e-8)
+
+            print T.reshape((3,4))
+            plt.figure();
+            plt.plot(scores);
+            plt.show();
+            print max(scores), scores[-1]
+
+            params_fp = \
+            DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                          classifier_setting_m=classifier_setting,
+                                                          classifier_setting_f=classifier_setting,
+                                                          warp_setting=warp_setting,
+                                                          param_suffix=structure,
+                                                          trial_idx=trial_idx)
+
+            create_if_not_exists(os.path.dirname(params_fp))
+
+            DataManager.save_alignment_parameters(params_fp, T,
+                                                  aligner.centroid_m, aligner.centroid_f,
+                                                  aligner.xdim_m, aligner.ydim_m, aligner.zdim_m,
+                                                  aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
+
+            score_plot_fp = \
+            DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                          classifier_setting_m=classifier_setting,
+                                                          classifier_setting_f=classifier_setting,
+                                                          warp_setting=warp_setting,
+                                                          param_suffix=structure,
+                                                          trial_idx=trial_idx)
+            fig = plt.figure();
+            plt.plot(scores);
+            plt.savefig(score_plot_fp, bbox_inches='tight')
+            plt.close(fig)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+            sys.stderr.write('Error transforming volume %s.\n' % structure)

@@ -2,7 +2,7 @@
 This module stores static meta information.
 """
 
-from utilities2015 import *
+# from utilities2015 import *
 
 ########### Data Directories #############
 
@@ -46,7 +46,8 @@ if hostname.endswith('sdsc.edu'):
     CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
     CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
     CELL_FEATURES_CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/classifiers/'
-    PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    # PATCH_FEATURES_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2'
+    PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
     # SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2/'
     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
@@ -67,17 +68,17 @@ elif hostname == 'yuncong-MacbookPro':
     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     GORDON_THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 
-    volume_dir = '/home/yuncong/CSHL_volumes2/'
-    VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes2/'
-    # mesh_rootdir = '/home/yuncong/CSHL_meshes'
-    MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes_v2'
+    VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
+    MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
+    REGISTRTION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
     # atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams/'
-    atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams_atlas_v2/'
-    annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
-    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
+    # atlasAlignParams_rootdir = '/home/yuncong/CSHL_atlasAlignParams_atlas_v2/'
+    # annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
     # annotation_midbrainIncluded_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped_midbrainIncluded/'
-    annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
-    cerebellum_masks_rootdir = '/home/yuncong/CSHL_cerebellum_mask_labeligns/'
+    # annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
+    # cerebellum_masks_rootdir = '/home/yuncong/CSHL_cerebellum_mask_labeligns/'
+
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
@@ -160,6 +161,8 @@ all_known_structures = paired_structures + singular_structures
 all_known_structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in all_known_structures], [])
+all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
+all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
 
 linear_landmark_names_unsided = ['outerContour']
 volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
@@ -195,3 +198,4 @@ all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
+all_alt_nissl_tracing_stacks = ['MD657']

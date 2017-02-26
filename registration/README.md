@@ -17,6 +17,20 @@ Transform: global affine (One parameter set)
 Preceeding warping: warping setting 1
 Score volume: classifier setting 2
 Transform: structure-wise rigid (One parameter set for each structure)
+Regularization = 0
+
+3:
+Upstream warping: warp setting 2
+Score volume: classifier setting 2
+Transform: global affine (One parameter set) = the inverse of parameters found by warp setting 1
+
+4:
+Upstream warping: warp setting 1
+Score volume: classifier setting 2
+Transform: structure-wise rigid (One parameter set for each structure)
+Regularization = np.array([1e-6, 1e-6, 1e-6])
+
+
 
 ## Global Registration
 

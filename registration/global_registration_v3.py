@@ -71,7 +71,7 @@ aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 
 gradient_filepath_map_f = {ind_f: DataManager.get_score_volume_gradient_filepath_template(\
                             stack=stack_fixed, structure=label_to_structure_fixed[ind_f],
-                            downscale=32, setting=classifier_setting)
+                            downscale=32, classifier_setting=classifier_setting)
                            for ind_m, ind_f in label_mapping_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins

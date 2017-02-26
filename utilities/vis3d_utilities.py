@@ -45,6 +45,7 @@ def download_volume(stack, what, dest_dir, name_u=None):
 
 
 def move_polydata(polydata, d):
+    # !!! IMPORTANT!! Note that this operation discards all scalar data (for example heatmap) in the input polydata.
     vs, fs = polydata_to_mesh(polydata)
     return mesh_to_polydata(vs + d, fs)
 
@@ -952,12 +953,32 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
     if polydata.GetNumberOfPoints() == 0:
         return None
 
-    polydata_shifted = move_polydata(polydata, origin)
+    if origin[0] == 0 and origin[1] == 0 and origin[2] == 0:
+        polydata_shifted = polydata
+    else:
+        polydata_shifted = move_polydata(polydata, origin)
+        # Note that move_polydata() discards scalar data stored in polydata.
 
     m = vtk.vtkPolyDataMapper()
     m.SetInputData(polydata_shifted)
+    a = vtk.vtkActor()
+    a.SetMapper(m)
 
-    m.ScalarVisibilityOff()
+    # IF USE LOOKUP TABLE
+
+    # from vtk.util.colors import *
+    # lut = vtk.vtkLookupTable()
+    # lut.SetNumberOfColors(256)
+    # lut.Build()
+    # for i in range(0, 16):
+    #     lut.SetTableValue(i*16, red[0], red[1], red[2], 1)
+    #     lut.SetTableValue(i*16+1, green[0], green[1], green[2], 1)
+    #     lut.SetTableValue(i*16+2, blue[0], blue[1], blue[2], 1)
+    #     lut.SetTableValue(i*16+3, black[0], black[1], black[2], 1)
+    # m.SetLookupTable(lut)
+
+    # m.ScalarVisibilityOn()
+    # m.ScalarVisibilityOff()
     # m.SetScalarModeToDefault()
     # m.SetColorModeToDefault()
     # m.InterpolateScalarsBeforeMappingOff()
@@ -966,8 +987,6 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
     # m.SetScalarMaterialModeToDefault()
     # m.GlobalImmediateModeRenderingOff()
 
-    a = vtk.vtkActor()
-    a.SetMapper(m)
     if wireframe:
         a.GetProperty().SetRepresentationToWireframe()
 
@@ -976,8 +995,10 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
 
     return a
 
-
 def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vmin=None, vmax=None):
+    """
+    Default color lookup table 0 = red, 1 = blue
+    """
 
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(loc[0], loc[1], loc[2]);
@@ -996,12 +1017,12 @@ def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vm
         vmin = values.min()
     if vmax is None:
         vmax = values.max()
+    # print 'vmin', vmin, 'vmax', vmax
     values = (np.maximum(np.minimum(values, vmax), vmin) - vmin) / (vmax - vmin)
 
     val_arr = numpy_support.numpy_to_vtk(np.array(values), deep=1, array_type=vtk.VTK_FLOAT)
+    # val_arr = numpy_support.numpy_to_vtk((np.array(values)*255).astype(np.uint8), deep=1, array_type=vtk.VTK_UNSIGNED_CHAR)
     sphere_polydata.GetPointData().SetScalars(val_arr)
-
-    # default color: 0 = red, 1 = blue
 
     return sphere_polydata
 

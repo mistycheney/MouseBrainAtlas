@@ -45,6 +45,18 @@ if warp_setting == 1:
 elif warp_setting == 2:
     upstream_warp_setting = 1
     transform_type = 'rigid'
+    include_surround = False
+elif warp_setting == 4:
+    upstream_warp_setting = 1
+    transform_type = 'rigid'
+    reg_weights = np.array([1e-6, 1e-6, 1e-6])
+    include_surround = False
+elif warp_setting == 5:
+    upstream_warp_setting = 1
+    transform_type = 'rigid'
+    reg_weights = np.array([0,0,0])
+    include_surround = True
+    surround_weight = 0
 else:
     raise Exception('Warp setting not recognized.')
 
@@ -54,39 +66,47 @@ if trial_idx in [0, 1]:
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_score_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting)
 
-volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
+
+for structure in all_known_structures_sided:
+# for structure in ['7N_L']:
+
+    try:
+
+        if include_surround:
+            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
                                                                          classifier_setting_m=classifier_setting,
                                                                          classifier_setting_f=classifier_setting,
                                                                          warp_setting=upstream_warp_setting,
                                                                          trial_idx=upstream_trial_idx,
-                                                                         sided=True)
+                                                                         structures=[structure,
+                                                                                     convert_to_surround_name(structure, margin='x1.5')])
+        else:
+            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
+                                                                         classifier_setting_m=classifier_setting,
+                                                                         classifier_setting_f=classifier_setting,
+                                                                         warp_setting=upstream_warp_setting,
+                                                                         trial_idx=upstream_trial_idx,
+                                                                         structures=[structure])
 
-structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
-label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
-volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
+        structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
+        label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
+        volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
 
-label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
-                     for label_m, name_m in label_to_structure_moving.iteritems()}
+        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
+                             for label_m, name_m in label_to_structure_moving.iteritems()}
 
-for structure in all_known_structures_sided:
+        label_weights_m = {label_m: surround_weight if 'surround' in name_m else 1. \
+                           for label_m, name_m in label_to_structure_moving.iteritems()}
 
-    try:
 
-        label_mapping_m2f_one_structure = {label_m: label_f for label_m, label_f in label_mapping_m2f.iteritems()
-                                           if label_to_structure_moving[label_m] == structure}
-
-        volume_moving_one_structure = {l: v for l, v in volume_moving.iteritems()
-                                       if label_to_structure_moving[l] == structure}
-
-        volume_fixed_one_structure = {l: v for l, v in volume_fixed.iteritems()
-                                     if label_to_structure_fixed[l] == convert_to_original_name(structure)}
-
-        aligner = Aligner4(volume_fixed_one_structure, volume_moving_one_structure,
-                           labelIndexMap_m2f=label_mapping_m2f_one_structure)
+        aligner = Aligner4(volume_fixed, volume_moving,
+                           labelIndexMap_m2f=label_mapping_m2f)
 
         aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m',
                              indices_m=[structure_to_label_moving[structure]])
 
+        aligner.set_regularization_weights(reg_weights)
+        aligner.set_label_weights(label_weights_m)
 
         ########################################
         # Read previous computed best estimate #

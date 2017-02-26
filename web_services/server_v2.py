@@ -73,7 +73,7 @@ def compose():
     filenames = map(str, request.args.getlist('filenames'))
     anchor_fn = request.args.get('anchor_fn', type=str)
     tb_fmt = request.args.get('tb_fmt', type=str)
-    pad_bg_color = request.args.get('pad_bg_color', type=str)
+    pad_bg_color = request.args.get('pad_bg_color', type=str, default='auto')
 
     elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
 
@@ -111,10 +111,9 @@ def compose():
     t = time.time()
     print 'warping...',
 
-    # transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
-
-    transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
-    														dict(stack=stack, anchor_fn=anchor_fn))
+    transforms_filename = os.path.join(elastix_output_dir,
+                        '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
+                        dict(stack=stack, anchor_fn=anchor_fn))
     transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
 
     if pad_bg_color == 'auto':
@@ -122,7 +121,7 @@ def compose():
                         {'script_dir': script_dir,
                         'stack': stack,
                         'input_dir': os.path.join(RAW_DATA_DIR, stack),
-                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnail_unsorted_alignedTo_' + anchor_fn)
+                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnails_alignedTo_' + anchor_fn)
                         },
                         kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
                                     'filename': fn + '.' + tb_fmt,
@@ -136,7 +135,7 @@ def compose():
                         {'script_dir': script_dir,
                         'stack': stack,
                         'input_dir': os.path.join(RAW_DATA_DIR, stack),
-                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnail_unsorted_alignedTo_' + anchor_fn),
+                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnails_alignedTo_' + anchor_fn),
                         'pad_bg_color': pad_bg_color},
                         kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
                                     'filename': fn + '.' + tb_fmt,

@@ -45,7 +45,8 @@ DataManager.load_alignment_parameters(stack_m=stack_moving, stack_f=stack_fixed,
                                       warp_setting=warp_setting,
                                       trial_idx=trial_idx)
 
-for structure in all_known_structures_sided:
+for structure in all_known_structures_sided_with_surround:
+# for structure in all_known_structures_sided:
 
     try:
         vol_m = DataManager.load_score_volume(stack=stack_moving, structure=structure, downscale=32)

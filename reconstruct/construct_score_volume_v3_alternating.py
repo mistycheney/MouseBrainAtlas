@@ -47,11 +47,18 @@ def load_scoremaps_multiple_sections_parallel(sections, stack, structure, downsc
 
 first_sec, last_sec = metadata_cache['section_limits'][stack]
 
+nissl_sections = []
+for sec in range(first_sec, last_sec):
+    fn = metadata_cache['sections_to_filenames'][stack][sec]
+    if not is_invalid(fn) and fn.split('-')[1][0] == 'N':
+        nissl_sections.append(sec)
+
 print structure
 
 t = time.time()
-scoremaps = load_scoremaps_multiple_sections_parallel(stack=stack, sections=range(first_sec, last_sec+1),
-                                                structure=structure, downscale=downscale, classifier_setting=classifier_setting)
+scoremaps = load_scoremaps_multiple_sections_parallel(stack=stack, sections=nissl_sections,
+                                                      structure=structure, downscale=downscale,
+                                                      classifier_setting=classifier_setting)
 
 if len(scoremaps) < 2:
     sys.stderr.write('Number of valid scoremaps for %s is less than 2.\n' % structure)
@@ -60,15 +67,19 @@ if len(scoremaps) < 2:
 sys.stderr.write('Load scoremaps: %.2f seconds\n' % (time.time() - t)) # 10-40s (down=32, 12 processes)
 
 t = time.time()
-score_volume, score_volume_bbox = images_to_volume(images=scoremaps, voxel_size=(1, 1, voxel_z_size),
-                                                   first_sec=first_sec-1, last_sec=last_sec-1)
+score_volume, score_volume_bbox = images_to_volume(images=scoremaps, voxel_size=(1, 1, voxel_z_size*2),
+                                                   first_sec=np.min(nissl_sections)-1,
+                                                   last_sec=np.max(nissl_sections)-1)
 sys.stderr.write('Create score volume: %.2f seconds\n' % (time.time() - t)) # 2s
 
 #         t = time.time()
 
-score_volume_filepath = DataManager.get_score_volume_filepath(stack=stack, downscale=downscale, structure=structure, classifier_setting=classifier_setting)
-create_if_not_exists(os.path.dirname(score_volume_filepath))
+output_dir = create_if_not_exists(os.path.join(VOLUME_ROOTDIR, stack, 'score_volumes'))
 
+score_volume_filepath = DataManager.get_score_volume_filepath(stack=stack, downscale=downscale,
+                                                              structure=structure,
+                                                              classifier_setting=classifier_setting)
+create_if_not_exists(os.path.dirname(score_volume_filepath))
 bp.pack_ndarray_file(score_volume.astype(np.float16), score_volume_filepath)
 
 score_volume_bbox_filepath = DataManager.get_score_volume_bbox_filepath(stack=stack, downscale=downscale, structure=structure,
@@ -76,5 +87,3 @@ score_volume_bbox_filepath = DataManager.get_score_volume_bbox_filepath(stack=st
 np.savetxt(score_volume_bbox_filepath, np.array(score_volume_bbox)[None], fmt='%d')
 
 del score_volume, scoremaps
-
-#         sys.stderr.write('Save score volume: %.2f seconds\n' % (time.time() - t)) # 1s (down=32)

@@ -99,6 +99,9 @@ class PolygonType(Enum):
     TEXTURE_WITH_CONTOUR = 'texture with contour'
     DIRECTION = 'directionality'
 
+def create_parent_dir_if_not_exists(fp):
+    create_if_not_exists(os.path.dirname(fp))
+
 def create_if_not_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -647,6 +650,8 @@ def bbox_3d(img):
         raise Exception('Input is empty.\n')
 
     return cmin, cmax, rmin, rmax, zmin, zmax
+
+
 
 # def sample(points, num_samples):
 #     n = len(points)

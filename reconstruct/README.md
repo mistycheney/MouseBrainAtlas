@@ -1,5 +1,11 @@
 The *reconstruct* folder contains code for reconstructing volumes from sections. The sections might be annotated or are score maps.
 
+# Various volume definitions #
+
+The annotation volume is formed by first aligning the image
+
+Mesh vertex locations are 
+
 ## Construct Score Volume ##
 
 Under folder `reconstruct`,

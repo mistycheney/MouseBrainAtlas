@@ -866,7 +866,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             pad_bg_color = 'white'
         elif self.stack in all_ntb_stacks:
             pad_bg_color = 'black'
-        elif self.stack in all_alt_nissl_ntb_stacks:
+        elif self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
             pad_bg_color = 'auto'
 
         self.web_service.convert_to_request('crop', stack=self.stack, x=ul_x, y=ul_y, w=lr_x+1-ul_x, h=lr_y+1-ul_y,
@@ -911,6 +911,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     #             mask_alg_review_results[img_fn] = decisions
     #
     #     return cleanup_mask_review(mask_alg_review_results)
+
+
 
     # def edit_masks(self):
     #

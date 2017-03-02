@@ -171,176 +171,176 @@ def crop():
 
     ##################################################
 
-    # t = time.time()
-    # sys.stderr.write('cropping thumbnail...')
-    #
-    # os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped; '
-    #             'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnail_unsorted_alignedTo_%(anchor_fn)s/*.tif') % \
-    # 	{'stack': stack,
-    # 	'stack_data_dir': os.path.join(data_dir, stack),
-    # 	'w':w, 'h':h, 'x':x, 'y':y,
-    #     'anchor_fn': anchor_fn})
-    #
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+    t = time.time()
+    sys.stderr.write('cropping thumbnail...')
 
-    #################################################
+    os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s_cropped; '
+                'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s/*.tif') % \
+    	{'stack': stack,
+    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'w':w, 'h':h, 'x':x, 'y':y,
+        'anchor_fn': anchor_fn})
 
-    # t = time.time()
-    # sys.stderr.write('expanding...')
-    #
-    # expanded_tif_dir = create_if_not_exists(os.environ['DATA_DIR'] + '/' + stack + '/' + stack + '_lossless_tif')
-    # # jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
-    #
-    # filenames_to_expand = [fn for fn in filenames[first_idx:last_idx+1] if not os.path.exists(expanded_tif_dir + '/' + fn + '_lossless.tif')]
-    # sys.stderr.write('filenames_to_expand: %s' % filenames_to_expand)
-    #
-    # run_distributed4('kdu_expand_patched -i %(jp2_dir)s/%%(fn)s_lossless.jp2 -o %(expanded_tif_dir)s/%%(fn)s_lossless.tif' % \
-    #                 {'jp2_dir': '/home/yuncong/CSHL_data/' + stack,
-    #                 # 'stack': stack,
-    #                 'expanded_tif_dir': expanded_tif_dir},
-    #                 kwargs_list={'fn': filenames_to_expand},
-    #                 exclude_nodes=exclude_nodes,
-    #                 argument_type='single')
-    #
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
-    #################################################
+    ################################################
 
-    # t = time.time()
-    # sys.stderr.write('warping and cropping lossless...')
-    #
-    # elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
-    # transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
-    # # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
-    #
-    # # print transforms_to_anchor.keys()
-    #
-    # if pad_bg_color == 'auto':
-    #     # If alternating, then black padding for F sections, white padding for N sections.
-    #     run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
-    #                     {'script_path': script_dir + '/warp_crop_IM_v2.py',
-    #                     'stack': stack,
-    #                     'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
-    #                     'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
-    #                     'x': x,
-    #                     'y': y,
-    #                     'w': w,
-    #                     'h': h},
-    #                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
-    #                                 'filename': fn + '_lossless.tif',
-    #                                 'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif',
-    #                                 'pad_bg_color': 'black' if fn.split('-')[1][0] == 'F' else 'white'}
-    #                                 for fn in filenames[first_idx:last_idx+1]],
-    #                     exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
-    #                     argument_type='single')
-    # else:
-    #     run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
-    #                     {'script_path': script_dir + '/warp_crop_IM_v2.py',
-    #                     'stack': stack,
-    #                     'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
-    #                     'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_unsorted_alignedTo_' + anchor_fn + '_cropped'),
-    #                     'x': x,
-    #                     'y': y,
-    #                     'w': w,
-    #                     'h': h,
-    #                     'pad_bg_color': pad_bg_color},
-    #                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
-    #                                 'filename': fn + '_lossless.tif',
-    #                                 'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif'}
-    #                                 for fn in filenames[first_idx:last_idx+1]],
-    #                     exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
-    #                     argument_type='single')
+    t = time.time()
+    sys.stderr.write('expanding...')
 
-    # sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+    expanded_tif_dir = create_if_not_exists(os.environ['DATA_DIR'] + '/' + stack + '/' + stack + '_lossless_tif')
+    # jp2_dir = os.environ['DATA_DIR'] + '/' + stack + '_lossless_renamed_jp2'
+
+    filenames_to_expand = [fn for fn in filenames[first_idx:last_idx+1] if not os.path.exists(expanded_tif_dir + '/' + fn + '_lossless.tif')]
+    sys.stderr.write('filenames_to_expand: %s' % filenames_to_expand)
+
+    run_distributed4('kdu_expand_patched -i %(jp2_dir)s/%%(fn)s_lossless.jp2 -o %(expanded_tif_dir)s/%%(fn)s_lossless.tif' % \
+                    {'jp2_dir': '/home/yuncong/CSHL_data/' + stack,
+                    # 'stack': stack,
+                    'expanded_tif_dir': expanded_tif_dir},
+                    kwargs_list={'fn': filenames_to_expand},
+                    exclude_nodes=exclude_nodes,
+                    argument_type='single')
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
+
+    ################################################
+
+    t = time.time()
+    sys.stderr.write('warping and cropping lossless...')
+
+    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
+    # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
+
+    # print transforms_to_anchor.keys()
+
+    if pad_bg_color == 'auto':
+        # If alternating, then black padding for F sections, white padding for N sections.
+        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
+                        {'script_path': script_dir + '/warp_crop_IM_v2.py',
+                        'stack': stack,
+                        'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
+                        'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+                        'x': x,
+                        'y': y,
+                        'w': w,
+                        'h': h},
+                        kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                    'filename': fn + '_lossless.tif',
+                                    'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif',
+                                    'pad_bg_color': 'black' if fn.split('-')[1][0] == 'F' else 'white'}
+                                    for fn in filenames[first_idx:last_idx+1]],
+                        exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
+                        argument_type='single')
+    else:
+        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
+                        {'script_path': script_dir + '/warp_crop_IM_v2.py',
+                        'stack': stack,
+                        'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
+                        'lossless_aligned_cropped_dir': os.path.join( os.environ['DATA_DIR'], stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+                        'x': x,
+                        'y': y,
+                        'w': w,
+                        'h': h,
+                        'pad_bg_color': pad_bg_color},
+                        kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
+                                    'filename': fn + '_lossless.tif',
+                                    'output_fn': fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif'}
+                                    for fn in filenames[first_idx:last_idx+1]],
+                        exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
+                        argument_type='single')
+
+    sys.stderr.write('done in %f seconds\n' % (time.time() - t))
 
     #########################################
 
-    if stack in all_ntb_stacks:
-
-        # Do gray for NT
-        t = time.time()
-        print 'Neurotrace to grayscale...',
-
-        input_dir = os.path.join( DATA_DIR, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped')
-        output_dir = create_if_not_exists(os.path.join(DATA_DIR, stack, '%(stack)s_lossless_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
-
-        run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
-                        {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', 'neurotrace_blue_to_nissl.py'),
-                        'input_dir': input_dir,
-                        'output_dir': output_dir},
-                        kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1]]),
-                        exclude_nodes=exclude_nodes,
-                        argument_type='single')
-
-        print 'done in', time.time() - t, 'seconds'
-
-        # Do compress for NT
-        t = time.time()
-        print 'Generating compressed version and/or saturation as grayscale...',
-
-        run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
-                        dict(script_dir=script_dir,
-                        stack=stack,
-                        input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
-                        compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed')),
-                        kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1]]},
-                        exclude_nodes=exclude_nodes + [32],
-                        argument_type='list2')
-
-        print 'done in', time.time() - t, 'seconds'
-
-    elif stack in all_nissl_stacks:
-
-        # Do comp. and sat. for Nissl
-        run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
-                        dict(script_dir=script_dir,
-                        stack=stack,
-                        input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
-                        compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed'),
-                        saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_saturation')),
-                        kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]]},
-                        exclude_nodes=exclude_nodes + [32],
-                        argument_type='list2')
-
-    elif stack in all_alt_nissl_ntb_stacks:
-
-        # Do gray for NT
-        print 'Neurotrace to grayscale...',
-        input_dir = os.path.join( DATA_DIR, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped')
-        output_dir = create_if_not_exists(os.path.join(DATA_DIR, stack, '%(stack)s_lossless_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
-        run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
-                        {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', 'neurotrace_blue_to_nissl.py'),
-                        'input_dir': input_dir,
-                        'output_dir': output_dir},
-                        kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1] \
-                                                    if f.split('-')[1][0] == 'F']),
-                        exclude_nodes=exclude_nodes,
-                        argument_type='single')
-
-        # Do comp. for NT
-        run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
-                        dict(script_dir=script_dir,
-                        stack=stack,
-                        input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
-                        compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed')),
-                        kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1] \
-                                                        if fn.split('-')[1][0] == 'F']},
-                        exclude_nodes=exclude_nodes + [32],
-                        argument_type='list2')
-
-        # Do comp. and sat. for Nissl
-        run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
-                        dict(script_dir=script_dir,
-                        stack=stack,
-                        input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
-                        compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed'),
-                        saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_saturation')),
-                        kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]
-                                                        if fn.split('-')[1][0] == 'N']},
-                        exclude_nodes=exclude_nodes + [32],
-                        argument_type='list2')
-    else:
-        raise
+    # if stack in all_ntb_stacks:
+    #
+    #     # Do gray for NT
+    #     t = time.time()
+    #     print 'Neurotrace to grayscale...',
+    #
+    #     input_dir = os.path.join( DATA_DIR, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped')
+    #     output_dir = create_if_not_exists(os.path.join(DATA_DIR, stack, '%(stack)s_lossless_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
+    #
+    #     run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
+    #                     {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', 'neurotrace_blue_to_nissl.py'),
+    #                     'input_dir': input_dir,
+    #                     'output_dir': output_dir},
+    #                     kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1]]),
+    #                     exclude_nodes=exclude_nodes,
+    #                     argument_type='single')
+    #
+    #     print 'done in', time.time() - t, 'seconds'
+    #
+    #     # Do compress for NT
+    #     t = time.time()
+    #     print 'Generating compressed version and/or saturation as grayscale...',
+    #
+    #     run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
+    #                     dict(script_dir=script_dir,
+    #                     stack=stack,
+    #                     input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+    #                     compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed')),
+    #                     kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1]]},
+    #                     exclude_nodes=exclude_nodes + [32],
+    #                     argument_type='list2')
+    #
+    #     print 'done in', time.time() - t, 'seconds'
+    #
+    # elif stack in all_nissl_stacks:
+    #
+    #     # Do comp. and sat. for Nissl
+    #     run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
+    #                     dict(script_dir=script_dir,
+    #                     stack=stack,
+    #                     input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+    #                     compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed'),
+    #                     saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_saturation')),
+    #                     kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]]},
+    #                     exclude_nodes=exclude_nodes + [32],
+    #                     argument_type='list2')
+    #
+    # elif stack in all_alt_nissl_ntb_stacks:
+    #
+    #     # Do gray for NT
+    #     print 'Neurotrace to grayscale...',
+    #     input_dir = os.path.join( DATA_DIR, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped')
+    #     output_dir = create_if_not_exists(os.path.join(DATA_DIR, stack, '%(stack)s_lossless_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % dict(stack=stack, anchor_fn=anchor_fn)))
+    #     run_distributed4(command='%(script_path)s %(input_dir)s %(output_dir)s %%(filename)s' % \
+    #                     {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', 'neurotrace_blue_to_nissl.py'),
+    #                     'input_dir': input_dir,
+    #                     'output_dir': output_dir},
+    #                     kwargs_list=dict(filename=[f + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for f in filenames[first_idx:last_idx+1] \
+    #                                                 if f.split('-')[1][0] == 'F']),
+    #                     exclude_nodes=exclude_nodes,
+    #                     argument_type='single')
+    #
+    #     # Do comp. for NT
+    #     run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s' % \
+    #                     dict(script_dir=script_dir,
+    #                     stack=stack,
+    #                     input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+    #                     compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed')),
+    #                     kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped_blueAsGrayscale.tif' for fn in filenames[first_idx:last_idx+1] \
+    #                                                     if fn.split('-')[1][0] == 'F']},
+    #                     exclude_nodes=exclude_nodes + [32],
+    #                     argument_type='list2')
+    #
+    #     # Do comp. and sat. for Nissl
+    #     run_distributed4('%(script_dir)s/generate_other_versions_v2.py %(stack)s %(input_dir)s \'%%(input_filenames)s\' --output_compressed_dir %(compressed_dir)s --output_saturation_dir %(saturation_dir)s' % \
+    #                     dict(script_dir=script_dir,
+    #                     stack=stack,
+    #                     input_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped'),
+    #                     compressed_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_compressed'),
+    #                     saturation_dir=os.path.join(data_dir, stack, stack + '_lossless_alignedTo_' + anchor_fn + '_cropped_saturation')),
+    #                     kwargs_list={'input_filenames': [fn + '_lossless_alignedTo_' + anchor_fn + '_cropped.tif' for fn in filenames[first_idx:last_idx+1]
+    #                                                     if fn.split('-')[1][0] == 'N']},
+    #                     exclude_nodes=exclude_nodes + [32],
+    #                     argument_type='list2')
+    # else:
+    #     raise
 
     #########################################
 

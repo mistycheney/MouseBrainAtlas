@@ -31,6 +31,19 @@ Transform: structure-wise rigid (One parameter set for each structure)
 Regularization = np.array([1e-6, 1e-6, 1e-6])
 
 
+7:
+Upstream warping: None
+rigid
+
+8:
+Upstream warping: None
+align mid-sagittal plane
+
+9:
+Upstream warping: 8
+keep mid-sagittal aligned, adjust other parameters - rigid
+
+
 
 ## Global Registration
 

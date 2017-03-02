@@ -456,7 +456,7 @@ def add_axes(iren):
 def load_mesh_stl(fn, return_polydata_only=False):
 
     if not os.path.exists(fn):
-        sys.stderr.write('load_mesh_stl: File does not exist\n')
+        sys.stderr.write('load_mesh_stl: File does not exist %s\n' % fn)
         return None
 
     reader = vtk.vtkSTLReader()
@@ -1177,7 +1177,7 @@ def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, s
     average_volume_prob = average_volume / float(average_volume.max())
 
     # Threshold prob. volumes to generate structure meshes
-    average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*concensus_percentage)
+    average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*consensus_percentage)
 
     sys.stderr.write('find common: %.2f\n' % (time.time() - t))
 
@@ -1209,6 +1209,7 @@ def fit_plane(X):
 
     # http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
     # http://math.stackexchange.com/a/3871
+    X = np.array(X)
     c = X.mean(axis=0)
     Xc = X - c
     U, _, VT = np.linalg.svd(Xc.T)
@@ -1216,7 +1217,7 @@ def fit_plane(X):
 
 def R_align_two_vectors(a, b):
     """
-    Find the
+    Find the rotation matrix that align a onto b.
     """
     # http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/897677#897677
 

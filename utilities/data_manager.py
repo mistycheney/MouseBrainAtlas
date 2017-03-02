@@ -19,6 +19,8 @@ def volume_type_to_str(t):
         return 'scoreVolume'
     elif t == 'annotation':
         return 'annotationVolume'
+    elif t == 'annotation_as_score':
+        return 'annotationAsScoreVolume'
     elif t == 'outer_contour':
         return 'outerContourVolume'
     elif t == 'intensity':
@@ -130,17 +132,6 @@ class DataManager(object):
         else:
             sys.stderr.write('File type %s not recognized.\n' % filetype)
 
-    @staticmethod
-    def get_volume_label_to_name_filename(stack):
-        fn = os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_nameToLabel.txt')
-        return fn
-
-    @staticmethod
-    def load_volume_label_to_name(stack):
-        fn = DataManager.get_volume_label_to_name_filename(stack)
-        label_to_name, name_to_label = DataManager.load_data(fn, filetype='label_name_map')
-        return label_to_name, name_to_label
-
     # @staticmethod
     # def load_volume_bbox(stack):
     #     with open(os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_bbox.txt'), 'r') as f:
@@ -247,9 +238,8 @@ class DataManager(object):
         downscale=downscale, type_m=volume_type)
 
     @staticmethod
-    def get_warped_volume_basename(stack_m,
-                                classifier_setting_m,
-                                stack_f=None,
+    def get_warped_volume_basename(stack_m, stack_f=None,
+                                classifier_setting_m=None,
                                 classifier_setting_f=None,
                                 warp_setting=None,
                                 downscale=32, type_f='score', type_m='score',
@@ -299,8 +289,8 @@ class DataManager(object):
         return basename
 
     @staticmethod
-    def get_alignment_parameters_filepath(stack_f, stack_m,
-    classifier_setting_m, classifier_setting_f, warp_setting,
+    def get_alignment_parameters_filepath(stack_f, stack_m, warp_setting,
+    classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', param_suffix=None,
     downscale=32, trial_idx=0):
         basename = DataManager.get_warped_volume_basename(**locals())
@@ -315,8 +305,8 @@ class DataManager(object):
                                 {'param_suffix':param_suffix})
 
     @staticmethod
-    def load_alignment_parameters(stack_f, stack_m,
-    classifier_setting_m, classifier_setting_f, warp_setting,
+    def load_alignment_parameters(stack_f, stack_m, warp_setting,
+    classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', param_suffix=None,
     downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
@@ -335,8 +325,8 @@ class DataManager(object):
             f.write(array_to_one_liner([xdim_f, ydim_f, zdim_f]))
 
     @staticmethod
-    def get_alignment_score_plot_filepath(stack_f, stack_m,
-    classifier_setting_m, classifier_setting_f, warp_setting,
+    def get_alignment_score_plot_filepath(stack_f, stack_m, warp_setting,
+    classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', param_suffix=None,
     downscale=32, trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
@@ -457,44 +447,48 @@ class DataManager(object):
 
     @staticmethod
     def get_intensity_volume_bbox_filepath(stack, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, volume_type='annotation')
+        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod
+    def load_annotation_as_score_volume(stack, downscale, structure):
+        fn = DataManager.get_annotation_as_score_volume_filepath(**locals())
+        return DataManager.load_data(fn, filetype='bp')
+
+    @staticmethod
+    def get_annotation_as_score_volume_filepath(stack, downscale, structure):
+        basename = DataManager.get_original_volume_basename(volume_type='annotation_as_score', **locals())
+        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '.bp')
+        return vol_fn
+
+    @staticmethod
     def load_annotation_volume(stack, downscale):
-        fn = DataManager.get_annotation_volume_filepath(stack, downscale)
+        fn = DataManager.get_annotation_volume_filepath(**locals())
         return DataManager.load_data(fn, filetype='bp')
 
     @staticmethod
     def get_annotation_volume_filepath(stack, downscale):
-        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume.bp' % \
-                {'stack':stack, 'ds':downscale}
+        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
+        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
         return vol_fn
 
     @staticmethod
     def get_annotation_volume_bbox_filepath(stack, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, volume_type='annotation')
+        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod
-    def get_annotation_volume_nameToLabel_filepath(stack, downscale):
-        vol_fn = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_annotationVolume_nameToLabel.txt' % \
-                {'stack':stack, 'ds':downscale}
-        return vol_fn
+    def get_volume_label_to_name_filepath(stack):
+        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
+        fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_nameToLabel.txt')
+        # fn = os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_nameToLabel.txt')
+        return fn
 
     @staticmethod
-    def load_annotation_volume_nameToLabel(stack, downscale):
-        fn = DataManager.get_annotation_volume_nameToLabel_filepath(stack, downscale)
-
-        labels_to_names, names_to_labels = DataManager.load_data(fn, filetype='label_name_map')
-
-        # name_to_label = {}
-        # with open(fn, 'r') as f:
-        #     for line in f.readlines():
-        #         name, label_str = line.split()
-        #         name_to_label[name] =  int(label_str)
-
-        return names_to_labels
+    def load_volume_label_to_name(stack):
+        fn = DataManager.get_volume_label_to_name_filepath(stack)
+        label_to_name, name_to_label = DataManager.load_data(fn, filetype='label_name_map')
+        return label_to_name, name_to_label
 
     ###################################
     # Mesh related
@@ -511,57 +505,78 @@ class DataManager(object):
         shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, basename + "_smoothed.stl")
         return shell_mesh_fn
 
+    # @staticmethod
+    # def load_meshes(stack, classifier_setting=None, structures=None, sided=False, return_polydata_only=True):
+    #
+    #     kwargs = locals()
+    #
+    #     if structures is None:
+    #         if sided:
+    #             structures = all_known_structures_sided
+    #         else:
+    #             structures = all_known_structures
+    #
+    #     meshes = {}
+    #     for structure in structures:
+    #         try:
+    #             meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
+    #         except Exception as e:
+    #             sys.stderr.write('%s\n' % e)
+    #             sys.stderr.write('Error loading mesh for %s.\n' % structure)
+    #
+    #     return meshes
+
+
+
+    # @staticmethod
+    # def get_mesh_filepath(stack, structure, classifier_setting, downscale=32):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, classifier_setting=classifier_setting)
+    #     fn = basename + '_%s' % structure
+    #     mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, 'structure_mesh', fn + '.stl')
+    #     print mesh_fn
+    #     return mesh_fn
+
+    # @staticmethod
+    # def get_annotation_volume_mesh_filepath(stack, downscale, label):
+    #     fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)s_annotationVolume_%(name)s_smoothed.stl" % {'stack': stack, 'name': label, 'ds':downscale})
+    #     return fn
+    #
+    # @staticmethod
+    # def load_annotation_volume_mesh(stack, downscale, label, return_polydata_only=True):
+    #     fn = DataManager.get_annotation_volume_mesh_filepath(stack, downscale, label)
+    #     return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
+
+
+    # @staticmethod
+    # def load_mesh(stack, structure, classifier_setting, return_polydata_only=True, **kwargs):
+    #     mesh_fn = DataManager.get_mesh_filepath(stack=stack, structure=structure, classifier_setting=classifier_setting)
+    #     mesh = load_mesh_stl(mesh_fn, return_polydata_only=return_polydata_only)
+    #     if mesh is None:
+    #         raise Exception('Mesh is empty.')
+    #     return mesh
+
     @staticmethod
-    def load_meshes(stack, classifier_setting=None, structures=None, sided=False, return_polydata_only=True):
-
-        kwargs = locals()
-
-        if structures is None:
-            if sided:
-                structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
-
-        meshes = {}
-        for structure in structures:
-            try:
-                meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
-            except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Error loading mesh for %s.\n' % structure)
-
-        return meshes
-
-    @staticmethod
-    def load_mesh(stack, structure, classifier_setting, return_polydata_only=True, **kwargs):
-        mesh_fn = DataManager.get_mesh_filepath(stack=stack, structure=structure, classifier_setting=classifier_setting)
-        mesh = load_mesh_stl(mesh_fn, return_polydata_only=return_polydata_only)
+    def load_mesh(stack_m,
+                                    structure,
+                                    classifier_setting_m=None,
+                                    stack_f=None,
+                                    classifier_setting_f=None,
+                                    warp_setting=None,
+                                    downscale=32,
+                                    type_m='score', type_f='score',
+                                    trial_idx=0,
+                                    return_polydata_only=True,
+                                    **kwargs):
+        mesh_fp = DataManager.get_mesh_filepath(**locals())
+        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
         if mesh is None:
-            raise Exception('Mesh is empty.')
+            raise Exception('Mesh is empty: %s.' % structure)
         return mesh
 
     @staticmethod
-    def get_mesh_filepath(stack, structure, classifier_setting, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, classifier_setting=classifier_setting)
-        fn = basename + '_%s' % structure
-        mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, 'structure_mesh', fn + '.stl')
-        print mesh_fn
-        return mesh_fn
-
-    @staticmethod
-    def get_annotation_volume_mesh_filepath(stack, downscale, label):
-        fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)s_annotationVolume_%(name)s_smoothed.stl" % {'stack': stack, 'name': label, 'ds':downscale})
-        return fn
-
-    @staticmethod
-    def load_annotation_volume_mesh(stack, downscale, label, return_polydata_only=True):
-        fn = DataManager.get_annotation_volume_mesh_filepath(stack, downscale, label)
-        return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
-
-    @staticmethod
-    def load_transformed_volume_meshes(stack_m,
-                                    classifier_setting_m,
+    def load_meshes(stack_m,
                                     stack_f=None,
+                                    classifier_setting_m=None,
                                     classifier_setting_f=None,
                                     warp_setting=None,
                                     downscale=32,
@@ -582,35 +597,95 @@ class DataManager(object):
         meshes = {}
         for structure in structures:
             try:
-                meshes[structure] = DataManager.load_transformed_volume_mesh(structure=structure, **kwargs)
+                meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
             except Exception as e:
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Error loading mesh for %s.\n' % structure)
 
         return meshes
 
-    @staticmethod
-    def load_transformed_volume_mesh(stack_m,
-                                    classifier_setting_m,
-                                    structure,
-                                    stack_f=None,
-                                    classifier_setting_f=None,
-                                    warp_setting=None,
-                                    downscale=32,
-                                    type_m='score', type_f='score',
-                                    trial_idx=0,
-                                    return_polydata_only=True,
-                                    **kwargs):
-        mesh_fp = DataManager.get_transformed_volume_mesh_filepath(**locals())
-        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
-        if mesh is None:
-            raise Exception('Mesh is empty.')
-        return mesh
+    # @staticmethod
+    # def load_transformed_volume_meshes(stack_m,
+    #                                 stack_f=None,
+    #                                 classifier_setting_m=None,
+    #                                 classifier_setting_f=None,
+    #                                 warp_setting=None,
+    #                                 downscale=32,
+    #                                 type_m='score', type_f='score',
+    #                                 trial_idx=0,
+    #                                 structures=None,
+    #                                 sided=False,
+    #                                 return_polydata_only=True):
+    #
+    #     kwargs = locals()
+    #
+    #     if structures is None:
+    #         if sided:
+    #             structures = all_known_structures_sided
+    #         else:
+    #             structures = all_known_structures
+    #
+    #     meshes = {}
+    #     for structure in structures:
+    #         try:
+    #             meshes[structure] = DataManager.load_transformed_volume_mesh(structure=structure, **kwargs)
+    #         except Exception as e:
+    #             sys.stderr.write('%s\n' % e)
+    #             sys.stderr.write('Error loading mesh for %s.\n' % structure)
+    #
+    #     return meshes
+    #
+    # @staticmethod
+    # def load_transformed_volume_mesh(stack_m,
+    #                                 structure,
+    #                                 classifier_setting_m=None,
+    #                                 stack_f=None,
+    #                                 classifier_setting_f=None,
+    #                                 warp_setting=None,
+    #                                 downscale=32,
+    #                                 type_m='score', type_f='score',
+    #                                 trial_idx=0,
+    #                                 return_polydata_only=True,
+    #                                 **kwargs):
+    #     mesh_fp = DataManager.get_transformed_volume_mesh_filepath(**locals())
+    #     mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
+    #     if mesh is None:
+    #         raise Exception('Mesh is empty: %s.' % structure)
+    #     return mesh
+    #
+    #
+    # @staticmethod
+    # def get_original_volume_mesh_filepath(stack_m,
+    #                                         structure,
+    #                                         classifier_setting_m=None,
+    #                                         classifier_setting_f=None,
+    #                                         warp_setting=None,
+    #                                         stack_f=None,
+    #                                         downscale=32,
+    #                                         type_m='score', type_f='score',
+    #                                         trial_idx=0, **kwargs):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fn = basename + '_%s' % structure
+    #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+
+    # @staticmethod
+    # def get_mesh_filepath(stack_m,
+    #                                         structure,
+    #                                         classifier_setting_m=None,
+    #                                         classifier_setting_f=None,
+    #                                         warp_setting=None,
+    #                                         stack_f=None,
+    #                                         downscale=32,
+    #                                         type_m='score', type_f='score',
+    #                                         trial_idx=0, **kwargs):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fn = basename + '_%s' % structure
+    #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
     @staticmethod
-    def get_transformed_volume_mesh_filepath(stack_m,
-                                            classifier_setting_m,
+    def get_mesh_filepath(stack_m,
                                             structure,
+                                            classifier_setting_m=None,
                                             classifier_setting_f=None,
                                             warp_setting=None,
                                             stack_f=None,
@@ -621,11 +696,25 @@ class DataManager(object):
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
+    # @staticmethod
+    # def get_transformed_volume_mesh_filepath(stack_m,
+    #                                         structure,
+    #                                         classifier_setting_m=None,
+    #                                         classifier_setting_f=None,
+    #                                         warp_setting=None,
+    #                                         stack_f=None,
+    #                                         downscale=32,
+    #                                         type_m='score', type_f='score',
+    #                                         trial_idx=0, **kwargs):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fn = basename + '_%s' % structure
+    #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+
     @staticmethod
     def load_transformed_volume(stack_m, stack_f,
-                                        classifier_setting_m,
-                                        classifier_setting_f,
                                         warp_setting,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
                                         type_m='score',
                                          type_f='score',
                                         structure=None,
@@ -635,10 +724,10 @@ class DataManager(object):
         return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
-    def load_transformed_volume_all_known_structures(stack_m,  stack_f,
-                                        classifier_setting_m,
-                                        classifier_setting_f,
+    def load_transformed_volume_all_known_structures(stack_m, stack_f,
                                         warp_setting,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
                                         type_m='score',
                                         type_f='score',
                                         downscale=32,
@@ -671,9 +760,9 @@ class DataManager(object):
 
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
-                                        classifier_setting_m,
-                                        classifier_setting_f,
                                         warp_setting,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
                                         downscale=32,
                                          type_m='score',
                                           type_f='score',
@@ -687,27 +776,20 @@ class DataManager(object):
 
         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
 
-    @staticmethod
-    def get_score_volume_filepath(stack, structure, downscale=32, classifier_setting=None):
-
-        basename = DataManager.get_original_volume_basename(**locals())
-        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
-        return vol_fn
 
     @staticmethod
-    def get_score_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None):
-        basename = DataManager.get_original_volume_basename(**locals())
-        grad_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volume_gradients', basename + '_' + structure + '_%(suffix)s.bp')
-        return grad_fn
+    def load_prob_shapes(stack_m, stack_f=None,
+            classifier_setting_m=None,
+            classifier_setting_f=None,
+            warp_setting=None,
+            downscale=32,
+            type_m='score', type_f='score',
+            trial_idx=0,
+            structures=None,
+            sided=False,
+            return_polydata_only=True):
 
-    @staticmethod
-    def get_score_volume_gradient_filepath(stack, structure, suffix, classifier_setting=None, downscale=32):
-        grad_fn = DataManager.get_score_volume_gradient_filepath_template(stack=stack, structure=structure,
-                                            classifier_setting=classifier_setting, downscale=downscale) % {'suffix': suffix}
-        return grad_fn
-
-    @staticmethod
-    def load_score_volume_all_known_structures(stack, classifier_setting=None, structures=None, sided=False):
+        kwargs = locals()
 
         if structures is None:
             if sided:
@@ -715,31 +797,183 @@ class DataManager(object):
             else:
                 structures = all_known_structures
 
-        volumes = {}
-        structure_to_label = {}
-        label_to_structure = {}
-        c = 1
-        for structure in sorted(structures):
+        prob_shapes = {}
+        for structure in structures:
             try:
-                volumes[c] = DataManager.load_score_volume(stack=stack, structure=structure,
-                                        downscale=32, classifier_setting=classifier_setting)
-                structure_to_label[structure] = c
-                label_to_structure[c] = structure
-                c += 1
-            except:
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+                vol = bp.unpack_ndarray_file(DataManager.get_prob_shape_volume_filepath(structure=structure, **kwargs))
+                origin = np.loadtxt(DataManager.get_prob_shape_origin_filepath(structure=structure, **kwargs))
+                prob_shapes[structure] = (vol, origin)
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
+                sys.stderr.write('Error loading probablistic shape for %s.\n' % structure)
 
-        # One volume at down=32 takes about 1MB of memory.
-        return volumes, structure_to_label, label_to_structure
+        return prob_shapes
 
     @staticmethod
-    def load_score_volume(stack, structure, downscale, classifier_setting=None):
-        vol_fn = DataManager.get_score_volume_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_setting)
+    def get_prob_shape_volume_filepath(stack_m, stack_f=None,
+                                        warp_setting=None,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        downscale=32,
+                                         type_m='score',
+                                         type_f='score',
+                                        structure=None,
+                                        trial_idx=0, **kwargs):
+        """
+        Return prob. shape volume filepath.
+        """
+
+        basename = DataManager.get_warped_volume_basename(**locals())
+        if structure is not None:
+            fn = basename + '_' + structure
+
+        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '.bp')
+
+    @staticmethod
+    def get_prob_shape_origin_filepath(stack_m, stack_f=None,
+                                        warp_setting=None,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        downscale=32,
+                                         type_m='score',
+                                         type_f='score',
+                                        structure=None,
+                                        trial_idx=0, **kwargs):
+        """
+        Return prob. shape volume origin filepath.
+        """
+
+        basename = DataManager.get_warped_volume_basename(**locals())
+        if structure is not None:
+            fn = basename + '_' + structure
+        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '_origin.txt')
+
+    @staticmethod
+    def get_volume_filepath(stack_m, stack_f=None,
+                                        warp_setting=None,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        downscale=32,
+                                         type_m='score',
+                                          type_f='score',
+                                        structure=None,
+                                        trial_idx=0):
+
+        basename = DataManager.get_warped_volume_basename(**locals())
+
+        if structure is not None:
+            fn = basename + '_' + structure
+
+        if type_m == 'score':
+            return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
+        else:
+            raise
+
+    @staticmethod
+    def get_volume_bbox_filepath(stack_m, stack_f=None,
+                                warp_setting=None,
+                                classifier_setting_m=None,
+                                classifier_setting_f=None,
+                                downscale=32,
+                                 type_m='score',
+                                  type_f='score',
+                                structure=None,
+                                trial_idx=0):
+        basename = DataManager.get_warped_volume_basename(**locals())
+        if structure is not None:
+            fn = basename + '_' + structure
+        if type_m == 'score':
+            return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '_bbox.txt')
+        else:
+            raise
+
+    @staticmethod
+    def get_score_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
+
+        basename = DataManager.get_original_volume_basename(**locals())
+        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
+        return vol_fn
+
+    @staticmethod
+    def get_score_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None, volume_type='score'):
+        basename = DataManager.get_original_volume_basename(**locals())
+        grad_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volume_gradients', basename + '_' + structure + '_%(suffix)s.bp')
+        return grad_fn
+
+    @staticmethod
+    def get_score_volume_gradient_filepath(stack, structure, suffix, volume_type='score', classifier_setting=None, downscale=32):
+        grad_fn = DataManager.get_score_volume_gradient_filepath_template(stack=stack, structure=structure,
+                                            classifier_setting=classifier_setting, downscale=downscale, volume_type=volume_type) % \
+                                            {'suffix': suffix}
+        return grad_fn
+
+    @staticmethod
+    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=False, volume_type='score',
+                                                return_structure_index_mapping=True):
+
+        if structures is None:
+            if sided:
+                structures = all_known_structures_sided
+            else:
+                structures = all_known_structures
+
+        if return_structure_index_mapping:
+
+            try:
+                label_to_structure, structure_to_label = DataManager.load_volume_label_to_name(stack=stack)
+                loaded = True
+                sys.stderr.write('Load structure/index map.\n')
+            except:
+                loaded = False
+                sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+
+            volumes = {}
+            if not loaded:
+                structure_to_label = {}
+                label_to_structure = {}
+                index = 1
+            for structure in sorted(structures):
+                try:
+                    if loaded:
+                        index = structure_to_label[structure]
+                    volumes[index] = DataManager.load_score_volume(stack=stack, structure=structure,
+                                            downscale=downscale, classifier_setting=classifier_setting,
+                                            volume_type=volume_type)
+                    if not loaded:
+                        structure_to_label[structure] = index
+                        label_to_structure[index] = structure
+                        index += 1
+                except:
+                    sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+
+            # One volume at down=32 takes about 1MB of memory.
+
+            sys.stderr.write('Volume shape: (%d, %d, %d)\n' % volumes.values()[0].shape)
+            return volumes, structure_to_label, label_to_structure
+
+        else:
+            volumes = {}
+            for structure in structures:
+                try:
+                    volumes[structure] = DataManager.load_score_volume(stack=stack, structure=structure,
+                                            downscale=downscale, classifier_setting=classifier_setting,
+                                            volume_type=volume_type)
+
+                except:
+                    sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+
+            sys.stderr.write('Volume shape: (%d, %d, %d)\n' % volumes.values()[0].shape)
+            return volumes
+
+
+    @staticmethod
+    def load_score_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
+        vol_fn = DataManager.get_score_volume_filepath(**locals())
         score_volume = DataManager.load_data(vol_fn, filetype='bp')
         return score_volume
 
     @staticmethod
-    def load_volume_bbox(stack, type, downscale, classifier_setting, structure=None):
+    def load_volume_bbox(stack, type, classifier_setting=None, structure=None, downscale=32):
         """
         annotation: with respect to aligned uncropped thumbnail
         score/thumbnail: with respect to aligned cropped thumbnail
@@ -1143,9 +1377,10 @@ class DataManager(object):
         return image_width, image_height
 
     @staticmethod
-    def convert_section_to_z(stack, sec, downsample, z_begin=None):
+    def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
         """
-        z_begin default to the first brainstem section.
+        first_sec: default to the first brainstem section defined in ``cropbox".
+        z_begin: default to the z position of the first_sec.
         """
 
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
@@ -1153,7 +1388,9 @@ class DataManager(object):
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
 
         # first_sec, last_sec = section_range_lookup[stack]
-        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+        if first_sec is None:
+            first_sec, _ = DataManager.load_cropbox(stack)[4:]
+
         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
             # z_begin = int(np.floor(first_sec*voxel_z_size))

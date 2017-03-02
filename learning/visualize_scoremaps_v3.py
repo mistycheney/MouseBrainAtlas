@@ -39,6 +39,9 @@ import time
 
 for sec in range(first_sec, last_sec+1):
 
+    if is_invalid(stack=stack, sec=sec):
+        continue
+
     actual_setting = resolve_actual_setting(setting=classifier_setting, stack=stack, sec=sec)
 
     t = time.time()

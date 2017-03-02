@@ -1644,3 +1644,13 @@ def fill_sparse_volume(volume_sparse):
             pts = points_inside_contour(cnt)
             volume[pts[:,1], pts[:,0], z] = ind
     return volume
+
+
+def annotation_volume_to_score_volume(ann_vol, label_to_structure):
+    all_indices = set(np.unique(ann_vol)) - {0}
+    volume_f = {label_to_structure[i]: np.zeros_like(ann_vol, dtype=np.float16) for i in all_indices}
+    for i in all_indices:
+        mask = ann_vol == i
+        volume_f[label_to_structure[i]][mask] = 1.
+        del mask
+    return volume_f

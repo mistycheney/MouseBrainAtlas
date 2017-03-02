@@ -32,11 +32,7 @@ trial_idx = args.trial_idx
 
 # Read transformed volumes
 
-warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving,
-                                                                                  type_m='score',
-                                                                                  stack_f=stack_fixed,
-                                                                                  type_f='score',
-                                                                                  downscale=32,
+warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
                                     classifier_setting_m=classifier_setting,
                                     classifier_setting_f=classifier_setting,
                                     warp_setting=warp_setting,

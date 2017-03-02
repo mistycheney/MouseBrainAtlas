@@ -52,6 +52,11 @@ elif warp_setting == 5:
     transform_type = 'rigid'
     reg_weights = np.array([0,0,0])
     include_surround = True
+elif warp_setting == 6:
+    upstream_warp_setting = 1
+    transform_type = 'affine'
+    reg_weights = np.array([0,0,0])
+    include_surround = True
 else:
     raise Exception('Warp setting not recognized.')
 
@@ -63,15 +68,17 @@ gradient_filepath_map_f = {ind_f: \
                             stack=stack_fixed, structure=struct_f, classifier_setting=classifier_setting)
                            for ind_f, struct_f in label_to_structure_fixed.iteritems()}
 
-std_tx_um = 600.
-std_ty_um = 600.
-std_tz_um = 1000.
+std_tx_um = 200.
+std_ty_um = 200.
+std_tz_um = 200.
 std_theta_xy = np.deg2rad(10)
 grid_search_sample_number = 10000
 terminate_thresh=1e-6
 surround_weight = -.1
+grid_search_iteration_number=20
+grad_computation_sample_number=1e5
 
-trial_num = 2
+trial_num = 1
 
 for trial_idx in range(trial_num):
 
@@ -126,18 +133,18 @@ for trial_idx in range(trial_num):
 
             T, scores = aligner.optimize(type=transform_type,
                                          max_iter_num=1000, history_len=50, terminate_thresh=terminate_thresh,
-                                        grid_search_iteration_number=20,
+                                        grid_search_iteration_number=grid_search_iteration_number,
                                          grid_search_sample_number=grid_search_sample_number,
-                                         grad_computation_sample_number=1e5,
+                                         grad_computation_sample_number=grad_computation_sample_number,
                                          lr1=10, lr2=0.1,
                                          std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
                                         epsilon=1e-8)
 
-            print T.reshape((3,4))
-            plt.figure();
-            plt.plot(scores);
-            plt.show();
-            print max(scores), scores[-1]
+            # print T.reshape((3,4))
+            # plt.figure();
+            # plt.plot(scores);
+            # plt.show();
+            # print max(scores), scores[-1]
 
             params_fp = \
             DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,

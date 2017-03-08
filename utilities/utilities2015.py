@@ -99,6 +99,9 @@ class PolygonType(Enum):
     TEXTURE_WITH_CONTOUR = 'texture with contour'
     DIRECTION = 'directionality'
 
+def create_parent_dir_if_not_exists(fp):
+    create_if_not_exists(os.path.dirname(fp))
+
 def create_if_not_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -426,14 +429,14 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
 #
 #     return patches_padded
 
-def display_volume_sections(vol, every=5, ncols=5):
+def display_volume_sections(vol, every=5, ncols=5, **kwargs):
     zmin, zmax = bbox_3d(vol)[4:]
     zs = range(zmin+1, zmax, every)
     vizs = [vol[..., z] for z in zs]
     titles = ['z=%d' % z  for z in zs]
-    display_images_in_grids(vizs, nc=ncols, titles=titles, vmin=0, vmax=1, cmap=plt.cm.gray)
+    display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, cmap=plt.cm.gray, **kwargs):
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
 
     if maintain_shape:
 
@@ -450,7 +453,7 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
-            axes[i].imshow(vizs[i], cmap=cmap, **kwargs);
+            axes[i].imshow(vizs[i], **kwargs);
             if titles is not None:
                 axes[i].set_title(titles[i], fontsize=30);
             axes[i].set_xticks([]);
@@ -647,6 +650,8 @@ def bbox_3d(img):
         raise Exception('Input is empty.\n')
 
     return cmin, cmax, rmin, rmax, zmin, zmax
+
+
 
 # def sample(points, num_samples):
 #     n = len(points)

@@ -10,7 +10,7 @@ parser.add_argument("setting", help="setting", type=int)
 parser.add_argument("-b", type=int, help="First section")
 parser.add_argument("-e", type=int, help="Last section")
 parser.add_argument("-a", help="add annotation", action='store_true')
-parser.add_argument("-d", help="downscale", type=int, default=8)
+parser.add_argument("-d", help="downscale", type=int, default=32)
 
 args = parser.parse_args()
 
@@ -21,19 +21,19 @@ downscale = args.d
 
 import os
 import sys
+import time
+
+from multiprocess import Pool
+
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
+from visualization_utilities import *
 
 limits = metadata_cache['section_limits'][stack]
 first_sec = args.b if args.b is not None else limits[0]
 last_sec = args.e if args.e is not None else limits[1]
-
-from visualization_utilities import *
-from multiprocess import Pool
-
-import time
 
 ################################################
 
@@ -46,26 +46,24 @@ for sec in range(first_sec, last_sec+1):
 
     t = time.time()
 
-    bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed'))
-
-    def f(structure):
-        viz_fp = DataManager.get_scoremap_viz_filepath(stack=stack, section=sec, structure=structure, setting=actual_setting)
+    def save_scoremap(structure):
+        viz_fp = DataManager.get_scoremap_viz_filepath(stack=stack, downscale=downscale, section=sec, structure=structure, setting=actual_setting)
+        create_parent_dir_if_not_exists(viz_fp)
         try:
             if add_annotation:
                 label_text = str(structure)
             else:
                 label_text = None
 
-            viz = scoremap_overlay_on(bg=bg, stack=stack, sec=sec, structure=structure,
+            viz = scoremap_overlay_on(bg='original', stack=stack, sec=sec, structure=structure,
                                 downscale=downscale, label_text=label_text, setting=actual_setting)
-            create_if_not_exists(os.path.dirname(viz_fp))
             imsave(viz_fp, img_as_ubyte(viz))
         except Exception as e:
             sys.stderr.write('%s\n' % e)
             return
 
     pool = Pool(8)
-    pool.map(f, all_known_structures)
+    pool.map(save_scoremap, all_known_structures)
     pool.close()
     pool.join()
 

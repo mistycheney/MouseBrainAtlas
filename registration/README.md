@@ -30,7 +30,6 @@ Score volume: classifier setting 2
 Transform: structure-wise rigid (One parameter set for each structure)
 Regularization = np.array([1e-6, 1e-6, 1e-6])
 
-
 7:
 Upstream warping: None
 rigid
@@ -43,6 +42,17 @@ align mid-sagittal plane
 Upstream warping: 8
 keep mid-sagittal aligned, adjust other parameters - rigid
 
+10:
+Upstream warping: None
+rigid
+terminate_thresh = 1e-6
+grad_computation_sample_number = 1e5
+grid_search_sample_number = 10000
+grid_search_iteration_number = 30
+std_tx = 300
+std_ty = 300
+std_tz = 300
+std_theta_xy = np.deg2rad(10)
 
 
 ## Global Registration

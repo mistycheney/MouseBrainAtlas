@@ -37,6 +37,15 @@ def contours_to_mask(contours, img_shape):
 
 
 def get_surround_volume(vol, distance=5, valid_level=0):
+    """
+    Return the volume with voxels surrounding active voxels in the input volume set to 1.
+
+    Args:
+        valid_level (float):
+            voxels with value above this level are regarded as active.
+        distance (int):
+            surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
+    """
     from scipy.ndimage.morphology import distance_transform_edt
     eps = 5
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)

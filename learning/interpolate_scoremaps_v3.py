@@ -137,7 +137,7 @@ for sec in range(first_sec, last_sec+1):
 
     t = time.time()
 
-    pool = Pool(8) # 8 causes contention, resuls in high upscaling and dumping to disk time.
+    pool = Pool(4) # 8 causes contention, resuls in high upscaling and dumping to disk time.
     _ = pool.map(generate_score_map, structures)
     pool.close()
     pool.join()

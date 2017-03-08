@@ -8,24 +8,8 @@ import numpy as np
 
 import re
 
-# def extract_names(d, node, structure_tree_dict):
-#
-#     if len(node['children']) == 0:
-#         return
-#     else:
-#         for name in node['children']:
-#             print name
-#
-#             if 'abbr' in structure_tree_dict[name] and len(structure_tree_dict[name]['abbr']) > 0:
-#                 key = structure_tree_dict[name]['fullname'] + ' (' + structure_tree_dict[name]['abbr'] + ')'
-#             else:
-#                 key = structure_tree_dict[name]['fullname']
-#
-#             if key not in d:
-#                 d[key] = {}
-#
-#             extract_names(d[key], structure_tree_dict[name], structure_tree_dict)
-
+def get_list_from_model(model):
+    return [str(model.data(model.index(index, 0))) for index in range(model.rowCount())]
 
 def fill_item_to_tree_widget(item, value):
     # http://stackoverflow.com/questions/21805047/qtreewidget-to-mirror-python-dictionary
@@ -41,30 +25,6 @@ def fill_item_to_tree_widget(item, value):
             child.setCheckState(0, Qt.Checked)
             item.addChild(child)
             fill_item_to_tree_widget(child, val)
-    # elif type(value) is list:
-    #     for val in value:
-    #       child = QTreeWidgetItem()
-    #       child.setFlags(child.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
-    #       child.setCheckState(0, Qt.Checked)
-    #       item.addChild(child)
-    #       if type(val) is dict:
-    #           child.setText(0, '[dict]')
-    #           fill_item_to_tree_widget(child, val, valid_abbrs)
-    #       elif type(val) is list:
-    #           child.setText(0, '[list]')
-    #           fill_item_to_tree_widget(child, val, valid_abbrs)
-    #       else:
-    #           child.setText(0, val)
-    #       child.setExpanded(True)
-    # else:
-    #     child = QTreeWidgetItem()
-    #     child.setText(0, value)
-    #     child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-    #     child.setCheckState(0, Qt.Checked)
-    #     # if value not in valid_names:
-    #     #     print value
-    #     #     child.setDisabled(True)
-    #     item.addChild(child)
 
 def decide_whether_enable(node, valid_abbrs):
     # http://stackoverflow.com/questions/8961449/pyqt-qtreewidget-iterating

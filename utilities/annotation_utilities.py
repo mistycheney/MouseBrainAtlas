@@ -1,23 +1,21 @@
-import numpy as np
-
 import sys
 import os
+from collections import defaultdict
+
+import numpy as np
+import pandas as pd
+from skimage.measure import grid_points_in_poly
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
 
-import pandas as pd
-
-from collections import defaultdict
-
-from skimage.measure import grid_points_in_poly
-# from skimage.morphology import label
-
-# import scipy.ndimage as nd
 
 def contours_to_mask(contours, img_shape):
+    """
+    img_shape: h,w
+    """
 
     final_masks = []
 
@@ -34,6 +32,15 @@ def contours_to_mask(contours, img_shape):
 
 
 def get_surround_volume(vol, distance=5, valid_level=0):
+    """
+    Return the volume with voxels surrounding active voxels in the input volume set to 1.
+
+    Args:
+        valid_level (float):
+            voxels with value above this level are regarded as active.
+        distance (int):
+            surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
+    """
     from scipy.ndimage.morphology import distance_transform_edt
     eps = 5
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
@@ -52,86 +59,6 @@ def get_surround_volume(vol, distance=5, valid_level=0):
     surround_vol = np.zeros_like(vol)
     surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1] = roi_surround_vol
     return surround_vol
-
-# def get_surround_volume(vol, enlarge_factor=1.5, valid_level=0):
-# Not a good idea - Tricky to get the centers right.
-#
-#     labeled_volume, num_components = label(vol > valid_level, return_num=True)
-#
-#     overall_volume = np.zeros(vol.shape, np.float16)
-#     overall_ydim, overall_xdim, overall_zdim = overall_volume.shape
-#
-#     for l in range(1, 1+num_components):
-#
-#         ys, xs, zs = np.where(labeled_volume == l)
-#
-#         centroid_y = ys.mean().astype(np.int)
-#         centroid_x = xs.mean().astype(np.int)
-#         centroid_z = zs.mean().astype(np.int)
-#
-#         xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(labeled_volume == l)
-#
-#         cropped_vol = labeled_volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] == l
-#         cropped_vol_ydim, cropped_vol_xdim, cropped_vol_zdim = cropped_vol.shape
-#
-#         enlarged_vol = nd.interpolation.zoom(cropped_vol.astype(np.float), zoom=enlarge_factor) > .1
-#         enlarged_ydim, enlarged_xdim, enlarged_zdim = enlarged_vol.shape
-#
-#         center_y, center_x, center_z = np.array(enlarged_vol.shape)/2
-#
-#         enlarged_vol[center_y-cropped_vol_ydim/2:center_y+cropped_vol_ydim-cropped_vol_ydim/2,
-#                      center_x-cropped_vol_xdim/2:center_x+cropped_vol_xdim-cropped_vol_xdim/2,
-#                      center_z-cropped_vol_zdim/2:center_z+cropped_vol_zdim-cropped_vol_zdim/2][cropped_vol] = 0
-#
-#         proposed_sub_xmin = centroid_x - enlarged_xdim/2
-#         proposed_sub_xmax = proposed_sub_xmin + enlarged_xdim - 1
-#
-#         proposed_sub_zmin = centroid_z - enlarged_zdim/2
-#         proposed_sub_zmax = proposed_sub_zmin + enlarged_zdim - 1
-#
-#         proposed_sub_ymin = centroid_y - enlarged_ydim/2
-#         proposed_sub_ymax = proposed_sub_ymin + enlarged_ydim - 1
-#
-#         sub_vol_ymin = 0
-#         sub_vol_ymax = enlarged_ydim - 1
-#
-#         if proposed_sub_ymin < 0:
-#             sub_vol_ymin = - proposed_sub_ymin
-#             proposed_sub_ymin = 0
-#         if proposed_sub_ymax >= overall_ydim:
-#             sub_vol_ymax = enlarged_ydim - 1 - (proposed_sub_ymax - overall_ydim + 1)
-#             proposed_sub_ymax = overall_ydim - 1
-#
-#         sub_vol_xmin = 0
-#         sub_vol_xmax = enlarged_xdim - 1
-#
-#         if proposed_sub_xmin < 0:
-#             sub_vol_xmin = - proposed_sub_xmin
-#             proposed_sub_xmin = 0
-#
-#         if proposed_sub_xmax >= overall_xdim:
-#             sub_vol_xmax = enlarged_xdim - 1 - (proposed_sub_xmax - overall_xdim + 1)
-#             proposed_sub_xmax = overall_xdim - 1
-#
-#         sub_vol_zmin = 0
-#         sub_vol_zmax = enlarged_zdim - 1
-#
-#         if proposed_sub_zmin < 0:
-#             sub_vol_zmin = - proposed_sub_zmin
-#             proposed_sub_zmin = 0
-#
-#         if proposed_sub_zmax >= overall_zdim:
-#             sub_vol_zmax = enlarged_zdim - 1 - (proposed_sub_zmax - overall_zdim + 1)
-#             proposed_sub_zmax = overall_zdim - 1
-#
-#         overall_volume[proposed_sub_ymin:proposed_sub_ymax+1,
-#                        proposed_sub_xmin:proposed_sub_xmax+1,
-#                        proposed_sub_zmin:proposed_sub_zmax+1] = \
-#         enlarged_vol[sub_vol_ymin:sub_vol_ymax+1,
-#                     sub_vol_xmin:sub_vol_xmax+1,
-#                     sub_vol_zmin:sub_vol_zmax+1].copy().astype(np.float16)
-#
-#     return overall_volume
 
 def points_inside_contour(cnt, num_samples=None):
     xmin, ymin = cnt.min(axis=0)
@@ -899,7 +826,35 @@ def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
 
     return resampled_interpolated_contours
 
+def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
+    with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
+        fn_idx_tuples = [line.strip().split() for line in f.readlines()]
+        filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
+
+    import cPickle as pickle
+    Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
+
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+        fn = cnt['filename']
+        if fn not in filename_to_section:
+            continue
+        sec = filename_to_section[fn]
+        contour_df.loc[cnt_id, 'section'] = sec
+
+        T = Ts[fn].copy()
+        T[:2, 2] = T[:2, 2]*32
+        Tinv = np.linalg.inv(T)
+
+        n = len(cnt['vertices'])
+
+        vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2]
+        contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+
+        label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2]
+        contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+
+    return contour_df
 
 def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 

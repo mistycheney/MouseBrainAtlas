@@ -2,3 +2,5 @@
 - [x] More detailed confusion matrix.
 - [ ] Investigate false positives around a landmark.
 - [ ] Derive a result quality measure - score peakedness, etc.
+- [ ] inspired by active appearance model, can we learn to optimize contours based on the texture descriptor directly? instead of depending on score maps.
+- [ ] Implement some sort of assistance in GUI to save user time in reviewing boundaries. e.g. click a few boundary points, automatically estimate best boundaries (specify transform or linear control-point based shape model). This is more convenient than Clicking each vertices to create new contours.

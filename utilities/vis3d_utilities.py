@@ -45,6 +45,7 @@ def download_volume(stack, what, dest_dir, name_u=None):
 
 
 def move_polydata(polydata, d):
+    # !!! IMPORTANT!! Note that this operation discards all scalar data (for example heatmap) in the input polydata.
     vs, fs = polydata_to_mesh(polydata)
     return mesh_to_polydata(vs + d, fs)
 
@@ -455,7 +456,7 @@ def add_axes(iren):
 def load_mesh_stl(fn, return_polydata_only=False):
 
     if not os.path.exists(fn):
-        sys.stderr.write('load_mesh_stl: File does not exist\n')
+        sys.stderr.write('load_mesh_stl: File does not exist %s\n' % fn)
         return None
 
     reader = vtk.vtkSTLReader()
@@ -952,12 +953,32 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
     if polydata.GetNumberOfPoints() == 0:
         return None
 
-    polydata_shifted = move_polydata(polydata, origin)
+    if origin[0] == 0 and origin[1] == 0 and origin[2] == 0:
+        polydata_shifted = polydata
+    else:
+        polydata_shifted = move_polydata(polydata, origin)
+        # Note that move_polydata() discards scalar data stored in polydata.
 
     m = vtk.vtkPolyDataMapper()
     m.SetInputData(polydata_shifted)
+    a = vtk.vtkActor()
+    a.SetMapper(m)
 
-    m.ScalarVisibilityOff()
+    # IF USE LOOKUP TABLE
+
+    # from vtk.util.colors import *
+    # lut = vtk.vtkLookupTable()
+    # lut.SetNumberOfColors(256)
+    # lut.Build()
+    # for i in range(0, 16):
+    #     lut.SetTableValue(i*16, red[0], red[1], red[2], 1)
+    #     lut.SetTableValue(i*16+1, green[0], green[1], green[2], 1)
+    #     lut.SetTableValue(i*16+2, blue[0], blue[1], blue[2], 1)
+    #     lut.SetTableValue(i*16+3, black[0], black[1], black[2], 1)
+    # m.SetLookupTable(lut)
+
+    # m.ScalarVisibilityOn()
+    # m.ScalarVisibilityOff()
     # m.SetScalarModeToDefault()
     # m.SetColorModeToDefault()
     # m.InterpolateScalarsBeforeMappingOff()
@@ -966,8 +987,6 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
     # m.SetScalarMaterialModeToDefault()
     # m.GlobalImmediateModeRenderingOff()
 
-    a = vtk.vtkActor()
-    a.SetMapper(m)
     if wireframe:
         a.GetProperty().SetRepresentationToWireframe()
 
@@ -976,8 +995,10 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
 
     return a
 
-
 def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vmin=None, vmax=None):
+    """
+    Default color lookup table 0 = red, 1 = blue
+    """
 
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(loc[0], loc[1], loc[2]);
@@ -996,12 +1017,12 @@ def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vm
         vmin = values.min()
     if vmax is None:
         vmax = values.max()
+    # print 'vmin', vmin, 'vmax', vmax
     values = (np.maximum(np.minimum(values, vmax), vmin) - vmin) / (vmax - vmin)
 
     val_arr = numpy_support.numpy_to_vtk(np.array(values), deep=1, array_type=vtk.VTK_FLOAT)
+    # val_arr = numpy_support.numpy_to_vtk((np.array(values)*255).astype(np.uint8), deep=1, array_type=vtk.VTK_UNSIGNED_CHAR)
     sphere_polydata.GetPointData().SetScalars(val_arr)
-
-    # default color: 0 = red, 1 = blue
 
     return sphere_polydata
 
@@ -1156,7 +1177,7 @@ def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, s
     average_volume_prob = average_volume / float(average_volume.max())
 
     # Threshold prob. volumes to generate structure meshes
-    average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*concensus_percentage)
+    average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*consensus_percentage)
 
     sys.stderr.write('find common: %.2f\n' % (time.time() - t))
 
@@ -1188,6 +1209,7 @@ def fit_plane(X):
 
     # http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
     # http://math.stackexchange.com/a/3871
+    X = np.array(X)
     c = X.mean(axis=0)
     Xc = X - c
     U, _, VT = np.linalg.svd(Xc.T)
@@ -1195,7 +1217,7 @@ def fit_plane(X):
 
 def R_align_two_vectors(a, b):
     """
-    Find the
+    Find the rotation matrix that align a onto b.
     """
     # http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/897677#897677
 

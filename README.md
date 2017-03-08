@@ -14,3 +14,6 @@ This is the repo for mouse brainstem atlas project.
 - *utilities*: utilities code
 - *visualization*: notebook for testing visualization code
 - *web_service*: code for the web service that accept request for preprocessing and other tasks from GUI.
+
+# Possible Improvement #
+- Use a unbiased way to construct/update reference model, rather than align all brains to one particular brain.

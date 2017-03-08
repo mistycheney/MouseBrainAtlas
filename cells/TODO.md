@@ -1,1 +1,2 @@
 - [x] Show reconstructed images
+- [ ] Use the peak and significance as features instead of histograms. Smooth, find peak, compute goodness.

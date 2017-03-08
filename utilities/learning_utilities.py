@@ -119,100 +119,6 @@ xlabel='Predicted label', ylabel='True label', **kwargs):
     if return_fig:
         return fig
 
-# def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
-#     """
-#     fn_template: a str including argument %stack and %sec
-#     """
-#
-#     locations = locate_patches_given_addresses(addresses)
-#
-#     locations_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-#     for list_index, (stack, sec, loc, name) in enumerate(locations):
-#         locations_grouped[stack][sec][name].append(loc)
-#     locations_grouped.default_factory = None
-#
-#     for stack, locations_allSections in locations_grouped.iteritems():
-#         for sec, locations_allNames in locations_allSections.iteritems():
-#             clrs = [name_to_color[name] for name in locations_allNames.iterkeys()]
-#             locs = locations_allNames.values()
-#             viz = patch_boxes_overlay_on(bg='original', downscale_factor=downscale_factor,
-#                                         locs=locs, colors=clrs, patch_size=224, stack=stack, sec=sec)
-#             cv2.imwrite(fn_template % {'stack':stack, 'sec':sec}, viz[...,::-1])
-
-
-# def get_names_given_locations(stack, section, label_polygons=None, username=None, locations=None, indices=None, grid_spec=None, grid_locations=None):
-#
-#     if label_polygons is None:
-#         label_polygons = load_label_polygons_if_exists(stack, username)
-#
-#     # if indices is not None:
-#     #     assert locations is None, 'Cannot specify both indices and locs.'
-#     #     if grid_locations is None:
-#     #         grid_locations = grid_parameters_to_sample_locations(grid_spec)
-#     #     locations = grid_locations[indices]
-#
-#     index_to_name_mapping = {}
-#     for name, full_indices in label_polygons.loc[section].dropna().to_dict():
-#         for i in full_indices:
-#             index_to_name_mapping[i] = name
-#
-#     return [index_to_name_mapping[i] for i in indices]
-
-
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
-                                    grid_locations=None, version='rgb-jpg'):
-    """
-
-    """
-
-    img = imread(DataManager.get_image_filepath(stack, sec, version=version))
-
-    if grid_spec is None:
-        grid_spec = get_default_gridspec(stack)
-
-    patch_size, stride, w, h = grid_spec
-    half_size = patch_size/2
-
-    if indices is not None:
-        assert locs is None, 'Cannot specify both indices and locs.'
-        if grid_locations is None:
-            grid_locations = grid_parameters_to_sample_locations(grid_spec)
-        locs = grid_locations[indices]
-
-    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-    return patches
-
-
-# def locate_patches_given_addresses(addresses):
-#     """
-#     addresses is a list of addresses.
-#     address: stack, section, structure_name, index
-#     """
-#
-#     from collections import defaultdict
-#     addresses_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-#     for addressList_index, (stack, sec, name, i) in enumerate(addresses):
-#         addresses_grouped[stack][sec][name].append((i, addressList_index))
-#
-#     patch_locations_all = []
-#     addressList_indices_all = []
-#     for stack, indices_allSections in addresses_grouped.iteritems():
-#         grid_spec = get_default_gridspec(stack)
-#         sample_locations = grid_parameters_to_sample_locations(grid_spec)
-#         indices_allLandmarks_allSections = locate_annotated_patches(stack, grid_spec)
-#         for sec, indices_allNames in indices_allSections.iteritems():
-#             for name, fwInd_addrLstInd_tuples in indices_allNames.iteritems():
-#                 landmarkWise_indices_selected, addressList_indices = map(list, zip(*fwInd_addrLstInd_tuples))
-#                 frameWise_indices_oneLandmark = indices_allLandmarks_allSections[sec][name]
-#                 frameWise_indices_selected = frameWise_indices_oneLandmark[landmarkWise_indices_selected]
-#
-#                 patch_locations_all += [(stack, sec, loc, name) for loc in sample_locations[frameWise_indices_selected]]
-#                 addressList_indices_all += addressList_indices
-#
-#     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
-#     return patch_locations_all_inOriginalOrder
-
-
 def locate_patches_given_addresses_v2(addresses):
     """
     addresses is a list of addresses.
@@ -237,29 +143,55 @@ def locate_patches_given_addresses_v2(addresses):
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
+                                    grid_locations=None, version='compressed'):
+    """
+    Return patches at given locations.
+
+    Args:
+        indices:
+            grid indices
+
+    Returns:
+        list of patches.
+    """
+
+    img = imread(DataManager.get_image_filepath(stack, sec, version=version))
+
+    if grid_spec is None:
+        grid_spec = get_default_gridspec(stack)
+
+    patch_size, stride, w, h = grid_spec
+    half_size = patch_size/2
+
+    if indices is not None:
+        assert locs is None, 'Cannot specify both indices and locs.'
+        if grid_locations is None:
+            grid_locations = grid_parameters_to_sample_locations(grid_spec)
+        locs = grid_locations[indices]
+
+    print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
+    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+    return patches
+
 def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='rgb-jpg'):
     """
-    addresses is a list of addresses.
-    address: stack, section, framewise_index
+    Args:
+        addresses:
+            list of (stack, section, framewise_index)
+    Returns:
+        list of patches
     """
 
     from collections import defaultdict
-    # locations_grouped = defaultdict(lambda: defaultdict(list))
-    # for list_index, (stack, sec, loc) in enumerate(addresses):
-    #     locations_grouped[stack][sec].append((loc, list_index))
 
     locations_grouped = {}
     for stack_sec, list_index_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (i, x): (x[0],x[1])),
         key=lambda (i,x): (x[0], x[1])):
         locations_grouped[stack_sec] = [(address[2], list_index) for list_index, address in list_index_and_address_grouper]
 
-    # locations_grouped = {stack_sec: (x[2], list_index) \
-    #                     for stack_sec, (list_index, x) in groupby(enumerate(addresses), lambda (i, x): (x[0],x[1]))}
-
     patches_all = []
     list_indices_all = []
-    # for stack, locations_allSections in locations_grouped.iteritems():
-    #     for sec, loc_listInd_tuples in locations_allSections.iteritems():
     for stack_sec, locations_allSections in locations_grouped.iteritems():
         stack, sec = stack_sec
         locs_thisSec, list_indices = map(list, zip(*locations_allSections))
@@ -347,7 +279,7 @@ def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = metadata_cache['image_shape'][stack]
     return (patch_size, stride, image_width, image_height)
 
-def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
+def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_margins=None):
     """
     If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
 
@@ -365,7 +297,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df = read_hdf(annotation_midbrainIncluded_v2_rootdir + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -377,12 +309,16 @@ def locate_annotated_patches_v2(stack, grid_spec=None, annotation_rootdir=None):
 
     patch_indices_allSections_allStructures = {}
     for sec, group in grouped:
+        if sections is not None:
+            if sec not in sections:
+                continue
         sys.stderr.write('Analyzing section %d..\n' % sec)
-        if sections_to_filenames[sec] in ['Placeholder', 'Nonexisting, Rescan']:
+        if is_invalid(sec=sec, stack=stack):
             continue
         polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in group.iterrows()]
         mask_tb = DataManager.load_thumbnail_mask_v2(stack, sec)
-        patch_indices = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec)
+        patch_indices = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                                            surround_margins=surround_margins)
         patch_indices_allSections_allStructures[sec] = patch_indices
 
     patch_indices_allSections_allStructures_df = DataFrame(patch_indices_allSections_allStructures)
@@ -448,8 +384,8 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
     sample_locations = np.c_[xs.flat, ys.flat]
     return sample_locations
 
-def locate_patches_v2(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None,
-bbox_lossless=None):
+def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, image_shape=None, mask_tb=None, polygons=None, bbox=None,
+bbox_lossless=None, surround_margins=None):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
@@ -466,7 +402,9 @@ bbox_lossless=None):
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    if image_shape is not None :
+    image_shape = grid_spec[2:]
+
+    if image_shape is not None:
         image_width, image_height = image_shape
     else:
         image_width, image_height = metadata_cache['image_shape'][stack]
@@ -477,11 +415,19 @@ bbox_lossless=None):
     if stride is None:
         stride = grid_spec[1]
 
+    if surround_margins is None:
+        surround_margins = [100,200,300,400,500,600,700,800,900,1000]
+
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
 
     indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0] # patches in the foreground
+    # sys.stderr.write('%d patches in fg\n' % len(indices_fg))
+
     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg) # patches in the background
+
+    if polygons is None and bbox is None and bbox_lossless is None:
+        return indices_fg
 
     if polygons is not None:
         if isinstance(polygons, dict):
@@ -496,7 +442,7 @@ bbox_lossless=None):
 
         if bbox is not None:
 
-            # box_x, box_y, box_w, box_h = detect_bbox_lookup[stack]
+            box_x, box_y, box_w, box_h = bbox
 
             xmin = max(half_size, box_x*32)
             xmax = min(image_width-half_size-1, (box_x+box_w)*32)
@@ -547,14 +493,14 @@ bbox_lossless=None):
                                               path.contains_points(sample_locations_ur))[0]
 
             indices_allLandmarks[label] = indices_inside[label]
-            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label]), label))
+            # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label]), label))
 
         indices_allInside = np.concatenate(indices_inside.values())
 
         for label, poly in polygon_list:
 
             ############# surrround = 500 #############
-            for margin in [100,200,300,400,500,600,700,800,900,1000]:
+            for margin in surround_margins:
             # margin = 500
                 surround = Polygon(poly).buffer(margin, resolution=2)
                 # 500 pixels (original resolution, ~ 250um) away from landmark contour
@@ -567,7 +513,7 @@ bbox_lossless=None):
 
                 # surround classes do not include patches of any no-surround class
                 indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-                sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
+                # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
                 # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
 
                 for l, inds in indices_inside.iteritems():
@@ -575,11 +521,11 @@ bbox_lossless=None):
                     indices = np.intersect1d(indices_sur, inds)
                     if len(indices) > 0:
                         indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
-                        sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
+                        # sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
 
             # # all foreground patches except the particular label's inside patches
             indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
-            sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_negative']), label+'_negative'))
+            # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_negative']), label+'_negative'))
 
         # for l, inds in indices_inside.iteritems():
         #     indices_allLandmarks[l] = inds
@@ -588,105 +534,14 @@ bbox_lossless=None):
         #     indices_allLandmarks[l+'_surround_noclass'] = inds
         #     print len(inds), 'patches in', l+'_surround_noclass'
         indices_allLandmarks['bg'] = indices_bg
-        sys.stderr.write('%d patches in %s\n' % (len(indices_bg), 'bg'))
+        # sys.stderr.write('%d patches in %s\n' % (len(indices_bg), 'bg'))
 
         indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
-        sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks['noclass']), 'noclass'))
+        # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks['noclass']), 'noclass'))
 
-    return indices_allLandmarks
+        return indices_allLandmarks
 
-
-# def locate_patches(grid_spec=None, stack=None, patch_size=224, stride=56, image_shape=None, mask_tb=None, polygons=None, bbox=None):
-#     """
-#     Return addresses of patches that are either in polygons or on mask.
-#     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
-#     - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h)
-#     - If polygons is given, the valid patches are those whose bounding boxes. polygons is a dict, keys are structure names, values are vertices (xy).
-#     if shrinked to 30%% are completely within the polygons.
-#     """
-#
-#     if grid_spec is not None:
-#         patch_size, stride, image_width, image_height = grid_spec
-#     elif image_shape is not None :
-#         image_width, image_height = image_shape
-#     else:
-#         image_width, image_height = DataManager.get_image_dimension(stack)
-#
-#     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
-#     half_size = patch_size/2
-#
-#     indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0]
-#     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg)
-#
-#     if bbox is not None:
-#         assert polygons is None, 'Can only supply one of bbox or polygons.'
-#
-#         box_x, box_y, box_w, box_h = detect_bbox_lookup[stack] if bbox is None else bbox
-#
-#         xmin = max(half_size, box_x*32)
-#         xmax = min(image_width-half_size-1, (box_x+box_w)*32)
-#         ymin = max(half_size, box_y*32)
-#         ymax = min(image_height-half_size-1, (box_y+box_h)*32)
-#
-#         indices_roi = np.where(np.all(np.c_[sample_locations[:,0] > xmin, sample_locations[:,1] > ymin,
-#                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
-#
-#         indices_roi = np.setdiff1d(indices_roi, indices_bg)
-#         print len(indices_roi), 'patches in ROI'
-#
-#         return indices_roi
-#
-#     else:
-#         assert polygons is not None, 'Can only supply one of bbox or polygons.'
-#
-#         # This means we require a patch to have 30% of its radius to be within the landmark boundary to be considered inside the landmark
-#         margin = int(.3*half_size)
-#
-#         sample_locations_ul = sample_locations - (margin, margin)
-#         sample_locations_ur = sample_locations - (-margin, margin)
-#         sample_locations_ll = sample_locations - (margin, -margin)
-#         sample_locations_lr = sample_locations - (-margin, -margin)
-#
-#         indices_inside = {}
-#         indices_surround = {}
-#
-#         for label, poly in polygons.iteritems():
-#
-#             path = Path(poly)
-#             indices_inside[label] =  np.where(path.contains_points(sample_locations_ll) &\
-#                                               path.contains_points(sample_locations_lr) &\
-#                                               path.contains_points(sample_locations_ul) &\
-#                                               path.contains_points(sample_locations_ur))[0]
-#
-#         indices_allInside = np.concatenate(indices_inside.values())
-#
-#         for label, poly in polygons.iteritems():
-#
-#             surround = Polygon(poly).buffer(500, resolution=2)
-#
-#             path = Path(list(surround.exterior.coords))
-#             indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
-#                                     path.contains_points(sample_locations_lr) &\
-#                                     path.contains_points(sample_locations_ul) &\
-#                                     path.contains_points(sample_locations_ur))[0]
-#
-#             # surround classes do not include patches of any no-surround class
-#             indices_surround[label] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-#
-#
-#         indices_allLandmarks = {}
-#         for l, inds in indices_inside.iteritems():
-#             indices_allLandmarks[l] = inds
-#             print len(inds), 'patches in', l
-#         for l, inds in indices_surround.iteritems():
-#             indices_allLandmarks[l+'_surround'] = inds
-#             print len(inds), 'patches in', l+'_surround'
-#         indices_allLandmarks['bg'] = indices_bg
-#         print len(indices_bg), 'patches in', 'bg'
-#
-#     return indices_allLandmarks
-
-def addresses_to_structure_distances(addresses, structure_centers_all_secs_all_names):
+def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all_secs_all_names):
     """
     Return a list of dict {structure_name: distance}.
     """
@@ -704,8 +559,8 @@ def addresses_to_structure_distances(addresses, structure_centers_all_secs_all_n
         locations_this_group = np.array([grid_locations[st][gp_ind] for st,sec,gp_ind,list_ind in address_group])
         list_indices_this_group = [list_ind for st,sec,gp_ind,list_ind in address_group]
 
-        for structure_name in structure_centers_all_secs_all_names[sec].keys():
-            distances = np.sqrt(np.sum((locations_this_group - structure_centers_all_secs_all_names[sec][structure_name])**2, axis=1))
+        for structure_name in structure_centers_all_stacks_all_secs_all_names[st][sec].keys():
+            distances = np.sqrt(np.sum((locations_this_group - structure_centers_all_stacks_all_secs_all_names[st][sec][structure_name])**2, axis=1))
             distances_to_structures[structure_name] += zip(list_indices_this_group, distances)
 
     distances_to_structures.default_factory = None

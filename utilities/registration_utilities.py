@@ -236,6 +236,8 @@ class Aligner4(object):
                 self.centroid_m = np.concatenate([nzvoxels_m[i] for i in indices_m]).mean(axis=0)
             elif centroid_m == 'volume_centroid':
                 self.centroid_m = np.r_[.5*self.xdim_m, .5*self.ydim_m, .5*self.zdim_m]
+            elif centroid_m == 'origin':
+                self.centroid_m = np.zeros((3,))
             else:
                 raise Exception('centroid_m not recognized.')
 
@@ -244,6 +246,8 @@ class Aligner4(object):
                 self.centroid_f = self.centroid_m
             elif centroid_f == 'volume_centroid':
                 self.centroid_f = np.r_[.5*self.xdim_f, .5*self.ydim_f, .5*self.zdim_f]
+            elif centroid_f == 'origin':
+                self.centroid_f = np.zeros((3,))
             else:
                 raise Exception('centroid_f not recognized.')
 
@@ -409,6 +413,7 @@ class Aligner4(object):
 
         if wrt_v:
             grad[0] = grad[0] - 2*self.reg_weights[0] * tx
+            print grad[0], 2*self.reg_weights[0] * tx
             grad[1] = grad[1] - 2*self.reg_weights[1] * ty
             grad[2] = grad[2] - 2*self.reg_weights[2] * tz
         else:

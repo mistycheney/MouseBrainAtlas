@@ -119,100 +119,6 @@ xlabel='Predicted label', ylabel='True label', **kwargs):
     if return_fig:
         return fig
 
-# def export_images_given_patch_addresses(addresses, downscale_factor, fn_template, name_to_color):
-#     """
-#     fn_template: a str including argument %stack and %sec
-#     """
-#
-#     locations = locate_patches_given_addresses(addresses)
-#
-#     locations_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-#     for list_index, (stack, sec, loc, name) in enumerate(locations):
-#         locations_grouped[stack][sec][name].append(loc)
-#     locations_grouped.default_factory = None
-#
-#     for stack, locations_allSections in locations_grouped.iteritems():
-#         for sec, locations_allNames in locations_allSections.iteritems():
-#             clrs = [name_to_color[name] for name in locations_allNames.iterkeys()]
-#             locs = locations_allNames.values()
-#             viz = patch_boxes_overlay_on(bg='original', downscale_factor=downscale_factor,
-#                                         locs=locs, colors=clrs, patch_size=224, stack=stack, sec=sec)
-#             cv2.imwrite(fn_template % {'stack':stack, 'sec':sec}, viz[...,::-1])
-
-
-# def get_names_given_locations(stack, section, label_polygons=None, username=None, locations=None, indices=None, grid_spec=None, grid_locations=None):
-#
-#     if label_polygons is None:
-#         label_polygons = load_label_polygons_if_exists(stack, username)
-#
-#     # if indices is not None:
-#     #     assert locations is None, 'Cannot specify both indices and locs.'
-#     #     if grid_locations is None:
-#     #         grid_locations = grid_parameters_to_sample_locations(grid_spec)
-#     #     locations = grid_locations[indices]
-#
-#     index_to_name_mapping = {}
-#     for name, full_indices in label_polygons.loc[section].dropna().to_dict():
-#         for i in full_indices:
-#             index_to_name_mapping[i] = name
-#
-#     return [index_to_name_mapping[i] for i in indices]
-
-
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
-                                    grid_locations=None, version='compressed'):
-    """
-    Return a list of patches.
-    """
-
-    img = imread(DataManager.get_image_filepath(stack, sec, version=version))
-
-    if grid_spec is None:
-        grid_spec = get_default_gridspec(stack)
-
-    patch_size, stride, w, h = grid_spec
-    half_size = patch_size/2
-
-    if indices is not None:
-        assert locs is None, 'Cannot specify both indices and locs.'
-        if grid_locations is None:
-            grid_locations = grid_parameters_to_sample_locations(grid_spec)
-        locs = grid_locations[indices]
-
-    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-    return patches
-
-
-# def locate_patches_given_addresses(addresses):
-#     """
-#     addresses is a list of addresses.
-#     address: stack, section, structure_name, index
-#     """
-#
-#     from collections import defaultdict
-#     addresses_grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-#     for addressList_index, (stack, sec, name, i) in enumerate(addresses):
-#         addresses_grouped[stack][sec][name].append((i, addressList_index))
-#
-#     patch_locations_all = []
-#     addressList_indices_all = []
-#     for stack, indices_allSections in addresses_grouped.iteritems():
-#         grid_spec = get_default_gridspec(stack)
-#         sample_locations = grid_parameters_to_sample_locations(grid_spec)
-#         indices_allLandmarks_allSections = locate_annotated_patches(stack, grid_spec)
-#         for sec, indices_allNames in indices_allSections.iteritems():
-#             for name, fwInd_addrLstInd_tuples in indices_allNames.iteritems():
-#                 landmarkWise_indices_selected, addressList_indices = map(list, zip(*fwInd_addrLstInd_tuples))
-#                 frameWise_indices_oneLandmark = indices_allLandmarks_allSections[sec][name]
-#                 frameWise_indices_selected = frameWise_indices_oneLandmark[landmarkWise_indices_selected]
-#
-#                 patch_locations_all += [(stack, sec, loc, name) for loc in sample_locations[frameWise_indices_selected]]
-#                 addressList_indices_all += addressList_indices
-#
-#     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
-#     return patch_locations_all_inOriginalOrder
-
-
 def locate_patches_given_addresses_v2(addresses):
     """
     addresses is a list of addresses.
@@ -237,29 +143,55 @@ def locate_patches_given_addresses_v2(addresses):
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
+def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
+                                    grid_locations=None, version='compressed'):
+    """
+    Return patches at given locations.
+
+    Args:
+        indices:
+            grid indices
+
+    Returns:
+        list of patches.
+    """
+
+    img = imread(DataManager.get_image_filepath(stack, sec, version=version))
+
+    if grid_spec is None:
+        grid_spec = get_default_gridspec(stack)
+
+    patch_size, stride, w, h = grid_spec
+    half_size = patch_size/2
+
+    if indices is not None:
+        assert locs is None, 'Cannot specify both indices and locs.'
+        if grid_locations is None:
+            grid_locations = grid_parameters_to_sample_locations(grid_spec)
+        locs = grid_locations[indices]
+
+    print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
+    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+    return patches
+
 def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='rgb-jpg'):
     """
-    addresses is a list of addresses.
-    address: stack, section, framewise_index
+    Args:
+        addresses:
+            list of (stack, section, framewise_index)
+    Returns:
+        list of patches
     """
 
     from collections import defaultdict
-    # locations_grouped = defaultdict(lambda: defaultdict(list))
-    # for list_index, (stack, sec, loc) in enumerate(addresses):
-    #     locations_grouped[stack][sec].append((loc, list_index))
 
     locations_grouped = {}
     for stack_sec, list_index_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (i, x): (x[0],x[1])),
         key=lambda (i,x): (x[0], x[1])):
         locations_grouped[stack_sec] = [(address[2], list_index) for list_index, address in list_index_and_address_grouper]
 
-    # locations_grouped = {stack_sec: (x[2], list_index) \
-    #                     for stack_sec, (list_index, x) in groupby(enumerate(addresses), lambda (i, x): (x[0],x[1]))}
-
     patches_all = []
     list_indices_all = []
-    # for stack, locations_allSections in locations_grouped.iteritems():
-    #     for sec, loc_listInd_tuples in locations_allSections.iteritems():
     for stack_sec, locations_allSections in locations_grouped.iteritems():
         stack, sec = stack_sec
         locs_thisSec, list_indices = map(list, zip(*locations_allSections))

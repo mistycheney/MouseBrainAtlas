@@ -11,6 +11,7 @@ hostname = subprocess.check_output("hostname", shell=True).strip()
 
 if hostname.endswith('sdsc.edu'):
     print 'Setting environment for Gordon'
+    ROOT_DIR = '/oasis/projects/nsf/csd395/yuncong'
     RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
     data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
@@ -163,6 +164,7 @@ all_known_structures_sided = sum([[n] if n in singular_structures
                         for n in all_known_structures], [])
 all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
 all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
+all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
 linear_landmark_names_unsided = ['outerContour']
 volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))

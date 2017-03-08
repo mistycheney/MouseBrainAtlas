@@ -291,3 +291,30 @@ This step takes 500 seconds per stack.
 The algorithm's goal is texture classification. The tasks are to separate textures inside a structure from textures outside the structure. Because we already have a strong location prior, we don't need strong texture score signal at places far from the structure's true location, so we take as negative examples only textures at the surrounding of the structure.
 
 If annotations are available, we can compute the true positive, true negative, false positive and false negative rates of classifying each structure. We plot ACC as a function of the margin of the surrounding where negative samples are collected.
+
+
+
+# Cell-based Features #
+
+Section-wise data:
+`detected_cells/<stack>/<fn>/<fn>_<what>.<ext>`
+
+Cell orientations:
+`blobOrientations.bp`
+
+Mirror directions:
+`cells_aligned_mirrorDirections.bp`
+
+Orientation-normalized cell blobs:
+`cells_aligned_mirrored_padded.bp`
+
+Indices of large cells larger than 30 um^2 (indices into the list `cells_aligned_mirrored_padded`)
+`largeCellIndices.bp`
+
+Neighborhood relationship
+`neighbor_info.pkl`
+This is a dict with four keys:
+`neighbors`: dict of {cell index: neighbors sorted by distance}
+`neighbor_vectors`: dict of {cell index: list of vectors from the cell to each neighbor, sorted by distance}
+`radial_indices`: dict of {cell index: radial histogram}
+`angular_indices`: dict of {cell index: angular histogram}

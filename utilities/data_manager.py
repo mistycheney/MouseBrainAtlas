@@ -810,6 +810,29 @@ class DataManager(object):
         return prob_shapes
 
     @staticmethod
+    def get_prob_shape_viz_filepath(stack_m, stack_f=None,
+                                        warp_setting=None,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        downscale=32,
+                                         type_m='score',
+                                         type_f='score',
+                                        structure=None,
+                                        trial_idx=0,
+                                        suffix=None,
+                                        **kwargs):
+        """
+        Return prob. shape volume filepath.
+        """
+
+        basename = DataManager.get_warped_volume_basename(**locals())
+
+        assert structure is not None
+        fn = basename + '_' + structure + '_' + suffix
+
+        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shape_viz', structure, fn + '.png')
+
+    @staticmethod
     def get_prob_shape_volume_filepath(stack_m, stack_f=None,
                                         warp_setting=None,
                                         classifier_setting_m=None,
@@ -841,6 +864,9 @@ class DataManager(object):
                                         trial_idx=0, **kwargs):
         """
         Return prob. shape volume origin filepath.
+
+        Note that these origins are with respect to
+
         """
 
         basename = DataManager.get_warped_volume_basename(**locals())
@@ -895,17 +921,28 @@ class DataManager(object):
         return vol_fn
 
     @staticmethod
-    def get_score_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None, volume_type='score'):
+    def get_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(**locals())
         grad_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volume_gradients', basename + '_' + structure + '_%(suffix)s.bp')
         return grad_fn
 
     @staticmethod
-    def get_score_volume_gradient_filepath(stack, structure, suffix, volume_type='score', classifier_setting=None, downscale=32):
-        grad_fn = DataManager.get_score_volume_gradient_filepath_template(stack=stack, structure=structure,
-                                            classifier_setting=classifier_setting, downscale=downscale, volume_type=volume_type) % \
-                                            {'suffix': suffix}
+    def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', classifier_setting=None, downscale=32):
+        grad_fn = DataManager.get_volume_gradient_filepath_template(**locals())  % {'suffix': suffix}
         return grad_fn
+
+    # @staticmethod
+    # def get_score_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None, volume_type='score'):
+    #     basename = DataManager.get_original_volume_basename(**locals())
+    #     grad_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volume_gradients', basename + '_' + structure + '_%(suffix)s.bp')
+    #     return grad_fn
+
+    # @staticmethod
+    # def get_score_volume_gradient_filepath(stack, structure, suffix, volume_type='score', classifier_setting=None, downscale=32):
+    #     grad_fn = DataManager.get_score_volume_gradient_filepath_template(stack=stack, structure=structure,
+    #                                         classifier_setting=classifier_setting, downscale=downscale, volume_type=volume_type) % \
+    #                                         {'suffix': suffix}
+    #     return grad_fn
 
     @staticmethod
     def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=False, volume_type='score',
@@ -975,9 +1012,13 @@ class DataManager(object):
     @staticmethod
     def load_volume_bbox(stack, type, classifier_setting=None, structure=None, downscale=32):
         """
-        annotation: with respect to aligned uncropped thumbnail
-        score/thumbnail: with respect to aligned cropped thumbnail
-        shell: with respect to aligned uncropped thumbnail
+        This returns the 3D bounding box.
+
+        Args:
+            type (str):
+                annotation: with respect to aligned uncropped thumbnail
+                score/thumbnail: with respect to aligned cropped thumbnail
+                shell: with respect to aligned uncropped thumbnail
         """
 
         if type == 'annotation':
@@ -1011,8 +1052,42 @@ class DataManager(object):
                                     basename + '_%(structure)s_bbox.txt' % dict(structure=structure))
         return score_volume_bbox_filepath
 
+    # @staticmethod
+    # def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
+    #
+    #     if section is not None:
+    #         fn = metadata_cache['sections_to_filenames'][stack][section]
+    #         if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = metadata_cache['anchor_fn'][stack]
+    #
+    #     scoremap_viz_filepath = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(structure)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_viz_setting_%(setting)d.jpg') \
+    #         % {'stack': stack, 'fn': fn, 'structure': structure, 'anchor_fn': anchor_fn, 'setting': setting}
+    #
+    #     return scoremap_viz_filepath
+
+    # @staticmethod
+    # def get_downscaled_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None,
+    # downscale=32):
+    #
+    #     if section is not None:
+    #         fn = metadata_cache['sections_to_filenames'][stack][section]
+    #         if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = metadata_cache['anchor_fn'][stack]
+    #
+    #     viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
+    #     basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
+    #     fn = basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.jpg' % dict(structure=structure, setting=setting)
+    #
+    #     scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, fn)
+    #
+    #     return scoremap_viz_filepath
+
     @staticmethod
-    def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
+    def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1021,11 +1096,49 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        scoremap_viz_filepath = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(structure)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_viz_setting_%(setting)d.jpg') \
-            % {'stack': stack, 'fn': fn, 'structure': structure, 'anchor_fn': anchor_fn, 'setting': setting}
+        viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
+        basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
+        fn = basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.jpg' % dict(structure=structure, setting=setting)
+
+        scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, fn)
 
         return scoremap_viz_filepath
 
+    @staticmethod
+    def get_downscaled_scoremap_filepath(stack, structure, setting, downscale, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if is_invalid(fn):
+                raise Exception('Section is invalid: %s.' % fn)
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        basename = '%(fn)s_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
+
+        scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d' % dict(down=downscale), stack, basename,
+        basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.bp' % dict(structure=structure, setting=setting))
+
+        return scoremap_bp_filepath
+
+    @staticmethod
+    def load_downscaled_scoremap(stack, structure, setting, section=None, fn=None, anchor_fn=None, downscale=32):
+        """
+        Return scoremaps.
+        """
+
+        # Load scoremap
+        scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(stack, section=section, \
+                        fn=fn, anchor_fn=anchor_fn, structure=structure, setting=setting,
+                        downscale=downscale)
+
+        if not os.path.exists(scoremap_bp_filepath):
+            raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
+            (metadata_cache['sections_to_filenames'][stack][section], section, structure))
+
+        scoremap_downscaled = DataManager.load_data(scoremap_bp_filepath, filetype='bp')
+        return scoremap_downscaled
 
     @staticmethod
     def get_scoremap_filepath(stack, structure, setting, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):

@@ -1,4 +1,5 @@
 .ftpconfig
+.remote-sync.json
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 learning/svm*/

@@ -123,7 +123,9 @@ def convert_to_original_name(name):
 
 def convert_to_nonsurround_name(name):
     if 'surround' in name:
-        return name[:-9]
+        import re
+        m = re.match('(.*?)_surround_.*', name)
+        return m.groups()[0]        
     else:
         return name
 

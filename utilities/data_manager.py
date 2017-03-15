@@ -583,7 +583,7 @@ class DataManager(object):
                                     type_m='score', type_f='score',
                                     trial_idx=0,
                                     structures=None,
-                                    sided=False,
+                                    sided=True,
                                     return_polydata_only=True):
 
         kwargs = locals()
@@ -711,6 +711,38 @@ class DataManager(object):
     #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
     @staticmethod
+    def load_volume_all_known_structures(stack_m, stack_f,
+                                        warp_setting,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        type_m='score',
+                                        type_f='score',
+                                        downscale=32,
+                                        structures=None,
+                                        trial_idx=0,
+                                        sided=True,
+                                        include_surround=False):
+        if stack_f is not None:
+            return DataManager.load_transformed_volume_all_known_structures(**locals())
+        else:
+            raise Exception('Not implemented.')
+
+    @staticmethod
+    def load_volume(stack_m, stack_f=None,
+                    warp_setting=None,
+                    classifier_setting_m=None,
+                    classifier_setting_f=None,
+                    type_m='score',
+                     type_f='score',
+                    structure=None,
+                    downscale=32,
+                    trial_idx=0):
+        if stack_f is not None:
+            return DataManager.load_transformed_volume(**locals())
+        else:
+            raise Exception('Not implemented.')
+
+    @staticmethod
     def load_transformed_volume(stack_m, stack_f,
                                         warp_setting,
                                         classifier_setting_m=None,
@@ -733,7 +765,7 @@ class DataManager(object):
                                         downscale=32,
                                         structures=None,
                                         trial_idx=0,
-                                        sided=False,
+                                        sided=True,
                                         include_surround=False):
         if structures is None:
             if sided:
@@ -754,7 +786,8 @@ class DataManager(object):
                                                     warp_setting=warp_setting,
                                                     structure=structure,
                                                     trial_idx=trial_idx)
-            except:
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
         return volumes
 
@@ -786,7 +819,7 @@ class DataManager(object):
             type_m='score', type_f='score',
             trial_idx=0,
             structures=None,
-            sided=False,
+            sided=True,
             return_polydata_only=True):
 
         kwargs = locals()
@@ -945,7 +978,7 @@ class DataManager(object):
     #     return grad_fn
 
     @staticmethod
-    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=False, volume_type='score',
+    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
                                                 return_structure_index_mapping=True):
 
         if structures is None:

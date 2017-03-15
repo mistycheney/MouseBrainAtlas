@@ -30,6 +30,18 @@ Score volume: classifier setting 2
 Transform: structure-wise rigid (One parameter set for each structure)
 Regularization = np.array([1e-6, 1e-6, 1e-6])
 
+5:
+upstream_warp_setting = 1
+rigid
++ surround
+no reg.
+
+6:
+upstream_warp_setting = 1
+affine
++ surround
+no reg.
+
 7:
 Upstream warping: None
 rigid
@@ -54,6 +66,15 @@ std_ty = 300
 std_tz = 300
 std_theta_xy = np.deg2rad(10)
 
+11:
+upstream_warp_setting = 1
+affine
++ surround
++ reg.
+
+12:
+upstream_warp_setting = 1
+polyrigid
 
 ## Global Registration
 

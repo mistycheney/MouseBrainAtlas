@@ -90,7 +90,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     # patch_features_rootdir = '/home/yuncong/CSHL_patch_features_Sat16ClassFinetuned_v2'
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
-    ANNOTATION_ROOTDIR = None
+    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3/'
+    CLF_ROOTDIR = '/home/yuncong/CSHL_classifiers'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -122,7 +123,9 @@ def convert_to_original_name(name):
 
 def convert_to_nonsurround_name(name):
     if 'surround' in name:
-        return name[:-9]
+        import re
+        m = re.match('(.*?)_surround_.*', name)
+        return m.groups()[0]        
     else:
         return name
 

@@ -1,6 +1,9 @@
 import sys, os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+import subprocess
+import os
+import boto3
 from metadata import *
 from vis3d_utilities import *
 
@@ -71,8 +74,8 @@ class DataManager(object):
 
     @staticmethod
     def map_local_filename_to_s3(local_fp):
-        # Saienthan, please implement this.
-        return None
+        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + s3_home)
+        return s3_path
 
     @staticmethod
     def load_data(filepath, filetype):
@@ -81,8 +84,7 @@ class DataManager(object):
             sys.stderr.write('File does not exist: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
-            on_aws = False # should be an env variable
-            if on_aws:
+            if ON_AWS:
                 DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
         if filetype == 'bp':
@@ -143,6 +145,39 @@ class DataManager(object):
         fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
         return fn
 
+    @staticmethod
+    def download_from_s3(local_path, s3_path = None):
+    #downloading 500 files of 1Mb each
+    #boto3 - 36 seconds
+    #aws cli - 5 seconds
+        s3_connection = boto3.resource('s3')
+        if s3_path == None:
+            s3_path = DataManager.map_local_filename_to_s3(local_path)
+        bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
+        #file_to_download = file_to_download.split("/", 1)[1]
+
+        bucket = s3_connection.Bucket(bucket)
+        dir_name = os.path.dirname(local_path)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+	    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        else:
+            bucket.download_file(file_to_download, local_path)
+	return local_path
+
+    @staticmethod
+    def upload_to_s3(local_path, s3_path = None, output = False):
+    #uploading 500 files of 1Mb each
+    #boto3 - 1 minute 24  seconds
+    #aws cli - 7 seconds
+        if s3_path == None:
+            s3_path = map_local_filename_to_s3(local_path)
+        if output == True:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
+        else:
+            subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
+        
     @staticmethod
     def load_anchor_filename(stack):
         fn = DataManager.get_anchor_filename_filename(stack)

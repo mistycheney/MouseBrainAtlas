@@ -1,21 +1,16 @@
-import numpy as np
-
 import sys
 import os
+from collections import defaultdict
 
-sys.path.append(os.path.join(os.environ['REPO_DIR'] , 'utilities'))
+import numpy as np
+import pandas as pd
+from skimage.measure import grid_points_in_poly
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
 
-import pandas as pd
-
-from collections import defaultdict
-
-from skimage.measure import grid_points_in_poly
-# from skimage.morphology import label
-
-# import scipy.ndimage as nd
 
 def contours_to_mask(contours, img_shape):
     """

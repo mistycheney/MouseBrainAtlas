@@ -50,11 +50,11 @@ def align():
     filenames = map(str, request.args.getlist('filenames'))
 
 
-    run_distributed4("%(script_dir)s/align_consecutive_v2.py %(stack)s %(input_dir)s %(elastix_output_dir)s \'%%(kwargs_str)s\'" % \
+    run_distributed("%(script_dir)s/align_consecutive_v2.py %(stack)s %(input_dir)s %(elastix_output_dir)s \'%%(kwargs_str)s\'" % \
                     {'stack': stack,
                     'script_dir': script_dir,
                     'input_dir': os.path.join(RAW_DATA_DIR, stack),
-                    'elastix_output_dir': os.path.join(data_dir, stack, stack+'_elastix_output')},
+                    'elastix_output_dir': os.path.join(DATA_DIR, stack, stack+'_elastix_output')},
                     kwargs_list=[{'prev_fn': filenames[i-1], 'curr_fn': filenames[i]} for i in range(1, len(filenames))],
                     exclude_nodes=exclude_nodes,
                     argument_type='list')
@@ -75,7 +75,7 @@ def compose():
     tb_fmt = request.args.get('tb_fmt', type=str)
     pad_bg_color = request.args.get('pad_bg_color', type=str, default='auto')
 
-    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    elastix_output_dir = os.path.join(DATA_DIR, stack, stack+'_elastix_output')
 
     #################################
 
@@ -87,10 +87,10 @@ def compose():
     output_fn = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
                                                     dict(stack=stack, anchor_fn=anchor_fn))
 
-    run_distributed4("%(script_dir)s/compose_transform_thumbnail_v2.py %(stack)s %(elastix_output_dir)s \'%%(kwargs_str)s\' %(anchor_idx)d %(output_fn)s" % \
+    run_distributed("%(script_dir)s/compose_transform_thumbnail_v2.py %(stack)s %(elastix_output_dir)s \'%%(kwargs_str)s\' %(anchor_idx)d %(output_fn)s" % \
                 {'stack': stack,
                 'script_dir': script_dir,
-                'elastix_output_dir': os.path.join(data_dir, stack, stack+'_elastix_output'),
+                'elastix_output_dir': os.path.join(DATA_DIR, stack, stack+'_elastix_output'),
                 'anchor_idx': filenames.index(anchor_fn),
                 'output_fn': output_fn},
                 kwargs_list=[{'filenames': filenames}],
@@ -117,11 +117,11 @@ def compose():
     transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
 
     if pad_bg_color == 'auto':
-        run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 %%(pad_bg_color)s' % \
+        run_distributed('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 %%(pad_bg_color)s' % \
                         {'script_dir': script_dir,
                         'stack': stack,
                         'input_dir': os.path.join(RAW_DATA_DIR, stack),
-                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnails_alignedTo_' + anchor_fn)
+                        'aligned_dir': os.path.join(DATA_DIR, stack, stack + '_thumbnails_alignedTo_' + anchor_fn)
                         },
                         kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
                                     'filename': fn + '.' + tb_fmt,
@@ -131,11 +131,11 @@ def compose():
                         exclude_nodes=exclude_nodes + [32],
                         argument_type='single')
     else:
-        run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 %(pad_bg_color)s' % \
+        run_distributed('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 %(pad_bg_color)s' % \
                         {'script_dir': script_dir,
                         'stack': stack,
                         'input_dir': os.path.join(RAW_DATA_DIR, stack),
-                        'aligned_dir': os.path.join(data_dir, stack, stack + '_thumbnails_alignedTo_' + anchor_fn),
+                        'aligned_dir': os.path.join(DATA_DIR, stack, stack + '_thumbnails_alignedTo_' + anchor_fn),
                         'pad_bg_color': pad_bg_color},
                         kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
                                     'filename': fn + '.' + tb_fmt,
@@ -177,7 +177,7 @@ def crop():
     os.system(('mkdir %(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s_cropped; '
                 'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s_cropped/%%[filename:name]_cropped.tif" %(stack_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s/*.tif') % \
     	{'stack': stack,
-    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'stack_data_dir': os.path.join(DATA_DIR, stack),
     	'w':w, 'h':h, 'x':x, 'y':y,
         'anchor_fn': anchor_fn})
 
@@ -194,7 +194,7 @@ def crop():
     filenames_to_expand = [fn for fn in filenames[first_idx:last_idx+1] if not os.path.exists(expanded_tif_dir + '/' + fn + '_lossless.tif')]
     sys.stderr.write('filenames_to_expand: %s' % filenames_to_expand)
 
-    run_distributed4('kdu_expand_patched -i %(jp2_dir)s/%%(fn)s_lossless.jp2 -o %(expanded_tif_dir)s/%%(fn)s_lossless.tif' % \
+    run_distributed('kdu_expand_patched -i %(jp2_dir)s/%%(fn)s_lossless.jp2 -o %(expanded_tif_dir)s/%%(fn)s_lossless.tif' % \
                     {'jp2_dir': '/home/yuncong/CSHL_data/' + stack,
                     # 'stack': stack,
                     'expanded_tif_dir': expanded_tif_dir},
@@ -209,7 +209,7 @@ def crop():
     t = time.time()
     sys.stderr.write('warping and cropping lossless...')
 
-    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    elastix_output_dir = os.path.join(DATA_DIR, stack, stack+'_elastix_output')
     transforms_to_anchor = pickle.load(open(elastix_output_dir + '/%(stack)s_transformsTo_anchor.pkl' % {'stack':stack}, 'r'))
     # Note that the index from trasform pickle file starts at 0, BUT the .._renamed folder index starts at 1.#
 
@@ -217,7 +217,7 @@ def crop():
 
     if pad_bg_color == 'auto':
         # If alternating, then black padding for F sections, white padding for N sections.
-        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
+        run_distributed(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %%(pad_bg_color)s'%\
                         {'script_path': script_dir + '/warp_crop_IM_v2.py',
                         'stack': stack,
                         'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
@@ -234,7 +234,7 @@ def crop():
                         exclude_nodes=exclude_nodes + [32], # "convert" command is especially slow on gcn-20-32 for some reason.
                         argument_type='single')
     else:
-        run_distributed4(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
+        run_distributed(command='%(script_path)s %(stack)s %(lossless_tif_dir)s %(lossless_aligned_cropped_dir)s %%(transform)s %%(filename)s %%(output_fn)s lossless %(x)d %(y)d %(w)d %(h)d %(pad_bg_color)s'%\
                         {'script_path': script_dir + '/warp_crop_IM_v2.py',
                         'stack': stack,
                         'lossless_tif_dir': os.path.join(os.environ['DATA_DIR'] , stack, stack + '_lossless_tif'),
@@ -552,7 +552,7 @@ def generate_masks():
     if 'fg_dissim_thresh' in args:
         fg_dissim_thresh = args.get('fg_dissim_thresh', type=float)
 
-        run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
+        run_distributed(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --fg_dissim_thresh %(fg_dissim_thresh).2f --min_size %(min_size)d' % \
                         {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
                         'stack': stack,
                         'input_dir': input_dir,
@@ -564,7 +564,7 @@ def generate_masks():
                         exclude_nodes=exclude_nodes,
                         argument_type='list2')
     else:
-        run_distributed4(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --min_size %(min_size)d' % \
+        run_distributed(command='%(script_path)s %(stack)s %(input_dir)s \'%%(filenames)s\' %(output_dir)s --border_dissim_percentile %(border_dissim_percentile)d --min_size %(min_size)d' % \
                         {'script_path': os.path.join(os.environ['REPO_DIR'], 'preprocess', script_name),
                         'stack': stack,
                         'input_dir': input_dir,
@@ -638,18 +638,18 @@ def warp_crop_masks():
     t = time.time()
     print 'warping thumbnail mask...',
 
-    elastix_output_dir = os.path.join(data_dir, stack, stack+'_elastix_output')
+    elastix_output_dir = os.path.join(DATA_DIR, stack, stack+'_elastix_output')
     transforms_filename = os.path.join(elastix_output_dir, '%(stack)s_transformsTo_%(anchor_fn)s.pkl' % \
                                                             dict(stack=stack, anchor_fn=anchor_fn))
     transforms_to_anchor = pickle.load(open(transforms_filename, 'r'))
 
-    execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(data_dir, stack, stack + '_masks_alignedTo_' + anchor_fn)))
+    execute_command('rm -rf %(aligned_dir)s' % dict(aligned_dir=os.path.join(DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)))
 
-    run_distributed4('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 black' % \
+    run_distributed('%(script_dir)s/warp_crop_IM_v2.py %(stack)s %(input_dir)s %(aligned_dir)s %%(transform)s %%(filename)s %%(output_fn)s thumbnail 0 0 2000 1500 black' % \
                     {'script_dir': script_dir,
                     'stack': stack,
-                    'input_dir': os.path.join(data_dir, stack, stack + '_masks'),
-                    'aligned_dir': os.path.join(data_dir, stack, stack + '_masks_alignedTo_' + anchor_fn)},
+                    'input_dir': os.path.join(DATA_DIR, stack, stack + '_masks'),
+                    'aligned_dir': os.path.join(DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)},
                     kwargs_list=[{'transform': ','.join(map(str, transforms_to_anchor[fn].flatten())),
                                 'filename': fn + '_mask.png',
                                 'output_fn': fn + '_mask_alignedTo_' + anchor_fn + '.png'}
@@ -666,7 +666,7 @@ def warp_crop_masks():
 
     aligned_cropped_dir = '%(stack_data_dir)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped' % \
                             {'stack': stack,
-                            'stack_data_dir': os.path.join(data_dir, stack),
+                            'stack_data_dir': os.path.join(DATA_DIR, stack),
                             'anchor_fn': anchor_fn}
 
     execute_command('rm -rf %(aligned_cropped_dir)s' % dict(aligned_cropped_dir=aligned_cropped_dir))
@@ -674,7 +674,7 @@ def warp_crop_masks():
     os.system(('mkdir %(aligned_cropped_dir)s ; '
                 'mogrify -set filename:name %%t -crop %(w)dx%(h)d+%(x)d+%(y)d -write "%(aligned_cropped_dir)s/%%[filename:name]_cropped.png" %(stack_data_dir)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/*.png') % \
     	{'stack': stack,
-    	'stack_data_dir': os.path.join(data_dir, stack),
+    	'stack_data_dir': os.path.join(DATA_DIR, stack),
         'aligned_cropped_dir': aligned_cropped_dir,
     	'w':w, 'h':h, 'x':x, 'y':y,
         'anchor_fn': anchor_fn})

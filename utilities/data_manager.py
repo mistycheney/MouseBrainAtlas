@@ -142,7 +142,7 @@ class DataManager(object):
 
     @staticmethod
     def get_anchor_filename_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -186,7 +186,7 @@ class DataManager(object):
 
     @staticmethod
     def get_cropbox_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -199,18 +199,19 @@ class DataManager(object):
 
     @staticmethod
     def get_sorted_filenames_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_sorted_filenames.txt')
         return fn
 
     @staticmethod
     def load_sorted_filenames(stack):
         fn = DataManager.get_sorted_filenames_filename(stack)
         filename_to_section, section_to_filename = DataManager.load_data(fn, filetype='file_section_map')
+        filename_to_section.pop('Placeholder')
         return filename_to_section, section_to_filename
 
     @staticmethod
     def get_transforms_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -237,10 +238,10 @@ class DataManager(object):
         fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':

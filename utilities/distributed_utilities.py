@@ -143,6 +143,13 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
+def run_distributed(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+    if ON_AWS:
+        run_distributed5(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)	
+    else:
+        run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)	
+
+
 def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     temp_script = '/tmp/runall.sh'
     #n_hosts = (subprocess.check_output('qhost')).count('\n') - 3

@@ -1,6 +1,7 @@
 """
 This module stores static meta information.
 """
+import os
 
 ########### Data Directories #############
 
@@ -68,8 +69,10 @@ elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
     s3_home = 'ucsd-mousebrainatlas-home'
+    REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = '/shared/data/CSHL_data'
     DATA_DIR = '/shared/data/CSHL_data_processed'
+    THUMBNAIL_DATA_DIR = '/shared/data/CSHL_data_processed'
     VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
     SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'

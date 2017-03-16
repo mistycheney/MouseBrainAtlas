@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray

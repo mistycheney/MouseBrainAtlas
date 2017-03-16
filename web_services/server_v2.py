@@ -29,8 +29,8 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
-from preprocess_utility import *
-from preprocess2_utilities import *
+from distributed_utilities import *
+from preprocess_utilities import *
 
 script_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess')
 

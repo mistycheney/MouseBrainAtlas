@@ -94,16 +94,16 @@ def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
         response = ec2_conn.describe_instances()
         myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
         for reservation in response["Reservations"]:
-            for instance in reservation["Instances"]: 
-                if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge': 
+            for instance in reservation["Instances"]:
+                if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge':
                     continue
                 if instance['InstanceId'] != myid:
                     ins.append(instance['PublicDnsName'])
-                else: 
+                else:
                     ins.append('127.0.0.1')
         return ins
     all_nodes = get_ec2_avail_instances('us-west-1')
-    
+
     if use_nodes is not None:
         hostids = use_nodes
     else:
@@ -191,7 +191,7 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
     hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
     print 'Using nodes:', ['gcn-20-%d.sdsc.edu'%i for i in hostids]
     n_hosts = len(hostids)
-    
+
     temp_script = '/tmp/runall.sh'
 
     if isinstance(kwargs_list, dict):

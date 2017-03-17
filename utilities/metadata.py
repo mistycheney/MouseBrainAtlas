@@ -68,42 +68,60 @@ elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
     s3_home = 'ucsd-mousebrainatlas-home'
-#    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
-#    SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
-#    atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
-#    thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
-#    data_dir = '/home/ubuntu/data/CSHL_data_processed'
-#    DATA_DIR = '/home/ubuntu/data/CSHL_data_processed'
-#    REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
-#    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
-#    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
     RAW_DATA_DIR = '/shared/data/CSHL_data'
-    data_dir = '/shared/data/CSHL_data_processed'
     DATA_DIR = '/shared/data/CSHL_data_processed'
-    thumbnail_data_dir = data_dir
-    atlasAlignParams_rootdir = '/shared/data/CSHL_atlasAlignParams_atlas_v2'
-    atlasAlignOptLogs_dir = '/shared/data/CSHL_atlasAlignOptLogs_atlas_v2'
     VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
     labelingViz_root = '/shared/data/CSHL_annotationsViz'
-    scoremaps_rootdir = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
-    annotationViz_rootdir = '/shared/data/CSHL_annotationsViz'
-    annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
     ANNOTATION_ROOTDIR = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
-    annotation_midbrainIncluded_v2_rootdir = '/shared/data/CSHL_labelings_v3/'
-    patch_training_features_rootdir = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
-    patch_rootdir = '/shared/data/CSHL_data_patches/'
     SVM_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     SVM_NTBLUE_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/shared/data/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     SCOREMAPS_ROOTDIR = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     HESSIAN_ROOTDIR = '/shared/data/CSHL_hessians/'
-    os.environ["DATA_DIR"] = DATA_DIR
-    os.environ["REPO_DIR"] = '/shared/MouseBrainAtlas'
-    annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
-    
+
+# elif hostname.startswith('ip'):
+#     print 'Setting environment for AWS compute node'
+#     ON_AWS = True
+#     s3_home = 'ucsd-mousebrainatlas-home'
+# #    VOLUME_ROOTDIR = '/home/ubuntu/data/CSHL_volumes2'
+# #    SVM_ROOTDIR = '/home/ubuntu/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+# #    atlasAlignParams_rootdir = '/home/ubuntu/data/CSHL_atlasAlignParams_atlas_v2'
+# #    thumbnail_data_dir = '/home/ubuntu/data/CSHL_data_processed'
+# #    data_dir = '/home/ubuntu/data/CSHL_data_processed'
+# #    DATA_DIR = '/home/ubuntu/data/CSHL_data_processed'
+# #    REPO_DIR = '/home/ubuntu/MouseBrainAtlas'
+# #    annotation_rootdir = '/home/ubuntu/data/CSHL_data_labelings_losslessAlignCropped/'
+# #    LABELING_DIR= '/home/ubuntu/CSHL_data_labelings_losslessAlignCropped'
+#     RAW_DATA_DIR = '/shared/data/CSHL_data'
+#     data_dir = '/shared/data/CSHL_data_processed'
+#     DATA_DIR = '/shared/data/CSHL_data_processed'
+#     thumbnail_data_dir = data_dir
+#     atlasAlignParams_rootdir = '/shared/data/CSHL_atlasAlignParams_atlas_v2'
+#     atlasAlignOptLogs_dir = '/shared/data/CSHL_atlasAlignOptLogs_atlas_v2'
+#     VOLUME_ROOTDIR = '/shared/data/CSHL_volumes2'
+#     labelingViz_root = '/shared/data/CSHL_annotationsViz'
+#     scoremaps_rootdir = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+#     SCOREMAP_VIZ_ROOTDIR = '/shared/data/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
+#     annotationViz_rootdir = '/shared/data/CSHL_annotationsViz'
+#     annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+#     ANNOTATION_ROOTDIR = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+#     annotation_midbrainIncluded_v2_rootdir = '/shared/data/CSHL_labelings_v3/'
+#     patch_training_features_rootdir = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
+#     patch_rootdir = '/shared/data/CSHL_data_patches/'
+#     SVM_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+#     SVM_NTBLUE_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+#     PATCH_FEATURES_ROOTDIR = '/shared/data/CSHL_patch_features_Sat16ClassFinetuned_v2'
+#     SPARSE_SCORES_ROOTDIR = '/shared/data/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
+#     SCOREMAPS_ROOTDIR = '/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+#     HESSIAN_ROOTDIR = '/shared/data/CSHL_hessians/'
+#     # os.environ["DATA_DIR"] = DATA_DIR
+#     # os.environ["REPO_DIR"] = '/shared/MouseBrainAtlas'
+#     annotation_rootdir = '/shared/data/CSHL_data_labelings_losslessAlignCropped/'
+#     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
+
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
     ON_AWS = False
@@ -150,7 +168,7 @@ def convert_to_nonsurround_name(name):
     if 'surround' in name:
         import re
         m = re.match('(.*?)_surround_.*', name)
-        return m.groups()[0]        
+        return m.groups()[0]
     else:
         return name
 

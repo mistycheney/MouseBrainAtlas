@@ -1,24 +1,25 @@
+# Install cfnCluster #
+
 Setup an Admin node. it could be local machine or an aws EC2 instance.
 
+Install cfncluster on ADMIN https://github.com/awslabs/cfncluster or
+ `sudo pip install cfncluster`. Version is cfncluster-1.3.1 (as of 3/16/2017)
 
-install cfncluster on ADMIN https://github.com/awslabs/cfncluster or
- `sudo pip install cfncluster`
- ver cfncluster-1.3.1
- ref: https://cfncluster.readthedocs.io/en/latest/getting_started.html
+ Reference: https://cfncluster.readthedocs.io/en/latest/getting_started.html
 
-2. Create custom AMI for cfncluster nodes
+# Create custom AMI for cfncluster nodes #
 
 http://cfncluster.readthedocs.io/en/latest/ami_customization.html
 Create EC2 instance using Community AMI
-16.04 ami-751f5315
-14.04 ami-40185420
-List of AMIs https://github.com/awslabs/cfncluster/blob/master/amis.txt
+- 16.04 ami-751f5315
+- 14.04 ami-40185420
+- Full list of cfnCluster AMIs https://github.com/awslabs/cfncluster/blob/master/amis.txt
 
 Installed packages CFN_AMI11 ami-62194a02, in Community AMIs now.
 
 Run `cfncluster configure`
 or
-cp /usr/local/lib/python2.7/dist-packages/cfncluster/examples/config to /home/yuncong/.cfncluster
+```cp /usr/local/lib/python2.7/dist-packages/cfncluster/examples/config to /home/yuncong/.cfncluster
 http://cfncluster.readthedocs.io/en/latest/configuration.html
 custom_ami - ami-XXXXXXX
 base_os - ubuntu14.04
@@ -34,14 +35,16 @@ aws_access_key_id - use access key, not IAM
 aws_secret_access_key
 aws_region_name
 key_name
+```
 
-cluster name must satisfy regular expression pattern: [a-zA-Z][-a-zA-Z0-9]
+Cluster name must satisfy regular expression pattern: ``[a-zA-Z][-a-zA-Z0-9]``
 
+```
 Output:"MasterPublicIP"="52.53.116.181"
 Output:"MasterPrivateIP"="172.31.21.42"
 Output:"GangliaPublicURL"="http://52.53.116.181/ganglia/"
 Output:"GangliaPrivateURL"="http://172.31.21.42/ganglia/"
-
+```
 
 aws:cloudformation:logical-id MasterServer
 Name Master
@@ -62,6 +65,22 @@ Then access with
 Must specify `custom_ami` or `base_os` otherwise you cannot SSH to either master or compute nodes.
 
 Security Group: Must enable defaultVPC and "AllowSSH22"
+Enable "Allow5000" for flask server and "Allow8888" for jupyter notebook
+
+# Monitor Cluster #
+
+- EC2 Console
+- Autoscaling Group Console
+- CloudFormation Console
+- Ganglia
+
+
+# Jupyter Notebook #
+Access from browser `https://<master node ip>:8888`
+
+# Custom Bootstrap Actions #
+http://cfncluster.readthedocs.io/en/latest/pre_post_install.html
+Must make the S3 script public readable.
 
 # Build Customized AMI #
 http://cfncluster.readthedocs.io/en/latest/ami_customization.html
@@ -82,9 +101,14 @@ Stop the instance
 Create a new AMI from the instance
 Enter the AMI id in the custom_ami field within your cluster configuration.
 
-# Performance Tuning Settings #
+# Expand Shared EBS #
+http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#recognize-expanded-volume-linux
+Stop instance.
+Modify volume in console.
+Restart instance.
+`lsblk` shows new size but `df -h` still shows old size. Do `sudo resize2fs /dev/xvda1`.
 
-## NFS ##
+# NFS #
 Use master instance type - m4.2xlarge, larger memory on NFS server for a performance improvement (Runtime measured for Align step of Global Align)
 Instance Type	Runtime
 t2.micro	2687 seconds
@@ -93,17 +117,52 @@ Set async option for NFS
 Edit `/etc/exports`, change sync to async
 Restart NFS server  `sudo service nfs-kernel-server restart `
 
-## Sun Grid Engine ##
-Add user ubuntu to list of all grid managers
+# Ganglia #
+
+`sudo apt-get install libapache2-mod-php7.0 php7.0-xml ; sudo /etc/init.d/apache2 restart`
+Reference: http://blog.vuksan.com/2016/05/03/ganglia-webfrontend-ubuntu-1604-install-issue
+
+# Sun Grid Engine #
+
+Beginner Tutorial
+* http://bioinformatics.mdc-berlin.de/intro2UnixandSGE/sun_grid_engine_for_beginners/README.html
+* http://www.softpanorama.org/HPC/Grid_engine/Reference/sge_cheat_sheet.shtml#commonly_used_commands
+
+## Add user ubuntu to list of all grid managers ##
 Change to super user `sudo -i`
 Set environment variable `$SGE_ROOT`: `export SGE_ROOT=/opt/sge`
 Add user: `/opt/sge/bin/lx-amd64/qconf -am ubuntu`
+## Another simple way to enable admin permission ##
+`sudo -u sgeadmin -i qconf -de ip-XXXXX.compute.internal`
+
+`alias sudosgeadmin="sudo -u sgeadmin -i"`
+
+## Remove execution host from gridengine ##
+- first, you need to disable the host from queue to avoid any jobs to be allocated to this host
+`qmod -d all.q@thishost.com`
+- wait for jobs to be finished execution on this host, then kill the execution script
+`qconf -ke thishost.com`
+- remove it from the cluster, this opens an editor, just remove the lines referring to this host
+`qconf -mq all.q`
+- remove it from allhosts group, this also opens an editor, remove lines referring to this host
+`qconf -mhgrp @allhosts`
+- remove it from execution host list
+`qconf -de thishost`
+- I normally go to the host and delete the sge scripts as well
+
+If still stuck deleting a host, grep hostnames in `/opt/sge/default/spool` and remove the strings.
+
+Reference: https://resbook.wordpress.com/2011/03/21/remove-execution-host-from-gridengine/
+
+## Performance Tuning ##
+
 Set minimum memory requirement to allow scheduling on a node as 5 GB: `qconf -mc` Change 0 under mem_free to 5G
 Change SGE schedule interval: `qconf -msconf` Change schedule_interval to 0:0:15
 
+## Startup Script ##
 
 https://ucsd-mousebrainatlas-scripts.s3.amazonaws.com/set_env.sh
-#!/bin/bash
+```#!/bin/bash
 echo "export RAW_DATA_DIR='/shared/data/CSHL_data'
 export DATA_DIR='/shared/data/CSHL_data_processed'
 export VOLUME_ROOTDIR='/shared/data/CSHL_volumes2'
@@ -115,3 +174,4 @@ export SCOREMAPS_ROOTDIR='/shared/data/CSHL_lossless_scoremaps_Sat16ClassFinetun
 export HESSIAN_ROOTDIR='/shared/data/CSHL_hessians/'
 export REPO_DIR='/shared/MouseBrainAtlas'
 export LABELING_DIR='/shared/CSHL_data_labelings_losslessAlignCropped'" >> /home/ubuntu/.bashrc
+```

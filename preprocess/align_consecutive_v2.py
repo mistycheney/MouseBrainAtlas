@@ -11,10 +11,11 @@ from utilities2015 import *
 stack = sys.argv[1]
 input_dir = sys.argv[2]
 output_dir = sys.argv[3]
-filename_pairs = json.loads(sys.argv[4])
+a = sys.argv[4]
+filename_pairs = json.loads(a)
 suffix = 'thumbnail'
 
-parameter_dir = os.path.join(os.environ['REPO_DIR'], "preprocess/parameters")
+parameter_dir = os.path.join(os.environ['REPO_DIR'], "preprocess', 'parameters")
 
 rg_param_rigid = os.path.join(parameter_dir, "Parameters_Rigid.txt")
 rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.txt")

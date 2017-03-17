@@ -74,13 +74,15 @@ Enable "Allow5000" for flask server and "Allow8888" for jupyter notebook
 - CloudFormation Console
 - Ganglia
 
+# Access Key #
+Note that DO NOT put any file containing access key in github repo. Otherwise AWS will detect it and inactivate it automatically.
 
 # Jupyter Notebook #
 Access from browser `https://<master node ip>:8888`
 
 # Custom Bootstrap Actions #
 http://cfncluster.readthedocs.io/en/latest/pre_post_install.html
-Must make the S3 script public readable.
+Must make the S3 script public readable, otherwise `cfncluster create` will return 403.
 
 # Build Customized AMI #
 http://cfncluster.readthedocs.io/en/latest/ami_customization.html

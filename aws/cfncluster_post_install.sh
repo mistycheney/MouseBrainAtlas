@@ -8,7 +8,7 @@ sudo apt-get update
 sudo apt-get install -y elastix
 
 # Code repo
-REPO_DIR="/home/ubuntu/MouseBrainAtlas"
+REPO_DIR="/shared/MouseBrainAtlas"
 git clone https://github.com/mistycheney/MouseBrainAtlas.git $REPO_DIR
 chown -R ubuntu $REPO_DIR
 

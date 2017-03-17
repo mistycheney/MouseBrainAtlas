@@ -74,7 +74,7 @@ class DataManager(object):
 
     @staticmethod
     def map_local_filename_to_s3(local_fp):
-        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + s3_home)
+        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + S3_DATA_BUCKET + '/' + )
         return s3_path
 
     @staticmethod
@@ -142,7 +142,7 @@ class DataManager(object):
 
     @staticmethod
     def get_anchor_filename_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -157,14 +157,13 @@ class DataManager(object):
         #file_to_download = file_to_download.split("/", 1)[1]
 
         bucket = s3_connection.Bucket(bucket)
-        dir_name = os.path.dirname(local_path)
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
+        create_parent_dir_if_not_exists(local_path)
         if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-	    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+            execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
+            #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
             bucket.download_file(file_to_download, local_path)
-	return local_path
+    return local_path
 
     @staticmethod
     def upload_to_s3(local_path, s3_path = None, output = False):
@@ -186,7 +185,7 @@ class DataManager(object):
 
     @staticmethod
     def get_cropbox_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -199,18 +198,19 @@ class DataManager(object):
 
     @staticmethod
     def get_sorted_filenames_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_sorted_filenames.txt')
         return fn
 
     @staticmethod
     def load_sorted_filenames(stack):
         fn = DataManager.get_sorted_filenames_filename(stack)
         filename_to_section, section_to_filename = DataManager.load_data(fn, filetype='file_section_map')
+        filename_to_section.pop('Placeholder')
         return filename_to_section, section_to_filename
 
     @staticmethod
     def get_transforms_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -237,10 +237,10 @@ class DataManager(object):
         fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':
@@ -1352,7 +1352,7 @@ class DataManager(object):
         return load_hdf(DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn))
 
     @staticmethod
-    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
+    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None):
         """
         resol: can be either lossless or thumbnail
         version:
@@ -1379,16 +1379,16 @@ class DataManager(object):
             image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
         elif resol == 'lossless' and version == 'compressed':
             if is_fluorescent:
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
             else:
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
             if is_fluorescent: # fluorescent.
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
             else: # Nissl
@@ -1396,7 +1396,7 @@ class DataManager(object):
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':

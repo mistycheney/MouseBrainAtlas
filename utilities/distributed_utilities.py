@@ -49,7 +49,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir):
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET)
+default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared')
 
 def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None):
     if from_root is None:

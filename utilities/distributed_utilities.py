@@ -11,31 +11,39 @@ from metadata import *
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
-def transfer_data(from_fp, to_fp, from_hostname, to_hostname):
-    assert from_hostname in ['localhost', 'oasis', 's3'], 'from_hostname must be one of localhost, oasis or s3.'
-    assert to_hostname in ['localhost', 'oasis', 's3'], 'to_hostname must be one of localhost, oasis or s3.'
+def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir):
+    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     oasis = 'oasis-dm.sdsc.edu'
 
-    if from_hostname == 'localhost':
+    if from_hostname in ['localhost', 'ec2']:
         # upload
         if to_hostname == 's3':
-            execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+            if is_dir:
+                execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+            dict(from_fp=from_fp, to_fp=to_fp))
+            else:
+                execute_command('aws s3 cp %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            assert to_hostname == 'oasis'
             execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
-    elif to_hostname == 'localhost':
+    elif to_hostname in ['localhost', 'ec2']:
         # download
         if from_hostname == 's3':
-            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s && aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % \
-            dict(from_fp=from_fp, to_fp=to_fp, to_parent=to_parent))
+            
+            # Clear existing folder/file
+            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
+            
+            # Download from S3 using aws commandline interface.
+            if is_dir:
+                 execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
+            else:
+                execute_command('aws s3 cp s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            assert from_hostname == 'oasis'
-            execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis, to_parent=to_parent))
+            execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis))
     else:
         # log onto another machine and perform upload from there.
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
@@ -43,7 +51,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname):
 
 default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET)
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, from_root=None, to_root=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None):
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -51,7 +59,7 @@ def transfer_data_synced(fp_relative, from_hostname, to_hostname, from_root=None
 
     from_fp = os.path.join(from_root, fp_relative)
     to_fp = os.path.join(to_root, fp_relative)
-    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname)
+    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, is_dir=is_dir)
 
 def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     secs_per_job = (last_sec - first_sec + 1)/float(n_host)

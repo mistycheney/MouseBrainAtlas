@@ -177,6 +177,9 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
+      
+    assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
+        
     if argument_type == 'single':
         for arg in kwargs_list_as_list:
             line = command % arg
@@ -200,16 +203,15 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
                 {
                 'command': command % {key: json.dumps(vals[fi:li+1]) for key, vals in kwargs_list_as_dict.iteritems()}
                 }
-            print(line)
-            temp_f = open(temp_script, 'w')
-            temp_f.write(line + '\n')
-            temp_f.close()
-            os.chmod(temp_script, 0o777)
-            call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-                 dict(script=temp_script, stdout_log='/home/ubuntu/stdout.log', stderr_log='/home/ubuntu/stderr.log'),
-                 shell=True, stdout=stdout)
-    else:
-        raise Exception('argument_type %s not recognized.' % argument_type)
+                
+    print(line)
+    temp_f = open(temp_script, 'w')
+    temp_f.write(line + '\n')
+    temp_f.close()
+    os.chmod(temp_script, 0o777)
+    call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+         dict(script=temp_script, stdout_log='/home/ubuntu/stdout.log', stderr_log='/home/ubuntu/stderr.log'),
+         shell=True, stdout=stdout)
 
     # Wait for qsub to complete.
     success = False

@@ -4,18 +4,17 @@ import os
 import sys
 import json
 
-sys.path.append(os.environ['REPO_DIR'] + '/utilities/')
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from metadata import *
 from utilities2015 import *
 
 stack = sys.argv[1]
 input_dir = sys.argv[2]
 output_dir = sys.argv[3]
-a = sys.argv[4]
-filename_pairs = json.loads(a)
+filename_pairs = json.loads(sys.argv[4])
 suffix = 'thumbnail'
 
-parameter_dir = os.path.join(os.environ['REPO_DIR'], "preprocess', 'parameters")
+parameter_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess', 'parameters')
 
 rg_param_rigid = os.path.join(parameter_dir, "Parameters_Rigid.txt")
 rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.txt")
@@ -35,7 +34,7 @@ for fn_pair in filename_pairs:
 
 	output_subdir = os.path.join(output_dir, curr_fn + '_to_' + prev_fn)
 
-	if os.path.exists(output_subdir):
+	if os.path.exists(output_subdir) and 'TransformParameters.0.txt' in os.listdir(output_subdir):
 		sys.stderr.write('Result for aligning %s to %s already exists.\n' % (curr_fn, prev_fn))
 		continue
 
@@ -43,7 +42,7 @@ for fn_pair in filename_pairs:
 	os.makedirs(output_subdir)
 
 	ret = execute_command('%(elastix_bin)s -f %(fixed_fn)s -m %(moving_fn)s -out %(output_subdir)s -p %(rg_param)s' % \
-			{'elastix_bin': os.environ['ELASTIX_BIN'],
+			{'elastix_bin': ELASTIX_BIN,
 			'rg_param': rg_param,
 			'output_subdir': output_subdir,
 			'fixed_fn': os.path.join(input_dir, prev_fn + '.tif'),
@@ -57,6 +56,7 @@ for fn_pair in filename_pairs:
 import subprocess
 hostname = subprocess.check_output("hostname", shell=True).strip()
 
-with open(os.path.join(output_dir, '%s_failed_pairs_%s.txt' % (stack, hostname.split('.')[0])), 'w') as f:
-	for pf, cf in failed_pairs:
-		f.write(pf + ' ' + cf + '\n')
+if len(failed_pairs) > 0:
+    with open(os.path.join(output_dir, '%s_failed_pairs_%s.txt' % (stack, hostname.split('.')[0])), 'w') as f:
+        for pf, cf in failed_pairs:
+            f.write(pf + ' ' + cf + '\n')

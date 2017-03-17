@@ -68,7 +68,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
-    s3_home = 'mousebrainatlas-data'
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = '/shared/CSHL_data'
     DATA_DIR = '/shared/CSHL_data_processed'

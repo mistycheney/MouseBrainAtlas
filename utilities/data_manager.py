@@ -74,7 +74,7 @@ class DataManager(object):
 
     @staticmethod
     def map_local_filename_to_s3(local_fp):
-        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + s3_home)
+        s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + S3_DATA_BUCKET + '/' + )
         return s3_path
 
     @staticmethod
@@ -157,14 +157,13 @@ class DataManager(object):
         #file_to_download = file_to_download.split("/", 1)[1]
 
         bucket = s3_connection.Bucket(bucket)
-        dir_name = os.path.dirname(local_path)
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
+        create_parent_dir_if_not_exists(local_path)
         if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-	    subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+            execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
+            #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
         else:
             bucket.download_file(file_to_download, local_path)
-	return local_path
+    return local_path
 
     @staticmethod
     def upload_to_s3(local_path, s3_path = None, output = False):

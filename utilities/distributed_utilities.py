@@ -13,6 +13,57 @@ from utilities2015 import execute_command
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
+
+def download_from_s3(local_path, s3_path = None):
+    #downloading 500 files of 1Mb each
+    #boto3 - 36 seconds
+    #aws cli - 5 seconds
+    s3_connection = boto3.resource('s3')
+    if s3_path == None:
+        s3_path = DataManager.map_local_filename_to_s3(local_path)
+    bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
+    #file_to_download = file_to_download.split("/", 1)[1]
+    
+    bucket = s3_connection.Bucket(bucket)
+    create_parent_dir_if_not_exists(local_path)
+    if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+        execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
+        #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+    else:
+        bucket.download_file(file_to_download, local_path)
+    return local_path
+
+def upload_to_s3(local_path, s3_path = None, output = False):
+    #uploading 500 files of 1Mb each
+    #boto3 - 1 minute 24  seconds
+    #aws cli - 7 seconds
+    if s3_path == None:
+        s3_path = map_local_filename_to_s3(local_path)
+    execute_command('aws s3 cp --recursive %s %s' % (local_path, s3_path))
+    # if output == True:
+    #     subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
+    # else:
+    #     subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
+
+    
+def transfer_data_s3(from_fp, to_fp, from_hostname='localhost', to_bucket=S3_DATA_BUCKET):
+    to_parent = os.path.dirname(to_fp)
+    s3_path = 's3://' + to_bucket + '/' + to_fp
+    if from_hostname == 'localhost':
+        # upload
+        execute_command('aws s3 cp --recursive %s %s' % (local_path, s3_path))
+    elif to_hostname == 'localhost':
+        # download
+        execute_command('aws s3 cp --recursive %(s3_path)s %(local_path)s' % dict(s3_path=s3_path, local_path=local_path))
+        # execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
+        #                     dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_parent=to_parent))
+    else:
+        # log onto another machine and perform upload from there.
+        # execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
+        #                 dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
+        raise Exception('Not implemented.')
+
+
 def transfer_data(from_fp, to_fp, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu'):
     to_parent = os.path.dirname(to_fp)
     if from_hostname == 'localhost':
@@ -145,12 +196,12 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
 def run_distributed(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None):
     if ON_AWS:
-        run_distributed5(command, kwargs_list, stdout, argument_type, cluster_size)
+        run_distributed5(command, kwargs_list, cluster_size, stdout, argument_type)
     else:
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
 
 
-def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), argument_type='list', cluster_size=1):
+def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
     """
     Distributed executing a command on AWS.
     """
@@ -160,38 +211,29 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), argum
     
     import time
 
-    def set_asg_cap(desired_cap):
+    n_hosts = subprocess.check_output('qhost').count('\n') - 3
+    
+    if n_hosts < cluster_size:
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
+        subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
+        print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
         
-        num_hosts = subprocess.check_output('qhost').count('\n') - 3
-        if num_hosts < desired_cap:
-            subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name " + asg + " --desired-capacity "+ str(desired_cap), shell=True)
-            print("Scaling cluster: " + asg + " Size: " + str(desired_cap))
-            time.sleep(240)
-            
-    def wait_qsub_complete():
-        op = "runall.sh"
-        while "runall.sh" in op:
-            op=subprocess.check_output('qstat')
+        # Wait for SGE to know all nodes. Timeout = 5 mins
+        success = False
+        for _ in range(60):
+            n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+            if n_hosts == cluster_size:
+                success = True
+                break
             time.sleep(5)
-
-    set_asg_cap(cluster_size)
-    
-    # Wait for SGE to know all nodes. Timeout = 5 mins
-    success = False
-    for _ in range(60):
-        n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
-        if n_hosts == cluster_size:
-            success = True
-            break
-        time.sleep(5)
         
-    if not success:
-        raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
+        if not success:
+            raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
+    
+    assert n_hosts == cluster_size
     
     temp_script = '/tmp/runall.sh'
-    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
     
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
@@ -206,7 +248,7 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), argum
         for arg in kwargs_list_as_list:
             line = command % arg
     elif argument_type in ['partition', 'list', 'list2']:
-        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
             if argument_type == 'partition':
                 # For cases with partition of first section / last section
                 line = "%(command)s " % \
@@ -236,7 +278,18 @@ def run_distributed5(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), argum
     else:
         raise Exception('argument_type %s not recognized.' % argument_type)
         
-    wait_qsub_complete()
+    # Wait for qsub to complete.
+    success = False
+    for _ in range(0, 1200):
+        op = subprocess.check_output('qstat')
+        if "runall.sh" not in op:
+            sys.stderr.write('qsub returned.\n')
+            success = True
+            break
+        time.sleep(5)
+        
+    if not success:
+        raise Exception('qsub does not return in 6000 seconds. Abort.')
         
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):

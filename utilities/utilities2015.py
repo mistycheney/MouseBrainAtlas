@@ -1,6 +1,15 @@
 import matplotlib
 matplotlib.use('Agg')
 
+import os
+import csv
+import sys
+from operator import itemgetter
+import json
+import cPickle as pickle
+import datetime
+from subprocess import check_output, call
+
 from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
@@ -12,22 +21,10 @@ from skimage.util import img_as_ubyte, img_as_float
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
-import os
-import csv
-import sys
-from operator import itemgetter
-import json
-import cPickle as pickle
-import datetime
-
+import matplotlib.pyplot as plt
 import cv2
-
 from tables import open_file, Filters, Atom
 import bloscpack as bp
-
-from subprocess import check_output, call
-
-import matplotlib.pyplot as plt
 
 from ipywidgets import FloatProgress
 from IPython.display import display

@@ -1,7 +1,7 @@
 [aws]
 aws_region_name = us-west-1
-aws_access_key_id = AKIAJ7PSWYLDNIQ5QLEQ
-aws_secret_access_key = 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
+aws_access_key_id =
+aws_secret_access_key =
 
 [cluster default]
 vpc_settings = public

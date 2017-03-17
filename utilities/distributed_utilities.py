@@ -1,121 +1,57 @@
 from subprocess import call
-from metadata import *
 import subprocess
 import boto3
 import os
 import sys
 import cPickle as pickle
 import json
-
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import execute_command
+from metadata import *
 
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
+def transfer_data(from_fp, to_fp, from_hostname, to_hostname):
+    assert from_hostname in ['localhost', 'oasis', 's3'], 'from_hostname must be one of localhost, oasis or s3.'
+    assert to_hostname in ['localhost', 'oasis', 's3'], 'to_hostname must be one of localhost, oasis or s3.'
 
-def download_from_s3(local_path, s3_path = None):
-    #downloading 500 files of 1Mb each
-    #boto3 - 36 seconds
-    #aws cli - 5 seconds
-    s3_connection = boto3.resource('s3')
-    if s3_path == None:
-        s3_path = DataManager.map_local_filename_to_s3(local_path)
-    bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
-    #file_to_download = file_to_download.split("/", 1)[1]
-    
-    bucket = s3_connection.Bucket(bucket)
-    create_parent_dir_if_not_exists(local_path)
-    if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-        execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
-        #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-    else:
-        bucket.download_file(file_to_download, local_path)
-    return local_path
-
-def upload_to_s3(local_path, s3_path = None, output = False):
-    #uploading 500 files of 1Mb each
-    #boto3 - 1 minute 24  seconds
-    #aws cli - 7 seconds
-    if s3_path == None:
-        s3_path = map_local_filename_to_s3(local_path)
-    execute_command('aws s3 cp --recursive %s %s' % (local_path, s3_path))
-    # if output == True:
-    #     subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
-    # else:
-    #     subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
-
-    
-def transfer_data_s3(from_fp, to_fp, from_hostname='localhost', to_bucket=S3_DATA_BUCKET):
     to_parent = os.path.dirname(to_fp)
-    s3_path = 's3://' + to_bucket + '/' + to_fp
+    oasis = 'oasis-dm.sdsc.edu'
+
     if from_hostname == 'localhost':
         # upload
-        execute_command('aws s3 cp --recursive %s %s' % (local_path, s3_path))
+        if to_hostname == 's3':
+            execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+            dict(from_fp=from_fp, to_fp=to_fp))
+        else:
+            assert to_hostname == 'oasis'
+            execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
+                    dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
     elif to_hostname == 'localhost':
         # download
-        execute_command('aws s3 cp --recursive %(s3_path)s %(local_path)s' % dict(s3_path=s3_path, local_path=local_path))
-        # execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
-        #                     dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_parent=to_parent))
-    else:
-        # log onto another machine and perform upload from there.
-        # execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
-        #                 dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
-        raise Exception('Not implemented.')
-
-
-def transfer_data(from_fp, to_fp, from_hostname='localhost', to_hostname='oasis-dm.sdsc.edu'):
-    to_parent = os.path.dirname(to_fp)
-    if from_hostname == 'localhost':
-        # upload
-        execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
-                    dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
-    elif to_hostname == 'localhost':
-        # download
-        execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_parent=to_parent))
+        if from_hostname == 's3':
+            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s && aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % \
+            dict(from_fp=from_fp, to_fp=to_fp, to_parent=to_parent))
+        else:
+            assert from_hostname == 'oasis'
+            execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
+                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis, to_parent=to_parent))
     else:
         # log onto another machine and perform upload from there.
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-# def upload_to_remote(fp_local, fp_remote, remote_hostname='oasis-dm.sdsc.edu'):
-#     execute_command("scp -r %(fp_local)s %(remote_hostname)s:%(fp_remote)s" % \
-#                     dict(fp_remote=fp_remote, fp_local=fp_local, remote_hostname=remote_hostname))
+default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET)
 
-# def download_from_remote(fp_remote, fp_local, remote_hostname='oasis-dm.sdsc.edu'):
-#     execute_command("scp -r %(remote_hostname)s:%(fp_remote)s %(fp_local)s" % \
-#                     dict(fp_remote=fp_remote, fp_local=fp_local, remote_hostname=remote_hostname))
-
-default_root_mapping = dict(localhost='/home/yuncong/CSHL_data_processed', dm='/home/yuncong/csd395/CSHL_data_processed')
-
-def transfer_data_synced(fp_relative, from_hostname='localhost', to_hostname='dm', from_root=None, to_root=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, from_root=None, to_root=None):
     if from_root is None:
-        from_root = default_root_mapping[from_hostname]
+        from_root = default_root[from_hostname]
     if to_root is None:
-        to_root = default_root_mapping[to_hostname]
+        to_root = default_root[to_hostname]
 
     from_fp = os.path.join(from_root, fp_relative)
     to_fp = os.path.join(to_root, fp_relative)
     transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname)
-
-# def upload_to_remote_synced(fp_relative, stack=None, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
-#     if stack is not None:
-#         remote_fp = os.path.join(remote_root, stack, fp_relative)
-#         local_fp = os.path.join(local_root, stack, fp_relative)
-#     else:
-#         remote_fp = os.path.join(remote_root, fp_relative)
-#         local_fp = os.path.join(local_root, fp_relative)
-#     create_if_not_exists(os.path.dirname(local_fp))
-#     execute_command("scp -r %(fp_local)s oasis-dm.sdsc.edu:%(fp_remote)s" % \
-#                     dict(fp_remote=remote_fp, fp_local=local_fp))
-
-# def download_from_remote_synced(fp_relative, remote_root='/home/yuncong/csd395/CSHL_data_processed', local_root='/home/yuncong/CSHL_data_processed'):
-#     remote_fp = os.path.join(remote_root, fp_relative)
-#     local_fp = os.path.join(local_root, fp_relative)
-#     create_if_not_exists(os.path.dirname(local_fp))
-#     execute_command("scp -r oasis-dm.sdsc.edu:%(fp_remote)s %(fp_local)s" % \
-#                     dict(fp_remote=remote_fp, fp_local=local_fp))
 
 def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     secs_per_job = (last_sec - first_sec + 1)/float(n_host)
@@ -124,18 +60,6 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     else:
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
-
-#def download_dir(client, resource, dist, local='/tmp', bucket='your_bucket'):
-#    paginator = client.get_paginator('list_objects')
-#    for result in paginator.paginate(Bucket=bucket, Delimiter='/', Prefix=dist):
-#        if result.get('CommonPrefixes') is not None:
-#            for subdir in result.get('CommonPrefixes'):
-#                download_dir(client, resource, subdir.get('Prefix'), local)
-#        if result.get('Contents') is not None:
-#            for file in result.get('Contents'):
-#                if not os.path.exists(os.path.dirname(local + os.sep + file.get('Key'))):
-#                     os.makedirs(os.path.dirname(local + os.sep + file.get('Key')))
-#                resource.meta.client.download_file(bucket, file.get('Key'), local + os.sep + file.get('Key'))
 
 def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
     def get_ec2_avail_instances(region):
@@ -205,20 +129,20 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
     """
     Distributed executing a command on AWS.
     """
-    
+
     if cluster_size is None:
         raise Exception('Must specify cluster_size.')
-    
+
     import time
 
     n_hosts = subprocess.check_output('qhost').count('\n') - 3
-    
+
     if n_hosts < cluster_size:
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
         print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
-        
+
         # Wait for SGE to know all nodes. Timeout = 5 mins
         success = False
         for _ in range(60):
@@ -227,14 +151,14 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
                 success = True
                 break
             time.sleep(5)
-        
+
         if not success:
             raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
-    
+
     assert n_hosts == cluster_size
-    
+
     temp_script = '/tmp/runall.sh'
-    
+
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
@@ -271,13 +195,13 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
             temp_f = open(temp_script, 'w')
             temp_f.write(line + '\n')
             temp_f.close()
-            os.chmod(temp_script, 0o777)            
+            os.chmod(temp_script, 0o777)
             call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-                 dict(script=temp_script, stdout_log='/home/ubuntu/stdout.log', stderr_log='/home/ubuntu/stderr.log'), 
+                 dict(script=temp_script, stdout_log='/home/ubuntu/stdout.log', stderr_log='/home/ubuntu/stderr.log'),
                  shell=True, stdout=stdout)
     else:
         raise Exception('argument_type %s not recognized.' % argument_type)
-        
+
     # Wait for qsub to complete.
     success = False
     for _ in range(0, 1200):
@@ -287,10 +211,10 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
             success = True
             break
         time.sleep(5)
-        
+
     if not success:
         raise Exception('qsub does not return in 6000 seconds. Abort.')
-        
+
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
     """
@@ -360,56 +284,3 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
 
     os.chmod(temp_script, 0o777)
     call(temp_script, shell=True, stdout=stdout)
-
-
-
-# def run_distributed3(command, first_sec=None, last_sec=None, interval=1, section_list=None, stdout=None, exclude_nodes=[], take_one_section=True):
-#     """
-#     if take_one_section is True, command must contain %%(secind)d;
-#     otherwise, command must contain %%(f)d %%(l)d
-#     """
-#
-#     hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes)
-#     n_hosts = len(hostids)
-#
-#     temp_script = '/tmp/runall.sh'
-#
-#     # assign a job to each machine
-#     # each line is a job that processes several sections
-#     with open(temp_script, 'w') as temp_f:
-#         if section_list is not None:
-#             for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(section_list)-1, n_hosts)):
-#                 if take_one_section:
-#                     line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command)s\' --list %(seclist_str)s \" &" % \
-#                             {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-#                             'generic_launcher_path': os.environ['REPO_DIR'] + '/distributed/generic_launcher.py',
-#                             'command': command,
-#                             # 'seclist_str': '+'.join(map(str, section_list[fi:li+1]))
-#                             'seclist_str': pickle.dumps(section_list[fi:li+1])
-#                             }
-#                     temp_f.write(line + '\n')
-#         else:
-#             for i, (f, l) in enumerate(first_last_tuples_distribute_over(first_sec, last_sec, n_hosts)):
-#                 if take_one_section:
-#                     line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command)s\' -f %(f)d -l %(l)d -i %(interval)d\" &" % \
-#                             {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-#                             'generic_launcher_path': os.environ['REPO_DIR'] + '/distributed/generic_launcher.py',
-#                             'command': command,
-#                             'f': f,
-#                             'l': l,
-#                             'interval': interval
-#                             }
-#                 else:
-#                     line = "ssh yuncong@%(hostname)s %(command)s &" % \
-#                             {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-#                             'command': command % {'f': f, 'l': l}
-#                             }
-#
-#                 temp_f.write(line + '\n')
-#         temp_f.write('wait\n')
-#         temp_f.write('echo =================\n')
-#         temp_f.write('echo all jobs are done!\n')
-#         temp_f.write('echo =================\n')
-#
-#     os.chmod(temp_script, 0o777)
-#     call(temp_script, shell=True, stdout=stdout)

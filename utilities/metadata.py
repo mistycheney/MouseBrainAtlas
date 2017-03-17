@@ -54,6 +54,9 @@ elif hostname == 'yuncong-MacbookPro':
     REGISTRTION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
 
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_DATA_DIR = 'CSHL_data_processed'
+
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
@@ -85,7 +88,7 @@ elif hostname.startswith('ip'):
     HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
     ELASTIX_BIN = 'elastix'
-    
+
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
     ON_AWS = False

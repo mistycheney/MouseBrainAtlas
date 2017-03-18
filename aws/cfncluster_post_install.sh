@@ -7,6 +7,9 @@ sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multipr
 sudo apt-get update
 sudo apt-get install -y elastix
 
+# Install imagemagick
+sudo apt-get install -y imagemagick
+
 # Code repo
 REPO_DIR="/shared/MouseBrainAtlas"
 git clone https://github.com/mistycheney/MouseBrainAtlas.git $REPO_DIR
@@ -15,15 +18,10 @@ chown -R ubuntu $REPO_DIR
 # Kakadu
 wget http://kakadusoftware.com/wp-content/uploads/2014/06/KDU79_Demo_Apps_for_Linux-x86-64_170108.zip
 unzip KDU79_Demo_Apps_for_Linux-x86-64_170108.zip -d /home/ubuntu/
-PATH=/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108:$PATH
-LD_LIBRARY_PATH=/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108:$LD_LIBRARY_PATH
 
 # Ganglia
 sudo apt-get install -y libapache2-mod-php7.0 php7.0-xml
 sudo /etc/init.d/apache2 restart
-
-# Define some aliases
-alias sudosgeadmin="sudo -u sgeadmin -i"
 
 # Setup Jupyter Notebook Server
 CERTIFICATE_DIR="/home/ubuntu/jupyter_notebook_certificate"
@@ -55,3 +53,9 @@ c.NotebookApp.port = 8888
 EOF
     chown -R ubuntu $JUPYTER_CONFIG_DIR
 fi
+
+echo """
+export REPO_DIR=/shared/MouseBrainAtlas
+alias sudosgeadmin=\"sudo -u sgeadmin -i\"
+alias start_notebook=\"jupyter notebook --notebook-dir /shared/MouseBrainAtlas\"
+""" >> /home/ubuntu/.bashrc

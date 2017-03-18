@@ -1,3 +1,7 @@
+# Understanding cfnCluster #
+https://github.com/awslabs/cfncluster/blob/master/docs/source/autoscaling.rst
+http://cfncluster.readthedocs.io/en/latest/processes.html
+
 # Install cfnCluster #
 
 Setup an Admin node. it could be local machine or an aws EC2 instance.
@@ -46,19 +50,10 @@ Output:"GangliaPublicURL"="http://52.53.116.181/ganglia/"
 Output:"GangliaPrivateURL"="http://172.31.21.42/ganglia/"
 ```
 
-aws:cloudformation:logical-id MasterServer
-Name Master
-Application cfncluster-yuncongCluster
-aws:cloudformation:stack-name cfncluster-yuncongCluster
-aws:cloudformation:stack-id arn:aws:cloudformation:us-west-1:481653826516:stack/cfncluster-yuncongCluster/1ac6a000-07b1-11e7-9f08-500c59637e99
+# Timing #
 
-aws:cloudformation:logical-id ComputeFleet
-aws:autoscaling:groupName cfncluster-yuncongCluster-ComputeFleet-WT43OF80V223
-Name Compute
-Application cfncluster-yuncongCluster
-aws:cloudformation:stack-id arn:aws:cloudformation:us-west-1:481653826516:stack/cfncluster-yuncongCluster/1ac6a000-07b1-11e7-9f08-500c59637e99
-aws:cloudformation:stack-name cfncluster-yuncongCluster
-
+- Create Master node takes 10 minutes.
+- Compute node 6 minutes.
 
 Then access with
 `ssh -i aws/YuncongKey.pem ubuntu@ec2-54-67-87-143.us-west-1.compute.amazonaws.com`
@@ -83,6 +78,21 @@ Access from browser `https://<master node ip>:8888`
 # Custom Bootstrap Actions #
 http://cfncluster.readthedocs.io/en/latest/pre_post_install.html
 Must make the S3 script public readable, otherwise `cfncluster create` will return 403.
+
+# S3 #
+Use this in bucket policy to enable make public by default.
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "MakeItPublic",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::mousebrainatlas-data/*"
+        }
+    ]
+}
 
 # Build Customized AMI #
 http://cfncluster.readthedocs.io/en/latest/ami_customization.html
@@ -129,6 +139,7 @@ Reference: http://blog.vuksan.com/2016/05/03/ganglia-webfrontend-ubuntu-1604-ins
 Beginner Tutorial
 * http://bioinformatics.mdc-berlin.de/intro2UnixandSGE/sun_grid_engine_for_beginners/README.html
 * http://www.softpanorama.org/HPC/Grid_engine/Reference/sge_cheat_sheet.shtml#commonly_used_commands
+* How to control number of hosts and slots http://stackoverflow.com/a/9018445/1550391
 
 ## Add user ubuntu to list of all grid managers ##
 Change to super user `sudo -i`

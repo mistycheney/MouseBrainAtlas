@@ -11,39 +11,50 @@ from metadata import *
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
-def transfer_data(from_fp, to_fp, from_hostname, to_hostname):
-    assert from_hostname in ['localhost', 'oasis', 's3'], 'from_hostname must be one of localhost, oasis or s3.'
-    assert to_hostname in ['localhost', 'oasis', 's3'], 'to_hostname must be one of localhost, oasis or s3.'
+def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None):
+    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     oasis = 'oasis-dm.sdsc.edu'
 
-    if from_hostname == 'localhost':
+    if from_hostname in ['localhost', 'ec2']:
         # upload
         if to_hostname == 's3':
-            execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+            if is_dir:
+                execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+            dict(from_fp=from_fp, to_fp=to_fp))
+            else:
+                execute_command('aws s3 cp %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            assert to_hostname == 'oasis'
             execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
-    elif to_hostname == 'localhost':
+    elif to_hostname in ['localhost', 'ec2']:
         # download
         if from_hostname == 's3':
-            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s && aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % \
-            dict(from_fp=from_fp, to_fp=to_fp, to_parent=to_parent))
+            
+            # Clear existing folder/file
+            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
+            
+            # Download from S3 using aws commandline interface.
+            if is_dir:
+                if include_only is not None:
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                else:
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
+            else:
+                execute_command('aws s3 cp s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            assert from_hostname == 'oasis'
-            execute_command("rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % \
-                        dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis, to_parent=to_parent))
+            execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis))
     else:
         # log onto another machine and perform upload from there.
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET)
+default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared')
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, from_root=None, to_root=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None):
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -51,7 +62,7 @@ def transfer_data_synced(fp_relative, from_hostname, to_hostname, from_root=None
 
     from_fp = os.path.join(from_root, fp_relative)
     to_fp = os.path.join(to_root, fp_relative)
-    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname)
+    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, is_dir=is_dir, include_only=include_only)
 
 def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     secs_per_job = (last_sec - first_sec + 1)/float(n_host)
@@ -143,9 +154,11 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
         print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
 
-        # Wait for SGE to know all nodes. Timeout = 5 mins
+        print "Wait for SGE to know all nodes...\n"
+
+        # Wait for SGE to know all nodes. Timeout = 10 mins
         success = False
-        for _ in range(60):
+        for _ in range(600/5):
             n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
             if n_hosts == cluster_size:
                 success = True
@@ -168,39 +181,33 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
-    if argument_type == 'single':
-        for arg in kwargs_list_as_list:
-            line = command % arg
-    elif argument_type in ['partition', 'list', 'list2']:
-        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
-            if argument_type == 'partition':
-                # For cases with partition of first section / last section
-                line = "%(command)s " % \
-                    {
-                    'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-                    }
-            elif argument_type == 'list':
-            # Specify kwargs_str
-                line = "%(command)s " % \
-                {
-                'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1])}
-                }
-            elif argument_type == 'list2':
-            # Specify {key: list}
-                line = "%(command)s\" &" % \
-                {
-                'command': command % {key: json.dumps(vals[fi:li+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-                }
-            print(line)
-            temp_f = open(temp_script, 'w')
-            temp_f.write(line + '\n')
-            temp_f.close()
-            os.chmod(temp_script, 0o777)
-            call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-                 dict(script=temp_script, stdout_log='/home/ubuntu/stdout.log', stderr_log='/home/ubuntu/stderr.log'),
-                 shell=True, stdout=stdout)
-    else:
-        raise Exception('argument_type %s not recognized.' % argument_type)
+      
+    assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
+
+    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
+        if argument_type == 'partition':
+            # For cases with partition of first section / last section
+            line = command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
+        elif argument_type == 'list':
+        # Specify kwargs_str
+            line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1])}
+        elif argument_type == 'list2':
+        # Specify {key: list}
+            line = command % {key: json.dumps(vals[fi:li+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+        elif argument_type == 'single':
+            line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
+            {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+            'command_template': command,
+            'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
+            }
+            
+        temp_f = open(temp_script, 'w')
+        temp_f.write(line)
+        temp_f.close()
+        os.chmod(temp_script, 0o777)
+        call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+             shell=True, stdout=stdout)
 
     # Wait for qsub to complete.
     success = False

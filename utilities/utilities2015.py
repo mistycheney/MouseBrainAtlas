@@ -1,7 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
 
-import numpy as np
 import os
 import csv
 import sys
@@ -21,10 +20,12 @@ from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
+import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 from tables import open_file, Filters, Atom
 import bloscpack as bp
-import matplotlib.pyplot as plt
+
 from ipywidgets import FloatProgress
 from IPython.display import display
 

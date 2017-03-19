@@ -63,7 +63,7 @@ transformation_to_previous_sec = {}
 
 for i in range(1, len(filenames)):
 
-	custom_tf_fn = os.path.join(data_dir, stack, stack+'_custom_transforms', filenames[i] + '_to_' + filenames[i-1], filenames[i] + '_to_' + filenames[i-1] + '_customTransform.txt')
+	custom_tf_fn = os.path.join(DATA_DIR, stack, stack+'_custom_transforms', filenames[i] + '_to_' + filenames[i-1], filenames[i] + '_to_' + filenames[i-1] + '_customTransform.txt')
 	if os.path.exists(custom_tf_fn):
 		# if custom transform is provided
 		sys.stderr.write('Load custom transform. %s\n' % custom_tf_fn)

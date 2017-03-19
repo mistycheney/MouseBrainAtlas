@@ -8,3 +8,12 @@
 One section has ~100k cells.
 
 `reconstruct_images`: reconstruct images
+
+
+# Hu moments #
+
+Large cells are selected. Their indices are `largeCellIndices.bp`. Their features `largeCellFeatures.bp` include:
+- orientation
+- mirror direction (0,1,2 or 3)
+- size
+- Hu moments

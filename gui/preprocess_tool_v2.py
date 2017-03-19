@@ -1,28 +1,10 @@
 #! /usr/bin/env python
 
-# import sip
-# sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
-#
-# from matplotlib.backends import qt4_compat
-# use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-# if use_pyside:
-#     #print 'Using PySide'
-#     from PySide.QtCore import *
-#     from PySide.QtGui import *
-# else:
-#     #print 'Using PyQt4'
-#     from PyQt4.QtCore import *
-#     from PyQt4.QtGui import *
-
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from ui.ui_PreprocessGui import Ui_PreprocessGui
-# from ui_GalleryDialog import Ui_gallery_dialog
 from ui.ui_AlignmentGui import Ui_AlignmentGui
-# from ui.ui_MaskEditingGui3 import Ui_MaskEditingGui3
-# from ui.ui_MaskParametersGui import Ui_MaskParametersGui
-
 import cPickle as pickle
 
 import sys, os
@@ -38,7 +20,6 @@ from widgets.ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBr
 from widgets.MultiplePixmapsGraphicsScene import MultiplePixmapsGraphicsScene
 from widgets.DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 from widgets.SignalEmittingItems import *
-# from drawable_gscene import *
 
 from gui_utilities import *
 from qt_utilities import *
@@ -327,7 +308,7 @@ def identify_shape(img_fp):
 
 # Use the third method in http://pyqt.sourceforge.net/Docs/PyQt4/designer.html
 class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
-    def __init__(self, parent=None, stack=None):
+    def __init__(self, parent=None, stack=None, tb_fmt='png'):
         """
         Initialization of preprocessing tool.
         """
@@ -340,7 +321,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         # for fluorescent stack, tif is 16 bit (not visible in GUI), png is 8 bit
         # if self.stack in all_ntb_stacks or self.stack in all_alt_nissl_ntb_stacks:
-        self.tb_fmt = 'png'
+        self.tb_fmt = tb_fmt
             # self.pad_bg_color = 'black'
         # else:
             # self.tb_fmt = 'tif'
@@ -349,7 +330,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
         self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
 
-        self.web_service = WebService()
+        self.web_service = WebService(server_ip='ec2-52-53-122-62.us-west-1.compute.amazonaws.com')
 
         ###############################################
 
@@ -2146,13 +2127,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
-        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&'
-                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&'
-                        'cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz &&'
-                        'ssh gcn-20-34.sdsc.edu rm %(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz') % \
-                        dict(gordon_data_dir=self.stack_data_dir_gordon,
-                            local_data_dir=self.stack_data_dir,
-                            stack=self.stack))
+        # execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&'
+        #                 'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz %(local_data_dir)s/ &&'
+        #                 'cd %(local_data_dir)s && rm -rf %(stack)s_elastix_output && tar -xf %(stack)s_elastix_output.tar.gz && rm %(stack)s_elastix_output.tar.gz &&'
+        #                 'ssh gcn-20-34.sdsc.edu rm %(gordon_data_dir)s/%(stack)s_elastix_output.tar.gz') % \
+        #                 dict(gordon_data_dir=self.stack_data_dir_gordon,
+        #                     local_data_dir=self.stack_data_dir,
+        #                     stack=self.stack))
+
+        download()
 
         self.statusBar().showMessage('Consecutive sections alignment results downloaded.')
 
@@ -2353,12 +2336,13 @@ if __name__ == "__main__":
         description='Data Preprocessing GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
+    parser.add_argument("tb_fmt", type=str, help="thumbnail format", default='png')
     args = parser.parse_args()
 
     from sys import argv, exit
     app = QApplication(argv)
 
-    m = PreprocessGUI(stack=args.stack_name)
+    m = PreprocessGUI(stack=args.stack_name, tb_fmt=args.tb_fmt)
 
     # m.show()
     m.showMaximized()

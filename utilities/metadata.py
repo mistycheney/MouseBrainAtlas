@@ -15,6 +15,7 @@ if hostname.endswith('sdsc.edu'):
     data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     thumbnail_data_dir = data_dir
+    THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     REGISTRTION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
     REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'

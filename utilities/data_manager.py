@@ -205,7 +205,8 @@ class DataManager(object):
     def load_sorted_filenames(stack):
         fn = DataManager.get_sorted_filenames_filename(stack)
         filename_to_section, section_to_filename = DataManager.load_data(fn, filetype='file_section_map')
-        filename_to_section.pop('Placeholder')
+        if 'Placeholder' in filename_to_section:
+            filename_to_section.pop('Placeholder')
         return filename_to_section, section_to_filename
 
     @staticmethod

@@ -40,6 +40,20 @@ Each classifier has its own folder under `$CLF_ROOTDIR`.
 - Image type: `NTB`
 - 100 per label = 100 per label per stack x 1 stacks (MD635)
 
+5:
+- Feature cell-based: largeOrientationHist, largeSizeHist, largeLargeLinkLenHist, largeSmallLinkLenHist.
+- Patch labels include: `X`, `X_surround_[margin]_noclass`, `X_surround_[margin]_Y`, `noclass`
+- margin = [500]
+- Image type: `Nissl`
+- 10 per label per section per stack x 3 stacks (MD585, MD589, MD594)
+
+6:
+- Feature cell-based: largeOrientationHist, largeSizeHist, largeLargeLinkLenHist, largeSmallLinkLenHist.
+- Patch labels include: `X`, `X_surround_[margin]_noclass`, `X_surround_[margin]_Y`, `noclass`
+- margin = [500]
+- Image type: `Nissl`
+- 3 per label per section per stack x 3 stacks (MD585, MD589, MD594)
+Fewer instances than 5. Used as test set.
 
 ## Model Settings ##
 1:
@@ -165,6 +179,10 @@ Training set = 3
 
 12: use 2 for nissl patches, and use 10 for ntb patches.
 
+13: same as 2, except using cell-based features
+training set = 5
+
+
 
 ## Evaluation ##
 
@@ -185,6 +203,13 @@ Classifiers are in `$CLF_ROOTDIR`.
 Sparse scores are in `$SPARSE_SCORES_ROOTDIR`.
 Dense score maps are in `$SCOREMAPS_ROOTDIR`.
 Scoremap visualizations are in `$SCOREMAP_VIZ_ROOTDIR`.
+
+### File Hierarchy for Classifiers ###
+  - `datasets` contains the feature-extracted dataset. There are several datasets collected using different protocols.
+    - Under the folder for each dataset are the features and addresses of different classes.
+  - Other folders are classifiers trained with different settings.
+    - `classifiers`: dump files of sklearn classifiers.
+    - `eval`: evaluation figures, confusion matrices etc.
 
 ## Timing ##
 
@@ -291,30 +316,3 @@ This step takes 500 seconds per stack.
 The algorithm's goal is texture classification. The tasks are to separate textures inside a structure from textures outside the structure. Because we already have a strong location prior, we don't need strong texture score signal at places far from the structure's true location, so we take as negative examples only textures at the surrounding of the structure.
 
 If annotations are available, we can compute the true positive, true negative, false positive and false negative rates of classifying each structure. We plot ACC as a function of the margin of the surrounding where negative samples are collected.
-
-
-
-# Cell-based Features #
-
-Section-wise data:
-`detected_cells/<stack>/<fn>/<fn>_<what>.<ext>`
-
-Cell orientations:
-`blobOrientations.bp`
-
-Mirror directions:
-`cells_aligned_mirrorDirections.bp`
-
-Orientation-normalized cell blobs:
-`cells_aligned_mirrored_padded.bp`
-
-Indices of large cells larger than 30 um^2 (indices into the list `cells_aligned_mirrored_padded`)
-`largeCellIndices.bp`
-
-Neighborhood relationship
-`neighbor_info.pkl`
-This is a dict with four keys:
-`neighbors`: dict of {cell index: neighbors sorted by distance}
-`neighbor_vectors`: dict of {cell index: list of vectors from the cell to each neighbor, sorted by distance}
-`radial_indices`: dict of {cell index: radial histogram}
-`angular_indices`: dict of {cell index: angular histogram}

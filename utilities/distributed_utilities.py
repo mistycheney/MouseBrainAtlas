@@ -153,6 +153,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
         print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
+
         print "Wait for SGE to know all nodes...\n"
 
         # Wait for SGE to know all nodes. Timeout = 10 mins

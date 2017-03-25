@@ -44,7 +44,6 @@ key_name
 Master node has no choice but be on-demand. Compute node can be spot.
 
 Cluster name must satisfy regular expression pattern: ``[a-zA-Z][-a-zA-Z0-9]``
-
 ```
 Output:"MasterPublicIP"="52.53.116.181"
 Output:"MasterPrivateIP"="172.31.21.42"

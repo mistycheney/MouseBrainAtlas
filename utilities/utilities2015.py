@@ -1,3 +1,15 @@
+import matplotlib
+matplotlib.use('Agg')
+
+import os
+import csv
+import sys
+from operator import itemgetter
+from subprocess import check_output, call
+import json
+import cPickle as pickle
+import datetime
+
 from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
 from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
@@ -9,22 +21,10 @@ from skimage.util import img_as_ubyte, img_as_float
 from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
-import os
-import csv
-import sys
-from operator import itemgetter
-import json
-import cPickle as pickle
-import datetime
-
+import matplotlib.pyplot as plt
 import cv2
-
 from tables import open_file, Filters, Atom
 import bloscpack as bp
-
-from subprocess import check_output, call
-
-import matplotlib.pyplot as plt
 
 from ipywidgets import FloatProgress
 from IPython.display import display
@@ -144,7 +144,8 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
 
 def save_hdf_v2(data, fn, key='data'):
     import pandas
-    pandas.Series(data=data).to_hdf(fn % {'fn': fn}, key, mode='w')
+    create_parent_dir_if_not_exists(fn)
+    pandas.Series(data=data).to_hdf(fn, key, mode='w')
 
 def load_hdf_v2(fn, key='data'):
     import pandas
@@ -672,7 +673,9 @@ def apply_function_to_nested_list(func, l):
 
 def apply_function_to_dict(func, d):
     """
-    Func applies to the list consisting of all elements of d, and return a list.
+    Args:
+        func:
+            a function that takes as input the list consisting of a flatten list of values of `d`, and return a list.
     """
     from itertools import chain
     result = func(list(chain(*d.values())))
@@ -680,6 +683,40 @@ def apply_function_to_dict(func, d):
     new_d = {k: result[(0 if i == 0 else csum[i-1]):csum[i]] for i, k in enumerate(d.keys())}
     return new_d
 
+def smart_map(data, keyfunc, func):
+    """
+    Args:
+        data (list): data
+        keyfunc (func): a lambda function for data key.
+        func (func): a function that takes f(key, group). `group` is a sublist of `data`.
+                    func does a global operation using key.
+                    then does a same operation on each entry of group.
+                    return a list.
+    """
+
+    from itertools import groupby
+    from multiprocess import Pool
+
+    keyfunc_with_enum = lambda (i, x): keyfunc(x)
+
+    grouping = groupby(sorted(enumerate(data), key=keyfunc_with_enum), keyfunc_with_enum)
+    grouping_noidx = {}
+    grouping_idx = {}
+    for k, group in grouping:
+        grouping_idx[k], grouping_noidx[k] = zip(*group)
+
+    pool = Pool(15)
+    results_by_key = pool.map(lambda (k, group): func(k, group), grouping_noidx.iteritems())
+    pool.close()
+    pool.join()
+
+    # results_by_key = [func(k, group) for k, group in grouping_noidx.iteritems()]
+
+    keys = grouping_noidx.keys()
+    results_inOrigOrder = {i: res for k, results in zip(keys, results_by_key)
+                           for i, res in zip(grouping_idx[k], results)}
+
+    return results_inOrigOrder.values()
 
 boynton_colors = dict(blue=(0,0,255),
     red=(255,0,0),

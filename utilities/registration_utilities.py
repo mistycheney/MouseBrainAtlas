@@ -43,6 +43,11 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
         return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
 def affine_components_to_vector(tx,ty,tz,theta_xy,theta_yz=None,theta_xz=None,c=(0,0,0)):
+    """
+    Args:
+        theta_xy (float):
+            in radian.
+    """
     cos_theta = np.cos(theta_xy)
     sin_theta = np.sin(theta_xy)
     Rz = np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
@@ -251,6 +256,8 @@ class Aligner4(object):
             else:
                 raise Exception('centroid_f not recognized.')
 
+        print 'm:', self.centroid_m, 'f:', self.centroid_f
+
         global nzvoxels_centered_m
         nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
 
@@ -413,11 +420,12 @@ class Aligner4(object):
 
         if wrt_v:
             grad[0] = grad[0] - 2*self.reg_weights[0] * tx
-            print grad[0], 2*self.reg_weights[0] * tx
+            # print grad[0], 2*self.reg_weights[0] * tx
             grad[1] = grad[1] - 2*self.reg_weights[1] * ty
             grad[2] = grad[2] - 2*self.reg_weights[2] * tz
         else:
             grad[3] = grad[3] - 2*self.reg_weights[0] * tx
+            # print grad[3], 2*self.reg_weights[0] * tx
             grad[7] = grad[7] - 2*self.reg_weights[1] * ty
             grad[11] = grad[11] - 2*self.reg_weights[2] * tz
 
@@ -682,12 +690,20 @@ class Aligner4(object):
 
             tx_best, ty_best, tz_best, theta_xy_best = samples[np.argmax(scores)]
 
+            sys.stderr.write('tx_best: %.2f (voxel), ty_best: %.2f, tz_best: %.2f, theta_xy_best: %.2f (deg)\n' % \
+            (tx_best, ty_best, tz_best, np.rad2deg(theta_xy_best)))
+            sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg)\n' % \
+            (sigma_tx, sigma_ty, sigma_tz, np.rad2deg(sigma_theta_xy)))
+
             if score_best > score_best_upToNow:
                 # self.logger.info('%f %f', score_best_upToNow, score_best)
                 sys.stderr.write('%f %f\n' % (score_best_upToNow, score_best))
 
                 score_best_upToNow = score_best
                 params_best_upToNow = tx_best, ty_best, tz_best, theta_xy_best
+
+            if sigma_tx < 10:
+                break
 
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
         print 'params_best_upToNow', np.ravel(params_best_upToNow)
@@ -1541,7 +1557,15 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
     vol[ys_m[valid], xs_m[valid], zs_m[valid]]
 
-    return volume_m_aligned_to_f
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume
 
 
 def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):

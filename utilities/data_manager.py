@@ -1,6 +1,9 @@
 import sys, os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
+import subprocess
+import os
+import boto3
 from metadata import *
 from vis3d_utilities import *
 
@@ -69,10 +72,10 @@ def save_to_s3(fpkw, fppos):
 
 class DataManager(object):
 
-    @staticmethod
-    def map_local_filename_to_s3(local_fp):
-        # Saienthan, please implement this.
-        return None
+    # @staticmethod
+    # def map_local_filename_to_s3(local_fp):
+    #     s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + S3_DATA_BUCKET + '/' + )
+    #     return s3_path
 
     @staticmethod
     def load_data(filepath, filetype):
@@ -81,9 +84,8 @@ class DataManager(object):
             sys.stderr.write('File does not exist: %s\n' % filepath)
 
             # If on aws, download from S3 and make available locally.
-            on_aws = False # should be an env variable
-            if on_aws:
-                DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
+            # if ON_AWS:
+                # DataManager.download_from_s3(filepath, DataManager.map_local_filename_to_s3(filepath))
 
         if filetype == 'bp':
             return bp.unpack_ndarray_file(filepath)
@@ -140,8 +142,40 @@ class DataManager(object):
 
     @staticmethod
     def get_anchor_filename_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
         return fn
+
+    # @staticmethod
+    # def download_from_s3(local_path, s3_path = None):
+    # #downloading 500 files of 1Mb each
+    # #boto3 - 36 seconds
+    # #aws cli - 5 seconds
+    #     s3_connection = boto3.resource('s3')
+    #     if s3_path == None:
+    #         s3_path = DataManager.map_local_filename_to_s3(local_path)
+    #     bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
+    #     #file_to_download = file_to_download.split("/", 1)[1]
+    #
+    #     bucket = s3_connection.Bucket(bucket)
+    #     create_parent_dir_if_not_exists(local_path)
+    #     if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
+    #         execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
+    #         #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
+    #     else:
+    #         bucket.download_file(file_to_download, local_path)
+    # return local_path
+
+    # @staticmethod
+    # def upload_to_s3(local_path, s3_path = None, output = False):
+    # #uploading 500 files of 1Mb each
+    # #boto3 - 1 minute 24  seconds
+    # #aws cli - 7 seconds
+    #     if s3_path == None:
+    #         s3_path = map_local_filename_to_s3(local_path)
+    #     if output == True:
+    #         subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
+    #     else:
+    #         subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
 
     @staticmethod
     def load_anchor_filename(stack):
@@ -151,7 +185,7 @@ class DataManager(object):
 
     @staticmethod
     def get_cropbox_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -164,18 +198,20 @@ class DataManager(object):
 
     @staticmethod
     def get_sorted_filenames_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_sorted_filenames.txt')
         return fn
 
     @staticmethod
     def load_sorted_filenames(stack):
         fn = DataManager.get_sorted_filenames_filename(stack)
         filename_to_section, section_to_filename = DataManager.load_data(fn, filetype='file_section_map')
+        if 'Placeholder' in filename_to_section:
+            filename_to_section.pop('Placeholder')
         return filename_to_section, section_to_filename
 
     @staticmethod
     def get_transforms_filename(stack):
-        fn = thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
         return fn
 
     @staticmethod
@@ -202,10 +238,10 @@ class DataManager(object):
         fn = sections_to_filenames[section]
 
         if version == 'aligned_cropped':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         elif version == 'aligned':
-            fn = thumbnail_data_dir+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
                 dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':
@@ -583,7 +619,7 @@ class DataManager(object):
                                     type_m='score', type_f='score',
                                     trial_idx=0,
                                     structures=None,
-                                    sided=False,
+                                    sided=True,
                                     return_polydata_only=True):
 
         kwargs = locals()
@@ -711,6 +747,38 @@ class DataManager(object):
     #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
     @staticmethod
+    def load_volume_all_known_structures(stack_m, stack_f,
+                                        warp_setting,
+                                        classifier_setting_m=None,
+                                        classifier_setting_f=None,
+                                        type_m='score',
+                                        type_f='score',
+                                        downscale=32,
+                                        structures=None,
+                                        trial_idx=0,
+                                        sided=True,
+                                        include_surround=False):
+        if stack_f is not None:
+            return DataManager.load_transformed_volume_all_known_structures(**locals())
+        else:
+            raise Exception('Not implemented.')
+
+    @staticmethod
+    def load_volume(stack_m, stack_f=None,
+                    warp_setting=None,
+                    classifier_setting_m=None,
+                    classifier_setting_f=None,
+                    type_m='score',
+                     type_f='score',
+                    structure=None,
+                    downscale=32,
+                    trial_idx=0):
+        if stack_f is not None:
+            return DataManager.load_transformed_volume(**locals())
+        else:
+            raise Exception('Not implemented.')
+
+    @staticmethod
     def load_transformed_volume(stack_m, stack_f,
                                         warp_setting,
                                         classifier_setting_m=None,
@@ -733,7 +801,7 @@ class DataManager(object):
                                         downscale=32,
                                         structures=None,
                                         trial_idx=0,
-                                        sided=False,
+                                        sided=True,
                                         include_surround=False):
         if structures is None:
             if sided:
@@ -754,7 +822,8 @@ class DataManager(object):
                                                     warp_setting=warp_setting,
                                                     structure=structure,
                                                     trial_idx=trial_idx)
-            except:
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
         return volumes
 
@@ -786,7 +855,7 @@ class DataManager(object):
             type_m='score', type_f='score',
             trial_idx=0,
             structures=None,
-            sided=False,
+            sided=True,
             return_polydata_only=True):
 
         kwargs = locals()
@@ -945,7 +1014,7 @@ class DataManager(object):
     #     return grad_fn
 
     @staticmethod
-    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=False, volume_type='score',
+    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
                                                 return_structure_index_mapping=True):
 
         if structures is None:
@@ -1284,7 +1353,7 @@ class DataManager(object):
         return load_hdf(DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn))
 
     @staticmethod
-    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=data_dir, fn=None, anchor_fn=None):
+    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None):
         """
         resol: can be either lossless or thumbnail
         version:
@@ -1311,16 +1380,16 @@ class DataManager(object):
             image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
         elif resol == 'lossless' and version == 'compressed':
             if is_fluorescent:
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
             else:
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and version == 'saturation':
             if is_fluorescent: # fluorescent.
-                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
             else: # Nissl
@@ -1328,7 +1397,7 @@ class DataManager(object):
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':

@@ -122,8 +122,8 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             if sec not in self.data_feeder.all_sections:
                 self.pixmapItem.setVisible(False)
                 self.active_i = None
-                sys.stderr.write('Section %d is not loaded.\n' % sec)
-                raise Exception('Section %d is not loaded.\n' % sec)
+                sys.stderr.write('Section %s is not loaded.\n' % sec)
+                raise Exception('Section %s is not loaded.\n' % sec)
             else:
                 i = self.data_feeder.all_sections.index(sec)
                 self.set_active_i(i, emit_changed_signal=emit_changed_signal)

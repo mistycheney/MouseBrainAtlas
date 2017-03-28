@@ -1354,9 +1354,16 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.aligned_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
                                                     sections=self.valid_section_indices, use_data_manager=False)
 
-            self.aligned_images_dir = os.path.join(self.stack_data_dir, '%(stack)s_thumbnails_alignedTo_%(anchor_fn)s' % {'stack': self.stack, 'anchor_fn':self.anchor_fn})
-            aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
-                                        {'fn': fn, 'anchor_fn': self.anchor_fn}) for fn in self.valid_section_filenames]
+
+            aligned_image_filenames = [DataManager.get_image_filepath(stack=self.stack, fn=fn, anchor_fn=self.anchor_fn,
+                                                                        resol='thumbnail', version='aligned_tif')
+                                                                        for fn in self.valid_section_filenames]
+
+            print aligned_image_filenames
+
+            # self.aligned_images_dir = os.path.join(self.stack_data_dir, '%(stack)s_thumbnail_alignedTo_%(anchor_fn)s' % {'stack': self.stack, 'anchor_fn':self.anchor_fn})
+            # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
+            #                             {'fn': fn, 'anchor_fn': self.anchor_fn}) for fn in self.valid_section_filenames]
 
             self.aligned_images_feeder.set_images(self.valid_section_indices, aligned_image_filenames, downsample=32, load_with_cv2=False)
             self.aligned_images_feeder.set_downsample_factor(32)
@@ -1507,7 +1514,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             pad_bg_color = 'white'
         elif self.stack in all_ntb_stacks:
             pad_bg_color = 'black'
-        elif self.stack in all_alt_nissl_ntb_stacks:
+        elif self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
             pad_bg_color = 'auto'
 
         self.statusBar().showMessage('Conmpose consecutive alignments...')

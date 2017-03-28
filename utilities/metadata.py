@@ -37,6 +37,11 @@ if hostname.endswith('sdsc.edu'):
     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
     WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
 
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    REPO_DIR = os.environ['REPO_DIR']
+    ON_AWS = False
+    ELASTIX_BIN = '/oasis/projects/nsf/csd395/yuncong/elastix_linux64_v4.7/bin/elastix'
+
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
 
@@ -209,9 +214,8 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-# all_stacks = all_nissl_stacks + all_ntb_stacks
-all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
+all_alt_nissl_tracing_stacks = ['MD657']
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
-all_alt_nissl_tracing_stacks = ['MD657']

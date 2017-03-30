@@ -1,19 +1,20 @@
 import sys, os
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
-from utilities2015 import *
-from metadata import *
-from data_manager import *
-
-from registration_utilities import find_contour_points
-from annotation_utilities import contours_to_mask
-from gui_utilities import *
+from collections import deque
 
 from skimage.segmentation import slic
 from skimage.morphology import remove_small_objects, disk, remove_small_holes, binary_dilation
 from skimage.future.graph import rag_mean_color, cut_normalized
-
 from multiprocess import Pool
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'preprocess'))
+import morphsnakes
 
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+from utilities2015 import *
+from metadata import *
+from data_manager import *
+from registration_utilities import find_contour_points
+from annotation_utilities import contours_to_mask
+from gui_utilities import *
 from distributed_utilities import transfer_data_synced
 
 VMAX_PERCENTILE = 99
@@ -46,11 +47,6 @@ PIXEL_CHANGE_TERMINATE_CRITERIA = 3
 AREA_CHANGE_RATIO_MAX = 1.2
 AREA_CHANGE_RATIO_MIN = .1
 
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'preprocess'))
-import morphsnakes
-from collections import deque
-
-
 def generate_submask_review_results(submasks_rootdir, filenames=None, which='user'):
 
     mask_alg_review_results = {}
@@ -80,44 +76,23 @@ def generate_submask_review_results_one_section(submasks_rootdir, fn, which):
 
     return decisions
 
-# def parse_submask_review_results_one_section_from_file(review_fp):
-#
-#     if not os.path.exists(review_fp):
-#         raise Exception("File does not exist: %s" % review_fp)
-#
-#     decisions = {}
-#     with open(review_fp, 'r') as f:
-#         for line in f:
-#             mask_ind, decision = map(int, line.split())
-#             decisions[mask_ind] = decision == 1
-#
-#     n = len(decisions)
-#     if n == 0:
-#         raise Exception("Review file is empty: %s" % review_fp)
-#     else:
-#         return [decisions[i+1] for i in range(n)]
-
-
 def load_masking_parameters(submasks_rootdir):
-    # intensity_threshold_allFiles = {}
+    snake_lambda1_allFiles = {}
     dissim_threshold_allFiles = {}
     channel_allFiles = {}
     for fn in os.listdir(submasks_rootdir):
-        # try:
         params_fp = os.path.join(submasks_rootdir, fn, fn + '_maskingParameters.txt')
         with open(params_fp, 'r') as f:
-            # intensity_threshold_allFiles[fn] = int(f.readline().split()[1])
-            dissim_threshold_allFiles[fn] = float(f.readline().split()[1])
-            channel_allFiles[fn] = int(f.readline().split()[1])
-        # except:
-        #     params_fp = os.path.join(submasks_rootdir, fn, fn + '_maskingParameters.txt')
-        #     with open(params_fp, 'r') as f:
-        #         _ = int(f.readline().split()[1])
-        #         dissim_threshold_allFiles[fn] = float(f.readline().split()[1])
-        #         channel_allFiles[fn] = int(f.readline().split()[1])
-    # return intensity_threshold_allFiles, dissim_threshold_allFiles, channel_allFiles
-    return dissim_threshold_allFiles, channel_allFiles
+            for line in f.readlines():
+                param_name, val_str = line.split()
+                if param_name == 'snake_lambda1':
+                    snake_lambda1_allFiles[fn] = int(val_str)
+                elif param_name == 'dissim_threshold':
+                    dissim_threshold_allFiles[fn] = float(val_str)
+                elif param_name == 'channel':
+                    channel_allFiles[fn] = int(val_str)
 
+    return snake_lambda1_allFiles, dissim_threshold_allFiles, channel_allFiles
 
 def load_final_decisions(stack):
 
@@ -184,7 +159,7 @@ def auto_judge_submasks(submasks):
 
     return decisions
 
-def snake(img, submasks):
+def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
 
     # Find contours from mask.
     init_contours = []
@@ -234,7 +209,7 @@ def snake(img, submasks):
         t = time.time()
 
         msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
-                                       lambda1=MORPHSNAKE_LAMBDA1, lambda2=MORPHSNAKE_LAMBDA2)
+                                       lambda1=lambda1, lambda2=MORPHSNAKE_LAMBDA2)
 
         msnake.levelset = init_levelset.copy()
 
@@ -265,7 +240,7 @@ def snake(img, submasks):
                     m = labeled_mask == l
                     if np.count_nonzero(m)/float(init_area) > AREA_CHANGE_RATIO_MAX:
                         msnake.levelset[m] = 0
-                        sys.stderr.write('Area nullified.\n')
+                        sys.stderr.write('Area expands too much - nullified.\n')
 
             if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                 discard = True
@@ -296,38 +271,8 @@ def snake(img, submasks):
 
     return final_masks
 
-# def slic_image(img):
-#     t = time.time()
-#     slic_labels_ = slic(img.astype(np.float), sigma=SLIC_SIGMA, compactness=SLIC_COMPACTNESS,
-#                        n_segments=SLIC_N_SEGMENTS, multichannel=False, max_iter=SLIC_MAXITER)
-#     sys.stderr.write('SLIC: %.2f seconds.\n' % (time.time() - t)) # 10 seconds, iter=100, nseg=1000;
-#     return slic_labels_
-
-# def get_submasks(img):
-#
-#     superpixel_mask = img.astype(np.bool)
-#     superpixel_mask = remove_small_objects(superpixel_mask, min_size=200)
-#
-#     # plt.imshow(superpixel_mask, cmap=plt.cm.gray)
-#     # plt.show()
-#     labelmap, n_submasks = label(superpixel_mask, return_num=True)
-#
-#     dilated_superpixel_submasks = []
-#     for i in range(1, n_submasks+1):
-#         m = labelmap == i
-#         dilated_m = binary_dilation(m, disk(10))
-#         dilated_m = remove_small_objects(dilated_m, min_size=MIN_SIZE)
-#         dilated_superpixel_submasks.append(dilated_m)
-#
-#         # plt.imshow(dilated_m, cmap=plt.cm.gray)
-#         # plt.title(str(i));
-#         # plt.show()
-#
-#     return dilated_superpixel_submasks
-
-
 def get_submasks(ncut_labels, sp_dissims, dissim_thresh):
-    # Generate mask for snake's initial contours.
+    """Generate mask for snake's initial contours."""
 
     # t = time.time()
     superpixel_mask = np.zeros_like(ncut_labels, np.bool)
@@ -351,7 +296,7 @@ def get_submasks(ncut_labels, sp_dissims, dissim_thresh):
 
 
 def generate_submasks_viz(img, submasks, color=(255,0,0), linewidth=3):
-    # Visualize
+    """Visualize"""
 
     viz = gray2rgb(img)
     for i, submask in enumerate(submasks):

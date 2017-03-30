@@ -279,10 +279,150 @@ def get_default_gridspec(stack, patch_size=224, stride=56):
     image_width, image_height = metadata_cache['image_shape'][stack]
     return (patch_size, stride, image_width, image_height)
 
+
+def label_regions_multisections(stack, region_contours, surround_margins=None):
+    """
+    Args:
+        region_contours: dict {sec: list of contours (nx2 array)}
+    """
+
+    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+    labeled_contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+
+    sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+
+    labeled_region_indices_all_sections = {}
+
+    for sec, region_contours_curr_sec in region_contours.iteritems():
+
+        sys.stderr.write('Analyzing section %d..\n' % section)
+
+        matching_contours = labeled_contours[labeled_contours['section'] == section]
+        if len(matching_contours) == 0:
+            continue
+        polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in matching_contours.iterrows()]
+        mask_tb = DataManager.load_thumbnail_mask_v2(stack, section)
+        labeled_region_indices = identify_regions_inside(region_contours=region_contours, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                                            surround_margins=surround_margins)
+
+        labeled_region_indices_all_sections[sec] = labeled_region_indices
+
+    return labeled_region_indices_all_sections
+
+
+def label_regions(stack, section, region_contours, surround_margins=None, labeled_contours=None):
+    """
+    Label regions for one section.
+    """
+
+    if is_invalid(sec=section, stack=stack):
+        raise Exception('Section %s, %d invalid.' % (stack, section))
+
+    if labeled_contours is None:
+        contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+        contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+        contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+        labeled_contours = contours[contours['section'] == section]
+
+    sys.stderr.write('Analyzing section %d..\n' % section)
+
+    if len(labeled_contours) == 0:
+        return {}
+
+    polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in labeled_contours.iterrows()
+                        if contour['name'] in all_known_structures]
+
+    mask_tb = DataManager.load_thumbnail_mask_v2(stack, section)
+    patch_indices = identify_regions_inside(region_contours=region_contours, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                                        surround_margins=surround_margins)
+    return patch_indices
+
+def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_tb=None, polygons=None, surround_margins=None):
+    """
+    Return addresses of patches that are either in polygons or on mask.
+    - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
+    - If polygons is given, the valid patches are those whose bounding boxes.
+        - polygons can be a dict, keys are structure names, values are x-y vertices (nx2 array).
+        - polygons can also be a list of (name, vertices) tuples.
+    if shrinked to 30%% are completely within the polygons.
+
+    scheme: 1 - negative does not include other positive classes that are in the surround
+            2 - negative include other positive classes that are in the surround
+    """
+
+    n_regions = len(region_contours)
+
+    if isinstance(polygons, dict):
+        polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
+    elif isinstance(polygons, list):
+        assert isinstance(polygons[0], tuple)
+        polygon_list = polygons
+    else:
+        raise Exception('Polygon must be either dict or list.')
+
+    if surround_margins is None:
+        surround_margins = [100,200,300,400,500,600,700,800,900,1000]
+
+    # Identify patches in the foreground.
+    region_centroids_tb = np.array([np.mean(cnt, axis=0)/32. for cnt in region_contours], np.int)
+    indices_fg = np.where(mask_tb[region_centroids_tb[:,1], region_centroids_tb[:,0]])[0]
+    # indices_fg = np.where(mask_tb[sample_locations[:,1]/32, sample_locations[:,0]/32])[0] # patches in the foreground
+    # sys.stderr.write('%d patches in fg\n' % len(indices_fg))
+
+    # Identify patches in the background.
+    indices_bg = np.setdiff1d(range(n_regions), indices_fg)
+
+    indices_inside = {}
+    indices_allLandmarks = {}
+
+    for label, poly in polygon_list:
+        path = Path(poly)
+        # indices_inside[label] = np.where([np.all(path.contains_points(cnt)) for cnt in region_contours])[0]
+
+        # Being inside is defined as 70% of vertices are within the polygon
+        indices_inside[label] = np.where([np.count_nonzero(path.contains_points(cnt)) >= len(cnt)*.7 for cnt in region_contours])[0]
+        indices_allLandmarks[label] = indices_inside[label]
+        # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label]), label))
+
+    indices_allInside = np.concatenate(indices_inside.values())
+
+    for label, poly in polygon_list:
+
+        for margin in surround_margins:
+        # margin = 500
+            surround = Polygon(poly).buffer(margin, resolution=2)
+            # 500 pixels (original resolution, ~ 250um) away from landmark contour
+
+            path = Path(list(surround.exterior.coords))
+            indices_sur = np.where([np.count_nonzero(path.contains_points(cnt)) >=  len(cnt)*.7  for cnt in region_contours])[0]
+
+            # surround classes do not include patches of any no-surround class
+            indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+            # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
+            # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
+
+            for l, inds in indices_inside.iteritems():
+                if l == label: continue
+                indices = np.intersect1d(indices_sur, inds)
+                if len(indices) > 0:
+                    indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
+                    # sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
+
+        # Identify all foreground patches except the particular label's inside patches
+        indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(n_regions), np.r_[indices_bg, indices_inside[label]])
+        # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_negative']), label+'_negative'))
+
+    indices_allLandmarks['bg'] = indices_bg
+    indices_allLandmarks['noclass'] = np.setdiff1d(range(n_regions), np.r_[indices_bg, indices_allInside])
+
+    return indices_allLandmarks
+
+
 def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_margins=None):
     """
-    If exists, load from <patch_rootdir>/<stack>_indices_allLandmarks_allSection.h5
-
     Return a DataFrame: indexed by structure names and section number, cell is the array of grid indices.
     """
 
@@ -391,7 +531,7 @@ bbox_lossless=None, surround_margins=None):
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
     - If bbox is given, valid patches are those entirely inside bbox. bbox = (x,y,w,h) in thumbnail resol.
     - If polygons is given, the valid patches are those whose bounding boxes.
-        - polygons can be a dict, keys are structure names, values are vertices (xy).
+        - polygons can be a dict, keys are structure names, values are x-y vertices (nx2 array).
         - polygons can also be a list of (name, vertices) tuples.
     if shrinked to 30%% are completely within the polygons.
 
@@ -433,6 +573,7 @@ bbox_lossless=None, surround_margins=None):
         if isinstance(polygons, dict):
             polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
         elif isinstance(polygons, list):
+            assert isinstance(polygons.values()[0], tuple)
             polygon_list = polygons
         else:
             raise Exception('Polygon must be either dict or list.')
@@ -624,11 +765,11 @@ def addresses_to_features(addresses):
         else:
 
             # Load mapping grid index -> location
-            locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            locations_fn = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
 
             with open(locations_fn, 'r') as f:
                 all_locations = [int(line.split()[0]) for line in f.readlines()]
-
 #             all_locations = [idx for idx, x, y in locations]
 
             sampled_list_indices = []
@@ -643,9 +784,11 @@ def addresses_to_features(addresses):
                     sampled_list_indices.append(None)
 #                     list_indices2.append(lst_idx)
 
-            feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # features = load_hdf(feature_fn)
 
-            features = load_hdf(feature_fn)
+            features = DataManager.load_dnn_features(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
+
             # sampled_features = features[sampled_list_indices]
             # sampled_features = [features[i] if i is not None else None for i in sampled_list_indices]
             # feature_list += list(sampled_features)

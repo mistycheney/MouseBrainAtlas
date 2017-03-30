@@ -41,15 +41,9 @@ aws_region_name
 key_name
 ```
 
-<<<<<<< HEAD
 Master node has no choice but be on-demand. Compute node can be spot.
 
 Cluster name must satisfy regular expression pattern: ``[a-zA-Z][-a-zA-Z0-9]``
-
-=======
-Cluster name must satisfy regular expression pattern: ``[a-zA-Z][-a-zA-Z0-9]``
-
->>>>>>> b50956e8a2d4cfa4b37e66badfcf6e10dd8c2a7c
 ```
 Output:"MasterPublicIP"="52.53.116.181"
 Output:"MasterPrivateIP"="172.31.21.42"

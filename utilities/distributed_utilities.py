@@ -33,10 +33,10 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
     elif to_hostname in ['localhost', 'ec2']:
         # download
         if from_hostname == 's3':
-            
+
             # Clear existing folder/file
             execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
-            
+
             # Download from S3 using aws commandline interface.
             if is_dir:
                 if include_only is not None:
@@ -181,7 +181,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
-      
+
     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
 
     for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
@@ -200,7 +200,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
             'command_template': command,
             'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
             }
-            
+
         temp_f = open(temp_script, 'w')
         temp_f.write(line)
         temp_f.close()
@@ -244,10 +244,6 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, vals))
 
-    # for k,v in kwargs_list_as_dict.iteritems():
-    #     sys.stderr.write(k+'\n')
-    #     sys.stderr.write(str(v)+'\n')
-
     with open(temp_script, 'w') as temp_f:
 
         for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
@@ -290,4 +286,4 @@ def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclu
         temp_f.write('echo =================\n')
 
     os.chmod(temp_script, 0o777)
-    call(temp_script, shell=True, stdout=stdout)
+    call(temp_script, shell=True, stdout=stdout, stderr=open('/tmp/stderr.log', 'ab+'))

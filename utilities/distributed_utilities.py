@@ -41,7 +41,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
             # Download from S3 using aws commandline interface.
             if is_dir:
                 if include_only is not None:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
                 else:
                     execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
             else:

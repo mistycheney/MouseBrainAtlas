@@ -78,6 +78,7 @@ elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = '/shared/CSHL_data'

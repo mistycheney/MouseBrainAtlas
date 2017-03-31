@@ -12,15 +12,15 @@ def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
 def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None):
-    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
-    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2', 's3raw'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     oasis = 'oasis-dm.sdsc.edu'
 
     if from_hostname in ['localhost', 'ec2']:
         # upload
-        if to_hostname == 's3':
+        if to_hostname in ['s3', 's3raw']:
             if is_dir:
                 execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
@@ -32,10 +32,11 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
     elif to_hostname in ['localhost', 'ec2']:
         # download
-        if from_hostname == 's3':
+        if from_hostname in ['s3', 's3raw']:
 
             # Clear existing folder/file
-            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
+            if not include_only:
+                execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
 
             # Download from S3 using aws commandline interface.
             if is_dir:
@@ -52,9 +53,9 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared')
+default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', s3raw=S3_RAWDATA_BUCKET)
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, s3_bucket=None):
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:

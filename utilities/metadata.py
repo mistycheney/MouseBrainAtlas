@@ -95,6 +95,7 @@ elif hostname.startswith('ip'):
     HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
     ELASTIX_BIN = 'elastix'
+    KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
 
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

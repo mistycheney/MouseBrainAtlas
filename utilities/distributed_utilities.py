@@ -22,7 +22,10 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         # upload
         if to_hostname in ['s3', 's3raw']:
             if is_dir:
-                execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+                if include_only is not None:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                else:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
             else:
                 execute_command('aws s3 cp %(from_fp)s s3://%(to_fp)s' % \
@@ -153,9 +156,9 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
-        print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
+        print "Setting autoscaling group %s capaticy to %d." % (asg, cluster_size)
 
-        print "Wait for SGE to know all nodes...\n"
+        print "Wait for SGE to know all nodes..."
 
         # Wait for SGE to know all nodes. Timeout = 10 mins
         success = False
@@ -168,6 +171,8 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
 
         if not success:
             raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
+        else:
+            print "All nodes are ready."
 
     assert n_hosts == cluster_size
 

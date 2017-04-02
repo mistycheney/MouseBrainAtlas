@@ -3,7 +3,10 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 import subprocess
 import os
-import boto3
+try:
+    import boto3
+except:
+    sys.stderr.write('No boto3\n')
 from metadata import *
 from vis3d_utilities import *
 
@@ -1397,7 +1400,7 @@ class DataManager(object):
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
@@ -1406,11 +1409,11 @@ class DataManager(object):
             #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             #     image_path = os.path.join(image_dir, image_name + '.tif')
             # else:
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'aligned_tif':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         else:
@@ -1914,7 +1917,8 @@ metadata_cache['image_shape'] =\
  'MD602': (22336, 12288),
  'MD603': (20928, 13472),
  'MD635': (20960, 14240),
- 'MD642': (28704, 15584)}
+ 'MD642': (28704, 15584),
+ 'MD657': (27584, 16960)}
 metadata_cache['anchor_fn'] = {}
 metadata_cache['sections_to_filenames'] = {}
 metadata_cache['section_limits'] = {}

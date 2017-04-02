@@ -60,8 +60,8 @@ elif hostname == 'yuncong-MacbookPro':
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
-    data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
-    thumbnail_data_dir = data_dir
+    DATA_DIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
+    THUMBNAIL_DATA_DIR = DATA_DIR
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -209,9 +209,9 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
+all_alt_nissl_tracing_stacks = ['MD657']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
-all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
-all_alt_nissl_tracing_stacks = ['MD657']

@@ -21,7 +21,7 @@ rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.t
 rg_param_mutualinfo_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo_noNumberOfSpatialSamples.txt")
 rg_param_requiredRatioOfValidSamples = os.path.join(parameter_dir, "Parameters_Rigid_RequiredRatioOfValidSamples.txt")
 
-if stack in all_alt_nissl_ntb_stacks:
+if stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks:
 	rg_param = rg_param_mutualinfo
 else:
 	rg_param = rg_param_rigid

@@ -37,6 +37,11 @@ if hostname.endswith('sdsc.edu'):
     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
     WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
 
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    REPO_DIR = os.environ['REPO_DIR']
+    ON_AWS = False
+    ELASTIX_BIN = '/oasis/projects/nsf/csd395/yuncong/elastix_linux64_v4.7/bin/elastix'
+
 elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
 
@@ -73,6 +78,7 @@ elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = '/shared/CSHL_data'
@@ -89,6 +95,7 @@ elif hostname.startswith('ip'):
     HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
     ELASTIX_BIN = 'elastix'
+    KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
 
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

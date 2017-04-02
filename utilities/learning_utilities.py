@@ -765,11 +765,11 @@ def addresses_to_features(addresses):
         else:
 
             # Load mapping grid index -> location
-            locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            locations_fn = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
 
             with open(locations_fn, 'r') as f:
                 all_locations = [int(line.split()[0]) for line in f.readlines()]
-
 #             all_locations = [idx for idx, x, y in locations]
 
             sampled_list_indices = []
@@ -784,9 +784,11 @@ def addresses_to_features(addresses):
                     sampled_list_indices.append(None)
 #                     list_indices2.append(lst_idx)
 
-            feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+            # features = load_hdf(feature_fn)
 
-            features = load_hdf(feature_fn)
+            features = DataManager.load_dnn_features(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
+
             # sampled_features = features[sampled_list_indices]
             # sampled_features = [features[i] if i is not None else None for i in sampled_list_indices]
             # feature_list += list(sampled_features)

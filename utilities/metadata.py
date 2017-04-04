@@ -65,19 +65,23 @@ elif hostname == 'yuncong-MacbookPro':
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
-    data_dir = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
-    thumbnail_data_dir = data_dir
+    DATA_DIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
+    THUMBNAIL_DATA_DIR = DATA_DIR
     volume_dir = '/home/yuncong/CSHL_volumes2/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3/'
     CLF_ROOTDIR = '/home/yuncong/CSHL_classifiers'
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = '/shared/CSHL_data'
@@ -94,6 +98,7 @@ elif hostname.startswith('ip'):
     HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
     ELASTIX_BIN = 'elastix'
+    KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
 
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
@@ -215,6 +220,7 @@ all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657']
+# all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']

@@ -12,17 +12,20 @@ def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
 def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None):
-    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
-    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert from_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'from_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
+    assert to_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     oasis = 'oasis-dm.sdsc.edu'
 
-    if from_hostname in ['localhost', 'ec2']:
+    if from_hostname in ['localhost', 'ec2', 'workstation']:
         # upload
-        if to_hostname == 's3':
+        if to_hostname in ['s3', 's3raw']:
             if is_dir:
-                execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+                if include_only is not None:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                else:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
             else:
                 execute_command('aws s3 cp %(from_fp)s s3://%(to_fp)s' % \
@@ -30,17 +33,18 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         else:
             execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
-    elif to_hostname in ['localhost', 'ec2']:
+    elif to_hostname in ['localhost', 'ec2', 'workstation']:
         # download
-        if from_hostname == 's3':
+        if from_hostname in ['s3', 's3raw']:
 
             # Clear existing folder/file
-            execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
+            if not include_only:
+                execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
 
             # Download from S3 using aws commandline interface.
             if is_dir:
                 if include_only is not None:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
                 else:
                     execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
             else:
@@ -52,9 +56,9 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared')
+default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', s3raw=S3_RAWDATA_BUCKET)
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, s3_bucket=None):
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -152,9 +156,9 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
-        print "Setting autoscaling group %s capaticy to %d\n" % (asg, cluster_size)
+        print "Setting autoscaling group %s capaticy to %d." % (asg, cluster_size)
 
-        print "Wait for SGE to know all nodes...\n"
+        print "Wait for SGE to know all nodes..."
 
         # Wait for SGE to know all nodes. Timeout = 10 mins
         success = False
@@ -167,6 +171,8 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
 
         if not success:
             raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
+        else:
+            print "All nodes are ready."
 
     assert n_hosts == cluster_size
 

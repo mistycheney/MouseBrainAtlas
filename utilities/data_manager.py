@@ -3,7 +3,10 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 import subprocess
 import os
-import boto3
+try:
+    import boto3
+except:
+    sys.stderr.write('No boto3\n')
 from metadata import *
 from vis3d_utilities import *
 

@@ -1,6 +1,6 @@
 [aws]
 aws_region_name = us-west-1
-aws_access_key_id =
+aws_access_key_id = 
 aws_secret_access_key =
 
 [cluster default]
@@ -8,34 +8,41 @@ vpc_settings = public
 key_name = YuncongKey
 
 #custom_ami = ami-905109f0
-#ebs_settings = custom
+ebs_settings = custom
 
 base_os = ubuntu1604
 initial_queue_size = 1
-max_queue_size = 16
+max_queue_size = 32
 maintain_initial_size = true
+
 
 master_root_volume_size = 30
 master_instance_type = m4.4xlarge
+#master_instance_type = g2.8xlarge
 compute_root_volume_size = 30
 compute_instance_type = m4.4xlarge
+#compute_instance_type = g2.8xlarge
 
 post_install = https://mousebrainatlas-scripts.s3.amazonaws.com/cfncluster_post_install.sh
 
 spot_price = 0.50
+#spot_price = 1.5
+#cluster_type = ondemand
 cluster_type = spot
 
-#extra_json = { "cfncluster" : { "cfn_scheduler_slots" : "1" } }
+extra_json = { "cfncluster" : { "cfn_scheduler_slots" : "1" } }
 
 scaling_settings = custom
-
-#additional_sg = 54f16a33
 
 [scaling custom]
 scaling_threshold = 100
 
-#[ebs custom]
+#additional_sg = 54f16a33
+
+[ebs custom]
 #ebs_volume_id = vol-0ac8711fbfc6faadc
+
+volume_size = 500
 
 [vpc public]
 master_subnet_id = subnet-67969102

@@ -73,6 +73,9 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3/'
     CLF_ROOTDIR = '/home/yuncong/CSHL_classifiers'
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'

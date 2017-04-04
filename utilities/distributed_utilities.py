@@ -12,13 +12,13 @@ def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
 def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None):
-    assert from_hostname in ['localhost', 'oasis', 's3', 'ec2', 's3raw'], 'from_hostname must be one of localhost, oasis, s3 or ec2.'
-    assert to_hostname in ['localhost', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, oasis, s3 or ec2.'
+    assert from_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'from_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
+    assert to_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     oasis = 'oasis-dm.sdsc.edu'
 
-    if from_hostname in ['localhost', 'ec2']:
+    if from_hostname in ['localhost', 'ec2', 'workstation']:
         # upload
         if to_hostname in ['s3', 's3raw']:
             if is_dir:
@@ -33,7 +33,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         else:
             execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
-    elif to_hostname in ['localhost', 'ec2']:
+    elif to_hostname in ['localhost', 'ec2', 'workstation']:
         # download
         if from_hostname in ['s3', 's3raw']:
 
@@ -56,7 +56,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-default_root = dict(localhost='/home/yuncong', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', s3raw=S3_RAWDATA_BUCKET)
+default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', s3raw=S3_RAWDATA_BUCKET)
 
 def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, s3_bucket=None):
     if from_root is None:

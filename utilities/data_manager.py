@@ -613,6 +613,28 @@ class DataManager(object):
         return mesh
 
     @staticmethod
+    def load_mesh_atlasV2(stack_m,
+                                    structure,
+                                    classifier_setting_m=None,
+                                    stack_f=None,
+                                    classifier_setting_f=None,
+                                    warp_setting=None,
+                                    downscale=32,
+                                    type_m='score', type_f='score',
+                                    trial_idx=0,
+                                    return_polydata_only=True,
+                                    **kwargs):
+        """
+        For backward compatibility.
+        """
+
+        mesh_fp = DataManager.get_mesh_filepath_atlasV2(**locals())
+        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
+        if mesh is None:
+            raise Exception('Mesh is empty: %s.' % structure)
+        return mesh
+
+    @staticmethod
     def load_meshes(stack_m,
                                     stack_f=None,
                                     classifier_setting_m=None,
@@ -637,6 +659,40 @@ class DataManager(object):
         for structure in structures:
             try:
                 meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
+                sys.stderr.write('Error loading mesh for %s.\n' % structure)
+
+        return meshes
+
+    @staticmethod
+    def load_meshes_atlasV2(stack_m,
+                                    stack_f=None,
+                                    classifier_setting_m=None,
+                                    classifier_setting_f=None,
+                                    warp_setting=None,
+                                    downscale=32,
+                                    type_m='score', type_f='score',
+                                    trial_idx=0,
+                                    structures=None,
+                                    sided=True,
+                                    return_polydata_only=True):
+        """
+        For backward compatibility.
+        """
+
+        kwargs = locals()
+
+        if structures is None:
+            if sided:
+                structures = all_known_structures_sided
+            else:
+                structures = all_known_structures
+
+        meshes = {}
+        for structure in structures:
+            try:
+                meshes[structure] = DataManager.load_mesh_atlasV2(structure=structure, **kwargs)
             except Exception as e:
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Error loading mesh for %s.\n' % structure)
@@ -734,6 +790,23 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+
+    @staticmethod
+    def get_mesh_filepath_atlasV2(stack_m,
+                                            structure,
+                                            classifier_setting_m=None,
+                                            classifier_setting_f=None,
+                                            warp_setting=None,
+                                            stack_f=None,
+                                            downscale=32,
+                                            type_m='score', type_f='score',
+                                            trial_idx=0, **kwargs):
+        """
+        For backward compatibility.
+        """
+        basename = DataManager.get_warped_volume_basename(**locals())
+        fn = basename + '_%s' % structure
+        return os.path.join(MESH_ROOTDIR, stack_m, basename, 'structure_mesh', fn + '.stl')
 
     # @staticmethod
     # def get_transformed_volume_mesh_filepath(stack_m,

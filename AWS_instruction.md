@@ -189,3 +189,15 @@ export HESSIAN_ROOTDIR='/shared/data/CSHL_hessians/'
 export REPO_DIR='/shared/MouseBrainAtlas'
 export LABELING_DIR='/shared/CSHL_data_labelings_losslessAlignCropped'" >> /home/ubuntu/.bashrc
 ```
+
+## GPU instance ##
+
+Create custom GPU instance AMI for cfncluster nodes
+- Launch an EC2 instance using AMI from https://github.com/awslabs/cfncluster/blob/master/amis.txt (AMI chosen as base - ami-40185420) of type "g2.8xlarge" for GPU functionality
+- Install driver nvidia-367(other drivers haven't been tested)
+  - sudo apt-get install nvidia-367
+  - nvidia-smi #to sanity check
+- Install MXNet following official documentation (http://mxnet.io/get_started/ubuntu_setup.html)
+- Prepare instance for AMI creation
+  - sudo /usr/local/sbin/ami_cleanup.sh
+- Stop the instance and create AMI

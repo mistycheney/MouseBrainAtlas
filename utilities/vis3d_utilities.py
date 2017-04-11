@@ -947,7 +947,9 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
 
 def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(0,0,0)):
     """
-    Origin is the initial shift for the mesh.
+    Args:
+        color (float array): rgb between 0 and 1.
+        origin: the initial shift for the mesh.
     """
 
     if polydata.GetNumberOfPoints() == 0:

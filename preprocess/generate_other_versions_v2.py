@@ -4,7 +4,8 @@ import sys
 import os
 import numpy as np
 import json
-from joblib import Parallel, delayed
+#from joblib import Parallel, delayed
+from multiprocess import Pool
 
 import argparse
 
@@ -94,4 +95,8 @@ def generate_versions(fn, which):
         else:
             convert_to_saturation(input_fn, output_saturation_fn, rescale=True)
 
-Parallel(n_jobs=4)(delayed(generate_versions)(fn, which) for fn in filenames)
+#Parallel(n_jobs=4)(delayed(generate_versions)(fn, which) for fn in filenames)
+pool = Pool(4)
+pool.map(lambda fn: generate_versions(fn, which), filenames)
+pool.close()
+pool.join()

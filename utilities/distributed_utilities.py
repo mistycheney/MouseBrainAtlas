@@ -218,7 +218,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
 
     # Wait for qsub to complete.
     success = False
-    for _ in range(0, 1200):
+    for _ in range(0, 120*60/5):
         op = subprocess.check_output('qstat')
         if "runall.sh" not in op:
             sys.stderr.write('qsub returned.\n')

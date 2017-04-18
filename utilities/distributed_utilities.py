@@ -195,6 +195,8 @@ def request_compute_nodes(cluster_size):
 
 def wait_num_nodes(desired_nodes, timeout=300):
     
+    request_compute_nodes(desired_nodes)
+    
     sys.stderr.write("Wait for SGE to know all nodes (timeout in %d seconds)...\n" % timeout)
     success = False
     for _ in range(timeout/5):

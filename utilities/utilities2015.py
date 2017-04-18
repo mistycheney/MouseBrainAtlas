@@ -23,7 +23,7 @@ from scipy.spatial.distance import cdist, pdist
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from tables import open_file, Filters, Atom
+# from tables import open_file, Filters, Atom
 import bloscpack as bp
 
 from ipywidgets import FloatProgress
@@ -151,15 +151,15 @@ def load_hdf_v2(fn, key='data'):
     import pandas
     return pandas.read_hdf(fn, key)
 
-def save_hdf(data, fn, complevel=9, key='data'):
-    filters = Filters(complevel=complevel, complib='blosc')
-    with open_file(fn, mode="w") as f:
-        _ = f.create_carray('/', key, Atom.from_dtype(data.dtype), filters=filters, obj=data)
-
-def load_hdf(fn, key='data'):
-    with open_file(fn, mode="r") as f:
-        data = f.get_node('/'+key).read()
-    return data
+# def save_hdf(data, fn, complevel=9, key='data'):
+#     filters = Filters(complevel=complevel, complib='blosc')
+#     with open_file(fn, mode="w") as f:
+#         _ = f.create_carray('/', key, Atom.from_dtype(data.dtype), filters=filters, obj=data)
+#
+# def load_hdf(fn, key='data'):
+#     with open_file(fn, mode="r") as f:
+#         data = f.get_node('/'+key).read()
+#     return data
 
 
 def unique_rows(a, return_index=True):

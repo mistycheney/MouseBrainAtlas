@@ -170,10 +170,13 @@ Reference: https://resbook.wordpress.com/2011/03/21/remove-execution-host-from-g
 
 ## Performance Tuning ##
 
-Set minimum memory requirement to allow scheduling on a node as 5 GB: `qconf -mc` Change 0 under mem_free to 5G
-Change SGE schedule interval: `qconf -msconf` Change schedule_interval to 0:0:15
+- Set minimum memory requirement to allow scheduling on a node as 5 GB: `qconf -mc` Change 0 under mem_free to 5G
+- Change SGE schedule interval: `qconf -msconf` Change schedule_interval to 0:0:15
 
-## Startup Script ##
+## Parallel environment ##
+`qsub -pe mpi %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s`
+
+# Startup Script #
 
 https://ucsd-mousebrainatlas-scripts.s3.amazonaws.com/set_env.sh
 ```#!/bin/bash
@@ -190,7 +193,7 @@ export REPO_DIR='/shared/MouseBrainAtlas'
 export LABELING_DIR='/shared/CSHL_data_labelings_losslessAlignCropped'" >> /home/ubuntu/.bashrc
 ```
 
-## GPU instance ##
+# GPU instance #
 
 Create custom GPU instance AMI for cfncluster nodes
 - Launch an EC2 instance using AMI from https://github.com/awslabs/cfncluster/blob/master/amis.txt (AMI chosen as base - ami-40185420) of type "g2.8xlarge" for GPU functionality

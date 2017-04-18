@@ -214,11 +214,14 @@ class DataManager(object):
 
     @staticmethod
     def get_transforms_filename(stack):
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_anchor.pkl')
         return fn
 
     @staticmethod
     def load_transforms(stack, downsample_factor):
+        """
+        Load the transforms that when multiplied to a point on original space converts it to on aligned space.
+        """
 
         fn = DataManager.get_transforms_filename(stack)
         Ts = DataManager.load_data(fn, filetype='pickle')

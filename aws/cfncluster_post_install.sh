@@ -54,8 +54,12 @@ EOF
     chown -R ubuntu $JUPYTER_CONFIG_DIR
 fi
 
+# Install other utility programs
+sudo apt install -y tree screen
+
 echo """
 export REPO_DIR=/shared/MouseBrainAtlas
 alias sudosgeadmin=\"sudo -u sgeadmin -i\"
-alias start_notebook=\"jupyter notebook --notebook-dir /shared/MouseBrainAtlas\"
+alias start_notebook=\"jupyter notebook --notebook-dir /shared/MouseBrainAtlas; jupyter nbextension enable --py widgetsnbextension\"
+alias increase_ebs_size=\"sudo resize2fs /dev/xvdb\"
 """ >> /home/ubuntu/.bashrc

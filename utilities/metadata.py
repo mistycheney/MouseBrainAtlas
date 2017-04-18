@@ -46,6 +46,7 @@ elif hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
 
     # REPO_DIR = '/home/yuncong/Brain' # use os.environ['REPO_DIR'] instead
+    REPO_DIR = os.environ['REPO_DIR']
 
     RAW_DATA_DIR = '/home/yuncong/CSHL_data'
     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
@@ -58,10 +59,12 @@ elif hostname == 'yuncong-MacbookPro':
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRTION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
-    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
+    # ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
+    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3'
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
+
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'

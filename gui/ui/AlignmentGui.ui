@@ -19,7 +19,7 @@
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -73,7 +73,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
         <layout class="QVBoxLayout" name="verticalLayout">
@@ -117,43 +117,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="comboBox_parameters">
-           <item>
-            <property name="text">
-             <string>Rigid</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Rigid_MutualInformation</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Rigid_RequiredRatioOfValidSamples</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Rigid_noNumberOfSpatialSamples</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Affine</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>BSpline</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Translation</string>
-            </property>
-           </item>
-          </widget>
+          <widget class="QComboBox" name="comboBox_parameters"/>
          </item>
          <item>
           <widget class="QPushButton" name="button_align">
@@ -166,7 +130,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_6">
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_3">

@@ -1,8 +1,11 @@
 This folder contains code related to preprocessing (aligning, cropping, mask generation).
 
-Preprocessing is supposed to be done with the GUI `/gui/preprocess_tool.py`.
+Preprocessing is supposed to be done with the GUI `/gui/preprocess_tool_v2.py`.
 
 The preprocessing involves the following steps:
+- Assign slide, position to filename.
+  It can be any of a valid filename, rescan, placeholder, nonexisting.
+  - Rescan are slides that look valid on macro but no corresponding image is received. Now they are basically identical to placeholder since they are unlikely going to be scanned and re-sent.
 - Sort
 - Align
   - server Align

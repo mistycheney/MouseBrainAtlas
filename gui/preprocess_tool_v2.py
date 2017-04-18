@@ -1,21 +1,17 @@
 #! /usr/bin/env python
 
+import cPickle as pickle
+import sys, os
+from subprocess import check_output
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+import pandas
 
 from ui.ui_PreprocessGui import Ui_PreprocessGui
 from ui.ui_AlignmentGui import Ui_AlignmentGui
-import cPickle as pickle
 
-import sys, os
-sys.path.append(os.environ['REPO_DIR'] + '/utilities')
-from utilities2015 import *
-from metadata import *
-from data_manager import *
-from annotation_utilities import points_inside_contour
-
-from DataFeeder import ImageDataFeeder
-from widgets.ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene
+from widgets.ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene, SimpleGraphicsScene2, SimpleGraphicsScene3, SimpleGraphicsScene4
 from widgets.ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBrowsableGraphicsSceneWithReadonlyPolygon
 from widgets.MultiplePixmapsGraphicsScene import MultiplePixmapsGraphicsScene
 from widgets.DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
@@ -23,285 +19,16 @@ from widgets.SignalEmittingItems import *
 
 from gui_utilities import *
 from qt_utilities import *
+from DataFeeder import ImageDataFeeder
+
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+from utilities2015 import *
+from metadata import *
+from data_manager import *
+from preprocess_utilities import *
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'web_services'))
 from web_service import WebService
-import pandas
-from preprocess_utilities import *
-
-class SimpleGraphicsScene4(ZoomableBrowsableGraphicsScene):
-    """
-    Variant that supports adding points.
-    """
-
-    anchor_point_added = pyqtSignal(int)
-
-    def __init__(self, id, gview=None, parent=None):
-        super(SimpleGraphicsScene4, self).__init__(id=id, gview=gview, parent=parent)
-        self.anchor_circle_items = []
-        self.anchor_label_items = []
-        self.mode = 'idle'
-        self.active_image_updated.connect(self.clear_points)
-
-    def clear_points(self):
-        # pass
-        for circ in self.anchor_circle_items:
-            self.removeItem(circ)
-        self.anchor_circle_items = []
-
-        for lbl in self.anchor_label_items:
-            self.removeItem(lbl)
-        self.anchor_label_items = []
-
-    def show_context_menu(self, pos):
-        myMenu = QMenu(self.gview)
-        # action_add_anchor_point = myMenu.addAction("Add anchor point")
-        selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
-        # if selected_action == action_add_anchor_point:
-        #     self.set_mode('add point')
-
-    def set_mode(self, mode):
-        print 'mode', self.mode, '->', mode
-        if self.mode == mode:
-            return
-        self.mode = mode
-
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.GraphicsSceneMousePress:
-            pos = event.scenePos()
-            x = pos.x()
-            y = pos.y()
-
-            if self.mode == 'add point':
-
-                radius = 5
-
-                ellipse = QGraphicsEllipseItemModified2(-radius, -radius, 2*radius, 2*radius, scene=self)
-                ellipse.setPos(x, y)
-                ellipse.setPen(Qt.red)
-                ellipse.setBrush(Qt.red)
-                ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
-                ellipse.setZValue(99)
-
-                self.anchor_circle_items.append(ellipse)
-
-                index = self.anchor_circle_items.index(ellipse)
-
-                label = QGraphicsSimpleTextItem(QString(str(index)), parent=ellipse)
-                label.setPos(0,0)
-                label.setScale(1)
-                label.setBrush(Qt.black)
-                label.setZValue(50)
-                self.anchor_label_items.append(label)
-
-                self.anchor_point_added.emit(index)
-
-        return super(SimpleGraphicsScene4, self).eventFilter(obj, event)
-
-class SimpleGraphicsScene3(ZoomableBrowsableGraphicsScene):
-    """
-    Variant for sorted section gscene.
-    Support context menu to specify FIRST, LAST, ANCHOR.
-    Support adjusting the crop box.
-    """
-
-    bad_status_changed = pyqtSignal(int)
-    first_section_set = pyqtSignal(int)
-    last_section_set = pyqtSignal(int)
-    anchor_set = pyqtSignal(int)
-    # move_forward_requested = pyqtSignal()
-    # move_backward_requested = pyqtSignal()
-    # edit_transform_requested = pyqtSignal()
-
-    def __init__(self, id, gview=None, parent=None):
-        super(SimpleGraphicsScene3, self).__init__(id=id, gview=gview, parent=parent)
-
-        self.bad_status_indicator = QGraphicsSimpleTextItem(QString('X'), scene=self)
-        self.bad_status_indicator.setPos(50,50)
-        self.bad_status_indicator.setScale(5)
-        self.bad_status_indicator.setVisible(False)
-        self.bad_status_indicator.setBrush(Qt.red)
-
-        # self.first_section_indicator = QGraphicsSimpleTextItem(QString('FIRST'), scene=self)
-        # self.first_section_indicator.setPos(50,50)
-        # self.first_section_indicator.setScale(5)
-        # self.first_section_indicator.setVisible(False)
-        # self.first_section_indicator.setBrush(Qt.red)
-        #
-        # self.last_section_indicator = QGraphicsSimpleTextItem(QString('LAST'), scene=self)
-        # self.last_section_indicator.setPos(50,50)
-        # self.last_section_indicator.setScale(5)
-        # self.last_section_indicator.setVisible(False)
-        # self.last_section_indicator.setBrush(Qt.red)
-
-        self.box = QGraphicsRectItem(100,100,100,100,scene=self)
-        self.box.setPen(QPen(Qt.red, 5))
-        # self.box.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
-        self.box.setFlags(QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges)
-        self.box.setVisible(False)
-
-        self.corners = {}
-        radius = 20
-        for c in ['ll', 'lr', 'ul', 'ur']:
-            ellipse = QGraphicsEllipseItemModified3(-radius, -radius, 2*radius, 2*radius, scene=self)
-            if c == 'll':
-                ellipse.setPos(200,100)
-            elif c == 'lr':
-                ellipse.setPos(200,200)
-            elif c == 'ul':
-                ellipse.setPos(100,100)
-            elif c == 'ur':
-                ellipse.setPos(100,200)
-
-            ellipse.setPen(Qt.red)
-            ellipse.setBrush(Qt.red)
-            ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
-            # ellipse.setZValue(99)
-            ellipse.setVisible(False)
-            ellipse.signal_emitter.moved.connect(self.corner_moved)
-            ellipse.signal_emitter.pressed.connect(self.corner_pressed)
-            ellipse.signal_emitter.released.connect(self.corner_released)
-            self.corners[c] = ellipse
-
-        self.serving_ellipse = None
-
-    def corner_pressed(self, ellipse):
-        self.serving_ellipse = ellipse
-
-    def corner_released(self, ellipse):
-        self.serving_ellipse = None
-
-    def corner_moved(self, ellipse, new_x, new_y):
-
-        if self.serving_ellipse is not None and self.serving_ellipse != ellipse:
-            return
-
-        self.serving_ellipse = ellipse
-
-        corner_label = self.corners.keys()[self.corners.values().index(ellipse)]
-        if corner_label == 'll':
-            self.corners['lr'].setY(new_y)
-            self.corners['ul'].setX(new_x)
-        elif corner_label == 'lr':
-            self.corners['ll'].setY(new_y)
-            self.corners['ur'].setX(new_x)
-        elif corner_label == 'ul':
-            self.corners['ur'].setY(new_y)
-            self.corners['ll'].setX(new_x)
-        elif corner_label == 'ur':
-            self.corners['ul'].setY(new_y)
-            self.corners['lr'].setX(new_x)
-
-        ul_pos = self.corners['ul'].scenePos()
-        lr_pos = self.corners['lr'].scenePos()
-
-        self.box.setRect(ul_pos.x(), ul_pos.y(), lr_pos.x()-ul_pos.x(), lr_pos.y()-ul_pos.y())
-
-    def set_box(self, xmin, xmax, ymin, ymax):
-        for c in self.corners.values():
-            c.setVisible(True)
-        self.corners['ul'].setPos(xmin, ymin)
-        self.corners['ur'].setPos(xmax, ymin)
-        self.corners['ll'].setPos(xmin, ymax)
-        self.corners['lr'].setPos(xmax, ymax)
-
-        self.box.setVisible(True)
-        self.box.setRect(xmin, ymin, xmax-xmin, ymax-ymin)
-
-    def set_bad_sections(self, secs):
-        self.bad_sections = secs
-
-    def show_context_menu(self, pos):
-        myMenu = QMenu(self.gview)
-
-        is_bad = self.active_section in self.bad_sections
-        action_setBad = myMenu.addAction("Unmark as Bad" if is_bad else "Mark as Bad")
-        # action_moveForward = myMenu.addAction("Move forward")
-        # action_moveBackward = myMenu.addAction("Move backward")
-
-        box_on = self.box.isVisible()
-        action_toggleBox = myMenu.addAction("Show crop box" if not box_on else 'Hide crop box')
-        # action_edit_transform = myMenu.addAction("Edit transform to previous")
-
-        action_setFirst = myMenu.addAction("Set as first")
-        action_setLast = myMenu.addAction("Set as last")
-        action_setAnchor = myMenu.addAction("Set as anchor")
-
-        selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
-
-        if selected_action == action_setBad:
-            if is_bad:
-                self.bad_status_indicator.setVisible(False)
-                self.bad_status_changed.emit(0)
-            else:
-                self.bad_status_indicator.setVisible(True)
-                self.bad_status_changed.emit(1)
-        elif selected_action == action_toggleBox:
-            self.box.setVisible(not box_on)
-            for el in self.corners.values():
-                el.setVisible(not box_on)
-        elif selected_action == action_setFirst:
-            self.first_section_set.emit(self.active_section)
-            # self.first_section_indicator.setVisible(True)
-        elif selected_action == action_setLast:
-            self.last_section_set.emit(self.active_section)
-            # self.last_section = self.active_section
-            # self.status_updated.emit('LAST')
-            # self.last_section_indicator.setVisible(True)
-        elif selected_action == action_setAnchor:
-            self.anchor_set.emit(self.active_section)
-
-        # elif selected_action == action_moveForward:
-        #     self.move_forward_requested.emit()
-        # elif selected_action == action_moveBackward:
-        #     self.move_backward_requested.emit()
-        # elif selected_action == action_edit_transform:
-        #     self.edit_transform_requested.emit()
-
-    def set_active_i(self, i, emit_changed_signal=True):
-        super(SimpleGraphicsScene3, self).set_active_i(i, emit_changed_signal=True)
-        self.bad_status_indicator.setVisible(self.active_section in self.bad_sections)
-
-        # self.first_section_indicator.setVisible(self.active_section == self.first_section)
-        # self.last_section_indicator.setVisible(self.active_section == self.last_section)
-
-
-class SimpleGraphicsScene2(ZoomableBrowsableGraphicsScene):
-    """
-    Variant for slide position gscenes.
-    """
-
-    status_updated = pyqtSignal(int, str)
-    send_to_sorted_requested = pyqtSignal(int)
-
-    def __init__(self, id, gview=None, parent=None):
-        super(SimpleGraphicsScene2, self).__init__(id=id, gview=gview, parent=parent)
-
-    def show_context_menu(self, pos):
-        myMenu = QMenu(self.gview)
-
-        setStatus_menu = QMenu("Set to", myMenu)
-        myMenu.addMenu(setStatus_menu)
-        action_setNormal = setStatus_menu.addAction('Normal')
-        action_setRescan = setStatus_menu.addAction('Rescan')
-        action_setPlaceholder = setStatus_menu.addAction('Placeholder')
-        action_setNonexisting = setStatus_menu.addAction('Nonexisting')
-        actions_setStatus = {action_setNormal: 'Normal', action_setRescan: 'Rescan',
-                            action_setPlaceholder: 'Placeholder', action_setNonexisting: 'Nonexisting'}
-
-        action_sendToSorted = myMenu.addAction("Send to sorted scene")
-
-        selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
-
-        if selected_action in actions_setStatus:
-            status = actions_setStatus[selected_action]
-            self.status_updated.emit(self.id, status)
-        elif selected_action == action_sendToSorted:
-            self.send_to_sorted_requested.emit(self.id)
-
-
-from subprocess import check_output
-from joblib import Parallel, delayed
 
 def identify_shape(img_fp):
     return map(int, check_output("identify -format %%Wx%%H %s" % img_fp, shell=True).split('x'))
@@ -513,7 +240,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         #
         # self.sorted_sections_gscene.set_active_section(2)
         self.sorted_sections_gscene.active_image_updated.connect(self.sorted_sections_image_updated)
-        self.sorted_sections_gscene.bad_status_changed.connect(self.bad_status_changed)
+        # self.sorted_sections_gscene.bad_status_changed.connect(self.bad_status_changed)
         self.sorted_sections_gscene.first_section_set.connect(self.set_first_section)
         self.sorted_sections_gscene.last_section_set.connect(self.set_last_section)
         self.sorted_sections_gscene.anchor_set.connect(self.set_anchor)
@@ -562,26 +289,26 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.labels_slide_position_index = {1: self.label_section1_index, 2: self.label_section2_index, 3: self.label_section3_index}
 
 
-    def bad_status_changed(self, is_bad):
-        """
-        This function is called when a section is marked bad in the Sorted Images panel.
-        """
-
-        print is_bad
-
-        fn = self.sorted_filenames[self.sorted_sections_gscene.active_section-1]
-
-        slide_name = self.filename_to_slide[fn]
-        position = self.slide_position_to_fn[slide_name].keys()[self.slide_position_to_fn[slide_name].values().index(fn)]
-
-        if is_bad > 0:
-            self.sorted_filenames[self.sorted_filenames.index(fn)] = 'Placeholder'
-            self.set_status(slide_name, position, 'Placeholder')
-        else:
-            raise Exception('Cannot undo set Bad..')
-            self.set_status(slide_name, position, 'Normal')
-
-        self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
+    # def bad_status_changed(self, is_bad):
+    #     """
+    #     This function is called when a section is marked bad in the Sorted Images panel.
+    #     """
+    #
+    #     print is_bad
+    #
+    #     fn = self.sorted_filenames[self.sorted_sections_gscene.active_section-1]
+    #
+    #     slide_name = self.filename_to_slide[fn]
+    #     position = self.slide_position_to_fn[slide_name].keys()[self.slide_position_to_fn[slide_name].values().index(fn)]
+    #
+    #     if is_bad > 0:
+    #         self.sorted_filenames[self.sorted_filenames.index(fn)] = 'Placeholder'
+    #         self.set_status(slide_name, position, 'Placeholder')
+    #     else:
+    #         raise Exception('Cannot undo set Bad..')
+    #         self.set_status(slide_name, position, 'Normal')
+    #
+    #     self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
 
 
     def send_to_sorted(self, position):
@@ -821,14 +548,21 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def edit_transform(self):
 
+        sys.stderr.write('Loading Edit Transform GUI...\n')
+        self.statusBar().showMessage('Loading Edit Transform GUI...')
+
         self.alignment_ui = Ui_AlignmentGui()
         self.alignment_gui = QDialog(self)
         self.alignment_ui.setupUi(self.alignment_gui)
 
         self.alignment_ui.button_anchor.clicked.connect(self.add_anchor_pair_clicked)
-        self.alignment_ui.button_upload_transform.clicked.connect(self.upload_custom_transform)
-        # self.alignment_ui.button_align.connect(self.upload_custom_transform)
+        # self.alignment_ui.button_upload_transform.clicked.connect(self.upload_custom_transform)
+        self.alignment_ui.button_align.clicked.connect(self.align_using_elastix)
         self.alignment_ui.button_compute.clicked.connect(self.compute_custom_transform)
+
+        param_fns = os.listdir(os.path.join(REPO_DIR, 'preprocess', 'parameters'))
+        all_parameter_names = ['_'.join(pf[:-4].split('_')[1:]) for pf in param_fns]
+        self.alignment_ui.comboBox_parameters.addItems(all_parameter_names)
 
         self.valid_section_filenames = [fn for fn in self.sorted_filenames if fn != 'Placeholder' and fn != 'Rescan']
         self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
@@ -851,37 +585,60 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.prev_gscene.active_image_updated.connect(self.previous_section_image_changed)
         self.prev_gscene.anchor_point_added.connect(self.anchor_point_added)
 
+        self.aligned_gscene = MultiplePixmapsGraphicsScene(id='aligned', pixmap_labels=['moving', 'fixed'], gview=self.alignment_ui.aligned_gview)
+        self.alignment_ui.aligned_gview.setScene(self.aligned_gscene)
+        self.transformed_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
+                                                sections=self.valid_section_indices, use_data_manager=False)
+        self.transformed_images_feeder.set_downsample_factor(32)
+        self.update_aligned_images_feeder()
+        self.aligned_gscene.set_data_feeder(self.transformed_images_feeder, 'moving')
+        self.aligned_gscene.set_data_feeder(valid_sections_feeder, 'fixed')
+        self.aligned_gscene.set_active_indices({'moving': 1, 'fixed': 0})
+        self.aligned_gscene.set_opacity('moving', .8)
+        self.aligned_gscene.set_opacity('fixed', .8)
+        # self.aligned_gscene.active_image_updated.connect(self.aligned_image_changed)
+
+        self.alignment_gui.show()
+
+    def update_aligned_images_feeder(self):
+
         transformed_image_filenames = []
         for i in range(len(self.valid_section_indices)):
 
             custom_aligned_image_fn = self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
             {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
 
-            print custom_aligned_image_fn
+            custom_aligned_image_fn2 = self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
+            {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
 
             if os.path.exists(custom_aligned_image_fn):
                 sys.stderr.write('Load custom transform image. %s\n' % custom_aligned_image_fn)
                 transformed_image_filenames.append(custom_aligned_image_fn)
+            elif os.path.exists(custom_aligned_image_fn2):
+                sys.stderr.write('Load custom transform image. %s\n' % custom_aligned_image_fn2)
+                transformed_image_filenames.append(custom_aligned_image_fn2)
             else:
                 fn = self.stack_data_dir + '/%(stack)s_elastix_output/%(curr_fn)s_to_%(prev_fn)s/result.0.tif' % \
                 {'stack': self.stack, 'curr_fn': self.valid_section_filenames[i], 'prev_fn': self.valid_section_filenames[i-1]}
                 transformed_image_filenames.append(fn)
 
-        transformed_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
-                                                sections=self.valid_section_indices, use_data_manager=False)
-        transformed_images_feeder.set_images(self.valid_section_indices, transformed_image_filenames, downsample=32, load_with_cv2=True)
-        transformed_images_feeder.set_downsample_factor(32)
+        self.transformed_images_feeder.set_images(self.valid_section_indices, transformed_image_filenames, downsample=32, load_with_cv2=True)
 
-        self.aligned_gscene = MultiplePixmapsGraphicsScene(id='aligned', pixmap_labels=['moving', 'fixed'], gview=self.alignment_ui.aligned_gview)
-        self.alignment_ui.aligned_gview.setScene(self.aligned_gscene)
-        self.aligned_gscene.set_data_feeder(transformed_images_feeder, 'moving')
-        self.aligned_gscene.set_data_feeder(valid_sections_feeder, 'fixed')
-        self.aligned_gscene.set_active_indices({'moving': 1, 'fixed': 0})
-        self.aligned_gscene.set_opacity('moving', .8)
-        self.aligned_gscene.set_opacity('fixed', .8)
-        self.aligned_gscene.active_image_updated.connect(self.aligned_image_changed)
+    def align_using_elastix(self):
+        selected_elastix_parameter_name = str(self.alignment_ui.comboBox_parameters.currentText())
+        param_fn = os.path.join(REPO_DIR, 'preprocess', 'parameters', 'Parameters_' + selected_elastix_parameter_name + '.txt')
 
-        self.alignment_gui.show()
+        curr_fn = self.valid_section_filenames[self.curr_gscene.active_i]
+        prev_fn = self.valid_section_filenames[self.prev_gscene.active_i]
+        out_dir = os.path.join(self.stack_data_dir, self.stack + '_custom_transforms', curr_fn + '_to_' + prev_fn)
+
+        curr_fp = os.path.join(RAW_DATA_DIR, self.stack, curr_fn + '.' + self.tb_fmt)
+        prev_fp = os.path.join(RAW_DATA_DIR, self.stack, prev_fn + '.' + self.tb_fmt)
+
+        execute_command('rm -rf %(out_dir)s; mkdir -p %(out_dir)s; elastix -f %(fixed_fn)s -m %(moving_fn)s -out %(out_dir)s -p %(param_fn)s' % \
+        dict(param_fn=param_fn, out_dir=out_dir, fixed_fn=prev_fp, moving_fn=curr_fp))
+
+        self.update_aligned_images_feeder()
 
     def anchor_point_added(self, index):
         gscene_id = self.sender().id
@@ -946,8 +703,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                         prev_fn=prev_section_fn), 'w') as f:
             f.write('%f %f %f %f %f %f\n' % (R[0,0], R[0,1], t[0], R[1,0], R[1,1], t[1]))
 
+        self.apply_custom_transform()
 
-    def upload_custom_transform(self):
+        self.update_aligned_images_feeder()
+
+    def apply_custom_transform(self):
+
         curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
         prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
 
@@ -980,13 +741,46 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             y='+0',
             raw_data_dir=RAW_DATA_DIR))
 
-        execute_command(('ssh gcn-20-33.sdsc.edu mkdir %(stack_data_dir_gordon)s/%(stack)s_custom_transforms; '
-                        'scp -r %(stack_data_dir)s/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_custom_transforms/') %\
-                        dict(stack_data_dir=self.stack_data_dir,
-                            stack_data_dir_gordon=self.stack_data_dir_gordon,
-                            stack=self.stack,
-                            curr_fn=curr_section_fn,
-                            prev_fn=prev_section_fn))
+    # def upload_custom_transform(self):
+    #     curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
+    #     prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+    #
+    #     custom_tf_fn = os.path.join(self.stack_data_dir, self.stack+'_custom_transforms', curr_section_fn + '_to_' + prev_section_fn, curr_section_fn + '_to_' + prev_section_fn + '_customTransform.txt')
+    #     with open(custom_tf_fn, 'r') as f:
+    #         t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
+    #
+    #     prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H %(raw_data_dir)s/%(stack)s/%(prev_fn)s.%(tb_fmt)s" %dict(stack=self.stack, prev_fn=prev_section_fn, tb_fmt=self.tb_fmt, raw_data_dir=RAW_DATA_DIR),
+    #                                         shell=True).split('x'))
+    #
+    #     output_image_fn = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
+    #                     dict(stack=self.stack,
+    #                     curr_fn=curr_section_fn,
+    #                     prev_fn=prev_section_fn) )
+    #
+    #     execute_command("convert %(raw_data_dir)s/%(stack)s/%(curr_fn)s.%(tb_fmt)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
+    #     dict(stack=self.stack,
+    #         curr_fn=curr_section_fn,
+    #         output_fn=output_image_fn,
+    #         tb_fmt=self.tb_fmt,
+    #         sx=t11,
+    #         sy=t22,
+    #         rx=t21,
+    #         ry=t12,
+    #         tx=t13,
+    #         ty=t23,
+    #         w=prev_img_w,
+    #         h=prev_img_h,
+    #         x='+0',
+    #         y='+0',
+    #         raw_data_dir=RAW_DATA_DIR))
+    #
+    #     execute_command(('ssh gcn-20-33.sdsc.edu mkdir %(stack_data_dir_gordon)s/%(stack)s_custom_transforms; '
+    #                     'scp -r %(stack_data_dir)s/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_custom_transforms/') %\
+    #                     dict(stack_data_dir=self.stack_data_dir,
+    #                         stack_data_dir_gordon=self.stack_data_dir_gordon,
+    #                         stack=self.stack,
+    #                         curr_fn=curr_section_fn,
+    #                         prev_fn=prev_section_fn))
 
     def add_anchor_pair_clicked(self):
         self.curr_gscene.set_mode('add point')
@@ -995,8 +789,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.previous_section_anchor_received = False
         self.alignment_ui.button_anchor.setEnabled(False)
 
-    def aligned_image_changed(self):
-        pass
+    # def aligned_image_changed(self):
+    #     pass
         # prev_section_idx = self.aligned_gscene.active_indices['fixed']
         # self.curr_gscene.set_active_i(prev_section_idx+1)
         # self.prev_gscene.set_active_i(prev_section_idx)
@@ -1021,9 +815,21 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.curr_gscene.set_active_i(curr_section_i)
         self.aligned_gscene.set_active_indices({'moving': curr_section_i, 'fixed': prev_section_i})
 
-    def sort(self):
+    ########################## END OF EDIT TRANSFORM ######################################3
 
-        prefixes = set([slide_name.split('_')[0] for slide_name in self.slide_position_to_fn.iterkeys()])
+
+    def sort(self):
+        """
+        Sort images.
+        """
+
+        # self.fn_to_slide_position = {fn: sp for sp, fn in self.slide_position_to_fn.iteritems()}
+
+        # If sorting is already performed,
+        # if hasattr(self, 'sorted_slide_positions'):
+        #     sys.stderr.write('Sorted slide position available. Simply reload filenames.\n')
+        #     self.sorted_filenames = [self.slide_position_to_fn[slide_pos] for slide_pos in self.sorted_slide_positions]
+        # else:
 
         if self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
 
@@ -1049,12 +855,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 sorted_fns += [F_series[i][pos] for pos in range(1, 4)]
         else:
             if self.stack == 'MD639':
-
                 IHC_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 0}
                 N_series = {int(np.ceil(int(slide_name.split('_')[1])/2.)): x for slide_name, x in self.slide_position_to_fn.items() if int(slide_name.split('_')[1]) % 2 == 1}
-
             else:
-
                 IHC_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'IHC'}
                 N_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'N'}
 
@@ -1070,9 +873,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                     sorted_fns += [IHC_series[i][pos] for pos in range(1, 4)]
 
         if len(sorted_fns) == 0:
-            raise Exception('sorted fns list is empty.')
+            raise Exception('sorted_fns is empty.')
 
         self.sorted_filenames = [fn for fn in sorted_fns if fn != 'Nonexisting']
+        # self.sorted_slide_positions = [self.fn_to_slide_position[fn] for fn in self.sorted_filenames]
 
         self.update_sorted_sections_gscene_from_sorted_filenames()
 
@@ -1315,15 +1119,16 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.currently_showing = 'original'
 
         self.valid_section_filenames = self.get_valid_sorted_filenames()
-        self.valid_section_indices = [self.sorted_filenames.index(fn)+1 for fn in self.valid_section_filenames]
+        self.valid_section_indices = [self.sorted_filenames.index(fn) + 1 for fn in self.valid_section_filenames]
 
         if not hasattr(self, 'anchor_fn'):
-
-            anchor_fp = os.path.join(self.stack_data_dir, '%(stack)s_anchor.txt' % dict(stack=self.stack))
+            anchor_fp = DataManager.get_anchor_filename_filename(self.stack)
+            # anchor_fp = os.path.join(self.stack_data_dir, '%(stack)s_anchor.txt' % dict(stack=self.stack))
             if os.path.exists(anchor_fp):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
             else:
+                from joblib import Parallel, delayed
                 shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join(RAW_DATA_DIR, self.stack, img_fn + '.' + self.tb_fmt)) for img_fn in self.valid_section_filenames)
                 largest_idx = np.argmax([h*w for h, w in shapes])
                 print 'largest section is ', self.valid_section_filenames[largest_idx]
@@ -1331,7 +1136,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 print self.valid_section_filenames[largest_idx]
 
         if self.currently_showing == 'original':
-
             ordered_image_feeder_labels = range(1, len(self.sorted_filenames)+1)
             self.ordered_image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=ordered_image_feeder_labels, use_data_manager=False)
             self.ordered_image_feeder.set_images(labels=ordered_image_feeder_labels,
@@ -1343,9 +1147,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             if self.sorted_sections_gscene.active_i is not None:
                 active_i = self.sorted_sections_gscene.active_i
             else:
-                active_i = 2
+                active_i = self.valid_section_indices[0]
 
-            self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
+            # self.sorted_sections_gscene.set_bad_sections(self.get_bad_sections())
             self.sorted_sections_gscene.set_data_feeder(self.ordered_image_feeder)
             self.sorted_sections_gscene.set_active_section(active_i)
 
@@ -1354,17 +1158,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.aligned_images_feeder = ImageDataFeeder('aligned image feeder', stack=self.stack,
                                                     sections=self.valid_section_indices, use_data_manager=False)
 
-
             aligned_image_filenames = [DataManager.get_image_filepath(stack=self.stack, fn=fn, anchor_fn=self.anchor_fn,
                                                                         resol='thumbnail', version='aligned_tif')
                                                                         for fn in self.valid_section_filenames]
-
-            print aligned_image_filenames
-
-            # self.aligned_images_dir = os.path.join(self.stack_data_dir, '%(stack)s_thumbnail_alignedTo_%(anchor_fn)s' % {'stack': self.stack, 'anchor_fn':self.anchor_fn})
-            # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(fn)s_thumbnail_alignedTo_%(anchor_fn)s.tif' % \
-            #                             {'fn': fn, 'anchor_fn': self.anchor_fn}) for fn in self.valid_section_filenames]
-
+            # print aligned_image_filenames
             self.aligned_images_feeder.set_images(self.valid_section_indices, aligned_image_filenames, downsample=32, load_with_cv2=False)
             self.aligned_images_feeder.set_downsample_factor(32)
 
@@ -1376,7 +1173,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
             self.maskContourViz_images_feeder = ImageDataFeeder('mask contoured image feeder', stack=self.stack,
                                                 sections=self.valid_section_indices, use_data_manager=False)
-            self.maskContourViz_images_dir = self.stack_data_dir + '/%(stack)s_maskContourViz_unsorted/' % {'stack': self.stack}
+            self.maskContourViz_images_dir = self.stack_data_dir + '/%(stack)s_maskContourViz_unsorted' % {'stack': self.stack}
             # aligned_image_filenames = [os.path.join(self.aligned_images_dir, '%(stack)s_%(fn)s_aligned.tif' % \
             #                             {'stack':self.stack, 'fn': self.sorted_filenames[i]}) for i in self.valid_section_indices]
 
@@ -1398,16 +1195,24 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             for i, fn in enumerate(self.sorted_filenames):
                 f.write(fn + ' ' + str(i+1) + '\n') # index starts from 1
 
+        sys.stderr.write('Sorted filename list saved.\n')
         self.statusBar().showMessage('Sorted filename list saved.')
 
 
     def load_sorted_filenames(self):
-        self.sorted_filenames = []
-        with open(self.stack_data_dir + '/%(stack)s_sorted_filenames.txt' % {'stack': self.stack}, 'r') as f:
-            for line in f.readlines():
-                fn, idx = line.split()
-                self.sorted_filenames.append(fn)
+
+        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(self.stack)
+        self.sorted_filenames = section_to_filename.values()
+        # self.sorted_filenames = []
+        # with open(self.stack_data_dir + '/%(stack)s_sorted_filenames.txt' % {'stack': self.stack}, 'r') as f:
+        #     for line in f.readlines():
+        #         fn, idx = line.split()
+        #         self.sorted_filenames.append(fn)
+        sys.stderr.write('Sorted filename list is loaded.\n')
         self.statusBar().showMessage('Sorted filename list is loaded.')
+
+        # self.fn_to_slide_position = {fn: (slide, pos) for slide, pos_to_fn in self.slide_position_to_fn.iteritems() for pos, fn in pos_to_fn.iteritems()}
+        # self.sorted_slide_positions = [self.fn_to_slide_position[fn] for fn in self.sorted_filenames]
 
         self.update_sorted_sections_gscene_from_sorted_filenames()
 
@@ -1415,8 +1220,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         fn = self.stack_data_dir + '/%(stack)s_slide_position_to_fn.pkl' % {'stack': self.stack}
         if os.path.exists(fn):
             self.slide_position_to_fn = pickle.load(open(fn, 'r'))
+            sys.stderr.write('Slide position to image filename mapping is loaded.\n')
             self.statusBar().showMessage('Slide position to image filename mapping is loaded.')
         else:
+            sys.stderr.write('Cannot load slide position to image filename mapping - File does not exists.\n')
             self.statusBar().showMessage('Cannot load slide position to image filename mapping - File does not exists.')
 
     def save(self):
@@ -1425,9 +1232,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
 
 
-    def get_bad_sections(self):
-        # return bad section indices, in sorted list
-        return [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Placeholder' or fn == 'Rescan']
+    # def get_bad_sections(self):
+    #     # return bad section indices, in sorted list
+    #     return [idx+1 for idx, fn in enumerate(self.sorted_filenames) if fn == 'Placeholder' or fn == 'Rescan']
 
     def download(self):
 

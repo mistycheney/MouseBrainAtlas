@@ -219,6 +219,9 @@ class DataManager(object):
 
     @staticmethod
     def load_transforms(stack, downsample_factor):
+        """
+        Load the transforms that when multiplied to a point on original space converts it to on aligned space.
+        """
 
         fn = DataManager.get_transforms_filename(stack)
         Ts = DataManager.load_data(fn, filetype='pickle')

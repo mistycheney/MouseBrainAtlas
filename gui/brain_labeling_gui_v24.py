@@ -85,7 +85,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
         #                     8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
 
-        self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
+        # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
+        try:
+            self.volume_cache = {32: DataManager.load_intensity_volume(self.stack, downscale=32)}
+        except:
+            sys.stderr.write('Intensity volume does not exist.\n')
 
         # self.volume = self.volume_cache[self.downsample_factor]
         # self.y_dim, self.x_dim, self.z_dim = self.volume.shape
@@ -433,7 +437,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # self.lineEdit_username.setText(self.username)
 
         # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
-        labelings_dir = create_if_not_exists(os.path.join(annotation_midbrainIncluded_v2_rootdir, stack))
+        labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
 
         import datetime
         timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
@@ -525,7 +529,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load(self):
         # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
         # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack, annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
         contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
 
         print contour_df.index

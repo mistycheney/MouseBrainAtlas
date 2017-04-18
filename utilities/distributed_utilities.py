@@ -9,6 +9,12 @@ import json
 from utilities2015 import execute_command
 from metadata import *
 
+def relative_to_ec2(abs_fp, ec2_root='/shared'):
+    #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
+    common_prefix = os.path.commonprefix([abs_fp, ec2_root])
+    relative_path = os.path.relpath(abs_fp, common_prefix)
+    return relative_path
+
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
@@ -155,45 +161,69 @@ def run_distributed(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclud
     else:
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
 
-
-def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node=1, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
-    """
-    Distributed executing a command on AWS.
-    """
-
+        
+def request_compute_nodes(cluster_size):
+    
     if cluster_size is None:
         raise Exception('Must specify cluster_size.')
-
-    import time
-
-    n_hosts = subprocess.check_output('qhost').count('\n') - 3
+        
+    n_hosts = get_num_nodes()
 
     if n_hosts < cluster_size:
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
-        print "Setting autoscaling group %s capaticy to %d." % (asg, cluster_size)
+        print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
+    else:
+        sys.stderr.write("All nodes are ready.\n")
+        
+#         # Wait for SGE to know all nodes.
+#         create_fleet_wait_seconds = 60
+#         print "Wait for SGE to know all nodes (timeout in %d seconds)..." % create_fleet_wait_seconds
+#         success = False
+#         for _ in range(create_fleet_wait_seconds/5):
+#             n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+#             if n_hosts == cluster_size:
+#                 success = True
+#                 break
+#             time.sleep(5)
 
-        # Wait for SGE to know all nodes.
-        create_fleet_wait_seconds = 60
-        print "Wait for SGE to know all nodes (timeout in %d seconds)..." % create_fleet_wait_seconds
-        success = False
-        for _ in range(create_fleet_wait_seconds/5):
-            n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
-            if n_hosts == cluster_size:
-                success = True
-                break
-            time.sleep(5)
+#         if not success:
+#             sys.stderr.write('SGE does not receive all host information in %d seconds.' % create_fleet_wait_seconds)
+#         else:
+#             sys.stderr.write("All nodes are ready.\n")
 
-        if not success:
-            sys.stderr.write('SGE does not receive all host information in %d seconds. Continue with the %d nodes currently available.' % (create_fleet_wait_seconds, n_hosts))
-        else:
-            sys,stderr.write("All nodes are ready.\n")
+def wait_num_nodes(desired_nodes, timeout=300):
+    
+    sys.stderr.write("Wait for SGE to know all nodes (timeout in %d seconds)...\n" % timeout)
+    success = False
+    for _ in range(timeout/5):
+        if get_num_nodes() == desired_nodes:
+            success = True
+            break
+        time.sleep(5)
 
-    # assert n_hosts >= cluster_size
+    if not success:
+        sys.stderr.write('SGE does not receive all host information in %d seconds.' % timeout)
+    else:
+        sys.stderr.write("All nodes are ready.\n")
+        
 
-    temp_script = '/tmp/runall.sh'
+def get_num_nodes():
+    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    return n_hosts
 
+def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+    """
+    Distributed executing a command on AWS.
+    """
+    
+    n_hosts = get_num_nodes()
+    if n_hosts < cluster_size:
+        request_compute_nodes(cluster_size)
+        
+    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
@@ -206,39 +236,54 @@ def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node=1, stdout
 
     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
 
-    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
-        if argument_type == 'partition':
-            # For cases with partition of first section / last section
-            line = command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-        elif argument_type == 'list':
-        # Specify kwargs_str
-            line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1])}
-        elif argument_type == 'list2':
-        # Specify {key: list}
-            line = command % {key: json.dumps(vals[fi:li+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-        elif argument_type == 'single':
-            line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
-            {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-            'command_template': command,
-            'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-            }
-
+    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
+        
+        temp_script = '/tmp/runall.sh'
         temp_f = open(temp_script, 'w')
-        temp_f.write(line)
+
+        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+        
+            if argument_type == 'partition':
+                # For cases with partition of first section / last section
+                line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
+            elif argument_type == 'list':
+            # Specify kwargs_str
+                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+            elif argument_type == 'list2':
+            # Specify {key: list}
+                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+            elif argument_type == 'single':
+                line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
+                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                'command_template': command,
+                'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
+                }
+
+            temp_f.write(line + ' &\n')
+
+        temp_f.write('wait')
         temp_f.close()
         os.chmod(temp_script, 0o777)
-        # call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-        #      dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-        #      shell=True, stdout=stdout)
-        
-        call('qsub -pe mpi %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-             dict(jobs_per_node=jobs_per_node, script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+        call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d_%d.log' % (i,j), stderr_log='/home/ubuntu/stderr_%d_%d.log' % (i,j)),
              shell=True, stdout=stdout)
-        
 
-    # Wait for qsub to complete.
+    # call('qsub -pe smp %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+    #      dict(jobs_per_node=jobs_per_node, script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+    #      shell=True, stdout=stdout)
+        
+    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
+        
+def wait_qsub_complete(timeout=120*60):
+    """
+    Wait for qsub to complete.
+    
+    Args:
+        timeout (int): seconds.
+    """
+
     success = False
-    for _ in range(0, 120*60/5):
+    for _ in range(0, timeout/5):
         op = subprocess.check_output('qstat')
         if "runall.sh" not in op:
             sys.stderr.write('qsub returned.\n')
@@ -247,7 +292,7 @@ def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node=1, stdout
         time.sleep(5)
 
     if not success:
-        raise Exception('qsub does not return in 6000 seconds. Quit waiting, but SGE may still be computing..')
+        raise Exception('qsub does not return in %(timeout)d seconds. Quit waiting, but SGE may still be computing..' % timeout)
 
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):

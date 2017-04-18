@@ -1,15 +1,15 @@
-import cv2
-
 import os
 import sys
+import time
+
+import cv2
+from skimage.transform import rescale
+
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
 
-from joblib import Parallel, delayed
-import time
-
-from skimage.transform import rescale
+# from joblib import Parallel, delayed
 
 def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None):
     """

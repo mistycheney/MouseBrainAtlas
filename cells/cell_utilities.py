@@ -2,16 +2,12 @@ import numpy as np
 from multiprocess import Pool
 import sys
 import os
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from data_manager import *
 import pandas
 import bloscpack as bp
-from matplotlib.path import Path
+# from matplotlib.path import Path
 
-CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
-DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
-CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
-D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from data_manager import *
 
 ###############
 n_radial = 4

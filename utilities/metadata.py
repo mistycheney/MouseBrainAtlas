@@ -29,7 +29,12 @@ if hostname.endswith('sdsc.edu'):
     CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
     CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
     CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
-    CELL_FEATURES_CLF_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2/classifiers/'
+    CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
+    DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
+    CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
+    D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
+    CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
+    
     PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
@@ -90,17 +95,22 @@ elif hostname.startswith('ip'):
     #VOLUME_ROOTDIR = '/shared/CSHL_volumes2'
     VOLUME_ROOTDIR = '/shared/CSHL_volumes'
     SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
-    ANNOTATION_ROOTDIR = '/shared/CSHL_data_labelings_losslessAlignCropped/'
+    ANNOTATION_ROOTDIR = '/shared/CSHL_labelings_v3'
     SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2'
     SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
-    LABELING_DIR= '/shared/CSHL_data_labelings_losslessAlignCropped'
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
-
+    
+    CELLS_ROOTDIR = '/shared/CSHL_cells_v2'
+    DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
+    CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
+    D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
+    CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
+        
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
     ON_AWS = False

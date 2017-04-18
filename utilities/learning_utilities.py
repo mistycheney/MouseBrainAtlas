@@ -1,33 +1,27 @@
-import numpy as np
 import sys
 import os
+import time
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from shapely.geometry import Polygon
+# import pandas as pd
+from pandas import read_hdf, DataFrame
+from itertools import groupby
+try:
+    import mxnet as mx
+except:
+    sys.stderr.write('Cannot import mxnet.\n')
+# from joblib import Parallel, delayed
+from collections import defaultdict
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from metadata import *
 from data_manager import *
-
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from shapely.geometry import Polygon
-
-# import pandas as pd
-from pandas import read_hdf, DataFrame
-
-from itertools import groupby
-
-try:
-    import mxnet as mx
-except:
-    sys.stderr.write('Cannot import mxnet.\n')
-
-from joblib import Parallel, delayed
-import time
-
-from collections import defaultdict
 from visualization_utilities import *
 from annotation_utilities import *
-
 
 def compute_accuracy(predictions, true_labels, exclude_abstained=True, abstain_label=-1):
 

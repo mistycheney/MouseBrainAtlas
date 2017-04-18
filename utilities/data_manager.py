@@ -214,7 +214,7 @@ class DataManager(object):
 
     @staticmethod
     def get_transforms_filename(stack):
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_anchor.pkl')
         return fn
 
     @staticmethod
@@ -486,7 +486,7 @@ class DataManager(object):
 
     @staticmethod
     def get_intensity_volume_bbox_filepath(stack, downscale=32):
-        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
+        basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod

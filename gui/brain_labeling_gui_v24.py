@@ -48,8 +48,13 @@ class ReadImagesThread(QThread):
     def run(self):
         for sec in self.sections:
             try:
+<<<<<<< HEAD
                 print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed', data_dir=DATA_DIR)
                 image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed', data_dir=DATA_DIR))
+=======
+                print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed')
+                image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
+>>>>>>> 996fbbbf9e5fda253feb2ac4ff34c1dd9e97994c
                 self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
             except Exception as e:
                 sys.stderr.write('%s\n' % e.message)

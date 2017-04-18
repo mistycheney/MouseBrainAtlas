@@ -12,14 +12,13 @@ stack = sys.argv[1]
 input_dir = sys.argv[2]
 output_dir = sys.argv[3]
 filename_pairs = json.loads(sys.argv[4])
+fmt = sys.argv[5]
 suffix = 'thumbnail'
 
 parameter_dir = os.path.join(os.environ['REPO_DIR'], 'preprocess', 'parameters')
 
 rg_param_rigid = os.path.join(parameter_dir, "Parameters_Rigid.txt")
 rg_param_mutualinfo = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo.txt")
-rg_param_mutualinfo_noNumberOfSamples = os.path.join(parameter_dir, "Parameters_Rigid_MutualInfo_noNumberOfSpatialSamples.txt")
-rg_param_requiredRatioOfValidSamples = os.path.join(parameter_dir, "Parameters_Rigid_RequiredRatioOfValidSamples.txt")
 
 if stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks:
 	rg_param = rg_param_mutualinfo
@@ -45,8 +44,8 @@ for fn_pair in filename_pairs:
 			{'elastix_bin': ELASTIX_BIN,
 			'rg_param': rg_param,
 			'output_subdir': output_subdir,
-			'fixed_fn': os.path.join(input_dir, prev_fn + '.tif'),
-			'moving_fn': os.path.join(input_dir, curr_fn + '.tif')
+			'fixed_fn': os.path.join(input_dir, prev_fn + '.' + fmt),
+			'moving_fn': os.path.join(input_dir, curr_fn + '.' + fmt)
 			})
 
 	if ret == 1:

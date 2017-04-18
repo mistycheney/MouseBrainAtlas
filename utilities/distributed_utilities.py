@@ -16,7 +16,8 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
     assert to_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
 
     to_parent = os.path.dirname(to_fp)
-    oasis = 'oasis-dm.sdsc.edu'
+    
+    #oasis = 'oasis-dm.sdsc.edu'
 
     if from_hostname in ['localhost', 'ec2', 'workstation']:
         # upload
@@ -32,7 +33,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
             dict(from_fp=from_fp, to_fp=to_fp))
         else:
             execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
-                    dict(from_fp=from_fp, to_fp=to_fp, to_hostname=oasis, to_parent=to_parent))
+                    dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
     elif to_hostname in ['localhost', 'ec2', 'workstation']:
         # download
         if from_hostname in ['s3', 's3raw']:
@@ -50,7 +51,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
             else:
                 execute_command('aws s3 cp s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=oasis))
+            execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname))
     else:
         # log onto another machine and perform upload from there.
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
@@ -174,7 +175,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         else:
             print "All nodes are ready."
 
-    assert n_hosts == cluster_size
+    assert n_hosts >= cluster_size
 
     temp_script = '/tmp/runall.sh'
 
@@ -217,7 +218,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
 
     # Wait for qsub to complete.
     success = False
-    for _ in range(0, 1200):
+    for _ in range(0, 120*60/5):
         op = subprocess.check_output('qstat')
         if "runall.sh" not in op:
             sys.stderr.write('qsub returned.\n')
@@ -226,7 +227,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         time.sleep(5)
 
     if not success:
-        raise Exception('qsub does not return in 6000 seconds. Abort.')
+        raise Exception('qsub does not return in 6000 seconds. Quit waiting, but SGE may still be computing..')
 
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):

@@ -155,7 +155,7 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
-def run_distributed(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=None):
+def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
     if ON_AWS:
         run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
     else:
@@ -176,22 +176,6 @@ def request_compute_nodes(cluster_size):
         print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
     else:
         sys.stderr.write("All nodes are ready.\n")
-        
-#         # Wait for SGE to know all nodes.
-#         create_fleet_wait_seconds = 60
-#         print "Wait for SGE to know all nodes (timeout in %d seconds)..." % create_fleet_wait_seconds
-#         success = False
-#         for _ in range(create_fleet_wait_seconds/5):
-#             n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
-#             if n_hosts == cluster_size:
-#                 success = True
-#                 break
-#             time.sleep(5)
-
-#         if not success:
-#             sys.stderr.write('SGE does not receive all host information in %d seconds.' % create_fleet_wait_seconds)
-#         else:
-#             sys.stderr.write("All nodes are ready.\n")
 
 def wait_num_nodes(desired_nodes, timeout=300):
     
@@ -215,7 +199,7 @@ def get_num_nodes():
     n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
     return n_hosts
 
-def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
     """
     Distributed executing a command on AWS.
     """
@@ -225,6 +209,9 @@ def run_distributed5(command, kwargs_list, cluster_size, jobs_per_node, stdout=o
         request_compute_nodes(cluster_size)
         
     sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    
+    if kwargs_list is None:
+        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
     
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())

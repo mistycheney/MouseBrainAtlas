@@ -489,7 +489,7 @@ class DataManager(object):
 
     @staticmethod
     def get_intensity_volume_bbox_filepath(stack, downscale=32):
-        basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
+        basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod

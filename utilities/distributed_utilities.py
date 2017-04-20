@@ -3,28 +3,41 @@ import subprocess
 import boto3
 import os
 import sys
+import time
 import cPickle as pickle
 import json
 from utilities2015 import execute_command
 from metadata import *
 
+def relative_to_ec2(abs_fp, ec2_root='/shared'):
+    #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
+    common_prefix = os.path.commonprefix([abs_fp, ec2_root])
+    relative_path = os.path.relpath(abs_fp, common_prefix)
+    return relative_path
+
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
 
-def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None):
+def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_only=None, exclude_only=None, includes=None):
     assert from_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'from_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
     assert to_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw'], 'to_hostname must be one of localhost, workstation, oasis, s3, s3raw or ec2.'
 
     to_parent = os.path.dirname(to_fp)
     
     #oasis = 'oasis-dm.sdsc.edu'
+    
+    t = time.time()
 
     if from_hostname in ['localhost', 'ec2', 'workstation']:
         # upload
         if to_hostname in ['s3', 's3raw']:
             if is_dir:
-                if include_only is not None:
+                if includes is not None:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
+                elif include_only is not None:
                     execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                elif exclude_only is not None:
+                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
                 else:
                     execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
             dict(from_fp=from_fp, to_fp=to_fp))
@@ -39,13 +52,17 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         if from_hostname in ['s3', 's3raw']:
 
             # Clear existing folder/file
-            if not include_only:
+            if not include_only and not includes and not exclude_only:
                 execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
 
             # Download from S3 using aws commandline interface.
             if is_dir:
-                if include_only is not None:
+                if includes is not None:
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
+                elif include_only is not None:
                     execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                elif exclude_only is not None:
+                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
                 else:
                     execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
             else:
@@ -56,10 +73,13 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         # log onto another machine and perform upload from there.
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
+    
+    sys.stderr.write('%.2f seconds.\n' % (time.time() - t))
+        
 
 default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', s3raw=S3_RAWDATA_BUCKET)
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, s3_bucket=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -67,7 +87,8 @@ def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_r
 
     from_fp = os.path.join(from_root, fp_relative)
     to_fp = os.path.join(to_root, fp_relative)
-    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, is_dir=is_dir, include_only=include_only)
+    transfer_data(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, is_dir=is_dir, include_only=include_only, exclude_only=exclude_only, includes=includes)
+
 
 def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
     secs_per_job = (last_sec - first_sec + 1)/float(n_host)
@@ -134,51 +155,64 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
-def run_distributed(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None):
+def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
     if ON_AWS:
-        run_distributed5(command, kwargs_list, cluster_size, stdout, argument_type)
+        run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
     else:
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
 
-
-def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
-    """
-    Distributed executing a command on AWS.
-    """
-
+        
+def request_compute_nodes(cluster_size):
+    
     if cluster_size is None:
         raise Exception('Must specify cluster_size.')
-
-    import time
-
-    n_hosts = subprocess.check_output('qhost').count('\n') - 3
+        
+    n_hosts = get_num_nodes()
 
     if n_hosts < cluster_size:
         autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
         subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
-        print "Setting autoscaling group %s capaticy to %d." % (asg, cluster_size)
+        print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
+    else:
+        sys.stderr.write("All nodes are ready.\n")
 
-        print "Wait for SGE to know all nodes..."
+def wait_num_nodes(desired_nodes, timeout=300):
+    
+    request_compute_nodes(desired_nodes)
+    
+    sys.stderr.write("Wait for SGE to know all nodes (timeout in %d seconds)...\n" % timeout)
+    success = False
+    for _ in range(timeout/5):
+        if get_num_nodes() == desired_nodes:
+            success = True
+            break
+        time.sleep(5)
 
-        # Wait for SGE to know all nodes. Timeout = 10 mins
-        success = False
-        for _ in range(600/5):
-            n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
-            if n_hosts == cluster_size:
-                success = True
-                break
-            time.sleep(5)
+    if not success:
+        sys.stderr.write('SGE does not receive all host information in %d seconds.' % timeout)
+    else:
+        sys.stderr.write("All nodes are ready.\n")
+        
 
-        if not success:
-            raise Exception('SGE does not receive all host information in 300 seconds. Abort.')
-        else:
-            print "All nodes are ready."
+def get_num_nodes():
+    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    return n_hosts
 
-    assert n_hosts >= cluster_size
-
-    temp_script = '/tmp/runall.sh'
-
+def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+    """
+    Distributed executing a command on AWS.
+    """
+    
+    n_hosts = get_num_nodes()
+    if n_hosts < cluster_size:
+        request_compute_nodes(cluster_size)
+        
+    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    
+    if kwargs_list is None:
+        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
+    
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
@@ -191,34 +225,54 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
 
     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
 
-    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, cluster_size)):
-        if argument_type == 'partition':
-            # For cases with partition of first section / last section
-            line = command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-        elif argument_type == 'list':
-        # Specify kwargs_str
-            line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1])}
-        elif argument_type == 'list2':
-        # Specify {key: list}
-            line = command % {key: json.dumps(vals[fi:li+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-        elif argument_type == 'single':
-            line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
-            {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-            'command_template': command,
-            'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-            }
-
+    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
+        
+        temp_script = '/tmp/runall.sh'
         temp_f = open(temp_script, 'w')
-        temp_f.write(line)
+
+        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+        
+            if argument_type == 'partition':
+                # For cases with partition of first section / last section
+                line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
+            elif argument_type == 'list':
+            # Specify kwargs_str
+                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+            elif argument_type == 'list2':
+            # Specify {key: list}
+                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+            elif argument_type == 'single':
+                line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
+                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                'command_template': command,
+                'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
+                }
+
+            temp_f.write(line + ' &\n')
+
+        temp_f.write('wait')
         temp_f.close()
         os.chmod(temp_script, 0o777)
         call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d_%d.log' % (i,j), stderr_log='/home/ubuntu/stderr_%d_%d.log' % (i,j)),
              shell=True, stdout=stdout)
 
-    # Wait for qsub to complete.
+    # call('qsub -pe smp %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+    #      dict(jobs_per_node=jobs_per_node, script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+    #      shell=True, stdout=stdout)
+        
+    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
+        
+def wait_qsub_complete(timeout=120*60):
+    """
+    Wait for qsub to complete.
+    
+    Args:
+        timeout (int): seconds.
+    """
+
     success = False
-    for _ in range(0, 120*60/5):
+    for _ in range(0, timeout/5):
         op = subprocess.check_output('qstat')
         if "runall.sh" not in op:
             sys.stderr.write('qsub returned.\n')
@@ -227,7 +281,7 @@ def run_distributed5(command, kwargs_list, cluster_size, stdout=open('/tmp/log',
         time.sleep(5)
 
     if not success:
-        raise Exception('qsub does not return in 6000 seconds. Quit waiting, but SGE may still be computing..')
+        raise Exception('qsub does not return in %(timeout)d seconds. Quit waiting, but SGE may still be computing..' % timeout)
 
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):

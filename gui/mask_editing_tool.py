@@ -105,34 +105,37 @@ class MaskEditingGUI(QMainWindow):
         self.auto_submask_decisions = {}
         self.user_submask_decisions = {}
 
+        # Load decisions from final decision file.
         try:
             accept_which, submask_decisions = load_final_decisions(self.stack)
             for fn, which in accept_which.iteritems():
                 if fn not in self.valid_filenames:
                     continue
                 sec = self.valid_filenames_to_sections[fn]
-                self.accept_which[sec] = which
                 if which == 0:
                     self.auto_submask_decisions[sec] = submask_decisions[fn]
                 elif which == 1:
                     self.user_submask_decisions[sec] = submask_decisions[fn]
                 else:
-                    raise
+                    raise Exception('The type indicator %s must be either 0 or 1, but is %d' % (fn, which))
+                self.accept_which[sec] = which
+            sys.stderr.write('Decisions loaded from the final decision file.\n')
         except Exception as e:
-            sys.stderr.write('Error loading final decisions file.\n')
+            sys.stderr.write('Error loading final decision file.\n')
 
         ######################################
         ## Generate submask review results. ##
         ######################################
 
-        self.gscene_final_masks_auto = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='autoFinalMasks', gview=self.ui.gview_final_masks_auto)
-        self.final_masks_auto_feeder = ImageDataFeeder(name='autoFinalMasks', stack=self.stack, \
+        self.auto_masks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='autoFinalMasks', gview=self.ui.gview_final_masks_auto)
+        self.auto_masks_feeder = ImageDataFeeder(name='autoFinalMasks', stack=self.stack, \
                                     sections=self.valid_sections, use_data_manager=False, downscale=32,
                                     labeled_filenames={sec: os.path.join(RAW_DATA_DIR, self.stack, fn + ".png")
                                         for sec, fn in self.valid_sections_to_filenames.iteritems()})
-        self.gscene_final_masks_auto.set_data_feeder(self.final_masks_auto_feeder)
+        self.auto_masks_gscene.set_data_feeder(self.auto_masks_feeder)
 
-        self.gscene_final_masks_auto.active_image_updated.connect(self.final_masks_auto_section_changed)
+        self.auto_masks_gscene.active_image_updated.connect(self.final_masks_auto_section_changed)
+        self.auto_masks_gscene.submask_clicked_signal.connect(self.auto_submask_clicked)
 
         submasks_rootdir = os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks')
 
@@ -148,12 +151,12 @@ class MaskEditingGUI(QMainWindow):
         except:
             self.auto_submasks = {}
 
-        # If user decisions exist
-        auto_submask_decisions = generate_submask_review_results(submasks_rootdir=submasks_rootdir, filenames=self.valid_filenames, which='user')
-        auto_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(auto_submask_decisions, self.valid_filenames))
-        for sec, decisions in auto_submask_decisions.iteritems():
-            if sec not in self.auto_submask_decisions or len(self.auto_submask_decisions[sec]) == 0:
-                self.auto_submask_decisions[sec] = decisions
+        # # If user decisions exist
+        # auto_submask_decisions = generate_submask_review_results(submasks_rootdir=submasks_rootdir, filenames=self.valid_filenames, which='user')
+        # auto_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(auto_submask_decisions, self.valid_filenames))
+        # for sec, decisions in auto_submask_decisions.iteritems():
+        #     if sec not in self.auto_submask_decisions or len(self.auto_submask_decisions[sec]) == 0:
+        #         self.auto_submask_decisions[sec] = decisions
 
         # If no user decisions, load auto decisions
         auto_submask_decisions = generate_submask_review_results(submasks_rootdir=submasks_rootdir, filenames=self.valid_filenames, which='auto')
@@ -165,34 +168,35 @@ class MaskEditingGUI(QMainWindow):
         # for sec, dec in sorted(self.auto_submask_decisions.items()):
         #     print sec, dec
 
-        self.gscene_final_masks_auto.set_submasks_and_decisions(self.auto_submasks, self.auto_submask_decisions)
+        self.auto_masks_gscene.set_submasks_and_decisions(self.auto_submasks, self.auto_submask_decisions)
 
-        self.gscene_final_masks_auto.set_active_section(345, emit_changed_signal=False)
+        self.auto_masks_gscene.set_active_section(345, emit_changed_signal=False)
 
         ########################
         ## Final Mask Gscene  ##
         ########################
 
-        self.gscene_final_masks_user = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='userFinalMask', gview=self.ui.gview_final_masks_user)
-        self.final_masks_user_feeder = ImageDataFeeder(name='autoFinalMasks', stack=self.stack, \
+        self.user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='userFinalMask', gview=self.ui.gview_final_masks_user)
+        self.user_submasks_feeder = ImageDataFeeder(name='autoFinalMasks', stack=self.stack, \
                                     sections=self.valid_sections, use_data_manager=False, downscale=32,
                                     labeled_filenames={sec: os.path.join(RAW_DATA_DIR, self.stack, fn + ".png")
                                         for sec, fn in self.valid_sections_to_filenames.iteritems()})
-        self.gscene_final_masks_user.set_data_feeder(self.final_masks_user_feeder)
+        self.user_submasks_gscene.set_data_feeder(self.user_submasks_feeder)
+        self.user_submasks_gscene.submask_clicked_signal.connect(self.user_submask_clicked)
 
         # Load modified submasks and submask decisions.
-        modified_submasks_rootdir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_modified'))
+        user_modified_submasks_rootdir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_user_modified'))
 
-        user_submasks = load_submasks(submasks_rootdir=modified_submasks_rootdir)
+        user_submasks = load_submasks(submasks_rootdir=user_modified_submasks_rootdir)
         self.user_submasks = convert_keys_fn_to_sec(filter_by_keys(user_submasks, self.valid_filenames))
 
-        user_submask_decisions = generate_submask_review_results(submasks_rootdir=modified_submasks_rootdir, filenames=self.valid_filenames, which='user')
+        user_submask_decisions = generate_submask_review_results(submasks_rootdir=user_modified_submasks_rootdir, filenames=self.valid_filenames, which='user')
         user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(user_submask_decisions, self.valid_filenames))
         for sec, decisions in user_submask_decisions.iteritems():
             if sec not in self.user_submask_decisions or len(self.user_submask_decisions[sec]) == 0:
                 self.user_submask_decisions[sec] = decisions
 
-        selected_snake_lambda1, selected_dissim_thresholds, selected_channels = load_masking_parameters(submasks_rootdir=modified_submasks_rootdir)
+        selected_snake_lambda1, selected_dissim_thresholds, selected_channels = load_masking_parameters(submasks_rootdir=user_modified_submasks_rootdir)
         selected_snake_lambda1 = convert_keys_fn_to_sec(selected_snake_lambda1)
         selected_dissim_thresholds = convert_keys_fn_to_sec(selected_dissim_thresholds)
         selected_channels = convert_keys_fn_to_sec(selected_channels)
@@ -204,7 +208,7 @@ class MaskEditingGUI(QMainWindow):
         for sec, ch in selected_channels.iteritems():
             self.selected_channels[sec] = ch
 
-        self.gscene_final_masks_user.set_submasks_and_decisions(self.user_submasks, self.user_submask_decisions)
+        self.user_submasks_gscene.set_submasks_and_decisions(self.user_submasks, self.user_submask_decisions)
 
         #########################################################
 
@@ -237,11 +241,17 @@ class MaskEditingGUI(QMainWindow):
 
         #########################################################
 
-        self.gscene_submasks = ZoomableBrowsableGraphicsScene(id='submasks', gview=self.ui.gview_submasks)
-        self.submask_image_feeder = ImageDataFeeder(name='submasks', stack=self.stack, \
+        # self.init_user_submasks_gscene = ZoomableBrowsableGraphicsScene(id='submasks', gview=self.ui.gview_submasks)
+        # self.submask_image_feeder = ImageDataFeeder(name='submasks', stack=self.stack, \
+        #                                         sections=self.valid_sections, use_data_manager=False,
+        #                                         downscale=32)
+        # self.init_user_submasks_gscene.set_data_feeder(self.submask_image_feeder)
+
+        self.init_user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='submasks', gview=self.ui.gview_submasks)
+        self.init_user_submasks_image_feeder = ImageDataFeeder(name='submasks', stack=self.stack, \
                                                 sections=self.valid_sections, use_data_manager=False,
                                                 downscale=32)
-        self.gscene_submasks.set_data_feeder(self.submask_image_feeder)
+        self.init_user_submasks_gscene.set_data_feeder(self.init_user_submasks_image_feeder)
 
         #########################################################
 
@@ -298,85 +308,69 @@ class MaskEditingGUI(QMainWindow):
 
                 f.write('%d %s %d %s\n' % (sec, fn, accept_which, ' '.join(map(lambda x: str(int(x)), decisions))))
 
-    def save_user_submasks(self, submasks_dir, fn=None, sec=None):
+
+    def save_submasks_and_decisions(self, submasks_dir, which, fn=None, sec=None):
+        """
+        If which is auto, save submasks, submask decisions and parameters to both modified and final folder.
+        If which is user, save submasks and submask decisions to both modified and final folder.
+        """
+
+        if which == 'auto':
+            submasks = self.auto_submasks
+            submask_decisions = self.auto_submask_decisions
+        elif which == 'user':
+            submasks = self.user_submasks
+            submask_decisions = self.user_submask_decisions
+        else:
+            raise
+
         if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
+            sec = self.auto_masks_gscene.active_section
+        if sec not in submasks or sec not in submask_decisions:
+            return
         fn = self.valid_sections_to_filenames[sec]
 
-        if sec not in self.user_submasks:
-            return
+        submask_fn_dir = os.path.join(submasks_dir, fn)
+        execute_command('rm -rf %(d)s; mkdir -p %(d)s' % {'d': submask_fn_dir})
 
-        submask_fn_dir = create_if_not_exists(os.path.join(submasks_dir, fn))
-        for submask_ind, m in enumerate(self.user_submasks[sec]):
+        # Save submasks
+        for submask_ind, m in enumerate(submasks[sec]):
             submask_fp = os.path.join(submask_fn_dir, fn + '_submask_%d.png' % submask_ind)
             imsave(submask_fp, np.uint8(m)*255)
 
-    def save_auto_decisions(self, submasks_dir, fn=None, sec=None):
-        if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
-        fn = self.valid_sections_to_filenames[sec]
-
-        if sec not in self.auto_submask_decisions:
-            return
-
-        submask_fn_dir = create_if_not_exists(os.path.join(submasks_dir, fn))
+        # Save submask decisions
         decisions_fp = os.path.join(submask_fn_dir, fn + '_submasksUserReview.txt')
-        np.savetxt(decisions_fp, self.auto_submask_decisions[sec], fmt='%d')
+        np.savetxt(decisions_fp, submask_decisions[sec], fmt='%d')
 
-    def save_user_decisions(self, submasks_dir, fn=None, sec=None):
-        if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
-        fn = self.valid_sections_to_filenames[sec]
+        # Save masking parameters
+        if which == 'user':
+            if sec in self.selected_dissim_thresholds or \
+                sec in self.selected_channels or \
+                sec in self.selected_snake_lambda1:
 
-        if sec not in self.user_submask_decisions:
-            return
-
-        submask_fn_dir = create_if_not_exists(os.path.join(submasks_dir, fn))
-        decisions_fp = os.path.join(submask_fn_dir, fn + '_submasksUserReview.txt')
-        np.savetxt(decisions_fp, self.user_submask_decisions[sec], fmt='%d')
-
-    def save_masking_parameters(self, submasks_dir, fn=None, sec=None):
-
-        if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
-        fn = self.valid_sections_to_filenames[sec]
-
-        if sec in self.selected_dissim_thresholds or \
-            sec in self.selected_channels or \
-            sec in self.selected_snake_lambda1:
-
-            submask_fn_dir = create_if_not_exists(os.path.join(submasks_dir, fn))
-            parameters_fp = os.path.join(submask_fn_dir, fn + '_maskingParameters.txt')
-            with open(parameters_fp, 'w') as f:
-                if sec in self.selected_snake_lambda1:
-                    f.write('snake_lambda1 %d\n' % self.selected_snake_lambda1[sec])
-                if sec in self.selected_dissim_thresholds:
-                    f.write('dissim_threshold %.2f\n' % self.selected_dissim_thresholds[sec])
-                if sec in self.selected_channels:
-                    f.write('channel %d\n' % self.selected_channels[sec])
-        else:
-            sys.stderr.write('Parameters for %s(%d) is not saved (no modification made ?)\n' % (fn, sec))
-            return
+                parameters_fp = os.path.join(submask_fn_dir, fn + '_maskingParameters.txt')
+                with open(parameters_fp, 'w') as f:
+                    if sec in self.selected_snake_lambda1:
+                        f.write('snake_lambda1 %d\n' % self.selected_snake_lambda1[sec])
+                    if sec in self.selected_dissim_thresholds:
+                        f.write('dissim_threshold %.2f\n' % self.selected_dissim_thresholds[sec])
+                    if sec in self.selected_channels:
+                        f.write('channel %d\n' % self.selected_channels[sec])
+            else:
+                sys.stderr.write('Parameters for %s(%d) is not saved (no modification made ?)\n' % (fn, sec))
 
     def save(self, sec=None, fn=None):
 
         if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
+            sec = self.auto_masks_gscene.active_section
+        accept_which = ['auto', 'user'][self.accept_which[sec]]
 
-        modified_submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_modified'))
-        auto_submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks'))
-
-        accept_which = self.accept_which[sec]
-
-        if accept_which == 1: # accept modified
-            self.save_user_submasks(submasks_dir=modified_submasks_dir, sec=sec)
-            self.save_user_decisions(submasks_dir=modified_submasks_dir, sec=sec)
-            self.save_masking_parameters(submasks_dir=modified_submasks_dir, sec=sec)
-        elif accept_which == 0: # accept auto
-            self.save_auto_decisions(submasks_dir=auto_submasks_dir, sec=sec)
+        if accept_which == 'user':
+            submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_user_modified'))
+            self.save_submasks_and_decisions(submasks_dir=submasks_dir, sec=sec, which=accept_which)
 
     def set_accept_auto_to_true(self):
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
         assert sec in self.auto_submasks
         # Clear later stage images.
         self.accepted_final_masks[sec] = self.auto_submasks[sec]
@@ -384,7 +378,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.button_toggle_accept_auto.setText(STR_USING_AUTO)
 
     def set_accept_auto_to_false(self):
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
         assert sec in self.user_submasks
         self.accepted_final_masks[sec] = self.user_submasks[sec]
         self.accept_which[sec] = 1 # change to accept modified
@@ -392,7 +386,7 @@ class MaskEditingGUI(QMainWindow):
 
     def toggle_accept_auto(self):
 
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
 
         if self.accept_which[sec] == 0: # currently accepting auto
             self.set_accept_auto_to_false()
@@ -408,6 +402,16 @@ class MaskEditingGUI(QMainWindow):
             fn = self.valid_sections_to_filenames[sec]
             imsave(os.path.join(final_masks_dir, fn + '_mask.png'), mask_viz)
 
+    @pyqtSlot(int)
+    def user_submask_clicked(self, submask_ind):
+        self.update_merged_mask()
+        self.update_mask_gui_window_title()
+
+    @pyqtSlot(int)
+    def auto_submask_clicked(self, submask_ind):
+        self.update_merged_mask()
+        self.update_mask_gui_window_title()
+
     @pyqtSlot()
     def update_merged_mask_clicked(self):
         self.update_merged_mask()
@@ -418,7 +422,7 @@ class MaskEditingGUI(QMainWindow):
         """
 
         if sec is None:
-            sec = self.gscene_final_masks_auto.active_section
+            sec = self.auto_masks_gscene.active_section
         fn = self.valid_sections_to_filenames[sec]
         accept_which = self.accept_which[sec]
         try:
@@ -443,7 +447,7 @@ class MaskEditingGUI(QMainWindow):
             # raise e
 
     def update_slic(self):
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
 
         t = time.time()
         self.slic_labelmaps[sec] = slic(self.contrast_stretched_images[sec].astype(np.float),
@@ -477,16 +481,20 @@ class MaskEditingGUI(QMainWindow):
         self.update_init_submasks_image()
 
     def update_init_submasks_image(self):
+        """
+        Update the initial submasks for snake.
+        """
 
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
 
         self.selected_dissim_thresholds[sec] = self.ui.slider_dissimThresh.value() * 0.01
         # self.init_submasks[sec] = get_submasks(self.thresholded_images[sec])
-        self.init_submasks[sec] = get_submasks(ncut_labels=self.ncut_labelmaps[sec], sp_dissims=self.sp_dissim_maps[sec], dissim_thresh=self.selected_dissim_thresholds[sec])
+        # self.init_submasks[sec] = get_submasks(ncut_labels=self.ncut_labelmaps[sec], sp_dissims=self.sp_dissim_maps[sec], dissim_thresh=self.selected_dissim_thresholds[sec])
+        self.init_submasks[sec] = merge_overlapping_masks(get_submasks(ncut_labels=self.ncut_labelmaps[sec], sp_dissims=self.sp_dissim_maps[sec], dissim_thresh=self.selected_dissim_thresholds[sec]))
         self.init_submasks_vizs[sec] = generate_submasks_viz(self.contrast_stretched_images[sec], self.init_submasks[sec], color=(255,0,0))
         # self.init_submasks_vizs[sec] = generate_submasks_viz(self.thresholded_images[sec], self.init_submasks[sec], color=(255,0,0))
-        self.submask_image_feeder.set_image(sec=sec, numpy_image=self.init_submasks_vizs[sec])
-        self.gscene_submasks.update_image(sec=sec)
+        self.init_user_submasks_image_feeder.set_image(sec=sec, numpy_image=self.init_submasks_vizs[sec])
+        self.init_user_submasks_gscene.update_image(sec=sec)
 
         if sec in self.selected_snake_lambda1:
             self.ui.slider_snakeShrink.setValue(self.selected_snake_lambda1[sec])
@@ -495,23 +503,21 @@ class MaskEditingGUI(QMainWindow):
 
     def update_user_submasks_image(self):
 
-        sec = self.gscene_final_masks_auto.active_section
-
-        self.gscene_final_masks_user.remove_submask_and_decisions_for_one_section(sec=sec)
-
+        sec = self.auto_masks_gscene.active_section
+        self.user_submasks_gscene.remove_submask_and_decisions_for_one_section(sec=sec)
         self.selected_snake_lambda1[sec] = self.ui.slider_snakeShrink.value()
-
         # self.user_submasks[sec] = snake(img=self.original_images[sec], submasks=self.init_submasks[sec])
-        self.user_submasks[sec] = snake(img=self.contrast_stretched_images[sec], submasks=self.init_submasks[sec],
+        submasks = snake(img=self.contrast_stretched_images[sec], submasks=self.init_submasks[sec],
                                         lambda1=self.selected_snake_lambda1[sec])
+        if len(submasks) == 0:
+            return
+        else:
+            self.user_submasks[sec] = submasks
         # self.user_submasks[sec] = snake(img=self.thresholded_images[sec], submasks=self.init_submasks[sec])
         # self.final_submasks_vizs[sec] = generate_submasks_viz(self.original_images[sec], self.user_submasks[sec], color=(255,0,0))
-
-        self.gscene_final_masks_user.update_image(sec=sec)
-
+        self.user_submasks_gscene.update_image(sec=sec)
         self.user_submask_decisions[sec] = auto_judge_submasks(self.user_submasks[sec])
-
-        self.gscene_final_masks_user.add_submask_and_decision_for_one_section(submasks=self.user_submasks[sec],
+        self.user_submasks_gscene.add_submask_and_decision_for_one_section(submasks=self.user_submasks[sec],
         submask_decisions=self.user_submask_decisions[sec], sec=sec)
 
         self.set_accept_auto_to_false()
@@ -519,12 +525,12 @@ class MaskEditingGUI(QMainWindow):
 
     def change_channel(self, channel):
         print 'Changed to', channel
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
         self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., channel])
         self.update_thresholded_image()
 
     def channel_changed(self, index):
-        self.selected_channels[self.gscene_final_masks_auto.active_section] = index
+        self.selected_channels[self.auto_masks_gscene.active_section] = index
 
         channel_text = str(self.sender().currentText())
         if channel_text == 'Red':
@@ -542,8 +548,7 @@ class MaskEditingGUI(QMainWindow):
 
     def update_thresholded_image(self):
         print "update_thresholded_image"
-
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
         # thresholded_image = (self.contrast_stretched_images[sec] < self.selected_thresholds[sec]).astype(np.uint8)*255
         # thresholded_image = img_as_ubyte(remove_small_holes(thresholded_image, min_size=50, connectivity=1))
         # self.thresholded_images[sec] = thresholded_image
@@ -559,7 +564,7 @@ class MaskEditingGUI(QMainWindow):
 
         self.update_mask_gui_window_title()
 
-        sec = self.gscene_final_masks_auto.active_section
+        sec = self.auto_masks_gscene.active_section
 
         if sec not in self.contrast_stretched_images:
             if sec not in self.original_images:
@@ -596,7 +601,7 @@ class MaskEditingGUI(QMainWindow):
             pass
 
         try:
-            self.gscene_submasks.set_active_section(sec)
+            self.init_user_submasks_gscene.set_active_section(sec)
         except:
             pass
 
@@ -611,7 +616,7 @@ class MaskEditingGUI(QMainWindow):
             self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1)
 
         try:
-            self.gscene_final_masks_user.set_active_section(sec)
+            self.user_submasks_gscene.set_active_section(sec)
         except:
             pass
 
@@ -621,11 +626,11 @@ class MaskEditingGUI(QMainWindow):
             pass
 
     def update_mask_gui_window_title(self):
-        curr_sec = self.gscene_final_masks_auto.active_section
+        curr_sec = self.auto_masks_gscene.active_section
         curr_fn = self.valid_sections_to_filenames[curr_sec]
-        self.dialog.setWindowTitle('%s (%d)' % (curr_fn, curr_sec))
-        self.dialog.setWindowTitle('%s (%d) %s %s' % (curr_fn, curr_sec, self.auto_submask_decisions[curr_sec], self.user_submask_decisions[curr_sec]))
-        print '%s (%d) %s %s' % (curr_fn, curr_sec, self.auto_submask_decisions[curr_sec], self.user_submask_decisions[curr_sec])
+        title = '%s (%d) - Active: %s - Alg:%s User:%s' % (curr_fn, curr_sec, ['Alg', 'User'][self.accept_which[curr_sec]], self.auto_submask_decisions[curr_sec], self.user_submask_decisions[curr_sec])
+        self.dialog.setWindowTitle(title)
+        print title
 
     def generate_masks(self):
         web_services_request('generate_masks', stack=self.stack, filenames=self.valid_filenames, tb_fmt='png')

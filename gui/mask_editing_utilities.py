@@ -70,10 +70,8 @@ def generate_submask_review_results_one_section(submasks_rootdir, fn, which):
     elif which == 'user':
         review_fp = os.path.join(submasks_rootdir, fn, fn + "_submasksUserReview.txt")
     else:
-        raise
-
+        raise Exception("Argument which must be either auto or user.")
     decisions = map(bool, np.atleast_1d(np.loadtxt(review_fp, dtype=np.float)))
-
     return decisions
 
 def load_masking_parameters(submasks_rootdir):
@@ -269,6 +267,9 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
                         final_masks.append(m)
                         sys.stderr.write('Final masks added.\n')
 
+    if len(final_masks) == 0:
+        sys.stderr.write('Snake return no valid submasks.\n')
+
     return final_masks
 
 def get_submasks(ncut_labels, sp_dissims, dissim_thresh):
@@ -295,8 +296,25 @@ def get_submasks(ncut_labels, sp_dissims, dissim_thresh):
     return dilated_superpixel_submasks
 
 
+def merge_overlapping_masks(submasks):
+    """
+    Args:
+        submasks (list)
+    """
+    n = len(submasks)
+    overlap = np.zeros((n,n), np.int)
+    for i in range(n):
+        for j in range(i, n):
+            overlap[i,j] = np.count_nonzero(np.logical_and(submasks[i], submasks[j]))
+
+    import networkx as nx
+    g = nx.from_numpy_matrix(overlap)
+    components = nx.connected_components(g)
+    output_masks = [np.any([submasks[i] for i in nodes], axis=0) for nodes in components]
+    return output_masks
+
 def generate_submasks_viz(img, submasks, color=(255,0,0), linewidth=3):
-    """Visualize"""
+    """Generate visualization of submasks."""
 
     viz = gray2rgb(img)
     for i, submask in enumerate(submasks):
@@ -306,7 +324,6 @@ def generate_submasks_viz(img, submasks, color=(255,0,0), linewidth=3):
             continue
         for cnt in cnts[1]:
             cv2.polylines(viz, [cnt.astype(np.int)], True, color, linewidth) # blue
-
     return viz
 
     # plt.figure(figsize=(15,15));

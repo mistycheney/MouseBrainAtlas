@@ -64,6 +64,7 @@ elif hostname == 'yuncong-MacbookPro':
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
 
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':

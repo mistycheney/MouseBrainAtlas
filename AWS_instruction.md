@@ -1,3 +1,9 @@
+# Tips #
+- The nodewatcher running on the compute nodes is too aggressive in terminating idle compute nodes. One must set minimum size to the desired size in order to keep the fleet alive for long durations.
+- The most efficient pipeline is to download subsets of data from S3 to each compute node's `/scratch`, process the subset, then upload results to S3, then delete the data and results. The granularity of this pipeline should depend on the local storage size of the compute node. If the storage is very small, this should be done for every file.
+Compared with writing simultaneously to the shared NFS, this pipeline avoids write contention by writing to local scratch space and avoids the latency of reading from shared NFS by reading from local scratch as well.
+- The best cell should be self-containing (works by itself if the ipython notebook is restarted or cluster is rebooted.)
+
 # Understanding cfnCluster #
 https://github.com/awslabs/cfncluster/blob/master/docs/source/autoscaling.rst
 http://cfncluster.readthedocs.io/en/latest/processes.html

@@ -6,14 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from shapely.geometry import Polygon
-# import pandas as pd
-from pandas import read_hdf, DataFrame
+from pandas import read_hdf, DataFrame, read_csv
 from itertools import groupby
-try:
-    import mxnet as mx
-except:
-    sys.stderr.write('Cannot import mxnet.\n')
-# from joblib import Parallel, delayed
 from collections import defaultdict
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
@@ -22,6 +16,50 @@ from metadata import *
 from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
+
+learning_setting_properties = read_csv(LEARNING_SETTINGS_CSV, header=0, index_col=0)
+# learning_setting_properties = {99: dict(neg_composition='neg_has_all_surround', sample_weighting=None, model='gb2')}
+
+def load_datasets(dataset_ids, labels_to_sample):
+    
+    merged_features = {}
+    merged_addresses = {}
+
+    for dataset_id in dataset_ids:
+
+        # load training addresses
+
+        addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        download_from_s3_to_ec2(addresses_fp)
+        addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        # Load training features
+
+        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
+        download_from_s3_to_ec2(features_fp)
+        features_curr_dataset = load_hdf_v2(features_fp).to_dict()
+
+        for label in labels_to_sample:
+            try:
+                if label not in merged_features:
+                    merged_features[label] = features_curr_dataset[label]
+                else:
+                    merged_features[label] = np.vstack([merged_features[label], features_curr_dataset[label]])
+
+                if label not in merged_addresses:
+                    merged_addresses[label] = addresses_curr_dataset[label]
+                else:
+                    merged_addresses[label] += addresses_curr_dataset[label]
+
+            except Exception as e:
+                continue
+                                
+    return merged_features, merged_addresses
+
+
+################
+## Evaluation ##
+################
 
 def compute_accuracy(predictions, true_labels, exclude_abstained=True, abstain_label=-1):
 
@@ -168,7 +206,7 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 
-def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='rgb-jpg'):
+def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='compressed'):
     """
     Args:
         addresses:
@@ -468,6 +506,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
 def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=None, num_samples_per_landmark=None):
     """
     Return address_list (section, grid_idx).
+    !!! This should be sped up! It is now taking 100 seconds for one stack !!!
     """
 
     location_list = defaultdict(list)
@@ -477,34 +516,92 @@ def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=No
         if name not in grid_indices_lookup.index:
             continue
 
+        # t = time.time()
         for sec, grid_indices in grid_indices_lookup.loc[name].dropna().to_dict().iteritems():
-
             n = len(grid_indices)
-
             if n == 0:
                 sys.stderr.write('Cell is empty.\n')
                 continue
-
             if num_samples_per_polygon is None:
                 location_list[name] += [(sec, i) for i in grid_indices]
-
             else:
                 random_sampled_indices = grid_indices[np.random.choice(range(n), min(n, num_samples_per_polygon), replace=False)]
                 location_list[name] += [(sec, i) for i in random_sampled_indices]
+                
+        # print name, time.time()-t
 
     if num_samples_per_landmark is not None:
-
         sampled_location_list = {}
         for name_s, addresses in location_list.iteritems():
             n = len(addresses)
             random_sampled_indices = np.random.choice(range(n), min(n, num_samples_per_landmark), replace=False)
             sampled_location_list[name_s] = [addresses[i] for i in random_sampled_indices]
         return sampled_location_list
-
     else:
         location_list.default_factory = None
         return location_list
 
+    
+
+def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name='Inception-BN'):
+    """
+    Generate dataset.
+    - Extract addresses
+    - Map addresses to features
+    - Remove None features
+    
+    Returns:
+        test_features, test_addresses, labels_found
+    """
+    
+    # Extract addresses
+    
+    test_addresses = defaultdict(list)
+
+    labels_found = set([])
+
+    t = time.time()
+    
+    for stack in stacks:
+        
+        t1 = time.time()
+        annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
+        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
+
+        labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)
+        labels_found = labels_found | labels_this_stack
+
+        t1 = time.time()
+        test_addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 
+                                                  num_samples_per_landmark=num_samples_per_label/len(stacks))
+        sys.stderr.write('Sample: %.2f seconds\n' % (time.time() - t1))
+
+        for label, addresses in test_addresses_sec_idx.iteritems():
+            test_addresses[label] += [(stack, ) + addr for addr in addresses]
+
+    test_addresses.default_factory = None
+    
+    sys.stderr.write('Sample addresses: %.2f seconds\n' % (time.time() - t))
+    
+    # Map addresses to features
+    
+    t = time.time()
+    # test_features = apply_function_to_dict(lambda x: addresses_to_features(x, model_name=model_name), test_addresses)
+    test_features = apply_function_to_dict(lambda x: addresses_to_features_parallel(x, model_name=model_name, n_processes=4), test_addresses)
+    sys.stderr.write('Map addresses to features: %.2f seconds\n' % (time.time() - t))
+    
+    # Remove features that are None
+
+    for name in labels_found:
+        valid = [(ftr, addr) for ftr, addr in zip(test_features[name], test_addresses[name])
+                    if ftr is not None]
+        res = zip(*valid)
+        test_features[name] = np.array(res[0])
+        test_addresses[name] = res[1]
+        
+    return test_features, test_addresses, labels_found
+    
 
 def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=None, w=None, h=None):
     # patch_size, stride, w, h = grid_parameters.tolist()
@@ -724,76 +821,101 @@ def addresses_to_locations(addresses):
     locations = list(chain(*locations))
     return [v for i, v in sorted(locations)]
 
+def addresses_to_features_parallel(addresses, model_name='Sat16ClassFinetuned', n_processes=16):
+    """
+    If certain input address is outside the mask, the corresponding feature returned is None.
+    """
 
-def addresses_to_features(addresses):
+    groups = [(st_se, list(group)) for st_se, group in groupby(sorted(enumerate(addresses), key=lambda (i,(st,se,idx)): (st, se)), key=lambda (i,(st,se,idx)): (st, se))]
+    
+    def f(x):
+        st_se, group = x
+        print st_se
+
+        list_indices, addrs = zip(*group)
+        sampled_grid_indices = [idx for st, se, idx in addrs]
+        stack, sec = st_se
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+        if is_invalid(fn):
+            sys.stderr.write('Image file is %s.\n' % (fn))
+            features_ret = [None for _ in sampled_grid_indices]
+            # feature_list += [None for _ in sampled_grid_indices]
+            # list_indices_all_stack_section += list_indices
+        else:
+            # Load mapping grid index -> location
+            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices = all_grid_indices.tolist()
+
+            sampled_list_indices = []
+            for gi, lst_idx in zip(sampled_grid_indices, list_indices):
+                if gi in all_grid_indices:
+                    sampled_list_indices.append(all_grid_indices.index(gi))
+                else:
+                    sys.stderr.write('Patch in annotation but not in mask: %s %d %s @%d\n' % (stack, sec, fn, gi))
+                    sampled_list_indices.append(None)
+
+            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn)
+            features_ret = [features[i].copy() if i is not None else None for i in sampled_list_indices]
+            del features
+
+            # list_indices_all_stack_section += list_indices
+        return features_ret, list_indices
+        
+    from multiprocess import Pool
+    pool = Pool(n_processes)
+    res = pool.map(f, groups)    
+    pool.close()
+    pool.join()
+    
+    feature_list, list_indices = zip(*res)
+    feature_list = list(chain(*feature_list))
+    list_indices_all_stack_section = list(chain(*list_indices))
+
+    return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
+
+
+def addresses_to_features(addresses, model_name='Sat16ClassFinetuned'):
     """
     If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
     feature_list = []
-
     list_indices_all_stack_section = []
 
-    invalid_list_indices = []
-
-    for st_se, group in groupby(sorted(enumerate(addresses), key=lambda (i,(st,se,idx)): (st, se)),
-           key=lambda (i,(st,se,idx)): (st, se)):
+    for st_se, group in groupby(sorted(enumerate(addresses), key=lambda (i,(st,se,idx)): (st, se)), key=lambda (i,(st,se,idx)): (st, se)):
 
         print st_se
 
         list_indices, addrs = zip(*group)
-
         sampled_grid_indices = [idx for st, se, idx in addrs]
 
         stack, sec = st_se
 
-        anchor_fn = metadata_cache['anchor_fn'][stack]
         fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-        if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
+        if is_invalid(fn):
             sys.stderr.write('Image file is %s.\n' % (fn))
-
             feature_list += [None for _ in sampled_grid_indices]
             list_indices_all_stack_section += list_indices
-
         else:
-
             # Load mapping grid index -> location
-            # locations_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
-            locations_fn = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
-
-            with open(locations_fn, 'r') as f:
-                all_locations = [int(line.split()[0]) for line in f.readlines()]
-#             all_locations = [idx for idx, x, y in locations]
+            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices = all_grid_indices.tolist()
 
             sampled_list_indices = []
-#             list_indices2 = []
             for gi, lst_idx in zip(sampled_grid_indices, list_indices):
-                if gi in all_locations:
-                    sampled_list_indices.append(all_locations.index(gi))
-#                     list_indices2.append(lst_idx)
+                if gi in all_grid_indices:
+                    sampled_list_indices.append(all_grid_indices.index(gi))
                 else:
-                    sys.stderr.write('Patch in annotation but not in mask: %s %d %s alignedTo %s @%d\n' % (stack, sec, fn, anchor_fn, gi))
-                    invalid_list_indices.append(lst_idx)
+                    sys.stderr.write('Patch in annotation but not in mask: %s %d %s @%d\n' % (stack, sec, fn, gi))
                     sampled_list_indices.append(None)
-#                     list_indices2.append(lst_idx)
 
-            # feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
-            # features = load_hdf(feature_fn)
-
-            features = DataManager.load_dnn_features(stack=stack, model_name='Sat16ClassFinetuned', fn=fn, anchor_fn=anchor_fn)
-
-            # sampled_features = features[sampled_list_indices]
-            # sampled_features = [features[i] if i is not None else None for i in sampled_list_indices]
-            # feature_list += list(sampled_features)
-
+            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn)
             feature_list += [features[i].copy() if i is not None else None for i in sampled_list_indices]
             del features
 
-#             list_indices_all_stack_section += list_indices2
             list_indices_all_stack_section += list_indices
-
-
 
     return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
 

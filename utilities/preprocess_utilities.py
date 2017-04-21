@@ -7,6 +7,7 @@ from metadata import *
 DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = None
+# DEFAULT_MINSIZE = 1000 # If tissues are separate pieces, 1000 is not small enough to capture them.
 DEFAULT_MINSIZE = 100
 
 def generate_submask_review_results(stack, filenames):

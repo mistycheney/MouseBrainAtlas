@@ -1,0 +1,2 @@
+classifier_id,model,margin,train_set_id,neg_composition,sample_weighting
+99,gb2,500,98/99,neg_has_all_surround,unweighted

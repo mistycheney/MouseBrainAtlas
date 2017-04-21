@@ -16,6 +16,7 @@ from registration_utilities import find_contour_points
 from annotation_utilities import contours_to_mask
 from gui_utilities import *
 from distributed_utilities import transfer_data_synced
+from preprocess_utilities import DEFAULT_MINSIZE, DEFAULT_BORDER_DISSIMILARITY_PERCENTILE
 
 VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
@@ -32,8 +33,11 @@ SUPERPIXEL_MERGE_SIMILARITY_THRESH = .2
 # Higher value means more sensitive to slight intensity difference.
 GRAPHCUT_NUM_CUTS = 20
 
-BORDER_DISSIMILARITY_PERCENTILE = 30
-MIN_SIZE = 100
+BORDER_DISSIMILARITY_PERCENTILE = DEFAULT_BORDER_DISSIMILARITY_PERCENTILE
+MIN_SIZE = DEFAULT_MINSIZE
+
+FOREGROUND_DISSIMILARITY_THRESHOLD_MAX = 1.5
+INIT_CONTOUR_COVERAGE_MAX = .5
 
 INIT_CONTOUR_MINLEN = 50
 
@@ -404,9 +408,6 @@ def determine_dissim_threshold(sp_dissims, ncut_labels):
     dissim_vals = np.asarray(sp_dissims.values())
     ticks = np.linspace(0, dissim_vals.max(), 100)
     dissim_cumdist = [np.count_nonzero(dissim_vals < th) / float(len(dissim_vals)) for th in ticks]
-
-    FOREGROUND_DISSIMILARITY_THRESHOLD_MAX = 1.5
-    INIT_CONTOUR_COVERAGE_MAX = .5
 
     # Strategy: Select the lowest threshold (most inclusive) while covers less than 50% of the image (avoid over-inclusiveness).
 

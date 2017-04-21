@@ -224,7 +224,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             grad = np.gradient(percentages, 3)
             # smoothed_grad = moving_average(grad, 1)
-            # hessian = np.gradient(grad, 3)
+            hessian = np.gradient(grad, 3)
 
             # plt.figure();
             # plt.plot(ticks, grad, label='grad');
@@ -241,9 +241,9 @@ def generate_mask(fn, tb_fmt='png'):
             # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
             # plt.close();
 
-            ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
+            # ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
             # ticks_sorted = ticks[np.argsort(smoothed_grad, kind='mergesort')]
-            # ticks_sorted = ticks[10:][hessian[10:].argsort()]
+            ticks_sorted = ticks[10:][hessian[10:].argsort()]
             ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
 
             init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)

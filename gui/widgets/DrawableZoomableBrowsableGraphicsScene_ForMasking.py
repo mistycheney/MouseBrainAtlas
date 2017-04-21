@@ -19,7 +19,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
     - adding a dict called submask_decisions
     """
 
-    submask_clicked_signal = pyqtSignal(int)
+    submask_decision_updated = pyqtSignal(int)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForMasking, self).__init__(id=id, gview=gview, parent=parent)
@@ -70,6 +70,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
 
     def set_submasks_and_decisions(self, submasks_allFiles, submask_decisions_allFiles):
+        """
+        These two inputs will be modified by actions on the gscene (e.g. clicking on polygons).
+        """
 
         self.submasks = submasks_allFiles
         self.submask_decisions = submask_decisions_allFiles
@@ -132,8 +135,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         curr_decision = self.submask_decisions[self.active_section][submask_ind]
         self.update_submask_decision(submask_ind=submask_ind, decision=not curr_decision, sec=self.active_section)
 
-        self.submask_clicked_signal.emit(submask_ind)
-
     def update_submask_decision(self, submask_ind, decision, sec):
 
         if submask_ind in self.submask_decisions[sec]:
@@ -151,3 +152,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
 
         curr_i, _ = self.get_requested_index_and_section(sec=sec)
         self.drawings[curr_i][submask_ind].setPen(pen)
+
+        self.submask_decision_updated.emit(submask_ind)
+
+    def accept_all_submasks(self):
+        # for submask_ind in self.submasks[self.active_section].iterkeys():
+        for submask_ind in range(len(self.submasks[self.active_section])):
+            self.update_submask_decision(submask_ind=submask_ind, decision=True, sec=self.active_section)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress:
+            key = event.key()
+            if key == Qt.Key_Space:
+                self.accept_all_submasks()
+                return True
+
+        return super(DrawableZoomableBrowsableGraphicsScene_ForMasking, self).eventFilter(obj, event)

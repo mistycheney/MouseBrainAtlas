@@ -7,7 +7,7 @@ from metadata import *
 DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = None
-DEFAULT_MINSIZE = 1000
+DEFAULT_MINSIZE = 100
 
 def generate_submask_review_results(stack, filenames):
     sys.stderr.write('Generate submask review...\n')

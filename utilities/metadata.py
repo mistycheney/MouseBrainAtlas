@@ -117,6 +117,8 @@ elif hostname.startswith('ip'):
     CLF_ROOTDIR = '/shared/CSHL_classifiers'
 
     LEARNING_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'learning_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+        
         
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

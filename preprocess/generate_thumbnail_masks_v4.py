@@ -1,20 +1,15 @@
 #! /usr/bin/env python
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
 
 import os
 import time
 import sys
-
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from utilities2015 import *
-from annotation_utilities import contours_to_mask
-from registration_utilities import find_contour_points
+from collections import deque
 
 import numpy as np
-
 from skimage.morphology import remove_small_objects, disk, remove_small_holes, binary_dilation, disk, binary_closing
 from skimage.io import imread, imsave
 from skimage.util import img_as_ubyte
@@ -22,14 +17,15 @@ from skimage.segmentation import slic, mark_boundaries
 from skimage.future.graph import rag_mean_color, cut_normalized, cut_threshold
 from skimage.feature import canny
 from skimage.color import label2rgb
-
-import morphsnakes
-from collections import deque
-
 from multiprocess import Pool
-from preprocess_utilities import *
-
 from scipy.sparse.linalg import ArpackError
+import morphsnakes
+
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import *
+from annotation_utilities import contours_to_mask
+from registration_utilities import find_contour_points
+from preprocess_utilities import *
 
 #######################################################################################
 
@@ -224,7 +220,7 @@ def generate_mask(fn, tb_fmt='png'):
 
             grad = np.gradient(percentages, 3)
             # smoothed_grad = moving_average(grad, 1)
-            # hessian = np.gradient(grad, 3)
+            hessian = np.gradient(grad, 3)
 
             # plt.figure();
             # plt.plot(ticks, grad, label='grad');
@@ -241,9 +237,9 @@ def generate_mask(fn, tb_fmt='png'):
             # plt.savefig(os.path.join(submask_dir, '%(fn)s_spDissimCumDistHessian.png' % dict(fn=fn)));
             # plt.close();
 
-            ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
+            # ticks_sorted = ticks[np.argsort(grad, kind='mergesort')]
             # ticks_sorted = ticks[np.argsort(smoothed_grad, kind='mergesort')]
-            # ticks_sorted = ticks[10:][hessian[10:].argsort()]
+            ticks_sorted = ticks[10:][hessian[10:].argsort()]
             ticks_sorted_reduced = ticks_sorted[ticks_sorted < FOREGROUND_DISSIMILARITY_THRESHOLD_MAX]
 
             init_contour_percentages = np.asarray([np.sum([np.count_nonzero(ncut_labels == l)
@@ -280,7 +276,7 @@ def generate_mask(fn, tb_fmt='png'):
             if d > foreground_dissimilarity_threshold:
                 superpixel_mask[ncut_labels == l] = 1
 
-        superpixel_mask = remove_small_objects(superpixel_mask, min_size=200)
+        superpixel_mask = remove_small_objects(superpixel_mask, min_size=MIN_SIZE)
 
         labelmap, n_submasks = label(superpixel_mask, return_num=True)
 

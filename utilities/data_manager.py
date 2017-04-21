@@ -1,16 +1,18 @@
 import sys, os
-sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
-from utilities2015 import *
 import subprocess
 import os
+
 try:
     import boto3
 except:
     sys.stderr.write('No boto3\n')
+from pandas import read_hdf
+    
+sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
+from utilities2015 import *
 from metadata import *
 from vis3d_utilities import *
-
-from pandas import read_hdf
+from distributed_utilities import *
 
 def is_invalid(fn=None, sec=None, stack=None):
     if sec is not None:
@@ -1432,6 +1434,43 @@ class DataManager(object):
         return load_hdf(DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn))
 
     @staticmethod
+    def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None):
+        """
+        resol: can be either lossless or thumbnail.
+        version:
+        - compressed: for regular nissl, RGB JPEG; for neurotrace, blue channel as grey JPEG
+        - saturation: for regular nissl, saturation as gray, tif; for NT, blue channel as grey, tif
+        - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
+        """
+
+        is_fluorescent = stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks
+        
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack)
+        
+        if resol == 'lossless' and version == 'compressed':
+            if is_fluorescent:
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+            else:
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+        elif resol == 'lossless' and version == 'saturation':
+            if is_fluorescent: # fluorescent.
+                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
+            else: # Nissl
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+        elif resol == 'lossless' and version == 'cropped':
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+        elif resol == 'thumbnail' and version == 'cropped_tif':
+            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+        elif resol == 'thumbnail' and version == 'aligned_tif':
+            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+        else:
+            sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
+
+        return image_dir
+            
+    
+    @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None):
         """
         resol: can be either lossless or thumbnail.
@@ -1441,16 +1480,14 @@ class DataManager(object):
         - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
         """
 
-        is_fluorescent = False
-
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
-            if (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks) and fn.split('-')[1][0] == 'F':
-                is_fluorescent = True
         else:
             assert fn is not None
+            
+        is_fluorescent = (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks) and fn.split('-')[1][0] == 'F'
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)

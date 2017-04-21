@@ -97,14 +97,14 @@ elif hostname.startswith('ip'):
     THUMBNAIL_DATA_DIR = '/shared/CSHL_data_processed'
     #VOLUME_ROOTDIR = '/shared/CSHL_volumes2'
     VOLUME_ROOTDIR = '/shared/CSHL_volumes'
-    SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
+    # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = '/shared/CSHL_labelings_v3'
-    SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
-    SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
-    PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2'
-    SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
-    SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
-    HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
+    # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
+    # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
+    PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features'
+    # SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
+    # SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
+    # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
     
@@ -113,6 +113,10 @@ elif hostname.startswith('ip'):
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
+    
+    CLF_ROOTDIR = '/shared/CSHL_classifiers'
+
+    LEARNING_SETTING_CSV = os.path.join(REPO_DIR, 'learning', 'learning_settings.csv')
         
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

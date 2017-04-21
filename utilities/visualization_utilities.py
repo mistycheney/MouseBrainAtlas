@@ -9,8 +9,6 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
 
-# from joblib import Parallel, delayed
-
 def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None):
     """
     Assume bg has the specified downscale_factor.
@@ -18,9 +16,11 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 
     if bg == 'original':
         bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='compressed'))[::downscale_factor, ::downscale_factor]
-
+       
     # viz = bg.copy()
-    viz = gray2rgb(bg)
+    viz = gray2rgb(bg).copy()
+    # need copy() because of this bug http://stackoverflow.com/a/31316516
+    
     half_size = patch_size/2/downscale_factor
     if isinstance(locs[0], list):
         if colors is None:
@@ -37,7 +37,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
             x = x / downscale_factor
             y = y / downscale_factor
             cv2.rectangle(viz, (x-half_size, y-half_size), (x+half_size, y+half_size), colors, 2)
-
+            
     return viz
 
 def scoremap_overlay(stack, structure, downscale, setting,

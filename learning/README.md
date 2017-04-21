@@ -344,6 +344,36 @@ Negatives are surrounding regions that include other positive classes
 train acc: 0.986
 test acc on dataset 12: 0.813
 
+===============================
+
+30:
+train set: 20/21
+neg_composition: neg_has_all_surround
+margin: 500
+model: lr
+train acc: 0.86
+test set: 22
+test acc: 0.80
+
+31:
+train set: 21/22
+neg_composition: neg_has_all_surround
+margin: 500
+model: lr
+train acc: 0.863
+test set: 20
+test acc: 0.769
+
+32:
+train set: 20/22
+neg_composition: neg_has_all_surround
+margin: 500
+model: lr
+train acc: 0.869
+test set: 21
+test acc: 0.789
+
+
 
 ## Evaluation ##
 

@@ -17,3 +17,10 @@ This is the repo for mouse brainstem atlas project.
 
 # Possible Improvement #
 - Use a unbiased way to construct/update reference model, rather than align all brains to one particular brain.
+
+# Initial Training #
+
+`learning/train_classifiers_v3.py`
+
+**Requires:**
+- `$ANNOTATION_ROOTDIR/[stack]/[stack]_annotation_grid_indices.h5` for all annotated stacks.

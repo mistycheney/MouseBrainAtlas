@@ -30,13 +30,13 @@ def load_datasets(dataset_ids, labels_to_sample):
         # load training addresses
 
         addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
-        download_from_s3_if_not_exists(addresses_fp)
+        download_from_s3_to_ec2(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
         
         # Load training features
 
         features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
-        download_from_s3_if_not_exists(features_fp)
+        download_from_s3_to_ec2(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
 
         for label in labels_to_sample:

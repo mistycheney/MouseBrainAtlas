@@ -9,12 +9,17 @@ import json
 from utilities2015 import execute_command
 from metadata import *
 
-def download_from_s3_if_not_exists(fp):
-    if not os.path.exists(fp):    
-        transfer_data_synced(relative_to_ec2(fp), 
-                                from_hostname='s3',
-                                to_hostname='ec2',
-                                is_dir=False)
+def upload_from_ec2_to_s3(fp, is_dir=False):
+    transfer_data_synced(relative_to_ec2(fp),
+                        from_hostname='ec2',
+                        to_hostname='s3',
+                        is_dir=is_dir)    
+
+def download_from_s3_to_ec2(fp, is_dir=False):
+    transfer_data_synced(relative_to_ec2(fp), 
+                            from_hostname='s3',
+                            to_hostname='ec2',
+                            is_dir=is_dir)
 
 def relative_to_ec2(abs_fp, ec2_root='/shared'):
     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths

@@ -69,7 +69,6 @@ elif hostname == 'yuncong-MacbookPro':
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
-    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
 
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
@@ -117,7 +116,7 @@ elif hostname.startswith('ip'):
     
     CLF_ROOTDIR = '/shared/CSHL_classifiers'
 
-    LEARNING_SETTING_CSV = os.path.join(REPO_DIR, 'learning', 'learning_settings.csv')
+    LEARNING_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'learning_settings.csv')
         
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

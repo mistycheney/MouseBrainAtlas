@@ -17,10 +17,10 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-learning_setting_properties = read_csv(LEARNING_SETTINGS_CSV, header=1).to_dict()
+learning_setting_properties = read_csv(LEARNING_SETTINGS_CSV, header=0, index_col=0)
 # learning_setting_properties = {99: dict(neg_composition='neg_has_all_surround', sample_weighting=None, model='gb2')}
 
-def merge_datasets(dataset_ids, labels_to_sample):
+def load_datasets(dataset_ids, labels_to_sample):
     
     merged_features = {}
     merged_addresses = {}

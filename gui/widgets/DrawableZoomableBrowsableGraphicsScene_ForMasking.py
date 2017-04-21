@@ -1,23 +1,25 @@
+import sys, os
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from gui_utilities import *
-
-import sys, os
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from data_manager import DataManager
 from metadata import *
-
-from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
-
+from gui_utilities import *
 from registration_utilities import find_contour_points
 from annotation_utilities import contours_to_mask
+
+from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 
 class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsableGraphicsScene):
     """
     Extends base class by:
     - defining specific signal handlers
+    - adding a dict called submask_decisions
     """
+
+    submask_clicked_signal = pyqtSignal(int)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForMasking, self).__init__(id=id, gview=gview, parent=parent)
@@ -47,7 +49,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
 
         for submask_ind, decision in enumerate(submask_decisions):
 
-            assert submask_ind < len(submasks), 'Error: decisions loaded for section %d, submask %d, but not submask image' % (sec, submask_ind)
+            assert submask_ind < len(submasks), 'Error: decisions loaded for section %d, submask %d (start from 0), but not submask image' % (sec, submask_ind)
             mask = submasks[submask_ind]
 
             # Compute contour of mask
@@ -130,11 +132,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         curr_decision = self.submask_decisions[self.active_section][submask_ind]
         self.update_submask_decision(submask_ind=submask_ind, decision=not curr_decision, sec=self.active_section)
 
-        # if curr_fn not in self.fns_submask_modified:
-        #     self.fns_submask_modified.append(curr_fn)
-
-        # self.update_mask_gui_window_title()
-
+        self.submask_clicked_signal.emit(submask_ind)
 
     def update_submask_decision(self, submask_ind, decision, sec):
 
@@ -149,7 +147,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             pen = QPen(Qt.green)
         else:
             pen = QPen(Qt.red)
-        pen.setWidth(2)
+        pen.setWidth(self.default_line_width)
 
         curr_i, _ = self.get_requested_index_and_section(sec=sec)
         self.drawings[curr_i][submask_ind].setPen(pen)

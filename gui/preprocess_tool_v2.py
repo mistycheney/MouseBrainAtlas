@@ -213,8 +213,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.first_section = 1
         self.last_section = 2
-
-
+        
         # self.sorted_filenames = []
         #
         # filename_map_fp = '/home/yuncong/CSHL_data_processed/%(stack)s_filename_map.txt' % {'stack': stack}
@@ -1490,8 +1489,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         elif event.type() == QEvent.KeyPress:
             key = event.key()
-
-
         return False
 
 
@@ -1506,7 +1503,7 @@ if __name__ == "__main__":
         description='Data Preprocessing GUI.')
 
     parser.add_argument("stack_name", type=str, help="stack name")
-    parser.add_argument("tb_fmt", type=str, help="thumbnail format", default='png')
+    parser.add_argument("--tb_fmt", type=str, help="thumbnail format", default='png')
     args = parser.parse_args()
 
     from sys import argv, exit

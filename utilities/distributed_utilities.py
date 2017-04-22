@@ -9,19 +9,21 @@ import json
 from utilities2015 import execute_command
 from metadata import *
 
-def upload_from_ec2_to_s3(fp, is_dir=False):
-    transfer_data_synced(relative_to_ec2(fp),
+def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
+    transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root),
                         from_hostname='ec2',
                         to_hostname='s3',
-                        is_dir=is_dir)    
+                        is_dir=is_dir,
+                        from_root=ec2_root)    
 
-def download_from_s3_to_ec2(fp, is_dir=False, redownload=False):
+def download_from_s3_to_ec2(fp, is_dir=False, redownload=False, ec2_root='/shared'):
     
     if redownload or not os.path.exists(fp):
-        transfer_data_synced(relative_to_ec2(fp), 
+        transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root), 
                             from_hostname='s3',
                             to_hostname='ec2',
-                            is_dir=is_dir)
+                            is_dir=is_dir,
+                            to_root=ec2_root)
 
 def relative_to_ec2(abs_fp, ec2_root='/shared'):
     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
@@ -173,70 +175,6 @@ def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), e
         run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
     else:
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
-
-        
-def run_distributed6(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
-    """
-    Distributed executing a command on AWS. output to scratch
-    """
-    
-    n_hosts = get_num_nodes()
-    if n_hosts < cluster_size:
-        request_compute_nodes(cluster_size)
-        
-    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
-    
-    if kwargs_list is None:
-        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
-    
-    if isinstance(kwargs_list, dict):
-        keys, vals = zip(*kwargs_list.items())
-        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-        kwargs_list_as_dict = kwargs_list
-    else:
-        kwargs_list_as_list = kwargs_list
-        keys = kwargs_list[0].keys()
-        vals = [t.values() for t in kwargs_list]
-        kwargs_list_as_dict = dict(zip(keys, vals))
-
-    assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
-
-    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
-        
-        temp_script = '/tmp/runall.sh'
-        temp_f = open(temp_script, 'w')
-
-        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-        
-            if argument_type == 'partition':
-                # For cases with partition of first section / last section
-                line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
-            elif argument_type == 'list':
-            # Specify kwargs_str
-                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
-            elif argument_type == 'list2':
-            # Specify {key: list}
-                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-            elif argument_type == 'single':
-                line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
-                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-                'command_template': command,
-                'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
-                }
-
-            temp_f.write(line + ' &\n')
-
-        temp_f.write('wait')
-        temp_f.close()
-        os.chmod(temp_script, 0o777)
-        # call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-        #      dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-        #      shell=True, stdout=stdout)
-        call('qsub -V -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
-        
-    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
-        
         
 def request_compute_nodes(cluster_size):
     

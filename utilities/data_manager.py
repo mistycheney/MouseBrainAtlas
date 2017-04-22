@@ -1064,13 +1064,26 @@ class DataManager(object):
         else:
             raise
 
+#     @staticmethod
+#     def get_score_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
+
+#         basename = DataManager.get_original_volume_basename(**locals())
+#         vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
+#         return vol_fn
+
     @staticmethod
-    def get_score_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
-
+    def get_volume_gradient_filepath_template_scratch(stack, structure, downscale=32, classifier_setting=None, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(**locals())
-        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
-        return vol_fn
+        grad_fn = os.path.join('/scratch', 'CSHL_volumes', stack, basename, 'score_volume_gradients', basename + '_' + structure + '_%(suffix)s.bp')
+        return grad_fn
+    
 
+    @staticmethod
+    def get_volume_gradient_filepath_scratch(stack, structure, suffix, volume_type='score', classifier_setting=None, downscale=32):
+        grad_fn = DataManager.get_volume_gradient_filepath_template_scratch(**locals())  % {'suffix': suffix}
+        return grad_fn
+
+    
     @staticmethod
     def get_volume_gradient_filepath_template(stack, structure, downscale=32, classifier_setting=None, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(**locals())
@@ -1155,8 +1168,9 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_score_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
-        vol_fn = DataManager.get_score_volume_filepath(**locals())
+    def load_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
+        # vol_fn = DataManager.get_score_volume_filepath(**locals())
+        vol_fn = DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale, classifier_setting_m=classifier_setting, type_m=volume_type, trial_idx=None)
         score_volume = DataManager.load_data(vol_fn, filetype='bp')
         return score_volume
 

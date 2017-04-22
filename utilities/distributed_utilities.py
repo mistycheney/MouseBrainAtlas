@@ -15,8 +15,10 @@ def upload_from_ec2_to_s3(fp, is_dir=False):
                         to_hostname='s3',
                         is_dir=is_dir)    
 
-def download_from_s3_to_ec2(fp, is_dir=False):
-    transfer_data_synced(relative_to_ec2(fp), 
+def download_from_s3_to_ec2(fp, is_dir=False, redownload=False):
+    
+    if redownload or not os.path.exists(fp):
+        transfer_data_synced(relative_to_ec2(fp), 
                             from_hostname='s3',
                             to_hostname='ec2',
                             is_dir=is_dir)
@@ -166,65 +168,6 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
     return up_hostids
 
 
-# def run_distributed6(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list', cluster_size=None, jobs_per_node=1):
-    
-#     n_hosts = get_num_nodes()
-#     if n_hosts < cluster_size:
-#         request_compute_nodes(cluster_size)
-        
-#     sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
-    
-#     if kwargs_list is None:
-#         kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
-    
-#     if isinstance(kwargs_list, dict):
-#         keys, vals = zip(*kwargs_list.items())
-#         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-#         kwargs_list_as_dict = kwargs_list
-#     else:
-#         kwargs_list_as_list = kwargs_list
-#         keys = kwargs_list[0].keys()
-#         vals = [t.values() for t in kwargs_list]
-#         kwargs_list_as_dict = dict(zip(keys, vals))
-
-#     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
-
-#     for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
-        
-#         temp_script = '/tmp/runall.sh'
-#         temp_f = open(temp_script, 'w')
-
-#         for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-        
-#             if argument_type == 'partition':
-#                 # For cases with partition of first section / last section
-#                 line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
-#             elif argument_type == 'list':
-#             # Specify kwargs_str
-#                 line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
-#             elif argument_type == 'list2':
-#             # Specify {key: list}
-#                 line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-#             elif argument_type == 'single':
-#                 line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
-#                 {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-#                 'command_template': command,
-#                 'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
-#                 }
-
-#             temp_f.write(line + ' &\n')
-
-#         temp_f.write('wait')
-#         temp_f.close()
-#         os.chmod(temp_script, 0o777)
-#         call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-#              dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-#              shell=True, stdout=stdout)
-        
-#     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
-
-
-
 def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
     if ON_AWS:
         run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
@@ -323,9 +266,11 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         temp_f.write('wait')
         temp_f.close()
         os.chmod(temp_script, 0o777)
-        call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-             shell=True, stdout=stdout)
+        # call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+        #      dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+        #      shell=True, stdout=stdout)
+        call('qsub -V -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
 
     # call('qsub -pe smp %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
     #      dict(jobs_per_node=jobs_per_node, script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),

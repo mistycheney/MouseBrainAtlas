@@ -446,6 +446,7 @@ class DataManager(object):
         clf_allClasses = {}
         for structure in structures:
             clf_fp = DataManager.get_classifier_filepath(structure=structure, setting=setting)
+            download_from_s3_to_ec2(clf_fp)
             if os.path.exists(clf_fp):
                 clf_allClasses[structure] = joblib.load(clf_fp)
             else:
@@ -1275,7 +1276,7 @@ class DataManager(object):
     @staticmethod
     def load_downscaled_scoremap(stack, structure, setting, section=None, fn=None, anchor_fn=None, downscale=32):
         """
-        Return scoremaps.
+        Return scoremaps as bp files.
         """
 
         # Load scoremap
@@ -1516,6 +1517,10 @@ class DataManager(object):
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
+        elif resol == 'thumbnail' and version == 'cropped':
+            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
             # if stack in ['MD635']:
             #     image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
@@ -1637,46 +1642,92 @@ class DataManager(object):
 
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
-# metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-metadata_cache['image_shape'] =\
-{'MD585': (16384, 12000),
- 'MD589': (15520, 11936),
- 'MD590': (17536, 13056),
- 'MD591': (16000, 13120),
- 'MD592': (17440, 12384),
- 'MD593': (17088, 12256),
- 'MD594': (17216, 11104),
- 'MD595': (18368, 13248),
- 'MD598': (18400, 12608),
- 'MD599': (18784, 12256),
- 'MD602': (22336, 12288),
- 'MD603': (20928, 13472),
- 'MD635': (20960, 14240),
- 'MD642': (28704, 15584),
- 'MD657': (27584, 16960)}
-metadata_cache['anchor_fn'] = {}
-metadata_cache['sections_to_filenames'] = {}
-metadata_cache['section_limits'] = {}
-metadata_cache['cropbox'] = {}
-for stack in all_stacks:
-    try:
-        metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
-    except:
-        pass
-    try:
-        metadata_cache['sections_to_filenames'][stack] = DataManager.load_sorted_filenames(stack)[1]
-    except:
-        pass
-    try:
-        metadata_cache['section_limits'][stack] = DataManager.load_cropbox(stack)[4:]
-    except:
-        pass
-    try:
-        metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
-    except:
-        pass
 
-del stack
+def generate_metadata_cache():
+    
+    global metadata_cache
+    # metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+    metadata_cache['image_shape'] =\
+    {'MD585': (16384, 12000),
+     'MD589': (15520, 11936),
+     'MD590': (17536, 13056),
+     'MD591': (16000, 13120),
+     'MD592': (17440, 12384),
+     'MD593': (17088, 12256),
+     'MD594': (17216, 11104),
+     'MD595': (18368, 13248),
+     'MD598': (18400, 12608),
+     'MD599': (18784, 12256),
+     'MD602': (22336, 12288),
+     'MD603': (20928, 13472),
+     'MD635': (20960, 14240),
+     'MD642': (28704, 15584),
+     'MD657': (27584, 16960)}
+    metadata_cache['anchor_fn'] = {}
+    metadata_cache['sections_to_filenames'] = {}
+    metadata_cache['section_limits'] = {}
+    metadata_cache['cropbox'] = {}
+    for stack in all_stacks:
+        try:
+            metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
+        except:
+            pass
+        try:
+            metadata_cache['sections_to_filenames'][stack] = DataManager.load_sorted_filenames(stack)[1]
+        except:
+            pass
+        try:
+            metadata_cache['section_limits'][stack] = DataManager.load_cropbox(stack)[4:]
+        except:
+            pass
+        try:
+            metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
+        except:
+            pass
+
+generate_metadata_cache()
+    
+    
+# # metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+# metadata_cache['image_shape'] =\
+# {'MD585': (16384, 12000),
+#  'MD589': (15520, 11936),
+#  'MD590': (17536, 13056),
+#  'MD591': (16000, 13120),
+#  'MD592': (17440, 12384),
+#  'MD593': (17088, 12256),
+#  'MD594': (17216, 11104),
+#  'MD595': (18368, 13248),
+#  'MD598': (18400, 12608),
+#  'MD599': (18784, 12256),
+#  'MD602': (22336, 12288),
+#  'MD603': (20928, 13472),
+#  'MD635': (20960, 14240),
+#  'MD642': (28704, 15584),
+#  'MD657': (27584, 16960)}
+# metadata_cache['anchor_fn'] = {}
+# metadata_cache['sections_to_filenames'] = {}
+# metadata_cache['section_limits'] = {}
+# metadata_cache['cropbox'] = {}
+# for stack in all_stacks:
+#     try:
+#         metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
+#     except:
+#         pass
+#     try:
+#         metadata_cache['sections_to_filenames'][stack] = DataManager.load_sorted_filenames(stack)[1]
+#     except:
+#         pass
+#     try:
+#         metadata_cache['section_limits'][stack] = DataManager.load_cropbox(stack)[4:]
+#     except:
+#         pass
+#     try:
+#         metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
+#     except:
+#         pass
+
+# del stack
 
 def resolve_actual_setting(setting, stack, fn=None, sec=None):
     """Take a possibly composite setting index, and return the actual setting index according to fn."""

@@ -87,6 +87,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
+    ROOT_DIR = '/shared'
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -102,6 +103,7 @@ elif hostname.startswith('ip'):
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features'
+    SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_scores'
     # SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     # SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
@@ -118,7 +120,6 @@ elif hostname.startswith('ip'):
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
-        
         
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'
@@ -245,3 +246,8 @@ all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
+
+#######################################
+
+import multiprocessing
+NUM_CORES = multiprocessing.cpu_count()

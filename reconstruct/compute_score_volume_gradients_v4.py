@@ -48,15 +48,19 @@ try:
 
     t = time.time()
 
-    gx_fp = DataManager.get_score_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gx')
-    gy_fp = DataManager.get_score_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gy')
-    gz_fp = DataManager.get_score_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gz')
+    gx_fp = DataManager.get_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gx')
+    gy_fp = DataManager.get_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gy')
+    gz_fp = DataManager.get_volume_gradient_filepath(stack=stack, structure=structure, downscale=downscale, classifier_setting=classifier_id, suffix='gz')
 
     create_parent_dir_if_not_exists(gx_fp)
 
     bp.pack_ndarray_file(gy_gx_gz[1], gx_fp)
     bp.pack_ndarray_file(gy_gx_gz[0], gy_fp)
     bp.pack_ndarray_file(gy_gx_gz[2], gz_fp)
+    
+    upload_from_ec2_to_s3(gx_fp)
+    upload_from_ec2_to_s3(gy_fp)
+    upload_from_ec2_to_s3(gz_fp)
 
     del gy_gx_gz
 

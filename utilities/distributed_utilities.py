@@ -1,9 +1,9 @@
-from subprocess import call
-import subprocess
-import boto3
 import os
 import sys
 import time
+from subprocess import call, check_output
+import boto3
+
 import cPickle as pickle
 import json
 from utilities2015 import execute_command
@@ -116,7 +116,7 @@ def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
         ec2_conn = boto3.client('ec2', region)
         #reservations = ec2_conn.get_all_reservations()
         response = ec2_conn.describe_instances()
-        myid = subprocess.check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
+        myid = check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
         for reservation in response["Reservations"]:
             for instance in reservation["Instances"]:
                 if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge':
@@ -175,6 +175,69 @@ def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), e
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
 
         
+def run_distributed6(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+    """
+    Distributed executing a command on AWS. output to scratch
+    """
+    
+    n_hosts = get_num_nodes()
+    if n_hosts < cluster_size:
+        request_compute_nodes(cluster_size)
+        
+    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    
+    if kwargs_list is None:
+        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
+    
+    if isinstance(kwargs_list, dict):
+        keys, vals = zip(*kwargs_list.items())
+        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+        kwargs_list_as_dict = kwargs_list
+    else:
+        kwargs_list_as_list = kwargs_list
+        keys = kwargs_list[0].keys()
+        vals = [t.values() for t in kwargs_list]
+        kwargs_list_as_dict = dict(zip(keys, vals))
+
+    assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
+
+    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
+        
+        temp_script = '/tmp/runall.sh'
+        temp_f = open(temp_script, 'w')
+
+        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+        
+            if argument_type == 'partition':
+                # For cases with partition of first section / last section
+                line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
+            elif argument_type == 'list':
+            # Specify kwargs_str
+                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+            elif argument_type == 'list2':
+            # Specify {key: list}
+                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+            elif argument_type == 'single':
+                line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
+                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                'command_template': command,
+                'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
+                }
+
+            temp_f.write(line + ' &\n')
+
+        temp_f.write('wait')
+        temp_f.close()
+        os.chmod(temp_script, 0o777)
+        # call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+        #      dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
+        #      shell=True, stdout=stdout)
+        call('qsub -V -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
+        
+    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
+        
+        
 def request_compute_nodes(cluster_size):
     
     if cluster_size is None:
@@ -183,9 +246,9 @@ def request_compute_nodes(cluster_size):
     n_hosts = get_num_nodes()
 
     if n_hosts < cluster_size:
-        autoscaling_description = json.loads(subprocess.check_output('aws autoscaling describe-auto-scaling-groups'.split()))
+        autoscaling_description = json.loads(check_output('aws autoscaling describe-auto-scaling-groups'.split()))
         asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
-        subprocess.call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
+        call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
         print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
     else:
         sys.stderr.write("All nodes are ready.\n")
@@ -209,7 +272,7 @@ def wait_num_nodes(desired_nodes, timeout=300):
         
 
 def get_num_nodes():
-    n_hosts = (subprocess.check_output('qhost')).count('\n') - 3
+    n_hosts = (check_output('qhost')).count('\n') - 3
     return n_hosts
 
 def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
@@ -271,10 +334,6 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         #      shell=True, stdout=stdout)
         call('qsub -V -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
              dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
-
-    # call('qsub -pe smp %(jobs_per_node)d -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-    #      dict(jobs_per_node=jobs_per_node, script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-    #      shell=True, stdout=stdout)
         
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
         
@@ -288,7 +347,7 @@ def wait_qsub_complete(timeout=120*60):
 
     success = False
     for _ in range(0, timeout/5):
-        op = subprocess.check_output('qstat')
+        op = check_output('qstat')
         if "runall.sh" not in op:
             sys.stderr.write('qsub returned.\n')
             success = True

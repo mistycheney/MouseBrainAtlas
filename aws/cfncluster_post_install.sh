@@ -1,6 +1,7 @@
 #! /bin/bash
 
 # Install all Python packages
+sudo pip install --upgrade pip
 sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas flask paramiko shapely boto3 opencv-python
 
 # Install elastix
@@ -50,6 +51,7 @@ c.NotebookApp.open_browser = False
 
 # It is a good idea to set a known, fixed port for server access
 c.NotebookApp.port = 8888
+c.NotebookApp.iopub_data_rate_limit = 10000000
 EOF
     chown -R ubuntu $JUPYTER_CONFIG_DIR
 fi

@@ -11,7 +11,7 @@ key_name = YuncongKey
 ebs_settings = custom
 
 base_os = ubuntu1604
-initial_queue_size = 1
+initial_queue_size = 0
 max_queue_size = 32
 maintain_initial_size = true
 
@@ -19,7 +19,7 @@ master_root_volume_size = 30
 master_instance_type = m4.4xlarge
 #master_instance_type = g2.8xlarge
 compute_root_volume_size = 30
-compute_instance_type = m4.4xlarge
+compute_instance_type = m4.2xlarge
 #compute_instance_type = g2.8xlarge
 
 post_install = https://mousebrainatlas-scripts.s3.amazonaws.com/cfncluster_post_install.sh
@@ -36,7 +36,7 @@ scaling_settings = custom
 [scaling custom]
 scaling_threshold = 100
 
-#additional_sg = 54f16a33
+additional_sg = sg-3f10b45b
 
 [ebs custom]
 #ebs_volume_id = vol-0ac8711fbfc6faadc

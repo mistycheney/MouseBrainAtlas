@@ -340,11 +340,11 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
 
         if param_suffix is None:
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m,
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
                     basename, basename + '_parameters.txt' % \
                     {'param_suffix':param_suffix})
         else:
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m,
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
                                 basename, basename + '_parameters_%(param_suffix)s.txt' % \
                                 {'param_suffix':param_suffix})
 
@@ -376,10 +376,10 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
 
         if param_suffix is None:
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m,
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
                             basename, basename + '_scoreEvolution.png')
         else:
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m,
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
                             basename, basename + '_scoreEvolution_%(param_suffix)s.png' % \
                             {'param_suffix': param_suffix})
 
@@ -1137,7 +1137,8 @@ class DataManager(object):
                 try:
                     if loaded:
                         index = structure_to_label[structure]
-                    volumes[index] = DataManager.load_score_volume(stack=stack, structure=structure,
+                        
+                    volumes[index] = DataManager.load_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
                     if not loaded:
@@ -1156,7 +1157,7 @@ class DataManager(object):
             volumes = {}
             for structure in structures:
                 try:
-                    volumes[structure] = DataManager.load_score_volume(stack=stack, structure=structure,
+                    volumes[structure] = DataManager.load_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
 
@@ -1171,6 +1172,8 @@ class DataManager(object):
     def load_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
         # vol_fn = DataManager.get_score_volume_filepath(**locals())
         vol_fn = DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale, classifier_setting_m=classifier_setting, type_m=volume_type, trial_idx=None)
+        
+        download_from_s3_to_ec2(vol_fn, is_dir=False)
         score_volume = DataManager.load_data(vol_fn, filetype='bp')
         return score_volume
 
@@ -1199,6 +1202,7 @@ class DataManager(object):
         else:
             raise Exception('Type must be annotation or score.')
 
+        download_from_s3_to_ec2(bbox_fn)
         volume_bbox = DataManager.load_data(bbox_fn, filetype='bbox')
         return volume_bbox
 

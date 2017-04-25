@@ -7,13 +7,12 @@ import os
 from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
-
 from shapely.geometry import Polygon
-
 import cv2
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
+from distributed_utilities import download_from_s3_to_ec2
 
 def parallel_where_binary(binary_volume, num_samples=None):
 
@@ -313,6 +312,11 @@ class Aligner4(object):
         for ind_f in indices_f:
 
             t = time.time()
+            
+            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
+            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
+            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
+            
             if hasattr(self, 'zl'):
                 grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
                 grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]

@@ -16,7 +16,7 @@ if hostname.endswith('sdsc.edu'):
     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     thumbnail_data_dir = data_dir
     THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    REGISTRTION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
+    REGISTRATION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
     REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
@@ -104,6 +104,8 @@ elif hostname.startswith('ip'):
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features'
     SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_scores'
+    REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
+    REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
     # SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     # SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
@@ -120,6 +122,7 @@ elif hostname.startswith('ip'):
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
         
 elif hostname.endswith('GL502VM'):
     print 'Setting environment for Local Machine Saienthan'

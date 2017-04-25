@@ -183,6 +183,8 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
     Args:
         indices:
             grid indices
+        locs:
+            patch centers
 
     Returns:
         list of patches.
@@ -202,7 +204,7 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
             grid_locations = grid_parameters_to_sample_locations(grid_spec)
         locs = grid_locations[indices]
 
-    print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
+    #print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 

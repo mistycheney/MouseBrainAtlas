@@ -1,16 +1,16 @@
 #! /usr/bin/env python
 
-import numpy as np
 import sys
 import os
 import time
+
+import numpy as np
+from multiprocess import Pool
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from data_manager import *
-
-from multiprocess import Pool
 from conversion import images_to_volume
 
 ##################################################

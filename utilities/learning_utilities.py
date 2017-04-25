@@ -17,9 +17,6 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
-classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
-
 def load_datasets(dataset_ids, labels_to_sample):
     
     merged_features = {}

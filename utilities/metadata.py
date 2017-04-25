@@ -88,6 +88,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     ROOT_DIR = '/shared'
+    # ROOT_DIR = os.environ['ROOT_DIR']
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -123,19 +124,19 @@ elif hostname.startswith('ip'):
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
         
-elif hostname.endswith('GL502VM'):
-    print 'Setting environment for Local Machine Saienthan'
-    ON_AWS = False
-    os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
-    RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
-    data_dir = '/home/saienthan/data/CSHL_data_processed/'
-    DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
-    thumbnail_data_dir = data_dir
-    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    volume_dir = '/home/saienthan/data/CSHL_volumes2/'
-    annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-    ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-    GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
+# elif hostname.endswith('GL502VM'):
+#     print 'Setting environment for Local Machine Saienthan'
+#     ON_AWS = False
+#     os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
+#     RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
+#     data_dir = '/home/saienthan/data/CSHL_data_processed/'
+#     DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
+#     thumbnail_data_dir = data_dir
+#     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+#     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
+#     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+#     ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+#     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -200,6 +201,14 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin)
 
 
+            
+#######################################
+
+from pandas import read_csv
+dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
+classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
+registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
+            
 ############ Class Labels #############
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',

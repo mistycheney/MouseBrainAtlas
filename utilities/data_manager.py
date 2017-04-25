@@ -354,6 +354,7 @@ class DataManager(object):
     type_f='score', type_m='score', param_suffix=None,
     downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
+        download_from_s3_to_ec2(params_fp)
         return DataManager.load_data(params_fp, 'transform_params')
 
     # @save_to_s3(fpkw='fp', fppos=0)
@@ -891,6 +892,7 @@ class DataManager(object):
                                         downscale=32,
                                         trial_idx=0):
         fp = DataManager.get_transformed_volume_filepath(**locals())
+        download_from_s3_to_ec2(fp)
         return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
@@ -1112,7 +1114,7 @@ class DataManager(object):
     #     return grad_fn
 
     @staticmethod
-    def load_score_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
+    def load_original_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
                                                 return_structure_index_mapping=True):
 
         if structures is None:
@@ -1141,7 +1143,7 @@ class DataManager(object):
                     if loaded:
                         index = structure_to_label[structure]
                         
-                    volumes[index] = DataManager.load_score_volume(stack=stack, structure=structure,
+                    volumes[index] = DataManager.load_original_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
                     if not loaded:
@@ -1160,7 +1162,7 @@ class DataManager(object):
             volumes = {}
             for structure in structures:
                 try:
-                    volumes[structure] = DataManager.load_score_volume(stack=stack, structure=structure,
+                    volumes[structure] = DataManager.load_original_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
 

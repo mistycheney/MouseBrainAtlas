@@ -383,6 +383,23 @@ class DataManager(object):
                             basename, basename + '_scoreEvolution_%(param_suffix)s.png' % \
                             {'param_suffix': param_suffix})
 
+        
+    @staticmethod
+    def get_score_history_filepath(stack_f, stack_m, warp_setting,
+    classifier_setting_m=None, classifier_setting_f=None,
+    type_f='score', type_m='score', param_suffix=None,
+    downscale=32, trial_idx=0):
+        basename = DataManager.get_warped_volume_basename(**locals())
+
+        if param_suffix is None:
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
+                    basename, basename + '_scoreHistory.bp' % \
+                    {'param_suffix':param_suffix})
+        else:
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
+                                basename, basename + '_scoreHistory_%(param_suffix)s.bp' % \
+                                {'param_suffix':param_suffix})
+        
     # @staticmethod
     # def get_alignment_viz_dir(stack_m, stack_f,
     #                             classifier_setting_m,
@@ -465,6 +482,7 @@ class DataManager(object):
 
         sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure,
                                             setting=setting, fn=fn, anchor_fn=anchor_fn)
+        download_from_s3_to_ec2(sparse_scores_fn)
         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
@@ -845,20 +863,22 @@ class DataManager(object):
         else:
             raise Exception('Not implemented.')
 
-    @staticmethod
-    def load_volume(stack_m, stack_f=None,
-                    warp_setting=None,
-                    classifier_setting_m=None,
-                    classifier_setting_f=None,
-                    type_m='score',
-                     type_f='score',
-                    structure=None,
-                    downscale=32,
-                    trial_idx=0):
-        if stack_f is not None:
-            return DataManager.load_transformed_volume(**locals())
-        else:
-            raise Exception('Not implemented.')
+    # @staticmethod
+    # def load_volume(stack_m, stack_f=None,
+    #                 warp_setting=None,
+    #                 classifier_setting_m=None,
+    #                 classifier_setting_f=None,
+    #                 type_m='score',
+    #                  type_f='score',
+    #                 structure=None,
+    #                 downscale=32,
+    #                 trial_idx=0):
+    #     if stack_f is not None:
+    #         return DataManager.load_transformed_volume(**locals())
+    #     elif type_m == 'score':
+    #         DataManager.get_original_volume_filepath
+    #     else:
+    #         raise Exception('Not implemented.')
 
     @staticmethod
     def load_transformed_volume(stack_m, stack_f,
@@ -1046,30 +1066,13 @@ class DataManager(object):
         else:
             raise
 
+
     @staticmethod
-    def get_volume_bbox_filepath(stack_m, stack_f=None,
-                                warp_setting=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
-                                downscale=32,
-                                 type_m='score',
-                                  type_f='score',
-                                structure=None,
-                                trial_idx=0):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        if structure is not None:
-            fn = basename + '_' + structure
-        if type_m == 'score':
-            return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '_bbox.txt')
-        else:
-            raise
+    def get_score_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
 
-#     @staticmethod
-#     def get_score_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
-
-#         basename = DataManager.get_original_volume_basename(**locals())
-#         vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
-#         return vol_fn
+        basename = DataManager.get_original_volume_basename(**locals())
+        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, 'score_volumes', basename + '_' + structure + '.bp')
+        return vol_fn
 
     @staticmethod
     def get_volume_gradient_filepath_template_scratch(stack, structure, downscale=32, classifier_setting=None, volume_type='score', **kwargs):
@@ -1138,7 +1141,7 @@ class DataManager(object):
                     if loaded:
                         index = structure_to_label[structure]
                         
-                    volumes[index] = DataManager.load_volume(stack=stack, structure=structure,
+                    volumes[index] = DataManager.load_score_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
                     if not loaded:
@@ -1157,7 +1160,7 @@ class DataManager(object):
             volumes = {}
             for structure in structures:
                 try:
-                    volumes[structure] = DataManager.load_volume(stack=stack, structure=structure,
+                    volumes[structure] = DataManager.load_score_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
 
@@ -1167,18 +1170,37 @@ class DataManager(object):
             sys.stderr.write('Volume shape: (%d, %d, %d)\n' % volumes.values()[0].shape)
             return volumes
 
-
-    @staticmethod
-    def load_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
-        # vol_fn = DataManager.get_score_volume_filepath(**locals())
-        vol_fn = DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale, classifier_setting_m=classifier_setting, type_m=volume_type, trial_idx=None)
         
-        download_from_s3_to_ec2(vol_fn, is_dir=False)
-        score_volume = DataManager.load_data(vol_fn, filetype='bp')
-        return score_volume
+    @staticmethod
+    def get_original_volume_filepath(stack, structure, volume_type='score', downscale=32, classifier_setting=None):
+        if volume_type == 'score':
+            fp = DataManager.get_score_volume_filepath(**locals())
+        elif volume_type == 'annotation':
+            fp = DataManager.get_annotation_volume_filepath(stack=stack, downscale=downscale)
+        elif volume_type == 'intensity':
+            fp = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
+        else:
+            raise Exception("Volume type must be one of score, annotation or intensity.")
+        return fp
+        
+    @staticmethod
+    def load_original_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
+        vol_fp = DataManager.get_original_volume_filepath(**locals())
+        download_from_s3_to_ec2(vol_fp, is_dir=False)
+        volume = DataManager.load_data(vol_fp, filetype='bp')        
+        return volume
+        
+#     @staticmethod
+#     def load_score_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
+#         # vol_fn = DataManager.get_score_volume_filepath(**locals())
+#         vol_fn = DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale, classifier_setting_m=classifier_setting, type_m=volume_type, trial_idx=None)
+        
+#         download_from_s3_to_ec2(vol_fn, is_dir=False)
+#         score_volume = DataManager.load_data(vol_fn, filetype='bp')
+#         return score_volume
 
     @staticmethod
-    def load_volume_bbox(stack, type, classifier_setting=None, structure=None, downscale=32):
+    def load_original_volume_bbox(stack, vol_type, classifier_setting=None, structure=None, downscale=32):
         """
         This returns the 3D bounding box.
 
@@ -1188,25 +1210,33 @@ class DataManager(object):
                 score/thumbnail: with respect to aligned cropped thumbnail
                 shell: with respect to aligned uncropped thumbnail
         """
-
-        if type == 'annotation':
-            bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
-        elif type == 'score':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure=structure, downscale=downscale,
-            classifier_setting=classifier_setting)
-        elif type == 'shell':
-            bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
-        elif type == 'thumbnail':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
-            classifier_setting=classifier_setting)
-        else:
-            raise Exception('Type must be annotation or score.')
-
-        download_from_s3_to_ec2(bbox_fn)
-        volume_bbox = DataManager.load_data(bbox_fn, filetype='bbox')
+        bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
+        download_from_s3_to_ec2(bbox_fp)
+        volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
         return volume_bbox
 
 
+    @staticmethod
+    def get_original_volume_bbox_filepath(stack,
+                                classifier_setting,
+                                downscale=32,
+                                 vol_type='score',
+                                structure=None):
+        if vol_type == 'annotation':
+            bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
+        elif vol_type == 'score':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure=structure, downscale=downscale,
+            classifier_setting=classifier_setting)
+        elif vol_type == 'shell':
+            bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
+        elif vol_type == 'thumbnail':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
+            classifier_setting=classifier_setting)
+        else:
+            raise Exception('Type must be annotation, score, shell or thumbnail.')
+        
+        return bbox_fn
+            
     @staticmethod
     def get_shell_bbox_filepath(stack, label, downscale):
         bbox_filepath = VOLUME_ROOTDIR + '/%(stack)s/%(stack)s_down%(ds)d_outerContourVolume_bbox.txt' % \
@@ -1302,6 +1332,8 @@ class DataManager(object):
                         fn=fn, anchor_fn=anchor_fn, structure=structure, setting=setting,
                         downscale=downscale)
 
+        download_from_s3_to_ec2(scoremap_bp_filepath)
+        
         if not os.path.exists(scoremap_bp_filepath):
             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
             (metadata_cache['sections_to_filenames'][stack][section], section, structure))
@@ -1407,6 +1439,7 @@ class DataManager(object):
     @staticmethod
     def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None):
         fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+        download_from_s3_to_ec2(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
         locations = locs[:, 1:]
@@ -1450,7 +1483,9 @@ class DataManager(object):
 
     @staticmethod
     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None):
-        return load_hdf(DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn))
+        features_fn = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+        download_from_s3_to_ec2(features_fn)
+        return load_hdf(features_fn)
 
     @staticmethod
     def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None):

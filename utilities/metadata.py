@@ -93,17 +93,16 @@ elif hostname.startswith('ip'):
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
-    RAW_DATA_DIR = '/shared/CSHL_data'
-    DATA_DIR = '/shared/CSHL_data_processed'
-    THUMBNAIL_DATA_DIR = '/shared/CSHL_data_processed'
-    #VOLUME_ROOTDIR = '/shared/CSHL_volumes2'
-    VOLUME_ROOTDIR = '/shared/CSHL_volumes'
+    RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
+    DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
-    ANNOTATION_ROOTDIR = '/shared/CSHL_labelings_v3'
+    ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
-    PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features'
-    SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_scores'
+    PATCH_FEATURES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_features')
+    SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
     REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
     REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
     # SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
@@ -112,13 +111,13 @@ elif hostname.startswith('ip'):
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
     
-    CELLS_ROOTDIR = '/shared/CSHL_cells_v2'
+    CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
     
-    CLF_ROOTDIR = '/shared/CSHL_classifiers'
+    CLF_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
@@ -210,7 +209,8 @@ all_known_structures = paired_structures + singular_structures
 all_known_structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in all_known_structures], [])
-all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
+#all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
+all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin=200) for s in all_known_structures_sided]
 all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 

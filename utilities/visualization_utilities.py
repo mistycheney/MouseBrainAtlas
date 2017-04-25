@@ -84,9 +84,13 @@ def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=Non
 
     if bg == 'original':
         if downscale == 32:
-            bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, resol='thumbnail', version='cropped'))
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='thumbnail', version='cropped')
+            # download_from_s3_to_ec2(fp)
+            bg = imread(fp)
         else:
-            bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed'))[::downscale, ::downscale]
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed')
+            # download_from_s3_to_ec2(fp)
+            bg = imread(fp)[::downscale, ::downscale]
 
     # t = time.time()
     ret = scoremap_overlay(stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale,

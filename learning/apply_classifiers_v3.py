@@ -48,6 +48,8 @@ def clf_predict(stack, sec, model_name='Inception-BN'):
                                                            setting=actual_setting, sec=sec)
         create_parent_dir_if_not_exists(output_fn)
         bp.pack_ndarray_file(probs, output_fn)
+        
+        upload_from_ec2_to_s3(output_fn)
 
 
 t = time.time()

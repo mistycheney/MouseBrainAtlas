@@ -33,8 +33,8 @@ downscale = args.downscale
 ##################################################
 
 try:
-    volume = DataManager.load_score_volume(stack=stack, structure=structure, downscale=downscale,
-                                           classifier_setting=classifier_id)
+    volume = DataManager.load_original_volume(stack=stack, structure=structure, downscale=downscale,
+                                     classifier_setting=classifier_id, volume_type='score')
 
     t = time.time()
 

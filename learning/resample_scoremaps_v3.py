@@ -30,8 +30,12 @@ def resample(sec):
 
 #         t = time.time()
 
-    _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, 
+    try:
+        _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, 
                                         model_name='Inception-BN', section=sec)
+    except:
+        sys.stderr.write('Error loading patch locations for section %d.\n' % sec)
+        return
 
     actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, sec=sec)
 
@@ -46,7 +50,7 @@ def resample(sec):
                                                            structure=structure, 
                                                            setting=actual_setting)
         except Exception as e:
-            sys.stderr.write('Error loading for %s do not exist.\n' % structure)
+            sys.stderr.write('Error loading sparse scores for %s.\n' % structure)
             continue
 
         f_grid = np.zeros(((h-half_size)/spacing+1, (w-half_size)/spacing+1))
@@ -68,6 +72,7 @@ def resample(sec):
                                                     downscale=downscale)
 
         create_parent_dir_if_not_exists(scoremap_bp_filepath)
+        upload_from_ec2_to_s3(scoremap_bp_filepath)
         bp.pack_ndarray_file(f_interp_2d.astype(np.float16), scoremap_bp_filepath)
 
 #         sys.stderr.write('interpolate %d: %.2f seconds\n' % (sec, time.time() - t)) 

@@ -34,12 +34,7 @@ downscale = args.downscale
 
 try:
     
-    download_from_s3_to_ec2(DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale,
-                                           classifier_setting_m=classifier_id, trial_idx=None))
-    download_from_s3_to_ec2(DataManager.get_volume_bbox_filepath(stack_m=stack, structure=structure, downscale=downscale,
-                                           classifier_setting_m=classifier_id, trial_idx=None))
-    
-    volume = DataManager.load_volume(stack=stack, structure=structure, downscale=downscale,
+    volume = DataManager.load_original_volume(stack=stack, structure=structure, downscale=downscale,
                                      classifier_setting=classifier_id, volume_type='score')
 
     t = time.time()
@@ -68,11 +63,11 @@ try:
 
     sys.stderr.write('save %s: %f seconds\n' % (structure, time.time() - t))
     
-    # t = time.time()
-    # upload_from_ec2_to_s3(gx_fp, ec2_root='/scratch')
-    # upload_from_ec2_to_s3(gy_fp, ec2_root='/scratch')
-    # upload_from_ec2_to_s3(gz_fp, ec2_root='/scratch')
-    # sys.stderr.write('upload to s3 %s: %f seconds\n' % (structure, time.time() - t))
+    t = time.time()
+    upload_from_ec2_to_s3(gx_fp, ec2_root='/scratch')
+    upload_from_ec2_to_s3(gy_fp, ec2_root='/scratch')
+    upload_from_ec2_to_s3(gz_fp, ec2_root='/scratch')
+    sys.stderr.write('upload to s3 %s: %f seconds\n' % (structure, time.time() - t))
 
 
 except Exception as e:

@@ -29,14 +29,14 @@ parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
-# parser.add_argument("--trial_idx", type=int, help="trial index", default=0)
+parser.add_argument("-n", "--trial_num", type=int, help="number of trials", default=1)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 classifier_setting = args.classifier_setting
-# trial_idx = args.trial_idx
+trial_num = args.trial_num
 
 ###################################################################
 
@@ -55,6 +55,13 @@ std_ty = warp_properties['std_ty']
 std_tz = warp_properties['std_tz']
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy'])
 
+MAX_ITER_NUM = 1000
+HISTORY_LEN = 10
+MAX_GRID_SEARCH_ITER_NUM = 30
+
+lr1 = 10
+lr2 = 0.1
+
 #####################################################################
 
 volume_moving, structure_to_label_moving, label_to_structure_moving = \
@@ -69,7 +76,7 @@ DataManager.load_original_volume_all_known_structures(stack=stack_fixed, classif
 label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in ['7N_L', '7N_R', '12N', '5N_L', 'Pn_R', 'SNR_L', 
-                                   'VLL_R', '7n_L', 'Tz_R', 'VCA_L', 'VCP_R', 'Sp5C_L', 'LRt_R']}
+                                   'VLL_R', '7n_L', 'Tz_R', 'VCA_L', 'VCP_R', 'Sp5C_L', 'Sp5C_R']}
 
 label_weights_m = {}
 for label_m, name_m in label_to_structure_moving.iteritems():
@@ -94,18 +101,16 @@ gradient_filepath_map_f = {ind_f: DataManager.get_volume_gradient_filepath_templ
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 aligner.set_label_weights(label_weights=label_weights_m)
 
-trial_num = 1
-
 for trial_idx in range(trial_num):
 
     while True:
         try:
-            T, scores = aligner.optimize(type=transform_type, max_iter_num=1000, history_len=10, 
+            T, scores = aligner.optimize(type=transform_type, max_iter_num=MAX_ITER_NUM, history_len=HISTORY_LEN, 
                                      terminate_thresh=terminate_thresh,
-                                     grid_search_iteration_number=30,
+                                     grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM,
                                      grid_search_sample_number=grid_search_sample_number,
                                      grad_computation_sample_number=grad_computation_sample_number,
-                                     lr1=10, lr2=0.1,
+                                     lr1=lr1, lr2=lr2,
                                      std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy)
             break
 

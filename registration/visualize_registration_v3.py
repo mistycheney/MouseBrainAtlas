@@ -96,7 +96,12 @@ def visualize_registration_one_section(sec):
                                             warp_setting=warp_setting,
                                           section=sec,
                                                    trial_idx=trial_idx)    
-    create_parent_dir_if_not_exists(viz_fp)
+    try:
+        create_parent_dir_if_not_exists(viz_fp)
+    except:
+        # ignore os error that might occur when multiple processes simultaneously try to create dir
+        pass
+    
     imsave(viz_fp, viz)
     
     upload_from_ec2_to_s3(viz_fp)

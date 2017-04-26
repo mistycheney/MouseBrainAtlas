@@ -29,6 +29,23 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+
+def shell_escape(s):
+    """
+    Escape a string (treat it as a single complete string) in shell commands.
+    """
+    from tempfile import mkstemp
+    fd, path = mkstemp()
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(s)
+        cmd = r"""cat %s | sed -e "s/'/'\\\\''/g; 1s/^/'/; \$s/\$/'/" """ % path
+        escaped_str = check_output(cmd, shell=True)
+    finally:
+        os.remove(path)
+    
+    return escaped_str
+
 def plot_histograms(hists, bins, titles=None, ncols=4, xlabel='', ylabel='', suptitle='', normalize=False, cellsize=(2, 1.5), **kwargs):
     """
     cellsize: (w,h) for each cell

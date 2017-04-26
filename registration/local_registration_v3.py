@@ -29,7 +29,6 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
 parser.add_argument("-s", "--structures", type=str, help="structures")
-parser.add_argument("-t", "--trial_idx", type=int, help="trial index", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -40,7 +39,6 @@ if hasattr(args, "structures"):
     structures = json.loads(args.structures)
 else:
     structures = all_known_structures_sided
-trial_idx = args.trial_idx
 
 ###########################################################################
 
@@ -88,7 +86,7 @@ lr2 = 0.1
 
 ########################################################
 
-trial_num = 1
+trial_num = 5
 
 for structure in structures:
 

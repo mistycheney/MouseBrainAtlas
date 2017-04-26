@@ -1,8 +1,5 @@
 #! /usr/bin/env python
 
-%load_ext autoreload
-%autoreload 2
-
 import sys
 import os
 import time
@@ -99,9 +96,7 @@ if upstream_warp_setting is None:
             
 else:
     
-    for structure in all_known_structures_sided_with_surround:
-    # for structure in all_known_structures_sided:
-
+    def transform_volume_one_structure(structure):
         # Load local transform parameters
         try:
 
@@ -149,3 +144,11 @@ else:
         except Exception as e:
             sys.stderr.write('%s\n' % e)
             sys.stderr.write('Error transforming volume %s.\n' % structure)
+    
+    
+    t = time.time()
+    pool = Pool(NUM_CORES)
+    pool.map(transform_volume_one_structure, all_known_structures_sided_with_surround)
+    pool.close()
+    pool.join()
+    sys.stderr.write('Transform all structures: %.2f seconds.\n' % (time.time() - t))        

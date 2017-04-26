@@ -89,16 +89,13 @@ def visualize_registration_one_section(sec):
                 cnt_on_cropped = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
                 cv2.polylines(viz, [cnt_on_cropped.astype(np.int)], True, level_colors[level], 1)
 
-    
     viz_fp = DataManager.get_alignment_viz_filepath(stack_m=stack_moving,
                                             stack_f=stack_fixed,
                                             classifier_setting_m=classifier_setting,
                                             classifier_setting_f=classifier_setting,
                                             warp_setting=warp_setting,
                                           section=sec,
-                                                   trial_idx=trial_idx)
-    print viz_fp
-    
+                                                   trial_idx=trial_idx)    
     create_parent_dir_if_not_exists(viz_fp)
     imsave(viz_fp, viz)
     
@@ -109,10 +106,10 @@ t = time.time()
 
 pool = Pool(NUM_CORES)
 pool.map(visualize_registration_one_section, range(first_sec, last_sec+1))
-pool.terminate()
+pool.close()
 pool.join()
 
-sys.stderr.write('Time: %.2f seconds\n' % (time.time() - t)) # 90s
+sys.stderr.write('Visualize registration: %.2f seconds\n' % (time.time() - t))
 
 
 # for sec in range(first_sec, last_sec+1):

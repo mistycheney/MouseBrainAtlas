@@ -2,11 +2,12 @@ import os
 import sys
 import time
 from subprocess import call, check_output
-import boto3
-
 import cPickle as pickle
 import json
-from utilities2015 import execute_command
+
+import boto3
+
+from utilities2015 import execute_command, shell_escape
 from metadata import *
 
 def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
@@ -235,7 +236,7 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         kwargs_list_as_list = kwargs_list
         keys = kwargs_list[0].keys()
         vals = [t.values() for t in kwargs_list]
-        kwargs_list_as_dict = dict(zip(keys, vals))
+        kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
 
     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
 
@@ -256,10 +257,12 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
             # Specify {key: list}
                 line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
             elif argument_type == 'single':
-                line = "%(generic_launcher_path)s \"%(command_template)s\" \"%(kwargs_list_str)s\"" % \
+                # It is important to wrap command_templates and kwargs_list_str in apostrphes. That lets bash treat them as single strings.
+                # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it         
+                line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
                 {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-                'command_template': command,
-                'kwargs_list_str': json.dumps(kwargs_list_as_list[fj:lj+1]).replace('"','\\"').replace("'",'\\"')
+                'command_template': shell_escape(command),
+                'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
                 }
 
             temp_f.write(line + ' &\n')
@@ -274,6 +277,7 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
              dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
         
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
+    
         
 def wait_qsub_complete(timeout=120*60):
     """

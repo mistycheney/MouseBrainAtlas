@@ -107,7 +107,7 @@ def visualize_registration_one_section(sec):
 
 t = time.time()
 
-pool = Pool(15)
+pool = Pool(NUM_CORES)
 pool.map(visualize_registration_one_section, range(first_sec, last_sec+1))
 pool.terminate()
 pool.join()

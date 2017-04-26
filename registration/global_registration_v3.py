@@ -64,8 +64,12 @@ volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_original_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting, 
                                                    sided=False, volume_type='score')
 
-label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
-                     for label_m, name_m in label_to_structure_moving.iteritems()}
+# label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
+#                      for label_m, name_m in label_to_structure_moving.iteritems()}
+label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
+                     for label_m, name_m in label_to_structure_moving.iteritems()
+                     if name_m in ['7N_L', '7N_R', '12N', '5N_L', 'Pn_R', 'SNR_L', 
+                                   'VLL_R', '7n_L', 'Tz_R', 'VCA_L', 'VCP_R', 'Sp5C_L', 'LRt_R']}
 
 label_weights_m = {}
 for label_m, name_m in label_to_structure_moving.iteritems():

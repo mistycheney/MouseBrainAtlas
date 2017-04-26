@@ -59,11 +59,7 @@ if upstream_warp_setting is None:
                                           warp_setting=warp_setting,
                                           trial_idx=trial_idx)
     
-    # Transform moving volume, sided, without surround
-    for structure in all_known_structures_sided_with_surround:
-    # for structure in all_known_structures_sided:
-    # for structure in ['7N_L']:
-
+    def transform_volume_one_structure(structure):
         try:
             t = time.time()
 
@@ -93,6 +89,13 @@ if upstream_warp_setting is None:
         except Exception as e:
             sys.stderr.write('%s\n' % e)
             sys.stderr.write('Error transforming volume %s.\n' % structure)
+            
+    t = time.time()
+    pool = Pool(NUM_CORES)
+    pool.map(transform_volume_one_structure, all_known_structures_sided_with_surround)
+    pool.close()
+    pool.join()
+    sys.stderr.write('Transform all structures: %.2f seconds.\n' % (time.time() - t))
             
 else:
     

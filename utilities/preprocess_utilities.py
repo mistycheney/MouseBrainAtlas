@@ -19,9 +19,10 @@ from annotation_utilities import contours_to_mask
 # DEFAULT_MINSIZE = 1000 # If tissues are separate pieces, 1000 is not small enough to capture them.
 # DEFAULT_MINSIZE = 100
 
+DEFAULT_MASK_CHANNEL = 0
 VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
-MIN_SUBMASK_SIZE = 100
+MIN_SUBMASK_SIZE = 2000
 # INIT_CONTOUR_MINLEN = 50
 MORPHSNAKE_SMOOTHING = 1
 MORPHSNAKE_LAMBDA1 = 1 # imprtance of inside pixels
@@ -30,7 +31,8 @@ MORPHSNAKE_LAMBDA2 = 20 # imprtance of outside pixels
 MORPHSNAKE_MAXITER = 600
 MORPHSNAKE_MINITER = 10
 PIXEL_CHANGE_TERMINATE_CRITERIA = 3
-AREA_CHANGE_RATIO_MAX = 1.2
+# AREA_CHANGE_RATIO_MAX = 1.2
+AREA_CHANGE_RATIO_MAX = 2.0
 AREA_CHANGE_RATIO_MIN = .1
 
 def brightfieldize_image(img):
@@ -132,7 +134,7 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
             init_levelset[:, -10:] = 0
             init_levelsets.append(init_levelset)
 
-    sys.stderr.write('Found %d levelsets.\n' % len(init_levelset))
+    sys.stderr.write('Found %d levelsets.\n' % len(init_levelsets))
 
     #####################
     # Evolve morphsnake #
@@ -164,22 +166,28 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
             if i > MORPHSNAKE_MINITER:
                 if np.count_nonzero(msnake.levelset - oneBefore_levelset) < PIXEL_CHANGE_TERMINATE_CRITERIA:
                     break
+            #
+            # area = np.count_nonzero(msnake.levelset)
+            #
+            # if area < min_size:
+            #     discard = True
+            #     sys.stderr.write('Too small, stop iteration.\n')
+            #     break
 
-            area = np.count_nonzero(msnake.levelset)
-
-            if area < min_size:
-                discard = True
-                sys.stderr.write('Too small, stop iteration.\n')
-                break
-
-            # If area changes more than 2, stop.
             labeled_mask = label(msnake.levelset.astype(np.bool))
+            component_sizes = []
             for l in np.unique(labeled_mask):
                 if l != 0:
                     m = labeled_mask == l
-                    if np.count_nonzero(m)/float(init_area) > AREA_CHANGE_RATIO_MAX:
+                    component_area = np.count_nonzero(m)
+                    component_sizes.append(component_area)
+                    if component_area/float(init_area) > AREA_CHANGE_RATIO_MAX:
                         msnake.levelset[m] = 0
-                        sys.stderr.write('Area expands too much - nullified.\n')
+                        sys.stderr.write('Component area expands too much - nullified.\n')
+                    elif component_area < min_size:
+                        msnake.levelset[m] = 0
+                        sys.stderr.write('Component area is too small - nullified.\n')
+            # print component_sizes
 
             if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                 discard = True
@@ -210,6 +218,7 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
 
     if len(final_masks) == 0:
         sys.stderr.write('Snake return no valid submasks.\n')
+        return []
 
     if return_masks:
         final_masks_uncropped = []
@@ -225,48 +234,48 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
             final_contours += cnts
         return final_contours
 
-def save_submasks_one_section(self, submask_decisions, submasks=None, submask_contour_vertices=None, fn=None, sec=None, img_shape=None):
-    """
-    Args:
-        submasks (dict):
-        submask_contour_vertices (dict):
-    """
-
-    if fn is None and sec is not None:
-        fn = metadata_cache['sections_to_filenames'][sec]
-
-    submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_auto_submasks'))
-    submask_fn_dir = os.path.join(submasks_dir, fn)
-
-    if submasks is not None: # submasks provided
-        submask_contour_vertices = {}
-        for submask_ind, m in submasks.iteritems():
-            cnts = find_contour_points(m)[1]
-            assert len(cnts) == 1, "Must have exactly one contour per submask."
-            submask_contour_vertices[submask_ind] = cnts[0]
-    else:
-        assert submask_contour_vertices is not None
-        submasks = {submask_ind: contours_to_mask(contours=[submask_verts], img_shape=img_shape)
-        for submask_ind, submask_verts in submask_contour_vertices}
-
-    # Save submasks
-    for submask_ind, m in submasks.iteritems():
-        submask_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_%d.png' % submask_ind)
-        imsave(submask_fp, np.uint8(m)*255)
-
-    # Save submask contour vertices
-    submask_contour_vertices_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_contour_vertices.pkl')
-    submask_contour_vertices_dict = {}
-    for submask_ind, m in submasks[sec].iteritems():
-        cnts = find_contour_points(m)[1]
-        assert len(cnts) == 1, "Must have exactly one contour per submask."
-        submask_contour_vertices_dict[submask_ind] = cnts[0]
-    save_pickle(submask_contour_vertices_dict, submask_contour_vertices_fp)
-
-    # Save submask decisions
-    decisions_fp = os.path.join(submask_fn_dir, fn +'_alignedTo_' + self.anchor_fn +  '_submask_decisions.txt')
-    from pandas import Series
-    Series(submask_decisions).to_csv(decisions_fp)
+# def save_submasks_one_section(self, submask_decisions, submasks=None, submask_contour_vertices=None, fn=None, sec=None, img_shape=None):
+#     """
+#     Args:
+#         submasks (dict):
+#         submask_contour_vertices (dict):
+#     """
+#
+#     if fn is None and sec is not None:
+#         fn = metadata_cache['sections_to_filenames'][sec]
+#
+#     submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_auto_submasks'))
+#     submask_fn_dir = os.path.join(submasks_dir, fn)
+#
+#     if submasks is not None: # submasks provided
+#         submask_contour_vertices = {}
+#         for submask_ind, m in submasks.iteritems():
+#             cnts = find_contour_points(m)[1]
+#             assert len(cnts) == 1, "Must have exactly one contour per submask."
+#             submask_contour_vertices[submask_ind] = cnts[0]
+#     else:
+#         assert submask_contour_vertices is not None
+#         submasks = {submask_ind: contours_to_mask(contours=[submask_verts], img_shape=img_shape)
+#         for submask_ind, submask_verts in submask_contour_vertices}
+#
+#     # Save submasks
+#     for submask_ind, m in submasks.iteritems():
+#         submask_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_%d.png' % submask_ind)
+#         imsave(submask_fp, np.uint8(m)*255)
+#
+#     # Save submask contour vertices
+#     submask_contour_vertices_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_contour_vertices.pkl')
+#     submask_contour_vertices_dict = {}
+#     for submask_ind, m in submasks[sec].iteritems():
+#         cnts = find_contour_points(m)[1]
+#         assert len(cnts) == 1, "Must have exactly one contour per submask."
+#         submask_contour_vertices_dict[submask_ind] = cnts[0]
+#     save_pickle(submask_contour_vertices_dict, submask_contour_vertices_fp)
+#
+#     # Save submask decisions
+#     decisions_fp = os.path.join(submask_fn_dir, fn +'_alignedTo_' + self.anchor_fn +  '_submask_decisions.txt')
+#     from pandas import Series
+#     Series(submask_decisions).to_csv(decisions_fp)
 
 # def generate_submask_review_results(stack, filenames):
 #     sys.stderr.write('Generate submask review...\n')

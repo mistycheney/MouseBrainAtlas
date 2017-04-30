@@ -23,7 +23,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
     drawings_updated = pyqtSignal(object)
     polygon_completed = drawings_updated
-    polygon_deleted = pyqtSignal(object)
+    polygon_deleted = pyqtSignal(object, int, int)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene, self).__init__(id=id, gview=gview, parent=parent)
@@ -170,7 +170,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             self.set_mode('add vertices consecutively')
 
         elif selected_action == action_deletePolygon:
-            self.polygon_deleted.emit(self.active_polygon)
+            self.polygon_deleted.emit(self.active_polygon, self.active_i, self.drawings[self.active_i].index(self.active_polygon))
             sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
             self.drawings[self.active_i].remove(self.active_polygon)
             self.removeItem(self.active_polygon)
@@ -182,27 +182,32 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             self.set_mode('delete vertices')
 
     def delete_all_polygons_one_section(self, section):
-        index, section = self.get_requested_index_and_section(sec=section)
-        for polygon in self.drawings[index]:
-            self.polygon_deleted.emit(polygon)
-            sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+        index, _ = self.get_requested_index_and_section(sec=section)
+        for polygon_index, polygon in enumerate(self.drawings[index]):
+            self.drawings[index].remove(polygon)
+            self.drawings_mapping.pop(polygon)
             self.removeItem(polygon)
-        self.drawings[index] = []
+
+            self.polygon_deleted.emit(polygon, index, polygon_index)
+            sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
 
     @pyqtSlot()
     def delete_polygon(self, section=None, polygon_ind=None, index=None, polygon=None):
         if polygon is None:
             assert section is not None or index is not None
             index, section = self.get_requested_index_and_section(i=index, sec=section)
+            assert polygon_ind is not None
             polygon = self.drawings[index][polygon_ind]
         else:
             index = self.drawings_mapping[polygon]
-
-        self.polygon_deleted.emit(polygon)
-        sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+            polygon_ind = self.drawings[index].index(polygon)
 
         self.drawings[index].remove(polygon)
+        self.drawings_mapping.pop(polygon)
         self.removeItem(polygon)
+
+        self.polygon_deleted.emit(polygon, index, polygon_ind)
+        sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
 
     @pyqtSlot()
     def vertex_clicked(self):

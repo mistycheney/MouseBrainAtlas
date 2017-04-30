@@ -46,17 +46,23 @@ class MaskEditingGUI(QMainWindow):
         self.ui.button_toggle_accept_auto.clicked.connect(self.toggle_accept_auto)
         self.ui.button_toggle_accept_auto.setText(STR_USING_AUTO)
         self.ui.button_autoSnake.clicked.connect(self.snake_all)
-        self.ui.button_loadAnchorContours.clicked.connect(self.load_anchor_contours)
-        self.ui.button_saveAnchorContours.clicked.connect(self.save_anchor_contours)
+        # self.ui.button_loadAnchorContours.clicked.connect(self.load_anchor_contours)
+        # self.ui.button_saveAnchorContours.clicked.connect(self.save_anchor_contours)
         self.ui.button_loadAllInitContours.clicked.connect(self.load_all_init_snake_contours)
         self.ui.button_saveAllInitContours.clicked.connect(self.save_all_init_snake_contours)
         self.ui.button_saveFinalMasks.clicked.connect(self.save_final_masks)
 
         self.ui.slider_snakeShrink.setSingleStep(1)
         self.ui.slider_snakeShrink.setMinimum(0)
-        self.ui.slider_snakeShrink.setMaximum(20)
-        self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1)
+        self.ui.slider_snakeShrink.setMaximum(40)
+        self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1/.5)
         self.ui.slider_snakeShrink.valueChanged.connect(self.snake_shrinkParam_changed)
+
+        self.ui.slider_minSize.setSingleStep(100)
+        self.ui.slider_minSize.setMinimum(0)
+        self.ui.slider_minSize.setMaximum(2000)
+        self.ui.slider_minSize.setValue(MIN_SUBMASK_SIZE)
+        self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
         # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec > 263 and sec < 267}
@@ -73,8 +79,9 @@ class MaskEditingGUI(QMainWindow):
         self.thresholded_images = {}
         self.contrast_stretched_images = {}
         self.selected_snake_lambda1 = {}
-        self.init_submasks = {}
-        self.init_submasks_vizs = {}
+        self.selected_snake_min_size = {}
+        # self.init_submasks = {}
+        # self.init_submasks_vizs = {}
         # self.auto_submasks = {}
         self.user_submasks = {}
         self.accepted_final_masks = {}
@@ -85,18 +92,21 @@ class MaskEditingGUI(QMainWindow):
         # self.auto_submask_decisions = {}
         self.user_submask_decisions = {}
 
-        # anchor_fn = metadata_cache['anchor_fn'][stack]
-
         # Load decisions from final decision file.
-
         from pandas import read_csv
 
         auto_submask_rootdir = DataManager.get_auto_submask_rootdir_filepath(stack)
         for fn in self.valid_filenames:
-            self.user_submasks[fn] = {}
             decision_fp = DataManager.get_auto_submask_filepath(stack=stack, what='decisions', fn=fn)
-            decisions = read_csv(decision_fp).to_dict()
+            if not os.path.exists(decision_fp):
+                sys.stderr.write("No submasks exist for %s.\n" % fn)
+                continue
+
+            decisions = read_csv(decision_fp, header=None, index_col=0)[1].to_dict()
+            print decision_fp, decisions
             self.user_submask_decisions[fn] = decisions
+
+            self.user_submasks[fn] = {}
             for submask_ind, decision in decisions.iteritems():
                 submask_fp = DataManager.get_auto_submask_filepath(stack=stack, what='submask', fn=fn, submask_ind=submask_ind)
                 self.user_submasks[fn][submask_ind] = imread(submask_fp).astype(np.bool)
@@ -167,9 +177,9 @@ class MaskEditingGUI(QMainWindow):
         #         self.auto_submask_decisions[sec] = decisions
         # self.auto_submasks_gscene.set_submasks_and_decisions(self.auto_submasks, self.auto_submask_decisions)
 
-        self.anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
+        anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
         filenames_to_sections, _ = DataManager.load_sorted_filenames(stack=self.stack)
-        self.auto_submasks_gscene.set_active_section(filenames_to_sections[self.anchor_fn], emit_changed_signal=False)
+        self.auto_submasks_gscene.set_active_section(filenames_to_sections[anchor_fn], emit_changed_signal=False)
 
         ##########################
         ## User Submasks Gscene ##
@@ -192,7 +202,10 @@ class MaskEditingGUI(QMainWindow):
         #
         # user_submasks = load_submasks(submasks_rootdir=user_modified_submasks_rootdir)
         # self.user_submasks = convert_keys_fn_to_sec(filter_by_keys(user_submasks, self.valid_filenames))
-        #
+
+        self.user_submasks = convert_keys_fn_to_sec(filter_by_keys(self.user_submasks, self.valid_filenames))
+        self.user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(self.user_submask_decisions, self.valid_filenames))
+
         # user_submask_decisions = generate_submask_review_results(submasks_rootdir=user_modified_submasks_rootdir, filenames=self.valid_filenames, which='user')
         # user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(user_submask_decisions, self.valid_filenames))
         # for sec, decisions in user_submask_decisions.iteritems():
@@ -211,50 +224,22 @@ class MaskEditingGUI(QMainWindow):
         # for sec, ch in selected_channels.iteritems():
         #     self.selected_channels[sec] = ch
 
-        self.user_submasks_gscene.set_submasks_and_decisions(self.user_submasks, self.user_submask_decisions)
+        # self.user_submasks_gscene.set_submasks_and_decisions(self.user_submasks, self.user_submask_decisions)
+        self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=self.user_submask_decisions)
 
         #########################################################
 
-        self.ui.comboBox_channel.activated.connect(self.channel_changed)
+        # self.ui.comboBox_channel.activated.connect(self.channel_changed)
         self.ui.comboBox_channel.addItems(['Red', 'Green', 'Blue'])
+        self.ui.comboBox_channel.currentIndexChanged.connect(self.channel_changed)
 
-        #########################################################
+        ###########################
 
         self.gscene_thresholded = ZoomableBrowsableGraphicsScene(id='thresholded', gview=self.ui.gview_thresholded)
         self.thresholded_image_feeder = ImageDataFeeder(name='thresholded', stack=self.stack, \
                                                         sections=self.valid_sections, use_data_manager=False,
                                                         downscale=32)
         self.gscene_thresholded.set_data_feeder(self.thresholded_image_feeder)
-
-        #########################################################
-
-        # self.gscene_slic = ZoomableBrowsableGraphicsScene(id='slic', gview=self.ui.gview_slic)
-        # self.slic_image_feeder = ImageDataFeeder(name='slic', stack=self.stack, \
-        #                                         sections=self.valid_sections, use_data_manager=False,
-        #                                         downscale=32)
-        # self.gscene_slic.set_data_feeder(self.slic_image_feeder)
-
-        #########################################################
-
-        # self.gscene_dissimmap = ZoomableBrowsableGraphicsScene(id='dissimmap', gview=self.ui.gview_dissimmap)
-        # self.dissim_image_feeder = ImageDataFeeder(name='dissimmap', stack=self.stack, \
-        #                                         sections=self.valid_sections, use_data_manager=False,
-        #                                         downscale=32)
-        # self.gscene_dissimmap.set_data_feeder(self.dissim_image_feeder)
-
-        #########################################################
-
-        # self.init_user_submasks_gscene = ZoomableBrowsableGraphicsScene(id='submasks', gview=self.ui.gview_submasks)
-        # self.submask_image_feeder = ImageDataFeeder(name='submasks', stack=self.stack, \
-        #                                         sections=self.valid_sections, use_data_manager=False,
-        #                                         downscale=32)
-        # self.init_user_submasks_gscene.set_data_feeder(self.submask_image_feeder)
-
-        # self.init_user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='submasks', gview=self.ui.gview_submasks)
-        # self.init_user_submasks_image_feeder = ImageDataFeeder(name='submasks', stack=self.stack, \
-        #                                         sections=self.valid_sections, use_data_manager=False,
-        #                                         downscale=32)
-        # self.init_user_submasks_gscene.set_data_feeder(self.init_user_submasks_image_feeder)
 
         #########################################################
 
@@ -273,25 +258,36 @@ class MaskEditingGUI(QMainWindow):
 
         self.dialog.showMaximized()
 
+        ##############################
+
+        self.load_all_init_snake_contours()
+        for sec in self.valid_sections:
+            try:
+                self.user_submasks_gscene.add_submask_and_decision_for_one_section(sec=sec, submask=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
+                # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
+                self.update_merged_mask(sec=sec)
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
 
     # def upload_masks(self):
     #     transfer_data_synced(fp_relative=os.path.join(self.stack, self.stack + '_masks'),
     #                         from_hostname='localhost', to_hostname='dm')
 
-    def load_anchor_contours(self):
-        contours_on_anchor_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
-        for sec, vertices in contours_on_anchor_sections.iteritems():
-            self.auto_submasks_gscene.set_init_snake_contour(section=sec, vertices=vertices)
-            self.auto_submasks_gscene.set_section_as_anchor(section=sec)
-
-    def save_anchor_contours(self):
-        contours_on_anchor_sections = \
-            {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
-            for sec in self.auto_submasks_gscene.anchor_sections}
-        save_pickle(contours_on_anchor_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
+    # def load_anchor_contours(self):
+    #     contours_on_anchor_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
+    #     for sec, vertices in contours_on_anchor_sections.iteritems():
+    #         self.auto_submasks_gscene.set_init_snake_contour(section=sec, vertices=vertices)
+    #         self.auto_submasks_gscene.set_section_as_anchor(section=sec)
+    #
+    # def save_anchor_contours(self):
+    #     contours_on_anchor_sections = \
+    #         {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+    #         for sec in self.auto_submasks_gscene.anchor_sections}
+    #     save_pickle(contours_on_anchor_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
 
     def load_all_init_snake_contours(self):
-        init_snake_contours_on_all_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_init_snake_contours.pkl'))
+        # init_snake_contours_on_all_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_init_snake_contours.pkl'))
+        init_snake_contours_on_all_sections = load_pickle(DataManager.get_initial_snake_contours_filepath(stack=stack))
         for fn, vertices in init_snake_contours_on_all_sections.iteritems():
             self.auto_submasks_gscene.set_init_snake_contour(section=self.valid_filenames_to_sections[fn], vertices=vertices)
 
@@ -303,7 +299,7 @@ class MaskEditingGUI(QMainWindow):
                 init_snake_contours_on_all_sections[fn] = vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
             else:
                 sys.stderr.write("Image %s (section %d) does not have any initial snake contour.\n" % (fn, sec))
-        save_pickle(init_snake_contours_on_all_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_init_snake_contours.pkl'))
+        save_pickle(init_snake_contours_on_all_sections, DataManager.get_initial_snake_contours_filepath(stack=stack))
 
     def save_final_masks(self):
         submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_submasks_user_modified'))
@@ -491,8 +487,8 @@ class MaskEditingGUI(QMainWindow):
         if sec not in self.user_submask_decisions:
             return
 
-        fn = self.valid_sections_to_filenames[sec]
-        accept_which = self.accept_which[sec]
+        # fn = self.valid_sections_to_filenames[sec]
+        # accept_which = self.accept_which[sec]
         # try:
             # if accept_which == 0:
             #     if sec not in self.auto_submask_decisions or len(self.auto_submask_decisions[sec]) == 0:
@@ -503,7 +499,6 @@ class MaskEditingGUI(QMainWindow):
                 # if sec not in self.user_submask_decisions or len(self.user_submask_decisions[sec]) == 0:
                 #     raise Exception('Error: section %d, %s, accept user but user decisions is empty.' % (sec, fn))
 
-        print self.user_submask_decisions[sec]
         merged_mask = np.any([self.user_submasks[sec][sm_i] for sm_i, dec in self.user_submask_decisions[sec].iteritems() if dec], axis=0)
         # else:
         #     raise Exception('accept_which is neither 0 or 1.')
@@ -572,7 +567,8 @@ class MaskEditingGUI(QMainWindow):
 
     def snake_all(self):
 
-        self.prepare_contrast_stretched_images()
+        for sec in self.valid_sections:
+            self.prepare_contrast_stretched_image(sec=sec)
 
         init_snake_contour_vertices = {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
                                         for sec in self.valid_sections}
@@ -608,58 +604,80 @@ class MaskEditingGUI(QMainWindow):
             self.set_accept_auto_to_false(section=sec)
             self.update_merged_mask(sec=sec)
 
-    def prepare_contrast_stretched_images(self):
-        for sec in self.valid_sections:
-            if sec not in self.contrast_stretched_images:
-                if sec not in self.original_images:
-                    # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
-                    img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='aligned'))
-                    self.original_images[sec] = brightfieldize_image(img)
+    def update_contrast_stretched_image(self, sec):
+        if sec not in self.original_images:
+            # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
+            img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='aligned'))
+            self.original_images[sec] = brightfieldize_image(img)
+        if sec not in self.selected_channels:
+            self.selected_channels[sec] = DEFAULT_MASK_CHANNEL
+        self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., self.selected_channels[sec]])
+        self.update_thresholded_image(sec=sec)
 
-                if sec in self.selected_channels:
-                    channel = self.selected_channels[sec]
-                else:
-                    channel = 0
-                self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., channel])
-                self.update_thresholded_image(sec=sec)
+    # def prepare_contrast_stretched_images(self, sec):
+    #     if sec not in self.contrast_stretched_images:
+    #         if sec not in self.original_images:
+    #             # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
+    #             img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='aligned'))
+    #             self.original_images[sec] = brightfieldize_image(img)
+    #         if sec not in self.selected_channels:
+    #             self.selected_channels[sec] = DEFAULT_MASK_CHANNEL
+    #         self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., self.selected_channels[sec]])
+    #         self.update_thresholded_image(sec=sec)
 
     def do_snake(self, sec):
-        # self.user_submasks_gscene.remove_submask_and_decisions_for_one_section(sec=sec)
-        self.selected_snake_lambda1[sec] = self.ui.slider_snakeShrink.value()
-        # self.user_submasks[sec] = snake(img=self.original_images[sec], submasks=self.init_submasks[sec])
+        self.selected_snake_lambda1[sec] = self.ui.slider_snakeShrink.value() * .5
+        self.selected_snake_min_size[sec] = self.ui.slider_minSize.value()
 
         init_snake_contour_vertices = vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+        submasks = snake(img=self.contrast_stretched_images[sec], init_contours=[init_snake_contour_vertices],
+                        lambda1=self.selected_snake_lambda1[sec], min_size=self.selected_snake_min_size[sec])
 
-        if sec not in self.contrast_stretched_images:
-            if sec not in self.original_images:
-                # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
-                img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='aligned'))
-                border = np.median(np.concatenate([img[:10, :].flatten(), img[-10:, :].flatten(), img[:, :10].flatten(), img[:, -10:].flatten()]))
-                if border < 123:
-                    # dark background, fluorescent
-                    img = img.max() - img # invert, make tissue dark on bright background
-                self.original_images[sec] = img
-            if sec in self.selected_channels:
-                channel = self.selected_channels[sec]
-            else:
-                channel = 0
-            self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., channel])
+        self.user_submasks[sec] = dict(enumerate(submasks))
+        self.user_submask_decisions[sec] = {sm_i: True for sm_i in self.user_submasks[sec].iterkeys()}
 
-        submasks = snake(img=self.contrast_stretched_images[sec],
-                        init_contours=[init_snake_contour_vertices],
-                        lambda1=self.selected_snake_lambda1[sec])
-        if len(submasks) == 0:
-            sys.stderr.write('No submasks found for section %d.\n' % sec)
-            return
-
-        self.user_submasks[sec] = {i: m for i, m in enumerate(submasks)}
-        self.user_submask_decisions[sec] = {i: d for i, d in enumerate(auto_judge_submasks(submasks))}
-
-        self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
-        # self.user_submasks_gscene.update_image(sec=sec)
-
-        self.set_accept_auto_to_false(section=sec)
+        self.user_submasks_gscene.set_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
+        # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
         self.update_merged_mask(sec=sec)
+
+    # def do_snake(self, sec):
+    #     # self.user_submasks_gscene.remove_submask_and_decisions_for_one_section(sec=sec)
+    #     self.selected_snake_lambda1[sec] = self.ui.slider_snakeShrink.value()
+    #     self.selected_snake_min_size[sec] = self.ui.slider_minSize.value() * 100
+    #     # self.user_submasks[sec] = snake(img=self.original_images[sec], submasks=self.init_submasks[sec])
+    #
+    #     init_snake_contour_vertices = vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+    #
+    #     if sec not in self.contrast_stretched_images:
+    #         if sec not in self.original_images:
+    #             # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
+    #             img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='aligned'))
+    #             border = np.median(np.concatenate([img[:10, :].flatten(), img[-10:, :].flatten(), img[:, :10].flatten(), img[:, -10:].flatten()]))
+    #             if border < 123:
+    #                 # dark background, fluorescent
+    #                 img = img.max() - img # invert, make tissue dark on bright background
+    #             self.original_images[sec] = img
+    #         if sec in self.selected_channels:
+    #             channel = self.selected_channels[sec]
+    #         else:
+    #             channel = DEFAULT_MASK_CHANNEL
+    #         self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., channel])
+    #
+    #     submasks = snake(img=self.contrast_stretched_images[sec],
+    #                     init_contours=[init_snake_contour_vertices],
+    #                     lambda1=self.selected_snake_lambda1[sec])
+    #     if len(submasks) == 0:
+    #         sys.stderr.write('No submasks found for section %d.\n' % sec)
+    #         return
+    #
+    #     self.user_submasks[sec] = {i: m for i, m in enumerate(submasks)}
+    #     self.user_submask_decisions[sec] = {i: d for i, d in enumerate(auto_judge_submasks(submasks))}
+    #
+    #     self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
+    #     # self.user_submasks_gscene.update_image(sec=sec)
+    #
+    #     self.set_accept_auto_to_false(section=sec)
+    #     self.update_merged_mask(sec=sec)
 
     def do_snake_current_section(self):
         self.do_snake(sec=self.auto_submasks_gscene.active_section)
@@ -686,35 +704,32 @@ class MaskEditingGUI(QMainWindow):
     #     self.set_accept_auto_to_false(section=sec)
     #     self.update_merged_mask()
 
-    def change_channel(self, channel):
-        """
-        Compute contrast_stretch_image based on selected_channels.
-        """
 
-        print 'Changed to', channel
-        sec = self.auto_submasks_gscene.active_section
-        self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., channel])
-        self.update_thresholded_image()
+    # def change_channel(self, channel):
+    #     """
+    #     Compute contrast_stretch_image based on selected_channels.
+    #     """
+    #     print 'Channel changed to', channel
+        # self.update_contrast_stretched_image(sec=self.auto_submasks_gscene.active_section)
 
     def channel_changed(self, index):
-        if index == self.selected_channels[self.auto_submasks_gscene.active_section]:
-            return
-
+        # if index == self.selected_channels[self.auto_submasks_gscene.active_section]:
+        #     return
         self.selected_channels[self.auto_submasks_gscene.active_section] = index
+        # channel_text = str(self.sender().currentText())
+        self.update_contrast_stretched_image(sec=self.auto_submasks_gscene.active_section)
+        # if channel_text == 'Red':
+        #     self.change_channel(0)
+        # elif channel_text == 'Green':
+        #     self.change_channel(1)
+        # elif channel_text == 'Blue':
+        #     self.change_channel(2)
 
-        channel_text = str(self.sender().currentText())
-        if channel_text == 'Red':
-            self.change_channel(0)
-        elif channel_text == 'Green':
-            self.change_channel(1)
-        elif channel_text == 'Blue':
-            self.change_channel(2)
-
-    # def dissim_threshold_changed(self, value):
-    #     self.ui.label_dissimThresh.setText(str(value * 0.01))
+    def snake_minSize_changed(self, value):
+        self.ui.label_minSize.setText(str(value))
 
     def snake_shrinkParam_changed(self, value):
-        self.ui.label_snakeShrink.setText(str(value))
+        self.ui.label_snakeShrink.setText(str(value*.5))
 
     def update_thresholded_image(self, sec=None):
         """
@@ -754,10 +769,10 @@ class MaskEditingGUI(QMainWindow):
         # Set parameters if those for the current section have been modified before.
 
         if sec not in self.selected_channels:
-            self.selected_channels[sec] = 0
+            self.selected_channels[sec] = DEFAULT_MASK_CHANNEL
 
         self.ui.comboBox_channel.setCurrentIndex(self.selected_channels[sec])
-        self.change_channel(self.selected_channels[sec])
+        # self.change_channel(self.selected_channels[sec])
 
         try:
             self.gscene_thresholded.set_active_section(sec)
@@ -782,9 +797,14 @@ class MaskEditingGUI(QMainWindow):
         #     self.ui.slider_dissimThresh.setValue(0)
 
         if sec in self.selected_snake_lambda1:
-            self.ui.slider_snakeShrink.setValue(self.selected_snake_lambda1[sec])
+            self.ui.slider_snakeShrink.setValue(self.selected_snake_lambda1[sec]/.5)
         else:
-            self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1)
+            self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1/.5)
+
+        if sec in self.selected_snake_min_size:
+            self.ui.slider_minSize.setValue(self.selected_snake_min_size[sec])
+        else:
+            self.ui.slider_minSize.setValue(MIN_SUBMASK_SIZE)
 
         try:
             self.user_submasks_gscene.set_active_section(sec)

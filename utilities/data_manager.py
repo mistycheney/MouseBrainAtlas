@@ -1687,15 +1687,15 @@ class DataManager(object):
         sec_floor = int(np.floor(sec_float))
 
         return sec_floor
-    
-        
+
+
     @staticmethod
     def get_initial_snake_contours_filepath(stack):
         """"""
         anchor_fn = metadata_cache['anchor_fn'][stack]
-        init_snake_contours_fp = os.path.join(DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
+        init_snake_contours_fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
         return init_snake_contours_fp
-    
+
     @staticmethod
     def get_auto_submask_rootdir_filepath(stack):
         """
@@ -1706,7 +1706,7 @@ class DataManager(object):
         anchor_fn = metadata_cache['anchor_fn'][stack]
         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
         return dir_path
-    
+
     @staticmethod
     def get_auto_submask_dir_filepath(stack, fn=None, sec=None):
         """
@@ -1729,7 +1729,7 @@ class DataManager(object):
         """
         anchor_fn = metadata_cache['anchor_fn'][stack]
         dir_path = DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
-        
+
         if what == 'submask':
             assert submask_ind is not None, "Must provide submask_ind."
             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_%d.png' % submask_ind)
@@ -1737,9 +1737,9 @@ class DataManager(object):
             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
         else:
             raise Exception("Not recognized.")
-        
+
         return fp
-        
+
 
 ##################################################
 

@@ -297,7 +297,7 @@ def wait_qsub_complete(timeout=120*60):
         time.sleep(5)
 
     if not success:
-        raise Exception('qsub does not return in %(timeout)d seconds. Quit waiting, but SGE may still be computing..' % timeout)
+        raise Exception('qsub does not return in %d seconds. Quit waiting, but SGE may still be computing..' % timeout)
 
 
 def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):

@@ -13,9 +13,16 @@ from metadata import *
 from registration_utilities import find_contour_points
 from annotation_utilities import contours_to_mask
 
+# DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
+# DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2
+# DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = None
+# DEFAULT_MINSIZE = 1000 # If tissues are separate pieces, 1000 is not small enough to capture them.
+# DEFAULT_MINSIZE = 100
+
 VMAX_PERCENTILE = 99
 VMIN_PERCENTILE = 1
 MIN_SUBMASK_SIZE = 100
+# INIT_CONTOUR_MINLEN = 50
 MORPHSNAKE_SMOOTHING = 1
 MORPHSNAKE_LAMBDA1 = 1 # imprtance of inside pixels
 MORPHSNAKE_LAMBDA2 = 20 # imprtance of outside pixels
@@ -321,5 +328,3 @@ def save_submasks_one_section(self, submask_decisions, submasks=None, submask_co
 #                     alg_labels[idx] = -1
 #
 #             labels_reviewed[fn] = {i: r == 1 for i, r in alg_labels.iteritems()}
-#
-#     return labels_reviewed

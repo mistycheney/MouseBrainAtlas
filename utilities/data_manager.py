@@ -1577,11 +1577,6 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped_tif':
-            # if stack in ['MD635']:
-            #     image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_unsorted_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
-            #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
-            #     image_path = os.path.join(image_dir, image_name + '.tif')
-            # else:
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
@@ -1692,6 +1687,59 @@ class DataManager(object):
         sec_floor = int(np.floor(sec_float))
 
         return sec_floor
+    
+        
+    @staticmethod
+    def get_initial_snake_contours_filepath(stack):
+        """"""
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        init_snake_contours_fp = os.path.join(DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
+        return init_snake_contours_fp
+    
+    @staticmethod
+    def get_auto_submask_rootdir_filepath(stack):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
+        return dir_path
+    
+    @staticmethod
+    def get_auto_submask_dir_filepath(stack, fn=None, sec=None):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        auto_submasks_dir = DataManager.get_auto_submask_rootdir_filepath(stack)
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][sec]
+        dir_path = os.path.join(auto_submasks_dir, fn)
+        return dir_path
+
+    @staticmethod
+    def get_auto_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
+        
+        if what == 'submask':
+            assert submask_ind is not None, "Must provide submask_ind."
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_%d.png' % submask_ind)
+        elif what == 'decisions':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
+        else:
+            raise Exception("Not recognized.")
+        
+        return fp
+        
 
 ##################################################
 

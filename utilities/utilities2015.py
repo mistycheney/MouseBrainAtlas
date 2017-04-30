@@ -43,7 +43,7 @@ def shell_escape(s):
         escaped_str = check_output(cmd, shell=True)
     finally:
         os.remove(path)
-    
+
     return escaped_str
 
 def plot_histograms(hists, bins, titles=None, ncols=4, xlabel='', ylabel='', suptitle='', normalize=False, cellsize=(2, 1.5), **kwargs):
@@ -648,6 +648,11 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
 
 def bbox_2d(img):
+    """
+    Returns:
+        (xmin, xmax, ymin, ymax)
+    """
+
     if np.count_nonzero(img) == 0:
         raise Exception('bbox2d: Image is empty.')
     rows = np.any(img, axis=1)

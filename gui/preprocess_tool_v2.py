@@ -213,7 +213,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.first_section = 1
         self.last_section = 2
-        
+
         # self.sorted_filenames = []
         #
         # filename_map_fp = '/home/yuncong/CSHL_data_processed/%(stack)s_filename_map.txt' % {'stack': stack}
@@ -1316,38 +1316,38 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         with open(os.path.join(thumbnail_data_dir, self.stack, self.stack + '_anchor.txt'), 'w') as f:
             f.write(self.anchor_fn)
 
-        if self.stack in all_nissl_stacks:
-            pad_bg_color = 'white'
-        elif self.stack in all_ntb_stacks:
-            pad_bg_color = 'black'
-        elif self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
-            pad_bg_color = 'auto'
-
-        self.statusBar().showMessage('Conmpose consecutive alignments...')
-        try:
-            self.web_service.convert_to_request(name='compose', stack=self.stack,
-                                                filenames=self.get_valid_sorted_filenames(),
-                                                anchor_fn=self.anchor_fn,
-                                                tb_fmt=self.tb_fmt,
-                                                pad_bg_color=pad_bg_color)
-        except Exception as e:
-            sys.stderr.write('Server error: compose\n')
-            return
-
-        self.statusBar().showMessage('Images aligned.')
-        self.statusBar().showMessage('Downloading aligned images ...')
-
-        execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnails_alignedTo_%(anchor_fn)s/*.tif\" && '
-                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
-                        'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && '
-                        'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output/%(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_elastix_output/ && '
-                        'cd %(stack)s_elastix_output && rm -f %(stack)s_transformsTo_anchor.pkl && ln -s %(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_transformsTo_anchor.pkl ') % \
-                        dict(gordon_data_dir=self.stack_data_dir_gordon,
-                            local_data_dir=self.stack_data_dir,
-                            stack=self.stack,
-                            anchor_fn=self.anchor_fn))
-
-        self.statusBar().showMessage('Aligned images downloaded.')
+        # if self.stack in all_nissl_stacks:
+        #     pad_bg_color = 'white'
+        # elif self.stack in all_ntb_stacks:
+        #     pad_bg_color = 'black'
+        # elif self.stack in all_alt_nissl_ntb_stacks or self.stack in all_alt_nissl_tracing_stacks:
+        #     pad_bg_color = 'auto'
+        #
+        # self.statusBar().showMessage('Conmpose consecutive alignments...')
+        # try:
+        #     self.web_service.convert_to_request(name='compose', stack=self.stack,
+        #                                         filenames=self.get_valid_sorted_filenames(),
+        #                                         anchor_fn=self.anchor_fn,
+        #                                         tb_fmt=self.tb_fmt,
+        #                                         pad_bg_color=pad_bg_color)
+        # except Exception as e:
+        #     sys.stderr.write('Server error: compose\n')
+        #     return
+        #
+        # self.statusBar().showMessage('Images aligned.')
+        # self.statusBar().showMessage('Downloading aligned images ...')
+        #
+        # execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(stack)s_thumbnails_alignedTo_%(anchor_fn)s/*.tif\" && '
+        #                 'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz %(local_data_dir)s/ &&'
+        #                 'cd %(local_data_dir)s && rm -rf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s && tar -xf %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && rm %(stack)s_thumbnails_alignedTo_%(anchor_fn)s.tar.gz && '
+        #                 'scp oasis-dm.sdsc.edu:%(gordon_data_dir)s/%(stack)s_elastix_output/%(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_elastix_output/ && '
+        #                 'cd %(stack)s_elastix_output && rm -f %(stack)s_transformsTo_anchor.pkl && ln -s %(stack)s_transformsTo_%(anchor_fn)s.pkl %(stack)s_transformsTo_anchor.pkl ') % \
+        #                 dict(gordon_data_dir=self.stack_data_dir_gordon,
+        #                     local_data_dir=self.stack_data_dir,
+        #                     stack=self.stack,
+        #                     anchor_fn=self.anchor_fn))
+        #
+        # self.statusBar().showMessage('Aligned images downloaded.')
 
 
     def set_first_section(self, i):

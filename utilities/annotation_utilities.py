@@ -574,7 +574,6 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     If interpolation_direction == 'z', the points should be (x,y)
     If interpolation_direction == 'x', the points should be (y,z)
     If interpolation_direction == 'y', the points should be (x,z)
-
     """
 
     if contours_grouped_by_pos is None:

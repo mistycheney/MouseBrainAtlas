@@ -34,7 +34,7 @@ if hostname.endswith('sdsc.edu'):
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
-    
+
     PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
@@ -69,6 +69,11 @@ elif hostname == 'yuncong-MacbookPro':
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
+    CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
@@ -83,6 +88,10 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     CLF_ROOTDIR = '/home/yuncong/CSHL_classifiers'
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
+    CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
 
 elif hostname.startswith('ip'):
@@ -111,19 +120,19 @@ elif hostname.startswith('ip'):
     # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
-    
+
     CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
-    
+
     CLF_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
-        
+
 # elif hostname.endswith('GL502VM'):
 #     print 'Setting environment for Local Machine Saienthan'
 #     ON_AWS = False
@@ -201,14 +210,14 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin)
 
 
-            
+
 #######################################
 
 from pandas import read_csv
 dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
 classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
-            
+
 ############ Class Labels #############
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
@@ -252,7 +261,7 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_alt_nissl_tracing_stacks = ['MD657']
+all_alt_nissl_tracing_stacks = ['MD657', 'MD658']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']

@@ -1,4 +1,4 @@
-This is the repo for mouse brainstem atlas project.
+cd This is the repo for mouse brainstem atlas project.
 
 - *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
 - *annotation*: code related to processing human annotations
@@ -19,8 +19,8 @@ This is the repo for mouse brainstem atlas project.
 - Use a unbiased way to construct/update reference model, rather than align all brains to one particular brain.
 
 # Initial Training #
+`learning/train_classifiers_v3.py`.
 
-`learning/train_classifiers_v3.py`
 
 **Requires:**
 - `$ANNOTATION_ROOTDIR/[stack]/[stack]_annotation_grid_indices.h5` for all annotated stacks.
@@ -29,9 +29,18 @@ This is the repo for mouse brainstem atlas project.
 # Pipeline for Unannotated Specimens #
 `learning/pipeline_aws.ipynb`
 
+- First we apply the classifiers to the images using `apply_classifiers_v3.py`. It is a multi-process code over sections. It generates scores on a sparse grid locations.
+
+- Construct score volume.
+Specify a resolution. Resample the scoremaps according to the resolution. Stack up to form score volume.
+
+
+
 # Memory Usage #
-- Global registration: 32 GB RAM is not enough. Each score volume has ~500^3 = 125M voxels x (moving vol 2Bytes, moving grad 4Bytes, fixed vol 2Bytes, fixed grad 4Bytes) = 1.5GB. Then x 14 selected structures = 21GB.
+- Global registration: 32GB RAM is not enough.
+Ideally, each score volume has ~500^3 = 125M voxels x (moving vol 2Bytes, moving grad 4Bytes, fixed vol 2Bytes, fixed grad 4Bytes) = 1.5GB. Then x 14 selected structures = 21GB.
 10G free out of 64G.
 Can only do one global registration on a node due to high RAM requirement.
-- Transform: parallel over (stack, structure)
-- Visualize registration: simultaneous `NUM_CORES` processes each stack.
+- Transform: simultaneous `NUM_CORES` processes each stack, one for each structure.
+- Visualize registration: simultaneous `NUM_CORES` processes each stack, one for each structure.
+- Local registration:

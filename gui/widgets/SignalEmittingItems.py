@@ -278,6 +278,11 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         elif color == 'b':
             ellipse.setPen(Qt.blue)
             ellipse.setBrush(Qt.blue)
+        elif isinstance(color, tuple) or isinstance(color, list):
+            ellipse.setPen(QColor(color[0], color[1], color[2]))
+            ellipse.setBrush(QColor(color[0], color[1], color[2]))
+        else:
+            raise Exception('Input color is not recognized.')
 
         ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         ellipse.setZValue(99)

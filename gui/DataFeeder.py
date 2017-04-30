@@ -1,8 +1,5 @@
 #! /usr/bin/env python
 
-# import sip
-# sip.setapi('QVariant', 2) # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
-
 import sys
 import os
 import datetime
@@ -14,30 +11,17 @@ from pprint import pprint
 import cPickle as pickle
 from itertools import groupby
 from operator import itemgetter
+from collections import defaultdict, OrderedDict, deque
 
 import numpy as np
-
-# from matplotlib.backends import qt4_compat
-# use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-# if use_pyside:
-#     #print 'Using PySide'
-#     from PySide.QtCore import *
-#     from PySide.QtGui import *
-# else:
-#     #print 'Using PyQt4'
-#     from PyQt4.QtCore import *
-#     from PyQt4.QtGui import *
-
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
-from data_manager import DataManager
+from data_manager import *
 from metadata import *
 from qt_utilities import *
-
-from collections import defaultdict, OrderedDict, deque
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
@@ -53,13 +37,12 @@ class ImageDataFeeder(object):
             self.sections = sections
             self.min_section = min(self.sections)
             self.max_section = max(self.sections)
-
-            self.first_section, self.last_section = section_range_lookup[stack]
-            self.all_sections = range(self.first_section, self.last_section+1)
+            # self.first_section, self.last_section = metadata_cache['section_limits'][stack]
+            # self.all_sections = range(self.first_section, self.last_section+1)
         else:
             # macro index
             self.sections = sections
-            self.all_sections = sections
+            # self.all_sections = sections
 
         self.n = len(self.sections)
 
@@ -73,6 +56,8 @@ class ImageDataFeeder(object):
 
         if labeled_filenames is not None:
             self.set_images(labeled_filenames=labeled_filenames)
+        elif use_data_manager:
+            self.load_images()
 
     def set_orientation(self, orientation):
         self.orientation = orientation
@@ -128,6 +113,10 @@ class ImageDataFeeder(object):
 
 
     def load_images(self, downsample=None, selected_sections=None):
+        """
+        If use_data_manager, use this function to load images.
+        """
+
         if downsample is None:
             downsample = self.downsample
 
@@ -139,16 +128,21 @@ class ImageDataFeeder(object):
                 self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
                                                 for sec in selected_sections}
             elif downsample == 32:
-                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
-                                                % dict(stack=self.stack, sec=sec))
+                # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
+                #                                 % dict(stack=self.stack, sec=sec))
+                #                                 for sec in selected_sections}
+                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='cropped', resol='thumbnail'))
                                                 for sec in selected_sections}
             else:
                 raise Exception('Not implemented.')
         elif self.version == 'aligned':
             if downsample == 32:
-                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/%(stack)s_%(sec)04d_thumbnail_aligned.tif' \
-                                                % dict(stack=self.stack, sec=sec))
+                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='aligned_tif', resol='thumbnail'))
                                                 for sec in selected_sections}
+                # anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
+                # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/%(stack)s_%(sec)04d_thumbnail_aligned.tif' \
+                #                                 % dict(stack=self.stack, sec=sec))
+                #                                 for sec in selected_sections}
             else:
                 raise Exception('Not implemented.')
         elif self.version == 'original':
@@ -188,6 +182,9 @@ class ImageDataFeeder(object):
         self.compute_dimension()
 
     def retrive_i(self, i=None, sec=None, downsample=None):
+        """
+        Retrieve the i'th image in self.sections.
+        """
 
         if downsample is None:
             downsample = self.downsample
@@ -197,7 +194,7 @@ class ImageDataFeeder(object):
             return
 
         if sec is None:
-            sec = self.all_sections[i]
+            sec = self.sections[i]
 
         if downsample not in self.image_cache:
             self.image_cache[downsample] = {}

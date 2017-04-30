@@ -17,18 +17,19 @@ from collections import defaultdict
 
 class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon):
     """
-    Allow user to draw polygons.
+    Extend base class by:
+    - Allow user to draw polygons.
     """
 
     drawings_updated = pyqtSignal(object)
+    polygon_completed = drawings_updated
     polygon_deleted = pyqtSignal(object)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene, self).__init__(id=id, gview=gview, parent=parent)
 
-        self.drawings = defaultdict(list)
+        # self.drawings = defaultdict(list)
         self.mode = 'idle'
-
 
     def set_default_vertex_color(self, color):
         """
@@ -65,6 +66,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         polygon.add_circles_for_all_vertices(radius=vertex_radius, color=vertex_color)
         polygon.set_closed(True)
+        return polygon
 
 
     def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50, vertex_color=None, vertex_radius=None):
@@ -88,6 +90,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             pen = QPen(Qt.green)
         elif color == 'b':
             pen = QPen(Qt.blue)
+        elif isinstance(color, tuple) or  isinstance(color, list):
+            pen = QPen(QColor(color[0], color[1], color[2]))
+        else:
+            raise Exception('color argument to polygon must be r,g or b')
 
         if linewidth is None:
             linewidth = self.default_line_width
@@ -108,9 +114,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon.signal_emitter.press.connect(self._polygon_pressed)
         # polygon.signal_emitter.release.connect(self.polygon_release)
         polygon.signal_emitter.vertex_added.connect(self.vertex_added)
-        polygon.signal_emitter.polygon_completed.connect(self.polygon_completed)
+        polygon.signal_emitter.polygon_completed.connect(self.polygon_completed_callbak)
 
         self.drawings[index].append(polygon)
+        self.drawings_mapping[polygon] = index
 
         # if adding polygon to current section
         if index == self.active_i:
@@ -127,7 +134,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         #     pass
 
     @pyqtSlot()
-    def polygon_completed(self):
+    def polygon_completed_callbak(self):
         polygon = self.sender().parent
         self.set_mode('idle')
         self.drawings_updated.emit(polygon)
@@ -183,11 +190,17 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         self.drawings[index] = []
 
     @pyqtSlot()
-    def delete_polygon(self, section, polygon_ind):
-        index, section = self.get_requested_index_and_section(i=index, sec=section)
-        polygon = self.drawings[index][polygon_ind]
+    def delete_polygon(self, section=None, polygon_ind=None, index=None, polygon=None):
+        if polygon is None:
+            assert section is not None or index is not None
+            index, section = self.get_requested_index_and_section(i=index, sec=section)
+            polygon = self.drawings[index][polygon_ind]
+        else:
+            index = self.drawings_mapping[polygon]
+
         self.polygon_deleted.emit(polygon)
         sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
+
         self.drawings[index].remove(polygon)
         self.removeItem(polygon)
 

@@ -29,7 +29,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         self.set_default_vertex_color('b')
         self.set_default_vertex_radius(2)
 
-        self.drawings_updated.connect(self.submask_added)
+        self.polygon_completed.connect(self.submask_added)
         self.polygon_pressed.connect(self.submask_clicked)
         self.polygon_deleted.connect(self.submask_deleted)
 
@@ -43,15 +43,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             del self.submask_decisions[sec]
         self.delete_all_polygons_one_section(section=sec)
 
-    def add_submask_and_decision_for_one_section(self, submasks, submask_decisions, sec):
-        self.submasks[sec] = submasks
-        self.submask_decisions[sec] = submask_decisions
+    def update_image_from_submasks_and_decisions(self, sec):
 
-        for submask_ind, decision in enumerate(submask_decisions):
+        for poly in self.drawings[sec]:
+            self.delete_polygon(polygon=poly)
 
-            assert submask_ind < len(submasks), 'Error: decisions loaded for section %d, submask %d (start from 0), but not submask image' % (sec, submask_ind)
-            mask = submasks[submask_ind]
-
+        for submask_ind, decision in self.submask_decisions[sec].iteritems():
+            mask = self.submasks[sec][submask_ind]
             # Compute contour of mask
             cnts = find_contour_points(mask, sample_every=1)[mask.max()]
             if len(cnts) == 0:
@@ -69,6 +67,32 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
 
             self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
 
+    # def add_submask_and_decision_for_one_section(self, submasks, submask_decisions, sec):
+    #     self.submasks[sec] = submasks
+    #     self.submask_decisions[sec] = submask_decisions
+    #
+    #     for submask_ind, decision in enumerate(submask_decisions):
+    #
+    #         assert submask_ind < len(submasks), 'Error: decisions loaded for section %d, submask %d (start from 0), but not submask image' % (sec, submask_ind)
+    #         mask = submasks[submask_ind]
+    #
+    #         # Compute contour of mask
+    #         cnts = find_contour_points(mask, sample_every=1)[mask.max()]
+    #         if len(cnts) == 0:
+    #             raise Exception('ERROR: section %d %d, submask %d - no contour' % (sec, submask_ind, len(cnts)))
+    #         elif len(cnts) > 1:
+    #             sys.stderr.write('WARNING: section %d, submask %d - %d contours\n' % (sec, submask_ind, len(cnts)))
+    #             cnt = sorted(cnts, key=lambda c: len(c), reverse=True)[0]
+    #         else:
+    #             cnt = cnts[0]
+    #
+    #         if decision:
+    #             color = 'g'
+    #         else:
+    #             color = 'r'
+    #
+    #         self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
+
     def set_submasks_and_decisions(self, submasks_allFiles, submask_decisions_allFiles):
         """
         These two inputs will be modified by actions on the gscene (e.g. clicking on polygons).
@@ -77,8 +101,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         self.submasks = submasks_allFiles
         self.submask_decisions = submask_decisions_allFiles
 
-        for sec, submasks in submasks_allFiles.iteritems():
-            self.add_submask_and_decision_for_one_section(submasks, submask_decisions_allFiles[sec], sec=sec)
+        # for sec, submasks in submasks_allFiles.iteritems():
+        #     self.add_submask_and_decision_for_one_section(submasks, submask_decisions_allFiles[sec], sec=sec)
 
     def submask_added(self, polygon):
         if self.active_section not in self.submask_decisions:
@@ -110,9 +134,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             self.submasks[self.active_section][new_submask_ind] = new_submask
         else:
             self.submasks[self.active_section].append(new_submask)
-
-        # if curr_fn not in self.fns_submask_modified:
-        #     self.fns_submask_modified.append(curr_fn)
 
         sys.stderr.write('Submask %d added.\n' % new_submask_ind)
 

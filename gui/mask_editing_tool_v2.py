@@ -263,7 +263,7 @@ class MaskEditingGUI(QMainWindow):
         self.load_all_init_snake_contours()
         for sec in self.valid_sections:
             try:
-                self.user_submasks_gscene.add_submask_and_decision_for_one_section(sec=sec, submask=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
+                self.user_submasks_gscene.add_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
                 # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
                 self.update_merged_mask(sec=sec)
             except Exception as e:

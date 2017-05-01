@@ -239,7 +239,7 @@ def delete_vertices_merge(path, indices_to_remove):
     n = polygon_num_vertices(path=path, closed=is_closed)
 
     segs_to_remove, segs_to_keep = split_array(indices_to_remove, n, is_closed)
-    print segs_to_remove, segs_to_keep
+    print "segs_to_remove:", segs_to_remove, "segs_to_keep:", segs_to_keep
 
     new_path = QPainterPath()
     for b, e in sorted(segs_to_keep):

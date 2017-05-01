@@ -17,8 +17,13 @@ from SignalEmittingItems import PolygonSignalEmitter, QGraphicsEllipseItemModifi
 from gui_utilities import *
 
 class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPathItem):
+    """
+    Extends base class by:
+    - Define a list of `QGraphicsEllipseItemModified` called vertex_circles.
+    """
+
     def __init__(self, path, parent=None, gscene=None, vertex_radius=None):
-        super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent)
+        super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent, gscene=gscene)
 
         self.vertex_circles = []
 
@@ -101,11 +106,17 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         self.add_circle_for_vertex(new_index)
 
     def delete_vertices(self, indices_to_remove, merge=False):
+        if merge:
+            for i in indices_to_remove:
+                self.gscene.removeItem(self.vertex_circles[i])
+            self.vertex_circles = [c for c in self.vertex_circles if c not in indices_to_remove]
 
-    	if merge:
-    		new_path = delete_vertices_merge(self.path(), indices_to_remove)
-    	else:
-    		paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
+            new_path = delete_vertices_merge(self.path(), indices_to_remove)
+            self.setPath(new_path)
+
+            self.signal_emitter.polygon_changed.emit()
+        else:
+            paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
 
     def set_closed(self, closed):
         self.closed = closed

@@ -596,6 +596,8 @@ class PolygonSignalEmitter(QObject):
     press = pyqtSignal(object)
     release = pyqtSignal()
     vertex_added = pyqtSignal(object)
+    polygon_changed = pyqtSignal()
+    # vertex_deleted = pyqtSignal(object)
     evoke_label_selection = pyqtSignal()
     label_added = pyqtSignal(object)
     # polygon_closed = pyqtSignal([], [object])

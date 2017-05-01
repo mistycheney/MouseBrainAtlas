@@ -9,7 +9,7 @@ from data_manager import DataManager
 from metadata import *
 from gui_utilities import *
 from registration_utilities import find_contour_points
-from annotation_utilities import contours_to_mask
+from annotation_utilities import contours_to_mask, resample_polygon
 
 from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 
@@ -20,7 +20,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
     - adding a dict called submask_decisions
     """
 
-    submask_decision_updated = pyqtSignal(int)
+    submask_decision_updated = pyqtSignal(int, int, bool)
+    submask_updated = pyqtSignal(int, int)
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForMasking, self).__init__(id=id, gview=gview, parent=parent)
@@ -30,25 +31,34 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         self.set_default_vertex_color('b')
         self.set_default_vertex_radius(2)
 
-        self.polygon_completed.connect(self.submask_added)
-        self.polygon_pressed.connect(self.submask_clicked)
-        self.polygon_deleted.connect(self.submask_deleted)
+        self.polygon_completed.connect(self._submask_added)
+        self.polygon_pressed.connect(self._submask_clicked)
+        self.polygon_deleted.connect(self._submask_deleted)
+        self.polygon_changed.connect(self._submask_changed)
 
         # self._submasks = {}
         self._submask_decisions = defaultdict(dict)
+
+    @pyqtSlot(int, int)
+    def _submask_changed(self, section, submask_index):
+        self.submask_updated.emit(section, submask_index)
+
+    @pyqtSlot(object)
+    def vertex_deleted_callback(self, circle):
+        # Override the same method in inherited class.
+        # print "!!!! In DrawableZoomableBrowsableGraphicsScene_ForMasking !!!!"
+        super(DrawableZoomableBrowsableGraphicsScene_ForMasking, self).vertex_deleted_callback(circle)
 
     def set_submasks_and_decisions(self, submasks, submask_decisions):
         for sec in submasks.iterkeys():
             self.set_submasks_and_decisions_one_section(sec, submasks[sec], submask_decisions[sec])
 
     def set_submasks_and_decisions_one_section(self, sec, submasks, submask_decisions):
-        self.delete_all_polygons_one_section(section=sec)
-        self.add_submasks_and_decisions_one_section(sec=sec, submasks=submasks, submask_decisions=submask_decisions)
+        assert set(submasks.keys()) == set(submask_decisions.keys())
+        self.remove_all_submasks_and_decisions_one_section(section=sec)
+        self._add_submasks_and_decisions_one_section(sec=sec, submasks=submasks, submask_decisions=submask_decisions)
 
-    # def set_submask(self, sec, submask_ind, submask):
-    #     self._submasks[sec][submask_ind] = submask
-
-    def update_color_from_submask_decision(self, sec, submask_ind):
+    def _update_color_from_submask_decision(self, sec, submask_ind):
         index, _ = self.get_requested_index_and_section(sec=sec)
         if self._submask_decisions[sec][submask_ind]:
             pen = QPen(Qt.green)
@@ -58,26 +68,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
 
     def set_submask_decision(self, sec, submask_ind, decision):
         self._submask_decisions[sec][submask_ind] = decision
-        self.update_color_from_submask_decision(sec, submask_ind)
-        self.submask_decision_updated.emit(submask_ind)
+        self._update_color_from_submask_decision(sec, submask_ind)
+        self.submask_decision_updated.emit(sec, submask_ind, decision)
 
-    # def remove_submask_and_decisions_for_one_section(self, sec):
-    #     if sec in self.submasks:
-    #         del self.submasks[sec]
-    #     if sec in self.submask_decisions:
-    #         del self.submask_decisions[sec]
-    #     self.delete_all_polygons_one_section(section=sec)
+    def remove_all_submasks_and_decisions_one_section(self, section):
+        # if sec in self.submasks:
+        #     del self.submasks[sec]
+        self.delete_all_polygons_one_section(section=section)
+        if section in self._submask_decisions:
+            del self._submask_decisions[section]
 
-    # def add_submasks_and_decisions(self, submasks, submask_decisions):
-    #     for sec in submasks.iterkeys():
-    #         self.add_submasks_and_decisions_one_section(sec, submasks[sec], submask_decisions[sec])
-    #
-    def add_submasks_and_decisions_one_section(self, sec, submasks, submask_decisions):
-
-        # if sec not in submask_decisions:
-        #     raise Exception("Cannot update image for section %d because no submasks exist." % sec)
-            # sys.stderr.write("Cannot update image for section %d because no submasks exist.\n" % sec)
-            # return
+    def _add_submasks_and_decisions_one_section(self, sec, submasks, submask_decisions):
 
         for submask_ind, decision in submask_decisions.iteritems():
             m = submasks[submask_ind]
@@ -97,46 +98,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             else:
                 color = 'r'
 
-            self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
+            # self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
 
-    # def add_submask_and_decision_for_one_section(self, submasks, submask_decisions, sec):
-    #     self.submasks[sec] = submasks
-    #     self.submask_decisions[sec] = submask_decisions
-    #
-    #     for submask_ind, decision in enumerate(submask_decisions):
-    #
-    #         assert submask_ind < len(submasks), 'Error: decisions loaded for section %d, submask %d (start from 0), but not submask image' % (sec, submask_ind)
-    #         mask = submasks[submask_ind]
-    #
-    #         # Compute contour of mask
-    #         cnts = find_contour_points(mask, sample_every=1)[mask.max()]
-    #         if len(cnts) == 0:
-    #             raise Exception('ERROR: section %d %d, submask %d - no contour' % (sec, submask_ind, len(cnts)))
-    #         elif len(cnts) > 1:
-    #             sys.stderr.write('WARNING: section %d, submask %d - %d contours\n' % (sec, submask_ind, len(cnts)))
-    #             cnt = sorted(cnts, key=lambda c: len(c), reverse=True)[0]
-    #         else:
-    #             cnt = cnts[0]
-    #
-    #         if decision:
-    #             color = 'g'
-    #         else:
-    #             color = 'r'
-    #
-    #         self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
+            resampled_contour_vertices = resample_polygon(cnt, len_interval=20)
+            self.add_polygon_with_circles_and_label(path=vertices_to_path(resampled_contour_vertices),
+                                                        section=sec, linewidth=2, linecolor=color, vertex_radius=4)
 
-    # def set_submasks_and_decisions(self, submasks_allFiles, submask_decisions_allFiles):
-    #     """
-    #     These two inputs will be modified by actions on the gscene (e.g. clicking on polygons).
-    #     """
-    #
-    #     self.submasks = submasks_allFiles
-    #     self.submask_decisions = submask_decisions_allFiles
-
-        # for sec, submasks in submasks_allFiles.iteritems():
-        #     self.add_submask_and_decision_for_one_section(submasks, submask_decisions_allFiles[sec], sec=sec)
-
-    def submask_added(self, polygon):
+    def _submask_added(self, polygon):
         pass
         # if self.active_section not in self.submask_decisions:
         #     self.submask_decisions[self.active_section] = []
@@ -170,15 +138,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         #
         # sys.stderr.write('Submask %d added.\n' % new_submask_ind)
 
-    def submask_deleted(self, polygon, index, polygon_index):
+    def _submask_deleted(self, polygon, index, polygon_index):
+        submask_ind = polygon_index
+        sys.stderr.write('Submask %d removed.\n' % submask_ind)
         pass
-        # submask_ind = polygon_index
+
         # del self.submask_decisions[self.active_section][submask_ind]
         # del self.submasks[self.active_section][submask_ind]
-        # sys.stderr.write('Submask %d removed.\n' % submask_ind)
+
         # self.update_mask_gui_window_title()
 
-    def submask_clicked(self, polygon):
+    def _submask_clicked(self, polygon):
         submask_ind = self.drawings[self.active_i].index(polygon)
         sys.stderr.write('Submask %d clicked.\n' % submask_ind)
 

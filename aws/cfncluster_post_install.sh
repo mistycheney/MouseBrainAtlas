@@ -16,6 +16,11 @@ REPO_DIR="/shared/MouseBrainAtlas"
 git clone https://github.com/mistycheney/MouseBrainAtlas.git $REPO_DIR
 chown -R ubuntu $REPO_DIR
 
+# Code repo for Xiang
+REPO_DIR_XIANG="/shared/MouseBrainAtlasXiang"
+git clone https://github.com/xiangjiph/MouseBrainAtlas.git $REPO_DIR_XIANG
+chown -R ubuntu $REPO_DIR_XIANG
+
 # Kakadu
 wget http://kakadusoftware.com/wp-content/uploads/2014/06/KDU79_Demo_Apps_for_Linux-x86-64_170108.zip
 unzip KDU79_Demo_Apps_for_Linux-x86-64_170108.zip -d /home/ubuntu/
@@ -56,12 +61,14 @@ EOF
     chown -R ubuntu $JUPYTER_CONFIG_DIR
 fi
 
+jupyter nbextension enable --py widgetsnbextension
+
 # Install other utility programs
 sudo apt install -y tree screen
 
 echo """
 export REPO_DIR=/shared/MouseBrainAtlas
 alias sudosgeadmin=\"sudo -u sgeadmin -i\"
-alias start_notebook=\"jupyter notebook --notebook-dir /shared/MouseBrainAtlas; jupyter nbextension enable --py widgetsnbextension\"
+start_notebook() { jupyter notebook --notebook-dir "$@"; }
 alias increase_ebs_size=\"sudo resize2fs /dev/xvdb\"
 """ >> /home/ubuntu/.bashrc

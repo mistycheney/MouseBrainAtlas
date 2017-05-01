@@ -45,7 +45,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.button_update_merged_mask.clicked.connect(self.update_merged_mask_button_clicked)
         self.ui.button_toggle_accept_auto.clicked.connect(self.toggle_accept_auto)
         self.ui.button_toggle_accept_auto.setText(STR_USING_AUTO)
-        self.ui.button_autoSnake.clicked.connect(self.snake_all)
+        # self.ui.button_autoSnake.clicked.connect(self.snake_all)
         # self.ui.button_loadAnchorContours.clicked.connect(self.load_anchor_contours)
         # self.ui.button_saveAnchorContours.clicked.connect(self.save_anchor_contours)
         self.ui.button_loadAllInitContours.clicked.connect(self.load_all_init_snake_contours)
@@ -65,7 +65,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
-        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec > 263 and sec < 267}
+        self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec > 263 and sec < 267}
         self.valid_sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if not is_invalid(fn)}
         self.valid_filenames_to_sections = {fn: sec for sec, fn in self.valid_sections_to_filenames.iteritems()}
         q = sorted(self.valid_sections_to_filenames.items())
@@ -185,7 +185,7 @@ class MaskEditingGUI(QMainWindow):
         ## User Submasks Gscene ##
         ##########################
 
-        self.user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='userFinalMask', gview=self.ui.gview_final_masks_user)
+        self.user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='user_submasks', gview=self.ui.gview_final_masks_user)
         # self.user_submasks_feeder = ImageDataFeeder(name='autoFinalMasks', stack=self.stack, \
         #                             sections=self.valid_sections, use_data_manager=False, downscale=32,
         #                             labeled_filenames={sec: os.path.join(RAW_DATA_DIR, self.stack, fn + ".png")
@@ -196,6 +196,7 @@ class MaskEditingGUI(QMainWindow):
                                     version='aligned')
         self.user_submasks_gscene.set_data_feeder(self.user_submasks_feeder)
         self.user_submasks_gscene.submask_decision_updated.connect(self.user_submask_decision_updated)
+        self.user_submasks_gscene.submask_updated.connect(self.user_submask_updated)
 
         # # Load modified submasks and submask decisions.
         # user_modified_submasks_rootdir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_user_modified'))
@@ -225,7 +226,7 @@ class MaskEditingGUI(QMainWindow):
         #     self.selected_channels[sec] = ch
 
         # self.user_submasks_gscene.set_submasks_and_decisions(self.user_submasks, self.user_submask_decisions)
-        self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=self.user_submask_decisions)
+        # self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=self.user_submask_decisions)
 
         #########################################################
 
@@ -251,6 +252,8 @@ class MaskEditingGUI(QMainWindow):
 
         #########################################################
 
+        self.load_all_init_snake_contours()
+        self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=self.user_submask_decisions)
         for sec in self.valid_sections:
             self.update_merged_mask(sec=sec)
 
@@ -259,15 +262,13 @@ class MaskEditingGUI(QMainWindow):
         self.dialog.showMaximized()
 
         ##############################
-
-        self.load_all_init_snake_contours()
-        for sec in self.valid_sections:
-            try:
-                self.user_submasks_gscene.add_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
-                # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
-                self.update_merged_mask(sec=sec)
-            except Exception as e:
-                sys.stderr.write('%s\n' % e)
+        # for sec in self.valid_sections:
+        #     try:
+        #         # self.user_submasks_gscene.add_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
+        #         # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
+        #         self.update_merged_mask(sec=sec)
+        #     except Exception as e:
+        #         sys.stderr.write('%s\n' % e)
 
     # def upload_masks(self):
     #     transfer_data_synced(fp_relative=os.path.join(self.stack, self.stack + '_masks'),
@@ -286,10 +287,12 @@ class MaskEditingGUI(QMainWindow):
     #     save_pickle(contours_on_anchor_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
 
     def load_all_init_snake_contours(self):
-        # init_snake_contours_on_all_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_init_snake_contours.pkl'))
         init_snake_contours_on_all_sections = load_pickle(DataManager.get_initial_snake_contours_filepath(stack=stack))
         for fn, vertices in init_snake_contours_on_all_sections.iteritems():
-            self.auto_submasks_gscene.set_init_snake_contour(section=self.valid_filenames_to_sections[fn], vertices=vertices)
+            try:
+                self.auto_submasks_gscene.set_init_snake_contour(section=self.valid_filenames_to_sections[fn], vertices=vertices)
+            except:
+                pass
 
     def save_all_init_snake_contours(self):
         """Save initial snake contours for all sections."""
@@ -462,6 +465,13 @@ class MaskEditingGUI(QMainWindow):
             self.set_accept_auto_to_true(section=sec)
         self.update_merged_mask()
 
+    @pyqtSlot(int, int)
+    def user_submask_updated(self, sec, submask_ind):
+        print "user_submask_updated"
+        contour_vertices = self.user_submasks_gscene.get_polygon_vertices(section=sec, polygon_ind=submask_ind)
+        self.user_submasks[sec][submask_ind] = contours_to_mask([contour_vertices], self.user_submasks[sec][submask_ind].shape[:2])
+        self.update_merged_mask()
+
     @pyqtSlot(int)
     def user_submask_decision_updated(self, submask_ind):
         self.update_merged_mask()
@@ -474,17 +484,20 @@ class MaskEditingGUI(QMainWindow):
 
     @pyqtSlot()
     def update_merged_mask_button_clicked(self):
+        contour_vertices = self.user_submasks_gscene.get_polygon_vertices(section=sec, polygon_ind=submask_ind)
+        self.user_submasks[sec][submask_ind] = contours_to_mask([contour_vertices], self.user_submasks[sec][submask_ind].shape[:2])
         self.update_merged_mask()
 
     def update_merged_mask(self, sec=None):
         """
-        Update merged mask. Change the image shown in "Merged Mask" panel.
+        Update merged mask based on user submasks and decisions. Change the image shown in "Merged Mask" panel.
         """
 
         if sec is None:
             sec = self.auto_submasks_gscene.active_section
 
         if sec not in self.user_submask_decisions:
+            sys.stderr.write("Section %d not in user_submask_decisions.\n" % sec)
             return
 
         # fn = self.valid_sections_to_filenames[sec]
@@ -565,44 +578,44 @@ class MaskEditingGUI(QMainWindow):
     #     else:
     #         self.ui.slider_snakeShrink.setValue(MORPHSNAKE_LAMBDA1)
 
-    def snake_all(self):
-
-        for sec in self.valid_sections:
-            self.prepare_contrast_stretched_image(sec=sec)
-
-        init_snake_contour_vertices = {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
-                                        for sec in self.valid_sections}
-
-        t = time.time()
-        pool = Pool(NUM_CORES/2)
-        # This will cause TypeError: can't pickle PyCapsule objects; Must not retain any "self" in the arguments.
-        # submasks_all_sections = pool.map(lambda sec: snake(img=self.contrast_stretched_images[sec], init_contours=[init_snake_contour_vertices[sec]], lambda1=1.),
-        #     self.valid_sections)
-        images = {sec: self.contrast_stretched_images[sec] for sec in self.valid_sections}
-        submasks_all_sections = pool.map(lambda sec: snake(img=images[sec], init_contours=[init_snake_contour_vertices[sec]], lambda1=1.),
-            self.valid_sections)
-        ### This works too. ###
-        # init_snake_contour_vertices = [vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
-        #                                 for sec in self.valid_sections]
-        # images = [self.contrast_stretched_images[sec] for sec in self.valid_sections]
-        # submasks_all_sections = pool.map(lambda (img, init_cnt): snake(img=img, init_contours=[init_cnt], lambda1=1.),
-        #     zip(images, init_snake_contour_vertices))
-        pool.close()
-        pool.join()
-        sys.stderr.write("Snake all: %.2f seconds.\n" % (time.time() - t))
-
-        for sec, submasks in zip(self.valid_sections, submasks_all_sections):
-            if len(submasks) == 0:
-                sys.stderr.write('No submasks found for section %d.\n' % sec)
-                return
-            # Cast to dict - is this necessary ?
-            self.user_submasks[sec] = {i: m for i, m in enumerate(submasks)}
-            # self.user_submask_decisions[sec] = {i: d for i, d in enumerate(auto_judge_submasks(submasks))}
-            self.user_submask_decisions[sec] = {i: True for i, d in enumerate(submasks)}
-
-            self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
-            self.set_accept_auto_to_false(section=sec)
-            self.update_merged_mask(sec=sec)
+    # def snake_all(self):
+    #
+    #     for sec in self.valid_sections:
+    #         self.prepare_contrast_stretched_image(sec=sec)
+    #
+    #     init_snake_contour_vertices = {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+    #                                     for sec in self.valid_sections}
+    #
+    #     t = time.time()
+    #     pool = Pool(NUM_CORES/2)
+    #     # This will cause TypeError: can't pickle PyCapsule objects; Must not retain any "self" in the arguments.
+    #     # submasks_all_sections = pool.map(lambda sec: snake(img=self.contrast_stretched_images[sec], init_contours=[init_snake_contour_vertices[sec]], lambda1=1.),
+    #     #     self.valid_sections)
+    #     images = {sec: self.contrast_stretched_images[sec] for sec in self.valid_sections}
+    #     submasks_all_sections = pool.map(lambda sec: snake(img=images[sec], init_contours=[init_snake_contour_vertices[sec]], lambda1=1.),
+    #         self.valid_sections)
+    #     ### This works too. ###
+    #     # init_snake_contour_vertices = [vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+    #     #                                 for sec in self.valid_sections]
+    #     # images = [self.contrast_stretched_images[sec] for sec in self.valid_sections]
+    #     # submasks_all_sections = pool.map(lambda (img, init_cnt): snake(img=img, init_contours=[init_cnt], lambda1=1.),
+    #     #     zip(images, init_snake_contour_vertices))
+    #     pool.close()
+    #     pool.join()
+    #     sys.stderr.write("Snake all: %.2f seconds.\n" % (time.time() - t))
+    #
+    #     for sec, submasks in zip(self.valid_sections, submasks_all_sections):
+    #         if len(submasks) == 0:
+    #             sys.stderr.write('No submasks found for section %d.\n' % sec)
+    #             return
+    #         # Cast to dict - is this necessary ?
+    #         self.user_submasks[sec] = {i: m for i, m in enumerate(submasks)}
+    #         # self.user_submask_decisions[sec] = {i: d for i, d in enumerate(auto_judge_submasks(submasks))}
+    #         self.user_submask_decisions[sec] = {i: True for i, d in enumerate(submasks)}
+    #
+    #         self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
+    #         self.set_accept_auto_to_false(section=sec)
+    #         self.update_merged_mask(sec=sec)
 
     def update_contrast_stretched_image(self, sec):
         if sec not in self.original_images:

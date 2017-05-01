@@ -26,27 +26,26 @@ class DrawableZoomableBrowsableGraphicsScene_ForSnake(DrawableZoomableBrowsableG
 
         super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self).__init__(id=id, gview=gview, parent=parent)
 
-        self.polygon_completed.connect(self.polygon_completed_callback)
-        self.polygon_pressed.connect(self.submask_clicked)
-        self.polygon_deleted.connect(self.polygon_deleted_callback)
+        # self.polygon_completed.connect(self._submask_added)
+        # self.polygon_deleted.connect(self._submask_deleted)
 
         self.init_snake_contour_polygons = {}
         self.is_adding_snake_contour = False
         self.anchor_sections = set([])
 
-    def polygon_completed_callback(self, polygon):
+    def _submask_added(self, polygon):
         if self.is_adding_snake_contour:
             self.init_snake_contour_polygons[self.active_section] = polygon
             self.set_current_section_as_anchor()
             self.is_adding_snake_contour = False
         else:
-            self.submask_added(polygon)
+            super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self)._submask_added(polygon)
 
-    def polygon_deleted_callback(self, polygon):
+    def _submask_deleted(self, polygon):
         if self.is_adding_snake_contour:
             pass
         else:
-            self.submask_deleted(polygon)
+            super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self)._submask_deleted(polygon)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress:

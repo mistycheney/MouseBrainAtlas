@@ -12,13 +12,18 @@ else:
     from PyQt4.QtGui import *
 
 from SignalEmittingGraphicsPathItem import SignalEmittingGraphicsPathItem
-from SignalEmittingItems import PolygonSignalEmitter, QGraphicsEllipseItemModified
+from SignalEmittingItems import PolygonSignalEmitter, QGraphicsEllipseItemModified, QGraphicsEllipseItemModified3
 
 from gui_utilities import *
 
 class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPathItem):
+    """
+    Extends base class by:
+    - Define a list of `QGraphicsEllipseItemModified` called vertex_circles.
+    """
+
     def __init__(self, path, parent=None, gscene=None, vertex_radius=None):
-        super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent)
+        super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent, gscene=gscene)
 
         self.vertex_circles = []
 
@@ -89,7 +94,24 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
 
         self.signal_emitter.vertex_added.emit(ellipse)
         ellipse.signal_emitter.press.connect(self.vertex_press)
+        ellipse.signal_emitter.moved.connect(self.vertex_moved_callback)
         return ellipse
+
+    def vertex_moved_callback(self, circ, new_x, new_y):
+        if circ in self.vertex_circles:
+            # When circle is just created, itemChange will be called, but it is not added to the list yet.
+            vertex_index = self.vertex_circles.index(circ)
+            new_path = self.path()
+            if vertex_index == 0 and polygon_is_closed(path=new_path): # closed
+                new_path.setElementPositionAt(0, new_x, new_y)
+                new_path.setElementPositionAt(len(self.vertex_circles), new_x, new_y)
+            else:
+                new_path.setElementPositionAt(vertex_index, new_x, new_y)
+            self.setPath(new_path)
+
+            self.signal_emitter.polygon_changed.emit()
+        else:
+            raise Exception('vertex_moved signal is received from a non-member vertex.')
 
     def add_vertex(self, x, y, new_index=-1):
         if new_index == -1:
@@ -101,11 +123,17 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         self.add_circle_for_vertex(new_index)
 
     def delete_vertices(self, indices_to_remove, merge=False):
+        if merge:
+            for i in indices_to_remove:
+                self.gscene.removeItem(self.vertex_circles[i])
+            self.vertex_circles = [c for c in self.vertex_circles if c not in indices_to_remove]
 
-    	if merge:
-    		new_path = delete_vertices_merge(self.path(), indices_to_remove)
-    	else:
-    		paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
+            new_path = delete_vertices_merge(self.path(), indices_to_remove)
+            self.setPath(new_path)
+
+            self.signal_emitter.polygon_changed.emit()
+        else:
+            paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)
 
     def set_closed(self, closed):
         self.closed = closed

@@ -484,6 +484,8 @@ class MaskEditingGUI(QMainWindow):
 
     @pyqtSlot()
     def update_merged_mask_button_clicked(self):
+        contour_vertices = self.user_submasks_gscene.get_polygon_vertices(section=sec, polygon_ind=submask_ind)
+        self.user_submasks[sec][submask_ind] = contours_to_mask([contour_vertices], self.user_submasks[sec][submask_ind].shape[:2])
         self.update_merged_mask()
 
     def update_merged_mask(self, sec=None):

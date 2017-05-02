@@ -7,7 +7,7 @@ try:
 except:
     sys.stderr.write('No boto3\n')
 from pandas import read_hdf
-    
+
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
@@ -1444,10 +1444,10 @@ class DataManager(object):
         """
 
         is_fluorescent = stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks
-        
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
-        
+
         if resol == 'lossless' and version == 'compressed':
             if is_fluorescent:
                 image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
@@ -1468,8 +1468,8 @@ class DataManager(object):
             sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
 
         return image_dir
-            
-    
+
+
     @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None):
         """
@@ -1486,7 +1486,7 @@ class DataManager(object):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
             assert fn is not None
-            
+
         is_fluorescent = (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks) and fn.split('-')[1][0] == 'F'
 
         if anchor_fn is None:

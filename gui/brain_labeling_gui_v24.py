@@ -86,6 +86,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #                     8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
 
         # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
+
         try:
             self.volume_cache = {32: DataManager.load_intensity_volume(self.stack, downscale=32)}
         except:

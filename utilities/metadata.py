@@ -80,7 +80,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     DATA_DIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
     THUMBNAIL_DATA_DIR = DATA_DIR
-    volume_dir = '/home/yuncong/CSHL_volumes2/'
+    VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes/'
     annotation_rootdir = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped/'
     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'

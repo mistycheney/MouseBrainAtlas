@@ -1765,7 +1765,8 @@ def generate_metadata_cache():
      'MD603': (20928, 13472),
      'MD635': (20960, 14240),
      'MD642': (28704, 15584),
-     'MD657': (27584, 16960)}
+     'MD657': (27584, 16960),
+    'MD658': (19936, 15744)}
     metadata_cache['anchor_fn'] = {}
     metadata_cache['sections_to_filenames'] = {}
     metadata_cache['section_limits'] = {}

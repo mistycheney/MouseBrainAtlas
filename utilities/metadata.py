@@ -16,7 +16,7 @@ if hostname.endswith('sdsc.edu'):
     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
     thumbnail_data_dir = data_dir
     THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    REGISTRTION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
+    REGISTRATION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
     REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
@@ -69,6 +69,11 @@ elif hostname == 'yuncong-MacbookPro':
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
+    CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
@@ -84,55 +89,63 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
 
+    CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
+    ROOT_DIR = '/shared'
+    # ROOT_DIR = os.environ['ROOT_DIR']
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
-    RAW_DATA_DIR = '/shared/CSHL_data'
-    DATA_DIR = '/shared/CSHL_data_processed'
-    THUMBNAIL_DATA_DIR = '/shared/CSHL_data_processed'
-    #VOLUME_ROOTDIR = '/shared/CSHL_volumes2'
-    VOLUME_ROOTDIR = '/shared/CSHL_volumes'
+    RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
+    DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
-    ANNOTATION_ROOTDIR = '/shared/CSHL_labelings_v3'
+    ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
-    PATCH_FEATURES_ROOTDIR = '/shared/CSHL_patch_features'
+    PATCH_FEATURES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_features')
+    SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
+    REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
+    REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
     # SPARSE_SCORES_ROOTDIR = '/shared/CSHL_patch_Sat16ClassFinetuned_v2_predictions'
     # SCOREMAPS_ROOTDIR = '/shared/CSHL_lossless_scoremaps_Sat16ClassFinetuned_v2'
     # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
 
-    CELLS_ROOTDIR = '/shared/CSHL_cells_v2'
+    CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
 
-    CLF_ROOTDIR = '/shared/CSHL_classifiers'
+    CLF_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
-
-elif hostname.endswith('GL502VM'):
-    print 'Setting environment for Local Machine Saienthan'
-    ON_AWS = False
-    os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
-    RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
-    data_dir = '/home/saienthan/data/CSHL_data_processed/'
-    DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
-    thumbnail_data_dir = data_dir
-    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    volume_dir = '/home/saienthan/data/CSHL_volumes2/'
-    annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-    ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-    GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
+# elif hostname.endswith('GL502VM'):
+#     print 'Setting environment for Local Machine Saienthan'
+#     ON_AWS = False
+#     os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
+#     RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
+#     data_dir = '/home/saienthan/data/CSHL_data_processed/'
+#     DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
+#     thumbnail_data_dir = data_dir
+#     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+#     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
+#     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+#     ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
+#     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -197,6 +210,14 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin)
 
 
+
+#######################################
+
+from pandas import read_csv
+dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
+classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
+registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
+
 ############ Class Labels #############
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
@@ -206,7 +227,8 @@ all_known_structures = paired_structures + singular_structures
 all_known_structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in all_known_structures], [])
-all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
+#all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
+all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin=200) for s in all_known_structures_sided]
 all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
@@ -239,9 +261,14 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_alt_nissl_tracing_stacks = ['MD657']
+all_alt_nissl_tracing_stacks = ['MD657', 'MD658']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
+
+#######################################
+
+import multiprocessing
+NUM_CORES = multiprocessing.cpu_count()

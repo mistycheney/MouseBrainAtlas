@@ -56,14 +56,19 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     #     self.mode = mode
 
     def get_requested_index_and_section(self, i=None, sec=None):
-        if i is None and sec is None:# if index is None and section is None:
+        if i is None and sec is None:
             if hasattr(self, 'active_i'):
                 i = self.active_i
+                sec = self.data_feeder.sections[i]
         elif sec is not None:
-            if sec in self.data_feeder.all_sections:
-                i = self.data_feeder.all_sections.index(sec)
+            if sec in self.data_feeder.sections:
+                i = self.data_feeder.sections.index(sec)
             else:
-                raise Exception('Not implemented.')
+                raise Exception('Section %d is not valid.' % sec)
+        elif i is not None:
+            sec = self.data_feeder.sections[i]
+
+        assert i is not None and sec is not None
         return i, sec
 
     def set_data_feeder(self, feeder):
@@ -92,7 +97,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
 
         self.active_i = i
         if hasattr(self.data_feeder, 'sections'):
-            self.active_section = self.data_feeder.all_sections[self.active_i]
+            self.active_section = self.data_feeder.sections[self.active_i]
             print self.id, ': Set active section to', self.active_section
 
         try:
@@ -100,7 +105,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         except Exception as e: # if failed, do not change active_i or active_section
             sys.stderr.write('Error setting index to %d\n' % i)
             # self.active_i = old_i
-            # self.active_section = self.data_feeder.all_sections[old_i]
+            # self.active_section = self.data_feeder.sections[old_i]
             self.pixmapItem.setVisible(False)
             raise e
 
@@ -118,14 +123,13 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         self.active_section = sec
 
         if hasattr(self.data_feeder, 'sections'):
-
-            if sec not in self.data_feeder.all_sections:
+            if sec not in self.data_feeder.sections:
                 self.pixmapItem.setVisible(False)
                 self.active_i = None
                 sys.stderr.write('Section %s is not loaded.\n' % sec)
                 raise Exception('Section %s is not loaded.\n' % sec)
             else:
-                i = self.data_feeder.all_sections.index(sec)
+                i = self.data_feeder.sections.index(sec)
                 self.set_active_i(i, emit_changed_signal=emit_changed_signal)
 
         # self.active_section = sec
@@ -133,8 +137,8 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     def update_image(self, i=None, sec=None):
 
         if sec is not None:
-            assert sec in self.data_feeder.all_sections
-            i = self.data_feeder.all_sections.index(sec)
+            assert sec in self.data_feeder.sections
+            i = self.data_feeder.sections.index(sec)
         elif i is None:
             assert self.active_i is not None
             i = self.active_i

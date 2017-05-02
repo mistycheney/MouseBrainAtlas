@@ -42,7 +42,7 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
         self.removeItem(polygon)
 
     def remove_all_polygons(self, sec=None, i=None):
-        self.get_requested_index_and_section(sec=sec, i=i)
+        index, _ = self.get_requested_index_and_section(sec=sec, i=i)
         for p in self.drawings[index]:
             self.remove_polygon(p)
 
@@ -67,13 +67,17 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
             pen = QPen(Qt.green)
         elif color == 'b':
             pen = QPen(Qt.blue)
+        elif isinstance(color, tuple) or  isinstance(color, list):
+            pen = QPen(QColor(color[0], color[1], color[2]))
+        else:
+            raise Exception('color not recognized.')
 
         if linewidth is None:
             linewidth = self.default_line_width
 
         pen.setWidth(linewidth)
 
-        index, section = self.get_requested_index_and_section(i=index, sec=section)
+        index, _ = self.get_requested_index_and_section(i=index, sec=section)
 
         polygon = SignalEmittingGraphicsPathItem(path, gscene=self)
 
@@ -86,6 +90,7 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
         # polygon.signal_emitter.release.connect(self.polygon_release)
 
         self.drawings[index].append(polygon)
+        self.drawings_mapping[polygon] = index
 
         # if adding polygon to current section
         if index == self.active_i:

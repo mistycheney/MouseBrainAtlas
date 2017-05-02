@@ -373,7 +373,32 @@ train acc: 0.869
 test set: 21
 test acc: 0.789
 
+33:
+train set: 20/21
+neg_composition: neg_has_all_surround
+margin: 500
+model: gb1
+train acc: 0.961
+test set: 22
+test acc: 0.813
 
+34:
+train set: 21/22
+neg_composition: neg_has_all_surround
+margin: 500
+model: lr
+train acc: 0.963
+test set: 20
+test acc: 0.778
+
+35:
+train set: 20/22
+neg_composition: neg_has_all_surround
+margin: 500
+model: lr
+train acc: 0.966
+test set: 21
+test acc: 0.798
 
 ## Evaluation ##
 

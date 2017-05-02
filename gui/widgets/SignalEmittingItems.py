@@ -278,6 +278,11 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
         elif color == 'b':
             ellipse.setPen(Qt.blue)
             ellipse.setBrush(Qt.blue)
+        elif isinstance(color, tuple) or isinstance(color, list):
+            ellipse.setPen(QColor(color[0], color[1], color[2]))
+            ellipse.setBrush(QColor(color[0], color[1], color[2]))
+        else:
+            raise Exception('Input color is not recognized.')
 
         ellipse.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         ellipse.setZValue(99)
@@ -492,9 +497,12 @@ class QGraphicsEllipseItemModified3(QGraphicsEllipseItem):
         QGraphicsEllipseItem.mouseReleaseEvent(self, event)
         self.signal_emitter.released.emit(self)
 
-
-
 class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
+    """
+    Extend base class by:
+    - emit pressed and moved signals
+    - define an associated polygon
+    """
 
     def __init__(self, x, y, w, h, parent=None, polygon=None):
         super(self.__class__, self).__init__(x,y,w,h, parent=parent)
@@ -513,28 +521,37 @@ class QGraphicsEllipseItemModified(QGraphicsEllipseItem):
 
     def itemChange(self, change, val):
         # print change
+
         if change == QGraphicsItem.ItemPositionChange:
-            old_pos = self.scenePos()
+            # old_pos = self.scenePos()
             # print 'old', old_pos.x(), old_pos.y()
             new_x = val.toPoint().x()
             new_y = val.toPoint().y()
             # print 'new', new_x, new_y
+            self.signal_emitter.moved.emit(self, new_x, new_y)
 
-            if self in self.polygon.vertex_circles:
-                # When circle is just created, itemChange will be calle, but it is not added to the list yet.
-
-                vertex_index = self.polygon.vertex_circles.index(self)
-                # print vertex_index
-
-                new_path = self.polygon.path()
-
-                if vertex_index == 0 and polygon_is_closed(path=new_path): # closed
-                    new_path.setElementPositionAt(0, new_x, new_y)
-                    new_path.setElementPositionAt(len(self.polygon.vertex_circles), new_x, new_y)
-                else:
-                    new_path.setElementPositionAt(vertex_index, new_x, new_y)
-
-                self.polygon.setPath(new_path)
+        # if change == QGraphicsItem.ItemPositionChange:
+        #     old_pos = self.scenePos()
+        #     # print 'old', old_pos.x(), old_pos.y()
+        #     new_x = val.toPoint().x()
+        #     new_y = val.toPoint().y()
+        #     # print 'new', new_x, new_y
+        #
+        #     if self in self.polygon.vertex_circles:
+        #         # When circle is just created, itemChange will be called, but it is not added to the list yet.
+        #
+        #         vertex_index = self.polygon.vertex_circles.index(self)
+        #         # print vertex_index
+        #
+        #         new_path = self.polygon.path()
+        #
+        #         if vertex_index == 0 and polygon_is_closed(path=new_path): # closed
+        #             new_path.setElementPositionAt(0, new_x, new_y)
+        #             new_path.setElementPositionAt(len(self.polygon.vertex_circles), new_x, new_y)
+        #         else:
+        #             new_path.setElementPositionAt(vertex_index, new_x, new_y)
+        #
+        #         self.polygon.setPath(new_path)
 
         #
         # elif change == QGraphicsItem.ItemPositionHasChanged:
@@ -591,6 +608,8 @@ class PolygonSignalEmitter(QObject):
     press = pyqtSignal(object)
     release = pyqtSignal()
     vertex_added = pyqtSignal(object)
+    polygon_changed = pyqtSignal()
+    # vertex_deleted = pyqtSignal(object)
     evoke_label_selection = pyqtSignal()
     label_added = pyqtSignal(object)
     # polygon_closed = pyqtSignal([], [object])

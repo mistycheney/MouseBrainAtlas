@@ -139,7 +139,8 @@ def load_submasks(submasks_rootdir):
 def auto_judge_submasks(submasks):
     n = len(submasks)
 
-    rank1 = np.argsort([np.count_nonzero(m) for m in submasks])[::-1]
+    submask_areas = [np.count_nonzero(m) for m in submasks]
+    rank1 = np.argsort(submask_areas)[::-1] # sort by area from large to small
 
     image_center = np.r_[submasks[0].shape[1]/2, submasks[0].shape[0]/2]
 
@@ -149,11 +150,15 @@ def auto_judge_submasks(submasks):
         dist = np.sqrt(np.sum((image_center - ((xmin + xmax)/2, (ymin+ymax)/2))**2))
         bbox_to_image_center_distance.append(dist)
 
-    rank2 = np.argsort(bbox_to_image_center_distance)
+    rank2 = np.argsort(bbox_to_image_center_distance) # sort by center distance from small to large
 
     r1 = np.asarray([r for r, i in sorted(enumerate(rank1), key=lambda (r,i): i)])
     r2 = np.asarray([r for r, i in sorted(enumerate(rank2), key=lambda (r,i): i)])
-    rank = np.argsort(r1 + 1.01 * r2) # weight being close to center a bit more to break tie
+    print 'area', submask_areas
+    print 'area penalty', r1
+    print 'box_to_center_distance', bbox_to_image_center_distance
+    print 'bbox center penalty', r2
+    rank = np.argsort(r1 + 0.2 * r2)
     best_mask_ind = rank[0]
 
     decisions = [False for _ in range(n)]
@@ -161,17 +166,45 @@ def auto_judge_submasks(submasks):
 
     return decisions
 
-def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
+# def do_snake_worker(image, init_snake_contour_vertices, lambda1):
+#     submasks = snake(img=image, init_contours=[init_snake_contour_vertices], lambda1=lambda1)
+#     return submasks
+#
+# def snake_parallel(images_all_sections, init_snake_contours_all_sections, lambda1=1.):
+#
+#     pool = Pool(NUM_CORES)
+#     submasks_all_sections = pool.map(lambda (img, init_cnt): do_snake_worker(img, init_cnt, lambda1),
+#                                     zip(images_all_sections, init_snake_contours_all_sections))
+#     pool.close()
+#     pool.join()
+#
+#     return submasks_all_sections
+
+def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA1, return_masks=True, min_size=MIN_SIZE):
 
     # Find contours from mask.
-    init_contours = []
-    for submask in submasks:
-        cnts = find_contour_points(submask.astype(np.int), sample_every=1)
-        if 1 not in cnts or len(cnts[1]) == 0:
-            continue
-        for cnt in cnts[1]:
-            if len(cnt) > INIT_CONTOUR_MINLEN:
-                init_contours.append(cnt)
+    if init_contours is None:
+        init_contours = []
+        for submask in init_submasks:
+            cnts = find_contour_points(submask.astype(np.int), sample_every=1)
+            if 1 not in cnts or len(cnts[1]) == 0:
+                continue
+            for cnt in cnts[1]:
+                if len(cnt) > INIT_CONTOUR_MINLEN:
+                    init_contours.append(cnt)
+    else:
+        init_contours = [c.astype(np.int) for c in init_contours]
+
+    xmin, ymin = np.min([np.min(c, axis=0) for c in init_contours], axis=0)
+    xmax, ymax = np.max([np.max(c, axis=0) for c in init_contours], axis=0)
+    margin = 50
+    crop_xmin = max(0, xmin - margin)
+    crop_ymin = max(0, ymin - margin)
+    crop_xmax = min(img.shape[1], xmax + margin)
+    crop_ymax = min(img.shape[0], ymax + margin)
+    cropped_img = img[crop_ymin:crop_ymax+1, crop_xmin:crop_xmax+1]
+    # cropped_img_height, cropped_img_width = cropped_img.shape[:2]
+    init_contours_on_cropped_img = [c-(crop_xmin, crop_ymin) for c in init_contours]
 
     # init_contours = [xys for submask in submasks
     #                  for xys in find_contour_points(submask.astype(np.int), sample_every=1)[1]
@@ -180,11 +213,11 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
 
     # Create initial levelset
     init_levelsets = []
-    for cnt in init_contours:
-        init_levelset = np.zeros_like(img, np.float)
+    for cnt in init_contours_on_cropped_img:
+        init_levelset = np.zeros_like(cropped_img, np.float)
 
         t = time.time()
-        init_levelset[contours_to_mask([cnt], img.shape[:2])] = 1.
+        init_levelset[contours_to_mask([cnt], cropped_img.shape[:2])] = 1.
         sys.stderr.write('Contour to levelset: %.2f seconds\n' % (time.time() - t)) # 10s
 
         init_levelset[:10, :] = 0
@@ -193,7 +226,7 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
         init_levelset[:, -10:] = 0
         init_levelsets.append(init_levelset)
 
-    img_enhanced = img.copy()
+    # img_enhanced = img.copy()
 
     #####################
     # Evolve morphsnake #
@@ -210,14 +243,13 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
 
         t = time.time()
 
-        msnake = morphsnakes.MorphACWE(img_enhanced.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
+        msnake = morphsnakes.MorphACWE(cropped_img.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
                                        lambda1=lambda1, lambda2=MORPHSNAKE_LAMBDA2)
 
         msnake.levelset = init_levelset.copy()
 
         dq = deque([None, None])
         for i in range(MORPHSNAKE_MAXITER):
-
             # At stable stage, the levelset (thus contour) will oscilate,
             # so instead of comparing to previous levelset, must compare to the one before the previous
             oneBefore_levelset = dq.popleft()
@@ -229,13 +261,12 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
 
             area = np.count_nonzero(msnake.levelset)
 
-            if area < MIN_SIZE:
+            if area < min_size:
                 discard = True
                 sys.stderr.write('Too small, stop iteration.\n')
                 break
 
             # If area changes more than 2, stop.
-
             labeled_mask = label(msnake.levelset.astype(np.bool))
             for l in np.unique(labeled_mask):
                 if l != 0:
@@ -267,14 +298,26 @@ def snake(img, submasks, lambda1=MORPHSNAKE_LAMBDA1):
             for l in np.unique(labeled_mask):
                 if l != 0:
                     m = labeled_mask == l
-                    if np.count_nonzero(m) > MIN_SIZE:
+                    if np.count_nonzero(m) > min_size:
                         final_masks.append(m)
                         sys.stderr.write('Final masks added.\n')
 
     if len(final_masks) == 0:
         sys.stderr.write('Snake return no valid submasks.\n')
 
-    return final_masks
+    if return_masks:
+        final_masks_uncropped = []
+        for m in final_masks:
+            uncropped_mask = np.zeros(img.shape[:2], np.bool)
+            uncropped_mask[crop_ymin:crop_ymax+1, crop_xmin:crop_xmax+1] = m
+            final_masks_uncropped.append(uncropped_mask)
+        return final_masks_uncropped
+    else:
+        final_contours = []
+        for m in final_masks:
+            cnts = [cnt_on_cropped + (crop_xmin, crop_ymin) for cnt_on_cropped in find_contour_points(m)[1]]
+            final_contours += cnts
+        return final_contours
 
 def get_submasks(ncut_labels, sp_dissims, dissim_thresh):
     """Generate mask for snake's initial contours."""
@@ -465,27 +508,14 @@ def determine_dissim_threshold(sp_dissims, ncut_labels):
 
 
 def contrast_stretch_image(img):
-
-    # rborder = np.median(np.concatenate([img_rgb[:10, :, 0].flatten(), img_rgb[-10:, :, 0].flatten(), img_rgb[:, :10, 0].flatten(), img_rgb[:, -10:, 0].flatten()]))
-    # gborder = np.median(np.concatenate([img_rgb[:10, :, 1].flatten(), img_rgb[-10:, :, 1].flatten(), img_rgb[:, :10, 1].flatten(), img_rgb[:, -10:, 1].flatten()]))
-    # bborder = np.median(np.concatenate([img_rgb[:10, :, 2].flatten(), img_rgb[-10:, :, 2].flatten(), img_rgb[:, :10, 2].flatten(), img_rgb[:, -10:, 2].flatten()]))
-
-    # img = img_rgb[..., channel].copy()
-
-    # border = np.median(np.concatenate([img[:10, :].flatten(), img[-10:, :].flatten(), img[:, :10].flatten(), img[:, -10:].flatten()]))
-    #
-    # if border < 123:
-    #     # dark background, fluorescent
-    #     img = img.max() - img # invert, make tissue dark on bright background
-
-    # Equalize histogram
-
-    # from skimage.exposure import equalize_hist, equalize_adapthist
-
-    # img = img_as_ubyte(equalize_hist(img))
+    """
+    Args:
+        img (2D np.ndarray): single-channel image.
+    """
 
     # Stretch contrast
-    img_flattened = img.flatten()
+    # img_flattened = img.flatten()
+    img_flattened = img[(img > 0) & (img < 255)] # ignore 0 and 255 which are likely artificial background
 
     vmax_perc = VMAX_PERCENTILE
     while vmax_perc > 80:

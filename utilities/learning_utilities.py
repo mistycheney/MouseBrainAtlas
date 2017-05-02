@@ -17,9 +17,6 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
-classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
-
 def load_datasets(dataset_ids, labels_to_sample):
     
     merged_features = {}
@@ -183,6 +180,8 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
     Args:
         indices:
             grid indices
+        locs:
+            patch centers
 
     Returns:
         list of patches.
@@ -202,7 +201,7 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
             grid_locations = grid_parameters_to_sample_locations(grid_spec)
         locs = grid_locations[indices]
 
-    print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
+    #print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 

@@ -51,7 +51,7 @@ def scoremap_overlay(stack, structure, downscale, setting,
     if fn is None:
         assert sec is not None
         fn = metadata_cache['sections_to_filenames'][stack][sec]
-        if is_invalid(fn): return
+        if is_invalid(fn=fn): return
 
     # scoremap_d = dense_score_map_lossless[::downscale, ::downscale]
     # h, w = scoremap_d.shape
@@ -83,7 +83,14 @@ def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=Non
         if is_invalid(fn): return
 
     if bg == 'original':
-        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed'))[::downscale, ::downscale]
+        if downscale == 32:
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='thumbnail', version='cropped')
+            # download_from_s3_to_ec2(fp)
+            bg = imread(fp)
+        else:
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed')
+            # download_from_s3_to_ec2(fp)
+            bg = imread(fp)[::downscale, ::downscale]
 
     # t = time.time()
     ret = scoremap_overlay(stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale,

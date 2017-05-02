@@ -76,7 +76,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
         #     del self.submasks[sec]
         self.delete_all_polygons_one_section(section=section)
         if section in self._submask_decisions:
-            del self._submask_decisions[section]
+            self._submask_decisions.pop(section)
 
     def _add_submasks_and_decisions_one_section(self, sec, submasks, submask_decisions):
 

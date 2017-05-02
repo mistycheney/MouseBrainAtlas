@@ -20,7 +20,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForSnake(DrawableZoomableBrowsableG
     - define a flag is_adding_snake_contour, so we know a polygon_completed signal is for
     """
 
-    submask_decision_updated = pyqtSignal(int)
+    # submask_decision_updated = pyqtSignal(int)
+    submask_decision_updated = pyqtSignal(int, int, bool)
 
     def __init__(self, id, gview=None, parent=None):
 
@@ -41,11 +42,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForSnake(DrawableZoomableBrowsableG
         else:
             super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self)._submask_added(polygon)
 
-    def _submask_deleted(self, polygon):
+    def _submask_deleted(self, polygon, index, polygon_index):
         if self.is_adding_snake_contour:
             pass
         else:
-            super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self)._submask_deleted(polygon)
+            super(DrawableZoomableBrowsableGraphicsScene_ForSnake, self)._submask_deleted(polygon, index, polygon_index)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress:

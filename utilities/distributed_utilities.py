@@ -10,13 +10,41 @@ import boto3
 from utilities2015 import execute_command, shell_escape
 from metadata import *
 
+
+default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
+
+
+def upload_to_s3(fp, local_root=default_root[HOST_ID], is_dir=False):
+    transfer_data_synced(relative_to_local(fp, local_root=local_root),
+                        from_hostname=HOST_ID,
+                        to_hostname='s3',
+                        is_dir=is_dir,
+                        from_root=local_root)
+
+def download_from_s3(fp, local_root=default_root[HOST_ID], is_dir=False, redownload=False):
+    
+    if redownload or not os.path.exists(fp):
+        transfer_data_synced(relative_to_local(fp, local_root=local_root), 
+                            from_hostname='s3',
+                            to_hostname=HOST_ID,
+                            is_dir=is_dir,
+                            to_root=local_root)
+
+
+def relative_to_local(abs_fp, local_root):
+    #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
+    common_prefix = os.path.commonprefix([abs_fp, local_root])
+    relative_path = os.path.relpath(abs_fp, common_prefix)
+    return relative_path    
+    
+
 def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
     transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root),
                         from_hostname='ec2',
                         to_hostname='s3',
                         is_dir=is_dir,
                         from_root=ec2_root)    
-
+    
 def download_from_s3_to_ec2(fp, is_dir=False, redownload=False, ec2_root='/shared'):
     
     if redownload or not os.path.exists(fp):
@@ -91,9 +119,6 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
     
     sys.stderr.write('%.2f seconds.\n' % (time.time() - t))
         
-
-default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
-
 def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
     if from_root is None:
         from_root = default_root[from_hostname]

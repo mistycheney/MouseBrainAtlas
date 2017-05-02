@@ -46,11 +46,13 @@ class MaskEditingGUI(QMainWindow):
         self.ui.button_toggle_accept_auto.clicked.connect(self.toggle_accept_auto)
         self.ui.button_toggle_accept_auto.setText(STR_USING_AUTO)
         # self.ui.button_autoSnake.clicked.connect(self.snake_all)
-        # self.ui.button_loadAnchorContours.clicked.connect(self.load_anchor_contours)
-        # self.ui.button_saveAnchorContours.clicked.connect(self.save_anchor_contours)
+        self.ui.button_loadAnchorContours.clicked.connect(self.load_anchor_contours)
+        self.ui.button_saveAnchorContours.clicked.connect(self.save_anchor_contours)
         self.ui.button_loadAllInitContours.clicked.connect(self.load_all_init_snake_contours)
         self.ui.button_saveAllInitContours.clicked.connect(self.save_all_init_snake_contours)
-        self.ui.button_saveFinalMasks.clicked.connect(self.save_final_masks)
+        self.ui.button_saveAllFinalMasks.clicked.connect(self.save_final_masks_all_sections)
+        self.ui.button_saveCurrFinalMasks.clicked.connect(self.save_final_masks_curr_section)
+        self.ui.button_exportAllMasks.clicked.connect(self.export_final_masks_all_sections)
 
         self.ui.slider_snakeShrink.setSingleStep(1)
         self.ui.slider_snakeShrink.setMinimum(0)
@@ -65,7 +67,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
-        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 0 and sec < 10}
+        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 95 and sec < 105}
         self.valid_sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if not is_invalid(fn)}
         self.valid_filenames_to_sections = {fn: sec for sec, fn in self.valid_sections_to_filenames.iteritems()}
         q = sorted(self.valid_sections_to_filenames.items())
@@ -90,7 +92,10 @@ class MaskEditingGUI(QMainWindow):
         self.merged_mask_vizs = {}
 
         # self.auto_submask_decisions = {}
-        self.user_submask_decisions = {}
+        # self.user_submask_decisions = {}
+        user_submask_decisions = {}
+
+        self.user_modified_sections = set([])
 
         # Load decisions from final decision file.
         from pandas import read_csv
@@ -104,7 +109,7 @@ class MaskEditingGUI(QMainWindow):
 
             decisions = read_csv(decision_fp, header=None, index_col=0)[1].to_dict()
             print decision_fp, decisions
-            self.user_submask_decisions[fn] = decisions
+            user_submask_decisions[fn] = decisions
 
             self.user_submasks[fn] = {}
             for submask_ind, decision in decisions.iteritems():
@@ -180,7 +185,7 @@ class MaskEditingGUI(QMainWindow):
         self.anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
         # filenames_to_sections, _ = DataManager.load_sorted_filenames(stack=self.stack)
         # self.auto_submasks_gscene.set_active_section(filenames_to_sections[self.anchor_fn], emit_changed_signal=False)
-        self.auto_submasks_gscene.set_active_section(1, emit_changed_signal=False)
+        self.auto_submasks_gscene.set_active_section(100, emit_changed_signal=False)
 
         ##########################
         ## User Submasks Gscene ##
@@ -206,7 +211,7 @@ class MaskEditingGUI(QMainWindow):
         # self.user_submasks = convert_keys_fn_to_sec(filter_by_keys(user_submasks, self.valid_filenames))
 
         self.user_submasks = convert_keys_fn_to_sec(filter_by_keys(self.user_submasks, self.valid_filenames))
-        self.user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(self.user_submask_decisions, self.valid_filenames))
+        user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(user_submask_decisions, self.valid_filenames))
 
         # user_submask_decisions = generate_submask_review_results(submasks_rootdir=user_modified_submasks_rootdir, filenames=self.valid_filenames, which='user')
         # user_submask_decisions = convert_keys_fn_to_sec(filter_by_keys(user_submask_decisions, self.valid_filenames))
@@ -253,10 +258,13 @@ class MaskEditingGUI(QMainWindow):
 
         #########################################################
 
-        self.load_all_init_snake_contours()
-        self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=self.user_submask_decisions)
-        for sec in self.valid_sections:
-            self.update_merged_mask(sec=sec)
+        try:
+            self.load_all_init_snake_contours()
+            self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=user_submask_decisions)
+            for sec in self.valid_sections:
+                self.update_merged_mask(sec=sec)
+        except:
+            sys.stderr.write('No initial snake contours are set.\n')
 
         #########################################################
 
@@ -275,17 +283,17 @@ class MaskEditingGUI(QMainWindow):
     #     transfer_data_synced(fp_relative=os.path.join(self.stack, self.stack + '_masks'),
     #                         from_hostname='localhost', to_hostname='dm')
 
-    # def load_anchor_contours(self):
-    #     contours_on_anchor_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
-    #     for sec, vertices in contours_on_anchor_sections.iteritems():
-    #         self.auto_submasks_gscene.set_init_snake_contour(section=sec, vertices=vertices)
-    #         self.auto_submasks_gscene.set_section_as_anchor(section=sec)
-    #
-    # def save_anchor_contours(self):
-    #     contours_on_anchor_sections = \
-    #         {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
-    #         for sec in self.auto_submasks_gscene.anchor_sections}
-    #     save_pickle(contours_on_anchor_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
+    def load_anchor_contours(self):
+        contours_on_anchor_sections = load_pickle(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
+        for sec, vertices in contours_on_anchor_sections.iteritems():
+            self.auto_submasks_gscene.set_init_snake_contour(section=sec, vertices=vertices)
+            self.auto_submasks_gscene.set_section_as_anchor(section=sec)
+
+    def save_anchor_contours(self):
+        contours_on_anchor_sections = \
+            {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
+            for sec in self.auto_submasks_gscene.anchor_sections}
+        save_pickle(contours_on_anchor_sections, os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_anchor_init_snake_contours.pkl'))
 
     def load_all_init_snake_contours(self):
         init_snake_contours_on_all_sections = load_pickle(DataManager.get_initial_snake_contours_filepath(stack=stack))
@@ -305,88 +313,117 @@ class MaskEditingGUI(QMainWindow):
                 sys.stderr.write("Image %s (section %d) does not have any initial snake contour.\n" % (fn, sec))
         save_pickle(init_snake_contours_on_all_sections, DataManager.get_initial_snake_contours_filepath(stack=stack))
 
-    def save_final_masks(self):
-        submasks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_submasks_user_modified'))
+    def save_final_masks_all_sections(self):
+        # pool = Pool(16)
+        # pool.map(lambda sec: self.save_submasks_and_decisions(submasks_dir=submasks_dir, sec=sec), self.valid_sections)
+        # pool.close()
+        # pool.join()
+        for sec in self.user_modified_sections:
+            self.save_submasks_and_decisions(sec=sec)
+            # self.export_final_masks(sec=sec)
+
+    def save_final_masks_curr_section(self):
+        # submasks_dir = create_if_not_exists(DataManager.get_user_modified_submask_rootdir_filepath(stack=stack))
+        self.save_submasks_and_decisions(sec=self.auto_submasks_gscene.active_section)
+        # self.export_final_masks(sec=sec)
+
+    def export_final_masks_all_sections(self):
+        create_if_not_exists(DataManager.get_mask_dirpath(stack=self.stack))
         for sec in self.valid_sections:
-            self.save_submasks_and_decisions(submasks_dir=submasks_dir, sec=sec)
-        self.export_final_masks()
+            imsave(DataManager.get_mask_filepath(stack=self.stack, sec=sec), self.merged_mask_vizs[sec])
+        # for sec in self.valid_sections:
+        #     self.export_final_masks(sec=sec)
+        # final_masks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_masks'))
+        # for sec, mask_viz in self.merged_mask_vizs.iteritems():
+        #     fn = self.valid_sections_to_filenames[sec]
+        #     imsave(os.path.join(final_masks_dir, fn + '_alignedTo_' + self.anchor_fn + '_mask.png'), mask_viz)
 
-    def export_final_masks(self):
-        final_masks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_masks'))
-        for sec, mask_viz in self.merged_mask_vizs.iteritems():
-            fn = self.valid_sections_to_filenames[sec]
-            imsave(os.path.join(final_masks_dir, fn + '_alignedTo_' + self.anchor_fn + '_mask.png'), mask_viz)
+    # def export_final_masks(self, sec):
+    #     final_masks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_masks'))
+    #     fn = self.valid_sections_to_filenames[sec]
+    #     imsave(os.path.join(final_masks_dir, fn + '_alignedTo_' + self.anchor_fn + '_mask.png'), self.merged_mask_vizs[sec])
 
-    def save_submasks_and_decisions(self, submasks_dir, sec):
-        submasks = self.user_submasks
-        submask_decisions = self.user_submask_decisions
+    def save_submasks_and_decisions(self, sec):
+        # submasks = self.user_submasks
+        # submask_decisions = self.user_submask_decisions
 
-        if sec not in submasks or sec not in submask_decisions:
+        if sec not in self.user_submasks or sec not in self.user_submasks_gscene._submask_decisions:
             return
 
         fn = self.valid_sections_to_filenames[sec]
 
-        submask_fn_dir = os.path.join(submasks_dir, fn)
+        # submask_fn_dir = os.path.join(submasks_dir, fn)
+        submask_fn_dir = DataManager.get_user_modified_submask_dir_filepath(stack=self.stack, fn=fn)
         execute_command('rm -rf %(d)s; mkdir -p %(d)s' % {'d': submask_fn_dir})
 
         # Save submasks
-        for submask_ind, m in submasks[sec].iteritems():
-            submask_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_%d.png' % submask_ind)
+        for submask_ind, m in self.user_submasks[sec].iteritems():
+            # submask_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_%d.png' % submask_ind)
+            submask_fp = DataManager.get_user_modified_submask_filepath(stack=self.stack, fn=fn, what='submask', submask_ind=submask_ind)
             imsave(submask_fp, np.uint8(m)*255)
 
-        # Save submask contour vertices
-        submask_contour_vertices_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_contour_vertices.pkl')
+        # Save submask contour vertices.
+        submask_contour_vertices_fp = DataManager.get_user_modified_submask_filepath(stack=self.stack, fn=fn, what='contour_vertices')
+        # submask_contour_vertices_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_submask_contour_vertices.pkl')
         submask_contour_vertices_dict = {}
-        for submask_ind, m in submasks[sec].iteritems():
+        for submask_ind, m in self.user_submasks[sec].iteritems():
             cnts = find_contour_points(m)[1]
-            print [len(cnt) for cnt in cnts]
-            cnts = [cnt for cnt in cnts if len(cnt) > 100]
-            if len(cnts) == 1:
-                submask_contour_vertices_dict[submask_ind] = cnts[0]
-            else:
-                sys.stderr.write("Must have exactly one contour per submask, section %d.\n" % sec)
-                continue
+            if len(cnts) != 1:
+                sys.stderr.write("Must have exactly one contour per submask, section %d, but the sizes are %s.\n" % (sec, map(len, cnts)))
+            submask_contour_vertices_dict[submask_ind] = cnts[np.argsort(map(len, cnts))[-1]]
         save_pickle(submask_contour_vertices_dict, submask_contour_vertices_fp)
 
-        # Save submask decisions
-        decisions_fp = os.path.join(submask_fn_dir, fn +'_alignedTo_' + self.anchor_fn +  '_submasksUserReview.txt')
+        # Save submask decisions.
+        decisions_fp = DataManager.get_user_modified_submask_filepath(stack=self.stack, fn=fn, what='decisions')
+        # decisions_fp = os.path.join(submask_fn_dir, fn +'_alignedTo_' + self.anchor_fn +  '_submasksUserReview.txt')
         from pandas import Series
-        Series(submask_decisions[sec]).to_csv(decisions_fp)
+        Series(self.user_submasks_gscene._submask_decisions[sec]).to_csv(decisions_fp)
+        # save_json({k: int(v) for k,v in submask_decisions[sec].iteritems()}, decisions_fp)
 
-        if sec in self.selected_channels or sec in self.selected_snake_lambda1:
-            parameters_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_maskingParameters.txt')
-            with open(parameters_fp, 'w') as f:
-                if sec in self.selected_snake_lambda1:
-                    f.write('snake_lambda1 %d\n' % self.selected_snake_lambda1[sec])
-                if sec in self.selected_channels:
-                    f.write('channel %d\n' % self.selected_channels[sec])
-        else:
-            sys.stderr.write('Parameters for %s(%d) is not saved (no modification made ?)\n' % (fn, sec))
+        # Save parameters.
+        params_fp = DataManager.get_user_modified_submask_filepath(stack=self.stack, fn=fn, what='parameters')
+        params = {}
+        if sec in self.selected_channels:
+            params['channel'] = self.selected_channels[sec]
+        if sec in self.selected_snake_lambda1:
+            params['snake_lambda1'] = self.selected_snake_lambda1[sec]
+        if sec in self.selected_snake_min_size:
+            params['min_size'] = self.selected_snake_min_size[sec]
+        if len(params) > 0:
+            save_json(params, params_fp)
+            # parameters_fp = os.path.join(submask_fn_dir, fn + '_alignedTo_' + self.anchor_fn + '_maskingParameters.txt')
+            # with open(parameters_fp, 'w') as f:
+            #     if sec in self.selected_snake_lambda1:
+            #         f.write('snake_lambda1 %d\n' % self.selected_snake_lambda1[sec])
+            #     if sec in self.selected_channels:
+            #         f.write('channel %d\n' % self.selected_channels[sec])
+        # else:
+        #     sys.stderr.write('Parameters for %s(%d) is not saved (no modification made ?)\n' % (fn, sec))
 
-    def save_final_decisions(self):
-
-        accept_which_fp = os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_finalDecisions.txt')
-        with open(accept_which_fp, 'w') as f:
-            for sec, accept_which in sorted(self.accept_which.items()):
-                fn = self.valid_sections_to_filenames[sec]
-                if accept_which == 0:
-                    if sec not in self.auto_submask_decisions:
-                        sys.stderr.write('No auto submask decisions for %s (%d)\n' % (fn, sec))
-                        continue
-                    decisions = self.auto_submask_decisions[sec]
-                    if len(decisions) == 0:
-                        sys.stderr.write('Auto submask decisions are empty for %s (%d)\n' % (fn, sec))
-                elif accept_which == 1:
-                    if sec not in self.user_submask_decisions:
-                        sys.stderr.write('No user submask decisions for %s (%d)\n' % (fn, sec))
-                        continue
-                    decisions = self.user_submask_decisions[sec]
-                    if len(decisions) == 0:
-                        sys.stderr.write('User submask decisions are empty for %s (%d)\n' % (fn, sec))
-                else:
-                    raise
-
-                f.write('%d %s %d %s\n' % (sec, fn, accept_which, ' '.join(map(lambda x: str(int(x)), decisions))))
+    # def save_final_decisions(self):
+    #
+    #     accept_which_fp = os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_submasks_finalDecisions.txt')
+    #     with open(accept_which_fp, 'w') as f:
+    #         for sec, accept_which in sorted(self.accept_which.items()):
+    #             fn = self.valid_sections_to_filenames[sec]
+    #             if accept_which == 0:
+    #                 if sec not in self.auto_submask_decisions:
+    #                     sys.stderr.write('No auto submask decisions for %s (%d)\n' % (fn, sec))
+    #                     continue
+    #                 decisions = self.auto_submask_decisions[sec]
+    #                 if len(decisions) == 0:
+    #                     sys.stderr.write('Auto submask decisions are empty for %s (%d)\n' % (fn, sec))
+    #             elif accept_which == 1:
+    #                 if sec not in self.user_submask_decisions:
+    #                     sys.stderr.write('No user submask decisions for %s (%d)\n' % (fn, sec))
+    #                     continue
+    #                 decisions = self.user_submask_decisions[sec]
+    #                 if len(decisions) == 0:
+    #                     sys.stderr.write('User submask decisions are empty for %s (%d)\n' % (fn, sec))
+    #             else:
+    #                 raise
+    #
+    #             f.write('%d %s %d %s\n' % (sec, fn, accept_which, ' '.join(map(lambda x: str(int(x)), decisions))))
 
 
     # def save_submasks_and_decisions(self, submasks_dir, which, fn=None, sec=None):
@@ -478,8 +515,9 @@ class MaskEditingGUI(QMainWindow):
         self.user_submasks[sec][submask_ind] = contours_to_mask([contour_vertices], self.user_submasks[sec][submask_ind].shape[:2])
         self.update_merged_mask()
 
-    @pyqtSlot(int)
-    def user_submask_decision_updated(self, submask_ind):
+    @pyqtSlot(int, int, bool)
+    def user_submask_decision_updated(self, sec, submask_ind, decision):
+        # self.user_submask_decisions[sec][submask_ind] = self.user_submasks_gscene._submask_decisions[sec][submask_ind]
         self.update_merged_mask()
         self.update_mask_gui_window_title()
 
@@ -490,6 +528,7 @@ class MaskEditingGUI(QMainWindow):
 
     @pyqtSlot()
     def update_merged_mask_button_clicked(self):
+        sec = self.auto_submasks_gscene.active_section
         contour_vertices = self.user_submasks_gscene.get_polygon_vertices(section=sec, polygon_ind=submask_ind)
         self.user_submasks[sec][submask_ind] = contours_to_mask([contour_vertices], self.user_submasks[sec][submask_ind].shape[:2])
         self.update_merged_mask()
@@ -502,7 +541,7 @@ class MaskEditingGUI(QMainWindow):
         if sec is None:
             sec = self.auto_submasks_gscene.active_section
 
-        if sec not in self.user_submask_decisions:
+        if sec not in self.user_submasks_gscene._submask_decisions:
             sys.stderr.write("Section %d not in user_submask_decisions.\n" % sec)
             return
 
@@ -518,7 +557,13 @@ class MaskEditingGUI(QMainWindow):
                 # if sec not in self.user_submask_decisions or len(self.user_submask_decisions[sec]) == 0:
                 #     raise Exception('Error: section %d, %s, accept user but user decisions is empty.' % (sec, fn))
 
-        merged_mask = np.any([self.user_submasks[sec][sm_i] for sm_i, dec in self.user_submask_decisions[sec].iteritems() if dec], axis=0)
+        accepted_submasks = [self.user_submasks[sec][sm_i] for sm_i, dec in self.user_submasks_gscene._submask_decisions[sec].iteritems() if dec]
+        if len(accepted_submasks) == 0:
+            # merged_mask = np.zeros(self.contrast_stretched_images[sec][0].shape[:2])
+            sys.stderr.write('No submask accepted.\n')
+            return
+        else:
+            merged_mask = np.any(accepted_submasks, axis=0)
         # else:
         #     raise Exception('accept_which is neither 0 or 1.')
         self.merged_masks[sec] = merged_mask
@@ -653,11 +698,13 @@ class MaskEditingGUI(QMainWindow):
                         lambda1=self.selected_snake_lambda1[sec], min_size=self.selected_snake_min_size[sec])
 
         self.user_submasks[sec] = dict(enumerate(submasks))
-        self.user_submask_decisions[sec] = {sm_i: True for sm_i in self.user_submasks[sec].iterkeys()}
+        # self.user_submask_decisions[sec] = {sm_i: True for sm_i in self.user_submasks[sec].iterkeys()}
 
-        self.user_submasks_gscene.set_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions=self.user_submask_decisions[sec])
+        self.user_submasks_gscene.set_submasks_and_decisions_one_section(sec=sec, submasks=self.user_submasks[sec], submask_decisions={sm_i: True for sm_i in self.user_submasks[sec].iterkeys()})
         # self.user_submasks_gscene.update_image_from_submasks_and_decisions(sec=sec)
         self.update_merged_mask(sec=sec)
+
+        self.user_modified_sections.add(sec)
 
     # def do_snake(self, sec):
     #     # self.user_submasks_gscene.remove_submask_and_decisions_for_one_section(sec=sec)
@@ -839,7 +886,7 @@ class MaskEditingGUI(QMainWindow):
         curr_sec = self.auto_submasks_gscene.active_section
         curr_fn = self.valid_sections_to_filenames[curr_sec]
         try:
-            title = '%s (%d) - Active: %s - Alg:%s User:%s' % (curr_fn, curr_sec, ['Alg', 'User'][self.accept_which[curr_sec]], self.auto_submask_decisions[curr_sec], self.user_submask_decisions[curr_sec])
+            title = '%s (%d) - Active: %s - Alg:%s User:%s' % (curr_fn, curr_sec, ['Alg', 'User'][self.accept_which[curr_sec]], self.auto_submask_decisions[curr_sec], self.user_submasks_gscene._submask_decisions[curr_sec])
             self.dialog.setWindowTitle(title)
             print title
         except:

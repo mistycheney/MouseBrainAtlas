@@ -8,47 +8,48 @@ import os
 import subprocess
 hostname = subprocess.check_output("hostname", shell=True).strip()
 
-if hostname.endswith('sdsc.edu'):
-    print 'Setting environment for Gordon'
-    ROOT_DIR = '/oasis/projects/nsf/csd395/yuncong'
-    RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
-    data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    thumbnail_data_dir = data_dir
-    THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    REGISTRATION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
-    REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
-    VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
-    labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-    annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-    annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
-    annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
-    ANNOTATION_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
-    patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
-    patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
-    CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
-    CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
-    CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
-    CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
-    DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
-    CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
-    D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
-    CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
+# if hostname.endswith('sdsc.edu'):
+#     print 'Setting environment for Gordon'
+#     ROOT_DIR = '/oasis/projects/nsf/csd395/yuncong'
+#     RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
+#     data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+#     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+#     thumbnail_data_dir = data_dir
+#     THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
+#     REGISTRATION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
+#     REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
+#     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
+#     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
+#     annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
+#     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
+#     annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
+#     ANNOTATION_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
+#     patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
+#     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
+#     CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
+#     CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
+#     CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
+#     CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
+#     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
+#     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
+#     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
+#     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
 
-    PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
-    SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
-    SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
-    SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz'
-    HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
-    WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
+#     PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
+#     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
+#     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
+#     SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz'
+#     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
+#     WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
 
-    S3_DATA_BUCKET = 'mousebrainatlas-data'
-    REPO_DIR = os.environ['REPO_DIR']
-    ON_AWS = False
-    ELASTIX_BIN = '/oasis/projects/nsf/csd395/yuncong/elastix_linux64_v4.7/bin/elastix'
+#     S3_DATA_BUCKET = 'mousebrainatlas-data'
+#     REPO_DIR = os.environ['REPO_DIR']
+#     ON_AWS = False
+#     ELASTIX_BIN = '/oasis/projects/nsf/csd395/yuncong/elastix_linux64_v4.7/bin/elastix'
 
-elif hostname == 'yuncong-MacbookPro':
+if hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
+    HOST_ID = 'localhost'
 
     # REPO_DIR = '/home/yuncong/Brain' # use os.environ['REPO_DIR'] instead
     REPO_DIR = os.environ['REPO_DIR']
@@ -78,6 +79,15 @@ elif hostname == 'yuncong-MacbookPro':
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
+    HOST_ID = 'workstation'
+    ROOT_DIR = '/home/yuncong/'
+    
+    ON_AWS = False
+    S3_DATA_BUCKET = 'mousebrainatlas-data'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+    REPO_DIR = os.environ['REPO_DIR']
+    
+
     DATA_DIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed/'
     THUMBNAIL_DATA_DIR = DATA_DIR
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes/'
@@ -86,8 +96,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     PATCH_FEATURES_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_patch_features'
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3/'
     CLF_ROOTDIR = '/home/yuncong/CSHL_classifiers'
-    S3_DATA_BUCKET = 'mousebrainatlas-data'
-    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+    
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
@@ -96,6 +105,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
+    HOST_ID = 'ec2'
     ROOT_DIR = '/shared'
     # ROOT_DIR = os.environ['ROOT_DIR']
     ON_AWS = True

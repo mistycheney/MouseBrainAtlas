@@ -65,7 +65,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
-        self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec > 263 and sec < 267}
+        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 0 and sec < 10}
         self.valid_sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if not is_invalid(fn)}
         self.valid_filenames_to_sections = {fn: sec for sec, fn in self.valid_sections_to_filenames.iteritems()}
         q = sorted(self.valid_sections_to_filenames.items())
@@ -177,9 +177,10 @@ class MaskEditingGUI(QMainWindow):
         #         self.auto_submask_decisions[sec] = decisions
         # self.auto_submasks_gscene.set_submasks_and_decisions(self.auto_submasks, self.auto_submask_decisions)
 
-        anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
-        filenames_to_sections, _ = DataManager.load_sorted_filenames(stack=self.stack)
-        self.auto_submasks_gscene.set_active_section(filenames_to_sections[anchor_fn], emit_changed_signal=False)
+        self.anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
+        # filenames_to_sections, _ = DataManager.load_sorted_filenames(stack=self.stack)
+        # self.auto_submasks_gscene.set_active_section(filenames_to_sections[self.anchor_fn], emit_changed_signal=False)
+        self.auto_submasks_gscene.set_active_section(1, emit_changed_signal=False)
 
         ##########################
         ## User Submasks Gscene ##
@@ -338,8 +339,13 @@ class MaskEditingGUI(QMainWindow):
         submask_contour_vertices_dict = {}
         for submask_ind, m in submasks[sec].iteritems():
             cnts = find_contour_points(m)[1]
-            assert len(cnts) == 1, "Must have exactly one contour per submask."
-            submask_contour_vertices_dict[submask_ind] = cnts[0]
+            print [len(cnt) for cnt in cnts]
+            cnts = [cnt for cnt in cnts if len(cnt) > 100]
+            if len(cnts) == 1:
+                submask_contour_vertices_dict[submask_ind] = cnts[0]
+            else:
+                sys.stderr.write("Must have exactly one contour per submask, section %d.\n" % sec)
+                continue
         save_pickle(submask_contour_vertices_dict, submask_contour_vertices_fp)
 
         # Save submask decisions

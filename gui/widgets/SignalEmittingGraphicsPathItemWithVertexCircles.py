@@ -124,13 +124,18 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
 
     def delete_vertices(self, indices_to_remove, merge=False):
         if merge:
-            for i in indices_to_remove:
-                self.gscene.removeItem(self.vertex_circles[i])
-            self.vertex_circles = [c for c in self.vertex_circles if c not in indices_to_remove]
-
             new_path = delete_vertices_merge(self.path(), indices_to_remove)
             self.setPath(new_path)
 
+            # Remove all circles and rebuild based on the updated path.
+            for c in self.vertex_circles:
+                self.gscene.removeItem(c)
+            self.vertex_circles = []
+            self.add_circles_for_all_vertices()
+
+            # for i in indices_to_remove:
+            #     self.gscene.removeItem(self.vertex_circles[i])
+            # self.vertex_circles = [c for i, c in enumerate(self.vertex_circles) if i not in indices_to_remove] # Doing so risks inconsistent vertex ordering with polygon's path.
             self.signal_emitter.polygon_changed.emit()
         else:
             paths_to_remove, paths_to_keep = split_path(polygon.path(), indices_to_remove)

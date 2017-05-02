@@ -25,7 +25,18 @@ cd This is the repo for mouse brainstem atlas project.
 - `$ANNOTATION_ROOTDIR/[stack]/[stack]_annotation_grid_indices.h5` for all annotated stacks.
 
 # Pipeline for Unannotated Specimens #
+
+## Preprocess ##
+`preprocess/preprocess_pipeline_aws.ipynb`
+
+## Feature Generation ##
+`learning/extract_test_features_cnn.ipynb`
+This uses MXNet.
+Pre-trained Inception-BN network on RGB patches of 224 by 224 pixels.
+Patches are extracted at grid points with horizontal and vertical spacing of 56 pixels.
+
 `learning/pipeline_aws.ipynb`
+## Classification ##
 
 - First we apply the classifiers to the images using `apply_classifiers_v3.py`. It is a multi-process code over sections. It generates scores on a sparse grid locations. Outputs are in `$SPARSE_SCORES_ROOTDIR`.
 
@@ -43,6 +54,7 @@ A lot of outputs involved, so it is better to use local /scratch.
 Specify a resolution. Load corresponding score maps. Generated visualizations are JPEG images at `$SCOREMAP_VIZ_ROOTDIR`. Heatmap is `plt.cm.hot`.
 Script `visualize_scoremaps_v3.py`.
 
+## Registration ##
 - Global alignment.
 
 

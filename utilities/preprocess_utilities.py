@@ -96,7 +96,6 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
         xmax, ymax = np.max(bbox_all_submasks[:,[1,3]])
     else:
         init_contours = [c.astype(np.int) for c in init_contours]
-        assert len(init_contours) > 0, "No initial contours are longer than the minimal contour length of %d pixels." % INIT_CONTOUR_MINLEN
         xmin, ymin = np.min([np.min(c, axis=0) for c in init_contours], axis=0)
         xmax, ymax = np.max([np.max(c, axis=0) for c in init_contours], axis=0)
 
@@ -127,7 +126,7 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
     else:
         for cnt in init_contours:
             init_contours_on_cropped_img = cnt - (crop_xmin, crop_ymin)
-            init_levelset = contours_to_mask([cnt], cropped_img.shape[:2])
+            init_levelset = contours_to_mask([init_contours_on_cropped_img], cropped_img.shape[:2])
             init_levelset[:10, :] = 0
             init_levelset[-10:, :] = 0
             init_levelset[:, :10] = 0
@@ -143,7 +142,6 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
     final_masks = []
 
     for levelset_ind, init_levelset in enumerate(init_levelsets):
-
         sys.stderr.write('\nContour %d\n' % levelset_ind)
 
         discard = False
@@ -153,7 +151,6 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
 
         msnake = morphsnakes.MorphACWE(cropped_img.astype(np.float), smoothing=int(MORPHSNAKE_SMOOTHING),
                                        lambda1=lambda1, lambda2=MORPHSNAKE_LAMBDA2)
-
         msnake.levelset = init_levelset.copy()
 
         dq = deque([None, None])
@@ -166,9 +163,8 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
             if i > MORPHSNAKE_MINITER:
                 if np.count_nonzero(msnake.levelset - oneBefore_levelset) < PIXEL_CHANGE_TERMINATE_CRITERIA:
                     break
-            #
+
             # area = np.count_nonzero(msnake.levelset)
-            #
             # if area < min_size:
             #     discard = True
             #     sys.stderr.write('Too small, stop iteration.\n')
@@ -187,7 +183,7 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
                     elif component_area < min_size:
                         msnake.levelset[m] = 0
                         sys.stderr.write('Component area is too small - nullified.\n')
-            # print component_sizes
+            print component_sizes
 
             if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                 discard = True

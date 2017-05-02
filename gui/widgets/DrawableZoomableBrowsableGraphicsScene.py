@@ -200,16 +200,17 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
     def delete_all_polygons_one_section(self, section):
         index, _ = self.get_requested_index_and_section(sec=section)
+        print "before delete", self.drawings[index]
 
-        # print "before delete", self.drawings[index]
-
+        # Be careful not to modify self.drawings within the loop !
         for polygon_index, polygon in enumerate(self.drawings[index]):
-            self.drawings[index].remove(polygon)
             self.drawings_mapping.pop(polygon)
             self.removeItem(polygon)
             self.polygon_deleted.emit(polygon, index, polygon_index)
             sys.stderr.write('%s: polygon_deleted signal emitted.\n' % (self.id))
-        # print "after delete", self.drawings[index]
+
+        self.drawings[index] = []
+        print "after delete", self.drawings[index]
 
     @pyqtSlot()
     def delete_polygon(self, section=None, polygon_ind=None, index=None, polygon=None):

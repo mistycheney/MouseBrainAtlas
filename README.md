@@ -34,6 +34,11 @@ cd This is the repo for mouse brainstem atlas project.
 This uses MXNet.
 Pre-trained Inception-BN network on RGB patches of 224 by 224 pixels.
 Patches are extracted at grid points with horizontal and vertical spacing of 56 pixels.
+~100k patches per section.
+For each section, the execution time is 6 minutes, which breaks down into:
+- load image: 113.57 seconds
+- extract patches: 42.50 seconds
+- predict: 210.46 seconds
 
 `learning/pipeline_aws.ipynb`
 ## Classification ##

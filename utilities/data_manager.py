@@ -240,17 +240,20 @@ class DataManager(object):
     @staticmethod
     def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):
         # anchor_fn = DataManager.load_anchor_filename(stack)
-        anchor_fn = metadata_cache['anchor_fn'][stack]
+        # anchor_fn = metadata_cache['anchor_fn'][stack]
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
-        fn = sections_to_filenames[section]
+        # sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        # fn = sections_to_filenames[section]
+        fp = os.path.join(DataManager.get_mask_filepath(stack=stack, sec=section, version=version))
+        return fp
 
-        if version == 'aligned_cropped':
-            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
-        elif version == 'aligned':
-            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
-                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        # if version == 'aligned_cropped':
+        #     fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+        #         dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        # elif version == 'aligned':
+        #     fn = os.path.join(DataManager.get_mask_filepath(stack=stack, sec=section, version=version))
+            # fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+            #     dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
 
         # if version == 'aligned_cropped':
         #     fn = data_dir+'/%(stack)s/%(stack)s_mask_unsorted_aligned_cropped/%(stack)s_%(sec)04d_mask_aligned_cropped.png' % \
@@ -258,7 +261,7 @@ class DataManager(object):
         # elif version == 'aligned':
         #     fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned/%(stack)s_%(sec)04d_mask_aligned.png' % \
         #         dict(stack=stack, sec=section)
-        return fn
+        # return fn
 
     @staticmethod
     def load_thumbnail_mask_v2(stack, section=None, version='aligned_cropped'):
@@ -1789,18 +1792,29 @@ class DataManager(object):
         return fp
 
     @staticmethod
-    def get_mask_dirpath(stack):
+    def get_mask_dirpath(stack, version='aligned'):
         anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
+        if version == 'aligned':
+            dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
+        elif version == 'aligned_cropped' or version == 'cropped':
+            dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
+        else:
+            raise Exception('version %s is not recognized.' % version)
         return dir_path
 
     @staticmethod
-    def get_mask_filepath(stack, sec=None, fn=None):
+    def get_mask_filepath(stack, sec=None, fn=None, version='aligned'):
         anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = DataManager.get_mask_dirpath(stack)
+        dir_path = DataManager.get_mask_dirpath(stack, version=version)
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
-        fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
+
+        if version == 'aligned':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
+        elif version == 'aligned_cropped' or version == 'cropped':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask_cropped.png')
+        else:
+            raise Exception('version %s is not recognized.' % version)
         return fp
 
 ##################################################

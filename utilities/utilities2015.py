@@ -90,6 +90,14 @@ def save_pickle(obj, fp):
     with open(fp, 'w') as f:
         pickle.dump(obj, f)
 
+def save_json(obj, fp):
+    with open(fp, 'w') as f:
+        json.dump(obj, f)
+
+def load_json(fp):
+    with open(fp, 'r') as f:
+        return json.load(f)
+
 def load_pickle(fp):
     with open(fp, 'r') as f:
         obj = pickle.load(f)

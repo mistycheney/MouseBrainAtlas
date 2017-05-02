@@ -1716,7 +1716,7 @@ class DataManager(object):
         """
         auto_submasks_dir = DataManager.get_auto_submask_rootdir_filepath(stack)
         if fn is None:
-            fn = metadata_cache['sections_to_filenames'][sec]
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
         dir_path = os.path.join(auto_submasks_dir, fn)
         return dir_path
 
@@ -1740,6 +1740,68 @@ class DataManager(object):
 
         return fp
 
+    @staticmethod
+    def get_user_modified_submask_rootdir_filepath(stack):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_userModified_submasks')
+        return dir_path
+
+    @staticmethod
+    def get_user_modified_submask_dir_filepath(stack, fn=None, sec=None):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        auto_submasks_dir = DataManager.get_user_modified_submask_rootdir_filepath(stack)
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+        dir_path = os.path.join(auto_submasks_dir, fn)
+        return dir_path
+
+    @staticmethod
+    def get_user_modified_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
+        """
+        Args:
+            what (str): submask or decisions.
+            submask_ind (int): if what is submask, must provide submask_ind.
+        """
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = DataManager.get_user_modified_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
+
+        if what == 'submask':
+            assert submask_ind is not None, "Must provide submask_ind."
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_%d.png' % submask_ind)
+        elif what == 'decisions':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_decisions.csv')
+        elif what == 'parameters':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_parameters.json')
+        elif what == 'contour_vertices':
+            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_contour_vertices.pkl')
+        else:
+            raise Exception("Not recognized.")
+
+        return fp
+
+    @staticmethod
+    def get_mask_dirpath(stack):
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
+        return dir_path
+
+    @staticmethod
+    def get_mask_filepath(stack, sec=None, fn=None):
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        dir_path = DataManager.get_mask_dirpath(stack)
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+        fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
+        return fp
 
 ##################################################
 
@@ -1765,7 +1827,8 @@ def generate_metadata_cache():
      'MD603': (20928, 13472),
      'MD635': (20960, 14240),
      'MD642': (28704, 15584),
-     'MD657': (27584, 16960)}
+     'MD657': (27584, 16960),
+     'MD658': (19936, 15744)}
     metadata_cache['anchor_fn'] = {}
     metadata_cache['sections_to_filenames'] = {}
     metadata_cache['section_limits'] = {}

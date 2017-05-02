@@ -67,7 +67,7 @@ class MaskEditingGUI(QMainWindow):
         self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
-        self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 95 and sec < 105}
+        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 95 and sec < 105}
         self.valid_sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if not is_invalid(fn)}
         self.valid_filenames_to_sections = {fn: sec for sec, fn in self.valid_sections_to_filenames.iteritems()}
         q = sorted(self.valid_sections_to_filenames.items())

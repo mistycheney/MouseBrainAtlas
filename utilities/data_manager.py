@@ -1552,12 +1552,12 @@ class DataManager(object):
             image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
         elif resol == 'lossless' and (version == 'compressed' or version == 'contrast_stretched_compressed' or version == 'cropped_compressed'):
             if is_fluorescent:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
                 # image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
             else:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.jpg')
         # elif resol == 'lossless' and version == 'saturation':
@@ -1572,18 +1572,18 @@ class DataManager(object):
         elif resol == 'lossless' and (version == 'cropped' or version == 'cropped_8bit'):
             # image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
             if is_fluorescent:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
             else:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped_16bit':
             if is_fluorescent:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
             else:
-                img_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
+                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped':

@@ -32,13 +32,20 @@ cd This is the repo for mouse brainstem atlas project.
 ## Feature Generation ##
 `learning/extract_test_features_cnn.ipynb`
 This uses MXNet.
+
+Extract the first
+
 Pre-trained Inception-BN network on RGB patches of 224 by 224 pixels.
+
+Use lossless (contrast stretched 8-bit version for fluorescent images).
 Patches are extracted at grid points with horizontal and vertical spacing of 56 pixels.
 ~100k patches per section.
 For each section, the execution time is 6 minutes, which breaks down into:
 - load image: 113.57 seconds
 - extract patches: 42.50 seconds
 - predict: 210.46 seconds
+
+
 
 `learning/pipeline_aws.ipynb`
 ## Classification ##

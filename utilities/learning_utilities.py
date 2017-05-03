@@ -540,7 +540,7 @@ def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=No
         location_list.default_factory = None
         return location_list
 
-    
+
 
 def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name='Inception-BN'):
     """

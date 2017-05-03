@@ -1516,6 +1516,8 @@ class DataManager(object):
                 image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
         elif resol == 'lossless' and version == 'cropped_16bit':
             image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+        elif resol == 'lossless' and version == 'cropped_8bit_blueasgray':
+            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn})
         elif resol == 'thumbnail' and version == 'cropped_tif':
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
         elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
@@ -1580,11 +1582,14 @@ class DataManager(object):
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
                 image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped_16bit':
-            if is_fluorescent:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
-            else:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
+            assert is_fluorescent
+            image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
+            image_path = os.path.join(image_dir, image_name + '.tif')
+        elif resol == 'lossless' and version == 'cropped_8bit_blueasgray':
+            assert is_fluorescent
+            image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'thumbnail' and version == 'cropped':
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})

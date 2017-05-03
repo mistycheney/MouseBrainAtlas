@@ -102,13 +102,6 @@
          </property>
         </widget>
        </item>
-       <item>
-        <widget class="QPushButton" name="button_toggle_accept_auto">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
       </layout>
      </item>
     </layout>
@@ -180,13 +173,6 @@
         <widget class="QLabel" name="label_5">
          <property name="text">
           <string>TextLabel</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton">
-         <property name="text">
-          <string/>
          </property>
         </widget>
        </item>

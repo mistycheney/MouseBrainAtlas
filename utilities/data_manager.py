@@ -1543,7 +1543,7 @@ class DataManager(object):
         else:
             assert fn is not None
 
-        is_fluorescent = (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks) and fn.split('-')[1][0] == 'F'
+        is_fluorescent = (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F'
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)

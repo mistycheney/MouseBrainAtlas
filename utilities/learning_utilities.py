@@ -17,7 +17,7 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-def load_datasets(dataset_ids, labels_to_sample):
+def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
     merged_addresses = {}
@@ -26,13 +26,13 @@ def load_datasets(dataset_ids, labels_to_sample):
 
         # load training addresses
 
-        addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        addresses_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
         download_from_s3_to_ec2(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
         
         # Load training features
 
-        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
+        features_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
         download_from_s3_to_ec2(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
 

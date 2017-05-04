@@ -5,3 +5,5 @@ classifier_id,model,margin,train_set_id,neg_composition,sample_weighting
 33,gb1,500,20/21,neg_has_all_surround,
 34,gb1,500,21/22,neg_has_all_surround,
 35,gb1,500,20/22,neg_has_all_surround,
+99,lr,500,99,neg_has_all_surround,
+

@@ -317,7 +317,8 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
         region_contours: dict {sec: list of contours (nx2 array)}
     """
 
-    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours_df, _ = DataManager.load_annotation_v3(stack=stack)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     labeled_contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -355,7 +356,8 @@ def label_regions(stack, section, region_contours, surround_margins=None, labele
         raise Exception('Section %s, %d invalid.' % (stack, section))
 
     if labeled_contours is None:
-        contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+        # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+        contours_df, _ = DataManager.load_annotation_v3(stack=stack)
         contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
         contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
         contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -376,7 +378,7 @@ def label_regions(stack, section, region_contours, surround_margins=None, labele
 
 def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_tb=None, polygons=None, surround_margins=None):
     """
-    Return addresses of patches that are either in polygons or on mask.
+    Return addresses of patches that are in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
     - If polygons is given, the valid patches are those whose bounding boxes.
         - polygons can be a dict, keys are structure names, values are x-y vertices (nx2 array).

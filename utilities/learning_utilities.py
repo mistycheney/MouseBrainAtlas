@@ -345,7 +345,10 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
 
 def label_regions(stack, section, region_contours, surround_margins=None, labeled_contours=None):
     """
-    Label regions for one section.
+    Identify regions that belong to each class.
+    
+    Returns:
+        dict of {label: region indices in input region_contours}
     """
 
     if is_invalid(sec=section, stack=stack):

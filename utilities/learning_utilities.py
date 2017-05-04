@@ -579,7 +579,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
         t1 = time.time()
         test_addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 
                                                   num_samples_per_landmark=num_samples_per_label/len(stacks))
-        sys.stderr.write('Sample: %.2f seconds\n' % (time.time() - t1))
+        sys.stderr.write('Sample addresses (stack %s): %.2s seconds.\n' % (stack, time.time() - t1))
 
         for label, addresses in test_addresses_sec_idx.iteritems():
             test_addresses[label] += [(stack, ) + addr for addr in addresses]

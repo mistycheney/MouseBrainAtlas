@@ -238,30 +238,32 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
-    def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):
-        # anchor_fn = DataManager.load_anchor_filename(stack)
-        # anchor_fn = metadata_cache['anchor_fn'][stack]
-        # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        # sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
-        # fn = sections_to_filenames[section]
-        fp = os.path.join(DataManager.get_mask_filepath(stack=stack, sec=section, version=version))
+    def get_thumbnail_mask_filename_v3(stack, section=None, version='aligned_cropped'):
+        fp = DataManager.get_mask_filepath(stack=stack, sec=section, version=version)
         return fp
 
-        # if version == 'aligned_cropped':
-        #     fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
-        #         dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
-        # elif version == 'aligned':
-        #     fn = os.path.join(DataManager.get_mask_filepath(stack=stack, sec=section, version=version))
-            # fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
-            #     dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+    @staticmethod
+    def load_thumbnail_mask_v3(stack, section=None, version='aligned_cropped'):
+        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, version=version)
+        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+        return mask
+    
+    @staticmethod
+    def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):        
 
-        # if version == 'aligned_cropped':
-        #     fn = data_dir+'/%(stack)s/%(stack)s_mask_unsorted_aligned_cropped/%(stack)s_%(sec)04d_mask_aligned_cropped.png' % \
-        #         dict(stack=stack, sec=section)
-        # elif version == 'aligned':
-        #     fn = data_dir+'/%(stack)s/%(stack)s_mask_sorted_aligned/%(stack)s_%(sec)04d_mask_aligned.png' % \
-        #         dict(stack=stack, sec=section)
-        # return fn
+        # anchor_fn = DataManager.load_anchor_filename(stack)
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        fn = sections_to_filenames[section]
+        
+        if version == 'aligned_cropped':
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        elif version == 'aligned':
+            fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s/%(stack)s_%(sec)04d_mask_alignedTo_%(anchor_fn)s.png' % \
+                dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        return fn
 
     @staticmethod
     def load_thumbnail_mask_v2(stack, section=None, version='aligned_cropped'):
@@ -1812,6 +1814,13 @@ class DataManager(object):
 
     @staticmethod
     def get_mask_dirpath(stack, version='aligned'):
+        """
+        Get directory path of thumbnail mask.
+        
+        Args:
+            version (str): One of aligned, aligned_cropped, cropped.
+        """
+        
         anchor_fn = metadata_cache['anchor_fn'][stack]
         if version == 'aligned':
             dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
@@ -1823,6 +1832,13 @@ class DataManager(object):
 
     @staticmethod
     def get_mask_filepath(stack, sec=None, fn=None, version='aligned'):
+        """
+        Get filepath of thumbnail mask.
+        
+        Args:
+            version (str): One of aligned, aligned_cropped, cropped.
+        """
+        
         anchor_fn = metadata_cache['anchor_fn'][stack]
         dir_path = DataManager.get_mask_dirpath(stack, version=version)
         if fn is None:
@@ -1835,6 +1851,17 @@ class DataManager(object):
         else:
             raise Exception('version %s is not recognized.' % version)
         return fp
+    
+    @staticmethod
+    def get_region_labels_filepath(stack, sec=None, fn=None):
+        """
+        Returns:
+            dict {label: list of region indices}   
+        """
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+        return os.path.join(CELL_FEATURES_CLF_ROOTDIR, 'region_indices_by_label', stack, fn + '_region_indices_by_label.hdf')
+        
 
 ##################################################
 

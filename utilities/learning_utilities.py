@@ -17,7 +17,7 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-def load_datasets(dataset_ids, labels_to_sample):
+def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
     merged_addresses = {}
@@ -26,13 +26,13 @@ def load_datasets(dataset_ids, labels_to_sample):
 
         # load training addresses
 
-        addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        addresses_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
         download_from_s3_to_ec2(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
         
         # Load training features
 
-        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
+        features_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
         download_from_s3_to_ec2(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
 
@@ -317,7 +317,8 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
         region_contours: dict {sec: list of contours (nx2 array)}
     """
 
-    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours_df, _ = DataManager.load_annotation_v3(stack=stack)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     labeled_contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -345,14 +346,18 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
 
 def label_regions(stack, section, region_contours, surround_margins=None, labeled_contours=None):
     """
-    Label regions for one section.
+    Identify regions that belong to each class.
+    
+    Returns:
+        dict of {label: region indices in input region_contours}
     """
 
     if is_invalid(sec=section, stack=stack):
         raise Exception('Section %s, %d invalid.' % (stack, section))
 
     if labeled_contours is None:
-        contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+        # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+        contours_df, _ = DataManager.load_annotation_v3(stack=stack)
         contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
         contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
         contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -373,7 +378,7 @@ def label_regions(stack, section, region_contours, surround_margins=None, labele
 
 def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_tb=None, polygons=None, surround_margins=None):
     """
-    Return addresses of patches that are either in polygons or on mask.
+    Return addresses of patches that are in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
     - If polygons is given, the valid patches are those whose bounding boxes.
         - polygons can be a dict, keys are structure names, values are x-y vertices (nx2 array).
@@ -540,7 +545,7 @@ def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=No
         location_list.default_factory = None
         return location_list
 
-    
+
 
 def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name='Inception-BN'):
     """
@@ -574,7 +579,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
         t1 = time.time()
         test_addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 
                                                   num_samples_per_landmark=num_samples_per_label/len(stacks))
-        sys.stderr.write('Sample: %.2f seconds\n' % (time.time() - t1))
+        sys.stderr.write('Sample addresses (stack %s): %.2s seconds.\n' % (stack, time.time() - t1))
 
         for label, addresses in test_addresses_sec_idx.iteritems():
             test_addresses[label] += [(stack, ) + addr for addr in addresses]

@@ -35,6 +35,10 @@ This uses MXNet.
 
 Extract the first
 
+vgg16-blue 500s / section (why so slow??)
+inception-bn-blue 160s / section
+
+
 Pre-trained Inception-BN network on RGB patches of 224 by 224 pixels.
 
 Use lossless (contrast stretched 8-bit version for fluorescent images).

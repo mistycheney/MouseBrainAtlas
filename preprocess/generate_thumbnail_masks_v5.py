@@ -41,9 +41,9 @@ init_snake_contour_vertices = load_pickle(init_snake_contours_fp) # {fn: vertice
 
 def generate_contours(fn, init_cnt):
     
-    img = imread(DataManager.get_image_filepath(stack=stack, fn=fn, resol='thumbnail', version='aligned'))[..., default_channel]
+    img = imread(DataManager.get_image_filepath(stack=stack, fn=fn, resol='thumbnail', version='aligned'))
     img = brightfieldize_image(img)
-    img = contrast_stretch_image(img)
+    img = contrast_stretch_image(img[..., default_channel])
     submasks = snake(img, init_contours=[init_cnt], lambda1=1., min_size=min_size)
     submasks = dict(enumerate(submasks))
 

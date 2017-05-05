@@ -1,6 +1,12 @@
-dataset_id,network_model,stain,margins,num_sample_per_class,stacks
+dataset_id,network_model,stain,margins,num_sample_per_class,stacks,cell_features_used
 20,Inception-BN,nissl,200/500,1000,MD585
 21,Inception-BN,nissl,200/500,1000,MD589
 22,Inception-BN,nissl,200/500,1000,MD594
-98,cell,nissl,500,1000,MD594
-99,cell,nissl,500,1000,MD589
+92,,nissl,500,1000,MD589,largeLargeLinkLenHist
+93,,nissl,500,1000,MD594,largeLargeLinkLenHist
+94,,nissl,500,1000,MD589,largeSizeHist
+95,,nissl,500,1000,MD594,largeSizeHist
+96,,nissl,500,1000,MD589,largeSizeHist/largeLargeLinkLenHist
+97,,nissl,500,1000,MD594,largeSizeHist/largeLargeLinkLenHist
+98,,nissl,500,1000,MD594,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
+99,,nissl,500,1000,MD589,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist

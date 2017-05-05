@@ -243,6 +243,12 @@ class DataManager(object):
         return fp
 
     @staticmethod
+    def load_thumbnail_mask_v3(stack, section=None, version='aligned_cropped'):
+        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, version=version)
+        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+        return mask
+    
+    @staticmethod
     def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):        
 
         # anchor_fn = DataManager.load_anchor_filename(stack)
@@ -1842,6 +1848,17 @@ class DataManager(object):
         else:
             raise Exception('version %s is not recognized.' % version)
         return fp
+    
+    @staticmethod
+    def get_region_labels_filepath(stack, sec=None, fn=None):
+        """
+        Returns:
+            dict {label: list of region indices}   
+        """
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+        return os.path.join(CELL_FEATURES_CLF_ROOTDIR, 'region_indices_by_label', stack, fn + '_region_indices_by_label.hdf')
+        
 
 ##################################################
 

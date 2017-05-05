@@ -238,13 +238,13 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
-    def get_thumbnail_mask_filename_v3(stack, section=None, version='aligned_cropped'):
-        fp = DataManager.get_mask_filepath(stack=stack, sec=section, version=version)
+    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
         return fp
 
     @staticmethod
-    def load_thumbnail_mask_v3(stack, section=None, version='aligned_cropped'):
-        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, version=version)
+    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
         mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
         return mask
     

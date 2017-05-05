@@ -2,7 +2,10 @@ import os
 import sys
 import time
 
-import cv2
+try:
+    import cv2
+except:
+    sys.stderr.write('Cannot load cv2.\n')
 from skimage.transform import rescale
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))

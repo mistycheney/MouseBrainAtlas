@@ -22,8 +22,11 @@ from skimage.transform import rescale
 from scipy.spatial.distance import cdist, pdist
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
-from tables import open_file, Filters, Atom
+try:
+    import cv2
+except:
+    sys.stderr.write('Cannot load cv2.\n')
+#from tables import open_file, Filters, Atom
 import bloscpack as bp
 
 from ipywidgets import FloatProgress

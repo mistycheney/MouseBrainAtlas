@@ -175,6 +175,15 @@ def extract_side_from_name(name):
         return name[-1]
     else:
         return None
+    
+def is_surround_label(name):
+    return 'surround' in name
+    
+def get_margin_from_surround_label(name):
+    assert is_surround_label(name), 'Label name %s is not a surround label.' % name
+    import re
+    m = re.match('.*_surround_([0-9]+).*', name)
+    return int(m.groups()[0])
 
 def convert_to_left_name(name):
     return convert_name_to_unsided(name) + '_L'
@@ -186,7 +195,7 @@ def convert_to_original_name(name):
     return name.split('_')[0]
 
 def convert_to_nonsurround_name(name):
-    if 'surround' in name:
+    if is_surround_label(name):
         import re
         m = re.match('(.*?)_surround_.*', name)
         return m.groups()[0]

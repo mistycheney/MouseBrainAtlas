@@ -189,16 +189,16 @@ class DataManager(object):
         return anchor_fn
 
     @staticmethod
-    def get_cropbox_filename(stack):
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
+    def get_cropbox_filename(stack, anchor_fn=None):
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s' % dict(stack=stack) + '_alignedTo_' + anchor_fn + '_cropbox.txt'
         return fn
 
     @staticmethod
-    def load_cropbox(stack):
-        fn = DataManager.get_cropbox_filename(stack=stack)
+    def load_cropbox(stack, anchor_fn=None):
+        fn = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
         cropbox = DataManager.load_data(fn, filetype='bbox')
-        # with open(fn, 'r') as f:
-        #     cropbox = one_liner_to_arr(f.readline(), int)
         return cropbox
 
     @staticmethod

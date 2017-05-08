@@ -45,6 +45,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.setupUi(self)
 
         self.stack = stack
+        self.currently_showing = 'original'
 
         # for fluorescent stack, tif is 16 bit (not visible in GUI), png is 8 bit
         # if self.stack in all_ntb_stacks or self.stack in all_alt_nissl_ntb_stacks:

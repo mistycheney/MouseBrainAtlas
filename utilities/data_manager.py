@@ -196,11 +196,9 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_cropbox(stack):
-        fn = DataManager.get_cropbox_filename(stack=stack)
+    def load_cropbox(stack, anchor_fn=None):
+        fn = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
         cropbox = DataManager.load_data(fn, filetype='bbox')
-        # with open(fn, 'r') as f:
-        #     cropbox = one_liner_to_arr(f.readline(), int)
         return cropbox
 
     @staticmethod

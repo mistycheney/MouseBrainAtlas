@@ -979,7 +979,9 @@ def load_data(fp):
     return data
 
 def load_cell_classifier_data(what, stack, sec=None, fn=None, anchor_fn=None, ext=None):
-    return load_data(get_cell_classifier_data_filepath(what, stack, sec, fn, anchor_fn, ext))
+    fp = get_cell_classifier_data_filepath(what, stack, sec, fn, anchor_fn, ext)
+    download_from_s3(fp)
+    return load_data(fp)
 
 def get_cell_classifier_data_filepath(what, stack, sec=None, fn=None, anchor_fn=None, ext=None):
 
@@ -1059,6 +1061,7 @@ def load_cell_data(what, stack, sec, ext=None):
     fp = get_cell_data_filepath(what, stack, sec, ext=ext)
     if fp is None:
         raise 'Cannot load data for section %d.'
+    download_from_s3(fp)
 
     data = load_data(fp)
     return data

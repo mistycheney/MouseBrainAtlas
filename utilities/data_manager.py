@@ -189,16 +189,16 @@ class DataManager(object):
         return anchor_fn
 
     @staticmethod
-    def get_cropbox_filename(stack):
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_cropbox.txt' % dict(stack=stack)
+    def get_cropbox_filename(stack, anchor_fn=None):
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s' % dict(stack=stack) + '_alignedTo_' + anchor_fn + '_cropbox.txt'
         return fn
 
     @staticmethod
-    def load_cropbox(stack):
-        fn = DataManager.get_cropbox_filename(stack=stack)
+    def load_cropbox(stack, anchor_fn=None):
+        fn = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
         cropbox = DataManager.load_data(fn, filetype='bbox')
-        # with open(fn, 'r') as f:
-        #     cropbox = one_liner_to_arr(f.readline(), int)
         return cropbox
 
     @staticmethod
@@ -238,13 +238,13 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
-    def get_thumbnail_mask_filename_v3(stack, section=None, version='aligned_cropped'):
-        fp = DataManager.get_mask_filepath(stack=stack, sec=section, version=version)
+    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
         return fp
 
     @staticmethod
-    def load_thumbnail_mask_v3(stack, section=None, version='aligned_cropped'):
-        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, version=version)
+    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
         mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
         return mask
     
@@ -1481,13 +1481,10 @@ class DataManager(object):
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
-            
+
         feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.bp' % \
+        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % \
         dict(fn=fn, anchor_fn=anchor_fn))
-        #feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        #'%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % \
-        #dict(fn=fn, anchor_fn=anchor_fn))
         # feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
         return feature_fn
 
@@ -1498,35 +1495,34 @@ class DataManager(object):
         return load_hdf(features_fn)
 
     @staticmethod
-    def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None, modality='nissl'):
+    def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None, modality=None, data_dir=DATA_DIR):
         """
         resol: can be either lossless or thumbnail.
         version:
-        - compressed: for regular nissl, RGB JPEG; for neurotrace, blue channel as grey JPEG
-        - saturation: for regular nissl, saturation as gray, tif; for NT, blue channel as grey, tif
-        - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
         """
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
         if resol == 'lossless' and version == 'compressed':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
-        # elif resol == 'lossless' and version == 'saturation':
-        #     image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
         elif resol == 'lossless' and (version == 'cropped' or version == 'cropped_8bit'):
             if modality == 'fluorescent':
-                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn})
             else:
-                image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+                image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
         elif resol == 'lossless' and version == 'cropped_16bit':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+        elif resol == 'lossless' and version == 'cropped_gray':
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_gray' % {'anchor_fn':anchor_fn})
         elif resol == 'lossless' and version == 'cropped_8bit_blueasgray':
-            image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn})
+            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn})
         elif resol == 'thumbnail' and version == 'cropped_tif':
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
         elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+        elif resol == 'thumbnail' and version == 'original_png':
+            image_dir = os.path.join(RAW_DATA_DIR, stack)
         else:
             sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
 
@@ -1534,13 +1530,12 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None):
+    def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None, modality=None):
         """
         resol: can be either lossless or thumbnail.
         version:
-        - compressed: for regular nissl, RGB JPEG; for neurotrace, blue channel as grey JPEG
-        - saturation: for regular nissl, saturation as gray, tif; for NT, blue channel as grey, tif
-        - cropped: for regular nissl, lossless RGB tif; for NT, 16 bit, all channels (?) tif.
+        - compressed:
+        - cropped, cropped_8bit, cropped_16bit
         """
 
         if section is not None:
@@ -1550,62 +1545,35 @@ class DataManager(object):
         else:
             assert fn is not None
 
-        is_fluorescent = (stack in all_ntb_stacks or stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F'
-
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
 
+        image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality=modality, data_dir=data_dir)
+            
         if resol == 'thumbnail' and version == 'original_png':
-            image_path = os.path.join(RAW_DATA_DIR, stack, fn + '.png')
+            image_path = os.path.join(image_dir, fn + '.png')
         elif resol == 'lossless' and (version == 'compressed' or version == 'contrast_stretched_compressed' or version == 'cropped_compressed'):
-            if is_fluorescent:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
-                # image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+            if modality == 'fluorescent':
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched_compressed' % {'anchor_fn':anchor_fn}])
-                image_path = os.path.join(image_dir, image_name + '.jpg')
             else:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn}])
-                image_path = os.path.join(image_dir, image_name + '.jpg')
-        # elif resol == 'lossless' and version == 'saturation':
-        #     if is_fluorescent:
-        #         image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn})
-        #         image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_blueAsGrayscale' % {'anchor_fn':anchor_fn}])
-        #         image_path = os.path.join(image_dir, image_name + '.tif')
-        #     else: # Nissl
-        #         image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn})
-        #         image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_saturation' % {'anchor_fn':anchor_fn}])
-        #         image_path = os.path.join(image_dir, image_name + '.tif')
+            image_path = os.path.join(image_dir, image_name + '.jpg')
         elif resol == 'lossless' and (version == 'cropped' or version == 'cropped_8bit'):
-            # image_dir = os.path.join(DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
-            if is_fluorescent:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
+            if modality == 'fluorescent':
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn}])
-                image_path = os.path.join(image_dir, image_name + '.tif')
             else:
-                image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='nissl')
                 image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
-                image_path = os.path.join(image_dir, image_name + '.tif')
+            image_path = os.path.join(image_dir, image_name + '.tif')
         elif resol == 'lossless' and version == 'cropped_16bit':
-            assert is_fluorescent
-            image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
-        elif resol == 'lossless' and version == 'cropped_8bit_blueasgray':
-            assert is_fluorescent
-            image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality='fluorescent')
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn}])
+        elif resol == 'lossless' and version == 'cropped_gray':
+            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
-        elif resol == 'thumbnail' and version == 'cropped':
-            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+        elif resol == 'thumbnail' and (version == 'cropped' or version == 'cropped_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
-        elif resol == 'thumbnail' and version == 'cropped_tif':
-            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
-            image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn}])
-            image_path = os.path.join(image_dir, image_name + '.tif')
-        elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
-            image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+        elif resol == 'thumbnail' and (version == 'aligned' or version == 'aligned_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn}])
             image_path = os.path.join(image_dir, image_name + '.tif')
         else:
@@ -1861,6 +1829,11 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
         return os.path.join(CELL_FEATURES_CLF_ROOTDIR, 'region_indices_by_label', stack, fn + '_region_indices_by_label.hdf')
+    
+    @staticmethod
+    def get_ntb_to_nissl_intensity_profile_mapping_filepath(stack, ntb_fn=None):
+        fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
+        return fp
         
 
 ##################################################

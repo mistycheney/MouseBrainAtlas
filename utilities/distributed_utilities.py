@@ -5,11 +5,10 @@ from subprocess import call, check_output
 import cPickle as pickle
 import json
 
-import boto3
+# import boto3
 
 from utilities2015 import execute_command, shell_escape
 from metadata import *
-
 
 default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
 
@@ -24,6 +23,7 @@ def upload_to_s3(fp, local_root=default_root[HOST_ID], is_dir=False):
 def download_from_s3(fp, local_root=default_root[HOST_ID], is_dir=False, redownload=False):
     
     if redownload or not os.path.exists(fp):
+        # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes match.
         transfer_data_synced(relative_to_local(fp, local_root=local_root), 
                             from_hostname='s3',
                             to_hostname=HOST_ID,
@@ -138,32 +138,32 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
 
-def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
-    def get_ec2_avail_instances(region):
-        ins = []
-        ec2_conn = boto3.client('ec2', region)
-        #reservations = ec2_conn.get_all_reservations()
-        response = ec2_conn.describe_instances()
-        myid = check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
-        for reservation in response["Reservations"]:
-            for instance in reservation["Instances"]:
-                if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge':
-                    continue
-                if instance['InstanceId'] != myid:
-                    ins.append(instance['PublicDnsName'])
-                else:
-                    ins.append('127.0.0.1')
-        return ins
-    all_nodes = get_ec2_avail_instances('us-west-1')
+# def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
+#     def get_ec2_avail_instances(region):
+#         ins = []
+#         ec2_conn = boto3.client('ec2', region)
+#         #reservations = ec2_conn.get_all_reservations()
+#         response = ec2_conn.describe_instances()
+#         myid = check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
+#         for reservation in response["Reservations"]:
+#             for instance in reservation["Instances"]:
+#                 if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge':
+#                     continue
+#                 if instance['InstanceId'] != myid:
+#                     ins.append(instance['PublicDnsName'])
+#                 else:
+#                     ins.append('127.0.0.1')
+#         return ins
+#     all_nodes = get_ec2_avail_instances('us-west-1')
 
-    if use_nodes is not None:
-        hostids = use_nodes
-    else:
-        #for node in exclude_nodes:
-        #    print(node)
-        hostids = [node for node in all_nodes if node not in exclude_nodes]
-    n_hosts = len(hostids)
-    return hostids
+#     if use_nodes is not None:
+#         hostids = use_nodes
+#     else:
+#         #for node in exclude_nodes:
+#         #    print(node)
+#         hostids = [node for node in all_nodes if node not in exclude_nodes]
+#     n_hosts = len(hostids)
+#     return hostids
 
 def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 

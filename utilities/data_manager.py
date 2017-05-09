@@ -221,13 +221,11 @@ class DataManager(object):
         return mask
     
     @staticmethod
-    def get_thumbnail_mask_filename_v2(stack, section=None, version='aligned_cropped'):        
-
-        # anchor_fn = DataManager.load_anchor_filename(stack)
+    def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):        
         anchor_fn = metadata_cache['anchor_fn'][stack]
-        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
-        fn = sections_to_filenames[section]
+        if fn is None:
+            fn = sections_to_filenames[section]
         
         if version == 'aligned_cropped':
             fn = THUMBNAIL_DATA_DIR+'/%(stack)s/%(stack)s_masks_alignedTo_%(anchor_fn)s_cropped/%(fn)s_mask_alignedTo_%(anchor_fn)s_cropped.png' % \
@@ -238,9 +236,10 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_thumbnail_mask_v2(stack, section=None, version='aligned_cropped'):
-        fn = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, version=version)
-        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
         return mask
 
     @staticmethod

@@ -137,7 +137,11 @@ elif hostname.startswith('ip'):
     CELLPROFILER_EXEC = 'python /shared/CellProfiler/CellProfiler.py' # /usr/local/bin/cellprofiler
     CELLPROFILER_PIPELINE_FP = '/shared/CSHL_cells_v2/SegmentCells.cppipe'
     
-    CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
+    if 'CELLS_ROOTDIR' in os.environ:
+        CELLS_ROOTDIR = os.environ['CELLS_ROOTDIR']
+    else:
+        CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
+
     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')

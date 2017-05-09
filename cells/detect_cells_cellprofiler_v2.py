@@ -51,6 +51,8 @@ def detect_cells(fn):
     execute_command("cp %s %s" % (sat_filename, copyto_sat_filename))
     execute_command('convert %(img_orig_fp)s -negate -auto-level %(img_fp)s' % dict(img_orig_fp=copyto_sat_filename,
                                                                    img_fp=input_img_fp))
+    upload_to_s3(copyto_sat_filename)
+    upload_to_s3(input_img_fp)
 
     tile_h, tile_w = (5000, 5000)
     i = 0
@@ -109,6 +111,7 @@ def detect_cells(fn):
 
     labelmap_fp = os.path.splitext(input_img_fp)[0] + '_labelmap_%(alg)s.bp' % dict(alg=alg)
     bp.pack_ndarray_file(big_labelmap, labelmap_fp)
+    upload_to_s3(labelmap_fp)
     
     for fp in input_fps:
         execute_command('rm ' + fp)        

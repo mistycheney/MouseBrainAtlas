@@ -13,14 +13,14 @@ from metadata import *
 default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
 
 
-def upload_to_s3(fp, local_root=default_root[HOST_ID], is_dir=False):
+def upload_to_s3(fp, local_root=ROOT_DIR, is_dir=False):
     transfer_data_synced(relative_to_local(fp, local_root=local_root),
                         from_hostname=HOST_ID,
                         to_hostname='s3',
                         is_dir=is_dir,
                         from_root=local_root)
 
-def download_from_s3(fp, local_root=default_root[HOST_ID], is_dir=False, redownload=False):
+def download_from_s3(fp, local_root=ROOT_DIR, is_dir=False, redownload=False):
     
     if redownload or not os.path.exists(fp):
         # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes match.

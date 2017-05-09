@@ -156,12 +156,14 @@ def detect_cell_one_section(fn):
     
     # Other blob attributes
     t = time.time()
-        
+    
+    
+    # Must use serial rather than multiprocess because this is nested in a worker process that is being parallelized.
+    
     # pool = Pool(NUM_CORES)
     # valid_blob_contours = pool.map(find_contour_worker, cell_masks)
     # pool.terminate()
     # pool.join()
-    
     valid_blob_contours = [find_contour_worker(msk) for msk in cell_masks]
         
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobContours', ext='hdf')

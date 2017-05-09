@@ -44,7 +44,8 @@ def detect_cells(fn):
     # Split image into tiles
     ##########################
 
-    sat_filename = DataManager.get_image_filepath(stack=stack, fn=fn, resol='lossless', version='cropped_gray')
+    # sat_filename = DataManager.get_image_filepath(stack=stack, fn=fn, resol='lossless', version='cropped_gray')
+    sat_filename = DataManager.get_image_filepath(stack=stack, fn=fn, resol='lossless', version='cropped_gray_contrast_stretched')
     download_from_s3(sat_filename)
     copyto_sat_filename = get_cell_data_filepath(stack=stack, fn=fn, what='image_gray', ext='tif')
     create_parent_dir_if_not_exists(copyto_sat_filename)

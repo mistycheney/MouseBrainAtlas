@@ -2,10 +2,10 @@ import sys, os
 import subprocess
 import os
 
-try:
-    import boto3
-except:
-    sys.stderr.write('No boto3\n')
+# try:
+#     import boto3
+# except:
+#     sys.stderr.write('No boto3\n')
 from pandas import read_hdf
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
@@ -48,32 +48,32 @@ def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, loca
 
     return '_'.join(suffix)
 
-def save_file_to_s3(local_path, s3_path):
-    # upload to s3
-    return
+# def save_file_to_s3(local_path, s3_path):
+#     # upload to s3
+#     return
 
-def save_to_s3(fpkw, fppos):
-    """
-    Decorator. Must provide both `fpkw` and `fppos` because we don't know if
-    filepath will be supplied to the decorated function as positional argument
-    or keyword argument.
+# def save_to_s3(fpkw, fppos):
+#     """
+#     Decorator. Must provide both `fpkw` and `fppos` because we don't know if
+#     filepath will be supplied to the decorated function as positional argument
+#     or keyword argument.
 
-    fpkw: argument keyword for file path in the decorated function
-    fppos: argument position for file path in the decorated function
+#     fpkw: argument keyword for file path in the decorated function
+#     fppos: argument position for file path in the decorated function
 
-    Reference: http://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html
-    """
-    def wrapper(func):
-        def wrapped_f(*args, **kwargs):
-            if fpkw in kwargs:
-                fp = kwargs[fpkw]
-            elif len(args) > fppos:
-                fp = args[fppos]
-            res = func(*args, **kwargs)
-            save_file_to_s3(fp, DataManager.map_local_filename_to_s3(fp))
-            return res
-        return wrapped_f
-    return wrapper
+#     Reference: http://python-3-patterns-idioms-test.readthedocs.io/en/latest/PythonDecorators.html
+#     """
+#     def wrapper(func):
+#         def wrapped_f(*args, **kwargs):
+#             if fpkw in kwargs:
+#                 fp = kwargs[fpkw]
+#             elif len(args) > fppos:
+#                 fp = args[fppos]
+#             res = func(*args, **kwargs)
+#             save_file_to_s3(fp, DataManager.map_local_filename_to_s3(fp))
+#             return res
+#         return wrapped_f
+#     return wrapper
 
 class DataManager(object):
 
@@ -150,42 +150,11 @@ class DataManager(object):
         fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
         return fn
 
-    # @staticmethod
-    # def download_from_s3(local_path, s3_path = None):
-    # #downloading 500 files of 1Mb each
-    # #boto3 - 36 seconds
-    # #aws cli - 5 seconds
-    #     s3_connection = boto3.resource('s3')
-    #     if s3_path == None:
-    #         s3_path = DataManager.map_local_filename_to_s3(local_path)
-    #     bucket, file_to_download= s3_path.split("s3://")[1].split("/", 1)
-    #     #file_to_download = file_to_download.split("/", 1)[1]
-    #
-    #     bucket = s3_connection.Bucket(bucket)
-    #     create_parent_dir_if_not_exists(local_path)
-    #     if len(list(bucket.objects.filter(Prefix=file_to_download))) > 1:
-    #         execute_command('aws s3 cp --recursive %s %s' % (s3_path, local_path))
-    #         #subprocess.call(["aws", "s3", "cp", s3_path, local_path, "--recursive"], stdout = open(os.devnull, 'w'))
-    #     else:
-    #         bucket.download_file(file_to_download, local_path)
-    # return local_path
-
-    # @staticmethod
-    # def upload_to_s3(local_path, s3_path = None, output = False):
-    # #uploading 500 files of 1Mb each
-    # #boto3 - 1 minute 24  seconds
-    # #aws cli - 7 seconds
-    #     if s3_path == None:
-    #         s3_path = map_local_filename_to_s3(local_path)
-    #     if output == True:
-    #         subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"])
-    #     else:
-    #         subprocess.call(["aws", "s3", "cp", local_path, s3_path, "--recursive"], stdout = open(os.devnull, 'w'))
-
     @staticmethod
     def load_anchor_filename(stack):
-        fn = DataManager.get_anchor_filename_filename(stack)
-        anchor_fn = DataManager.load_data(fn, filetype='anchor')
+        fp = DataManager.get_anchor_filename_filename(stack)
+        download_from_s3(fp)
+        anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
     @staticmethod
@@ -197,8 +166,9 @@ class DataManager(object):
 
     @staticmethod
     def load_cropbox(stack, anchor_fn=None):
-        fn = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
-        cropbox = DataManager.load_data(fn, filetype='bbox')
+        fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
+        download_from_s3(fp)
+        cropbox = DataManager.load_data(fp, filetype='bbox')
         return cropbox
 
     @staticmethod
@@ -208,8 +178,9 @@ class DataManager(object):
 
     @staticmethod
     def load_sorted_filenames(stack):
-        fn = DataManager.get_sorted_filenames_filename(stack)
-        filename_to_section, section_to_filename = DataManager.load_data(fn, filetype='file_section_map')
+        fp = DataManager.get_sorted_filenames_filename(stack)
+        download_from_s3(fp)
+        filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
         return filename_to_section, section_to_filename
@@ -225,8 +196,9 @@ class DataManager(object):
         Load the transforms that when multiplied to a point on original space converts it to on aligned space.
         """
 
-        fn = DataManager.get_transforms_filename(stack)
-        Ts = DataManager.load_data(fn, filetype='pickle')
+        fp = DataManager.get_transforms_filename(stack)
+        download_from_s3(fp)
+        Ts = DataManager.load_data(fp, filetype='pickle')
 
         Ts_inv_downsampled = {}
         for fn, T0 in Ts.iteritems():

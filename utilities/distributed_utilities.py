@@ -244,6 +244,8 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
     Distributed executing a command on AWS.
     """
     
+    execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
+    
     n_hosts = get_num_nodes()
     if n_hosts < cluster_size:
         request_compute_nodes(cluster_size)

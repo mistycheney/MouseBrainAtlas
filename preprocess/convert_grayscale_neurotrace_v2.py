@@ -34,7 +34,7 @@ for fn in filenames:
         img_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped', resol='lossless')
         download_from_s3(img_fp)
 
-        if fn.split('-')[1][0] == 'F':
+        if stack not in all_nissl_stacks and fn.split('-')[1][0] == 'F':
 
             t = time.time()
             img_blue = imread(img_fp)[..., 2]
@@ -58,7 +58,7 @@ for fn in filenames:
             upload_to_s3(output_fp)
             sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
-        elif fn.split('-')[1][0] == 'N':
+        else:
 
             t = time.time()
             print img_fp
@@ -80,8 +80,8 @@ for fn in filenames:
             upload_to_s3(output_fp)
             sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
-        else:
-            sys.stderr.write("Filename %s is not F or N.\n" % fn)
+        # else:
+        #     sys.stderr.write("Filename %s is not F or N.\n" % fn)
     
     except Exception as e:
         sys.stderr.write('%s\n' % e)

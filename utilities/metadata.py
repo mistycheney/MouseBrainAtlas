@@ -134,7 +134,9 @@ elif hostname.startswith('ip'):
     # HESSIAN_ROOTDIR = '/shared/CSHL_hessians/'
     ELASTIX_BIN = 'elastix'
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
-
+    CELLPROFILER_EXEC = 'python /shared/CellProfiler/CellProfiler.py' # /usr/local/bin/cellprofiler
+    CELLPROFILER_PIPELINE_FP = '/shared/CSHL_cells_v2/SegmentCells.cppipe'
+    
     CELLS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_cells_v2')
     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')

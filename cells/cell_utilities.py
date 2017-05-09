@@ -1056,9 +1056,9 @@ def get_cell_data_filepath(what, stack, sec=None, fn=None, ext=None):
     fp = os.path.join(DETECTED_CELLS_ROOTDIR, stack, fn, fn_template % {'fn': fn})
     return fp
 
-def load_cell_data(what, stack, sec, ext=None):
+def load_cell_data(what, stack, sec=None, fn=None, ext=None):
 
-    fp = get_cell_data_filepath(what, stack, sec, ext=ext)
+    fp = get_cell_data_filepath(what, stack, sec=sec, fn=fn, ext=ext)
     if fp is None:
         raise 'Cannot load data for section %d.'
     download_from_s3(fp)

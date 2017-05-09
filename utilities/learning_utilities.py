@@ -473,7 +473,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
+    contours_df, _ = load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)

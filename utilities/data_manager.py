@@ -75,6 +75,7 @@ def save_to_s3(fpkw, fppos):
         return wrapped_f
     return wrapper
 
+
 class DataManager(object):
 
     # @staticmethod
@@ -1838,6 +1839,12 @@ class DataManager(object):
 
 ##################################################
 
+# Download preprocess data
+for stack in all_stacks:
+    download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
+    download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
+    download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+    
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
 

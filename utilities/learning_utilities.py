@@ -17,6 +17,27 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
+def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+    merged_addresses = {}
+
+    for dataset_id in dataset_ids:
+
+        addresses_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        download_from_s3(addresses_fp)
+        addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        for label in labels_to_sample:
+            try:
+                if label not in merged_addresses:
+                    merged_addresses[label] = addresses_curr_dataset[label]
+                else:
+                    merged_addresses[label] += addresses_curr_dataset[label]
+
+            except Exception as e:
+                continue
+                                
+    return merged_addresses
+
 def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
@@ -187,14 +208,16 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
         list of patches.
     """
 
+    t = time.time()
     img_fp = DataManager.get_image_filepath(stack, sec, version=version)
-    download_from_s3(img_fp)
+#     download_from_s3(img_fp)
     img = imread(img_fp)
+    sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t)) 
 
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    patch_size, stride, w, h = grid_spec
+    patch_size, _, _, _ = grid_spec
     half_size = patch_size/2
 
     if indices is not None:
@@ -523,8 +546,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
-    contours_df, _ = load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
+    contours_df, _ = DataManager.load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -746,7 +768,7 @@ bbox_lossless=None, surround_margins=None):
         if isinstance(polygons, dict):
             polygon_list = [(name, cnt) for name, cnts in polygons.iteritems() for cnt in cnts] # This is to deal with when one name has multiple contours
         elif isinstance(polygons, list):
-            assert isinstance(polygons.values()[0], tuple)
+            assert isinstance(polygons[0], tuple)
             polygon_list = polygons
         else:
             raise Exception('Polygon must be either dict or list.')

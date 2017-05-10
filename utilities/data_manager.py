@@ -75,6 +75,7 @@ def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, loca
 #         return wrapped_f
 #     return wrapper
 
+
 class DataManager(object):
 
     # @staticmethod
@@ -196,17 +197,19 @@ class DataManager(object):
         return filename_to_section, section_to_filename
 
     @staticmethod
-    def get_transforms_filename(stack):
-        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_anchor.pkl')
+    def get_transforms_filename(stack, anchor_fn=None):
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_%s.pkl' % anchor_fn)
         return fn
 
     @staticmethod
-    def load_transforms(stack, downsample_factor):
+    def load_transforms(stack, anchor_fn=None, downsample_factor=1):
         """
         Load the transforms that when multiplied to a point on original space converts it to on aligned space.
         """
 
-        fp = DataManager.get_transforms_filename(stack)
+        fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
         download_from_s3(fp)
         Ts = DataManager.load_data(fp, filetype='pickle')
 
@@ -1824,6 +1827,12 @@ class DataManager(object):
 
 ##################################################
 
+# Download preprocess data
+for stack in all_stacks:
+    download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
+    download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
+    download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+    
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
 

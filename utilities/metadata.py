@@ -123,6 +123,7 @@ elif hostname.startswith('ip'):
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
+    ANNOTATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_annotation_viz')
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_features')

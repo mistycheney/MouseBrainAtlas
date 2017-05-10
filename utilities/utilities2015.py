@@ -712,6 +712,7 @@ def apply_function_to_dict(func, d):
     Args:
         func:
             a function that takes as input the list consisting of a flatten list of values of `d`, and return a list.
+        d (dict {key: list}): 
     """
     from itertools import chain
     result = func(list(chain(*d.values())))

@@ -83,6 +83,16 @@ class DataManager(object):
     #     return s3_path
 
     @staticmethod
+    def get_annotation_viz_dir(stack):
+        return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack)
+
+    @staticmethod
+    def get_annotation_viz_filepath(stack, sec=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][sec]
+        return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack, fn + '_annotation_viz.tif')
+    
+    @staticmethod
     def load_data(filepath, filetype):
 
         if not os.path.exists(filepath):

@@ -834,7 +834,7 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
     # import cPickle as pickle
     # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-    Ts = DataManager.load_transforms(stack, 1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         fn = cnt['filename']
@@ -874,7 +874,7 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 
     # import cPickle as pickle
     # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-    Ts = DataManager.load_transforms(stack, 1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         fn = cnt['filename']
@@ -917,7 +917,7 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
     # import cPickle as pickle
     # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
 
-    Ts = DataManager.load_transforms(stack, 1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         sec = cnt['section']

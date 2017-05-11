@@ -125,6 +125,7 @@ def detect_cell_one_section(fn):
     t = time.time()
     valid_blob_coords = [props[i].coords for i in valid_blob_indices] # r,c
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobCoords', ext='hdf')
+    # Global coordinates of all pixels in the mask.
     save_hdf_v2(valid_blob_coords, fp)
     upload_to_s3(fp)
     sys.stderr.write('Save blob coords: %.2f\n' % (time.time() - t) )
@@ -145,10 +146,12 @@ def detect_cell_one_section(fn):
         cell_mask_centers.append([xc, yc])
     
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobMasks', ext='hdf')
+    # binary mask of each blob.
     save_hdf_v2(cell_masks, fp)
     upload_to_s3(fp)
     
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobMaskCenters', ext='bp')
+    # blob centroid in bounding box
     bp.pack_ndarray_file(np.array(cell_mask_centers), fp)
     upload_to_s3(fp)
     
@@ -167,6 +170,7 @@ def detect_cell_one_section(fn):
     valid_blob_contours = [find_contour_worker(msk) for msk in cell_masks]
         
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobContours', ext='hdf')
+    # contour coordinates relative to the bounding box
     save_hdf_v2(valid_blob_contours, fp)
     upload_to_s3(fp)
 
@@ -180,26 +184,73 @@ def detect_cell_one_section(fn):
     valid_blob_minorAxisLen = np.array([props[i].minor_axis_length for i in valid_blob_indices])
 
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobOrientations', ext='bp')
+    # in radian, relative to horizontal axis of the image
     bp.pack_ndarray_file(valid_blob_orientations, fp)
     upload_to_s3(fp)
     
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobCentroids', ext='bp')
+    # centroid coordinates of each blob relative to the whole image
     bp.pack_ndarray_file(valid_blob_centroids, fp)
     upload_to_s3(fp)
     
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobMajorAxisLen', ext='bp')
+    # in pixels
     bp.pack_ndarray_file(valid_blob_majorAxisLen, fp)
     upload_to_s3(fp)
     
     fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobMinorAxisLen', ext='bp')
+    # in pixels
     bp.pack_ndarray_file(valid_blob_minorAxisLen, fp)
     upload_to_s3(fp)
     
     blob_contours_global = [(valid_blob_contours[i] - cell_mask_centers[i] + valid_blob_centroids[i]).astype(np.int)
                             for i in range(len(valid_blob_coords))]
     blob_contours_global_fp = get_cell_data_filepath(stack=stack, fn=fn, what='blobContoursGlobal_%(alg)s' % {'alg':alg}, ext='hdf')
+    # Contour coordinates of each blob relative to the whole image.
     save_hdf_v2(blob_contours_global, blob_contours_global_fp)
     upload_to_s3(blob_contours_global_fp)
+    
+    
+    # Compute cell sizes
+    cell_sizes = np.reshape(cell_masks, (cell_masks.shape[0], -1)).sum(axis=1)
+    cell_sizes_fp = get_cell_data_filepath('cellSizes', stack=stack, sec=sec, ext='bp')
+    bp.pack_ndarray_file(cell_sizes, cell_sizes_fp)
+
+#     large_cell_indices = np.where(cell_sizes > cell_size_thresh)[0]
+#     print 'Got %s large cells.' % len(large_cell_indices)
+
+#     large_cell_indices_fp = get_cell_data_filepath('largeCellIndices', stack=stack, sec=sec, ext='bp')
+#     bp.pack_ndarray_file(large_cell_indices, large_cell_indices_fp)
+
+#     def compute_hu_moments(i):
+#         b = cells_aligned_padded[i].astype(np.uint8)
+#         m = moments(b, order=1)
+#         hu = moments_hu(moments_normalized(moments_central(b, cc=m[0,1]/m[0,0], cr=m[1,0]/m[0,0])))    
+#         return hu
+
+#     t = time.time()
+
+# # Using parallel sometimes causes stall. Not much faster than sequential anyway.
+# #     pool = Pool(8)
+# #     large_cell_hu_moments = np.array(pool.map(compute_hu_moments, large_cell_indices))
+# #     pool.close()
+# #     pool.join()
+
+#     large_cell_hu_moments = np.array([compute_hu_moments(i) for i in large_cell_indices])
+
+#     sys.stderr.write('Compute hu moments: %.2f seconds.\n' % (time.time()-t)) # 3-9s
+
+#     cell_orientations = load_cell_data(what='blobOrientations', stack=stack, sec=sec, ext='bp')
+#     cell_mirrors = load_cell_data(what='cells_aligned_mirrorDirections', stack=stack, sec=sec, ext='bp')
+
+#     large_cell_features = np.c_[cell_orientations[large_cell_indices],
+#                                      cell_mirrors[large_cell_indices],
+#                                      cell_sizes[large_cell_indices], 
+#                                      large_cell_hu_moments]
+
+#     large_cell_features_fp = get_cell_data_filepath('largeCellFeatures', stack=stack, sec=sec, ext='bp')
+#     bp.pack_ndarray_file(large_cell_features, large_cell_features_fp)
+    
 
 # This part is better moved to a separate script because it takes much more memory than other parts and cannot use
 # the same number of processes.

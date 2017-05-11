@@ -230,6 +230,54 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 
+def extract_patches_given_locations_multiple_sections_parallel(addresses, location_or_grid_index='location', version='compressed'):
+    """
+    Args:
+        addresses:
+            list of (stack, section, framewise_index)
+    Returns:
+        list of patches
+    """
+
+    from collections import defaultdict
+
+    locations_grouped = {}
+    for stack_sec, list_index_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (i, x): (x[0],x[1])),
+        key=lambda (i,x): (x[0], x[1])):
+        locations_grouped[stack_sec] = [(address[2], list_index) for list_index, address in list_index_and_address_grouper]
+
+    # def f(stack_sec, locations_allSections):
+    #     stack, sec = stack_sec
+    #     locs_thisSec, list_indices = map(list, zip(*locations_allSections))
+    #     if location_or_grid_index == 'location':
+    #         extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
+    #     else:
+    #         extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
+    #     return extracted_patches, list_indices
+    
+    # from multiprocess import Pool
+    # pool = Pool(2)
+    # res = pool.map(lambda (stack_sec, locs): f(stack_sec, locs), locations_grouped.items())
+    # extracted_patches_lists, list_indices_lists = zip(*res)
+    # patches_all = list(chain(*extracted_patches_lists))
+    # list_indices_all = list(chain(*list_indices_lists))
+    
+    patches_all = []
+    list_indices_all = []
+    for (stack, sec), locations_allSections in locations_grouped.iteritems():
+        locs_thisSec, list_indices = map(list, zip(*locations_allSections))
+        t = time.time()
+        if location_or_grid_index == 'location':
+            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
+        else:
+            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
+        sys.stderr.write('extract_patches_given_locations (%s,%d): %.2f seconds.\n' % (stack, sec, time.time()-t))
+        patches_all += extracted_patches
+        list_indices_all += list_indices
+
+    patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
+    return patch_all_inOriginalOrder
+
 def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='compressed'):
     """
     Args:
@@ -571,6 +619,34 @@ def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=No
         return location_list
 
 
+def generate_patch_dataset(num_samples_per_label, stacks, labels_to_sample):
+    
+    addresses = defaultdict(list)
+    
+    t = time.time()
+    
+    for stack in stacks:
+        
+        t1 = time.time()
+        annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
+        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
+
+        labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)
+
+        t1 = time.time()
+        addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 
+                                            num_samples_per_landmark=num_samples_per_label/len(stacks))
+        sys.stderr.write('Sample addresses (stack %s): %.2s seconds.\n' % (stack, time.time() - t1))
+
+        for label, addrs in addresses_sec_idx.iteritems():
+            addresses[label] += [(stack, ) + addr for addr in addrs]
+
+    addresses.default_factory = None
+    
+    sys.stderr.write('Sample addresses: %.2f seconds\n' % (time.time() - t))
+        
+    return addresses
 
 def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name='Inception-BN'):
     """
@@ -586,7 +662,6 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     # Extract addresses
     
     test_addresses = defaultdict(list)
-
     labels_found = set([])
 
     t = time.time()

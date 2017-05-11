@@ -18,7 +18,7 @@ maintain_initial_size = true
 master_root_volume_size = 30
 master_instance_type = m4.4xlarge
 #master_instance_type = g2.8xlarge
-compute_root_volume_size = 30
+compute_root_volume_size = 500
 compute_instance_type = m4.2xlarge
 #compute_instance_type = g2.8xlarge
 

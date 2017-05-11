@@ -1294,7 +1294,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
 
     def align(self):
-        self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
+        pass
+        # self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.
         # execute_command(('ssh gcn-20-34.sdsc.edu \"cd %(gordon_data_dir)s && tar -I pigz -cf %(stack)s_elastix_output.tar.gz %(stack)s_elastix_output/*/*.tif\" &&'
@@ -1305,9 +1306,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         #                     local_data_dir=self.stack_data_dir,
         #                     stack=self.stack))
 
-        download()
-
-        self.statusBar().showMessage('Consecutive sections alignment results downloaded.')
+        # download()
+        #
+        # self.statusBar().showMessage('Consecutive sections alignment results downloaded.')
 
     def get_valid_sorted_filenames(self):
         return [fn for fn in self.sorted_filenames if fn != 'Rescan' and fn != 'Placeholder']
@@ -1369,6 +1370,9 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         elif isinstance(anchor, str):
             # assert isinstance(anchor, str)
             self.anchor_fn = anchor
+
+        with open(os.path.join(thumbnail_data_dir, self.stack, self.stack + '_anchor.txt'), 'w') as f:
+            f.write(self.anchor_fn)
 
         self.update_sorted_sections_gscene_label()
 

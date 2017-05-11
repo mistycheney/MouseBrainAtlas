@@ -112,6 +112,8 @@ elif hostname.startswith('ip'):
     else:
         ROOT_DIR = '/shared'
     
+    DATA_ROOTDIR = '/shared'
+
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -153,20 +155,9 @@ elif hostname.startswith('ip'):
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    
+    MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
-# elif hostname.endswith('GL502VM'):
-#     print 'Setting environment for Local Machine Saienthan'
-#     ON_AWS = False
-#     os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
-#     RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
-#     data_dir = '/home/saienthan/data/CSHL_data_processed/'
-#     DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
-#     thumbnail_data_dir = data_dir
-#     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-#     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
-#     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-#     ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-#     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
 else:
     print 'Setting environment for Brainstem workstation'
 

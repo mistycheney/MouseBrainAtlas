@@ -234,19 +234,30 @@ class DataManager(object):
         return mask
     
     @staticmethod
+    def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        if version == 'aligned_cropped':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
+        elif version == 'aligned':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
+        else:
+            raise Exception("version %s not recognized." % version)
+        return mask_dir
+    
+    @staticmethod
     def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):        
         anchor_fn = metadata_cache['anchor_fn'][stack]
         sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
         if fn is None:
             fn = sections_to_filenames[section]
-        
+        mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
         if version == 'aligned_cropped':
-            fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped',
-                             fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
         elif version == 'aligned':
-            fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn,
-                             fn + '_mask_alignedTo_' + anchor_fn + '.png')
-        return fn
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
+        else:
+            raise Exception("version %s not recognized." % version)
+        return fp
 
     @staticmethod
     def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):

@@ -69,6 +69,6 @@ sudo apt install -y tree screen
 echo """
 export REPO_DIR=/shared/MouseBrainAtlas
 alias sudosgeadmin=\"sudo -u sgeadmin -i\"
-start_notebook() { jupyter notebook --notebook-dir "$@"; }
+start_notebook() { jupyter notebook --notebook-dir \"$1\"; }
 alias increase_ebs_size=\"sudo resize2fs /dev/xvdb\"
 """ >> /home/ubuntu/.bashrc

@@ -1,11 +1,7 @@
-import sys, os
-import subprocess
+import sys
 import os
+import subprocess
 
-# try:
-#     import boto3
-# except:
-#     sys.stderr.write('No boto3\n')
 from pandas import read_hdf
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
@@ -13,6 +9,46 @@ from utilities2015 import *
 from metadata import *
 from vis3d_utilities import *
 from distributed_utilities import *
+
+def get_random_masked_regions(region_shape, stack, num_regions=1, sec=None, fn=None):
+    """
+    Return a random region that is on mask.
+    
+    Args:
+        region_shape: (width, height)
+    
+    Returns:
+        list of (region_x, region_y, region_w, region_h)
+    """
+    
+    if fn is None:
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+    tb_mask = DataManager.load_thumbnail_mask_v2(stack=stack, fn=fn)
+    img_w, img_h = metadata_cache['image_shape'][stack]
+    h, w = region_shape
+    
+    regions = []
+    for _ in range(num_regions):
+        while True:
+            xmin = np.random.randint(0, img_w, 1)[0]
+            ymin = np.random.randint(0, img_h, 1)[0]
+            
+            if xmin + w >= img_w or ymin + h >= img_h:
+                continue
+
+            tb_xmin = xmin / 32
+            tb_xmax = (xmin + w) / 32
+            tb_ymin = ymin / 32
+            tb_ymax = (ymin + h) / 32
+
+            if np.count_nonzero(np.r_[tb_mask[tb_ymin, tb_xmin], \
+                                      tb_mask[tb_ymin, tb_xmax], \
+                                      tb_mask[tb_ymax, tb_xmin], \
+                                      tb_mask[tb_ymax, tb_xmax]]) >= 3:
+                break
+        regions.append((xmin, ymin, w, h))
+    
+    return regions
 
 def is_invalid(fn=None, sec=None, stack=None):
     if sec is not None:
@@ -108,7 +144,10 @@ class DataManager(object):
         elif filetype == 'image':
             return imread(filepath)
         elif filetype == 'hdf':
-            return load_hdf(filepath)
+            try:
+                return load_hdf(filepath)
+            except:
+                return load_hdf_v2(filepath)
         elif filetype == 'bbox':
             return np.loadtxt(filepath).astype(np.int)
         elif filetype == 'annotation_hdf':
@@ -223,6 +262,7 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
+<<<<<<< HEAD
     def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
         fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
         return fp
@@ -278,6 +318,8 @@ class DataManager(object):
         return fn
 
     @staticmethod
+=======
+>>>>>>> 990296c64d5d85438a38cf234ef141318833e616
     def get_original_volume_basename(stack, classifier_setting=None, downscale=32, volume_type='score', **kwargs):
         return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
         downscale=downscale, type_m=volume_type)
@@ -1478,18 +1520,34 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % \
+        if model_name == 'Inception-BN':
+            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
+            '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % \
+            dict(fn=fn, anchor_fn=anchor_fn))
+        else:
+            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
+        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.bp' % \
         dict(fn=fn, anchor_fn=anchor_fn))
-        # feature_fn = PATCH_FEATURES_ROOTDIR + '/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % dict(stack=stack, fn=fn, anchor_fn=anchor_fn)
+        
         return feature_fn
 
     @staticmethod
     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None):
-        features_fn = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
-        download_from_s3_to_ec2(features_fn)
-        return load_hdf(features_fn)
-
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+        download_from_s3(features_fp)
+        
+        try:
+            return load_hdf(features_fp)
+        except:
+            pass
+        
+        try:
+            return load_hdf_v2(features_fp)
+        except:
+            pass
+            
+        return bp.unpack_ndarray_file(features_fp)
+        
     @staticmethod
     def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None, modality=None, data_dir=DATA_DIR):
         """
@@ -1782,6 +1840,10 @@ class DataManager(object):
         return fp
 
     @staticmethod
+    def get_thumbnail_mask_dir_v3(stack, version='aligned'):
+        return DataManager.get_mask_dirpath(stack, version=version)
+    
+    @staticmethod
     def get_mask_dirpath(stack, version='aligned'):
         """
         Get directory path of thumbnail mask.
@@ -1822,6 +1884,60 @@ class DataManager(object):
         return fp
     
     @staticmethod
+    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
+        return fp
+
+    @staticmethod
+    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+        return mask
+    
+    @staticmethod
+    def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        if version == 'aligned_cropped':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
+        elif version == 'aligned':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
+        else:
+            raise Exception("version %s not recognized." % version)
+        return mask_dir
+    
+    @staticmethod
+    def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):        
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        if fn is None:
+            fn = sections_to_filenames[section]
+        mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
+        if version == 'aligned_cropped':
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
+        elif version == 'aligned':
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
+        else:
+            raise Exception("version %s not recognized." % version)
+        return fp
+
+    @staticmethod
+    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+        return mask
+
+    @staticmethod
+    def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
+        if cerebellum_removed:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
+                {'stack': stack, 'sec': section}
+        else:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
+                            {'stack': stack, 'sec': section}
+        return fn
+    
+    @staticmethod
     def get_region_labels_filepath(stack, sec=None, fn=None):
         """
         Returns:
@@ -1835,15 +1951,36 @@ class DataManager(object):
     def get_ntb_to_nissl_intensity_profile_mapping_filepath(stack, ntb_fn=None):
         fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
         return fp
+    
+    @staticmethod
+    def get_dataset_features_filepath(dataset_id):
+        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.bp')
+        return features_fp
+    
+    @staticmethod
+    def get_dataset_addresses_filepath(dataset_id):
+        addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        return addresses_fp
+    
+    @staticmethod
+    def get_classifier_filepath(classifier_id, structure):
+        classifier_id_dir = os.path.join(CLF_ROOTDIR, 'setting_%d' % classifier_id)
+        classifier_dir = os.path.join(classifier_id_dir, 'classifiers')
+        return os.path.join(classifier_dir, '%(structure)s_clf_setting_%(setting)d.dump' % \
+                     dict(structure=structure, setting=classifier_id))
         
-
+        
 ##################################################
 
-# Download preprocess data
-for stack in all_stacks:
-    download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
-    download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
-    download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+def download_all_metadata():
+
+    # Download preprocess data
+    for stack in all_stacks:
+        download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
+        download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
+        download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+    
+download_all_metadata()
     
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
@@ -1873,6 +2010,8 @@ def generate_metadata_cache():
     metadata_cache['sections_to_filenames'] = {}
     metadata_cache['section_limits'] = {}
     metadata_cache['cropbox'] = {}
+    metadata_cache['valid_sections'] = {}
+    metadata_cache['valid_filenames'] = {}
     for stack in all_stacks:
         try:
             metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
@@ -1888,6 +2027,14 @@ def generate_metadata_cache():
             pass
         try:
             metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
+        except:
+            pass
+        
+        try:
+            first_sec, last_sec = metadata_cache['section_limits'][stack]
+            metadata_cache['valid_sections'][stack] = [sec for sec in range(first_sec, last_sec+1) if not is_invalid(stack=stack, sec=sec)]
+            metadata_cache['valid_filenames'][stack] = [metadata_cache['sections_to_filenames'][stack][sec] for sec in 
+                                                       metadata_cache['valid_sections'][stack]]
         except:
             pass
 

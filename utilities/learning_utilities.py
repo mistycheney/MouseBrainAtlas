@@ -21,11 +21,10 @@ def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDI
     merged_addresses = {}
 
     for dataset_id in dataset_ids:
-
-        addresses_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
         download_from_s3(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
-        
+
         for label in labels_to_sample:
             try:
                 if label not in merged_addresses:
@@ -35,7 +34,7 @@ def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDI
 
             except Exception as e:
                 continue
-                                
+
     return merged_addresses
 
 def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
@@ -47,13 +46,13 @@ def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
 
         # load training addresses
 
-        addresses_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
         download_from_s3_to_ec2(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
         
         # Load training features
 
-        features_fp = os.path.join(clf_rootdir, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
+        features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id)
         download_from_s3_to_ec2(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
 
@@ -620,6 +619,12 @@ def sample_locations(grid_indices_lookup, structures, num_samples_per_polygon=No
 
 
 def generate_patch_dataset(num_samples_per_label, stacks, labels_to_sample):
+    """
+    Generate patch addresses grouped by label.
+    
+    Returns:
+        addresses
+    """
     
     addresses = defaultdict(list)
     
@@ -648,7 +653,7 @@ def generate_patch_dataset(num_samples_per_label, stacks, labels_to_sample):
         
     return addresses
 
-def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name='Inception-BN'):
+def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name):
     """
     Generate dataset.
     - Extract addresses
@@ -656,13 +661,12 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     - Remove None features
     
     Returns:
-        test_features, test_addresses, labels_found
+        test_features, test_addresses
     """
     
     # Extract addresses
     
     test_addresses = defaultdict(list)
-    labels_found = set([])
 
     t = time.time()
     
@@ -670,11 +674,11 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
         
         t1 = time.time()
         annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
+        download_from_s3(annotation_grid_indices_fn)
         grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
         sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
 
         labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)
-        labels_found = labels_found | labels_this_stack
 
         t1 = time.time()
         test_addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 
@@ -697,14 +701,14 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     
     # Remove features that are None
 
-    for name in labels_found:
+    for name in test_features.keys():
         valid = [(ftr, addr) for ftr, addr in zip(test_features[name], test_addresses[name])
                     if ftr is not None]
         res = zip(*valid)
         test_features[name] = np.array(res[0])
         test_addresses[name] = res[1]
         
-    return test_features, test_addresses, labels_found
+    return test_features, test_addresses
     
 
 def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=None, w=None, h=None):

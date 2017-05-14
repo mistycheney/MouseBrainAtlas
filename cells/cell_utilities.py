@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from data_manager import *
 
 ###############
+
 n_radial = 4
 # radial_bins = np.logspace(0, 2, 10, base=10)
 radial_bins = np.linspace(0, 100, n_radial+1)
@@ -27,6 +28,7 @@ edge_length_bins = np.r_[np.linspace(0, 100, n_edge_length_bins), np.inf]
 
 n_edge_direction_bins = 10
 edge_direction_bins = np.linspace(-np.pi/2, np.pi/2, n_edge_direction_bins+1)
+
 ###############
 
 def visualize_blob_contour(binary_img, rgb_img):

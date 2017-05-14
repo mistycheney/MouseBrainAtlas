@@ -262,7 +262,6 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
-<<<<<<< HEAD
     def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
         fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
         return fp
@@ -318,8 +317,6 @@ class DataManager(object):
         return fn
 
     @staticmethod
-=======
->>>>>>> 990296c64d5d85438a38cf234ef141318833e616
     def get_original_volume_basename(stack, classifier_setting=None, downscale=32, volume_type='score', **kwargs):
         return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
         downscale=downscale, type_m=volume_type)

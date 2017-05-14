@@ -229,8 +229,9 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
-        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
         return mask
     
     @staticmethod

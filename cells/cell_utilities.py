@@ -31,6 +31,12 @@ edge_direction_bins = np.linspace(-np.pi/2, np.pi/2, n_edge_direction_bins+1)
 
 ###############
 
+def visualize_blob_contour(binary_img, rgb_img):
+    viz = rgb_img.copy()
+    for cnt in find_contour_points(binary_img)[1]:
+        cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, color=(255,0,0), thickness=2)
+    return viz
+
 tree = None # important, otherwise multiprocess.Pool does not work
 
 def normalize_angle(a):

@@ -269,6 +269,61 @@ class DataManager(object):
         return Ts_inv_downsampled
 
     @staticmethod
+    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
+        return fp
+
+    @staticmethod
+    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+        return mask
+    
+    @staticmethod
+    def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        if version == 'aligned_cropped':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
+        elif version == 'aligned':
+            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
+        else:
+            raise Exception("version %s not recognized." % version)
+        return mask_dir
+    
+    @staticmethod
+    def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):        
+        anchor_fn = metadata_cache['anchor_fn'][stack]
+        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+        if fn is None:
+            fn = sections_to_filenames[section]
+        mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
+        if version == 'aligned_cropped':
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
+        elif version == 'aligned':
+            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
+        else:
+            raise Exception("version %s not recognized." % version)
+        return fp
+
+    @staticmethod
+    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+        return mask
+
+    @staticmethod
+    def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
+        if cerebellum_removed:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
+                {'stack': stack, 'sec': section}
+        else:
+            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
+                            {'stack': stack, 'sec': section}
+        return fn
+
+    @staticmethod
     def get_original_volume_basename(stack, classifier_setting=None, downscale=32, volume_type='score', **kwargs):
         return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
         downscale=downscale, type_m=volume_type)

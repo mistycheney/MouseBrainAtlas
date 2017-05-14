@@ -11,15 +11,8 @@ import cPickle as pickle
 import datetime
 
 from skimage.io import imread, imsave
-from skimage.filters import threshold_otsu, threshold_adaptive, gaussian_filter
-from skimage.color import color_dict, gray2rgb, label2rgb, rgb2gray
-from skimage.segmentation import clear_border
-from skimage.morphology import binary_dilation, binary_erosion, watershed, remove_small_objects
-from skimage.measure import regionprops, label
-from skimage.restoration import denoise_bilateral
 from skimage.util import img_as_ubyte, img_as_float
-from skimage.transform import rescale
-from scipy.spatial.distance import cdist, pdist
+from skimage.color import gray2rgb, rgb2gray
 import numpy as np
 import matplotlib.pyplot as plt
 try:
@@ -31,6 +24,22 @@ import bloscpack as bp
 
 from ipywidgets import FloatProgress
 from IPython.display import display
+
+def visualize_blob_contour(binary_img, bg_img):
+    """
+    Args: 
+        binary_img: the binary image
+        rgb_img: the background image
+    
+    Returns:
+        Contoured image.
+    """
+    from registration_utilities import find_contour_points
+    
+    viz = gray2rgb(bg_img)
+    for cnt in find_contour_points(binary_img)[1]:
+        cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, color=(255,0,0), thickness=2)
+    return viz
 
 
 def shell_escape(s):

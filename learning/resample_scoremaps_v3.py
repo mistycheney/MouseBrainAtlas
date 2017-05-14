@@ -20,6 +20,8 @@ last_sec = int(sys.argv[3])
 classifier_id = int(sys.argv[4])
 downscale = int(sys.argv[5])
 
+cnn_model = dataset_settings.loc[int(classifier_settings.loc[classifier_id]['train_set_id'].split('/')[0])]['network_model']
+
 patch_size, spacing, w, h = get_default_gridspec(stack)
 half_size = patch_size/2
 
@@ -32,7 +34,7 @@ def resample(sec):
 
     try:
         _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, 
-                                        model_name='Inception-BN', section=sec)
+                                        model_name=cnn_model, section=sec)
     except:
         sys.stderr.write('Error loading patch locations for section %d.\n' % sec)
         return

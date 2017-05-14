@@ -25,6 +25,7 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
 parser.add_argument("--trial_idx", type=int, help="which trial of warpping to use", default=0)
+parser.add_argument("--upstream_trial_idx", type=int, help="the trial of upstream warping", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -42,7 +43,7 @@ if upstream_warp_setting == 'None':
     upstream_warp_setting = None
 else:
     upstream_warp_setting = int(upstream_warp_setting)
-    upstream_trial_idx = 1 # Need to modify this for every warp
+    upstream_trial_idx = args.upstream_trial_idx # Need to modify this for every warp
     
 ###################################################################################
 
@@ -79,7 +80,7 @@ if upstream_warp_setting is None:
             create_parent_dir_if_not_exists(volume_m_alignedTo_f_fn)
             bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)
 
-            upload_from_ec2_to_s3(volume_m_alignedTo_f_fn)
+            upload_to_s3(volume_m_alignedTo_f_fn)
 
             sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
 
@@ -137,7 +138,7 @@ else:
             create_parent_dir_if_not_exists(local_transformed_moving_structure_fn)
             bp.pack_ndarray_file(local_transformed_moving_structure_vol, local_transformed_moving_structure_fn)
 
-            upload_from_ec2_to_s3(local_transformed_moving_structure_fn)
+            upload_to_s3(local_transformed_moving_structure_fn)
 
             sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t))
 

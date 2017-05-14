@@ -13,14 +13,20 @@ from metadata import *
 default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
 
 
-def upload_to_s3(fp, local_root=ROOT_DIR, is_dir=False):
+def upload_to_s3(fp, local_root=None, is_dir=False):
+    # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
+    if local_root is None:
+        local_root = ROOT_DIR
     transfer_data_synced(relative_to_local(fp, local_root=local_root),
                         from_hostname=HOST_ID,
                         to_hostname='s3',
                         is_dir=is_dir,
                         from_root=local_root)
 
-def download_from_s3(fp, local_root=ROOT_DIR, is_dir=False, redownload=False):
+def download_from_s3(fp, local_root=None, is_dir=False, redownload=False):
+    # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
+    if local_root is None:
+        local_root = ROOT_DIR
     
     if redownload or not os.path.exists(fp):
         # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes match.
@@ -31,34 +37,36 @@ def download_from_s3(fp, local_root=ROOT_DIR, is_dir=False, redownload=False):
                             to_root=local_root)
 
 
-def relative_to_local(abs_fp, local_root):
+def relative_to_local(abs_fp, local_root=None):
+    if local_root is None:
+        local_root = ROOT_DIR
     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
     common_prefix = os.path.commonprefix([abs_fp, local_root])
     relative_path = os.path.relpath(abs_fp, common_prefix)
     return relative_path    
     
 
-def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
-    transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root),
-                        from_hostname='ec2',
-                        to_hostname='s3',
-                        is_dir=is_dir,
-                        from_root=ec2_root)    
+# def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
+#     transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root),
+#                         from_hostname='ec2',
+#                         to_hostname='s3',
+#                         is_dir=is_dir,
+#                         from_root=ec2_root)    
     
-def download_from_s3_to_ec2(fp, is_dir=False, redownload=False, ec2_root='/shared'):
+# def download_from_s3_to_ec2(fp, is_dir=False, redownload=False, ec2_root='/shared'):
     
-    if redownload or not os.path.exists(fp):
-        transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root), 
-                            from_hostname='s3',
-                            to_hostname='ec2',
-                            is_dir=is_dir,
-                            to_root=ec2_root)
+#     if redownload or not os.path.exists(fp):
+#         transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root), 
+#                             from_hostname='s3',
+#                             to_hostname='ec2',
+#                             is_dir=is_dir,
+#                             to_root=ec2_root)
 
-def relative_to_ec2(abs_fp, ec2_root='/shared'):
-    #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
-    common_prefix = os.path.commonprefix([abs_fp, ec2_root])
-    relative_path = os.path.relpath(abs_fp, common_prefix)
-    return relative_path
+# def relative_to_ec2(abs_fp, ec2_root='/shared'):
+#     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
+#     common_prefix = os.path.commonprefix([abs_fp, ec2_root])
+#     relative_path = os.path.relpath(abs_fp, common_prefix)
+#     return relative_path
 
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)

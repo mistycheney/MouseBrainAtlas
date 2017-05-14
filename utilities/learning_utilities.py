@@ -528,10 +528,12 @@ def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_
 
     return indices_allLandmarks
 
-
 def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_margins=None):
     """
-    Return a DataFrame: indexed by structure names and section number, cell is the array of grid indices.
+    Read in structure annotation file. Compute that each class label contains which grid indices.
+    
+    Returns:
+        a DataFrame. Columns are structure names. Rows are section numbers. Cell is a 1D array of grid indices.
     """
 
     # if not force:
@@ -653,11 +655,19 @@ def generate_patch_dataset(num_samples_per_label, stacks, labels_to_sample):
         
     return addresses
 
+def generate_structure_to_grid_indices_lookup_file(stack):
+    
+    grid_indices_by_label = locate_annotated_patches_v2(stack=stack)    
+    grid_indices_lookup_fp = DataManager.get_structure_annotation_to_grid_indices_lookup_filepath(stack)
+    save_hdf_v2(grid_indices_by_label, grid_indices_lookup_fp)
+    upload_to_s3(grid_indices_lookup_fp)
+
 def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name):
     """
-    Generate dataset.
-    - Extract addresses
-    - Map addresses to features
+    Generate a dataset using the following steps:
+    - Load structure polygons
+    - Sample addresses for each class (e.g. 7N, AP_surround_500_noclass, etc.)
+    - Map addresses to conv net features
     - Remove None features
     
     Returns:
@@ -673,9 +683,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     for stack in stacks:
         
         t1 = time.time()
-        annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
-        download_from_s3(annotation_grid_indices_fn)
-        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        grid_indices_per_label = load_structure_to_grid_indices_lookup(stack)
         sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
 
         labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)

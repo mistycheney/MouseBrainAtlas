@@ -228,6 +228,13 @@ class DataManager(object):
 
     @staticmethod
     def load_sorted_filenames(stack):
+        """
+        Get the mapping between section index and image filename.
+        
+        Returns:
+            Two dicts: filename_to_section, section_to_filename
+        """
+        
         fp = DataManager.get_sorted_filenames_filename(stack)
         download_from_s3(fp, local_root=DATA_ROOTDIR)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
@@ -339,7 +346,7 @@ class DataManager(object):
     type_f='score', type_m='score', param_suffix=None,
     downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-        download_from_s3_to_ec2(params_fp)
+        download_from_s3(params_fp)
         return DataManager.load_data(params_fp, 'transform_params')
 
     # @save_to_s3(fpkw='fp', fppos=0)
@@ -437,28 +444,28 @@ class DataManager(object):
         raise
 
     @staticmethod
-    def get_classifier_filepath(structure, setting):
-        clf_fp = os.path.join(CLF_ROOTDIR, 'setting_%(setting)s', 'classifiers', '%(structure)s_clf_setting_%(setting)d.dump') % {'structure': structure, 'setting':setting}
+    def get_classifier_filepath(structure, classifier_id):
+        clf_fp = os.path.join(CLF_ROOTDIR, 'setting_%(setting)s', 'classifiers', '%(structure)s_clf_setting_%(setting)d.dump') % {'structure': structure, 'setting':classifier_id}
         return clf_fp
 
     @staticmethod
-    def load_classifiers(setting, structures=all_known_structures):
+    def load_classifiers(classifier_id, structures=all_known_structures):
 
         from sklearn.externals import joblib
 
         clf_allClasses = {}
         for structure in structures:
-            clf_fp = DataManager.get_classifier_filepath(structure=structure, setting=setting)
-            download_from_s3_to_ec2(clf_fp)
+            clf_fp = DataManager.get_classifier_filepath(structure=structure, classifier_id=classifier_id)
+            download_from_s3(clf_fp)
             if os.path.exists(clf_fp):
                 clf_allClasses[structure] = joblib.load(clf_fp)
             else:
-                sys.stderr.write('Setting %d: No classifier found for %s.\n' % (setting, structure))
+                sys.stderr.write('Setting %d: No classifier found for %s.\n' % (classifier_id, structure))
 
         return clf_allClasses
 
     @staticmethod
-    def load_sparse_scores(stack, structure, setting, sec=None, fn=None, anchor_fn=None):
+    def load_sparse_scores(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -467,12 +474,12 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
         sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure,
-                                            setting=setting, fn=fn, anchor_fn=anchor_fn)
-        download_from_s3_to_ec2(sparse_scores_fn)
+                                            classifier_id=classifier_id, fn=fn, anchor_fn=anchor_fn)
+        download_from_s3(sparse_scores_fn)
         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, structure, setting, sec=None, fn=None, anchor_fn=None):
+    def get_sparse_scores_filepath(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
@@ -480,8 +487,8 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
-                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(setting)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'setting': setting}
+                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(classifier_id)s.hdf') % \
+                {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'classifier_id': classifier_id}
 
     @staticmethod
     def load_intensity_volume(stack, downscale=32):
@@ -877,7 +884,7 @@ class DataManager(object):
                                         downscale=32,
                                         trial_idx=0):
         fp = DataManager.get_transformed_volume_filepath(**locals())
-        download_from_s3_to_ec2(fp)
+        download_from_s3(fp)
         return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
@@ -1173,7 +1180,7 @@ class DataManager(object):
     @staticmethod
     def load_original_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
         vol_fp = DataManager.get_original_volume_filepath(**locals())
-        download_from_s3_to_ec2(vol_fp, is_dir=False)
+        download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
         return volume
 
@@ -1198,7 +1205,7 @@ class DataManager(object):
                 shell: with respect to aligned uncropped thumbnail
         """
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
-        download_from_s3_to_ec2(bbox_fp)
+        download_from_s3(bbox_fp)
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
         return volume_bbox
 
@@ -1238,42 +1245,8 @@ class DataManager(object):
                                     basename + '_%(structure)s_bbox.txt' % dict(structure=structure))
         return score_volume_bbox_filepath
 
-    # @staticmethod
-    # def get_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
-    #
-    #     if section is not None:
-    #         fn = metadata_cache['sections_to_filenames'][stack][section]
-    #         if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
-    #
-    #     if anchor_fn is None:
-    #         anchor_fn = metadata_cache['anchor_fn'][stack]
-    #
-    #     scoremap_viz_filepath = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(structure)s/%(stack)s/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_viz_setting_%(setting)d.jpg') \
-    #         % {'stack': stack, 'fn': fn, 'structure': structure, 'anchor_fn': anchor_fn, 'setting': setting}
-    #
-    #     return scoremap_viz_filepath
-
-    # @staticmethod
-    # def get_downscaled_scoremap_viz_filepath(stack, section=None, fn=None, anchor_fn=None, structure=None, setting=None,
-    # downscale=32):
-    #
-    #     if section is not None:
-    #         fn = metadata_cache['sections_to_filenames'][stack][section]
-    #         if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
-    #
-    #     if anchor_fn is None:
-    #         anchor_fn = metadata_cache['anchor_fn'][stack]
-    #
-    #     viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
-    #     basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
-    #     fn = basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.jpg' % dict(structure=structure, setting=setting)
-    #
-    #     scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, fn)
-    #
-    #     return scoremap_viz_filepath
-
     @staticmethod
-    def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, setting=None):
+    def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, classifier_id=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1283,15 +1256,15 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
         viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
-        basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
-        fn = basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.jpg' % dict(structure=structure, setting=setting)
+        basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
+        fn = basename + '_%(structure)s_denseScoreMap_setting_%(classifier_id)d.jpg' % dict(structure=structure, classifier_id=classifier_id)
 
         scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, fn)
 
         return scoremap_viz_filepath
 
     @staticmethod
-    def get_downscaled_scoremap_filepath(stack, structure, setting, downscale, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+    def get_downscaled_scoremap_filepath(stack, structure, classifier_id, downscale, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1304,22 +1277,22 @@ class DataManager(object):
         basename = '%(fn)s_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
 
         scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d' % dict(down=downscale), stack, basename,
-        basename + '_%(structure)s_denseScoreMap_setting_%(setting)d.bp' % dict(structure=structure, setting=setting))
+        basename + '_%(structure)s_denseScoreMap_setting_%(classifier_id)d.bp' % dict(structure=structure, classifier_id=classifier_id))
 
         return scoremap_bp_filepath
 
     @staticmethod
-    def load_downscaled_scoremap(stack, structure, setting, section=None, fn=None, anchor_fn=None, downscale=32):
+    def load_downscaled_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=32):
         """
         Return scoremaps as bp files.
         """
 
         # Load scoremap
         scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(stack, section=section, \
-                        fn=fn, anchor_fn=anchor_fn, structure=structure, setting=setting,
+                        fn=fn, anchor_fn=anchor_fn, structure=structure, classifier_id=classifier_id,
                         downscale=downscale)
 
-        download_from_s3_to_ec2(scoremap_bp_filepath)
+        download_from_s3(scoremap_bp_filepath)
 
         if not os.path.exists(scoremap_bp_filepath):
             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
@@ -1329,7 +1302,7 @@ class DataManager(object):
         return scoremap_downscaled
 
     @staticmethod
-    def get_scoremap_filepath(stack, structure, setting, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+    def get_scoremap_filepath(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1340,8 +1313,8 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
         scoremap_bp_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_setting_%(setting)d.hdf') \
-        % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn, setting=setting)
+        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_setting_%(classifier_id)d.hdf') \
+        % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn, classifier_id=classifier_id)
 
         scoremap_bbox_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
         '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_interpBox.txt') \
@@ -1353,14 +1326,14 @@ class DataManager(object):
             return scoremap_bp_filepath
 
     @staticmethod
-    def load_scoremap(stack, structure, setting, section=None, fn=None, anchor_fn=None, downscale=1):
+    def load_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=1):
         """
         Return scoremaps.
         """
 
         # Load scoremap
         scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
-                                    fn=fn, anchor_fn=anchor_fn, structure=structure, return_bbox_fp=True, setting=setting)
+                                    fn=fn, anchor_fn=anchor_fn, structure=structure, return_bbox_fp=True, classifier_id=classifier_id)
         if not os.path.exists(scoremap_bp_filepath):
             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
             (metadata_cache['sections_to_filenames'][stack][section], section, structure))
@@ -1386,47 +1359,10 @@ class DataManager(object):
 
         return scoremap_downscaled
 
-
-    # @staticmethod
-    # def load_scoremap(stack, section=None, fn=None, anchor_fn=None, label=None, downscale_factor=32, train_sample_scheme=None):
-    #     """
-    #     Return scoremaps.
-    #     """
-    #
-    #     # Load scoremap
-    #
-    #     scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
-    #                                                 fn=fn, anchor_fn=anchor_fn, label=label, return_bbox_fp=True, train_sample_scheme=train_sample_scheme)
-    #     if not os.path.exists(scoremap_bp_filepath):
-    #         raise Exception('No scoremap for section %d for label %s\n' % (section, label))
-    #         # return None
-    #     scoremap = DataManager.load_data(scoremap_bp_filepath, filetype='hdf')
-    #
-    #     # Load interpolation box
-    #     xmin, xmax, ymin, ymax = DataManager.load_data(scoremap_bbox_filepath, filetype='bbox')
-    #     ymin_downscaled = ymin / downscale_factor
-    #     xmin_downscaled = xmin / downscale_factor
-    #
-    #     # full_width, full_height = DataManager.get_image_dimension(stack)
-    #     # full_width, full_height = (16000, 13120)
-    #     full_width, full_height = metadata_cache['image_shape'][stack]
-    #     scoremap_downscaled = np.zeros((full_height/downscale_factor, full_width/downscale_factor), np.float32)
-    #
-    #     # To conserve memory, it is important to make a copy of the sub-scoremap and delete the original scoremap
-    #     scoremap_roi_downscaled = scoremap[::downscale_factor, ::downscale_factor].copy()
-    #     del scoremap
-    #
-    #     h_downscaled, w_downscaled = scoremap_roi_downscaled.shape
-    #
-    #     scoremap_downscaled[ymin_downscaled : ymin_downscaled + h_downscaled,
-    #                         xmin_downscaled : xmin_downscaled + w_downscaled] = scoremap_roi_downscaled
-    #
-    #     return scoremap_downscaled
-
     @staticmethod
     def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None):
         fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
-        download_from_s3_to_ec2(fp)
+        download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
         locations = locs[:, 1:]
@@ -1446,11 +1382,6 @@ class DataManager(object):
         '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
         dict(fn=fn, anchor_fn=anchor_fn))
 
-        # output_dir = create_if_not_exists(os.path.join(PATCH_FEATURES_ROOTDIR, stack,
-        #                                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % dict(fn=fn, anchor_fn=anchor_fn)))
-        # output_indices_fn = os.path.join(output_dir,
-        #                                  '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
-        #                                  dict(fn=fn, anchor_fn=anchor_fn))
         return feature_locs_fn
 
     @staticmethod
@@ -1515,7 +1446,7 @@ class DataManager(object):
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_gray_contrast_stretched' % {'anchor_fn':anchor_fn})
         elif resol == 'lossless' and version == 'cropped_8bit_blueasgray':
             image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_contrast_stretched_blueasgray' % {'anchor_fn':anchor_fn})
-        elif resol == 'thumbnail' and version == 'cropped_tif':
+        elif resol == 'thumbnail' and (version == 'cropped' or version == 'cropped_tif'):
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
         elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
             image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
@@ -1526,6 +1457,11 @@ class DataManager(object):
 
         return image_dir
 
+    @staticmethod
+    def load_image(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None, modality=None):
+        img_fp = get_image_filepath(**locals())
+        download_from_s3(img_fp)
+        return imread(img_fp)
 
     @staticmethod
     def get_image_filepath(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None, modality=None):
@@ -1538,7 +1474,7 @@ class DataManager(object):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-            if is_invalid(fn):
+            if is_invalid(fn=fn):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
             assert fn is not None
@@ -1592,13 +1528,47 @@ class DataManager(object):
                                 for sec in range(first_sec, last_sec+1)}
         return annotated_structures
 
+    
+    @staticmethod
+    def get_structure_annotation_to_grid_indices_lookup_filepath(stack):
+        fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.hdf' % {'stack':stack})
+        return fp
+
+    @staticmethod
+    def load_structure_annotation_to_grid_indices_lookup(stack):
+    
+        annotation_grid_indices_fn = DataManager.get_structure_annotation_to_grid_indices_lookup_filepath(stack=stack)
+        download_from_s3(annotation_grid_indices_fn)
+
+        if os.path.exists(annotation_grid_indices_fn):
+            raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_structure_annotation_to_grid_indices_lookup_file()`")
+            
+        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        return grid_indices_per_label
+    
+    @staticmethod
+    def get_annotation_filepath(stack, by_human, stack_m=None, 
+                                classifier_setting_m=None, 
+                                classifier_setting_f=None, 
+                                warp_setting=None, trial_idx=None):
+        if by_human:
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        else:
+            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack, 
+                                                              classifier_setting_m=classifier_setting_m,
+                                                              classifier_setting_f=classifier_setting_f,
+                                                              warp_setting=warp_setting, trial_idx=trial_idx)
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
+        return fp
+    
     @staticmethod
     def load_annotation_v3(stack=None, annotation_rootdir=ANNOTATION_ROOTDIR):
-        fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
-        contour_df = DataManager.load_data(fn, filetype='annotation_hdf')
+        # fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        fp = DataManager.get_annotation_filepath(stack, by_human=True)
+        contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
 
         try:
-            structure_df = read_hdf(fn, 'structures')
+            structure_df = read_hdf(fp, 'structures')
         except Exception as e:
             print e
             sys.stderr.write('Annotation has no structures.\n')
@@ -1607,6 +1577,7 @@ class DataManager(object):
         sys.stderr.write('Loaded annotation %s.\n' % fp)
         return contour_df, structure_df
 
+    
     @staticmethod
     def get_image_dimension(stack):
         """
@@ -1981,48 +1952,6 @@ def generate_metadata_cache():
             pass
 
 generate_metadata_cache()
-
-
-# # metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-# metadata_cache['image_shape'] =\
-# {'MD585': (16384, 12000),
-#  'MD589': (15520, 11936),
-#  'MD590': (17536, 13056),
-#  'MD591': (16000, 13120),
-#  'MD592': (17440, 12384),
-#  'MD593': (17088, 12256),
-#  'MD594': (17216, 11104),
-#  'MD595': (18368, 13248),
-#  'MD598': (18400, 12608),
-#  'MD599': (18784, 12256),
-#  'MD602': (22336, 12288),
-#  'MD603': (20928, 13472),
-#  'MD635': (20960, 14240),
-#  'MD642': (28704, 15584),
-#  'MD657': (27584, 16960)}
-# metadata_cache['anchor_fn'] = {}
-# metadata_cache['sections_to_filenames'] = {}
-# metadata_cache['section_limits'] = {}
-# metadata_cache['cropbox'] = {}
-# for stack in all_stacks:
-#     try:
-#         metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
-#     except:
-#         pass
-#     try:
-#         metadata_cache['sections_to_filenames'][stack] = DataManager.load_sorted_filenames(stack)[1]
-#     except:
-#         pass
-#     try:
-#         metadata_cache['section_limits'][stack] = DataManager.load_cropbox(stack)[4:]
-#     except:
-#         pass
-#     try:
-#         metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
-#     except:
-#         pass
-
-# del stack
 
 def resolve_actual_setting(setting, stack, fn=None, sec=None):
     """Take a possibly composite setting index, and return the actual setting index according to fn."""

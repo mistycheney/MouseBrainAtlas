@@ -18,7 +18,7 @@ from conversion import images_to_volume
 import argparse
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='')
+    description='Compute score volume gradients.')
 parser.add_argument("stack", type=str, help="Fixed stack name")
 parser.add_argument("structure", type=str, help="Structure")
 parser.add_argument("classifier_id", type=int, help="classifier_id")
@@ -58,9 +58,9 @@ try:
     bp.pack_ndarray_file(gy_gx_gz[0], gy_fp)
     bp.pack_ndarray_file(gy_gx_gz[2], gz_fp)
     
-    upload_from_ec2_to_s3(gx_fp)
-    upload_from_ec2_to_s3(gy_fp)
-    upload_from_ec2_to_s3(gz_fp)
+    upload_to_s3(gx_fp)
+    upload_to_s3(gy_fp)
+    upload_to_s3(gz_fp)
 
     del gy_gx_gz
 

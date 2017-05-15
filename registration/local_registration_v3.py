@@ -29,6 +29,7 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
 parser.add_argument("-s", "--structures", type=str, help="structures")
+parser.add_argument("--upstream_trial_idx", type=int, help="the trial of upstream warping", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -60,16 +61,20 @@ if upstream_warp_setting == 'None':
     upstream_warp_setting = None
 else:
     upstream_warp_setting = int(upstream_warp_setting)
-    upstream_trial_idx = 1
+    upstream_trial_idx = args.upstream_trial_idx
     
 transform_type = warp_properties['transform_type']
 terminate_thresh = warp_properties['terminate_thresh']
 grad_computation_sample_number = warp_properties['grad_computation_sample_number']
 grid_search_sample_number = warp_properties['grid_search_sample_number']
-std_tx_um = warp_properties['std_tx']
-std_ty_um = warp_properties['std_ty']
-std_tz_um = warp_properties['std_tz']
-std_theta_xy = np.deg2rad(warp_properties['std_theta_xy'])
+std_tx_um = warp_properties['std_tx_um']
+std_ty_um = warp_properties['std_ty_um']
+std_tz_um = warp_properties['std_tz_um']
+std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+print std_tx, std_ty, std_tz, std_theta_xy
 
 reg_weight = warp_properties['regularization_weight']
 reg_weights = np.ones((3,))*reg_weight
@@ -186,9 +191,9 @@ for structure in structures:
             plt.savefig(score_plot_fp, bbox_inches='tight')
             plt.close(fig)
 
-            upload_from_ec2_to_s3(history_fp)
-            upload_from_ec2_to_s3(params_fp)
-            upload_from_ec2_to_s3(score_plot_fp)
+            upload_to_s3(history_fp)
+            upload_to_s3(params_fp)
+            upload_to_s3(score_plot_fp)
 
     except Exception as e:
         sys.stderr.write('%s\n' % e)

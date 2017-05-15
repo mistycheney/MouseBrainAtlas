@@ -43,7 +43,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
             
     return viz
 
-def scoremap_overlay(stack, structure, downscale, setting,
+def scoremap_overlay(stack, structure, downscale, classifier_id,
                     image_shape=None, return_mask=False, sec=None, fn=None,
                     color=(1,0,0)):
     '''
@@ -65,11 +65,11 @@ def scoremap_overlay(stack, structure, downscale, setting,
 
     try:
         dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
-                            setting=setting, structure=structure, downscale=downscale)
+                            classifier_id=classifier_id, structure=structure, downscale=downscale)
         mask = dense_score_map > 0.
         scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
-    except:
-        raise Exception('Error loading scoremap of %s for image %s.' % (structure, fn))
+    except Exception as e:
+        raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 
     viz = img_as_ubyte(scoremap_viz)
 
@@ -78,7 +78,7 @@ def scoremap_overlay(stack, structure, downscale, setting,
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=None, sec=None, fn=None):
+def scoremap_overlay_on(bg, stack, structure, downscale, classifier_id, label_text=None, sec=None, fn=None):
 
     if fn is None:
         assert sec is not None
@@ -87,17 +87,17 @@ def scoremap_overlay_on(bg, stack, structure, downscale, setting, label_text=Non
 
     if bg == 'original':
         if downscale == 32:
-            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='thumbnail', version='cropped')
-            # download_from_s3_to_ec2(fp)
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, fn=fn, resol='thumbnail', version='cropped')
+            download_from_s3(fp)
             bg = imread(fp)
         else:
-            fp = DataManager.get_image_filepath(stack=stack, section=sec, resol='lossless', version='compressed')
-            # download_from_s3_to_ec2(fp)
+            fp = DataManager.get_image_filepath(stack=stack, section=sec, fn=fn, resol='lossless', version='compressed')
+            download_from_s3(fp)
             bg = imread(fp)[::downscale, ::downscale]
 
     # t = time.time()
     ret = scoremap_overlay(stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale,
-                            image_shape=bg.shape[:2], return_mask=True, setting=setting)
+                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id)
     # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
     scoremap_viz, mask = ret
 

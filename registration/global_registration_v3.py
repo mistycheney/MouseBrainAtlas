@@ -50,10 +50,14 @@ transform_type = warp_properties['transform_type']
 terminate_thresh = warp_properties['terminate_thresh']
 grad_computation_sample_number = warp_properties['grad_computation_sample_number']
 grid_search_sample_number = warp_properties['grid_search_sample_number']
-std_tx = warp_properties['std_tx']
-std_ty = warp_properties['std_ty']
-std_tz = warp_properties['std_tz']
-std_theta_xy = np.deg2rad(warp_properties['std_theta_xy'])
+std_tx_um = warp_properties['std_tx_um']
+std_ty_um = warp_properties['std_ty_um']
+std_tz_um = warp_properties['std_tz_um']
+std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+print std_tx, std_ty, std_tz, std_theta_xy
 
 MAX_ITER_NUM = 1000
 HISTORY_LEN = 10
@@ -71,12 +75,14 @@ volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_original_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting, 
                                                    sided=False, volume_type='score')
 
-# label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
-#                      for label_m, name_m in label_to_structure_moving.iteritems()}
+structure_subset = ['7N_L', '7N_R', '12N', '5N_L','5N_R','Pn_L', 'Pn_R', 'SNR_L', 'SNR_R', 'VLL_L', 'VLL_R', '7n_L']
+# structure_subset = ['7N_L', '7N_R', '12N', '5N_L','5N_R','Pn_L', 'Pn_R', 'SNR_L', 'SNR_R', 'VLL_L', 'VLL_R', '7n_L',
+#           '7n_R', 'Tz_L', 'Tz_R', 'VCA_L', 'VCP_R']
+# structure_subset = label_to_structure_moving.values()
+
 label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                      for label_m, name_m in label_to_structure_moving.iteritems()
-                     if name_m in ['7N_L', '7N_R', '12N', '5N_L', 'Pn_R', 'SNR_L', 
-                                   'VLL_R', '7n_L', 'Tz_R', 'VCA_L', 'VCP_R', 'Sp5C_L', 'Sp5C_R']}
+                     if name_m in structure_subset}
 
 label_weights_m = {}
 for label_m, name_m in label_to_structure_moving.iteritems():
@@ -127,7 +133,7 @@ for trial_idx in range(trial_num):
                                           aligner.centroid_m, aligner.centroid_f,
                                           aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
                                           aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
-    upload_from_ec2_to_s3(params_fp)
+    upload_to_s3(params_fp)
     
     history_fp = DataManager.get_score_history_filepath(stack_m=stack_moving, stack_f=stack_fixed,
                                                           classifier_setting_m=classifier_setting,
@@ -135,7 +141,7 @@ for trial_idx in range(trial_num):
                                                           warp_setting=warp_setting,
                                                           trial_idx=trial_idx)
     bp.pack_ndarray_file(np.array(scores), history_fp)
-    upload_from_ec2_to_s3(history_fp)
+    upload_to_s3(history_fp)
 
     score_plot_fp = \
     DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
@@ -148,4 +154,4 @@ for trial_idx in range(trial_num):
     plt.savefig(score_plot_fp, bbox_inches='tight')
     plt.close(fig)
 
-    upload_from_ec2_to_s3(score_plot_fp)
+    upload_to_s3(score_plot_fp)

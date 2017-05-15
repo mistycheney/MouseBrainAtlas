@@ -72,7 +72,7 @@ def visualize_registration_one_section(sec):
     
     img_fn = DataManager.get_image_filepath(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
     
-    download_from_s3_to_ec2(img_fn)
+    download_from_s3(img_fn)
     img = imread(img_fn)
     
     viz = img.copy()
@@ -104,7 +104,7 @@ def visualize_registration_one_section(sec):
     
     imsave(viz_fp, viz)
     
-    upload_from_ec2_to_s3(viz_fp)
+    upload_to_s3(viz_fp)
     
 
 t = time.time()

@@ -1672,16 +1672,15 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='compressed', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
-            if not os.path.exists(fn):
-                fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='saturation', data_dir=data_dir, fn=random_fn, anchor_fn=anchor_fn)
-                if not os.path.exists(fn):
-                    continue
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fn, shell=True).split('x'))
+            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+            download_from_s3(fp)
+            if not os.path.exists(fp):
+                continue
+            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
             break
 
         return image_width, image_height
-
+    
     @staticmethod
     def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
         """
@@ -2001,6 +2000,8 @@ def generate_metadata_cache():
      'MD603': (20928, 13472),
      'MD635': (20960, 14240),
      'MD642': (28704, 15584),
+     'MD652': (22720, 15552),
+     'MD653': (25664, 16800),
      'MD657': (27584, 16960),
      'MD658': (19936, 15744)}
     metadata_cache['anchor_fn'] = {}

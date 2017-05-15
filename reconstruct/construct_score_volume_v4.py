@@ -67,7 +67,7 @@ def load_downscaled_scoremaps_multiple_sections_sequential(sections, stack, stru
 first_sec, last_sec = metadata_cache['section_limits'][stack]
 
 if use_nissl_only:
-    assert stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks
+    assert stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks, "Option \"nissl only\" is only sensible for alternate stained stacks."
     nissl_sections = []
     for sec in range(first_sec, last_sec):
         fn = metadata_cache['sections_to_filenames'][stack][sec]

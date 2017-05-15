@@ -10,6 +10,7 @@ import json
 import cPickle as pickle
 import datetime
 
+from multiprocess import Pool
 from skimage.io import imread, imsave
 from skimage.util import img_as_ubyte, img_as_float
 from skimage.color import gray2rgb, rgb2gray
@@ -177,13 +178,28 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     int(q[1] + arrow_magnitude * np.sin(angle - np.pi/4)))
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
-
+    
 
 def save_hdf_v2(data, fn, key='data'):
+    """
+    Save data as a hdf file.
+    If data is dict of dict, convert to DataFrame before saving as hdf.
+    If data is dict of elementary items, convert to pandas.Series before saving as hdf.
+    
+    Args:
+        data (pandas.DataFrame, dict or dict of dict)
+    """
+    
     import pandas
     create_parent_dir_if_not_exists(fn)
-    pandas.Series(data=data).to_hdf(fn, key, mode='w')
-
+    if isinstance(data, pandas.DataFrame):
+        data.to_hdf(fn, key=key)
+    elif isinstance(data, dict):
+        if isinstance(data.values()[0], dict): # dict of dict
+            pandas.DataFrame(data).T.to_hdf(fn, key=key)
+        else:
+            pandas.Series(data=data).to_hdf(fn, key, mode='w')
+    
 def load_hdf_v2(fn, key='data'):
     import pandas
     return pandas.read_hdf(fn, key)
@@ -822,3 +838,5 @@ def write_dict_to_txt(d, fn, fmt='%f'):
     with open(fn, 'w') as f:
         for k, vals in d.iteritems():
             f.write(k + ' ' +  (' '.join([fmt]*len(vals))) % tuple(vals) + '\n')
+
+            

@@ -5,6 +5,7 @@ dataset_id,network_model,stain,margins,num_sample_per_class,stacks,cell_features
 23,inception-bn-blue,nissl,500,1000,MD585
 24,inception-bn-blue,nissl,500,1000,MD589
 25,inception-bn-blue,nissl,500,1000,MD594
+50,inception-bn-blue,neurotrace_blue,500,1000,MD642
 90,,nissl,500,1000,MD589,allSizeHist/huMomentsHist
 92,,nissl,500,1000,MD589,largeLargeLinkLenHist
 93,,nissl,500,1000,MD594,largeLargeLinkLenHist

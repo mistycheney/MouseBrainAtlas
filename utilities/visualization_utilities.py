@@ -12,13 +12,13 @@ sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from data_manager import *
 
-def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None):
+def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, stack=None, sec=None, img_version='compressed'):
     """
     Assume bg has the specified downscale_factor.
     """
 
     if bg == 'original':
-        bg = imread(DataManager.get_image_filepath(stack=stack, section=sec, version='compressed'))[::downscale_factor, ::downscale_factor]
+        bg = DataManager.load_image(stack=stack, section=sec, version=img_version)[::downscale_factor, ::downscale_factor]
        
     # viz = bg.copy()
     viz = gray2rgb(bg).copy()

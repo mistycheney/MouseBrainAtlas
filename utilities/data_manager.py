@@ -114,11 +114,94 @@ def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, loca
 
 class DataManager(object):
 
-    # @staticmethod
-    # def map_local_filename_to_s3(local_fp):
-    #     s3_path = local_fp.replace(os.path.dirname(data_dir), "s3://" + S3_DATA_BUCKET + '/' + )
-    #     return s3_path
+    ##########################
+    ####### Annotation #######
+    ##########################
+    
+    @staticmethod
+    def get_annotated_structures(stack):
+        """
+        Return existing structures on every section in annotation.
+        """
+        contours, _ = load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
+        annotated_structures = {sec: list(set(contours[contours['section']==sec]['name']))
+                                for sec in range(first_sec, last_sec+1)}
+        return annotated_structures
 
+    @staticmethod
+    def load_annotation_to_grid_indices_lookup(stack, by_human, stack_m=None, 
+                                classifier_setting_m=None, 
+                                classifier_setting_f=None, 
+                                warp_setting=None, trial_idx=None):
+    
+        grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
+        download_from_s3(grid_indices_lookup_fp)
+
+        if os.path.exists(grid_indices_lookup_fp):
+            raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_annotation_to_grid_indices_lookup`")
+        else:
+            grid_indices_lookup = read_hdf(grid_indices_lookup_fp, 'grid_indices')
+            return grid_indices_lookup
+    
+    @staticmethod
+    def get_annotation_to_grid_indices_lookup_filepath(stack, by_human, stack_m=None, 
+                                classifier_setting_m=None, 
+                                classifier_setting_f=None, 
+                                warp_setting=None, trial_idx=None):
+        if by_human:
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3_grid_indices_lookup.hdf' % {'stack':stack})
+        else:
+            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack, 
+                                                              classifier_setting_m=classifier_setting_m,
+                                                              classifier_setting_f=classifier_setting_f,
+                                                              warp_setting=warp_setting, trial_idx=trial_idx)
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_grid_indices_lookup.hdf' % {'basename': basename})
+        return fp
+    
+    @staticmethod
+    def get_annotation_filepath(stack, by_human, stack_m=None, 
+                                classifier_setting_m=None, 
+                                classifier_setting_f=None, 
+                                warp_setting=None, trial_idx=None):
+        if by_human:
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+        else:
+            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack, 
+                                                              classifier_setting_m=classifier_setting_m,
+                                                              classifier_setting_f=classifier_setting_f,
+                                                              warp_setting=warp_setting, trial_idx=trial_idx)
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
+        return fp
+       
+    @staticmethod
+    def load_annotation_v3(stack=None, by_human=True, stack_m=None, 
+                                classifier_setting_m=None, 
+                                classifier_setting_f=None, 
+                                warp_setting=None, trial_idx=None):
+        if by_human:
+            fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
+
+            try:
+                structure_df = read_hdf(fp, 'structures')
+            except Exception as e:
+                print e
+                sys.stderr.write('Annotation has no structures.\n')
+                return contour_df, None
+
+            sys.stderr.write('Loaded annotation %s.\n' % fp)
+            return contour_df, structure_df
+        else:
+            fp = DataManager.get_annotation_filepath(stack, by_human=False, 
+                                                     stack_m=stack_m, 
+                                                      classifier_setting_m=classifier_setting_m,
+                                                      classifier_setting_f=classifier_setting_f,
+                                                      warp_setting=warp_setting, trial_idx=trial_idx)
+            contour_df = load_hdf_v2(fp)
+            return contour_df, None
+        
+    
+    
     @staticmethod
     def get_annotation_viz_dir(stack):
         return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack)
@@ -268,60 +351,7 @@ class DataManager(object):
 
         return Ts_inv_downsampled
 
-    @staticmethod
-    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
-        return fp
 
-    @staticmethod
-    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
-        download_from_s3(fp)
-        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
-        return mask
-    
-    @staticmethod
-    def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        if version == 'aligned_cropped':
-            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
-        elif version == 'aligned':
-            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
-        else:
-            raise Exception("version %s not recognized." % version)
-        return mask_dir
-    
-    @staticmethod
-    def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):        
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
-        if fn is None:
-            fn = sections_to_filenames[section]
-        mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
-        if version == 'aligned_cropped':
-            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
-        elif version == 'aligned':
-            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
-        else:
-            raise Exception("version %s not recognized." % version)
-        return fp
-
-    @staticmethod
-    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
-        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
-        return mask
-
-    @staticmethod
-    def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
-        if cerebellum_removed:
-            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
-                {'stack': stack, 'sec': section}
-        else:
-            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
-                            {'stack': stack, 'sec': section}
-        return fn
 
     @staticmethod
     def get_original_volume_basename(stack, classifier_setting=None, downscale=32, volume_type='score', **kwargs):
@@ -1299,6 +1329,10 @@ class DataManager(object):
         score_volume_bbox_filepath = os.path.join(VOLUME_ROOTDIR,  stack, basename, 'score_volumes', \
                                     basename + '_%(structure)s_bbox.txt' % dict(structure=structure))
         return score_volume_bbox_filepath
+    
+    #########################
+    ###### Score map ########
+    #########################
 
     @staticmethod
     def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, classifier_id=None):
@@ -1413,6 +1447,10 @@ class DataManager(object):
                             xmin_downscaled : xmin_downscaled + w_downscaled] = scoremap_roi_downscaled
 
         return scoremap_downscaled
+    
+    ###########################
+    ######  CNN Features ######
+    ###########################
 
     @staticmethod
     def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None):
@@ -1476,6 +1514,10 @@ class DataManager(object):
             
         return bp.unpack_ndarray_file(features_fp)
         
+    ##################
+    ##### Image ######
+    ##################
+        
     @staticmethod
     def get_image_dir(stack, version='compressed', resol='lossless', anchor_fn=None, modality=None, data_dir=DATA_DIR):
         """
@@ -1514,7 +1556,7 @@ class DataManager(object):
 
     @staticmethod
     def load_image(stack, section=None, version='compressed', resol='lossless', data_dir=DATA_DIR, fn=None, anchor_fn=None, modality=None):
-        img_fp = get_image_filepath(**locals())
+        img_fp = DataManager.get_image_filepath(**locals())
         download_from_s3(img_fp)
         return imread(img_fp)
 
@@ -1536,6 +1578,12 @@ class DataManager(object):
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack)
+            
+        if modality is None:
+            if (stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F':
+                modality = 'fluorescent'
+            else:
+                modality = 'nissl'
 
         image_dir = DataManager.get_image_dir(stack=stack, version=version, resol=resol, modality=modality, data_dir=data_dir)
             
@@ -1572,66 +1620,6 @@ class DataManager(object):
             sys.stderr.write('Version %s and resolution %s not recognized.\n' % (version, resol))
 
         return image_path
-
-    @staticmethod
-    def get_annotated_structures(stack):
-        """
-        Return existing structures on every section in annotation.
-        """
-        contours, _ = load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
-        annotated_structures = {sec: list(set(contours[contours['section']==sec]['name']))
-                                for sec in range(first_sec, last_sec+1)}
-        return annotated_structures
-
-    
-    @staticmethod
-    def get_structure_annotation_to_grid_indices_lookup_filepath(stack):
-        fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.hdf' % {'stack':stack})
-        return fp
-
-    @staticmethod
-    def load_structure_annotation_to_grid_indices_lookup(stack):
-    
-        annotation_grid_indices_fn = DataManager.get_structure_annotation_to_grid_indices_lookup_filepath(stack=stack)
-        download_from_s3(annotation_grid_indices_fn)
-
-        if os.path.exists(annotation_grid_indices_fn):
-            raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_structure_annotation_to_grid_indices_lookup_file()`")
-            
-        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
-        return grid_indices_per_label
-    
-    @staticmethod
-    def get_annotation_filepath(stack, by_human, stack_m=None, 
-                                classifier_setting_m=None, 
-                                classifier_setting_f=None, 
-                                warp_setting=None, trial_idx=None):
-        if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
-        else:
-            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack, 
-                                                              classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, trial_idx=trial_idx)
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
-        return fp
-    
-    @staticmethod
-    def load_annotation_v3(stack=None, annotation_rootdir=ANNOTATION_ROOTDIR):
-        # fn = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
-        fp = DataManager.get_annotation_filepath(stack, by_human=True)
-        contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
-
-        try:
-            structure_df = read_hdf(fp, 'structures')
-        except Exception as e:
-            print e
-            sys.stderr.write('Annotation has no structures.\n')
-            return contour_df, None
-
-        sys.stderr.write('Loaded annotation %s.\n' % fp)
-        return contour_df, structure_df
-
     
     @staticmethod
     def get_image_dimension(stack):
@@ -1651,6 +1639,8 @@ class DataManager(object):
             break
 
         return image_width, image_height
+    
+    #######################################################
     
     @staticmethod
     def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
@@ -1714,6 +1704,11 @@ class DataManager(object):
         init_snake_contours_fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
         return init_snake_contours_fp
 
+    ############################
+    #####    Masks     #########
+    ############################
+    
+    
     @staticmethod
     def get_auto_submask_rootdir_filepath(stack):
         """
@@ -1806,12 +1801,9 @@ class DataManager(object):
 
         return fp
 
-    @staticmethod
-    def get_thumbnail_mask_dir_v3(stack, version='aligned'):
-        return DataManager.get_mask_dirpath(stack, version=version)
     
     @staticmethod
-    def get_mask_dirpath(stack, version='aligned'):
+    def get_thumbnail_mask_dir_v3(stack, version='aligned'):
         """
         Get directory path of thumbnail mask.
         
@@ -1828,8 +1820,9 @@ class DataManager(object):
             raise Exception('version %s is not recognized.' % version)
         return dir_path
 
+    
     @staticmethod
-    def get_mask_filepath(stack, sec=None, fn=None, version='aligned'):
+    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
         """
         Get filepath of thumbnail mask.
         
@@ -1838,9 +1831,9 @@ class DataManager(object):
         """
         
         anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = DataManager.get_mask_dirpath(stack, version=version)
+        dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, version=version)
         if fn is None:
-            fn = metadata_cache['sections_to_filenames'][stack][sec]
+            fn = metadata_cache['sections_to_filenames'][stack][section]
 
         if version == 'aligned':
             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
@@ -1849,18 +1842,22 @@ class DataManager(object):
         else:
             raise Exception('version %s is not recognized.' % version)
         return fp
-    
-    @staticmethod
-    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_mask_filepath(stack=stack, sec=section, fn=fn, version=version)
-        return fp
+
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fn = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
-        mask = DataManager.load_data(fn, filetype='image').astype(np.bool)
+        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
         return mask
-    
+        
+    @staticmethod
+    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
+        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+        return mask
+        
     @staticmethod
     def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
         anchor_fn = metadata_cache['anchor_fn'][stack]
@@ -1887,22 +1884,17 @@ class DataManager(object):
             raise Exception("version %s not recognized." % version)
         return fp
 
-    @staticmethod
-    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
-        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
-        return mask
-
-    @staticmethod
-    def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
-        if cerebellum_removed:
-            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
-                {'stack': stack, 'sec': section}
-        else:
-            fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
-                            {'stack': stack, 'sec': section}
-        return fn
+    # @staticmethod
+    # def get_thumbnail_mask_filepath(stack, section, cerebellum_removed=False):
+    #     if cerebellum_removed:
+    #         fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped_cerebellumRemoved/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped_cerebellumRemoved.png' % \
+    #             {'stack': stack, 'sec': section}
+    #     else:
+    #         fn = data_dir+'/%(stack)s_thumbnail_aligned_mask_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_mask_cropped.png' % \
+    #                         {'stack': stack, 'sec': section}
+    #     return fn    
+    
+    ###################################
     
     @staticmethod
     def get_region_labels_filepath(stack, sec=None, fn=None):

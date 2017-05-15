@@ -13,6 +13,7 @@ import cv2
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from distributed_utilities import download_from_s3
+from metadata import *
 
 def parallel_where_binary(binary_volume, num_samples=None):
 
@@ -1285,50 +1286,22 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
             map_z_to_section[z] = s
 
     return map_z_to_section
-    
-    
-def generate_annotation_file_from_aligned_atlas(stack_m, stack_f, classifier_setting_m, classifier_setting_f,
-                                               warp_setting, trial_idx):
-    
-    warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_m, stack_f=stack_f,
-                                    classifier_setting_m=classifier_setting_m,
-                                    classifier_setting_f=classifier_setting_f,
-                                    warp_setting=warp_setting,
-                                    trial_idx=trial_idx, sided=True)
-    downsample_factor = 32
-    
-    # For getting correct contour location
-    xmin_vol_f, _, ymin_vol_f, _, zmin_vol_f, _ = \
-    DataManager.load_original_volume_bbox(stack=stack_fixed, vol_type='score', structure='7N', downscale=downsample_factor, classifier_setting=classifier_setting_f)
-    
-    first_sec, last_sec = metadata_cache['section_limits'][stack_fixed]
-    
-    structure_contours = get_contours_from_aligned_atlas(warped_volumes, downsample_factor=downsample_factor,
-                                                         volume_origin=(xmin_vol_f, ymin_vol_f, zmin_vol_f),
-                                                         sections=range(first_sec, last_sec+1), 
-                                                         level=.5)
-    from pandas import DataFrame
-    annotation_dataframe = DataFrame(structure_contours)
-    
-    annotation_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m, 
-                                                           classifier_setting_m=classifier_setting_m,
-                                                          classifier_setting_f=classifier_setting_f,
-                                                          warp_setting=warp_setting,
-                                                          trial_idx=trial_idx)
-    save_hdf_v2(annotation_dataframe, annotation_df_fp)
-    
 
-def get_section_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5):
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5):
     """
     Re-section atlas volumes and obtain structure contours on each section.
     
     Args:
         volumes : dict {structure: volume}
+        downsample_factor: the downscale factor of input volumes. Output contours are in original resolution.
         volume_origin: (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
         
     Returns:
         structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume
     """
+    
+    from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
+    from collections import defaultdict
     
     # estimate mapping between z and section
     xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
@@ -1336,21 +1309,39 @@ def get_section_contours_from_aligned_atlas(volumes, volume_origin, sections, do
     
     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
     
-    for sec in sections:
+    structure_contours = defaultdict(dict)
     
-        structure_contours = defaultdict(dict)
-        
+    # Multiprocess is not advisable here because volumes must be duplicated across processes which is very RAM heavy.
+    
+#     def compute_contours_one_section(sec):
+#         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
+#         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+#         contours_one_section = {}
+#         # Find moving volume annotation contours
+#         for name_s, vol in volumes.iteritems():
+#             cnts = find_contours(vol[..., z], level=level) # rows, cols
+#             for cnt in cnts:
+#                 # r,c to x,y
+#                 contours_one_section[name_s] = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+#         return contours_one_section
+    
+#     pool = Pool(NUM_CORES/2)
+#     structuer_contours = dict(zip(sections, pool.map(compute_contours_one_section, sections)))
+#     pool.close()
+#     pool.join()
+    
+    for sec in sections:
+        sys.stderr.write('Computing structure contours for section %d...\n' % sec)            
         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
-
-        # Find moving volume annotation contours
         for name_s, vol in volumes.iteritems():
             cnts = find_contours(vol[..., z], level=level) # rows, cols
             for cnt in cnts:
                 # r,c to x,y
-                cnt_on_cropped = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-                structure_contours[sec][name_s] = cnt_on_cropped
+                contours_on_cropped_tb = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
                     
     return structure_contours
+
 
 # def extract_contours_from_labeled_volume(stack, volume,
 #                             section_z_map=None,

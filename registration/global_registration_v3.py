@@ -21,6 +21,7 @@ from data_manager import *
 ###########################################################################
 
 import argparse
+import json
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -30,6 +31,7 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
 parser.add_argument("-n", "--trial_num", type=int, help="number of trials", default=1)
+parser.add_argument("-s", "--structures", type=str, help="structure", default=None)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -37,6 +39,7 @@ stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 classifier_setting = args.classifier_setting
 trial_num = args.trial_num
+structure_subset = args.structures
 
 ###################################################################
 
@@ -75,10 +78,10 @@ volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_original_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting, 
                                                    sided=False, volume_type='score')
 
-structure_subset = ['7N_L', '7N_R', '12N', '5N_L','5N_R','Pn_L', 'Pn_R', 'SNR_L', 'SNR_R', 'VLL_L', 'VLL_R', '7n_L']
-# structure_subset = ['7N_L', '7N_R', '12N', '5N_L','5N_R','Pn_L', 'Pn_R', 'SNR_L', 'SNR_R', 'VLL_L', 'VLL_R', '7n_L',
-#           '7n_R', 'Tz_L', 'Tz_R', 'VCA_L', 'VCP_R']
-# structure_subset = label_to_structure_moving.values()
+if structure_subset is None:
+    structure_subset = label_to_structure_moving.values()    
+else:
+    structure_subset = json.loads(structure_subset)
 
 label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                      for label_m, name_m in label_to_structure_moving.iteritems()

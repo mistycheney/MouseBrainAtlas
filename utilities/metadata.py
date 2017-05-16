@@ -193,6 +193,9 @@ def convert_to_unsided_label(label):
     structure_name, side, surround_margin, surround_structure_name = parse_label(label)
     return compose_label(structure_name, side=None, surround_margin=surround_margin, surround_structure_name=surround_structure_name)
     
+def convert_to_nonsurround_label(name):
+    return convert_to_nonsurround_name(name)
+    
     # return convert_name_to_unsided(name)
 
 # def convert_name_to_unsided(name):

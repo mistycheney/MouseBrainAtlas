@@ -38,7 +38,6 @@ Extract the first
 vgg16-blue 500s / section (why so slow??)
 inception-bn-blue 160s / section
 
-
 Pre-trained Inception-BN network on RGB patches of 224 by 224 pixels.
 
 Use lossless (contrast stretched 8-bit version for fluorescent images).
@@ -48,8 +47,6 @@ For each section, the execution time is 6 minutes, which breaks down into:
 - load image: 113.57 seconds
 - extract patches: 42.50 seconds
 - predict: 210.46 seconds
-
-
 
 `learning/pipeline_aws.ipynb`
 ## Classification ##

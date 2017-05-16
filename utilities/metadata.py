@@ -161,35 +161,51 @@ else:
 
 #################### Name conversions ##################
 
-def convert_to_unsided_name(name):
-    return convert_name_to_unsided(name)
-
-def convert_name_to_unsided(name):
-    if '_' not in name:
-        return name
-    else:
-        return convert_to_original_name(name)
-
-def extract_side_from_name(name):
-    if '_' in name:
-        return name[-1]
-    else:
-        return None
-
-def is_surround_label(name):
-    return 'surround' in name
-
-def get_margin_from_surround_label(name):
-    assert is_surround_label(name), 'Label name %s is not a surround label.' % name
+def parse_label(label):
     import re
-    m = re.match('.*_surround_([0-9]+).*', name)
-    return int(m.groups()[0])
+    m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)
+    g = m.groups()
+    structure_name = g[0]
+    side = g[2]
+    surround_margin = g[4]
+    surround_structure_name = g[6]
+    return structure_name, side, surround_margin, surround_structure_name
+
+is_sided_label = lambda label: parse_label(label)[1] is not None
+is_surround_label = lambda label: parse_label(label)[2] is not None
+get_side_from_label = lambda label: parse_label(label)[1]
+get_margin_from_label = lambda label: parse_label(label)[2]
+
+def compose_label(structure_name, side, surround_margin, surround_structure_name):
+    label = structure_name
+    if side is not None:
+        label += '_' + side
+    if surround_margin is not None:
+        label += '_surround_' + surround_margin
+    if surround_structure_name is not None:
+        label += '_' + surround_structure_name
+    return label
+
+def convert_to_unsided_label(label):
+    structure_name, side, surround_margin, surround_structure_name = parse_label(label)
+    return compose_label(structure_name, side=None, surround_margin=surround_margin, surround_structure_name=surround_structure_name)
+    
+def convert_to_nonsurround_label(name):
+    return convert_to_nonsurround_name(name)
+    
+    # return convert_name_to_unsided(name)
+
+# def convert_name_to_unsided(name):
+#     if '_' not in name:
+#         return name
+#     else:
+#         return convert_to_original_name(name)
 
 def convert_to_left_name(name):
-    return convert_name_to_unsided(name) + '_L'
+    return convert_to_unsided_label(name) + '_L'
 
 def convert_to_right_name(name):
-    return convert_name_to_unsided(name) + '_R'
+    return convert_to_unsided_label(name) + '_R'
 
 def convert_to_original_name(name):
     return name.split('_')[0]
@@ -227,7 +243,6 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin) + '_' + suffix
             else:
                 return name + '_surround_' + str(margin)
-
 
 
 #######################################

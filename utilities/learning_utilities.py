@@ -208,9 +208,7 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
     """
 
     t = time.time()
-    img_fp = DataManager.get_image_filepath(stack, sec, version=version)
-    download_from_s3(img_fp)
-    img = imread(img_fp)
+    img = DataManager.load_image(stack=stack, section=sec, version=version)
     sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t)) 
 
     if grid_spec is None:
@@ -561,20 +559,39 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
                                                           classifier_setting_f=classifier_setting_f,
                                                           warp_setting=warp_setting,
                                                           trial_idx=trial_idx)
+    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+    
+    if by_human:    
+        contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
     
     download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack), is_dir=True)
     
-    def locate_patches_worker(sec):
+    contours_grouped = contours_df.groupby('section')
+
+    patch_indices_allSections_allStructures = {}
+    for sec, cnt_group in contours_grouped:
         sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+        if is_invalid(sec=sec, stack=stack):
+            continue
+        polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in cnt_group.iterrows()]
         mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec)
-        contours = contours_df.loc[sec]
-        return locate_patches_v2(stack=stack, mask_tb=mask_tb, polygons=contours.to_dict(), 
-                                      surround_margins=surround_margins)
+        patch_indices_allSections_allStructures[sec] = \
+        locate_patches_v2(grid_spec=get_default_gridspec(stack), mask_tb=mask_tb, polygons=polygons_this_sec, \
+                          surround_margins=surround_margins)
     
-    pool = Pool(NUM_CORES)
-    patch_indices_allSections_allStructures = dict(zip(contours_df.index, pool.map(locate_patches_worker, contours_df.index)))
-    pool.close()
-    pool.join()
+    return DataFrame(patch_indices_allSections_allStructures).T
+    
+#     def locate_patches_worker(sec):
+#         sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+#         mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec)
+#         contours = contours_df.loc[sec]
+#         return locate_patches_v2(stack=stack, mask_tb=mask_tb, polygons=contours.to_dict(), 
+#                                       surround_margins=surround_margins)
+#     pool = Pool(NUM_CORES)
+#     patch_indices_allSections_allStructures = dict(zip(contours_df.index, pool.map(locate_patches_worker, contours_df.index)))
+#     pool.close()
+#     pool.join()
     
     # patch_indices_allSections_allStructures = {}
     # for sec, contours in contours_df.iterrows():
@@ -584,7 +601,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
     #     locate_patches_v2(stack=stack, mask_tb=mask_tb, polygons=contours.dropna().to_dict(), 
     #                       surround_margins=surround_margins)
     
-    return DataFrame(patch_indices_allSections_allStructures).T
+    # return DataFrame(patch_indices_allSections_allStructures).T
     
     
 def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, num_samples_per_landmark=None):
@@ -641,12 +658,12 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    image_shape = grid_spec[2:]
-
     if image_shape is not None:
         image_width, image_height = image_shape
     else:
-        image_width, image_height = metadata_cache['image_shape'][stack]
+        image_width, image_height = grid_spec[2:]
+        # If use the following, stack might not be specified.
+        # image_width, image_height = metadata_cache['image_shape'][stack]
 
     if patch_size is None:
         patch_size = grid_spec[0]

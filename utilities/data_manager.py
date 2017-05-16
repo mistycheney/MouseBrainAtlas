@@ -1519,7 +1519,7 @@ class DataManager(object):
     ##################
         
     @staticmethod
-    def get_image_dir(stack, version, resol, anchor_fn=None, modality=None, 
+    def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None, 
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         """
         Args:
@@ -1568,13 +1568,13 @@ class DataManager(object):
         return image_dir
 
     @staticmethod
-    def load_image(stack, version, resol, section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR):
+    def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR):
         img_fp = DataManager.get_image_filepath(**locals())
         download_from_s3(img_fp)
         return imread(img_fp)
 
     @staticmethod
-    def get_image_filepath(stack, version, resol, 
+    def get_image_filepath(stack, version, resol='lossless', 
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
                            section=None, fn=None, anchor_fn=None, modality=None):
         """

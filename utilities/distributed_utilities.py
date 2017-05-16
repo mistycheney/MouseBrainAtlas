@@ -43,30 +43,7 @@ def relative_to_local(abs_fp, local_root=None):
     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
     common_prefix = os.path.commonprefix([abs_fp, local_root])
     relative_path = os.path.relpath(abs_fp, common_prefix)
-    return relative_path    
-    
-
-# def upload_from_ec2_to_s3(fp, is_dir=False, ec2_root='/shared'):
-#     transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root),
-#                         from_hostname='ec2',
-#                         to_hostname='s3',
-#                         is_dir=is_dir,
-#                         from_root=ec2_root)    
-    
-# def download_from_s3_to_ec2(fp, is_dir=False, redownload=False, ec2_root='/shared'):
-    
-#     if redownload or not os.path.exists(fp):
-#         transfer_data_synced(relative_to_ec2(fp, ec2_root=ec2_root), 
-#                             from_hostname='s3',
-#                             to_hostname='ec2',
-#                             is_dir=is_dir,
-#                             to_root=ec2_root)
-
-# def relative_to_ec2(abs_fp, ec2_root='/shared'):
-#     #http://stackoverflow.com/questions/7287996/python-get-relative-path-from-comparing-two-absolute-paths
-#     common_prefix = os.path.commonprefix([abs_fp, ec2_root])
-#     relative_path = os.path.relpath(abs_fp, common_prefix)
-#     return relative_path
+    return relative_path
 
 def delete_file_or_directory(fp):
     execute_command("rm -rf %s" % fp)
@@ -146,33 +123,6 @@ def first_last_tuples_distribute_over(first_sec, last_sec, n_host):
         first_last_tuples = [(int(first_sec+i*secs_per_job), int(first_sec+(i+1)*secs_per_job-1) if i != n_host - 1 else last_sec) for i in range(n_host)]
     return first_last_tuples
 
-# def detect_responsive_nodes_aws(exclude_nodes=[], use_nodes=None):
-#     def get_ec2_avail_instances(region):
-#         ins = []
-#         ec2_conn = boto3.client('ec2', region)
-#         #reservations = ec2_conn.get_all_reservations()
-#         response = ec2_conn.describe_instances()
-#         myid = check_output(['wget', '-qO', '-', 'http://instance-data/latest/meta-data/instance-id'])
-#         for reservation in response["Reservations"]:
-#             for instance in reservation["Instances"]:
-#                 if instance['State']['Name'] != 'running' or instance['InstanceType'] != 'm4.4xlarge':
-#                     continue
-#                 if instance['InstanceId'] != myid:
-#                     ins.append(instance['PublicDnsName'])
-#                 else:
-#                     ins.append('127.0.0.1')
-#         return ins
-#     all_nodes = get_ec2_avail_instances('us-west-1')
-
-#     if use_nodes is not None:
-#         hostids = use_nodes
-#     else:
-#         #for node in exclude_nodes:
-#         #    print(node)
-#         hostids = [node for node in all_nodes if node not in exclude_nodes]
-#     n_hosts = len(hostids)
-#     return hostids
-
 def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     all_nodes = range(31,39)+range(41,49)
@@ -203,12 +153,14 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
+def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None):
+    run_distributed5(**locals())
 
-def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
-    if ON_AWS:
-        run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
-    else:
-        run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
+# def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
+#     if ON_AWS:
+#         run_distributed5(command=command, kwargs_list=kwargs_list, jobs_per_node=jobs_per_node, argument_type=argument_type)
+#     else:
+#         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
         
 def request_compute_nodes(cluster_size):
     
@@ -241,27 +193,31 @@ def wait_num_nodes(desired_nodes, timeout=300):
         sys.stderr.write('SGE does not receive all host information in %d seconds.' % timeout)
     else:
         sys.stderr.write("All nodes are ready.\n")
-        
+
+def get_node_list():
+    return sorted(check_output("qhost | awk 'NR >= 4 { print $1 }'", shell=True).strip().split('\n'))
 
 def get_num_nodes():
     n_hosts = (check_output('qhost')).count('\n') - 3
     return n_hosts
 
-def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None):
     """
     Distributed executing a command on AWS.
     """
     
     execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
     
-    n_hosts = get_num_nodes()
-    if n_hosts < cluster_size:
-        request_compute_nodes(cluster_size)
+    # Use a fixed node list rather than letting SGE automatically determine the node list.
+    # This allows for control over which input items go to which node.
+    if node_list is None:
+        node_list = get_node_list()
         
-    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    n_hosts = len(node_list)
+    sys.stderr.write('%d nodes available.\n' % (n_hosts))
     
     if kwargs_list is None:
-        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
+        kwargs_list = {'dummy': [None]*n_hosts}
     
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
@@ -273,26 +229,21 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         vals = [t.values() for t in kwargs_list]
         kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
 
-    assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
+    assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
 
-    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
+    for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
         
         temp_script = '/tmp/runall.sh'
         temp_f = open(temp_script, 'w')
 
         for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-        
-            if argument_type == 'partition':
-                # For cases with partition of first section / last section
-                line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
-            elif argument_type == 'list':
-            # Specify kwargs_str
+            if argument_type == 'list':
                 line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
             elif argument_type == 'list2':
-            # Specify {key: list}
                 line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
             elif argument_type == 'single':
-                # It is important to wrap command_templates and kwargs_list_str in apostrphes. That lets bash treat them as single strings.
+                # It is important to wrap command_templates and kwargs_list_str in apostrphes. 
+                # That lets bash treat them as single strings.
                 # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it         
                 line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
                 {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
@@ -305,13 +256,16 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         temp_f.write('wait')
         temp_f.close()
         os.chmod(temp_script, 0o777)
-        # call('qsub -V -l mem_free=60G -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-        #      dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i),
-        #      shell=True, stdout=stdout)
-        call('qsub -V -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-             dict(script=temp_script, stdout_log='/home/ubuntu/stdout_%d.log' % i, stderr_log='/home/ubuntu/stderr_%d.log' % i), shell=True, stdout=stdout)
         
-    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to check if they finish.\n')
+        # Explicitly specify the node to submit jobs.
+        # By doing so, we can control which files are available in the local scratch space of which node.
+        # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
+        call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+         dict(node=node_list[node_i], script=temp_script, 
+              stdout_log='/home/ubuntu/stdout_%d.log' % node_i, stderr_log='/home/ubuntu/stderr_%d.log' % node_i), 
+             shell=True)
+        
+    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
     
         
 def wait_qsub_complete(timeout=120*60):

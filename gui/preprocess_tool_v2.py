@@ -56,7 +56,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             # self.pad_bg_color = 'white'
 
         self.stack_data_dir = os.path.join(thumbnail_data_dir, stack)
-        self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
+        # self.stack_data_dir_gordon = os.path.join(gordon_thumbnail_data_dir, stack)
 
         self.web_service = WebService(server_ip='ec2-52-53-122-62.us-west-1.compute.amazonaws.com')
 
@@ -263,20 +263,20 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # self.button_confirm_order.clicked.connect(self.confirm_order)
         self.button_load_sorted_filenames.clicked.connect(self.load_sorted_filenames)
         self.button_save_sorted_filenames.clicked.connect(self.save_sorted_filenames)
-        self.button_align.clicked.connect(self.align)
+        # self.button_align.clicked.connect(self.align)
         # self.button_align.setEnabled(False)
         self.button_confirm_alignment.clicked.connect(self.compose)
-        self.button_download.clicked.connect(self.download)
+        # self.button_download.clicked.connect(self.download)
         self.button_edit_transform.clicked.connect(self.edit_transform)
         self.button_crop.clicked.connect(self.crop)
         self.button_load_crop.clicked.connect(self.load_crop)
         self.button_save_crop.clicked.connect(self.save_crop)
         # self.button_gen_mask.clicked.connect(self.generate_masks)
         # self.button_warp_crop_mask.clicked.connect(self.warp_crop_masks)
-        self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
+        # self.button_syncWorkstation.clicked.connect(self.send_to_workstation)
         # self.button_edit_masks.clicked.connect(self.edit_masks)
 
-        self.button_send_info_gordon.clicked.connect(self.send_info_gordon)
+        # self.button_send_info_gordon.clicked.connect(self.send_info_gordon)
         # self.button_send_info_workstation.clicked.connect(self.send_info_workstation)
 
         ################################
@@ -479,14 +479,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
 
     def load_crop(self):
-
+        """
+        Load crop box.
+        """
         self.set_show_option('aligned')
-
-        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}), 'r') as f:
+        cropbox_fp = DataManager.get_cropbox_filename(stack=self.stack, anchor_fn=self.anchor_fn)
+        with open(cropbox_fp, 'r') as f:
             ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section = map(int, f.readline().split())
             self.sorted_sections_gscene.set_box(ul_x, lr_x, ul_y, lr_y)
             print ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section
-
 
     def save_crop(self):
         ul_pos = self.sorted_sections_gscene.corners['ul'].scenePos()
@@ -500,7 +501,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if ul_x == 100 and ul_y == 100 and lr_x == 200 and lr_y == 200:
             return
 
-        with open(os.path.join(thumbnail_data_dir, '%(stack)s/%(stack)s_cropbox.txt' % {'stack': self.stack}), 'w') as f:
+        cropbox_fp = DataManager.get_cropbox_filename(stack=self.stack, anchor_fn=self.anchor_fn)
+        with open(cropbox_fp, 'w') as f:
             f.write('%d %d %d %d %d %d' % (ul_x, lr_x, ul_y, lr_y, self.first_section, self.last_section))
 
     def crop(self):
@@ -692,19 +694,16 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
         prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
 
-        create_if_not_exists(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/' % \
-                            dict(stack=self.stack,
-                                curr_fn=curr_section_fn,
-                                prev_fn=prev_section_fn))
+        custom_tf_dir = os.path.join(self.stack_data_dir, stack + '_custom_transforms', curr_section_fn + '_to_' + prev_section_fn)
 
-        with open(self.stack_data_dir + '/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_to_%(prev_fn)s_customTransform.txt' %\
-                    dict(stack=self.stack,
-                        curr_fn=curr_section_fn,
-                        prev_fn=prev_section_fn), 'w') as f:
+        execute_command("rm -rf %(out_dir)s; mkdir -p %(out_dir)s" % dict(out_dir=custom_tf_dir))
+        custom_tf_fp = os.path.join(custom_tf_dir, '%(curr_fn)s_to_%(prev_fn)s_customTransform.txt' % \
+                    dict(curr_fn=curr_section_fn, prev_fn=prev_section_fn))
+
+        with open(custom_tf_fp, 'w') as f:
             f.write('%f %f %f %f %f %f\n' % (R[0,0], R[0,1], t[0], R[1,0], R[1,1], t[1]))
 
         self.apply_custom_transform()
-
         self.update_aligned_images_feeder()
 
     def apply_custom_transform(self):
@@ -741,59 +740,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             y='+0',
             raw_data_dir=RAW_DATA_DIR))
 
-    # def upload_custom_transform(self):
-    #     curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
-    #     prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
-    #
-    #     custom_tf_fn = os.path.join(self.stack_data_dir, self.stack+'_custom_transforms', curr_section_fn + '_to_' + prev_section_fn, curr_section_fn + '_to_' + prev_section_fn + '_customTransform.txt')
-    #     with open(custom_tf_fn, 'r') as f:
-    #         t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
-    #
-    #     prev_img_w, prev_img_h = map(int, check_output("identify -format %%Wx%%H %(raw_data_dir)s/%(stack)s/%(prev_fn)s.%(tb_fmt)s" %dict(stack=self.stack, prev_fn=prev_section_fn, tb_fmt=self.tb_fmt, raw_data_dir=RAW_DATA_DIR),
-    #                                         shell=True).split('x'))
-    #
-    #     output_image_fn = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
-    #                     dict(stack=self.stack,
-    #                     curr_fn=curr_section_fn,
-    #                     prev_fn=prev_section_fn) )
-    #
-    #     execute_command("convert %(raw_data_dir)s/%(stack)s/%(curr_fn)s.%(tb_fmt)s -virtual-pixel background +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s" %\
-    #     dict(stack=self.stack,
-    #         curr_fn=curr_section_fn,
-    #         output_fn=output_image_fn,
-    #         tb_fmt=self.tb_fmt,
-    #         sx=t11,
-    #         sy=t22,
-    #         rx=t21,
-    #         ry=t12,
-    #         tx=t13,
-    #         ty=t23,
-    #         w=prev_img_w,
-    #         h=prev_img_h,
-    #         x='+0',
-    #         y='+0',
-    #         raw_data_dir=RAW_DATA_DIR))
-    #
-    #     execute_command(('ssh gcn-20-33.sdsc.edu mkdir %(stack_data_dir_gordon)s/%(stack)s_custom_transforms; '
-    #                     'scp -r %(stack_data_dir)s/%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_custom_transforms/') %\
-    #                     dict(stack_data_dir=self.stack_data_dir,
-    #                         stack_data_dir_gordon=self.stack_data_dir_gordon,
-    #                         stack=self.stack,
-    #                         curr_fn=curr_section_fn,
-    #                         prev_fn=prev_section_fn))
-
     def add_anchor_pair_clicked(self):
         self.curr_gscene.set_mode('add point')
         self.prev_gscene.set_mode('add point')
         self.current_section_anchor_received = False
         self.previous_section_anchor_received = False
         self.alignment_ui.button_anchor.setEnabled(False)
-
-    # def aligned_image_changed(self):
-    #     pass
-        # prev_section_idx = self.aligned_gscene.active_indices['fixed']
-        # self.curr_gscene.set_active_i(prev_section_idx+1)
-        # self.prev_gscene.set_active_i(prev_section_idx)
 
     def current_section_image_changed(self):
         curr_section_i = self.curr_gscene.active_i
@@ -919,39 +871,39 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.save()
 
 
-    def send_info_gordon(self):
-        # Upload cropbox file, sorted filenames file, anchor file
-        execute_command(('scp %(stack_data_dir)s/%(stack)s_cropbox.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
-                        'scp %(stack_data_dir)s/%(stack)s_anchor.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
-                        'scp %(stack_data_dir)s/%(stack)s_sorted_filenames.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/') %\
-                        dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+    # def send_info_gordon(self):
+    #     # Upload cropbox file, sorted filenames file, anchor file
+    #     execute_command(('scp %(stack_data_dir)s/%(stack)s_cropbox.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+    #                     'scp %(stack_data_dir)s/%(stack)s_anchor.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/ &&'
+    #                     'scp %(stack_data_dir)s/%(stack)s_sorted_filenames.txt oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/') %\
+    #                     dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
 
 
     # def send_info_workstation(self):
     #     pass
 
-    def send_to_workstation(self):
-
-        return
-
-        upload_to_remote_synced(stack=self.stack, fp_relative=self.stack + '_cropbox.txt')
-
-        remote_sorted_filenames_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_sorted_filenames.txt')
-        upload_to_remote(fp_remote=remote_sorted_filenames_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
-
-        remote_anchor_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_anchor.txt')
-        upload_to_remote(fp_remote=remote_anchor_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
-
-        remote_elastix_output_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_elastix_output')
-        upload_to_remote(fp_remote=remote_elastix_output_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
-
-        commands_on_brainstem_download_metadata = \
-        ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
-        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_cropbox.txt . &&'
-        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_sorted_filenames.txt . &&'
-        'scp dm:%(stack_data_dir_gordon)s/%(stack)s_anchor.txt . &&'
-        'mkdir %(stack)s_elastix_output; scp dm:%(stack_data_dir_gordon)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl %(stack)s_elastix_output/') \
-        % dict(stack=self.stack, workstation_data_dir=WORKSTATION_ROOTDIR, stack_data_dir_gordon=self.stack_data_dir_gordon)
+    # def send_to_workstation(self):
+    #
+    #     return
+    #
+    #     upload_to_remote_synced(stack=self.stack, fp_relative=self.stack + '_cropbox.txt')
+    #
+    #     remote_sorted_filenames_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_sorted_filenames.txt')
+    #     upload_to_remote(fp_remote=remote_sorted_filenames_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
+    #
+    #     remote_anchor_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_anchor.txt')
+    #     upload_to_remote(fp_remote=remote_anchor_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
+    #
+    #     remote_elastix_output_fp = os.path.join(self.stack_data_dir_gordon, self.stack + '_elastix_output')
+    #     upload_to_remote(fp_remote=remote_elastix_output_fp, fp_local=local_stack_data_processed_dir, remote_hostname='oasis-dm.sdsc.edu')
+    #
+    #     commands_on_brainstem_download_metadata = \
+    #     ('cd %(workstation_data_dir)s && mkdir %(stack)s; cd %(stack)s &&'
+    #     'scp dm:%(stack_data_dir_gordon)s/%(stack)s_cropbox.txt . &&'
+    #     'scp dm:%(stack_data_dir_gordon)s/%(stack)s_sorted_filenames.txt . &&'
+    #     'scp dm:%(stack_data_dir_gordon)s/%(stack)s_anchor.txt . &&'
+    #     'mkdir %(stack)s_elastix_output; scp dm:%(stack_data_dir_gordon)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl %(stack)s_elastix_output/') \
+    #     % dict(stack=self.stack, workstation_data_dir=WORKSTATION_ROOTDIR, stack_data_dir_gordon=self.stack_data_dir_gordon)
 
         # commands_gordon_tar_sorted_saturation = \
         # ('cd %(stack_data_dir_gordon)s &&'
@@ -1067,50 +1019,50 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         execute_command('ssh brainstem \"%(cmd)s\"' % dict(cmd=commands_on_brainstem_download_unsorted_masks))
 
 
-    def confirm_order(self):
-        sort_json = self.web_service.convert_to_request('confirm_order',
-                        stack=self.stack, sorted_filenames=self.sorted_filenames, anchor_fn=self.anchor_fn)
-
-        # Download sorted data folder symbolic links
-        download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned.tar %(stack)s_thumbnail_sorted_aligned\" && '
-                'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
-                'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar . &&'
-                'rm -rf %(stack)s_thumbnail_sorted_aligned && tar -xf %(stack)s_thumbnail_sorted_aligned.tar &&'
-                'rm -r %(stack)s_thumbnail_sorted_aligned.tar') %\
-                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
-                thumbnail_data_dir=thumbnail_data_dir)
-                # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
-
-        execute_command(download_sorted_thumbnails_symlinks_cmd)
-
-        self.statusBar().showMessage('Aligned cropped thumbnail images downloaded.')
-
-        # Download sorted thumbnail cropped data folder symbolic links
-        download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned_cropped.tar %(stack)s_thumbnail_sorted_aligned_cropped\" && '
-                'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
-                'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar . &&'
-                'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped && tar -xf %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
-                'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar') %\
-                dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
-                thumbnail_data_dir=thumbnail_data_dir)
-                # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
-
-        execute_command(download_sorted_thumbnails_symlinks_cmd)
-
-        # Download sorted lossless aligned cropped compressed data folder symbolic links
-        execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
-                        'cd %(data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
-                        'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
-                        'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
-                        'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') %\
-                        dict(stack=self.stack, data_dir=data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
-				# 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
-
-        # Download unsorted lossless aligned cropped data MANUALLY !!
-
-        # self.send_to_workstation()
-
-        self.save_everything()
+    # def confirm_order(self):
+    #     sort_json = self.web_service.convert_to_request('confirm_order',
+    #                     stack=self.stack, sorted_filenames=self.sorted_filenames, anchor_fn=self.anchor_fn)
+    #
+    #     # Download sorted data folder symbolic links
+    #     download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned.tar %(stack)s_thumbnail_sorted_aligned\" && '
+    #             'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
+    #             'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar . &&'
+    #             'rm -rf %(stack)s_thumbnail_sorted_aligned && tar -xf %(stack)s_thumbnail_sorted_aligned.tar &&'
+    #             'rm -r %(stack)s_thumbnail_sorted_aligned.tar') %\
+    #             dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
+    #             thumbnail_data_dir=thumbnail_data_dir)
+    #             # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned.tar') % \
+    #
+    #     execute_command(download_sorted_thumbnails_symlinks_cmd)
+    #
+    #     self.statusBar().showMessage('Aligned cropped thumbnail images downloaded.')
+    #
+    #     # Download sorted thumbnail cropped data folder symbolic links
+    #     download_sorted_thumbnails_symlinks_cmd = ('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_thumbnail_sorted_aligned_cropped.tar %(stack)s_thumbnail_sorted_aligned_cropped\" && '
+    #             'cd %(thumbnail_data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
+    #             'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar . &&'
+    #             'rm -rf %(stack)s_thumbnail_sorted_aligned_cropped && tar -xf %(stack)s_thumbnail_sorted_aligned_cropped.tar &&'
+    #             'rm -r %(stack)s_thumbnail_sorted_aligned_cropped.tar') %\
+    #             dict(stack=self.stack, stack_data_dir=self.stack_data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon,
+    #             thumbnail_data_dir=thumbnail_data_dir)
+    #             # 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_thumbnail_sorted_aligned_cropped.tar') % \
+    #
+    #     execute_command(download_sorted_thumbnails_symlinks_cmd)
+    #
+    #     # Download sorted lossless aligned cropped compressed data folder symbolic links
+    #     execute_command(('ssh oasis-dm.sdsc.edu \"cd %(stack_data_dir_gordon)s && tar -cf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar %(stack)s_lossless_sorted_aligned_cropped_compressed\" && '
+    #                     'cd %(data_dir)s && mkdir %(stack)s ; cd %(stack)s &&'
+    #                     'scp -r oasis-dm.sdsc.edu:%(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar . &&'
+    #                     'rm -rf %(stack)s_lossless_sorted_aligned_cropped_compressed && tar -xf %(stack)s_lossless_sorted_aligned_cropped_compressed.tar &&'
+    #                     'rm -r %(stack)s_lossless_sorted_aligned_cropped_compressed.tar') %\
+    #                     dict(stack=self.stack, data_dir=data_dir, stack_data_dir_gordon=self.stack_data_dir_gordon))
+	# 			# 'ssh oasis-dm.sdsc.edu rm %(stack_data_dir_gordon)s/%(stack)s_lossless_sorted_aligned_cropped_compressed.tar') % \
+    #
+    #     # Download unsorted lossless aligned cropped data MANUALLY !!
+    #
+    #     # self.send_to_workstation()
+    #
+    #     self.save_everything()
 
 
     def update_sorted_sections_gscene_from_sorted_filenames(self):
@@ -1293,8 +1245,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     #                     'stack': self.stack})
 
 
-    def align(self):
-        pass
+    # def align(self):
+    #     pass
         # self.web_service.convert_to_request('align', stack=self.stack, filenames=self.get_valid_sorted_filenames())
 
         ## SSH speed is not stable. Performance is alternating: one 5MB/s, the next 800k/s, the next 5MB/s again.

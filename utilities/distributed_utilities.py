@@ -204,6 +204,11 @@ def get_num_nodes():
 def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None):
     """
     Distributed executing a command on AWS.
+    
+    Args:
+        jobs_per_node:
+        kwargs_list: either dict of lists {kA: [vA1, vA2, ...], kB: [vB1, vB2, ...]} or list of dicts [{kA:vA1, kB:vB1}, {kA:vA2, kB:vB2}, ...].
+        argument_type: one of list, list2, single. If command takes one input item as argument, use "single". If command takes a list of input items as argument, use "list2". If command takes an argument called "kwargs_str", use "list".
     """
     
     execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')

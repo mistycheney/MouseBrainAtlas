@@ -66,6 +66,8 @@ EOF
 fi
 
 # Install CUDA
+# https://gist.github.com/albertstartup/9619faab6a2f6afdf4dc13f897d48a05
+# https://gist.github.com/albertstartup/fed638a5d6862c9f0e8ffe8c3a74dbc8
 wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
 sudo dpkg -i cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
 sudo apt-get update
@@ -73,9 +75,7 @@ sudo apt-get install -y cuda
 echo -e "export CUDA_HOME=/usr/local/cuda\nexport PATH=\$PATH:\$CUDA_HOME/bin\nexport LD_LIBRARY_PATH=\$LD_LINKER_PATH:\$CUDA_HOME/lib64" >> ~/.bashrc
 
 # Install CuDNN
-# https://gist.github.com/albertstartup/9619faab6a2f6afdf4dc13f897d48a05
-# https://gist.github.com/albertstartup/fed638a5d6862c9f0e8ffe8c3a74dbc8
-wget https://s3-us-west-2.amazonaws.com/mousebrainatlas-scripts-uswest2/cudnn-8.0-linux-x64-v6.0.tgz
+wget https://s3-us-west-1.amazonaws.com/mousebrainatlas-scripts/cudnn-8.0-linux-x64-v6.0.tgz
 tar xf cudnn-8.0-linux-x64-v6.0.tgz
 cd cuda
 sudo cp lib64/* /usr/local/cuda/lib64/
@@ -88,6 +88,6 @@ sudo pip install mxnet-cu80
 echo """
 export REPO_DIR=/shared/MouseBrainAtlas
 alias sudosgeadmin=\"sudo -u sgeadmin -i\"
-start_notebook() { jupyter notebook --notebook-dir \"$1\"; }
+start_notebook() {REPO_DIR=$1 jupyter notebook --notebook-dir $1; }
 alias increase_ebs_size=\"sudo resize2fs /dev/xvdb\"
 """ >> /home/ubuntu/.bashrc

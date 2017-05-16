@@ -31,7 +31,8 @@ class ZoomableBrowsableGraphicsSceneWithReadonlyPolygon(ZoomableBrowsableGraphic
 
     def set_default_line_color(self, color):
         """
-        color is one of r,g,b
+        Args:
+            color (str): "r", "g" or "b"
         """
         self.default_line_color = color
 

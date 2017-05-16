@@ -542,14 +542,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         try:
             coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
             self.gscenes['coronal'].load_drawings(coronal_contours)
-        except:
-            sys.stderr.write("Error loading coronal contours")
+        except Exception as e:
+            sys.stderr.write("Error loading coronal contours: str(e)\n")
 
         try:
             horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
             self.gscenes['horizontal'].load_drawings(horizontal_contours)
-        except:
-            sys.stderr.write("Error loading horizontal contours")
+        except Exception as e:
+            sys.stderr.write("Error loading horizontal contours: str(e)\n")
 
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours

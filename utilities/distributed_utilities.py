@@ -204,9 +204,9 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
     return up_hostids
 
 
-def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
+def run_distributed(command, kwargs_list=None, stdout=None, exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
     if ON_AWS:
-        run_distributed5(command=command, kwargs_list=kwargs_list, cluster_size=cluster_size, jobs_per_node=jobs_per_node, stdout=stdout, argument_type=argument_type)
+        run_distributed5(command=command, kwargs_list=kwargs_list, jobs_per_node=jobs_per_node, argument_type=argument_type)
     else:
         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
         
@@ -247,21 +247,23 @@ def get_num_nodes():
     n_hosts = (check_output('qhost')).count('\n') - 3
     return n_hosts
 
-def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
+def run_distributed5(command, jobs_per_node=1, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), argument_type='list'):
     """
     Distributed executing a command on AWS.
+    
+    Args:
+        jobs_per_node:
+        kwargs_list: either dict of lists {kA: [vA1, vA2, ...], kB: [vB1, vB2, ...]} or list of dicts [{kA:vA1, kB:vB1}, {kA:vA2, kB:vB2}, ...].
+        argument_type: one of list, list2, single. If command takes one input item as argument, use "single". If command takes a list of input items as argument, use "list2". If command takes an argument called "kwargs_str", use "list".
     """
     
     execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
     
     n_hosts = get_num_nodes()
-    if n_hosts < cluster_size:
-        request_compute_nodes(cluster_size)
-        
-    sys.stderr.write('%d nodes requested, %d nodes available...Continuing\n' % (cluster_size, n_hosts))
+    sys.stderr.write('%d nodes available...Continuing\n' % (n_hosts))
     
     if kwargs_list is None:
-        kwargs_list = {'dummy': [None]*min(n_hosts, cluster_size)}
+        kwargs_list = {'dummy': [None]*n_hosts}
     
     if isinstance(kwargs_list, dict):
         keys, vals = zip(*kwargs_list.items())
@@ -275,7 +277,7 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
 
     assert argument_type in ['single', 'partition', 'list', 'list2'], 'argument_type must be one of single, partition, list, list2.'
 
-    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, min(n_hosts, cluster_size))):
+    for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
         
         temp_script = '/tmp/runall.sh'
         temp_f = open(temp_script, 'w')
@@ -283,6 +285,7 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
         for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
         
             if argument_type == 'partition':
+                # This option is to be deprecated. Check if this is used elsewhere.
                 # For cases with partition of first section / last section
                 line = command % {'first_sec': kwargs_list_as_dict['sections'][fj], 'last_sec': kwargs_list_as_dict['sections'][lj]}
             elif argument_type == 'list':
@@ -292,7 +295,8 @@ def run_distributed5(command, cluster_size, jobs_per_node=1, kwargs_list=None, s
             # Specify {key: list}
                 line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
             elif argument_type == 'single':
-                # It is important to wrap command_templates and kwargs_list_str in apostrphes. That lets bash treat them as single strings.
+                # It is important to wrap command_templates and kwargs_list_str in apostrphes. 
+                # That lets bash treat them as single strings.
                 # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it         
                 line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
                 {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),

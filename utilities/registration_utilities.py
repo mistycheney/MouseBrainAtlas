@@ -1297,7 +1297,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         volume_origin: (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
         
     Returns:
-        structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume
+        structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
     
     from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS

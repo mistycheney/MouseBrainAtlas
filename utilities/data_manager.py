@@ -153,6 +153,7 @@ class DataManager(object):
                                 warp_setting=None, trial_idx=None):
         if by_human:
             fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            download_from_s3(fp)
             contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
 
             try:
@@ -170,6 +171,7 @@ class DataManager(object):
                                                       classifier_setting_m=classifier_setting_m,
                                                       classifier_setting_f=classifier_setting_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx)
+            download_from_s3(fp)
             contour_df = load_hdf_v2(fp)
             return contour_df, None
         

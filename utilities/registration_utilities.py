@@ -101,8 +101,14 @@ class Aligner4(object):
                 labelIndexMap_m2f=None, label_weights=None, reg_weights=None, zrange=None):
         """
         Variant that takes in two probabilistic volumes.
-
-        zrange: tuple
+        
+        Args:
+            volume_f_ (dict): the fixed probabilistic volume. dict of {numeric label: 3d array}
+            volume_m_ (dict): the moving probabilistic volume. dict of {numeric label: 3d array}
+            labelIndexMap_m2f (dict): mapping between moving volume labels and fixed volume labels. dict of {moving label: fixed label}
+            label_weights (dict): {numeric label: weight}
+            reg_weights (3-array): regularization weights for (tx,ty,tz) respectively.
+            zrange (2-tuple): If given, only use the portion of both volumes that is between zmin and zmax (inclusive).
         """
 
         self.labelIndexMap_m2f = labelIndexMap_m2f
@@ -727,10 +733,11 @@ class Aligner4(object):
                 std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                 reg_weights=None,
                 epsilon=1e-8):
-        """Optimize
-
-        reg_weights is for (tx,ty,tz)
-        obj = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        """Optimize.
+        Objective = structure-weighted sum of products of voxel scores - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        
+        Args:
+            reg_weights: for (tx,ty,tz)
         """
 
         if indices_m is None:

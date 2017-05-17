@@ -389,7 +389,7 @@ class DataManager(object):
     def get_alignment_parameters_filepath(stack_f, stack_m, warp_setting,
     classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', param_suffix=None,
-    downscale=32, trial_idx=0):
+    downscale=32, trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
 
         if param_suffix is None:
@@ -442,7 +442,7 @@ class DataManager(object):
     def get_score_history_filepath(stack_f, stack_m, warp_setting,
     classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', param_suffix=None,
-    downscale=32, trial_idx=0):
+    downscale=32, trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
 
         if param_suffix is None:
@@ -501,7 +501,7 @@ class DataManager(object):
                                 section,
                                 type_m='score', type_f='score',
                                 downscale=32,
-                                trial_idx=0):
+                                trial_idx=None):
 
         basename = DataManager.get_warped_volume_basename(**locals())
         return os.path.join(REGISTRATION_VIZ_ROOTDIR, stack_m, basename, basename + '_%04d.jpg' % section)
@@ -510,14 +510,14 @@ class DataManager(object):
     def load_confidence(stack_m, stack_f,
                             classifier_setting_m, classifier_setting_f, warp_setting, what,
                             type_m='score', type_f='score', param_suffix=None,
-                            trial_idx=0):
+                            trial_idx=None):
         return load_pickle(DataManager.get_confidence_filepath(**locals()))
 
     @staticmethod
     def get_confidence_filepath(stack_m, stack_f,
                             classifier_setting_m, classifier_setting_f, warp_setting, what,
                             type_m='score', type_f='score', param_suffix=None,
-                            trial_idx=0):
+                            trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
 
         if param_suffix is None:
@@ -936,7 +936,7 @@ class DataManager(object):
                                         type_f='score',
                                         downscale=32,
                                         structures=None,
-                                        trial_idx=0,
+                                        trial_idx=None,
                                         sided=True,
                                         include_surround=False):
         if stack_f is not None:
@@ -954,23 +954,24 @@ class DataManager(object):
                                          type_f='score',
                                         structure=None,
                                         downscale=32,
-                                        trial_idx=0):
+                                        trial_idx=None):
         fp = DataManager.get_transformed_volume_filepath(**locals())
         download_from_s3(fp)
         return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
     def load_transformed_volume_all_known_structures(stack_m, stack_f,
-                                        warp_setting,
-                                                     trial_idx,
-                                        classifier_setting_m=None,
-                                        classifier_setting_f=None,
-                                        type_m='score',
-                                        type_f='score',
-                                        downscale=32,
-                                        structures=None,
-                                        sided=True,
-                                        include_surround=False):
+                                                    warp_setting,
+                                                    classifier_setting_m=None,
+                                                    classifier_setting_f=None,
+                                                    type_m='score',
+                                                    type_f='score',
+                                                    downscale=32,
+                                                    structures=None,
+                                                    sided=True,
+                                                    include_surround=False,
+                                                     trial_idx=None,
+):
         """
         Args:
             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
@@ -988,7 +989,7 @@ class DataManager(object):
         volumes = {}
         for structure in structures:
             try:
-                if isinstance(trial_idx, int):
+                if trial_idx is None or isinstance(trial_idx, int):
                     volumes[structure] = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
                                                         stack_f=stack_f, type_f=type_f, downscale=downscale,
                                                         classifier_setting_m=classifier_setting_m,
@@ -1019,13 +1020,17 @@ class DataManager(object):
                                          type_m='score',
                                           type_f='score',
                                         structure=None,
-                                        trial_idx=0):
+                                        trial_idx=None):
 
         basename = DataManager.get_warped_volume_basename(**locals())
         if structure is not None:
             fn = basename + '_%s' % structure
         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
 
+    
+    ##########################
+    ## Probabilistic Shape  ##
+    ##########################
 
     @staticmethod
     def load_prob_shapes(stack_m, stack_f=None,
@@ -1133,7 +1138,7 @@ class DataManager(object):
                                          type_m='score',
                                           type_f='score',
                                         structure=None,
-                                        trial_idx=0):
+                                        trial_idx=None):
 
         basename = DataManager.get_warped_volume_basename(**locals())
 
@@ -1268,15 +1273,6 @@ class DataManager(object):
         download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
         return volume
-
-#     @staticmethod
-#     def load_score_volume(stack, structure, downscale, classifier_setting=None, volume_type='score'):
-#         # vol_fn = DataManager.get_score_volume_filepath(**locals())
-#         vol_fn = DataManager.get_volume_filepath(stack_m=stack, structure=structure, downscale=downscale, classifier_setting_m=classifier_setting, type_m=volume_type, trial_idx=None)
-
-#         download_from_s3_to_ec2(vol_fn, is_dir=False)
-#         score_volume = DataManager.load_data(vol_fn, filetype='bp')
-#         return score_volume
 
     @staticmethod
     def load_original_volume_bbox(stack, vol_type, classifier_setting=None, structure=None, downscale=32):

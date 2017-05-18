@@ -533,7 +533,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Load pipeline generated atlas-aligned annotations
         contour_df, _ = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        stack_m='atlasV3', warp_setting=1, classifier_setting_m=37, classifier_setting_f=37, trial_idx=4)
+        stack_m='atlasV3', warp_setting=1, classifier_setting_m=37, classifier_setting_f=37)
 
         self.contour_df_loaded = contour_df
         sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
@@ -557,9 +557,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def active_image_updated(self):
-        self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
+        self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
         dict(stack=self.stack,
         sec=self.gscenes['sagittal'].active_section,
+        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['sagittal'].active_section],
         z=self.gscenes['sagittal'].active_i,
         x=self.gscenes['coronal'].active_i if self.gscenes['coronal'].active_i is not None else 0,
         y=self.gscenes['horizontal'].active_i  if self.gscenes['horizontal'].active_i is not None else 0))

@@ -874,7 +874,7 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 
     # import cPickle as pickle
     # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         fn = cnt['filename']

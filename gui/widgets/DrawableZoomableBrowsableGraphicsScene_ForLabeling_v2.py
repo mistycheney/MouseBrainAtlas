@@ -23,11 +23,11 @@ CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
 reference_resources = {
 '5N': {'BrainInfo': 'http://braininfo.rprc.washington.edu/centraldirectory.aspx?ID=559',
         'PubMed': 'https://www.ncbi.nlm.nih.gov/pubmed/query.fcgi?cmd=search&db=PubMed&term=%22motor+nucleus%22+OR+%22motor+nucleus+of+trigeminal+nerve%22+OR+%22motor+trigeminal+nucleus%22+OR+%22Nucleus+motorius+nervi+trigemini%22+OR+%22trigeminal+motor+nucleus%22&dispmax=20&relentrezdate=No+Limit',
-        'Allen Reference Atlas (Saggittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=621',
+        'Allen Reference Atlas (Sagittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=621',
         'Allen Reference Atlas (Coronal)': 'http://atlas.brain-map.org/atlas?atlas=1#atlas=1&structure=621&resolution=8.38&x=4728&y=3720&zoom=-2&plate=100960192'},
 '7N': {'BrainInfo': 'http://braininfo.rprc.washington.edu/centraldirectory.aspx?ID=586',
         'PubMed': 'https://www.ncbi.nlm.nih.gov/pubmed/query.fcgi?cmd=search&db=PubMed&term=%22facial+motor+nucleus%22+OR+%22facial+nucleus%22+OR+%22Nucleus+facialis%22+OR+%22Nucleus+nervi+facialis%22+AND+facial+nucleus&dispmax=20&relentrezdate=No+Limit',
-        'Allen Reference Atlas (Saggittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=661',
+        'Allen Reference Atlas (Sagittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=661',
         'Allen Reference Atlas (Coronal)': 'http://atlas.brain-map.org/atlas?atlas=1#atlas=1&structure=661&resolution=6.98&x=6039.549458821615&y=4468.1439208984375&zoom=-2&plate=100960181'}
 }
 
@@ -785,14 +785,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         grouped = contours.groupby('section')
 
-        for i_or_sec, group in grouped:
-            # if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
+        for sec, group in grouped:
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
                 contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
+                if sec == 201:
+                    print  contour['name'], sec, metadata_cache['sections_to_filenames'][self.data_feeder.stack][sec]
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
-                                                        linecolor='r', section=i_or_sec, type=contour_type,
+                                                        linecolor='r', section=sec, type=contour_type,
                                                         side=contour['side'],
                                                         # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
                                                         side_manually_assigned=contour['side_manually_assigned'],
@@ -955,11 +956,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.active_polygon = self.sender().parent
         self.open_label_selection_dialog()
 
-    @pyqtSlot(object)
-    def label_added(self, text_item):
-        polygon = self.sender().parent
-        if polygon.index == self.active_i:
-            print 'label added.'
+    # @pyqtSlot(object)
+    # def label_added(self, text_item):
+    #     polygon = self.sender().parent
+    #     if polygon.index == self.active_i:
+    #         print 'label added.'
             # self.addItem(text_item)
 
     # @pyqtSlot(QGraphicsEllipseItemModified)
@@ -1008,22 +1009,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         action_assignL = setSide_menu.addAction('Left')
         action_assignR = setSide_menu.addAction('Right')
         action_sides = {action_assignS: 'S', action_assignL: 'L', action_assignR: 'R'}
-        if hasattr(self, 'active_polygon') and self.active_polygon.side is not None:
-            if self.active_polygon.side_manually_assigned:
+        if hasattr(self, 'active_polygon') and self.active_polygon.properties['side'] is not None:
+            if self.active_polygon.properties['side_manually_assigned']:
                 how_str = '(manual)'
             else:
                 how_str = '(inferred)'
-            if self.active_polygon.side == 'L':
+            if self.active_polygon.properties['side'] == 'L':
                 action_assignL.setText('Left ' + how_str)
-            elif self.active_polygon.side == 'R':
+            elif self.active_polygon.properties['side'] == 'R':
                 action_assignR.setText('Right ' + how_str)
-            elif self.active_polygon.side == 'S':
+            elif self.active_polygon.properties['side'] == 'S':
                 action_assignS.setText('Singular '+ how_str)
 
         action_setLabel = myMenu.addAction("Set label")
 
         action_confirmPolygon = myMenu.addAction("Confirm this polygon")
-        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
+        if hasattr(self, 'active_polygon') and self.active_polygon.properties['type'] != 'interpolated':
             action_confirmPolygon.setVisible(False)
 
         action_reconstruct = myMenu.addAction("Update 3D structure")
@@ -1073,27 +1074,27 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.label}
             contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
 
-            if self.active_polygon.side is None:
+            if self.active_polygon.properties['side'] is None:
                 side_string = ''
             else:
-                if self.active_polygon.side == 'S':
+                if self.active_polygon.properties['side'] == 'S':
                     side_string = 'singular'
-                elif self.active_polygon.side == 'L':
+                elif self.active_polygon.properties['side'] == 'L':
                     side_string = 'left'
-                elif self.active_polygon.side == 'R':
+                elif self.active_polygon.properties['side'] == 'R':
                     side_string = 'right'
                 else:
                     raise Exception('Side property must be one of S, L or R.')
 
-                if self.active_polygon.side_manually_assigned is not None:
-                    if self.active_polygon.side_manually_assigned:
+                if self.active_polygon.properties['side_manually_assigned'] is not None:
+                    if self.active_polygon.properties['side_manually_assigned']:
                         side_string += ' (manual)'
                     else:
                         side_string += ' (inferred)'
 
             contour_info_text += "Side: %(side)s\n" % {'side': side_string}
 
-            first_edit = self.active_polygon.edit_history[0]
+            first_edit = self.active_polygon.properties['edit_history'][0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
             {'creator': first_edit['username'],
             'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
@@ -1104,15 +1105,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             #     contour_info_text += "Edited by %(editors)s\n" % \
             #     {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
 
-            print self.active_polygon.edit_history
+            print self.active_polygon.properties['edit_history']
 
-            last_edit = self.active_polygon.edit_history[-1]
+            last_edit = self.active_polygon.properties['edit_history'][-1]
             contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
             {'editor': last_edit['username'],
             'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
-            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.type}
+            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
 
             QMessageBox.information(self.gview, "Information", contour_info_text)
 
@@ -1121,7 +1122,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             reference_text = ''
             # for resource_name, resource_url in reference_resources[self.active_polygon.label].iteritems():
             for resource_name in ['BrainInfo', 'PubMed', 'Allen Reference Atlas (Saggittal)', 'Allen Reference Atlas (Coronal)']:
-                resource_url = reference_resources[self.active_polygon.label][resource_name]
+                resource_url = reference_resources[self.active_polygon.properties['label']][resource_name]
                 reference_text += "<a href=\"%(resource_url)s\">%(resource_name)s</a><br>" % dict(resource_url=resource_url, resource_name=resource_name)
 
             msgBox = QMessageBox(self.gview)

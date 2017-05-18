@@ -24,15 +24,23 @@ parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
-parser.add_argument("--trial_idx", type=int, help="which trial of warping", default=0)
+parser.add_argument("trial_idx", type=str, help="which trial(s) of warpping to use. For global tx, this is an int. For local transform, this is a json string encoding dict {structure: best_trial_index}")
+parser.add_argument("--output_trial_idx", type=int, help="which trial(s) of warpping to use. If local transform, this is a dict {structure: best_trial_index}", default=99)
+
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 classifier_setting = args.classifier_setting
-trial_idx = args.trial_idx
 
+try:
+    trial_idx = int(args.trial_idx)
+except:
+    trial_idx = json.loads(args.trial_idx)
+
+output_trial_idx = args.output_trial_idx
+    
 ##################################################################
 
 # Read transformed volumes
@@ -70,10 +78,7 @@ def visualize_registration_one_section(sec):
     if is_invalid(stack=stack_fixed, sec=sec):
         return
     
-    img_fn = DataManager.get_image_filepath(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
-    
-    download_from_s3_to_ec2(img_fn)
-    img = imread(img_fn)
+    img = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
     
     viz = img.copy()
     
@@ -95,7 +100,7 @@ def visualize_registration_one_section(sec):
                                             classifier_setting_f=classifier_setting,
                                             warp_setting=warp_setting,
                                           section=sec,
-                                                   trial_idx=trial_idx)    
+                                                   trial_idx=output_trial_idx)    
     try:
         create_parent_dir_if_not_exists(viz_fp)
     except:
@@ -103,8 +108,7 @@ def visualize_registration_one_section(sec):
         pass
     
     imsave(viz_fp, viz)
-    
-    upload_from_ec2_to_s3(viz_fp)
+    upload_to_s3(viz_fp)
     
 
 t = time.time()

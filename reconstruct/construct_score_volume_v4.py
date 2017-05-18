@@ -39,14 +39,14 @@ voxel_z_size = SECTION_THICKNESS/(XY_PIXEL_DISTANCE_LOSSLESS * downscale)
 def load_scoremap_worker(stack, sec, structure, downscale, classifier_id):
     try:
         actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, sec=sec)
-        sm = DataManager.load_scoremap(stack=stack, section=sec, structure=structure, downscale=downscale, setting=actual_setting)
+        sm = DataManager.load_scoremap(stack=stack, section=sec, structure=structure, downscale=downscale, classifier_id=actual_setting)
         return sm
     except:
         pass
 
 def load_scoremaps_multiple_sections_parallel(sections, stack, structure, downscale, classifier_id):
     pool = Pool(12)
-    scoremaps = pool.map(lambda sec: load_scoremap_worker(stack, sec, structure, downscale, classifier_setting=classifier_id),
+    scoremaps = pool.map(lambda sec: load_scoremap_worker(stack, sec, structure, downscale, classifier_id=classifier_id),
                                      sections)
     pool.close()
     pool.join()
@@ -57,7 +57,7 @@ def load_downscaled_scoremaps_multiple_sections_sequential(sections, stack, stru
     for sec in sections:
         try:
             actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, sec=sec)
-            sm = DataManager.load_downscaled_scoremap(stack=stack, section=sec, structure=structure, downscale=downscale, setting=actual_setting)
+            sm = DataManager.load_downscaled_scoremap(stack=stack, section=sec, structure=structure, downscale=downscale, classifier_id=actual_setting)
             if sm is not None:
                 scoremaps[sec] = sm
         except:
@@ -67,6 +67,7 @@ def load_downscaled_scoremaps_multiple_sections_sequential(sections, stack, stru
 first_sec, last_sec = metadata_cache['section_limits'][stack]
 
 if use_nissl_only:
+    assert stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks, "Option \"nissl only\" is only sensible for alternate stained stacks."
     nissl_sections = []
     for sec in range(first_sec, last_sec):
         fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -103,8 +104,8 @@ score_volume_bbox_filepath = DataManager.get_score_volume_bbox_filepath(stack=st
                                                                        classifier_setting=classifier_id)
 np.savetxt(score_volume_bbox_filepath, np.array(score_volume_bbox)[None], fmt='%d')
 
-upload_from_ec2_to_s3(score_volume_filepath)
-upload_from_ec2_to_s3(score_volume_bbox_filepath)
+upload_to_s3(score_volume_filepath)
+upload_to_s3(score_volume_bbox_filepath)
 
 del score_volume, scoremaps
 

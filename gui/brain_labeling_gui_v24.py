@@ -48,8 +48,9 @@ class ReadImagesThread(QThread):
     def run(self):
         for sec in self.sections:
             try:
-                print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed')
+                # print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed')
                 image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
+                # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg'))
                 self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
             except Exception as e:
                 sys.stderr.write('%s\n' % e.message)
@@ -132,21 +133,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        # self.keyPressEvent = self.key_pressed
-        # self.keyReleaseEvent = self.key_released
-
-        # self.sections = range(127, 327)
-        # self.sections = range(150, 304)
-        # self.sections = range(150, 160)
-        # self.all_sections = range(1, 439)
-
-        # if first_sec is None and last_sec is None:
-        # first_sec0, last_sec0 = section_range_lookup[self.stack]
-
         first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
-        self.all_sections = range(first_sec0, last_sec0 + 1)
+        self.sections = range(first_sec0, last_sec0 + 1)
 
-        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.all_sections, use_data_manager=False)
+        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
         image_feeder.set_orientation('sagittal')
         # image_feeder.set_downsample_factor(1)
         image_feeder.set_downsample_factor(self.sagittal_downsample)
@@ -154,17 +144,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
 
-        coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
-        coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-        coronal_volume_resection_feeder.set_orientation('coronal')
-        coronal_volume_resection_feeder.set_downsample_factor(32)
-        self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
+        if hasattr(self, 'volume_cache') and self.volume_cache is not None:
 
-        horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
-        horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-        horizontal_volume_resection_feeder.set_orientation('horizontal')
-        horizontal_volume_resection_feeder.set_downsample_factor(32)
-        self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+            coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
+            coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            coronal_volume_resection_feeder.set_orientation('coronal')
+            coronal_volume_resection_feeder.set_downsample_factor(32)
+            self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
+            self.gscenes['coronal'].set_active_i(50)
+
+            horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
+            horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            horizontal_volume_resection_feeder.set_orientation('horizontal')
+            horizontal_volume_resection_feeder.set_downsample_factor(32)
+            self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+            self.gscenes['horizontal'].set_active_i(150)
 
         if self.gscenes['sagittal'].data_feeder.downsample == 1:
             self.read_images_thread = ReadImagesThread(self.stack, range(first_sec, last_sec+1))
@@ -176,16 +170,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['sagittal'].set_vertex_radius(3)
             self.gscenes['sagittal'].set_line_width(3)
 
-        # print self.sections
         try:
             self.gscenes['sagittal'].set_active_section(first_sec)
         except Exception as e:
             sys.stderr.write(e.message + '\n')
-
-        self.gscenes['coronal'].set_active_i(50)
-        self.gscenes['horizontal'].set_active_i(150)
-
-        # print time.time() - t0
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
@@ -528,23 +516,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def load(self):
+        """
+        Load stored annotations.
+        """
         # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
+
+        # Load traditional version of labelings
         contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
         contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
 
-        print contour_df.index
-
         self.contour_df_loaded = contour_df
-
         sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours)
 
-        coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
-        self.gscenes['coronal'].load_drawings(coronal_contours)
+        try:
+            coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
+            self.gscenes['coronal'].load_drawings(coronal_contours)
+        except:
+            sys.stderr.write("Error loading coronal contours")
 
-        horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
-        self.gscenes['horizontal'].load_drawings(horizontal_contours)
+        try:
+            horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
+            self.gscenes['horizontal'].load_drawings(horizontal_contours)
+        except:
+            sys.stderr.write("Error loading horizontal contours")
 
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours
@@ -553,7 +549,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot()
     def active_image_updated(self):
         self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
-        dict(stack=self.stack, sec=self.gscenes['sagittal'].active_section, z=self.gscenes['sagittal'].active_i, x=self.gscenes['coronal'].active_i, y=self.gscenes['horizontal'].active_i))
+        dict(stack=self.stack,
+        sec=self.gscenes['sagittal'].active_section,
+        z=self.gscenes['sagittal'].active_i,
+        x=self.gscenes['coronal'].active_i if self.gscenes['coronal'].active_i is not None else 0,
+        y=self.gscenes['horizontal'].active_i  if self.gscenes['horizontal'].active_i is not None else 0))
 
     @pyqtSlot(int, int, int, str)
     def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, source_gscene_id):

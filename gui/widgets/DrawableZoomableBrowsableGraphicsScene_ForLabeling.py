@@ -1,57 +1,24 @@
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+import sys, os
+from collections import defaultdict
+from datetime import datetime
 
-from custom_widgets import *
-from SignalEmittingItems import *
-
-from gui_utilities import *
-
-import sys
-import os
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 import numpy as np
+from multiprocess import Pool
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from data_manager import DataManager
 from metadata import *
-
-from collections import defaultdict
-
 from annotation_utilities import *
 from registration_utilities import *
+from gui_utilities import *
 
-from multiprocess import Pool
+from custom_widgets import *
+from SignalEmittingItems import *
 
-from datetime import datetime
-
-# self.red_pen = QPen(Qt.red)
-# self.red_pen.setWidth(PEN_WIDTH)
-# self.blue_pen = QPen(Qt.blue)
-# self.blue_pen.setWidth(PEN_WIDTH)
-# self.green_pen = QPen(Qt.green)
-# self.green_pen.setWidth(PEN_WIDTH)
-
-# SELECTED_POLYGON_LINEWIDTH = 10
-# UNSELECTED_POLYGON_LINEWIDTH = 5
-# SELECTED_CIRCLE_SIZE = 30
-# UNSELECTED_CIRCLE_SIZE = 5
-# CIRCLE_PICK_THRESH = 1000.
-# PAN_THRESHOLD = 10
 PEN_WIDTH = 10
-# HISTORY_LEN = 20
-# AUTO_EXTEND_VIEW_TOLERANCE = 200
-# # NUM_NEIGHBORS_PRELOAD = 1 # preload neighbor sections before and after this number
-# VERTEX_CIRCLE_RADIUS = 10
 
-# RED_PEN = QPen(Qt.red)
-# RED_PEN.setWidth(PEN_WIDTH)
 BLUE_PEN = QPen(Qt.blue)
 BLUE_PEN.setWidth(PEN_WIDTH)
 GREEN_PEN = QPen(Qt.green)
@@ -254,7 +221,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
             assert self.data_feeder.orientation == 'sagittal'
             # sec_min = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=downsample)
             # matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
-            matched_confirmed_sections = [self.data_feeder.all_sections[i] for i, p in matched_confirmed_polygons]
+            matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
 
             if len(matched_confirmed_sections) > 0:
                 min_sec = np.min(matched_confirmed_sections)
@@ -267,12 +234,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
 
                 # remove if this section has interpolated polygon
                 # if sec not in self.data_feeder.sections:
-                if sec not in self.data_feeder.all_sections:
+                if sec not in self.data_feeder.sections:
                     sys.stderr.write('Section %d is not loaded.\n' % sec)
                     continue
 
                 # i = self.data_feeder.sections.index(sec)
-                i = self.data_feeder.all_sections.index(sec)
+                i = self.data_feeder.sections.index(sec)
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated' and p.side == side]
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[i].remove(p)
@@ -440,16 +407,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
         print self.id, ': Set active index to', i, ', update_crossline', update_crossline
 
         self.active_i = i
-        if hasattr(self.data_feeder, 'all_sections'):
-            self.active_section = self.data_feeder.all_sections[self.active_i]
+        if hasattr(self.data_feeder, 'sections'):
+            self.active_section = self.data_feeder.sections[self.active_i]
 
         try:
             self.update_image()
         except Exception as e: # if failed, do not change active_i or active_section
             if old_i is not None:
                 self.active_i = old_i
-                if hasattr(self.data_feeder, 'all_sections'):
-                    self.active_section = self.data_feeder.all_sections[old_i]
+                if hasattr(self.data_feeder, 'sections'):
+                    self.active_section = self.data_feeder.sections[old_i]
             raise e
 
         for polygon in self.drawings[old_i]:
@@ -493,8 +460,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
         print self.id, ': Set active section to', sec
 
         if hasattr(self.data_feeder, 'sections'):
-            assert sec in self.data_feeder.all_sections, 'Section %s is not loaded.' % str(sec)
-            i = self.data_feeder.all_sections.index(sec)
+            assert sec in self.data_feeder.sections, 'Section %s is not loaded.' % str(sec)
+            i = self.data_feeder.sections.index(sec)
             self.set_active_i(i, emit_changed_signal=emit_changed_signal, update_crossline=update_crossline)
 
         self.active_section = sec
@@ -544,14 +511,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
 
         if i is None:
             i = self.active_i
-            # assert i >= 0 and i < len(self.data_feeder.all_sections)
-        elif hasattr(self.data_feeder, 'all_sections') and self.data_feeder.all_sections is not None:
+            # assert i >= 0 and i < len(self.data_feeder.sections)
+        elif hasattr(self.data_feeder, 'sections') and self.data_feeder.sections is not None:
         # elif self.data_feeder.sections is not None:
             if sec is None:
                 sec = self.active_section
             # i = self.data_feeder.sections.index(sec)
-            assert sec in self.data_feeder.all_sections
-            i = self.data_feeder.all_sections.index(sec)
+            assert sec in self.data_feeder.sections
+            i = self.data_feeder.sections.index(sec)
 
         print i
         image = self.data_feeder.retrive_i(i=i)
@@ -669,14 +636,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
                         if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
                             if p.side is None or not p.side_manually_assigned:
                                 p.set_side('L', side_manually_assigned=False)
-                                sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.all_sections[section_index], p.label))
+                                sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.label))
 
                     rname = convert_to_right_name(p.label)
                     if rname in structure_ranges:
                         if section_index >= structure_ranges[rname][0] and section_index <= structure_ranges[rname][1]:
                             if p.side is None or not p.side_manually_assigned:
                                 p.set_side('R', side_manually_assigned=False)
-                                sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.all_sections[section_index], p.label))
+                                sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.label))
 
 
     def set_conversion_func_section_to_z(self, func):
@@ -749,9 +716,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
             index = self.active_i
         elif section is not None:
             # if section in self.data_feeder.sections:
-            if section in self.data_feeder.all_sections:
+            if section in self.data_feeder.sections:
                 # index = self.data_feeder.sections.index(section)
-                index = self.data_feeder.all_sections.index(section)
+                index = self.data_feeder.sections.index(section)
             else:
                 sys.stderr.write('Trying to add polygon, but section %d is not loaded - add polygon anyway.\n' % section)
                 raise Exception('Not implemented.') # CANNOT ASSUME ALL HAVE INDEX ...
@@ -824,15 +791,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
                 index = self.active_i
         elif section is not None:
             # if section in self.data_feeder.sections:
-            if section in self.data_feeder.all_sections:
+            if section in self.data_feeder.sections:
                 # index = self.data_feeder.sections.index(section)
-                index = self.data_feeder.all_sections.index(section)
+                index = self.data_feeder.sections.index(section)
             else:
                 raise Exception('Not implemented.')
 
         if hasattr(self.data_feeder, 'sections'):
             # sec = self.data_feeder.sections[index]
-            sec = self.data_feeder.all_sections[index]
+            sec = self.data_feeder.sections[index]
             z0, z1 = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
             pos = (z0 + z1) / 2
             # if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
@@ -993,6 +960,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
 
 
     def load_drawings(self, contours, append=False):
+        """
+        Load annotation contours and place drawings.
+        """
 
         CONTOUR_IS_INTERPOLATED = 1
 
@@ -1010,11 +980,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
         for i_or_sec, group in grouped:
             # if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
             for contour_id, contour in group.iterrows():
-
                 vertices = contour['vertices']
                 contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
-
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
                                                         linecolor='r', section=i_or_sec, type=contour_type,
                                                         side=contour['side'],
@@ -1105,7 +1073,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
                             'vertices': vertices,
                             'downsample': self.data_feeder.downsample,
                            'flags': CONTOUR_IS_INTERPOLATED if polygon.type == 'interpolated' else 0,
-                            'section': self.data_feeder.all_sections[idx],
+                            'section': self.data_feeder.sections[idx],
                             # 'position': None,
                             'orientation': self.data_feeder.orientation,
                             'parent_structure': [],
@@ -1147,7 +1115,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
             # Erase the labelings on a loaded section - because we will add those later as they currently appear.
             if hasattr(self.data_feeder, 'sections'):
                 # sec = self.data_feeder.sections[i]
-                sec = self.data_feeder.all_sections[i]
+                sec = self.data_feeder.sections[i]
                 self.labelings['polygons'][sec] = []
             else:
                 self.labelings['polygons'][i] = []

@@ -15,6 +15,7 @@ from data_manager import *
 
 ###############################################################
 
+import json
 import argparse
 
 parser = argparse.ArgumentParser(
@@ -24,15 +25,20 @@ parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
-parser.add_argument("--trial_idx", type=int, help="which trial of warpping to use", default=0)
+parser.add_argument("trial_idx", type=str, help="which trial(s) of warpping to use. If local transform, this is a dict {structure: best_trial_index}")
+parser.add_argument("--upstream_trial_idx", type=int, help="the trial of upstream warping", default=None)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 classifier_setting = args.classifier_setting
-trial_idx = args.trial_idx
 
+try:
+    trial_idx = int(args.trial_idx)
+except:
+    trial_idx = json.loads(args.trial_idx)
+    
 #############################################################################
 
 warp_properties = registration_settings.loc[warp_setting]
@@ -42,11 +48,13 @@ if upstream_warp_setting == 'None':
     upstream_warp_setting = None
 else:
     upstream_warp_setting = int(upstream_warp_setting)
-    upstream_trial_idx = 1 # Need to modify this for every warp
+    assert args.upstream_trial_idx is not None
+    upstream_trial_idx = args.upstream_trial_idx
     
 ###################################################################################
 
 if upstream_warp_setting is None:
+    # Apply Global Transform
     
     # Load transform parameters
     global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
@@ -79,7 +87,7 @@ if upstream_warp_setting is None:
             create_parent_dir_if_not_exists(volume_m_alignedTo_f_fn)
             bp.pack_ndarray_file(volume_m_alignedTo_f, volume_m_alignedTo_f_fn)
 
-            upload_from_ec2_to_s3(volume_m_alignedTo_f_fn)
+            upload_to_s3(volume_m_alignedTo_f_fn)
 
             sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
 
@@ -95,6 +103,7 @@ if upstream_warp_setting is None:
     sys.stderr.write('Transform all structures: %.2f seconds.\n' % (time.time() - t))
             
 else:
+    # Apply Local Transforms
     
     def transform_volume_one_structure(structure):
         # Load local transform parameters
@@ -102,13 +111,14 @@ else:
 
             t = time.time()
         
+            # Read local tx
             local_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
             DataManager.load_alignment_parameters(stack_m=stack_moving, stack_f=stack_fixed,
                                                   classifier_setting_m=classifier_setting,
                                                   classifier_setting_f=classifier_setting,
                                                   warp_setting=warp_setting,
-                                                  param_suffix=structure,
-                                                  trial_idx=trial_idx)
+                                                  param_suffix=convert_to_nonsurround_label(structure),
+                                                  trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
 
             # Read global tx
             global_transformed_moving_structure_vol = \
@@ -119,7 +129,7 @@ else:
                                                 trial_idx=upstream_trial_idx,
                                                 structure=structure)
 
-            # Transform
+            # Do Transform
             local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol, 
                                                      global_params=local_params, 
                                                      centroid_m=centroid_m, centroid_f=centroid_f,
@@ -131,13 +141,13 @@ else:
                                                         classifier_setting_m=classifier_setting,
                                                         classifier_setting_f=classifier_setting,
                                                         warp_setting=warp_setting,
-                                                        trial_idx=trial_idx,
+                                                        trial_idx=trial_idx[convert_to_nonsurround_label(structure)],
                                                         structure=structure)
 
             create_parent_dir_if_not_exists(local_transformed_moving_structure_fn)
             bp.pack_ndarray_file(local_transformed_moving_structure_vol, local_transformed_moving_structure_fn)
 
-            upload_from_ec2_to_s3(local_transformed_moving_structure_fn)
+            upload_to_s3(local_transformed_moving_structure_fn)
 
             sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t))
 

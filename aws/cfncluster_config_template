@@ -1,0 +1,50 @@
+[aws]
+aws_region_name = 
+aws_access_key_id = 
+aws_secret_access_key = 
+
+[cluster default]
+vpc_settings = public
+key_name = YuncongKey
+
+ebs_settings = custom
+
+base_os = ubuntu1604
+initial_queue_size = 0
+max_queue_size = 32
+maintain_initial_size = true
+
+master_root_volume_size = 30
+master_instance_type = m4.4xlarge
+compute_root_volume_size = 500
+compute_instance_type = m4.4xlarge
+
+# This is the post install script in S3
+post_install = https://mousebrainatlas-scripts.s3.amazonaws.com/xxx.sh
+# This is "aws_access_key_id aws_secret_access_key aws_region_name"
+post_install_args = 
+
+spot_price = 0.50
+#spot_price = 1.5
+#cluster_type = ondemand
+cluster_type = spot
+
+extra_json = { "cfncluster" : { "cfn_scheduler_slots" : "1" } }
+
+scaling_settings = custom
+
+[scaling custom]
+scaling_threshold = 100
+
+[ebs custom]
+volume_size = 500
+
+[vpc public]
+master_subnet_id = subnet-67969102
+vpc_id = vpc-45357d20
+additional_sg = sg-ae5019c9
+
+[global]
+update_check = true
+sanity_check = true
+cluster_template = default

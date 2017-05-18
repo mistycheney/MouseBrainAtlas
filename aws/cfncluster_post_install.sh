@@ -1,29 +1,18 @@
 #! /bin/bash
 
+# Set aws credentials for AWS CLI
+echo "export AWS_ACCESS_KEY_ID=$2" >> /home/ubuntu/.bashrc
+echo "export AWS_SECRET_ACCESS_KEY=$3" >> /home/ubuntu/.bashrc
+echo "export AWS_DEFAULT_REGION=$4" >> /home/ubuntu/.bashrc
+
+sudo apt-get update
+
 # Install all Python packages
 sudo pip install --upgrade pip
-sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas flask paramiko shapely boto3 opencv-python
+sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python
 
-# Install elastix
-sudo apt-get update
-sudo apt-get install -y elastix
-
-# Install imagemagick
-sudo apt-get install -y imagemagick
-
-# Code repo
-REPO_DIR="/shared/MouseBrainAtlas"
-git clone https://github.com/mistycheney/MouseBrainAtlas.git $REPO_DIR
-chown -R ubuntu $REPO_DIR
-
-# Code repo for Xiang
-REPO_DIR_XIANG="/shared/MouseBrainAtlasXiang"
-git clone https://github.com/xiangjiph/MouseBrainAtlas.git $REPO_DIR_XIANG
-chown -R ubuntu $REPO_DIR_XIANG
-
-# Kakadu
-wget http://kakadusoftware.com/wp-content/uploads/2014/06/KDU79_Demo_Apps_for_Linux-x86-64_170108.zip
-unzip KDU79_Demo_Apps_for_Linux-x86-64_170108.zip -d /home/ubuntu/
+# Install other utility programs
+sudo apt-get install -y tree screen
 
 # Ganglia
 sudo apt-get install -y libapache2-mod-php7.0 php7.0-xml
@@ -63,12 +52,22 @@ fi
 
 jupyter nbextension enable --py widgetsnbextension
 
-# Install other utility programs
-sudo apt install -y tree screen
+# Set alias for getting sudo SGE privilege
+echo "sudosgeadmin() { sudo -u sgeadmin -i \$1; }" >> /home/ubuntu/.bashrc
 
-echo """
-export REPO_DIR=/shared/MouseBrainAtlas
-alias sudosgeadmin=\"sudo -u sgeadmin -i\"
-start_notebook() { jupyter notebook --notebook-dir "$@"; }
-alias increase_ebs_size=\"sudo resize2fs /dev/xvdb\"
-""" >> /home/ubuntu/.bashrc
+# Set an alias for updating the recognized disk size
+# after manually changing it in the aws web console.
+echo "increase_ebs_size() { sudo resize2fs /dev/xvdb; }" >> /home/ubuntu/.bashrc
+
+# Set an alias for starting the notebook.
+echo "start_notebook() { jupyter notebook --notebook-dir \$1 & }" >> /home/ubuntu/.bashrc
+
+#################################
+
+# Code repo
+REPO_DIR="/shared/MouseBrainAtlas"
+git clone https://github.com/mistycheney/MouseBrainAtlas.git $REPO_DIR
+chown -R ubuntu $REPO_DIR
+
+# Set environment variable.
+echo "export REPO_DIR=$REPO_DIR" >> /home/ubuntu/.bashrc

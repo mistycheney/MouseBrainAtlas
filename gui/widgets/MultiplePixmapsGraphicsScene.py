@@ -107,7 +107,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
 
         self.active_indices = indices
         # if hasattr(self.data_feeder, 'sections'):
-        self.active_sections = {label: self.data_feeders[label].all_sections[i] for label, i in self.active_indices.iteritems()}
+        self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in self.active_indices.iteritems()}
         print self.id, ': Set active section to', self.active_sections
 
         try:
@@ -115,7 +115,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         except Exception as e: # if failed, do not change active_i or active_section
             raise e
             self.active_indices = old_indices
-            self.active_sections = {label: self.data_feeders[label].all_sections[i] for label, i in old_indices.iteritems()}
+            self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in old_indices.iteritems()}
 
         if emit_changed_signal:
             self.active_image_updated.emit()

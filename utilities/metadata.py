@@ -53,14 +53,12 @@ if hostname == 'yuncong-MacbookPro':
 
     # REPO_DIR = '/home/yuncong/Brain' # use os.environ['REPO_DIR'] instead
     REPO_DIR = os.environ['REPO_DIR']
-
+    ROOT_DIR = '/home/yuncong'
     RAW_DATA_DIR = '/home/yuncong/CSHL_data'
-    GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
     DATA_DIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
+    DATA_ROOTDIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
     THUMBNAIL_DATA_DIR = '/home/yuncong/CSHL_data_processed'
-    gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-    GORDON_THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
 
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
@@ -82,12 +80,12 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
-    
+
     ON_AWS = False
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
     REPO_DIR = os.environ['REPO_DIR']
-    
+
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     THUMBNAIL_DATA_DIR = DATA_DIR
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
@@ -96,7 +94,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
-    
+
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
@@ -106,12 +104,14 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'
     HOST_ID = 'ec2'
-    
+
     if 'ROOT_DIR' in os.environ:
         ROOT_DIR = os.environ['ROOT_DIR']
     else:
         ROOT_DIR = '/shared'
-    
+
+    DATA_ROOTDIR = '/shared'
+
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -137,7 +137,7 @@ elif hostname.startswith('ip'):
     KDU_EXPAND_BIN = '/home/ubuntu/KDU79_Demo_Apps_for_Linux-x86-64_170108/kdu_expand'
     CELLPROFILER_EXEC = 'python /shared/CellProfiler/CellProfiler.py' # /usr/local/bin/cellprofiler
     CELLPROFILER_PIPELINE_FP = '/shared/CSHL_cells_v2/SegmentCells.cppipe'
-    
+
     if 'CELLS_ROOTDIR' in os.environ:
         CELLS_ROOTDIR = os.environ['CELLS_ROOTDIR']
     else:
@@ -154,53 +154,58 @@ elif hostname.startswith('ip'):
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
-# elif hostname.endswith('GL502VM'):
-#     print 'Setting environment for Local Machine Saienthan'
-#     ON_AWS = False
-#     os.environ["REPO_DIR"] = '/home/saienthan/MouseBrainAtlas/'
-#     RAW_DATA_DIR = '/home/saienthan/data/CSHL_data/'
-#     data_dir = '/home/saienthan/data/CSHL_data_processed/'
-#     DATA_DIR = '/home/saienthan/data/CSHL_data_processed/'
-#     thumbnail_data_dir = data_dir
-#     gordon_thumbnail_data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-#     volume_dir = '/home/saienthan/data/CSHL_volumes2/'
-#     annotation_rootdir = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-#     ANNOTATION_ROOTDIR = '/home/saienthan/data/CSHL_data_labelings_losslessAlignCropped/'
-#     GORDON_RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
+    MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
+
 else:
     print 'Setting environment for Brainstem workstation'
 
 #################### Name conversions ##################
 
-def convert_to_unsided_name(name):
-    return convert_name_to_unsided(name)
-
-def convert_name_to_unsided(name):
-    if '_' not in name:
-        return name
-    else:
-        return convert_to_original_name(name)
-
-def extract_side_from_name(name):
-    if '_' in name:
-        return name[-1]
-    else:
-        return None
-    
-def is_surround_label(name):
-    return 'surround' in name
-    
-def get_margin_from_surround_label(name):
-    assert is_surround_label(name), 'Label name %s is not a surround label.' % name
+def parse_label(label):
     import re
-    m = re.match('.*_surround_([0-9]+).*', name)
-    return int(m.groups()[0])
+    m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)
+    g = m.groups()
+    structure_name = g[0]
+    side = g[2]
+    surround_margin = g[4]
+    surround_structure_name = g[6]
+    return structure_name, side, surround_margin, surround_structure_name
+
+is_sided_label = lambda label: parse_label(label)[1] is not None
+is_surround_label = lambda label: parse_label(label)[2] is not None
+get_side_from_label = lambda label: parse_label(label)[1]
+get_margin_from_label = lambda label: parse_label(label)[2]
+
+def compose_label(structure_name, side, surround_margin, surround_structure_name):
+    label = structure_name
+    if side is not None:
+        label += '_' + side
+    if surround_margin is not None:
+        label += '_surround_' + surround_margin
+    if surround_structure_name is not None:
+        label += '_' + surround_structure_name
+    return label
+
+def convert_to_unsided_label(label):
+    structure_name, side, surround_margin, surround_structure_name = parse_label(label)
+    return compose_label(structure_name, side=None, surround_margin=surround_margin, surround_structure_name=surround_structure_name)
+    
+def convert_to_nonsurround_label(name):
+    return convert_to_nonsurround_name(name)
+    
+    # return convert_name_to_unsided(name)
+
+# def convert_name_to_unsided(name):
+#     if '_' not in name:
+#         return name
+#     else:
+#         return convert_to_original_name(name)
 
 def convert_to_left_name(name):
-    return convert_name_to_unsided(name) + '_L'
+    return convert_to_unsided_label(name) + '_L'
 
 def convert_to_right_name(name):
-    return convert_name_to_unsided(name) + '_R'
+    return convert_to_unsided_label(name) + '_R'
 
 def convert_to_original_name(name):
     return name.split('_')[0]
@@ -238,7 +243,6 @@ def convert_to_surround_name(name, margin=None, suffix=None):
                 return name + '_surround_' + str(margin) + '_' + suffix
             else:
                 return name + '_surround_' + str(margin)
-
 
 
 #######################################

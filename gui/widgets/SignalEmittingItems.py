@@ -106,9 +106,7 @@ class QGraphicsPathItemModified(QGraphicsPathItem):
             curr_pen = self.pen()
             curr_pen.setColor(Qt.green)
             self.setPen(curr_pen)
-
         self.type = t
-
 
     def set_label(self, label, label_pos=None):
 
@@ -614,6 +612,7 @@ class PolygonSignalEmitter(QObject):
     label_added = pyqtSignal(object)
     # polygon_closed = pyqtSignal([], [object])
     polygon_completed = pyqtSignal()
+    property_changed = pyqtSignal(str, object)
 
     def __init__(self, parent):
         super(self.__class__, self).__init__()

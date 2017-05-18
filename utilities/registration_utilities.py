@@ -12,7 +12,8 @@ import cv2
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
-from distributed_utilities import download_from_s3_to_ec2
+from distributed_utilities import download_from_s3
+from metadata import *
 
 def parallel_where_binary(binary_volume, num_samples=None):
 
@@ -100,8 +101,14 @@ class Aligner4(object):
                 labelIndexMap_m2f=None, label_weights=None, reg_weights=None, zrange=None):
         """
         Variant that takes in two probabilistic volumes.
-
-        zrange: tuple
+        
+        Args:
+            volume_f_ (dict): the fixed probabilistic volume. dict of {numeric label: 3d array}
+            volume_m_ (dict): the moving probabilistic volume. dict of {numeric label: 3d array}
+            labelIndexMap_m2f (dict): mapping between moving volume labels and fixed volume labels. dict of {moving label: fixed label}
+            label_weights (dict): {numeric label: weight}
+            reg_weights (3-array): regularization weights for (tx,ty,tz) respectively.
+            zrange (2-tuple): If given, only use the portion of both volumes that is between zmin and zmax (inclusive).
         """
 
         self.labelIndexMap_m2f = labelIndexMap_m2f
@@ -313,9 +320,9 @@ class Aligner4(object):
 
             t = time.time()
             
-            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
-            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
-            download_from_s3_to_ec2(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
+            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
+            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
+            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
             
             if hasattr(self, 'zl'):
                 grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
@@ -726,10 +733,11 @@ class Aligner4(object):
                 std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                 reg_weights=None,
                 epsilon=1e-8):
-        """Optimize
-
-        reg_weights is for (tx,ty,tz)
-        obj = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        """Optimize.
+        Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        
+        Args:
+            reg_weights: for (tx,ty,tz)
         """
 
         if indices_m is None:
@@ -1286,81 +1294,136 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
     return map_z_to_section
 
-
-def extract_contours_from_labeled_volume(stack, volume,
-                            section_z_map=None,
-                            downsample_factor=None,
-                            volume_limits=None,
-                            labels=None, extrapolate_num_section=0,
-                            force=True, filepath=None):
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5):
     """
-    Extract labeled contours from a labeled volume.
+    Re-section atlas volumes and obtain structure contours on each section.
+    
+    Args:
+        volumes : dict {structure: volume}
+        downsample_factor: the downscale factor of input volumes. Output contours are in original resolution.
+        volume_origin: (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+        
+    Returns:
+        structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
+    
+    from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
+    from collections import defaultdict
+    
+    # estimate mapping between z and section
+    xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
+    voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
+    
+    xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
+    
+    structure_contours = defaultdict(dict)
+    
+    # Multiprocess is not advisable here because volumes must be duplicated across processes which is very RAM heavy.
+    
+#     def compute_contours_one_section(sec):
+#         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
+#         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+#         contours_one_section = {}
+#         # Find moving volume annotation contours
+#         for name_s, vol in volumes.iteritems():
+#             cnts = find_contours(vol[..., z], level=level) # rows, cols
+#             for cnt in cnts:
+#                 # r,c to x,y
+#                 contours_one_section[name_s] = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+#         return contours_one_section
+    
+#     pool = Pool(NUM_CORES/2)
+#     structuer_contours = dict(zip(sections, pool.map(compute_contours_one_section, sections)))
+#     pool.close()
+#     pool.join()
+    
+    for sec in sections:
+        sys.stderr.write('Computing structure contours for section %d...\n' % sec)            
+        z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+        for name_s, vol in volumes.iteritems():
+            cnts = find_contours(vol[..., z], level=level) # rows, cols
+            for cnt in cnts:
+                # r,c to x,y
+                contours_on_cropped_tb = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
+                    
+    return structure_contours
 
-    if volume == 'localAdjusted':
-        volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_localAdjustedVolume.bp'%{'stack':stack})
-    elif volume == 'globalAligned':
-        volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_atlasProjectedVolume.bp'%{'stack':stack})
-    else:
-        raise 'Volume unknown.'
 
-    if filepath is None:
-        filepath = volume_dir + '/initCntsAllSecs_%s.pkl' % stack
+# def extract_contours_from_labeled_volume(stack, volume,
+#                             section_z_map=None,
+#                             downsample_factor=None,
+#                             volume_limits=None,
+#                             labels=None, extrapolate_num_section=0,
+#                             force=True, filepath=None):
+#     """
+#     Extract labeled contours from a labeled volume.
+#     """
 
-    if os.path.exists(filepath) and not force:
-        init_cnts_allSecs = pickle.load(open(filepath, 'r'))
-    else:
-        if volume_limits is None:
-            volume_xmin, volume_xmax, volume_ymin, volume_ymax, volume_zmin, volume_zmax = \
-            np.loadtxt(os.path.join(volume_dir, '%(stack)s/%(stack)s_scoreVolume_limits.txt' % {'stack': stack}), dtype=np.int)
+#     if volume == 'localAdjusted':
+#         volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_localAdjustedVolume.bp'%{'stack':stack})
+#     elif volume == 'globalAligned':
+#         volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_atlasProjectedVolume.bp'%{'stack':stack})
+#     else:
+#         raise 'Volume unknown.'
 
-        if section_z_map is None:
-            assert downsample_factor is not None, 'Because section_z_map is not given, must specify downsample_factor.'
-            z_section_map = find_z_section_map(stack, volume_zmin, downsample_factor=downsample_factor)
-            section_z_map = {sec: z for z, sec in z_section_map.iteritems()}
+#     if filepath is None:
+#         filepath = volume_dir + '/initCntsAllSecs_%s.pkl' % stack
 
-        init_cnts_allSecs = {}
+#     if os.path.exists(filepath) and not force:
+#         init_cnts_allSecs = pickle.load(open(filepath, 'r'))
+#     else:
+#         if volume_limits is None:
+#             volume_xmin, volume_xmax, volume_ymin, volume_ymax, volume_zmin, volume_zmax = \
+#             np.loadtxt(os.path.join(volume_dir, '%(stack)s/%(stack)s_scoreVolume_limits.txt' % {'stack': stack}), dtype=np.int)
 
-        first_detect_sec, last_detect_sec = detect_bbox_range_lookup[stack]
+#         if section_z_map is None:
+#             assert downsample_factor is not None, 'Because section_z_map is not given, must specify downsample_factor.'
+#             z_section_map = find_z_section_map(stack, volume_zmin, downsample_factor=downsample_factor)
+#             section_z_map = {sec: z for z, sec in z_section_map.iteritems()}
 
-        for sec in range(first_detect_sec, last_detect_sec+1):
+#         init_cnts_allSecs = {}
 
-            z = section_z_map[sec]
-            projected_annotation_labelmap = volume[..., z]
+#         first_detect_sec, last_detect_sec = detect_bbox_range_lookup[stack]
 
-            init_cnts = find_contour_points(projected_annotation_labelmap) # downsampled 16
-            init_cnts = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
-                              for label_ind, cnts in init_cnts.iteritems()])
+#         for sec in range(first_detect_sec, last_detect_sec+1):
 
-            # extend contour to copy annotations of undetected classes from neighbors
-            if extrapolate_num_section > 0:
+#             z = section_z_map[sec]
+#             projected_annotation_labelmap = volume[..., z]
 
-                sss = np.empty((2*extrapolate_num_section,), np.int)
-                sss[1::2] = -np.arange(1, extrapolate_num_section+1)
-                sss[::2] = np.arange(1, extrapolate_num_section+1)
+#             init_cnts = find_contour_points(projected_annotation_labelmap) # downsampled 16
+#             init_cnts = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
+#                               for label_ind, cnts in init_cnts.iteritems()])
 
-                Ls = []
-                for ss in sss:
-                    sec2 = sec + ss
-                    z2 = section_z_map[sec2]
-                    if z2 >= volume.shape[2] or z2 < 0:
-                        continue
+#             # extend contour to copy annotations of undetected classes from neighbors
+#             if extrapolate_num_section > 0:
 
-                    init_cnts2 = find_contour_points(volume[..., z2]) # downsampled 16
-                    init_cnts2 = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
-                                      for label_ind, cnts in init_cnts2.iteritems()])
-                    Ls.append(init_cnts2)
+#                 sss = np.empty((2*extrapolate_num_section,), np.int)
+#                 sss[1::2] = -np.arange(1, extrapolate_num_section+1)
+#                 sss[::2] = np.arange(1, extrapolate_num_section+1)
 
-                for ll in Ls:
-                    for l, c in ll.iteritems():
-                        if l not in init_cnts:
-                            init_cnts[l] = c
+#                 Ls = []
+#                 for ss in sss:
+#                     sec2 = sec + ss
+#                     z2 = section_z_map[sec2]
+#                     if z2 >= volume.shape[2] or z2 < 0:
+#                         continue
 
-            init_cnts_allSecs[sec] = init_cnts
+#                     init_cnts2 = find_contour_points(volume[..., z2]) # downsampled 16
+#                     init_cnts2 = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
+#                                       for label_ind, cnts in init_cnts2.iteritems()])
+#                     Ls.append(init_cnts2)
 
-        pickle.dump(init_cnts_allSecs, open(filepath, 'w'))
+#                 for ll in Ls:
+#                     for l, c in ll.iteritems():
+#                         if l not in init_cnts:
+#                             init_cnts[l] = c
 
-    return init_cnts_allSecs
+#             init_cnts_allSecs[sec] = init_cnts
+
+#         pickle.dump(init_cnts_allSecs, open(filepath, 'w'))
+
+#     return init_cnts_allSecs
 
 
 def surr_points(vertices):
@@ -1680,6 +1743,10 @@ def fill_sparse_volume(volume_sparse):
 
 
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
+    """
+    Convert annotation volume (voxel is an integer indicating the structure class) to 
+    score volume (voxel is a probability vector - in this case exactly one entry is 1.)
+    """
     all_indices = set(np.unique(ann_vol)) - {0}
     volume_f = {label_to_structure[i]: np.zeros_like(ann_vol, dtype=np.float16) for i in all_indices}
     for i in all_indices:

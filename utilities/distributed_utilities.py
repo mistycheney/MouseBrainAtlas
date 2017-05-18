@@ -162,7 +162,7 @@ def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_
 #     else:
 #         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
         
-def request_compute_nodes(cluster_size):
+def request_compute_nodes(cluster_size, cluster_name, keep=True):
     
     if cluster_size is None:
         raise Exception('Must specify cluster_size.')
@@ -171,8 +171,14 @@ def request_compute_nodes(cluster_size):
 
     if n_hosts < cluster_size:
         autoscaling_description = json.loads(check_output('aws autoscaling describe-auto-scaling-groups'.split()))
-        asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
+        # asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
+        matched_asg = [a['AutoScalingGroupName'] for a in autoscaling_description[u'AutoScalingGroups'] if cluster_name in a['AutoScalingGroupName']]
+        if len(matched_asg) > 0:
+            asg = matched_asg[0]
         call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
+        if keep:
+            call("aws autoscaling update-auto-scaling-group --auto-scaling-group-name %s --min-size %d" % (asg, cluster_size), shell=True)
+            
         print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
     else:
         sys.stderr.write("All nodes are ready.\n")

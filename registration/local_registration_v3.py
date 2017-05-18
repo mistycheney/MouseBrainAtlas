@@ -29,7 +29,6 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
 parser.add_argument("-s", "--structures", type=str, help="structures")
-parser.add_argument("--upstream_trial_idx", type=int, help="the trial of upstream warping", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -61,7 +60,6 @@ if upstream_warp_setting == 'None':
     upstream_warp_setting = None
 else:
     upstream_warp_setting = int(upstream_warp_setting)
-    upstream_trial_idx = args.upstream_trial_idx
     
 transform_type = warp_properties['transform_type']
 terminate_thresh = warp_properties['terminate_thresh']
@@ -102,7 +100,6 @@ for structure in structures:
                                                                          classifier_setting_m=classifier_setting,
                                                                          classifier_setting_f=classifier_setting,
                                                                          warp_setting=upstream_warp_setting, 
-                                                                         trial_idx=upstream_trial_idx,
                                                                          structures=[structure, 
                                                                                      convert_to_surround_name(structure, margin='200')])
         else:
@@ -110,7 +107,6 @@ for structure in structures:
                                                                          classifier_setting_m=classifier_setting,
                                                                          classifier_setting_f=classifier_setting,
                                                                          warp_setting=upstream_warp_setting, 
-                                                                         trial_idx=upstream_trial_idx,
                                                                          structures=[structure])
 
         structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
@@ -122,13 +118,16 @@ for structure in structures:
         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                              for label_m, name_m in label_to_structure_moving.iteritems()}
 
-    #     label_weights_m = {label_m: surround_weight if 'surround' in name_m else 1. \
-    #                        for label_m, name_m in label_to_structure_moving.iteritems()}
-
-        label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
-                           /float(volume_moving_structure_sizes[label_m])
-                           if 'surround' in name_m else 1. \
-                           for label_m, name_m in label_to_structure_moving.iteritems()}
+        if surround_weight == 'inverse':
+            label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
+                               /float(volume_moving_structure_sizes[label_m])
+                               if is_surround_label(name_m) else 1. \
+                               for label_m, name_m in label_to_structure_moving.iteritems()}
+        elif isinstace(surround_weight, int) or isinstace(surround_weight, float):
+            label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
+                               for label_m, name_m in label_to_structure_moving.iteritems()}
+        else:
+            sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 
         aligner = Aligner4(volume_fixed, volume_moving, 
                            labelIndexMap_m2f=label_mapping_m2f)
@@ -140,11 +139,10 @@ for structure in structures:
 
         aligner.set_regularization_weights(reg_weights)
         aligner.set_label_weights(label_weights_m)
-
-        std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-        std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-        std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-
+        
+        scores_all_trials = []
+        parameters_all_trials = []
+        
         for trial_idx in range(trial_num):
 
             T, scores = aligner.optimize(type=transform_type, 
@@ -194,6 +192,50 @@ for structure in structures:
             upload_to_s3(history_fp)
             upload_to_s3(params_fp)
             upload_to_s3(score_plot_fp)
+            
+            scores_all_trials.append(scores)
+            parameters_all_trials.append(T)
+            
+        #########################
+        # Save the best trial
+        #########################
+        
+        best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+
+        # Save parameters
+        params_fp = \
+            DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                          classifier_setting_m=classifier_setting,
+                                                          classifier_setting_f=classifier_setting,
+                                                          warp_setting=warp_setting,
+                                                          param_suffix=structure)
+        DataManager.save_alignment_parameters(params_fp, parameters_all_trials[best_trial], 
+                                              aligner.centroid_m, aligner.centroid_f,
+                                              aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
+                                              aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
+        upload_to_s3(params_fp)
+
+        # Save score history
+        history_fp = DataManager.get_score_history_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                            classifier_setting_m=classifier_setting,
+                                                            classifier_setting_f=classifier_setting,
+                                                            warp_setting=warp_setting,
+                                                           param_suffix=structure)
+        bp.pack_ndarray_file(np.array(scores_all_trials[best_trial]), history_fp)
+        upload_to_s3(history_fp)
+
+        # Save score plot
+        score_plot_fp = \
+        DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                             classifier_setting_m=classifier_setting,
+                                                             classifier_setting_f=classifier_setting,
+                                                             warp_setting=warp_setting,
+                                                     param_suffix=structure)
+        fig = plt.figure();
+        plt.plot(scores_all_trials[best_trial]);
+        plt.savefig(score_plot_fp, bbox_inches='tight')
+        plt.close(fig)
+        upload_to_s3(score_plot_fp)
 
     except Exception as e:
         sys.stderr.write('%s\n' % e)

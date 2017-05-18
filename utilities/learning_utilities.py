@@ -846,6 +846,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     for stack in stacks:
         
         t1 = time.time()
+        download_from_s3(grid_indices_lookup_fps[stack])
         if not os.path.exists(grid_indices_lookup_fps[stack]):
             raise Exception('Cannot find grid indices lookup. Use function generate_annotation_to_grid_indices_lookup to generate.')
         grid_indices_per_label = load_hdf_v2(grid_indices_lookup_fps[stack])

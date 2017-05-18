@@ -21,7 +21,6 @@ from data_manager import *
 ###########################################################################
 
 import argparse
-import json
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -110,6 +109,9 @@ gradient_filepath_map_f = {ind_f: DataManager.get_volume_gradient_filepath_templ
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 aligner.set_label_weights(label_weights=label_weights_m)
 
+parameters_all_trials = []
+scores_all_trials = []
+
 for trial_idx in range(trial_num):
 
     while True:
@@ -126,6 +128,7 @@ for trial_idx in range(trial_num):
         except Exception as e:
             sys.stderr.write(e.message + '\n')
 
+    # Save parameters
     params_fp = \
     DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,
                                                   classifier_setting_m=classifier_setting,
@@ -138,6 +141,7 @@ for trial_idx in range(trial_num):
                                           aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
     upload_to_s3(params_fp)
     
+    # Save score history
     history_fp = DataManager.get_score_history_filepath(stack_m=stack_moving, stack_f=stack_fixed,
                                                           classifier_setting_m=classifier_setting,
                                                           classifier_setting_f=classifier_setting,
@@ -146,6 +150,7 @@ for trial_idx in range(trial_num):
     bp.pack_ndarray_file(np.array(scores), history_fp)
     upload_to_s3(history_fp)
 
+    # Save score plot
     score_plot_fp = \
     DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
                                                          classifier_setting_m=classifier_setting,
@@ -156,5 +161,42 @@ for trial_idx in range(trial_num):
     plt.plot(scores);
     plt.savefig(score_plot_fp, bbox_inches='tight')
     plt.close(fig)
-
     upload_to_s3(score_plot_fp)
+    
+    
+    parameters_all_trials.append(T)
+    scores_all_trials.append(scores)
+
+best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+
+# Save parameters
+params_fp = \
+    DataManager.get_alignment_parameters_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                  classifier_setting_m=classifier_setting,
+                                                  classifier_setting_f=classifier_setting,
+                                                  warp_setting=warp_setting)
+DataManager.save_alignment_parameters(params_fp, parameters_all_trials[best_trial], 
+                                      aligner.centroid_m, aligner.centroid_f,
+                                      aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
+                                      aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
+upload_to_s3(params_fp)
+
+# Save score history
+history_fp = DataManager.get_score_history_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                    classifier_setting_m=classifier_setting,
+                                                    classifier_setting_f=classifier_setting,
+                                                    warp_setting=warp_setting)
+bp.pack_ndarray_file(np.array(scores_all_trials[best_trial]), history_fp)
+upload_to_s3(history_fp)
+
+# Save score plot
+score_plot_fp = \
+DataManager.get_alignment_score_plot_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                                     classifier_setting_m=classifier_setting,
+                                                     classifier_setting_f=classifier_setting,
+                                                     warp_setting=warp_setting)
+fig = plt.figure();
+plt.plot(scores_all_trials[best_trial]);
+plt.savefig(score_plot_fp, bbox_inches='tight')
+plt.close(fig)
+upload_to_s3(score_plot_fp)

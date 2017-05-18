@@ -734,7 +734,7 @@ class Aligner4(object):
                 reg_weights=None,
                 epsilon=1e-8):
         """Optimize.
-        Objective = structure-weighted sum of products of voxel scores - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
         
         Args:
             reg_weights: for (tx,ty,tz)

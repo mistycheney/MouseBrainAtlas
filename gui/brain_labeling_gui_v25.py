@@ -559,11 +559,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def active_image_updated(self):
         self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
         dict(stack=self.stack,
-        sec=self.gscenes['sagittal'].active_section,
-        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['sagittal'].active_section],
+        sec=self.gscenes['sagittal'].active_section
+        if self.gscenes['sagittal'].active_section is not None else -1,
+        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['sagittal'].active_section] \
+        if self.gscenes['sagittal'].active_section is not None else '',
         z=self.gscenes['sagittal'].active_i,
         x=self.gscenes['coronal'].active_i if self.gscenes['coronal'].active_i is not None else 0,
-        y=self.gscenes['horizontal'].active_i  if self.gscenes['horizontal'].active_i is not None else 0))
+        y=self.gscenes['horizontal'].active_i if self.gscenes['horizontal'].active_i is not None else 0))
 
     @pyqtSlot(int, int, int, str)
     def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, source_gscene_id):
@@ -588,9 +590,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot(object)
     def update_structure_volume_requested(self, polygon):
+        """
+        Update the 3D volumes of each structure.
+        """
 
-        name_u = polygon.label
-        side = polygon.side
+        name_u = polygon.properties['label']
+        side = polygon.properties['side']
         # downsample = polygon.gscene.data_feeder.downsample
 
         # matched_polygons_sagittal = [p for i, polygons in self.gscenes['sagittal'].drawings.iteritems() for p in polygons if p.label == name_u]
@@ -605,7 +610,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene_id, gscene in self.gscenes.iteritems():
 
             matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
-                                if p.label == name_u and p.type != 'interpolated' and p.side == side]
+                                if p.properties['label'] == name_u and \
+                                p.properties['type'] != 'interpolated' and \
+                                p.properties['side'] == side]
 
             if len(matched_confirmed_polygons) < 2:
                 sys.stderr.write('%s: Matched confirmed polygons fewer than 2.\n' % gscene_id)
@@ -615,32 +622,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             factor_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
             if gscene_id == 'sagittal':
-                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().x() * factor_volResol,
                                                 c.scenePos().y() * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-
-                # print contour_points_grouped_by_pos.keys()
-
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-                print bbox
 
             elif gscene_id == 'coronal':
-
-                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().y() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif gscene_id == 'horizontal':
-
-                contour_points_grouped_by_pos = {p.position * factor_volResol: \
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().x() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
 
             volumes_3view[gscene_id] = volume

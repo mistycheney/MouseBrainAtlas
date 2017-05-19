@@ -1,4 +1,5 @@
 from collections import defaultdict
+import datetime
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -10,7 +11,7 @@ from SignalEmittingGraphicsPathItemWithVertexCircles import SignalEmittingGraphi
 class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon):
     """
     Extend base class by:
-    - Allow user to draw polygons.
+    - allowing user to draw polygons.
     """
 
     drawings_updated = pyqtSignal(object)
@@ -20,8 +21,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
     def __init__(self, id, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene, self).__init__(id=id, gview=gview, parent=parent)
-        # self.drawings = defaultdict(list)
         self.mode = 'idle'
+
+        self.default_vertex_color = 'r'
+        self.default_vertex_radius = 5
 
     def get_polygon_vertices(self, polygon_ind, section=None, index=None):
         index, _ = self.get_requested_index_and_section(i=index, sec=section)
@@ -30,7 +33,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
     def set_default_vertex_color(self, color):
         """
-        color is one of r,g,b
+        Args:
+            color (str): can be one of r,g or b
         """
         self.default_vertex_color = color
 
@@ -66,26 +70,39 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         return polygon
 
-
-    def add_polygon_with_circles_and_label(self, path, linecolor=None, linewidth=None, vertex_color=None, vertex_radius=None,
-                                            label='unknown', section=None, label_pos=None, index=None, type=None,
+    def add_polygon_with_circles_and_label(self, path, linecolor=None, linewidth=None,
+                                            vertex_color=None, vertex_radius=None,
+                                            label='unknown', label_pos=None,
+                                            section=None, index=None, type=None,
                                             edit_history=[], side=None, side_manually_assigned=None,
-                                            contour_id=None):
+                                            contour_id=None,
+                                            position=None):
+
 
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
         polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
+        # Compute the polygon's coordinate in the depth dimension.
+        if hasattr(self.data_feeder, 'sections'):
+            if section is None:
+                section = self.data_feeder.sections[index]
+            z0, z1 = self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample)
+            position = (z0 + z1) / 2
+        else:
+            position = index
+        polygon.set_properties('position', position)
+
         polygon.set_properties('label', label)
-        # polygon.set_properties('label_pos', label_pos)
+        if label_pos is not None:
+            polygon.set_properties('label_pos', label_pos)
         polygon.set_properties('type', type)
         polygon.set_properties('side', side)
         polygon.set_properties('side_manually_assigned', side_manually_assigned)
         polygon.set_properties('contour_id', contour_id) # Could be None - will be generated new in convert_drawings_to_entries()
 
         if edit_history is None or len(edit_history) == 0:
-            import datetime
             polygon.set_properties('edit_history',
             {'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})
         else:
@@ -124,8 +141,9 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                 label_textItem.setFlags(QGraphicsItem.ItemIgnoresTransformations | QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
                 label_textItem.setZValue(99)
                 polygon.set_properties('label_textItem', label_textItem)
-                # centroid = np.mean([(v.scenePos().x(), v.scenePos().y()) for v in polygon.vertex_circles], axis=0)
-                # polygon.set_properties('label_pos', centroid)
+                if not hasattr(polygon.properties, 'label_pos') or polygon.properties['label_pos'] is None:
+                    centroid = np.mean([(v.scenePos().x(), v.scenePos().y()) for v in polygon.vertex_circles], axis=0)
+                    polygon.set_properties('label_pos', centroid)
             else:
                 polygon.properties['label_textItem'].setText(property_value)
 
@@ -167,7 +185,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         if vertex_radius is None:
             vertex_radius = self.default_vertex_radius
 
-        index, section = self.get_requested_index_and_section(i=index, sec=section)
+        index, _ = self.get_requested_index_and_section(i=index, sec=section)
 
         polygon = SignalEmittingGraphicsPathItemWithVertexCircles(path, gscene=self, vertex_radius=vertex_radius)
 

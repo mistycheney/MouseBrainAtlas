@@ -157,10 +157,6 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     def set_downsample_factor(self, downsample):
         if self.data_feeder.downsample == downsample:
             return
-        # if self.downsample == downsample:
-        #     return
-        #
-        # self.downsample = downsample
         self.data_feeder.set_downsample_factor(downsample)
         self.update_image()
 

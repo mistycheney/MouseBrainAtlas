@@ -14,6 +14,7 @@ from annotation_utilities import *
 from registration_utilities import *
 from gui_utilities import *
 
+from custom_widgets import AutoCompleteInputDialog
 from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 
 CROSSLINE_PEN_WIDTH = 2
@@ -23,11 +24,11 @@ CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
 reference_resources = {
 '5N': {'BrainInfo': 'http://braininfo.rprc.washington.edu/centraldirectory.aspx?ID=559',
         'PubMed': 'https://www.ncbi.nlm.nih.gov/pubmed/query.fcgi?cmd=search&db=PubMed&term=%22motor+nucleus%22+OR+%22motor+nucleus+of+trigeminal+nerve%22+OR+%22motor+trigeminal+nucleus%22+OR+%22Nucleus+motorius+nervi+trigemini%22+OR+%22trigeminal+motor+nucleus%22&dispmax=20&relentrezdate=No+Limit',
-        'Allen Reference Atlas (Saggittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=621',
+        'Allen Reference Atlas (Sagittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=621',
         'Allen Reference Atlas (Coronal)': 'http://atlas.brain-map.org/atlas?atlas=1#atlas=1&structure=621&resolution=8.38&x=4728&y=3720&zoom=-2&plate=100960192'},
 '7N': {'BrainInfo': 'http://braininfo.rprc.washington.edu/centraldirectory.aspx?ID=586',
         'PubMed': 'https://www.ncbi.nlm.nih.gov/pubmed/query.fcgi?cmd=search&db=PubMed&term=%22facial+motor+nucleus%22+OR+%22facial+nucleus%22+OR+%22Nucleus+facialis%22+OR+%22Nucleus+nervi+facialis%22+AND+facial+nucleus&dispmax=20&relentrezdate=No+Limit',
-        'Allen Reference Atlas (Saggittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=661',
+        'Allen Reference Atlas (Sagittal)': 'http://atlas.brain-map.org/atlas?atlas=2&plate=100883869#atlas=2&plate=100883869&resolution=6.98&x=10959.666748046875&y=5154.666748046875&zoom=-2&structure=661',
         'Allen Reference Atlas (Coronal)': 'http://atlas.brain-map.org/atlas?atlas=1#atlas=1&structure=661&resolution=6.98&x=6039.549458821615&y=4468.1439208984375&zoom=-2&plate=100960181'}
 }
 
@@ -36,10 +37,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     Used for annotation GUI.
     """
 
-    drawings_updated = pyqtSignal(object)
     crossline_updated = pyqtSignal(int, int, int, str)
     update_structure_volume_requested = pyqtSignal(object)
-    active_image_updated = pyqtSignal()
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
@@ -91,9 +90,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # self.gview.installEventFilter(self)
         # self.gview.viewport().installEventFilter(self)
 
-        # self.set_mode('idle')
+    def set_mode(self, mode):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_mode(mode)
+        if mode == 'crossline':
+            self.hline.setVisible(True)
+            self.vline.setVisible(True)
+        elif mode == 'idle':
+            self.hline.setVisible(False)
+            self.vline.setVisible(False)
 
-    # def set_mode(self, mode):
+        # self.set_mode('idle')
 
         # if hasattr(self, 'mode'):
         #     print 'Mode change:', self.mode, '=>', mode
@@ -147,14 +153,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
 
     def set_structure_volumes(self, structure_volumes):
-        self.structure_volumes = structure_volumes
+        """
+        Args:
+            structure_volumes (dict): {structure name: volume}
+        """
 
-    # def check_structure_side_properties(self):
-    #     return True
+        self.structure_volumes = structure_volumes
 
     def update_drawings_from_structure_volume(self, name_u, side):
         """
-        Based on reconstructed 3D structure,
+        Update drawings based on `self.structuer_volumes`.
+
+        Args:
+            name_u (str): structure name, unsided
+            side (str): L, R or S
         """
 
         volume, bbox = self.structure_volumes[name_u]
@@ -162,7 +174,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         print 'volume', volume.shape, xmin, xmax, ymin, ymax, zmin, zmax
 
         volume_downsample_factor = self.gui.volume_downsample_factor
-        # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
         bbox_lossless = np.array(bbox) * volume_downsample_factor
 
         downsample = self.data_feeder.downsample
@@ -175,7 +186,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
         matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
-                                    for p in polygons if p.label == name_u and p.type != 'interpolated' and p.side == side]
+                                    for p in polygons if p.properties['label'] == name_u and \
+                                    p.properties['type'] != 'interpolated' and \
+                                    p.properties['side'] == side]
 
         # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
         # for i, p in matched_unconfirmed_polygons:
@@ -207,7 +220,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 # i = self.data_feeder.sections.index(sec)
                 i = self.data_feeder.sections.index(sec)
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated' and p.side == side]
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.properties['label'] == name_u and \
+                p.properties['type'] == 'interpolated' and \
+                p.properties['side'] == side]
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
@@ -215,7 +230,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 if sec in matched_confirmed_sections:
                     continue
-
 
                 z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
                 # z_currResol = int(np.round((z0 + z1)/2))
@@ -237,7 +251,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
                     gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
-                                                            label=name_u, linecolor='g', section=sec, type='interpolated',
+                                                            label=name_u, linecolor='g', section=sec,
+                                                            type='interpolated',
                                                             side=side,
                                                             side_manually_assigned=False)
         else:
@@ -261,7 +276,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 #     continue
 
                 # remove if this section has interpolated polygon
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] if p.label == name_u and p.type == 'interpolated' and p.side == side]
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
+                if p.properties['label'] == name_u and \
+                p.properties['type'] == 'interpolated' and \
+                p.properties['side'] == side]
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[pos_ds].remove(p)
                     if pos_ds == self.active_i:
@@ -749,7 +767,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # print self.selected_section
 
         # self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label'] = abbr
-        self.active_polygon.set_label(abbr)
+        # self.active_polygon.set_label(abbr)
+        self.active_polygon.set_properties('label', abbr)
 
         # if 'labelTextArtist' in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon] and \
         #         self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'] is not None:
@@ -785,14 +804,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         grouped = contours.groupby('section')
 
-        for i_or_sec, group in grouped:
-            # if i_or_sec not in self.data_feeder.sections: continue ## IS TIHS NECESSARY ?
+        for sec, group in grouped:
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
                 contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
-                                                        linecolor='r', section=i_or_sec, type=contour_type,
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
+                                                        label=contour['name'], label_pos=contour['label_position'],
+                                                        linecolor='r', section=sec, type=contour_type,
                                                         side=contour['side'],
                                                         # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
                                                         side_manually_assigned=contour['side_manually_assigned'],
@@ -955,11 +974,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.active_polygon = self.sender().parent
         self.open_label_selection_dialog()
 
-    @pyqtSlot(object)
-    def label_added(self, text_item):
-        polygon = self.sender().parent
-        if polygon.index == self.active_i:
-            print 'label added.'
+    # @pyqtSlot(object)
+    # def label_added(self, text_item):
+    #     polygon = self.sender().parent
+    #     if polygon.index == self.active_i:
+    #         print 'label added.'
             # self.addItem(text_item)
 
     # @pyqtSlot(QGraphicsEllipseItemModified)
@@ -1008,22 +1027,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         action_assignL = setSide_menu.addAction('Left')
         action_assignR = setSide_menu.addAction('Right')
         action_sides = {action_assignS: 'S', action_assignL: 'L', action_assignR: 'R'}
-        if hasattr(self, 'active_polygon') and self.active_polygon.side is not None:
-            if self.active_polygon.side_manually_assigned:
+        if hasattr(self, 'active_polygon') and self.active_polygon.properties['side'] is not None:
+            if self.active_polygon.properties['side_manually_assigned']:
                 how_str = '(manual)'
             else:
                 how_str = '(inferred)'
-            if self.active_polygon.side == 'L':
+            if self.active_polygon.properties['side'] == 'L':
                 action_assignL.setText('Left ' + how_str)
-            elif self.active_polygon.side == 'R':
+            elif self.active_polygon.properties['side'] == 'R':
                 action_assignR.setText('Right ' + how_str)
-            elif self.active_polygon.side == 'S':
+            elif self.active_polygon.properties['side'] == 'S':
                 action_assignS.setText('Singular '+ how_str)
 
         action_setLabel = myMenu.addAction("Set label")
 
         action_confirmPolygon = myMenu.addAction("Confirm this polygon")
-        if hasattr(self, 'active_polygon') and self.active_polygon.type != 'interpolated':
+        if hasattr(self, 'active_polygon') and self.active_polygon.properties['type'] != 'interpolated':
             action_confirmPolygon.setVisible(False)
 
         action_reconstruct = myMenu.addAction("Update 3D structure")
@@ -1066,37 +1085,39 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_mode('delete vertices')
 
         elif selected_action in action_sides:
-            self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
+            self.active_polygon.set_properties('side', action_sides)
+            self.active_polygon.set_properties('side_manually_assigned', True)
+            # self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
 
         elif selected_action == action_showInfo:
 
-            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.label}
-            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
+            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.properties['label']}
+            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.properties['label']]}
 
-            if self.active_polygon.side is None:
+            if self.active_polygon.properties['side'] is None:
                 side_string = ''
             else:
-                if self.active_polygon.side == 'S':
+                if self.active_polygon.properties['side'] == 'S':
                     side_string = 'singular'
-                elif self.active_polygon.side == 'L':
+                elif self.active_polygon.properties['side'] == 'L':
                     side_string = 'left'
-                elif self.active_polygon.side == 'R':
+                elif self.active_polygon.properties['side'] == 'R':
                     side_string = 'right'
                 else:
                     raise Exception('Side property must be one of S, L or R.')
 
-                if self.active_polygon.side_manually_assigned is not None:
-                    if self.active_polygon.side_manually_assigned:
+                if self.active_polygon.properties['side_manually_assigned'] is not None:
+                    if self.active_polygon.properties['side_manually_assigned']:
                         side_string += ' (manual)'
                     else:
                         side_string += ' (inferred)'
 
             contour_info_text += "Side: %(side)s\n" % {'side': side_string}
 
-            first_edit = self.active_polygon.edit_history[0]
+            first_edit = self.active_polygon.properties['edit_history'][0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
             {'creator': first_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
             # editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
@@ -1104,15 +1125,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             #     contour_info_text += "Edited by %(editors)s\n" % \
             #     {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
 
-            print self.active_polygon.edit_history
+            print self.active_polygon.properties['edit_history']
 
-            last_edit = self.active_polygon.edit_history[-1]
+            last_edit = self.active_polygon.properties['edit_history'][-1]
             contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
             {'editor': last_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
-            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.type}
+            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
 
             QMessageBox.information(self.gview, "Information", contour_info_text)
 
@@ -1121,7 +1142,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             reference_text = ''
             # for resource_name, resource_url in reference_resources[self.active_polygon.label].iteritems():
             for resource_name in ['BrainInfo', 'PubMed', 'Allen Reference Atlas (Saggittal)', 'Allen Reference Atlas (Coronal)']:
-                resource_url = reference_resources[self.active_polygon.label][resource_name]
+                resource_url = reference_resources[self.active_polygon.properties['label']][resource_name]
                 reference_text += "<a href=\"%(resource_url)s\">%(resource_name)s</a><br>" % dict(resource_url=resource_url, resource_name=resource_name)
 
             msgBox = QMessageBox(self.gview)
@@ -1131,7 +1152,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             msgBox.exec_()
 
         elif selected_action == action_confirmPolygon:
-            self.active_polygon.set_type(None)
+            # self.active_polygon.set_type(None)
+            self.active_polygon.set_properties('type', None)
 
         elif selected_action == action_deletePolygon:
             self.drawings[self.active_i].remove(self.active_polygon)
@@ -1149,8 +1171,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.close_curr_polygon = False
             self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
             self.active_polygon.add_edit(editor=self.gui.get_username())
-            self.active_polygon.set_type(None)
-            self.active_polygon.set_side(side=None, side_manually_assigned=False)
+            # self.active_polygon.set_type(None)
+            self.active_polygon.set_properties('type', None)
+            # self.active_polygon.set_side(side=None, side_manually_assigned=False)
+            self.active_polygon.set_properties(side, None)
+            self.active_polygon.set_properties(side_manually_assigned, False)
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
             self.set_mode('add vertices consecutively')
@@ -1210,6 +1235,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if hasattr(self.data_feeder, 'sections'):
                 sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
                 print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', self.convert_section_to_z(sec=sec, downsample=downsample)
+
                 self.set_active_section(sec, update_crossline=False)
 
         elif self.data_feeder.orientation == 'coronal':
@@ -1226,11 +1252,52 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             self.set_active_i(cross_y_ds, update_crossline=False)
 
+    def set_active_i(self, index, emit_changed_signal=True, update_crossline=True):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
+
+        if update_crossline and hasattr(self, 'cross_x_lossless'):
+            print 'update_crossline', update_crossline
+            if hasattr(self.data_feeder, 'sections'):
+                d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
+                cross_depth_lossless = .5 * d1 + .5 * d2
+            else:
+                print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
+                cross_depth_lossless = self.active_i * self.data_feeder.downsample
+
+            if self.data_feeder.orientation == 'sagittal':
+                self.cross_z_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'coronal':
+                self.cross_x_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'horizontal':
+                self.cross_y_lossless = cross_depth_lossless
+
+            print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
+            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
+
+    def set_active_section(self, section, emit_changed_signal=True, update_crossline=True):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_section(sec=section, emit_changed_signal=emit_changed_signal)
+
+        # if update_crossline and hasattr(self, 'cross_x_lossless'):
+        #     if hasattr(self.data_feeder, 'sections'):
+        #         d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
+        #         cross_depth_lossless = .5 * d1 + .5 * d2
+        #     else:
+        #         print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
+        #         cross_depth_lossless = self.active_i * self.data_feeder.downsample
+        #
+        #     if self.data_feeder.orientation == 'sagittal':
+        #         self.cross_z_lossless = cross_depth_lossless
+        #     elif self.data_feeder.orientation == 'coronal':
+        #         self.cross_x_lossless = cross_depth_lossless
+        #     elif self.data_feeder.orientation == 'horizontal':
+        #         self.cross_y_lossless = cross_depth_lossless
+        #
+        #     print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
+        #     self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
         # http://doc.qt.io/qt-4.8/qevent.html#Type-enum
-
 
         if event.type() == QEvent.KeyPress:
             key = event.key()

@@ -30,7 +30,7 @@ from ui.ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
 
 from widgets.custom_widgets import *
 from widgets.SignalEmittingItems import *
-from widgets.DrawableZoomableBrowsableGraphicsScene_ForLabeling_v2 import DrawableZoomableBrowsableGraphicsScene_ForLabeling
+from widgets.DrawableZoomableBrowsableGraphicsScene_ForLabeling import DrawableZoomableBrowsableGraphicsScene_ForLabeling
 
 from DataFeeder import ImageDataFeeder, VolumeResectionDataFeeder
 
@@ -49,8 +49,8 @@ class ReadImagesThread(QThread):
         for sec in self.sections:
             try:
                 # print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed')
-                # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
-                image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg'))
+                image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
+                # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg'))
                 self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
             except Exception as e:
                 sys.stderr.write('%s\n' % e.message)
@@ -104,11 +104,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal', gui=self, gview=self.sagittal_gview)
         self.sagittal_gview.setScene(self.sagittal_gscene)
-
-        self.sagittal_gscene.set_default_line_width(5)
-        self.sagittal_gscene.set_default_line_color('b')
-        self.sagittal_gscene.set_default_vertex_radius(10)
-        self.sagittal_gscene.set_default_vertex_color('r')
 
         self.gscenes = {'coronal': self.coronal_gscene, 'sagittal': self.sagittal_gscene, 'horizontal': self.horizontal_gscene}
 
@@ -528,12 +523,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
 
         # Load traditional version of labelings
-        # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
-        # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
-
-        # Load pipeline generated atlas-aligned annotations
-        contour_df, _ = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        stack_m='atlasV3', warp_setting=1, classifier_setting_m=37, classifier_setting_f=37, trial_idx=4)
+        contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
+        contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
 
         self.contour_df_loaded = contour_df
         sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]

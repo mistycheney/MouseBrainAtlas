@@ -46,7 +46,6 @@ class ReadImagesThread(QThread):
     def run(self):
         for sec in self.sections:
             try:
-                # print DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed')
                 # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
                 image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg'))
                 self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
@@ -586,8 +585,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.gscenes['horizontal'].get_label_section_lookup()
 
 
-    @pyqtSlot(str, str, bool)
-    def update_structure_volume(self, name_u, side, use_confirmed_only):
+    @pyqtSlot(str, str, bool, bool)
+    def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours):
         """
         This function is triggered by `structure_volume_updated` signal from
         any of the three gscenes.
@@ -596,6 +595,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         The volumes in different views are potentially different.
         - Compute the average volume across all views.
         - Use this average volume to update the stored version in each view.
+
+        Args:
+            use_confirmed_only (bool): If True, when reconstructing the volume, only use confirmed contours.
+            recompute_from_contours (bool): Set to True, if want to re-compute the volume based on contours,
+            replacing the volume in `self.structure_volumes` if it already exists.
+            Set to False, if `self.structure_volumes` already stores the new volume and therefore
+            calling this function is just to update the contours.
         """
 
         # Arguments passed in are Qt Strings. This guarantees they are python str.
@@ -604,16 +610,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Set the downsample factor for the structure volumes.
         # Try to match the highest resolution among all gviews, but upper limit is 1/8.
-        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
+        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.itervalues()]))
         for gscene in self.gscenes.values():
             gscene.set_structure_volumes_downscale_factor(self.volume_downsample_factor)
 
         # Reconstruct the volume for each gview.
         # Only interpolate between confirmed contours.
 
-        volumes_3view = {}
-        bboxes_3view = {}
-        for gscene_id, gscene in self.gscenes.iteritems():
+        # volumes_3view = {}
+        # bboxes_3view = {}
+
+        # for gscene_id, gscene in self.gscenes.iteritems():
+
+        if (name_u, side) not in self.structure_volumes or recompute_from_contours:
+
+            gscene_id = self.sender().id
+            gscene = self.gscenes[gscene_id]
+
             if use_confirmed_only:
                 matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
                                     if p.properties['label'] == name_u and \
@@ -626,47 +639,42 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             if len(matched_confirmed_polygons) < 2:
                 sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, (name_u, side)))
-                continue
+                return
 
             factor_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
             if gscene_id == 'sagittal':
-                if (name_u, side) not in self.gscenes[gscene_id].structure_volumes:
-                    contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                    [(c.scenePos().x() * factor_volResol,
-                                                    c.scenePos().y() * factor_volResol)
-                                                    for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                    volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
-                    self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
-                else:
-                    volume, bbox =  self.gscenes[gscene_id].structure_volumes[(name_u, side)]
-            elif gscene_id == 'coronal':
-                if (name_u, side) not in self.gscenes[gscene_id].structure_volumes:
-                    contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                    [(c.scenePos().y() * factor_volResol,
-                                                    (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
-                                                    for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                    volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
-                    self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
-                else:
-                    volume, bbox =  self.gscenes[gscene_id].structure_volumes[(name_u, side)]
-            elif gscene_id == 'horizontal':
-                if (name_u, side) not in self.gscenes[gscene_id].structure_volumes:
-                    contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                    [(c.scenePos().x() * factor_volResol,
-                                                    (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
-                                                    for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                    volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-                    self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
-                else:
-                    volume, bbox =  self.gscenes[gscene_id].structure_volumes[(name_u, side)]
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
+                                                [(c.scenePos().x() * factor_volResol,
+                                                c.scenePos().y() * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
 
-            volumes_3view[gscene_id] = volume
-            bboxes_3view[gscene_id] = bbox
+            elif gscene_id == 'coronal':
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
+                                                [(c.scenePos().y() * factor_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
+                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+
+            elif gscene_id == 'horizontal':
+                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
+                                                [(c.scenePos().x() * factor_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
+                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
+                # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+            # volumes_3view[gscene_id] = volume
+            # bboxes_3view[gscene_id] = bbox
 
         # self.structure_volumes[(name_u, side)] = \
         # average_multiple_volumes(volumes_3view.values(), bboxes_3view.values())
-        self.structure_volumes[(name_u, side)] = self.gscenes['sagittal'].structure_volumes[(name_u, side)]
+        # self.structure_volumes[(name_u, side)] = self.gscenes['sagittal'].structure_volumes[(name_u, side)]
 
         self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
         self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
@@ -674,18 +682,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')
-
-        # matched_polygons = [p for i, polygons in polygon.gscene.drawings.iteritems() for p in polygons if p.label == name_u]
-
-        # if len(matched_polygons) < 2:
-        #     return
-
-        # NOTICE THE reconstructed VOLUME IS DOWNSAMPLED BY this number !!!!
-        # self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.values()]))
-        # contour_points_grouped_by_pos = {p.position*downsample/self.volume_downsample_factor: \
-        #                                 [(c.scenePos().x()*downsample/self.volume_downsample_factor,
-        #
-
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()

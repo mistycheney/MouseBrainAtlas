@@ -42,21 +42,28 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
     else:
         return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
-def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,c=(0,0,0)):
+def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,c=(0,0,0)):
     """
     Args:
-        theta_xy (float):
-            in radian.
+        theta_xy (float): in radian.
     Returns:
         numpy array: length 12
     """
-    cos_theta = np.cos(theta_xy)
-    sin_theta = np.sin(theta_xy)
-    Rz = np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
-    Rx = np.array([[0, 0, 0], [0, cos_theta, -sin_theta], [0, sin_theta, cos_theta]])
-    Ry = np.array([[cos_theta, 0, -sin_theta], [0, 0, 0], [sin_theta, 0, cos_theta]])
-    tt = np.dot(Rz, np.r_[tx,ty,tz]-c) + c
-    return np.ravel(np.c_[Rz, tt])
+    assert np.count_nonzero([theta_xy, theta_yz, theta_xz]) <= 1, \
+    "Current implementation is sound only if only one rotation is given."
+
+    cos_theta_xy = np.cos(theta_xy)
+    sin_theta_xy = np.sin(theta_xy)
+    cos_theta_yz = np.cos(theta_yz)
+    sin_theta_yz = np.sin(theta_yz)
+    cos_theta_xz = np.cos(theta_xz)
+    sin_theta_xz = np.sin(theta_xz)
+    Rz = np.array([[cos_theta_xy, -sin_theta_xy, 0], [sin_theta_xy, cos_theta_xy, 0], [0, 0, 1]])
+    Rx = np.array([[1, 0, 0], [0, cos_theta_yz, -sin_theta_yz], [0, sin_theta_yz, cos_theta_yz]])
+    Ry = np.array([[cos_theta_xz, 0, -sin_theta_xz], [0, 1, 0], [sin_theta_xz, 0, cos_theta_xz]])
+    R = np.dot(Rx, np.dot(Ry, Rz))
+    tt = np.dot(R, np.r_[tx,ty,tz]-c) + c
+    return np.ravel(np.c_[R, tt])
 
 def rotate_transform_vector(v, theta_xy=None,theta_yz=None,theta_xz=None,c=(0,0,0)):
     """

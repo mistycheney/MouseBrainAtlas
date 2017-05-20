@@ -37,7 +37,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     """
 
     crossline_updated = pyqtSignal(int, int, int, str)
-    structure_volume_updated =  pyqtSignal(str, str, bool)
+    structure_volume_updated =  pyqtSignal(str, str, bool, bool)
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
@@ -143,8 +143,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 i = self.data_feeder.sections.index(sec)
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.properties['label'] == name_u and \
-                p.properties['type'] == 'interpolated' and \
-                p.properties['side'] == side]
+                p.properties['side'] == side and \
+                p.properties['type'] == 'interpolated']
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
@@ -156,7 +156,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
                 z_currResol = .5 * z0 + .5 * z1
                 z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
-                print sec, z0, z1, z_currResol, z_volResol, zmin
+                # print sec, z0, z1, z_currResol, z_volResol, zmin
                 try:
                     cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=3)
                 except Exception as e:
@@ -189,7 +189,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             for pos_ds in range(posmin_ds, posmax_ds+1):
 
-                # Remove if this section has interpolated polygon.
+                # First remove all unconfirmed/interpolated contours.
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
                 if p.properties['label'] == name_u and \
                 p.properties['type'] == 'interpolated' and \
@@ -206,7 +206,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=3)
                     if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
                         # Contour for label 1 (which is the only label in the boolean volume)
                     zys = np.array(cnts[1][0])
@@ -217,7 +217,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=3)
                     if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
 
                     zxs = np.array(cnts[1][0])
@@ -797,7 +797,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.removeItem(self.active_polygon)
 
         elif selected_action == action_reconstruct:
-            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False)
+            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
 
         elif selected_action in action_resolutions:
             selected_downsample_factor = action_resolutions[selected_action]
@@ -1023,32 +1023,29 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             gscene_x = pos.x()
             gscene_y = pos.y()
 
-            if self.mode == 'rotate3d':
-                if hasattr(self, 'press_screen_x') and self.press_screen_x is not None:
-                    name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
-                    print self.structure_volumes.keys()
-                    vol, bbox = self.structure_volumes[name_side_tuple]
-                    print vol.shape, bbox
-                    ys, xs, zs = np.where(vol)
-                    cx_volResol = np.mean(xs)
-                    cy_volResol = np.mean(ys)
-                    cz_volResol = np.mean(zs)
-                    print cx_volResol, cy_volResol, cz_volResol
+            # Transform the current structure volume.
+            # Notify GUI to use the new volume to update contours on all gscenes.
+            if self.mode == 'rotate3d' or self.mode == 'shift3d':
+                name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+                assert name_side_tuple in self.structure_volumes, \
+                "structure_volumes does not have %s. Need to reconstruct this structure first." % name_side_tuple
+                vol, bbox = self.structure_volumes[name_side_tuple]
+                ys, xs, zs = np.where(vol)
+                cx_volResol = np.mean(xs)
+                cy_volResol = np.mean(ys)
+                cz_volResol = np.mean(zs)
 
-                    cx_volResol_gl, cy_volResol_gl, cz_volResol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
-                    print cx_volResol_gl, cy_volResol_gl, cz_volResol_gl
-                    active_structure_center_on_section_plane_volResol = np.array((cx_volResol_gl, cy_volResol_gl))
-                    print active_structure_center_on_section_plane_volResol
-                    active_structure_center_on_section_plane = active_structure_center_on_section_plane_volResol * self.structure_volumes_downscale_factor
-                    print 'active_structure_center_on_section_plane', active_structure_center_on_section_plane
-                    vec2 = np.array((gscene_x - active_structure_center_on_section_plane[0], gscene_y - active_structure_center_on_section_plane[1]))
-                    vec1 = np.array((self.press_screen_x - active_structure_center_on_section_plane[0], self.press_screen_y - active_structure_center_on_section_plane[1]))
+                if self.mode == 'rotate3d':
 
+                    cx_vol_resol_gl, cy_vol_resol_gl, cz_vol_resol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
+                    active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
+                    active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                    vec2 = np.array((gscene_x - active_structure_center_2d_gscene_resol[0], gscene_y - active_structure_center_2d_gscene_resol[1]))
+                    vec1 = np.array((self.press_screen_x - active_structure_center_2d_gscene_resol[0], self.press_screen_y - active_structure_center_2d_gscene_resol[1]))
                     vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
                     x2 = np.dot(vec2, vec1/vec1n)
                     y2 = (vec2 - x2*vec1/vec1n)[1]
                     theta_ccwise = np.arctan2(y2, x2)
-                    print x2, y2, theta_ccwise, np.rad2deg(theta_ccwise)
                     if self.id == 'sagittal':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
                     elif self.id == 'coronal':
@@ -1056,54 +1053,32 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     elif self.id == 'horizontal':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=theta_ccwise)
 
-                    tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
-                    centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
-                    tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
-                                                    tfed_structure_volume_bbox_rel[1] + bbox[0],
-                                                    tfed_structure_volume_bbox_rel[2] + bbox[2],
-                                                    tfed_structure_volume_bbox_rel[3] + bbox[2],
-                                                    tfed_structure_volume_bbox_rel[4] + bbox[4],
-                                                    tfed_structure_volume_bbox_rel[5] + bbox[4])
-                    self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
-                    print 'Shifted:', tfed_structure_volume.shape, tfed_structure_volume_bbox
-                    self.gui.structure_adjustment_3d[name_side_tuple].append(tf)
-                    self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False)
-                    self.set_mode('idle')
+                elif self.mode == 'shift3d':
 
-            elif self.mode == 'shift3d':
-                if hasattr(self, 'press_screen_x') and self.press_screen_x is not None:
-
-                    name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
-                    print self.structure_volumes.keys()
-                    vol, bbox = self.structure_volumes[name_side_tuple]
-                    print vol.shape, bbox
-                    ys, xs, zs = np.where(vol)
-                    cx_volResol = np.mean(xs)
-                    cy_volResol = np.mean(ys)
-                    cz_volResol = np.mean(zs)
-                    print cx_volResol, cy_volResol, cz_volResol
-
-                    shift_2d = np.array((gscene_x - self.press_screen_x, gscene_y - self.press_screen_y))/float(self.structure_volumes_downscale_factor)
+                    # shift_2d is in gscene resolution, which differs for each gscene.
+                    shift_2d_gscene_resol = np.array((gscene_x - self.press_screen_x, gscene_y - self.press_screen_y))
+                    shift_2d_orig_resol = shift_2d_gscene_resol * self.data_feeder.downsample
+                    shift_2d_vol_resol = shift_2d_orig_resol / float(self.structure_volumes_downscale_factor)
+                    print 'shift_2d_vol_resol', shift_2d_vol_resol
                     if self.id == 'sagittal':
-                        tf = affine_components_to_vector(tx=shift_2d[0],ty=shift_2d[1],tz=0)
+                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=shift_2d_vol_resol[1],tz=0)
                     elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=shift_2d[1],tz=-shift_2d[0])
+                        tf = affine_components_to_vector(tx=0,ty=shift_2d_vol_resol[1],tz=-shift_2d_vol_resol[0])
                     elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=shift_2d[0],ty=0,tz=-shift_2d[1])
+                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=0,tz=-shift_2d_vol_resol[1])
 
-                    tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
-                    centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
-                    tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
-                                                    tfed_structure_volume_bbox_rel[1] + bbox[0],
-                                                    tfed_structure_volume_bbox_rel[2] + bbox[2],
-                                                    tfed_structure_volume_bbox_rel[3] + bbox[2],
-                                                    tfed_structure_volume_bbox_rel[4] + bbox[4],
-                                                    tfed_structure_volume_bbox_rel[5] + bbox[4])
-                    self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
-                    print 'Shifted:', tfed_structure_volume.shape, tfed_structure_volume_bbox
-                    self.gui.structure_adjustment_3d[name_side_tuple].append(tf)
-                    self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False)
-                    self.set_mode('idle')
+                tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
+                centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
+                tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
+                                                tfed_structure_volume_bbox_rel[1] + bbox[0],
+                                                tfed_structure_volume_bbox_rel[2] + bbox[2],
+                                                tfed_structure_volume_bbox_rel[3] + bbox[2],
+                                                tfed_structure_volume_bbox_rel[4] + bbox[4],
+                                                tfed_structure_volume_bbox_rel[5] + bbox[4])
+                self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
+                self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
+                self.set_mode('idle')
 
         if event.type() == QEvent.GraphicsSceneMousePress:
 

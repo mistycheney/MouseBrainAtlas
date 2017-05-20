@@ -70,7 +70,8 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
                 sec = self.data_feeder.sections[i]
             else:
                 # raise Exception('Data feeder \"%s\" has no concept of sections.' % self.data_feeder.name)
-                sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                pass
 
         return i, sec
 

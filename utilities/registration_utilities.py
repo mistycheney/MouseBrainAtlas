@@ -1299,12 +1299,12 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
     Re-section atlas volumes and obtain structure contours on each section.
     
     Args:
-        volumes : dict {structure: volume}
-        downsample_factor: the downscale factor of input volumes. Output contours are in original resolution.
-        volume_origin: (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+        volumes (dict): {structure: volume}
+        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
+        volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
         
     Returns:
-        structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
+        dict: {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
     
     from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
@@ -1342,10 +1342,15 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
         for name_s, vol in volumes.iteritems():
             cnts = find_contours(vol[..., z], level=level) # rows, cols
-            for cnt in cnts:
+            if len(cnts) == 1:
+                best_cnt = cnts[np.argmax(map(len, cnts))]
                 # r,c to x,y
-                contours_on_cropped_tb = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+                contours_on_cropped_tb = best_cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
                 structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
+            elif len(cnts) == 0:
+                sys.stderr.write('No contours is extracted at level=%.2f on section %d.\n' % (level, sec))
+            else:
+                sys.stderr.write('%d contours is extracted at level=%.2f on section %d.\n' % (len(cnts), level, sec))
                     
     return structure_contours
 

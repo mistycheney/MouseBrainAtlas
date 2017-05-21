@@ -1917,8 +1917,16 @@ class DataManager(object):
         return os.path.join(CELL_FEATURES_CLF_ROOTDIR, 'region_indices_by_label', stack, fn + '_region_indices_by_label.hdf')
     
     @staticmethod
-    def get_ntb_to_nissl_intensity_profile_mapping_filepath(stack, ntb_fn=None):
-        fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
+    def get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=None, ntb_fn=None):
+        """
+        Args:
+            stack (str): If None, read the a priori mapping.
+        """
+        if stack is None:
+            fp = os.path.join(DATA_DIR, 'average_nissl_intensity_mapping.npy')
+        else:
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
+            
         return fp
     
     @staticmethod

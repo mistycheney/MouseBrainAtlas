@@ -101,7 +101,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForMasking(DrawableZoomableBrowsabl
             # self.add_polygon(path=vertices_to_path(cnt), section=sec, linewidth=2, color=color)
 
             resampled_contour_vertices = resample_polygon(cnt, len_interval=20)
-            self.add_polygon_with_circles_and_label(path=vertices_to_path(resampled_contour_vertices),
+            self.add_polygon_with_circles(path=vertices_to_path(resampled_contour_vertices),
                                                         section=sec, linewidth=2, linecolor=color, vertex_radius=4)
 
     def _submask_added(self, polygon):

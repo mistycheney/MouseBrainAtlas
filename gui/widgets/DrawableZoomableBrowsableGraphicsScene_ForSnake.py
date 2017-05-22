@@ -86,7 +86,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForSnake(DrawableZoomableBrowsableG
         except:
             return
         self.init_snake_contour_polygons[section] = \
-        self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), index=index, linewidth=1, linecolor='b', vertex_radius=5)
+        self.add_polygon_with_circles(path=vertices_to_path(vertices), index=index, linewidth=1, linecolor='b', vertex_radius=5)
 
     def copy_init_snake_contour(self, to_section=None, to_index=None, from_section=None, from_index=None):
         try:

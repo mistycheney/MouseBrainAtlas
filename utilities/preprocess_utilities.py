@@ -6,6 +6,7 @@ from collections import deque
 import numpy as np
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'preprocess'))
 import morphsnakes
+from skimage.measure import label
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *

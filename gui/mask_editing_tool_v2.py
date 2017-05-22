@@ -203,8 +203,8 @@ class MaskEditingGUI(QMainWindow):
             self.user_submasks_gscene.set_submasks_and_decisions(submasks=self.user_submasks, submask_decisions=user_submask_decisions)
             for sec in self.valid_sections:
                 self.update_merged_mask(sec=sec)
-        except:
-            pass
+        except Exception as e:
+            sys.stderr.write(str(e) + '\n')
 
         #########################################################
 
@@ -256,21 +256,10 @@ class MaskEditingGUI(QMainWindow):
         # self.export_final_masks(sec=sec)
 
     def export_final_masks_all_sections(self):
-        create_if_not_exists(DataManager.get_mask_dirpath(stack=self.stack))
+        create_if_not_exists(DataManager.get_thumbnail_mask_dir_v3(stack=self.stack, version='aligned'))
         for sec in self.valid_sections:
-            imsave(DataManager.get_mask_filepath(stack=self.stack, sec=sec), self.merged_mask_vizs[sec])
+            imsave(DataManager.get_thumbnail_mask_filename_v3(stack=self.stack, section=sec, version='aligned'), self.merged_mask_vizs[sec])
         sys.stderr.write('Export is completed.\n')
-        # for sec in self.valid_sections:
-        #     self.export_final_masks(sec=sec)
-        # final_masks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_masks'))
-        # for sec, mask_viz in self.merged_mask_vizs.iteritems():
-        #     fn = self.valid_sections_to_filenames[sec]
-        #     imsave(os.path.join(final_masks_dir, fn + '_alignedTo_' + self.anchor_fn + '_mask.png'), mask_viz)
-
-    # def export_final_masks(self, sec):
-    #     final_masks_dir = create_if_not_exists(os.path.join(THUMBNAIL_DATA_DIR, self.stack, self.stack + '_alignedTo_' + self.anchor_fn + '_masks'))
-    #     fn = self.valid_sections_to_filenames[sec]
-    #     imsave(os.path.join(final_masks_dir, fn + '_alignedTo_' + self.anchor_fn + '_mask.png'), self.merged_mask_vizs[sec])
 
     def save_submasks_and_decisions(self, sec):
         # submasks = self.user_submasks
@@ -476,21 +465,8 @@ class MaskEditingGUI(QMainWindow):
             sys.stderr.write("Section %d not in user_submask_decisions.\n" % sec)
             return
 
-        # fn = self.valid_sections_to_filenames[sec]
-        # accept_which = self.accept_which[sec]
-        # try:
-            # if accept_which == 0:
-            #     if sec not in self.auto_submask_decisions or len(self.auto_submask_decisions[sec]) == 0:
-            #         # sys.stderr.write('Error: section %d, %s, accept auto but auto decisions is empty.\n' % (sec, fn))
-            #         raise Exception('Error: section %d, %s, accept auto but auto decisions is empty.' % (sec, fn))
-            #     merged_mask = np.any([self.auto_submasks[sec][si] for si, dec in enumerate(self.auto_submask_decisions[sec]) if dec], axis=0)
-            # elif accept_which == 1:
-                # if sec not in self.user_submask_decisions or len(self.user_submask_decisions[sec]) == 0:
-                #     raise Exception('Error: section %d, %s, accept user but user decisions is empty.' % (sec, fn))
-
         accepted_submasks = [self.user_submasks[sec][sm_i] for sm_i, dec in self.user_submasks_gscene._submask_decisions[sec].iteritems() if dec]
         if len(accepted_submasks) == 0:
-            # merged_mask = np.zeros(self.contrast_stretched_images[sec][0].shape[:2])
             sys.stderr.write('No submask accepted.\n')
             return
         else:

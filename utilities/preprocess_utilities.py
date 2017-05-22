@@ -13,6 +13,7 @@ from utilities2015 import *
 from metadata import *
 from registration_utilities import find_contour_points
 from annotation_utilities import contours_to_mask
+from skimage.measure import label
 
 # DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2

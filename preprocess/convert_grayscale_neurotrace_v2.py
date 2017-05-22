@@ -39,9 +39,16 @@ for fn in filenames:
             t = time.time()
             img_blue = imread(img_fp)[..., 2]
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
-
-            intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=fn)
-            intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
+            
+            try:
+                intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=fn)
+                download_from_s3(intensity_mapping_fp)
+                intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
+            except:
+                sys.stderr.write("Error loading section-specific ntb-to-nissl intensity mapping. Load a priori mapping instead.\n")
+                intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath()
+                download_from_s3(intensity_mapping_fp)
+                intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
 
             t = time.time()
             ntb_values = np.arange(0, 5000)

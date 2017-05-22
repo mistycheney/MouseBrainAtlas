@@ -85,10 +85,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
 
-        try:
-            self.volume_cache = {32: DataManager.load_intensity_volume(self.stack, downscale=32)}
-        except:
-            sys.stderr.write('Intensity volume does not exist.\n')
+        self.volume_cache = {}
+        for ds in [8, 32]:
+            try:
+                self.volume_cache[ds] = DataManager.load_intensity_volume(self.stack, downscale=ds)
+            except:
+                sys.stderr.write('Intensity volume of downsample %d does not exist.\n' % ds)
 
         # self.volume = self.volume_cache[self.downsample_factor]
         # self.y_dim, self.x_dim, self.z_dim = self.volume.shape
@@ -151,14 +153,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
             coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             coronal_volume_resection_feeder.set_orientation('coronal')
-            coronal_volume_resection_feeder.set_downsample_factor(32)
+            coronal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
             self.gscenes['coronal'].set_active_i(50)
 
             horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
             horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             horizontal_volume_resection_feeder.set_orientation('horizontal')
-            horizontal_volume_resection_feeder.set_downsample_factor(32)
+            horizontal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
             self.gscenes['horizontal'].set_active_i(150)
 

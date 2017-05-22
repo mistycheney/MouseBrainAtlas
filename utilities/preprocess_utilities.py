@@ -6,12 +6,14 @@ from collections import deque
 import numpy as np
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'preprocess'))
 import morphsnakes
+from skimage.measure import label
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
 from registration_utilities import find_contour_points
 from annotation_utilities import contours_to_mask
+from skimage.measure import label
 
 # DEFAULT_BORDER_DISSIMILARITY_PERCENTILE = 30
 # DEFAULT_FOREGROUND_DISSIMILARITY_THRESHOLD = .2

@@ -178,7 +178,7 @@ is_surround_label = lambda label: parse_label(label)[2] is not None
 get_side_from_label = lambda label: parse_label(label)[1]
 get_margin_from_label = lambda label: parse_label(label)[2]
 
-def compose_label(structure_name, side, surround_margin, surround_structure_name):
+def compose_label(structure_name, side=None, surround_margin=None, surround_structure_name=None):
     label = structure_name
     if side is not None:
         label += '_' + side

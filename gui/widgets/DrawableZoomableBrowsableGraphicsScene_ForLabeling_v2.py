@@ -5,7 +5,6 @@ from datetime import datetime
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import numpy as np
-from multiprocess import Pool
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from data_manager import DataManager
@@ -14,6 +13,7 @@ from annotation_utilities import *
 from registration_utilities import *
 from gui_utilities import *
 
+from custom_widgets import AutoCompleteInputDialog
 from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 
 CROSSLINE_PEN_WIDTH = 2
@@ -36,35 +36,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     Used for annotation GUI.
     """
 
-    drawings_updated = pyqtSignal(object)
     crossline_updated = pyqtSignal(int, int, int, str)
-    update_structure_volume_requested = pyqtSignal(object)
-    active_image_updated = pyqtSignal()
+    structure_volume_updated =  pyqtSignal(str, str, bool, bool)
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
-
-        # self.pixmapItem = QGraphicsPixmapItem()
-        # self.addItem(self.pixmapItem)
-
         self.gui = gui
-
-        # self.gview = gview
-        # self.id = id
-
-        # self.polygonElements = defaultdict(dict)
-        # self.qimages = None
-        # self.active_section = None
-        # self.active_i = None
-        # self.active_dataset = None
-
-        # self.installEventFilter(self)
-
         self.showing_which = 'histology'
-
-        self.dont_add_vertex = False
-
-        # self.drawings = defaultdict(list)
 
         self.hline = QGraphicsLineItem()
         self.hline.setPen(CROSSLINE_RED_PEN)
@@ -75,94 +53,51 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.hline.setVisible(False)
         self.vline.setVisible(False)
 
-        # self.gview.setMouseTracking(False)
-        # self.gview.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
-        # self.gview.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOff )
-        # self.gview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        # self.gview.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)  # Important! default is AnchorViewCenter.
-        # self.gview.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        # self.gview.setContextMenuPolicy(Qt.CustomContextMenu)
-        # self.gview.setDragMode(QGraphicsView.ScrollHandDrag)
-        # gview.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-
-        # if not hasattr(self, 'contextMenu_set') or (hasattr(self, 'contextMenu_set') and not self.contextMenu_set):
-        #     self.gview.customContextMenuRequested.connect(self.show_context_menu)
-
-        # self.gview.installEventFilter(self)
-        # self.gview.viewport().installEventFilter(self)
-
-        # self.set_mode('idle')
-
-    # def set_mode(self, mode):
-
-        # if hasattr(self, 'mode'):
-        #     print 'Mode change:', self.mode, '=>', mode
-        #
-        # if mode == 'delete vertices':
-        #     self.gview.setDragMode(QGraphicsView.RubberBandDrag)
-        #
-        # elif mode == 'add vertices consecutively':
-        #     self.gview.setDragMode(QGraphicsView.NoDrag)
-        #     # for p in self.drawings[self.active_i]:
-        #         # p.setFlag(QGraphicsItem.ItemIsMovable, False)
-        #
-        # elif mode == 'idle':
-        #     self.gview.setDragMode(QGraphicsView.ScrollHandDrag)
-        #     if hasattr(self, 'mode') and self.mode == 'crossline':
-        #         self.hline.setVisible(False)
-        #         self.vline.setVisible(False)
-        #         # self.removeItem(self.hline)
-        #         # self.removeItem(self.vline)
-        #     # for p in self.drawings[self.active_i]:
-        #     #     p.setFlag(QGraphicsItem.ItemIsMovable, True)
-        #
-        # elif mode == 'crossline':
-        #     self.hline.setVisible(True)
-        #     self.vline.setVisible(True)
-        #
-        # self.mode = mode
-
-    # def set_data_feeder(self, feeder):
-    #     if hasattr(self, 'data_feeder') and self.data_feeder == feeder:
-    #         return
-    #
-    #     self.data_feeder = feeder
-    #
-    #     if self.data_feeder.downsample == 32:
-    #         self.set_vertex_radius(4)
-    #     elif self.data_feeder.downsample == 1:
-    #         self.set_vertex_radius(20)
-    #
-    #     if self.data_feeder.downsample == 32:
-    #         self.set_line_width(3)
-    #     elif self.data_feeder.downsample == 1:
-    #         self.set_line_width(10)
-    #
-    #     self.active_section = None
-    #     self.active_i = None
-    #
-    #     # if hasattr(self, 'active_i') and self.active_i is not None:
-    #     #     self.update_image()
-    #     #     self.active_image_updated.emit()
-
+    def set_mode(self, mode):
+        """
+        Extend by:
+        - showing or hiding two cross-lines.
+        """
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_mode(mode)
+        if mode == 'crossline':
+            self.hline.setVisible(True)
+            self.vline.setVisible(True)
+        # elif mode == 'rotate3d':
+        #     pass
+        # elif mode == 'shift3d':
+        #     pass
+        elif mode == 'idle':
+            self.hline.setVisible(False)
+            self.vline.setVisible(False)
 
     def set_structure_volumes(self, structure_volumes):
+        """
+        Args:
+            structure_volumes (dict): {structure name: (volume, bbox)}.
+            The volume dimension is the bounding box of the structure. Thumbnail resolution.
+            Bbox coordinates are relative to the cropped volume.
+        """
+
         self.structure_volumes = structure_volumes
 
-    # def check_structure_side_properties(self):
-    #     return True
+    def set_structure_volumes_downscale_factor(self, downscale):
+        sys.stderr.write('Set structure volumes downscale to %d\n' % downscale)
+        self.structure_volumes_downscale_factor = downscale
 
     def update_drawings_from_structure_volume(self, name_u, side):
         """
-        Based on reconstructed 3D structure,
+        Update drawings based on `self.structure_volumes`.
+
+        Args:
+            name_u (str): structure name, unsided
+            side (str): L, R or S
         """
 
-        volume, bbox = self.structure_volumes[name_u]
+        volume, bbox = self.structure_volumes[(name_u, side)]
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
         print 'volume', volume.shape, xmin, xmax, ymin, ymax, zmin, zmax
 
-        volume_downsample_factor = self.gui.volume_downsample_factor
-        # xmin_lossless, xmax_lossless, ymin_lossless, ymax_lossless, zmin_lossless, zmax_lossless = np.array(bbox) * downsample
+        volume_downsample_factor = self.structure_volumes_downscale_factor
         bbox_lossless = np.array(bbox) * volume_downsample_factor
 
         downsample = self.data_feeder.downsample
@@ -174,8 +109,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
+        # These confirmed contours will not be removed.
         matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
-                                    for p in polygons if p.label == name_u and p.type != 'interpolated' and p.side == side]
+                                for p in polygons if p.properties['label'] == name_u and \
+                                p.properties['type'] != 'interpolated' and \
+                                p.properties['side'] == side]
 
         # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
         # for i, p in matched_unconfirmed_polygons:
@@ -183,12 +121,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #         self.removeItem(p)
         #     self.drawings[i].remove(p)
 
-        # if self.data_feeder.orientation == 'sagittal':
         if hasattr(self.data_feeder, 'sections'):
             assert self.data_feeder.orientation == 'sagittal'
-            # sec_min = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=downsample)
-            # matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
             matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
+            print 'matched_confirmed_sections', matched_confirmed_sections
 
             if len(matched_confirmed_sections) > 0:
                 min_sec = np.min(matched_confirmed_sections)
@@ -199,15 +135,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             for sec in range(min_sec, max_sec+1):
 
-                # remove if this section has interpolated polygon
+                # Remove if this section has unconfirmed/interpolated polygon
                 # if sec not in self.data_feeder.sections:
                 if sec not in self.data_feeder.sections:
                     sys.stderr.write('Section %d is not loaded.\n' % sec)
                     continue
 
-                # i = self.data_feeder.sections.index(sec)
                 i = self.data_feeder.sections.index(sec)
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.label == name_u and p.type == 'interpolated' and p.side == side]
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] if p.properties['label'] == name_u and \
+                p.properties['side'] == side and \
+                p.properties['type'] == 'interpolated']
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
@@ -216,34 +153,29 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if sec in matched_confirmed_sections:
                     continue
 
-
                 z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-                # z_currResol = int(np.round((z0 + z1)/2))
                 z_currResol = .5 * z0 + .5 * z1
                 z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
-                # (int(np.ceil(z0)) + int(np.floor(z1))) / 2
-                # z_volResol = z_currResol * downsample / volume_downsample_factor
-                print sec, z0, z1, z_currResol, z_volResol, zmin
-                # if downsample == 32:
-                cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=20)
-
-                # print cnts_volResol
+                # print sec, z0, z1, z_currResol, z_volResol, zmin
+                try:
+                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=3)
+                except Exception as e:
+                    sys.stderr.write(str(e) + '\n')
 
                 if len(cnts_volResol) > 0 and 1 in cnts_volResol:
-                    # print x_ds
                     xys_volResol = np.array(cnts_volResol[1][0])
                     gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
                     gscene_ys_volResol = xys_volResol[:,1] + ymin
                     gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
                     gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
-                                                            label=name_u, linecolor='g', section=sec, type='interpolated',
+                                                            label=name_u, linecolor='g', section=sec,
+                                                            type='interpolated',
                                                             side=side,
                                                             side_manually_assigned=False)
         else:
-            # raise Exception('Sagittal interpolation on volume data is not implemented.')
-
             matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
+            print 'matched_confirmed_positions', matched_confirmed_positions
 
             if self.data_feeder.orientation == 'sagittal':
                 posmin_ds = zmin_ds
@@ -257,11 +189,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             for pos_ds in range(posmin_ds, posmax_ds+1):
 
-                # if pos_ds in matched_confirmed_positions:
-                #     continue
-
-                # remove if this section has interpolated polygon
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] if p.label == name_u and p.type == 'interpolated' and p.side == side]
+                # First remove all unconfirmed/interpolated contours.
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
+                if p.properties['label'] == name_u and \
+                p.properties['type'] == 'interpolated' and \
+                p.properties['side'] == side]
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[pos_ds].remove(p)
                     if pos_ds == self.active_i:
@@ -272,9 +204,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.data_feeder.orientation == 'coronal':
 
-                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=3)
                     if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
                         # Contour for label 1 (which is the only label in the boolean volume)
                     zys = np.array(cnts[1][0])
@@ -283,9 +215,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.data_feeder.orientation == 'horizontal':
 
-                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=max(20/downsample, 10))
+                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=3)
                     if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: Contour not found with reconstructed volume.\n' % self.id)
+                        sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
 
                     zxs = np.array(cnts[1][0])
@@ -299,97 +231,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         side=side,
                                                         side_manually_assigned=False)
 
-    # def set_active_i(self, i, update_crossline=True, emit_changed_signal=True):
-    #
-    #     if i == self.active_i:
-    #         return
-    #
-    #     old_i = self.active_i
-    #
-    #     print self.id, ': Set active index to', i, ', update_crossline', update_crossline
-    #
-    #     self.active_i = i
-    #     if hasattr(self.data_feeder, 'sections'):
-    #         self.active_section = self.data_feeder.sections[self.active_i]
-    #
-    #     try:
-    #         self.update_image()
-    #     except Exception as e: # if failed, do not change active_i or active_section
-    #         if old_i is not None:
-    #             self.active_i = old_i
-    #             if hasattr(self.data_feeder, 'sections'):
-    #                 self.active_section = self.data_feeder.sections[old_i]
-    #         raise e
-    #
-    #     for polygon in self.drawings[old_i]:
-    #         self.removeItem(polygon)
-    #
-    #     for polygon in self.drawings[i]:
-    #         self.addItem(polygon)
-    #
-    #     if emit_changed_signal:
-    #         self.active_image_updated.emit()
-    #
-    #     # if update_crossline and self.mode == 'crossline':
-    #
-    #     if update_crossline and hasattr(self, 'cross_x_lossless'):
-    #         if hasattr(self.data_feeder, 'sections'):
-    #             d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
-    #             cross_depth_lossless = .5 * d1 + .5 * d2
-    #             # print 'cross_depth_lossless 1', cross_depth_lossless
-    #         else:
-    #             print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
-    #             cross_depth_lossless = self.active_i * self.data_feeder.downsample
-    #             # print 'cross_depth_lossless 2', cross_depth_lossless
-    #
-    #         if self.data_feeder.orientation == 'sagittal':
-    #             self.cross_z_lossless = cross_depth_lossless
-    #         elif self.data_feeder.orientation == 'coronal':
-    #             self.cross_x_lossless = cross_depth_lossless
-    #         elif self.data_feeder.orientation == 'horizontal':
-    #             self.cross_y_lossless = cross_depth_lossless
-    #
-    #         print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
-    #         self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
-    #         # self.crossline_updated.emit(int(np.round(self.cross_x_lossless)), int(np.round(self.cross_y_lossless)), int(np.round(self.cross_z_lossless)), self.id)
-
-
-    # def set_active_section(self, sec, emit_changed_signal=True, update_crossline=True):
-    #
-    #     if sec == self.active_section:
-    #         return
-    #
-    #     print self.id, ': Set active section to', sec
-    #
-    #     if hasattr(self.data_feeder, 'sections'):
-    #         assert sec in self.data_feeder.sections, 'Section %s is not loaded.' % str(sec)
-    #         i = self.data_feeder.sections.index(sec)
-    #         self.set_active_i(i, emit_changed_signal=emit_changed_signal, update_crossline=update_crossline)
-    #
-    #     self.active_section = sec
-
     def update_image(self):
         if self.showing_which == 'histology':
             self.load_histology()
         elif self.showing_which == 'scoremap':
             self.load_scoremap()
-
-    def set_active_structure(self, name_s=None, name_u=None):
-        if name_s is not None:
-            self.active_structure = name_s
-        else:
-            self.active_structure = name_u
-
-    def set_downsample_factor(self, downsample):
-        if self.data_feeder.downsample == downsample:
-            return
-        # if self.downsample == downsample:
-        #     return
-        #
-        # self.downsample = downsample
-        self.data_feeder.set_downsample_factor(downsample)
-        self.update_image()
-
 
     def load_scoremap(self, name_u=None, sec=None):
         if sec is None:
@@ -434,47 +280,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         self.set_active_i(i)
 
-    # def show_next(self, cycle=False):
-    #     # if self.indexing_mode == 'section':
-    #     #     self.set_active_section(min(self.active_section + 1, self.data_feeder.last_sec))
-    #     # elif self.indexing_mode == 'voxel':
-    #     #     self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1))
-    #
-    #     if cycle:
-    #         self.set_active_i((self.active_i + 1) % self.data_feeder.n)
-    #     else:
-    #         # If next image is not valid, show the one after the next
-    #         t = 1
-    #         while self.active_i + t <= self.data_feeder.n - 1:
-    #             try:
-    #                 self.set_active_i(min(self.active_i + t, self.data_feeder.n - 1))
-    #                 # self.set_active_i(min(self.active_i + t, np.max(self.data_feeder.sections)))
-    #                 break
-    #             except:
-    #                 t += 1
-
-            # self.set_active_i(min(self.active_i + 1, self.data_feeder.n - 1)
-
-    # def show_previous(self, cycle=False):
-    #     # if self.indexing_mode == 'section':
-    #     #     self.set_active_section(max(self.active_section - 1, self.data_feeder.first_sec))
-    #     # elif self.indexing_mode == 'voxel':
-    #     #     self.set_active_i(max(self.active_i - 1, 0))
-    #
-    #     if cycle:
-    #         self.set_active_i((self.active_i - 1) % self.data_feeder.n)
-    #     else:
-    #         # If previous image is not valid, show the one before the previous
-    #         t = 1
-    #         while self.active_i - t >= 0:
-    #             try:
-    #                 self.set_active_i(max(self.active_i - t, 0))
-    #                 break
-    #             except:
-    #                 t += 1
-    #
-    #         # self.set_active_i(max(self.active_i - 1, 0))
-
     def infer_side(self):
 
         label_section_lookup = self.get_label_section_lookup()
@@ -513,154 +318,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def set_conversion_func_z_to_section(self, func):
         self.convert_z_to_section = func
-
-
-    # def add_polygon_with_circles_and_label(self, path, linecolor='r', linewidth=None, vertex_color='b', vertex_radius=None,
-    #                                         label='unknown', section=None, label_pos=None, index=None, type=None,
-    #                                         edit_history=[], side=None, side_manually_assigned=None,
-    #                                         contour_id=None):
-    #     '''
-    #     Function for adding polygon, along with vertex circles.
-    #     Step 1: create polygon
-    #     Step 2: create vertices
-    #     Step 3: reorder overlapping polygons if any
-    #     Step 4: add label
-    #     '''
-    #
-    #     ## CHECK THIS!!!!
-    #
-    #     # self.history_allSections[sec].append({
-    #     #     'type': 'add_polygon_by_vertices_label_begin'
-    #     #     })
-    #
-    #     if index is None and section is None:
-    #         index = self.active_i
-    #     elif section is not None:
-    #         # if section in self.data_feeder.sections:
-    #         if section in self.data_feeder.sections:
-    #             # index = self.data_feeder.sections.index(section)
-    #             index = self.data_feeder.sections.index(section)
-    #         else:
-    #             sys.stderr.write('Trying to add polygon, but section %d is not loaded - add polygon anyway.\n' % section)
-    #             raise Exception('Not implemented.') # CANNOT ASSUME ALL HAVE INDEX ...
-    #
-    #     polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
-    #
-    #     if vertex_radius is None:
-    #         vertex_radius = self.vertex_radius
-    #
-    #     polygon.add_circles_for_all_vertices(radius=vertex_radius, color=vertex_color)
-    #
-    #     polygon.set_label(label, label_pos)
-    #     polygon.set_closed(True)
-    #     polygon.set_type(type)
-    #     polygon.set_side(side=side, side_manually_assigned=side_manually_assigned)
-    #
-    #     if edit_history is None or len(edit_history) == 0:
-    #         polygon.add_edit(editor=self.gui.get_username())
-    #     else:
-    #         polygon.set_edit_history(edit_history)
-    #
-    #     polygon.set_contour_id(contour_id) # Could be None - will be generated new in convert_drawings_to_entries()
-    #     return polygon
-
-
-    # def add_polygon(self, path=QPainterPath(), color='r', linewidth=None, z_value=50,
-    #                 uncertain=False, section=None, index=None, vertex_radius=None):
-    #     '''
-    #     Add a polygon.
-    #
-    #     Args:
-    #         path (QPainterPath): path of the polygon
-    #         pen (QPen): pen used to draw polygon
-    #
-    #     Returns:
-    #         QGraphicsPathItemModified: added polygon
-    #
-    #     '''
-    #
-    #     # if path is None:
-    #     #     path = QPainterPath()
-    #
-    #     if color == 'r':
-    #         pen = QPen(Qt.red)
-    #     elif color == 'g':
-    #         pen = QPen(Qt.green)
-    #     elif color == 'b':
-    #         pen = QPen(Qt.blue)
-    #
-    #     if linewidth is None:
-    #         linewidth = self.line_width
-    #
-    #     pen.setWidth(linewidth)
-    #
-    #     if index is None and section is None:
-    #         if hasattr(self, 'active_i'):
-    #             index = self.active_i
-    #     elif section is not None:
-    #         # if section in self.data_feeder.sections:
-    #         if section in self.data_feeder.sections:
-    #             # index = self.data_feeder.sections.index(section)
-    #             index = self.data_feeder.sections.index(section)
-    #         else:
-    #             raise Exception('Not implemented.')
-    #
-    #     if hasattr(self.data_feeder, 'sections'):
-    #         # sec = self.data_feeder.sections[index]
-    #         sec = self.data_feeder.sections[index]
-    #         z0, z1 = self.convert_section_to_z(sec=sec, downsample=self.data_feeder.downsample)
-    #         pos = (z0 + z1) / 2
-    #         # if len(z) == 2: # a section corresponds to more than one z values; returned result is a pair indicating first and last z's.
-    #         #     pos = (z[0]+z[1])/2
-    #         # else:
-    #         #     pos = z
-    #     else:
-    #         pos = index
-    #
-    #     if vertex_radius is None:
-    #         vertex_radius = self.vertex_radius
-    #
-    #     polygon = QGraphicsPathItemModified(path, gscene=self, index=index, orientation=self.data_feeder.orientation, position=pos, vertex_radius=vertex_radius)
-    #
-    #     polygon.setPen(pen)
-    #     polygon.setZValue(z_value)
-    #     # polygon.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
-    #     polygon.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
-    #     polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
-    #
-    #     polygon.signal_emitter.press.connect(self.polygon_press)
-    #     polygon.signal_emitter.release.connect(self.polygon_release)
-    #     # polygon.moved.connect(self.polygon_moved)
-    #     # polygon.o.released.connect(self.polygon_released)
-    #
-    #     # polygon.signal_emitter.clicked.connect(self.polygon_pressed)
-    #     # polygon.signal_emitter.moved.connect(self.polygon_moved)
-    #     # polygon.signal_emitter.released.connect(self.polygon_released)
-    #     # polygon.signal_emitter.vertex_added.connect(self.vertex_added)
-    #
-    #     polygon.signal_emitter.vertex_added.connect(self.vertex_added)
-    #     polygon.signal_emitter.label_added.connect(self.label_added)
-    #     polygon.signal_emitter.evoke_label_selection.connect(self.label_selection_evoked)
-    #     polygon.signal_emitter.polygon_completed.connect(self.polygon_completed)
-    #
-    #     self.drawings[index].append(polygon)
-    #
-    #     # if adding polygon to current section
-    #     # if sec == self.active_section:
-    #     if index == self.active_i:
-    #         print 'polygon added.'
-    #         self.addItem(polygon)
-    #     # self.polygonElements[sec][polygon] = {'vertexCircles': [], 'uncertain': uncertain}
-    #
-    #     # self.map_polygon_to_section[polygon] = sec
-    #
-    #     # self.history_allSections[sec].append({
-    #     #     'type': 'add_polygon',
-    #     #     'polygon': polygon
-    #     #     })
-    #
-    #     return polygon
-
 
     def open_label_selection_dialog(self):
 
@@ -749,7 +406,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # print self.selected_section
 
         # self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label'] = abbr
-        self.active_polygon.set_label(abbr)
+        # self.active_polygon.set_label(abbr)
+        self.active_polygon.set_properties('label', abbr)
 
         # if 'labelTextArtist' in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon] and \
         #         self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'] is not None:
@@ -790,9 +448,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 vertices = contour['vertices']
                 contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
                 # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
-                if sec == 201:
-                    print  contour['name'], sec, metadata_cache['sections_to_filenames'][self.data_feeder.stack][sec]
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices), label=contour['name'], label_pos=contour['label_position'],
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
+                                                        label=contour['name'], label_pos=contour['label_position'],
                                                         linecolor='r', section=sec, type=contour_type,
                                                         side=contour['side'],
                                                         # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
@@ -1067,12 +724,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_mode('delete vertices')
 
         elif selected_action in action_sides:
-            self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
+            self.active_polygon.set_properties('side', selected_action)
+            self.active_polygon.set_properties('side_manually_assigned', True)
+            # self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
 
         elif selected_action == action_showInfo:
 
-            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.label}
-            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.label]}
+            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.properties['label']}
+            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.properties['label']]}
 
             if self.active_polygon.properties['side'] is None:
                 side_string = ''
@@ -1094,24 +753,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             contour_info_text += "Side: %(side)s\n" % {'side': side_string}
 
-            first_edit = self.active_polygon.properties['edit_history'][0]
-            contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
-            {'creator': first_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
-            }
+            if len(self.active_polygon.properties['edit_history']) > 0:
+                print self.active_polygon.properties['edit_history']
+                first_edit = self.active_polygon.properties['edit_history'][0]
+                contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
+                {'creator': first_edit['username'],
+                'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+                }
 
-            # editors = set(x['username'] for x in self.active_polygon.edit_history[1:])
-            # if len(editors) > 0:
-            #     contour_info_text += "Edited by %(editors)s\n" % \
-            #     {'editors': ' '.join(set(x['username'] for x in self.active_polygon.edit_history[1:]))}
-
-            print self.active_polygon.properties['edit_history']
-
-            last_edit = self.active_polygon.properties['edit_history'][-1]
-            contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
-            {'editor': last_edit['username'],
-            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
-            }
+                last_edit = self.active_polygon.properties['edit_history'][-1]
+                contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
+                {'editor': last_edit['username'],
+                'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+                }
+                print self.active_polygon.properties['edit_history']
+            else:
+                sys.stderr.write('No edit history.\n')
 
             contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
 
@@ -1132,14 +789,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             msgBox.exec_()
 
         elif selected_action == action_confirmPolygon:
-            self.active_polygon.set_type(None)
+            # self.active_polygon.set_type(None)
+            self.active_polygon.set_properties('type', 'confirmed')
 
         elif selected_action == action_deletePolygon:
             self.drawings[self.active_i].remove(self.active_polygon)
             self.removeItem(self.active_polygon)
 
         elif selected_action == action_reconstruct:
-            self.update_structure_volume_requested.emit(self.active_polygon)
+            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
 
         elif selected_action in action_resolutions:
             selected_downsample_factor = action_resolutions[selected_action]
@@ -1150,8 +808,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.close_curr_polygon = False
             self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
             self.active_polygon.add_edit(editor=self.gui.get_username())
-            self.active_polygon.set_type(None)
-            self.active_polygon.set_side(side=None, side_manually_assigned=False)
+            # self.active_polygon.set_type(None)
+            self.active_polygon.set_properties('type', 'confirmed')
+            # self.active_polygon.set_side(side=None, side_manually_assigned=False)
+            self.active_polygon.set_properties(side, None)
+            self.active_polygon.set_properties(side_manually_assigned, False)
 
             # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
             self.set_mode('add vertices consecutively')
@@ -1211,6 +872,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if hasattr(self.data_feeder, 'sections'):
                 sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
                 print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', self.convert_section_to_z(sec=sec, downsample=downsample)
+
                 self.set_active_section(sec, update_crossline=False)
 
         elif self.data_feeder.orientation == 'coronal':
@@ -1227,11 +889,52 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             self.set_active_i(cross_y_ds, update_crossline=False)
 
+    def set_active_i(self, index, emit_changed_signal=True, update_crossline=True):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
+
+        if update_crossline and hasattr(self, 'cross_x_lossless'):
+            print 'update_crossline', update_crossline
+            if hasattr(self.data_feeder, 'sections'):
+                d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
+                cross_depth_lossless = .5 * d1 + .5 * d2
+            else:
+                print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
+                cross_depth_lossless = self.active_i * self.data_feeder.downsample
+
+            if self.data_feeder.orientation == 'sagittal':
+                self.cross_z_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'coronal':
+                self.cross_x_lossless = cross_depth_lossless
+            elif self.data_feeder.orientation == 'horizontal':
+                self.cross_y_lossless = cross_depth_lossless
+
+            print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
+            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
+
+    def set_active_section(self, section, emit_changed_signal=True, update_crossline=True):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_section(sec=section, emit_changed_signal=emit_changed_signal)
+
+        # if update_crossline and hasattr(self, 'cross_x_lossless'):
+        #     if hasattr(self.data_feeder, 'sections'):
+        #         d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
+        #         cross_depth_lossless = .5 * d1 + .5 * d2
+        #     else:
+        #         print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
+        #         cross_depth_lossless = self.active_i * self.data_feeder.downsample
+        #
+        #     if self.data_feeder.orientation == 'sagittal':
+        #         self.cross_z_lossless = cross_depth_lossless
+        #     elif self.data_feeder.orientation == 'coronal':
+        #         self.cross_x_lossless = cross_depth_lossless
+        #     elif self.data_feeder.orientation == 'horizontal':
+        #         self.cross_y_lossless = cross_depth_lossless
+        #
+        #     print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
+        #     self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
         # http://doc.qt.io/qt-4.8/qevent.html#Type-enum
-
 
         if event.type() == QEvent.KeyPress:
             key = event.key()
@@ -1240,10 +943,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.set_mode('idle')
                 return True
 
+            elif key == Qt.Key_W:
+                self.set_mode('rotate3d')
+                return True
+
+            elif key == Qt.Key_Q:
+                self.set_mode('shift3d')
+                return True
+
             elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # CLose polygon
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
                 return False
+
             elif key == Qt.Key_V: # Toggle all vertex circles
                 for i, polygons in self.drawings.iteritems():
                     for p in polygons:
@@ -1252,6 +964,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 c.setVisible(False)
                             else:
                                 c.setVisible(True)
+
             elif key == Qt.Key_C: # Toggle all contours
                 for i, polygons in self.drawings.iteritems():
                     for p in polygons:
@@ -1304,9 +1017,70 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #     print 2
         #     return True
 
-        if event.type() == QEvent.GraphicsSceneMousePress:
+        if event.type() == QEvent.GraphicsSceneMouseRelease:
 
-            self.gui.active_gscene = self
+            pos = event.scenePos()
+            gscene_x = pos.x()
+            gscene_y = pos.y()
+
+            # Transform the current structure volume.
+            # Notify GUI to use the new volume to update contours on all gscenes.
+            if self.mode == 'rotate3d' or self.mode == 'shift3d':
+                name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+                assert name_side_tuple in self.structure_volumes, \
+                "structure_volumes does not have %s. Need to reconstruct this structure first." % name_side_tuple
+                vol, bbox = self.structure_volumes[name_side_tuple]
+                ys, xs, zs = np.where(vol)
+                cx_volResol = np.mean(xs)
+                cy_volResol = np.mean(ys)
+                cz_volResol = np.mean(zs)
+
+                if self.mode == 'rotate3d':
+
+                    cx_vol_resol_gl, cy_vol_resol_gl, cz_vol_resol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
+                    active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
+                    active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                    vec2 = np.array((gscene_x - active_structure_center_2d_gscene_resol[0], gscene_y - active_structure_center_2d_gscene_resol[1]))
+                    vec1 = np.array((self.press_screen_x - active_structure_center_2d_gscene_resol[0], self.press_screen_y - active_structure_center_2d_gscene_resol[1]))
+                    vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
+                    x2 = np.dot(vec2, vec1/vec1n)
+                    y2 = (vec2 - x2*vec1/vec1n)[1]
+                    theta_ccwise = np.arctan2(y2, x2)
+                    if self.id == 'sagittal':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
+                    elif self.id == 'coronal':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
+                    elif self.id == 'horizontal':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=theta_ccwise)
+
+                elif self.mode == 'shift3d':
+
+                    # shift_2d is in gscene resolution, which differs for each gscene.
+                    shift_2d_gscene_resol = np.array((gscene_x - self.press_screen_x, gscene_y - self.press_screen_y))
+                    shift_2d_orig_resol = shift_2d_gscene_resol * self.data_feeder.downsample
+                    shift_2d_vol_resol = shift_2d_orig_resol / float(self.structure_volumes_downscale_factor)
+                    print 'shift_2d_vol_resol', shift_2d_vol_resol
+                    if self.id == 'sagittal':
+                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=shift_2d_vol_resol[1],tz=0)
+                    elif self.id == 'coronal':
+                        tf = affine_components_to_vector(tx=0,ty=shift_2d_vol_resol[1],tz=-shift_2d_vol_resol[0])
+                    elif self.id == 'horizontal':
+                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=0,tz=-shift_2d_vol_resol[1])
+
+                tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
+                centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
+                tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
+                                                tfed_structure_volume_bbox_rel[1] + bbox[0],
+                                                tfed_structure_volume_bbox_rel[2] + bbox[2],
+                                                tfed_structure_volume_bbox_rel[3] + bbox[2],
+                                                tfed_structure_volume_bbox_rel[4] + bbox[4],
+                                                tfed_structure_volume_bbox_rel[5] + bbox[4])
+                self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
+                self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
+                self.set_mode('idle')
+
+        if event.type() == QEvent.GraphicsSceneMousePress:
 
             pos = event.scenePos()
             gscene_x = pos.x()
@@ -1324,6 +1098,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 print self.press_screen_x, self.press_screen_y
                 self.pressed = True
                 return True
+
+            elif self.mode == 'rotate3d':
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
+
+            elif self.mode == 'shift3d':
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
 
             elif self.mode == 'crossline':
 

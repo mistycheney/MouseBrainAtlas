@@ -45,19 +45,28 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
     else:
         return np.c_[w[1].astype(np.int16), w[0].astype(np.int16), w[2].astype(np.int16)]
 
-def affine_components_to_vector(tx,ty,tz,theta_xy,theta_yz=None,theta_xz=None,c=(0,0,0)):
+def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,c=(0,0,0)):
     """
     Args:
-        theta_xy (float):
-            in radian.
+        theta_xy (float): in radian.
+    Returns:
+        numpy array: length 12
     """
-    cos_theta = np.cos(theta_xy)
-    sin_theta = np.sin(theta_xy)
-    Rz = np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
-    Rx = np.array([[0, 0, 0], [0, cos_theta, -sin_theta], [0, sin_theta, cos_theta]])
-    Ry = np.array([[cos_theta, 0, -sin_theta], [0, 0, 0], [sin_theta, 0, cos_theta]])
-    tt = np.dot(Rz, np.r_[tx,ty,tz]-c) + c
-    return np.ravel(np.c_[Rz, tt])
+    assert np.count_nonzero([theta_xy, theta_yz, theta_xz]) <= 1, \
+    "Current implementation is sound only if only one rotation is given."
+
+    cos_theta_xy = np.cos(theta_xy)
+    sin_theta_xy = np.sin(theta_xy)
+    cos_theta_yz = np.cos(theta_yz)
+    sin_theta_yz = np.sin(theta_yz)
+    cos_theta_xz = np.cos(theta_xz)
+    sin_theta_xz = np.sin(theta_xz)
+    Rz = np.array([[cos_theta_xy, -sin_theta_xy, 0], [sin_theta_xy, cos_theta_xy, 0], [0, 0, 1]])
+    Rx = np.array([[1, 0, 0], [0, cos_theta_yz, -sin_theta_yz], [0, sin_theta_yz, cos_theta_yz]])
+    Ry = np.array([[cos_theta_xz, 0, -sin_theta_xz], [0, 1, 0], [sin_theta_xz, 0, cos_theta_xz]])
+    R = np.dot(Rx, np.dot(Ry, Rz))
+    tt = np.dot(R, np.r_[tx,ty,tz]-c) + c
+    return np.ravel(np.c_[R, tt])
 
 def rotate_transform_vector(v, theta_xy=None,theta_yz=None,theta_xz=None,c=(0,0,0)):
     """
@@ -104,7 +113,7 @@ class Aligner4(object):
                 labelIndexMap_m2f=None, label_weights=None, reg_weights=None, zrange=None):
         """
         Variant that takes in two probabilistic volumes.
-        
+
         Args:
             volume_f_ (dict): the fixed probabilistic volume. dict of {numeric label: 3d array}
             volume_m_ (dict): the moving probabilistic volume. dict of {numeric label: 3d array}
@@ -322,11 +331,11 @@ class Aligner4(object):
         for ind_f in indices_f:
 
             t = time.time()
-            
+
             download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
             download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
             download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
-            
+
             if hasattr(self, 'zl'):
                 grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
                 grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
@@ -738,7 +747,7 @@ class Aligner4(object):
                 epsilon=1e-8):
         """Optimize.
         Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
-        
+
         Args:
             reg_weights: for (tx,ty,tz)
         """
@@ -1006,7 +1015,7 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
     return hessian
 
 
-def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5):
+def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5, level=.5):
     """
     The value of sample_every can be interpreted as distance between points.
     return is (x,y)
@@ -1024,7 +1033,7 @@ def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5):
         padded = np.pad(r.filled_image, ((padding,padding),(padding,padding)),
                         mode='constant', constant_values=0)
 
-        contours = find_contours(padded, .5, fully_connected='high')
+        contours = find_contours(padded, level=level, fully_connected='high')
         contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > min_length]
         if len(contours) > 0:
 #             if len(contours) > 1:
@@ -1065,7 +1074,7 @@ def show_levelset(levelset, bg, title):
         viz = bg.copy()
     elif bg.ndim == 2:
         viz = gray2rgb(bg)
-    cnts = find_contours(levelset, .5)
+    cnts = find_contours(levelset, level=.5)
     for cnt in cnts:
         for c in cnt[:,::-1]:
             cv2.circle(viz, tuple(c.astype(np.int)), 1, (0,255,0), -1)
@@ -1300,29 +1309,29 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5):
     """
     Re-section atlas volumes and obtain structure contours on each section.
-    
+
     Args:
-        volumes : dict {structure: volume}
-        downsample_factor: the downscale factor of input volumes. Output contours are in original resolution.
-        volume_origin: (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
-        
+        volumes (dict): {structure: volume}
+        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
+        volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+
     Returns:
-        structure_contours: dict {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
+        dict: {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
-    
+
     from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
     from collections import defaultdict
-    
+
     # estimate mapping between z and section
     xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
     voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
-    
+
     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
-    
+
     structure_contours = defaultdict(dict)
-    
+
     # Multiprocess is not advisable here because volumes must be duplicated across processes which is very RAM heavy.
-    
+
 #     def compute_contours_one_section(sec):
 #         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
 #         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
@@ -1334,22 +1343,32 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
 #                 # r,c to x,y
 #                 contours_one_section[name_s] = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
 #         return contours_one_section
-    
+
 #     pool = Pool(NUM_CORES/2)
 #     structuer_contours = dict(zip(sections, pool.map(compute_contours_one_section, sections)))
 #     pool.close()
 #     pool.join()
-    
+
     for sec in sections:
-        sys.stderr.write('Computing structure contours for section %d...\n' % sec)            
+        sys.stderr.write('Computing structure contours for section %d...\n' % sec)
         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
         for name_s, vol in volumes.iteritems():
-            cnts = find_contours(vol[..., z], level=level) # rows, cols
-            for cnt in cnts:
-                # r,c to x,y
-                contours_on_cropped_tb = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+            if np.count_nonzero(vol[..., z]) == 0:
+                continue
+
+            if len(find_contour_points(vol[..., z], level=level, sample_every=sample_every)) == 0:
+                continue
+
+            cnts = find_contour_points(vol[..., z], level=level, sample_every=sample_every)[1]
+            if len(cnts) == 1:
+                best_cnt = cnts[np.argmax(map(len, cnts))]
+                contours_on_cropped_tb = best_cnt + (xmin_vol_f, ymin_vol_f)
                 structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
-                    
+            elif len(cnts) == 0:
+                sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
+            else:
+                sys.stderr.write('%d contours of %s is extracted at level=%.2f on section %d.\n' % (len(cnts), name_s, level, sec))
+
     return structure_contours
 
 
@@ -1638,7 +1657,67 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     return dense_volume
 
 
-def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f, ydim_f, zdim_f):
+def transform_volume_v2(vol, global_params, centroid_m, centroid_f):
+    """
+    First, centroid_m and centroid_f are aligned.
+    Then the tranform parameterized by global_params is applied.
+    The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
+
+    Args:
+        vol (3d array): the volume to transform
+        global_params (12-tuple): flattened vector of transform parameters
+        centroid_m (3-tuple): transform center in the volume to transform
+        centroid_f (3-tuple): transform center in the result volume.
+
+    Returns:
+        (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
+    """
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points(global_params, pts=nzvoxels_m_temp,
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
+    nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
+
+    xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
+    ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
+    zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
+
+    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+    xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+    volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
+
+    del nzs_m_aligned_to_f
+
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        # score volume
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
+
+
+def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f=None, ydim_f=None, zdim_f=None):
+    """
+    First, centroid_m and centroid_f are aligned.
+    Then the tranform parameterized by global_params is applied.
+    The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
+
+    Args:
+        vol (3d array): the volume to transform
+        global_params (12-tuple): flattened vector of transform parameters
+        centroid_m (3-tuple): transform center in the volume to transform
+        centroid_f (3-tuple): transform center in the result volume.
+        xmin_f (int): if None, this is inferred from the
+        ydim_f (int): if None, the
+        zdim_f (int): if None, the
+    """
 
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
@@ -1747,7 +1826,7 @@ def fill_sparse_volume(volume_sparse):
 
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
     """
-    Convert annotation volume (voxel is an integer indicating the structure class) to 
+    Convert annotation volume (voxel is an integer indicating the structure class) to
     score volume (voxel is a probability vector - in this case exactly one entry is 1.)
     """
     all_indices = set(np.unique(ann_vol)) - {0}

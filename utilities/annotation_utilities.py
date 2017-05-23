@@ -550,6 +550,14 @@ def closest_to(point, poly):
 
 
 def average_multiple_volumes(volumes, bboxes):
+    """
+    Args:
+        volumes (list of 3D boolean arrays):
+        bboxes (list of tuples): each tuple is (xmin, xmax, ymin, ymax, zmin, zmax)
+
+    Returns:
+        (3D array, tuple): (averaged volume, bbox of averaged volume)
+    """
 
     overall_xmin, overall_ymin, overall_zmin = np.min([(xmin, ymin, zmin) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)
     overall_xmax, overall_ymax, overall_zmax = np.max([(xmax, ymax, zmax) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)

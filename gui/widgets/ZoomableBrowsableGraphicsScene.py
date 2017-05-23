@@ -66,9 +66,13 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             else:
                 raise Exception('Section %d is not valid.' % sec)
         elif i is not None:
-            sec = self.data_feeder.sections[i]
+            if hasattr(self.data_feeder, 'sections'):
+                sec = self.data_feeder.sections[i]
+            else:
+                # raise Exception('Data feeder \"%s\" has no concept of sections.' % self.data_feeder.name)
+                # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                pass
 
-        assert i is not None and sec is not None
         return i, sec
 
     def set_data_feeder(self, feeder):
@@ -154,10 +158,6 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     def set_downsample_factor(self, downsample):
         if self.data_feeder.downsample == downsample:
             return
-        # if self.downsample == downsample:
-        #     return
-        #
-        # self.downsample = downsample
         self.data_feeder.set_downsample_factor(downsample)
         self.update_image()
 
@@ -282,6 +282,7 @@ class SimpleGraphicsScene4(ZoomableBrowsableGraphicsScene):
 
 class SimpleGraphicsScene3(ZoomableBrowsableGraphicsScene):
     """
+    Used in the preprocess tool.
     Variant for sorted section gscene.
     Support context menu to specify FIRST, LAST, ANCHOR.
     Support adjusting the crop box.
@@ -450,6 +451,7 @@ class SimpleGraphicsScene3(ZoomableBrowsableGraphicsScene):
 
 class SimpleGraphicsScene2(ZoomableBrowsableGraphicsScene):
     """
+    Used in preprocess tool.
     Variant for slide position gscenes.
     """
 

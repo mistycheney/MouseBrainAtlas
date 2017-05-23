@@ -94,6 +94,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         """
 
         volume, bbox = self.structure_volumes[(name_u, side)]
+        for x in range(volume.shape[1]):
+            imsave('/tmp/vol_%d.png' % x, (volume[:, x, :]*255).astype(np.uint8))
+
         xmin, xmax, ymin, ymax, zmin, zmax = bbox
         print 'volume', volume.shape, xmin, xmax, ymin, ymax, zmin, zmax
 
@@ -106,7 +109,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
-
             print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
         # These confirmed contours will not be removed.
@@ -187,6 +189,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 posmin_ds = ymin_ds
                 posmax_ds = ymin_ds + volume_downsampled.shape[0] - 1
 
+            print self.data_feeder.orientation, posmin_ds, posmax_ds
+
             for pos_ds in range(posmin_ds, posmax_ds+1):
 
                 # First remove all unconfirmed/interpolated contours.
@@ -204,18 +208,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.data_feeder.orientation == 'coronal':
 
-                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=3)
+                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=1)
                     if len(cnts) == 0 or 1 not in cnts:
                         sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
-                        # Contour for label 1 (which is the only label in the boolean volume)
-                    zys = np.array(cnts[1][0])
-                    gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
-                    gscene_ys = zys[:,1] + ymin_ds
+                    else:
+                        if len(cnts[1]) > 1:
+                            sys.stderr.write('%s: %s contour of reconstructed volume is found at position %d.\n' % (self.id, len(cnts[1]), pos_ds))
+                            imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
+                        zys = np.array(cnts[1][0])
+                        gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
+                        gscene_ys = zys[:,1] + ymin_ds
 
                 elif self.data_feeder.orientation == 'horizontal':
 
-                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=3)
+                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=1)
                     if len(cnts) == 0 or 1 not in cnts:
                         sys.stderr.write('%s: No contour of reconstructed volume is found at position %d.\n' % (self.id, pos_ds))
                         continue
@@ -1028,7 +1035,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if self.mode == 'rotate3d' or self.mode == 'shift3d':
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.structure_volumes, \
-                "structure_volumes does not have %s. Need to reconstruct this structure first." % name_side_tuple
+                "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
                 vol, bbox = self.structure_volumes[name_side_tuple]
                 ys, xs, zs = np.where(vol)
                 cx_volResol = np.mean(xs)
@@ -1038,14 +1045,24 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if self.mode == 'rotate3d':
 
                     cx_vol_resol_gl, cy_vol_resol_gl, cz_vol_resol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
-                    active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
-                    active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                    if self.id == 'sagittal':
+                        active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
+                        active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                    elif self.id == 'coronal':
+                        active_structure_center_2d_gscene_resol = np.array((self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
+                                                                            cy_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))
+                    elif self.id == 'horizontal':
+                        active_structure_center_2d_gscene_resol = np.array((cx_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
+                                                                            self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))
+
                     vec2 = np.array((gscene_x - active_structure_center_2d_gscene_resol[0], gscene_y - active_structure_center_2d_gscene_resol[1]))
                     vec1 = np.array((self.press_screen_x - active_structure_center_2d_gscene_resol[0], self.press_screen_y - active_structure_center_2d_gscene_resol[1]))
                     vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
                     x2 = np.dot(vec2, vec1/vec1n)
                     y2 = (vec2 - x2*vec1/vec1n)[1]
                     theta_ccwise = np.arctan2(y2, x2)
+                    print active_structure_center_2d_gscene_resol, vec2, vec1, x2, y2
+                    print theta_ccwise, np.rad2deg(theta_ccwise)
                     if self.id == 'sagittal':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
                     elif self.id == 'coronal':
@@ -1075,6 +1092,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                 tfed_structure_volume_bbox_rel[3] + bbox[2],
                                                 tfed_structure_volume_bbox_rel[4] + bbox[4],
                                                 tfed_structure_volume_bbox_rel[5] + bbox[4])
+                print tfed_structure_volume.shape, tfed_structure_volume_bbox
                 self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
                 self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)

@@ -80,20 +80,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.structure_volumes = {}
         self.structure_adjustment_3d = defaultdict(list)
 
-        # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32}),
-        #                     8: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':8})}
-
-        # self.volume_cache = {32: bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_down%(downsample)dVolume.bp' % {'stack':self.stack, 'downsample':32})}
-
         self.volume_cache = {}
         for ds in [8, 32]:
+        # for ds in [32]:
             try:
                 self.volume_cache[ds] = DataManager.load_intensity_volume(self.stack, downscale=ds)
             except:
                 sys.stderr.write('Intensity volume of downsample %d does not exist.\n' % ds)
-
-        # self.volume = self.volume_cache[self.downsample_factor]
-        # self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
         self.coronal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='coronal', gui=self, gview=self.coronal_gview)
         self.coronal_gview.setScene(self.coronal_gscene)
@@ -153,6 +146,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
             coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             coronal_volume_resection_feeder.set_orientation('coronal')
+            # coronal_volume_resection_feeder.set_downsample_factor(32)
             coronal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
             self.gscenes['coronal'].set_active_i(50)
@@ -160,6 +154,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
             horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             horizontal_volume_resection_feeder.set_orientation('horizontal')
+            # horizontal_volume_resection_feeder.set_downsample_factor(32)
             horizontal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
             self.gscenes['horizontal'].set_active_i(150)
@@ -192,7 +187,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.username = str(self.sender().text())
         print 'username changed to', self.username
 
-
     def get_username(self):
         if not hasattr(self, 'username') or self.username is None:
             username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
@@ -201,9 +195,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.lineEdit_username.setText(self.username)
 
         return self.username
-
-    # @pyqtSlot()
-    # def username_dialog_requested(self):
 
     def structure_tree_changed(self, item, column):
 
@@ -625,6 +616,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # for gscene_id, gscene in self.gscenes.iteritems():
 
         if (name_u, side) not in self.structure_volumes or recompute_from_contours:
+
+            print 'Re-computing volume from contours.'
 
             gscene_id = self.sender().id
             gscene = self.gscenes[gscene_id]

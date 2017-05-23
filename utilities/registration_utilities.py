@@ -44,10 +44,12 @@ def parallel_where(atlas_volume, label_ind, num_samples=None):
 
 def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,c=(0,0,0)):
     """
+    y = R(x-c)+t+c.
+
     Args:
         theta_xy (float): in radian.
     Returns:
-        numpy array: length 12
+        (12,)-ndarray:
     """
     assert np.count_nonzero([theta_xy, theta_yz, theta_xz]) <= 1, \
     "Current implementation is sound only if only one rotation is given."
@@ -62,7 +64,7 @@ def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,
     Rx = np.array([[1, 0, 0], [0, cos_theta_yz, -sin_theta_yz], [0, sin_theta_yz, cos_theta_yz]])
     Ry = np.array([[cos_theta_xz, 0, -sin_theta_xz], [0, 1, 0], [sin_theta_xz, 0, cos_theta_xz]])
     R = np.dot(Rx, np.dot(Ry, Rz))
-    tt = np.dot(R, np.r_[tx,ty,tz]-c) + c
+    tt = np.r_[tx,ty,tz] + c - np.dot(R,c)
     return np.ravel(np.c_[R, tt])
 
 def rotate_transform_vector(v, theta_xy=None,theta_yz=None,theta_xz=None,c=(0,0,0)):
@@ -1690,7 +1692,6 @@ def transform_volume_v2(vol, global_params, centroid_m, centroid_f):
     del nzs_m_aligned_to_f
 
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        # score volume
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
         dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
@@ -1737,7 +1738,6 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f=None, yd
     del nzs_m_aligned_to_f
 
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        # score volume
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
         dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
@@ -1774,7 +1774,6 @@ def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m,
     del nzs_m_aligned_to_f
 
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        # score volume
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
         dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
@@ -1807,17 +1806,33 @@ def fill_sparse_score_volume(vol):
 
 
 def fill_sparse_volume(volume_sparse):
+    """
+    Fill all holes inside the longest contour of each z-section.
 
-    from registration_utilities import find_contour_points
-    from annotation_utilities import points_inside_contour
+    Args:
+        volume_sparse (3D ndarray of int): label volume.
+    """
+
+    # from registration_utilities import find_contour_points
+    # from annotation_utilities import points_inside_contour
+    #
+    # volume = np.zeros_like(volume_sparse, np.int8)
+    # for z in range(volume_sparse.shape[-1]):
+    #     for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
+    #         longest_cnt = cnts[np.argsort(map(len, cnts))[-1]]
+    #         pts = points_inside_contour(longest_cnt)
+    #         volume[pts[:,1], pts[:,0], z] = ind
+
+    from skimage.morphology import binary_closing, disk
 
     volume = np.zeros_like(volume_sparse, np.int8)
-
     for z in range(volume_sparse.shape[-1]):
-        for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
-            cnt = cnts[np.argsort(map(len, cnts))[-1]]
-            pts = points_inside_contour(cnt)
-            volume[pts[:,1], pts[:,0], z] = ind
+        for ind in np.unique(volume_sparse[..., z]):
+            # Assume background label is 0.
+            if ind == 0:
+                continue
+            volume[..., z][binary_closing(volume_sparse[..., z] == ind, disk(5))] = ind
+
     return volume
 
 

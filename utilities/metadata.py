@@ -80,10 +80,12 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+    RAW_DATA_DIR = DATA_ROOTDIR
 
     ON_AWS = False
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
     REPO_DIR = os.environ['REPO_DIR']
 
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')

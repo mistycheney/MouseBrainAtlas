@@ -80,10 +80,12 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+    RAW_DATA_DIR = DATA_ROOTDIR
 
     ON_AWS = False
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
     REPO_DIR = os.environ['REPO_DIR']
 
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
@@ -189,10 +191,10 @@ def compose_label(structure_name, side, surround_margin, surround_structure_name
 def convert_to_unsided_label(label):
     structure_name, side, surround_margin, surround_structure_name = parse_label(label)
     return compose_label(structure_name, side=None, surround_margin=surround_margin, surround_structure_name=surround_structure_name)
-    
+
 def convert_to_nonsurround_label(name):
     return convert_to_nonsurround_name(name)
-    
+
     # return convert_name_to_unsided(name)
 
 # def convert_name_to_unsided(name):

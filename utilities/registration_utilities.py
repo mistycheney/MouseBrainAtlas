@@ -8,7 +8,10 @@ from skimage.morphology import binary_closing, disk, binary_dilation, binary_ero
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 from shapely.geometry import Polygon
-import cv2
+try:	
+   import cv2
+except:
+    sys.stderr.write('Cannot find cv2\n')
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *

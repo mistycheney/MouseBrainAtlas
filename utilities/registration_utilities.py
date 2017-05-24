@@ -262,7 +262,7 @@ class Aligner4(object):
             else:
                 raise Exception('centroid_f not recognized.')
 
-        print 'm:', self.centroid_m, 'f:', self.centroid_f
+        # print 'm:', self.centroid_m, 'f:', self.centroid_f
 
         global nzvoxels_centered_m
         nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
@@ -587,7 +587,15 @@ class Aligner4(object):
         else:
             return score
 
-
+    def compute_scores_neighborhood_samples(self, params, dxs, dys, dzs, indices_m=None):
+        pool = Pool(processes=12)
+        scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m),
+                        zip(dxs, dys, dzs))
+        pool.close()
+        pool.join()
+        return scores
+        
+        
     def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, indices_m=None):
 
         from itertools import product
@@ -1005,11 +1013,14 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
 
 def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5):
     """
-    The value of sample_every can be interpreted as distance between points.
-    return is (x,y)
-    Note the returned result is a dict of lists.
+    Args:
+        labelmap (2d array of int): 
+        sample_every (int): can be interpreted as distance between points.
+        
+    Returns:
+        a dict of lists: {label: list of contours each consisting of a list of (x,y) coordinates}
     """
-
+    
     regions = regionprops(labelmap.astype(np.int))
 
     contour_points = {}
@@ -1021,7 +1032,7 @@ def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5):
         padded = np.pad(r.filled_image, ((padding,padding),(padding,padding)),
                         mode='constant', constant_values=0)
 
-        contours = find_contours(padded, .5, fully_connected='high')
+        contours = find_contours(padded, level=.5, fully_connected='high')
         contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > min_length]
         if len(contours) > 0:
 #             if len(contours) > 1:
@@ -1062,7 +1073,7 @@ def show_levelset(levelset, bg, title):
         viz = bg.copy()
     elif bg.ndim == 2:
         viz = gray2rgb(bg)
-    cnts = find_contours(levelset, .5)
+    cnts = find_contours(levelset, level=.5)
     for cnt in cnts:
         for c in cnt[:,::-1]:
             cv2.circle(viz, tuple(c.astype(np.int)), 1, (0,255,0), -1)
@@ -1294,17 +1305,18 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
     return map_z_to_section
 
-def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5):
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5, sample_every=1):
     """
     Re-section atlas volumes and obtain structure contours on each section.
     
     Args:
-        volumes (dict): {structure: volume}
+        volumes (dict of 3D ndarrays of float): {structure: volume}. volume is a 3d array of probability values.
         downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
         volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+        level (int):
         
     Returns:
-        dict: {section: {name_s: nx2 array}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
+        dict: {section: {name_s: (n,2)-ndarray}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
     
     from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
@@ -1341,17 +1353,20 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         sys.stderr.write('Computing structure contours for section %d...\n' % sec)            
         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
         for name_s, vol in volumes.iteritems():
-            cnts = find_contours(vol[..., z], level=level) # rows, cols
-            if len(cnts) == 1:
-                best_cnt = cnts[np.argmax(map(len, cnts))]
-                # r,c to x,y
-                contours_on_cropped_tb = best_cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
-            elif len(cnts) == 0:
-                sys.stderr.write('No contours is extracted at level=%.2f on section %d.\n' % (level, sec))
+            if np.count_nonzero(vol[..., z]) == 0:
+                continue
+                
+            cnts_rowcol = find_contours(vol[..., z], level=level)
+                
+            if len(cnts_rowcol) == 0:
+                sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
             else:
-                sys.stderr.write('%d contours is extracted at level=%.2f on section %d.\n' % (len(cnts), level, sec))
-                    
+                if len(cnts_rowcol) > 1:
+                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
+                best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
+                contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
+                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
+            
     return structure_contours
 
 

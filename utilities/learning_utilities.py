@@ -550,7 +550,9 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
     Load the structure annotation.
     Use the default grid spec.
     Find grid indices for each class label.
-    Save as a hdf file. Upload to S3.
+    
+    Returns:
+        DataFrame: Columns are class labels and rows are section indices.
     """
     
     contours_df, _ = DataManager.load_annotation_v3(stack=stack, by_human=by_human, 

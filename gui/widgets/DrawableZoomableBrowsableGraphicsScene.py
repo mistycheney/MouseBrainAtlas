@@ -104,7 +104,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         if edit_history is None or len(edit_history) == 0:
             polygon.set_properties('edit_history',
-            {'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})
+            [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
         else:
             polygon.set_properties('edit_history', edit_history)
 

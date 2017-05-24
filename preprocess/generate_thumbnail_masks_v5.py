@@ -34,7 +34,7 @@ min_size = args.min_size
 default_channel = args.default_channel
 
 init_snake_contours_fp = args.init_snake_contours_fp
-download_from_s3_to_ec2(init_snake_contours_fp)
+download_from_s3(init_snake_contours_fp)
 init_snake_contour_vertices = load_pickle(init_snake_contours_fp) # {fn: vertices}
 
 ##############################################
@@ -56,7 +56,7 @@ def generate_contours(fn, init_cnt):
     for submask_ind, m in submasks.iteritems():
         submask_fp = DataManager.get_auto_submask_filepath(stack=stack, fn=fn, what='submask', submask_ind=submask_ind)
         imsave(submask_fp, np.uint8(m)*255)
-        upload_from_ec2_to_s3(submask_fp)
+        upload_to_s3(submask_fp)
 
     submask_decisions = {sm_i: True for sm_i in submasks.iterkeys()}
         
@@ -64,7 +64,7 @@ def generate_contours(fn, init_cnt):
     decisions_fp = DataManager.get_auto_submask_filepath(stack=stack, fn=fn, what='decisions')
     from pandas import Series
     Series(submask_decisions).to_csv(decisions_fp)
-    upload_from_ec2_to_s3(decisions_fp)
+    upload_to_s3(decisions_fp)
 
     
 t = time.time()

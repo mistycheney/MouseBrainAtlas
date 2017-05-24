@@ -70,7 +70,8 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
                 sec = self.data_feeder.sections[i]
             else:
                 # raise Exception('Data feeder \"%s\" has no concept of sections.' % self.data_feeder.name)
-                sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                pass
 
         return i, sec
 
@@ -157,10 +158,6 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     def set_downsample_factor(self, downsample):
         if self.data_feeder.downsample == downsample:
             return
-        # if self.downsample == downsample:
-        #     return
-        #
-        # self.downsample = downsample
         self.data_feeder.set_downsample_factor(downsample)
         self.update_image()
 

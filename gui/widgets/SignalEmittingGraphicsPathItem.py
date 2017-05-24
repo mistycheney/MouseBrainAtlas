@@ -19,10 +19,10 @@ class SignalEmittingGraphicsPathItem(QGraphicsPathItem):
         self.properties = {}
 
     def set_properties(self, property_name, property_value):
+        # sys.stderr.write('Trying to set %s to %s\n' % (property_name, property_value))
         if property_name not in self.properties or tuple(self.properties[property_name]) != tuple(property_value):
             # The second condition uses tuple because a multi-value list may either be represented by tuple or list
             self.properties[property_name] = property_value
-            sys.stderr.write(property_name + " is set.\n")
             self.signal_emitter.property_changed.emit(property_name, property_value)
 
     def mousePressEvent(self, event):

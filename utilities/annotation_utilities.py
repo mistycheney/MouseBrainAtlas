@@ -550,6 +550,14 @@ def closest_to(point, poly):
 
 
 def average_multiple_volumes(volumes, bboxes):
+    """
+    Args:
+        volumes (list of 3D boolean arrays):
+        bboxes (list of tuples): each tuple is (xmin, xmax, ymin, ymax, zmin, zmax)
+
+    Returns:
+        (3D array, tuple): (averaged volume, bbox of averaged volume)
+    """
 
     overall_xmin, overall_ymin, overall_zmin = np.min([(xmin, ymin, zmin) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)
     overall_xmax, overall_ymax, overall_zmax = np.max([(xmax, ymax, zmax) for xmin, xmax, ymin, ymax, zmin, zmax in bboxes], axis=0)
@@ -566,10 +574,13 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
                                     return_contours=False, len_interval=20):
     """Interpolate contours
 
+    Args:
+        return_contours (bool): If True, return resampled contours \{int: (n,2)-ndarrays\}.
+        If False, return (volume, bbox) tuple.
+
     Returns
-    -------
-    volume: a 3D binary array
-    bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
+        volume (3D binary ndarray):
+        bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
 
     If interpolation_direction == 'z', the points should be (x,y)
     If interpolation_direction == 'x', the points should be (y,z)
@@ -634,9 +645,16 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
 
 def get_interpolated_contours(contours_grouped_by_pos, len_interval):
     """
-    Snap minimum z to minimum int
-    Snap maximum z to maximum int
-    Return contours at integer levels
+    Interpolate contours at integer levels.
+    Snap minimum z to minimum integer.
+    Snap maximum z to maximum integer.
+
+    Args:
+        contours_grouped_by_pos (dict of (n,2)-ndarrays):
+        len_interval (int):
+
+    Returns:
+        contours at integer levels (dict of (n,2)-ndarrays):
     """
 
     contours_grouped_by_adjusted_pos = {}
@@ -696,9 +714,19 @@ def signed_curvatures(s, d=7):
     curvatures = (xp * ypp - yp * xpp)/np.sqrt(xp**2+yp**2)**3
     return curvatures, xp, yp
 
-def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
+def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0=20):
     '''
-    Returned arrays include cnt1 and cnt2 - length of array is nlevels.
+    Interpolate contours between (including) cnt1 and cnt2.
+
+    Args:
+        cnt1 ((n,2)-ndarray): contour 1
+        cnt2 ((n,2)-ndarray): contour 2
+        nlevels (int): number of resulting contours, including contour 1 and contour 2.
+        len_interval_0 (int): ?
+
+    Returns:
+        contours (list of (n,2)-ndarrays):
+            resulting contours including the first and last contours.
     '''
 
     # poly1 = Polygon(cnt1)
@@ -754,7 +782,6 @@ def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0 = 20):
     yp2 = np.gradient(s2[:, 1], d)
     xp2i = np.gradient(s2i[:, 0], d)
     yp2i = np.gradient(s2i[:, 1], d)
-
 
     # using correlation over curvature values directly is much better than using correlation over signs
     # sign1 = np.sign(curv1)

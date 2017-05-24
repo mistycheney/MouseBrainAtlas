@@ -18,7 +18,7 @@ import json
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='')
+    description='Match intensity profile of neurotrace images to adjacent Nissl.')
 parser.add_argument("stack", type=str, help="Stack name")
 parser.add_argument("filename_pairs", type=str, help="Filename pairs")
 args = parser.parse_args()
@@ -209,12 +209,12 @@ for nissl_fn, ntb_fn in filename_pairs:
     create_parent_dir_if_not_exists(fp)
     np.save(fp, np.asarray(ntb_matched_values_all_examples_one_section))
     upload_to_s3(fp)
-    
-    median_mapping_one_section = np.median(ntb_matched_values_all_examples_one_section, axis=0)    
-    fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
-    np.save(fp, np.asarray(median_mapping_one_section))
-    upload_to_s3(fp)
 
     fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_to_%s_region_bboxes.npy' % (ntb_fn, nissl_fn))
     np.save(fp, np.asarray(region_bboxes_all_examples_one_section))
+    upload_to_s3(fp)
+
+    median_mapping_one_section = np.median(ntb_matched_values_all_examples_one_section, axis=0)
+    fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, fn=ntb_fn)
+    np.save(fp, np.asarray(median_mapping_one_section))
     upload_to_s3(fp)

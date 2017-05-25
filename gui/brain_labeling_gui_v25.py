@@ -710,26 +710,48 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
 
-                current_structure_hessians = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
-                param_suffix=curr_structure_label + '_' + curr_structure_side, what='hessians')
-                H, _ = current_structure_hessians[84.64]
+                if name_side_tuple in self.gscenes['sagittal'].uncertainty_lines:
+                    print "Remove uncertainty line"
+                    for gscene in self.gscenes.itervalues():
+                        gscene.hide_uncertainty_line(name_side_tuple)
+                else:
+                    print "Add uncertainty line"
+                    if curr_structure_side == 'S':
+                        name = curr_structure_label
+                    else:
+                        name = curr_structure_label + '_' + curr_structure_side
+                    current_structure_hessians = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                    param_suffix=name, what='hessians')
+                    H, fmax = current_structure_hessians[84.64]
 
-                U, S, UT = np.linalg.svd(H)
-                flattest_dir = U[:,-1]
-                len_um = 100
-                len_lossless_res = len_um / XY_PIXEL_DISTANCE_LOSSLESS
+                    U, S, UT = np.linalg.svd(H)
+                    flattest_dir = U[:,-1]
 
-                vol, bbox = self.structure_volumes[name_side_tuple]
-                c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
+                    current_structure_peakwidth = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                    param_suffix=name, what='peak_width')
+                    pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
+                    len_lossless_res = pw_max_um / XY_PIXEL_DISTANCE_LOSSLESS
 
-                e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir
-                e2 = c_vol_res_gl * self.volume_downsample_factor + len_lossless_res * flattest_dir
+                    vol, bbox = self.structure_volumes[name_side_tuple]
+                    c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
 
-                for gscene in self.gscenes.itervalues():
-                    e1_gscene = point3d_to_point2d(e1, gscene)
-                    e2_gscene = point3d_to_point2d(e2, gscene)
-                    print gscene.id, e1_gscene, e2_gscene
-                    gscene.set_uncertainty_line(name_side_tuple, e1_gscene, e2_gscene)
+                    e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir
+                    e2 = c_vol_res_gl * self.volume_downsample_factor + len_lossless_res * flattest_dir
+
+                    for gscene in self.gscenes.itervalues():
+                        e1_gscene = point3d_to_point2d(e1, gscene)
+                        e2_gscene = point3d_to_point2d(e2, gscene)
+                        print gscene.id, e1_gscene, e2_gscene
+                        gscene.set_uncertainty_line(name_side_tuple, e1_gscene, e2_gscene)
+
+                if name_side_tuple in self.gscenes['sagittal'].structure_onscreen_messages:
+                    self.gscenes['sagittal'].hide_structure_onscreen_message(name_side_tuple)
+                else:
+                    current_structure_zscores = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                    param_suffix=name, what='zscores')
+                    zscore, fmax, mean, std = current_structure_zscores[118.75]
+                    print str((zscore, fmax, mean, std)), np.array(e1_gscene + e2_gscene)/2
+                    self.gscenes['sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
 
         elif event.type() == QEvent.KeyRelease:
             key = event.key()
@@ -755,7 +777,7 @@ def point3d_to_point2d(pt3d, gscene):
         pt2d = (gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2], pt3d_gscene_res[1])
     elif gscene.id == 'horizontal':
         pt2d = (pt3d_gscene_res[0], gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2])
-    return pt2d
+    return np.array(pt2d)
 
 def load_structure_names(fn):
     """

@@ -54,6 +54,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.vline.setVisible(False)
 
         self.uncertainty_lines = {}
+        self.structure_onscreen_messages = {}
 
     def set_mode(self, mode):
         """
@@ -216,7 +217,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         continue
                     else:
                         if len(cnts[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume is found at position %d. Use the longest one.\n' % (self.id, len(cnts[1]), pos_ds))
+                            sys.stderr.write('%s: %s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), pos_ds, map(len, cnts[1])))
                             # imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
                             zys = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
                         else:
@@ -950,7 +951,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.removeItem(self.uncertainty_lines[structure])
 
         self.uncertainty_lines[structure] = \
-        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(255, 0, 0)), 5))
+        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(0, 0, 255)), 20))
+
+    def hide_uncertainty_line(self, structure):
+        if structure in self.uncertainty_lines:
+            self.removeItem(self.uncertainty_lines[structure])
+        self.uncertainty_lines.pop(structure)
+
+    def set_structure_onscreen_message(self, structure, msg, pos):
+        if structure in self.structure_onscreen_messages:
+            self.removeItem(self.structure_onscreen_messages[structure])
+        message_text_item = self.addSimpleText(msg)
+        message_text_item.setPos(pos[0], pos[1])
+        message_text_item.setScale(1.5)
+        self.structure_onscreen_messages[structure] = message_text_item
+
+    def hide_structure_onscreen_message(self, structure):
+        if structure in self.structure_onscreen_messages:
+            self.removeItem(self.structure_onscreen_messages[structure])
+        self.structure_onscreen_messages.pop(structure)
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()

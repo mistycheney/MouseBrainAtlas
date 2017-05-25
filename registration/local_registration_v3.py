@@ -113,12 +113,11 @@ for structure in structures:
         label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
         volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
 
-        volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
-
         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                              for label_m, name_m in label_to_structure_moving.iteritems()}
 
         if surround_weight == 'inverse':
+            volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
             label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
                                /float(volume_moving_structure_sizes[label_m])
                                if is_surround_label(name_m) else 1. \

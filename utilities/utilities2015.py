@@ -193,10 +193,10 @@ def save_hdf_v2(data, fn, key='data'):
     import pandas
     create_parent_dir_if_not_exists(fn)
     if isinstance(data, pandas.DataFrame):
-        data.to_hdf(fn, key=key)
+        data.to_hdf(fn, key=key, mode='w') # important to set mode='w', default is 'a' (append)
     elif isinstance(data, dict):
         if isinstance(data.values()[0], dict): # dict of dict
-            pandas.DataFrame(data).T.to_hdf(fn, key=key)
+            pandas.DataFrame(data).T.to_hdf(fn, key=key, mode='w')
         else:
             pandas.Series(data=data).to_hdf(fn, key, mode='w')
     

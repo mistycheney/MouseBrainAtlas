@@ -165,7 +165,10 @@ else:
 
 def parse_label(label):
     import re
-    m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)
+    try:
+        m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)
+    except:
+        raise Exception("Parse label error: %s" % label)
     g = m.groups()
     structure_name = g[0]
     side = g[2]

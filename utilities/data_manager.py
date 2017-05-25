@@ -511,7 +511,9 @@ class DataManager(object):
                             classifier_setting_m, classifier_setting_f, warp_setting, what,
                             type_m='score', type_f='score', param_suffix=None,
                             trial_idx=None):
-        return load_pickle(DataManager.get_confidence_filepath(**locals()))
+        fp = DataManager.get_confidence_filepath(**locals())
+        download_from_s3(fp)
+        return load_pickle(fp)
 
     @staticmethod
     def get_confidence_filepath(stack_m, stack_f,
@@ -526,9 +528,12 @@ class DataManager(object):
             fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
 
         if what == 'hessians':
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m, basename, fn + '_hessians.pkl')
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')
         elif what == 'zscores':
-            return os.path.join(REGISTRTION_PARAMETERS_ROOTDIR, stack_m, basename, fn + '_zscores.pkl')
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
+        elif what == 'score_landscape':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscape', fn + '_scoreLandscape.png')
+            
         raise
 
     @staticmethod

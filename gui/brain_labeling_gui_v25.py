@@ -45,12 +45,13 @@ class ReadImagesThread(QThread):
 
     def run(self):
         for sec in self.sections:
-            try:
-                # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
-                image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg'))
-                self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
-            except Exception as e:
-                sys.stderr.write('%s\n' % e.message)
+            # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
+            fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
+            if not os.path.exists(fp):
+                sys.stderr.write('Image %s does not exist.\n' % fp)
+                continue
+            image = QImage(fp)
+            self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
@@ -179,7 +180,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.gscenes['sagittal'].data_feeder.set_image(sec=sec, qimage=qimage)
         print 'Image', sec, 'received.'
         if self.gscenes['sagittal'].active_section == sec:
-            self.gscenes['sagittal'].load_histology()
+            self.gscenes['sagittal'].update_image()
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
 
     @pyqtSlot()
@@ -728,7 +729,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     flattest_dir = U[:,-1]
 
                     current_structure_peakwidth = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
-                    param_suffix=name, what='peak_width')
+                    param_suffix=name, what='peak_radius')
                     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
                     len_lossless_res = pw_max_um / XY_PIXEL_DISTANCE_LOSSLESS
 

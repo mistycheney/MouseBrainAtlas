@@ -50,26 +50,30 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         # self.gview.installEventFilter(self)
         self.gview.viewport().installEventFilter(self)
 
-        # self.set_mode('idle')
-
-    # def set_mode(self, mode):
-    #     self.mode = mode
-
     def get_requested_index_and_section(self, i=None, sec=None):
+
         if i is None and sec is None:
             if hasattr(self, 'active_i'):
                 i = self.active_i
-                sec = self.data_feeder.sections[i]
+                if hasattr(self.data_feeder, 'sections'):
+                    sec = self.data_feeder.sections[i]
+                else:
+                    # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                    pass
         elif sec is not None:
-            if sec in self.data_feeder.sections:
-                i = self.data_feeder.sections.index(sec)
+            if hasattr(self.data_feeder, 'sections'):
+                if sec in self.data_feeder.sections:
+                    i = self.data_feeder.sections.index(sec)
+                else:
+                    # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                    pass
             else:
-                raise Exception('Section %d is not valid.' % sec)
+                # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
+                pass
         elif i is not None:
             if hasattr(self.data_feeder, 'sections'):
                 sec = self.data_feeder.sections[i]
             else:
-                # raise Exception('Data feeder \"%s\" has no concept of sections.' % self.data_feeder.name)
                 # sys.stderr.write('Data feeder \"%s\" has no concept of sections.\n' % self.data_feeder.name)
                 pass
 
@@ -89,6 +93,10 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         #     self.active_image_updated.emit()
 
     def set_active_i(self, i, emit_changed_signal=True):
+        """
+        Set the active index variable.
+        Then update image to load the active index.
+        """
 
         # print self.id, 'goal active_i =', i, 'current active_i =', self.active_i
 
@@ -108,8 +116,6 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             self.update_image()
         except Exception as e: # if failed, do not change active_i or active_section
             sys.stderr.write('Error setting index to %d\n' % i)
-            # self.active_i = old_i
-            # self.active_section = self.data_feeder.sections[old_i]
             self.pixmapItem.setVisible(False)
             raise e
 
@@ -140,20 +146,11 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
 
     def update_image(self, i=None, sec=None):
 
-        if sec is not None:
-            assert sec in self.data_feeder.sections
-            i = self.data_feeder.sections.index(sec)
-        elif i is None:
-            assert self.active_i is not None
-            i = self.active_i
-
+        i, sec = self.get_requested_index_and_section(i=i, sec=sec)
         image = self.data_feeder.retrive_i(i=i)
-
         pixmap = QPixmap.fromImage(image)
-
         self.pixmapItem.setPixmap(pixmap)
         self.pixmapItem.setVisible(True)
-
 
     def set_downsample_factor(self, downsample):
         if self.data_feeder.downsample == downsample:

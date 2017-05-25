@@ -53,6 +53,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.hline.setVisible(False)
         self.vline.setVisible(False)
 
+        self.uncertainty_lines = {}
+
     def set_mode(self, mode):
         """
         Extend by:
@@ -214,9 +216,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         continue
                     else:
                         if len(cnts[1]) > 1:
-                            sys.stderr.write('%s: %s contour of reconstructed volume is found at position %d.\n' % (self.id, len(cnts[1]), pos_ds))
-                            imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
-                        zys = np.array(cnts[1][0])
+                            sys.stderr.write('%s: %s contours of reconstructed volume is found at position %d. Use the longest one.\n' % (self.id, len(cnts[1]), pos_ds))
+                            # imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
+                            zys = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
+                        else:
+                            zys = np.array(cnts[1][0])
                         gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
                         gscene_ys = zys[:,1] + ymin_ds
 
@@ -918,6 +922,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
             self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
 
+
     def set_active_section(self, section, emit_changed_signal=True, update_crossline=True):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_section(sec=section, emit_changed_signal=emit_changed_signal)
 
@@ -938,6 +943,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #
         #     print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
         #     self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
+
+
+    def set_uncertainty_line(self, structure, e1, e2):
+        if structure in self.uncertainty_lines:
+            self.removeItem(self.uncertainty_lines[structure])
+
+        self.uncertainty_lines[structure] = \
+        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(255, 0, 0)), 5))
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1068,7 +1081,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     elif self.id == 'coronal':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
                     elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=theta_ccwise)
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
 
                 elif self.mode == 'shift3d':
 

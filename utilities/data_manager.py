@@ -528,11 +528,11 @@ class DataManager(object):
             fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
 
         if what == 'hessians':
-            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename, fn + '_hessians.pkl')
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')
         elif what == 'zscores':
-            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename, fn + '_zscores.pkl')
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
         elif what == 'score_landscape':
-            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename, fn + '_scoreLandscape.png')
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscape', fn + '_scoreLandscape.png')
             
         raise
 

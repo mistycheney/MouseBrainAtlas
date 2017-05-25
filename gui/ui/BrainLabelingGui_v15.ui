@@ -166,6 +166,13 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="6">
+          <widget class="QPushButton" name="button_displayStructures">
+           <property name="text">
+            <string>Display Structures</string>
+           </property>
+          </widget>
+         </item>
          <item row="3" column="4">
           <widget class="QSlider" name="slider_hzy">
            <property name="minimum">
@@ -186,10 +193,10 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="6">
-          <widget class="QPushButton" name="button_displayStructures">
+         <item row="2" column="6">
+          <widget class="QPushButton" name="button_inferSide">
            <property name="text">
-            <string>Display Structures</string>
+            <string>Infer Side</string>
            </property>
           </widget>
          </item>
@@ -197,13 +204,6 @@
           <widget class="QPushButton" name="button_displayOptions">
            <property name="text">
             <string>Display Options</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="6">
-          <widget class="QPushButton" name="button_inferSide">
-           <property name="text">
-            <string>Infer Side</string>
            </property>
           </widget>
          </item>
@@ -264,7 +264,7 @@
      <x>0</x>
      <y>0</y>
      <width>1521</width>
-     <height>25</height>
+     <height>19</height>
     </rect>
    </property>
   </widget>

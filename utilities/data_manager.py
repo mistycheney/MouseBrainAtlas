@@ -551,7 +551,6 @@ class DataManager(object):
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
         elif what == 'peak_radius':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
-            
         raise
 
     @staticmethod
@@ -1674,7 +1673,7 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+            fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped_gray_jpeg', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
             if not os.path.exists(fp):
                 continue
@@ -1949,7 +1948,7 @@ class DataManager(object):
             fp = os.path.join(DATA_DIR, 'average_nissl_intensity_mapping.npy')
         else:
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
-            
+
         return fp
 
     @staticmethod

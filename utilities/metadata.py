@@ -62,7 +62,7 @@ if hostname == 'yuncong-MacbookPro':
 
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
-    REGISTRTION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
+    REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
     # ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3'
 

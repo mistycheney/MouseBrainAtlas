@@ -54,6 +54,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.vline.setVisible(False)
 
         self.uncertainty_lines = {}
+        self.structure_onscreen_messages = {}
 
     def set_mode(self, mode):
         """
@@ -216,7 +217,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         continue
                     else:
                         if len(cnts[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume is found at position %d. Use the longest one.\n' % (self.id, len(cnts[1]), pos_ds))
+                            sys.stderr.write('%s: %s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), pos_ds, map(len, cnts[1])))
                             # imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
                             zys = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
                         else:
@@ -242,54 +243,24 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         side=side,
                                                         side_manually_assigned=False)
 
-    def update_image(self):
+    def update_image(self, i=None, sec=None):
+        i, sec = self.get_requested_index_and_section(i=i, sec=sec)
+
         if self.showing_which == 'histology':
-            self.load_histology()
+            image = self.data_feeder.retrive_i(i=i)
+            histology_pixmap = QPixmap.fromImage(image)
+            # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
+            self.pixmapItem.setPixmap(histology_pixmap)
+            self.pixmapItem.setVisible(True)
         elif self.showing_which == 'scoremap':
-            self.load_scoremap()
-
-    def load_scoremap(self, name_u=None, sec=None):
-        if sec is None:
-            assert self.active_section is not None
-            sec = self.active_section
-
-        if name_u is None:
-            assert self.active_structure is not None
-            name_u = labelMap_sidedToUnsided[self.active_structure]
-
-        scoremap_viz_fn = '/home/yuncong/CSHL_scoremapViz_svm_Sat16ClassFinetuned_v3/%(stack)s/%(sec)04d/%(stack)s_%(sec)04d_roi1_scoremapViz_%(name)s.jpg' % \
-        {'sec': self.active_section, 'stack': self.gui.stack, 'name': name_u}
-
-        w, h = DataManager.get_image_dimension(self.gui.stack)
-        scoremap_pixmap = QPixmap(scoremap_viz_fn).scaled(w, h)
-        self.pixmapItem.setPixmap(scoremap_pixmap)
-        self.showing_which = 'scoremap'
-
-
-    def load_histology(self, i=None, sec=None):
-
-        if i is None:
-            i = self.active_i
-            # assert i >= 0 and i < len(self.data_feeder.sections)
-        elif hasattr(self.data_feeder, 'sections') and self.data_feeder.sections is not None:
-        # elif self.data_feeder.sections is not None:
-            if sec is None:
-                sec = self.active_section
-            # i = self.data_feeder.sections.index(sec)
-            assert sec in self.data_feeder.sections
-            i = self.data_feeder.sections.index(sec)
-
-        print i
-        image = self.data_feeder.retrive_i(i=i)
-
-        histology_pixmap = QPixmap.fromImage(image)
-
-        # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
-        self.pixmapItem.setPixmap(histology_pixmap)
-        self.pixmapItem.setVisible(True)
-        self.showing_which = 'histology'
-
-        self.set_active_i(i)
+            assert self.active_polygon is not None, 'Must have an active polygon first.'
+            name_u = self.active_polygon.properties['label']
+            scoremap_viz_fn = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, classifier_id=37)
+            w, h = DataManager.get_image_dimension(self.gui.stack)
+            scoremap_pixmap = QPixmap(scoremap_viz_fn).scaled(w, h)
+            self.pixmapItem.setPixmap(scoremap_pixmap)
+        else:
+            raise Exception("Show option %s is not recognized." % self.showing_which)
 
     def infer_side(self):
 
@@ -948,9 +919,26 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     def set_uncertainty_line(self, structure, e1, e2):
         if structure in self.uncertainty_lines:
             self.removeItem(self.uncertainty_lines[structure])
-
         self.uncertainty_lines[structure] = \
-        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(255, 0, 0)), 5))
+        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(0, 0, 255, int(.3*255))), 20))
+
+    def hide_uncertainty_line(self, structure):
+        if structure in self.uncertainty_lines:
+            self.removeItem(self.uncertainty_lines[structure])
+        self.uncertainty_lines.pop(structure)
+
+    def set_structure_onscreen_message(self, structure, msg, pos):
+        if structure in self.structure_onscreen_messages:
+            self.removeItem(self.structure_onscreen_messages[structure])
+        message_text_item = self.addSimpleText(msg)
+        message_text_item.setPos(pos[0], pos[1])
+        message_text_item.setScale(1.5)
+        self.structure_onscreen_messages[structure] = message_text_item
+
+    def hide_structure_onscreen_message(self, structure):
+        if structure in self.structure_onscreen_messages:
+            self.removeItem(self.structure_onscreen_messages[structure])
+        self.structure_onscreen_messages.pop(structure)
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -961,6 +949,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             if key == Qt.Key_Escape:
                 self.set_mode('idle')
+                return True
+
+            elif key == Qt.Key_S:
+                if self.showing_which == 'scoremap':
+                    self.showing_which = 'histology'
+                else:
+                    self.showing_which = 'scoremap'
+                self.update_image()
                 return True
 
             elif key == Qt.Key_W:

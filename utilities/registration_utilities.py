@@ -1376,7 +1376,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
                 sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
             else:
                 if len(cnts_rowcol) > 1:
-                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
+                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d. Keep only the longest.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
                 best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
                 contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
                 structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor

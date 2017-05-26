@@ -47,13 +47,13 @@ def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
         # load training addresses
 
         addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
-        download_from_s3_to_ec2(addresses_fp)
+        download_from_s3(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
         
         # Load training features
 
         features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id)
-        download_from_s3_to_ec2(features_fp)
+        download_from_s3(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
 
         for label in labels_to_sample:

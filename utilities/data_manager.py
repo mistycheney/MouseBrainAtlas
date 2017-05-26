@@ -135,7 +135,7 @@ class DataManager(object):
     def get_annotation_filepath(stack, by_human, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
-                                warp_setting=None, trial_idx=None):
+                                warp_setting=None, trial_idx=None, suffix=None):
         if by_human:
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
         else:
@@ -143,7 +143,10 @@ class DataManager(object):
                                                               classifier_setting_m=classifier_setting_m,
                                                               classifier_setting_f=classifier_setting_f,
                                                               warp_setting=warp_setting, trial_idx=trial_idx)
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
+            if suffix is not None:
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
+            else:
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
         return fp
 
     @staticmethod
@@ -170,10 +173,21 @@ class DataManager(object):
                                                      stack_m=stack_m,
                                                       classifier_setting_m=classifier_setting_m,
                                                       classifier_setting_f=classifier_setting_f,
-                                                      warp_setting=warp_setting, trial_idx=trial_idx)
+                                                      warp_setting=warp_setting, trial_idx=trial_idx,
+                                                    suffix='contours')
             download_from_s3(fp)
             contour_df = load_hdf_v2(fp)
-            return contour_df, None
+            
+            fp = DataManager.get_annotation_filepath(stack, by_human=False,
+                                                     stack_m=stack_m,
+                                                      classifier_setting_m=classifier_setting_m,
+                                                      classifier_setting_f=classifier_setting_f,
+                                                      warp_setting=warp_setting, trial_idx=trial_idx,
+                                                    suffix='structures')
+            download_from_s3(fp)
+            structure_df = load_hdf_v2(fp)
+            
+            return contour_df, structure_df
 
 
 
@@ -533,8 +547,10 @@ class DataManager(object):
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
         elif what == 'score_landscape':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscape', fn + '_scoreLandscape.png')
-        elif what == 'peak_radius' or what == 'peak_width':
+        elif what == 'peak_width':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
+        elif what == 'peak_radius':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
             
         raise
 

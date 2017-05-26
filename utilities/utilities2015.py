@@ -180,7 +180,7 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     cv2.line(image, p, q, color, thickness, line_type, shift)
     
 
-def save_hdf_v2(data, fn, key='data'):
+def save_hdf_v2(data, fn, key='data', mode='w'):
     """
     Save data as a hdf file.
     If data is dict of dict, convert to DataFrame before saving as hdf.
@@ -188,12 +188,13 @@ def save_hdf_v2(data, fn, key='data'):
     
     Args:
         data (pandas.DataFrame, dict or dict of dict)
+        mode (str): if 'w', overwrite original content. If 'a', append.
     """
     
     import pandas
     create_parent_dir_if_not_exists(fn)
     if isinstance(data, pandas.DataFrame):
-        data.to_hdf(fn, key=key, mode='w') # important to set mode='w', default is 'a' (append)
+        data.to_hdf(fn, key=key, mode=mode) # important to set mode='w', default is 'a' (append)
     elif isinstance(data, dict):
         if isinstance(data.values()[0], dict): # dict of dict
             pandas.DataFrame(data).T.to_hdf(fn, key=key, mode='w')

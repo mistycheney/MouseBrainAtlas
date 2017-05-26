@@ -164,6 +164,13 @@ else:
 #################### Name conversions ##################
 
 def parse_label(label):
+    """
+    Args:
+        a class label
+    
+    Returns:
+        (structure name, side, surround margin, surround structure name)
+    """
     import re
     try:
         m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)

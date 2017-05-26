@@ -111,7 +111,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         downsample = self.data_feeder.downsample
 
         if volume_downsample_factor <= downsample:
-
             volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
             print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
@@ -170,13 +169,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         continue
 
                     z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-                    z_currResol = .5 * z0 + .5 * z1
-                    z_volResol = int(np.round(z_currResol * downsample / volume_downsample_factor))
+                    z_gscene_resol = .5 * z0 + .5 * z1
+                    z_vol_resol = int(np.round(z_gscene_resol * downsample / volume_downsample_factor))
 
-                    if z_volResol - zmin < 0 or z_volResol - zmin >= volume.shape[2]:
+                    if z_vol_resol - zmin < 0 or z_vol_resol - zmin >= volume.shape[2]:
                         continue
 
-                    cnts_volResol = find_contour_points(volume[:, :, z_volResol - zmin].astype(np.uint8), sample_every=1)
+                    cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
                     if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
                         sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
                         continue
@@ -202,19 +201,30 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
             print 'matched_confirmed_positions', matched_confirmed_positions
 
+            # if self.data_feeder.orientation == 'sagittal':
+            #     posmin_ds = zmin_ds
+            #     posmax_ds = zmin_ds + volume_downsampled.shape[2] - 1
+            # elif self.data_feeder.orientation == 'coronal':
+            #     posmin_ds = xmin_ds
+            #     posmax_ds = xmin_ds + volume_downsampled.shape[1] - 1
+            # elif self.data_feeder.orientation == 'horizontal':
+            #     posmin_ds = ymin_ds
+            #     posmax_ds = ymin_ds + volume_downsampled.shape[0] - 1
+
             if self.data_feeder.orientation == 'sagittal':
-                posmin_ds = zmin_ds
-                posmax_ds = zmin_ds + volume_downsampled.shape[2] - 1
+                pos_start_ds = 0
+                pos_end_ds = self.data_feeder.z_dim - 1
             elif self.data_feeder.orientation == 'coronal':
-                posmin_ds = xmin_ds
-                posmax_ds = xmin_ds + volume_downsampled.shape[1] - 1
+                pos_start_ds = 0
+                pos_end_ds = self.data_feeder.x_dim - 1
             elif self.data_feeder.orientation == 'horizontal':
-                posmin_ds = ymin_ds
-                posmax_ds = ymin_ds + volume_downsampled.shape[0] - 1
+                pos_start_ds = 0
+                pos_end_ds = self.data_feeder.y_dim - 1
 
-            print self.data_feeder.orientation, posmin_ds, posmax_ds
+            # print self.data_feeder.orientation, posmin_ds, posmax_ds
 
-            for pos_ds in range(posmin_ds, posmax_ds+1):
+            # for pos_ds in range(posmin_ds, posmax_ds+1):
+            for pos_ds in range(pos_start_ds, pos_end_ds+1):
                 # print pos_ds
 
                 # First remove all unconfirmed/interpolated contours.
@@ -232,14 +242,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.data_feeder.orientation == 'coronal':
 
-                    cnts = find_contour_points(volume_downsampled[:, pos_ds-posmin_ds, :].astype(np.uint8), sample_every=1)
+                    if pos_ds - xmin_ds < 0 or pos_ds - xmin_ds >= volume_downsampled.shape[1]:
+                        continue
+
+                    cnts = find_contour_points(volume_downsampled[:, pos_ds-xmin_ds, :].astype(np.uint8), sample_every=1)
                     if len(cnts) == 0 or 1 not in cnts:
                         sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
                         continue
                     else:
                         if len(cnts[1]) > 1:
                             sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), name_u, side, pos_ds, map(len, cnts[1])))
-                            # imsave('/tmp/%d.png' % pos_ds, (volume_downsampled[:, pos_ds-posmin_ds, :]*255).astype(np.uint8))
                             zys = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
                         else:
                             zys = np.array(cnts[1][0])
@@ -248,14 +260,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.data_feeder.orientation == 'horizontal':
 
-                    cnts = find_contour_points(volume_downsampled[pos_ds-posmin_ds, :, :].astype(np.uint8), sample_every=1)
+                    if pos_ds - ymin_ds < 0 or pos_ds - ymin_ds >= volume_downsampled.shape[0]:
+                        continue
+
+                    cnts = find_contour_points(volume_downsampled[pos_ds-ymin_ds, :, :].astype(np.uint8), sample_every=1)
                     if len(cnts) == 0 or 1 not in cnts:
                         sys.stderr.write('%s: No contour of reconstructed volume of %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
                         continue
-
-                    zxs = np.array(cnts[1][0])
-                    gscene_xs = zxs[:,1] + xmin_ds
-                    gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
+                    else:
+                        if len(cnts[1]) > 1:
+                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), name_u, side, pos_ds, map(len, cnts[1])))
+                            zxs = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
+                        else:
+                            zxs = np.array(cnts[1][0])
+                        gscene_xs = zxs[:,1] + xmin_ds
+                        gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
 
                 pts_on_gscene = np.c_[gscene_xs, gscene_ys]
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
@@ -738,50 +757,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
 
         elif selected_action == action_showInfo:
-
-            contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.properties['label']}
-            contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.properties['label']]}
-
-            if self.active_polygon.properties['side'] is None:
-                side_string = ''
-            else:
-                if self.active_polygon.properties['side'] == 'S':
-                    side_string = 'singular'
-                elif self.active_polygon.properties['side'] == 'L':
-                    side_string = 'left'
-                elif self.active_polygon.properties['side'] == 'R':
-                    side_string = 'right'
-                else:
-                    raise Exception('Side property must be one of S, L or R.')
-
-                if self.active_polygon.properties['side_manually_assigned'] is not None:
-                    if self.active_polygon.properties['side_manually_assigned']:
-                        side_string += ' (manual)'
-                    else:
-                        side_string += ' (inferred)'
-
-            contour_info_text += "Side: %(side)s\n" % {'side': side_string}
-
-            if len(self.active_polygon.properties['edit_history']) > 0:
-                print self.active_polygon.properties['edit_history']
-                first_edit = self.active_polygon.properties['edit_history'][0]
-                contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
-                {'creator': first_edit['username'],
-                'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
-                }
-
-                last_edit = self.active_polygon.properties['edit_history'][-1]
-                contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
-                {'editor': last_edit['username'],
-                'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
-                }
-                print self.active_polygon.properties['edit_history']
-            else:
-                sys.stderr.write('No edit history.\n')
-
-            contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
-
-            QMessageBox.information(self.gview, "Information", contour_info_text)
+            self.show_information_box()
 
         elif selected_action == action_showReferences:
 
@@ -856,6 +832,53 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #
     #         self.vertex_is_moved = False
     #         # self.print_history()
+
+    def show_information_box(self):
+        assert self.active_polygon is not None, 'Must choose an active polygon first.'
+
+        contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.properties['label']}
+        contour_info_text += "Fullname: %(fullname)s\n" % {'fullname': self.gui.structure_names[self.active_polygon.properties['label']]}
+
+        if self.active_polygon.properties['side'] is None:
+            side_string = ''
+        else:
+            if self.active_polygon.properties['side'] == 'S':
+                side_string = 'singular'
+            elif self.active_polygon.properties['side'] == 'L':
+                side_string = 'left'
+            elif self.active_polygon.properties['side'] == 'R':
+                side_string = 'right'
+            else:
+                raise Exception('Side property must be one of S, L or R.')
+
+            if self.active_polygon.properties['side_manually_assigned'] is not None:
+                if self.active_polygon.properties['side_manually_assigned']:
+                    side_string += ' (manual)'
+                else:
+                    side_string += ' (inferred)'
+
+        contour_info_text += "Side: %(side)s\n" % {'side': side_string}
+
+        if len(self.active_polygon.properties['edit_history']) > 0:
+            print self.active_polygon.properties['edit_history']
+            first_edit = self.active_polygon.properties['edit_history'][0]
+            contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
+            {'creator': first_edit['username'],
+            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            }
+
+            last_edit = self.active_polygon.properties['edit_history'][-1]
+            contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
+            {'editor': last_edit['username'],
+            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            }
+            print self.active_polygon.properties['edit_history']
+        else:
+            sys.stderr.write('No edit history.\n')
+
+        contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
+
+        QMessageBox.information(self.gview, "Information", contour_info_text)
 
     def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
 
@@ -986,6 +1009,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.update_image()
                 return True
 
+            elif key == Qt.Key_I:
+                self.show_information_box()
+                return True
+
             elif key == Qt.Key_W:
                 self.set_mode('rotate3d')
                 return True
@@ -1073,6 +1100,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
                 vol, bbox = self.structure_volumes[name_side_tuple]
+                print 'vol', vol.shape, 'bbox', bbox
                 ys, xs, zs = np.where(vol)
                 cx_volResol = np.mean(xs)
                 cy_volResol = np.mean(ys)
@@ -1122,13 +1150,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
                 centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
+                print 'tfed_structure_volume_bbox_rel', tfed_structure_volume_bbox_rel
                 tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
                                                 tfed_structure_volume_bbox_rel[1] + bbox[0],
                                                 tfed_structure_volume_bbox_rel[2] + bbox[2],
                                                 tfed_structure_volume_bbox_rel[3] + bbox[2],
                                                 tfed_structure_volume_bbox_rel[4] + bbox[4],
                                                 tfed_structure_volume_bbox_rel[5] + bbox[4])
-                print tfed_structure_volume.shape, tfed_structure_volume_bbox
+                print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox', tfed_structure_volume_bbox
                 self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
                 self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)

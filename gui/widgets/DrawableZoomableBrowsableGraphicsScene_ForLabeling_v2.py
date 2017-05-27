@@ -117,9 +117,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         # These confirmed contours will not be removed.
         matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
-                                for p in polygons if p.properties['label'] == name_u and \
-                                p.properties['type'] == 'confirmed' and \
-                                p.properties['side'] == side]
+                                for p in polygons \
+                                if p.properties['label'] == name_u and p.properties['side'] == side and \
+                                p.properties['type'] == 'confirmed']
 
         # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
         # for i, p in matched_unconfirmed_polygons:
@@ -201,16 +201,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
             print 'matched_confirmed_positions', matched_confirmed_positions
 
-            # if self.data_feeder.orientation == 'sagittal':
-            #     posmin_ds = zmin_ds
-            #     posmax_ds = zmin_ds + volume_downsampled.shape[2] - 1
-            # elif self.data_feeder.orientation == 'coronal':
-            #     posmin_ds = xmin_ds
-            #     posmax_ds = xmin_ds + volume_downsampled.shape[1] - 1
-            # elif self.data_feeder.orientation == 'horizontal':
-            #     posmin_ds = ymin_ds
-            #     posmax_ds = ymin_ds + volume_downsampled.shape[0] - 1
-
             if self.data_feeder.orientation == 'sagittal':
                 pos_start_ds = 0
                 pos_end_ds = self.data_feeder.z_dim - 1
@@ -221,67 +211,51 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 pos_start_ds = 0
                 pos_end_ds = self.data_feeder.y_dim - 1
 
-            # print self.data_feeder.orientation, posmin_ds, posmax_ds
-
-            # for pos_ds in range(posmin_ds, posmax_ds+1):
+            print "Removing all unconfirmed polygons..."
             for pos_ds in range(pos_start_ds, pos_end_ds+1):
-                # print pos_ds
-
-                # First remove all unconfirmed/interpolated contours.
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
-                if p.properties['label'] == name_u and \
-                p.properties['type'] != 'confirmed' and \
-                p.properties['side'] == side]
+                if p.properties['label'] == name_u and p.properties['side'] == side and \
+                p.properties['type'] != 'confirmed']
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[pos_ds].remove(p)
                     if pos_ds == self.active_i:
                         self.removeItem(p)
 
-                if self.data_feeder.orientation == 'sagittal':
-                    raise Exception('Not implemented.')
-
-                elif self.data_feeder.orientation == 'coronal':
-
-                    if pos_ds - xmin_ds < 0 or pos_ds - xmin_ds >= volume_downsampled.shape[1]:
-                        continue
-
-                    cnts = find_contour_points(volume_downsampled[:, pos_ds-xmin_ds, :].astype(np.uint8), sample_every=1)
-                    if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
-                        continue
-                    else:
-                        if len(cnts[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), name_u, side, pos_ds, map(len, cnts[1])))
-                            zys = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
-                        else:
-                            zys = np.array(cnts[1][0])
-                        gscene_xs = self.data_feeder.z_dim - 1 - (zys[:,0] + zmin_ds) # the coordinate on gscene's x axis
-                        gscene_ys = zys[:,1] + ymin_ds
-
-                elif self.data_feeder.orientation == 'horizontal':
-
-                    if pos_ds - ymin_ds < 0 or pos_ds - ymin_ds >= volume_downsampled.shape[0]:
-                        continue
-
-                    cnts = find_contour_points(volume_downsampled[pos_ds-ymin_ds, :, :].astype(np.uint8), sample_every=1)
-                    if len(cnts) == 0 or 1 not in cnts:
-                        sys.stderr.write('%s: No contour of reconstructed volume of %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
-                        continue
-                    else:
-                        if len(cnts[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % (self.id, len(cnts[1]), name_u, side, pos_ds, map(len, cnts[1])))
-                            zxs = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
-                        else:
-                            zxs = np.array(cnts[1][0])
-                        gscene_xs = zxs[:,1] + xmin_ds
-                        gscene_ys = self.data_feeder.z_dim - 1 - (zxs[:,0] + zmin_ds) # the coordinate on gscene's x axis
-
-                pts_on_gscene = np.c_[gscene_xs, gscene_ys]
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(pts_on_gscene), label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos_ds,
+            # volume_downsampled is the structure in bbox.
+            if self.data_feeder.orientation == 'coronal':
+                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='x', sample_every=1)
+                for pos, gscene_pts in gscene_pts_allpos.iteritems():
+                    gscene_xs = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
+                    gscene_ys = gscene_pts[:,1] + ymin_ds
+                    gscene_pts = np.c_[gscene_xs, gscene_ys]
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                    linecolor='g', vertex_radius=1, linewidth=2, index=pos+xmin_ds,
+                                                    type='interpolated',
+                                                    side=side,
+                                                    side_manually_assigned=False)
+            elif self.data_feeder.orientation == 'horizontal':
+                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='y', sample_every=1)
+                for pos, gscene_pts in gscene_pts_allpos.iteritems():
+                    gscene_xs = gscene_pts[:,1] + xmin_ds
+                    gscene_ys = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
+                    gscene_pts = np.c_[gscene_xs, gscene_ys]
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos+ymin_ds,
                                                         type='interpolated',
                                                         side=side,
                                                         side_manually_assigned=False)
+            elif self.data_feeder.orientation == 'sagittal':
+                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='z', sample_every=1)
+                for pos, gscene_pts in gscene_pts_allpos.iteritems():
+                    gscene_xs = gscene_pts[:,0] + xmin_ds
+                    gscene_ys = gscene_pts[:,1] + ymin_ds
+                    gscene_pts = np.c_[gscene_xs, gscene_ys]
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos+zmin_ds,
+                                                        type='interpolated',
+                                                        side=side,
+                                                        side_manually_assigned=False)
+
 
     def update_image(self, i=None, sec=None):
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
@@ -906,6 +880,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', self.convert_section_to_z(sec=sec, downsample=downsample)
 
                 self.set_active_section(sec, update_crossline=False)
+            else:
+                self.set_active_i(cross_z_ds, update_crossline=False)
 
         elif self.data_feeder.orientation == 'coronal':
 
@@ -1109,7 +1085,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if self.mode == 'rotate3d':
 
                     cx_vol_resol_gl, cy_vol_resol_gl, cz_vol_resol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
-                    if self.id == 'sagittal':
+                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
                         active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
                     elif self.id == 'coronal':
@@ -1127,7 +1103,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     theta_ccwise = np.arctan2(y2, x2)
                     print active_structure_center_2d_gscene_resol, vec2, vec1, x2, y2
                     print theta_ccwise, np.rad2deg(theta_ccwise)
-                    if self.id == 'sagittal':
+                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
                     elif self.id == 'coronal':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
@@ -1141,7 +1117,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     shift_2d_orig_resol = shift_2d_gscene_resol * self.data_feeder.downsample
                     shift_2d_vol_resol = shift_2d_orig_resol / float(self.structure_volumes_downscale_factor)
                     print 'shift_2d_vol_resol', shift_2d_vol_resol
-                    if self.id == 'sagittal':
+                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=shift_2d_vol_resol[1],tz=0)
                     elif self.id == 'coronal':
                         tf = affine_components_to_vector(tx=0,ty=shift_2d_vol_resol[1],tz=-shift_2d_vol_resol[0])

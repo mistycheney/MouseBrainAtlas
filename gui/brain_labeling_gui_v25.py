@@ -93,8 +93,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             except:
                 sys.stderr.write('Intensity volume of downsample %d does not exist.\n' % ds)
 
-        self.splitter.setSizes([500, 500])
+        self.splitter.setSizes([500, 500, 500])
         self.splitter_3.setSizes([1000, 500])
+
+        self.sagittal_tb_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal_tb', gui=self, gview=self.sagittal_tb_gview)
+        self.sagittal_tb_gview.setScene(self.sagittal_tb_gscene)
 
         self.coronal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='coronal', gui=self, gview=self.coronal_gview)
         self.coronal_gview.setScene(self.coronal_gscene)
@@ -110,7 +113,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.sagittal_gscene.set_default_vertex_radius(10)
         self.sagittal_gscene.set_default_vertex_color('r')
 
-        self.gscenes = {'coronal': self.coronal_gscene, 'sagittal': self.sagittal_gscene, 'horizontal': self.horizontal_gscene}
+        self.gscenes = {'coronal': self.coronal_gscene, 'sagittal': self.sagittal_gscene, 'horizontal': self.horizontal_gscene,
+        'sagittal_tb': self.sagittal_tb_gscene}
 
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
@@ -166,6 +170,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             horizontal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
             self.gscenes['horizontal'].set_active_i(150)
+
+            sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
+            sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            sagittal_volume_resection_feeder.set_orientation('sagittal')
+            # horizontal_volume_resection_feeder.set_downsample_factor(32)
+            sagittal_volume_resection_feeder.set_downsample_factor(8)
+            self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
+            self.gscenes['sagittal_tb'].set_active_i(150)
 
         if self.gscenes['sagittal'].data_feeder.downsample == 1:
             self.read_images_thread = ReadImagesThread(self.stack, range(first_sec, last_sec+1))
@@ -413,6 +425,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot()
     def infer_side(self):
         self.gscenes['sagittal'].infer_side()
+        self.gscenes['sagittal_tb'].infer_side()
         self.gscenes['coronal'].infer_side()
         self.gscenes['horizontal'].infer_side()
     #
@@ -618,9 +631,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id != source_gscene_id:
-            #     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
-            gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            try:
+                gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+            except Exception as e:
+                sys.stderr.write(str(e) + '\n')
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -690,7 +704,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             factor_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
-            if from_gscene_id == 'sagittal':
+            if from_gscene_id == 'sagittal' or from_gscene_id == 'sagittal_tb':
                 contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().x() * factor_volResol,
                                                 c.scenePos().y() * factor_volResol)
@@ -723,6 +737,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # average_multiple_volumes(volumes_3view.values(), bboxes_3view.values())
         # self.structure_volumes[(name_u, side)] = self.gscenes['sagittal'].structure_volumes[(name_u, side)]
 
+        self.gscenes['sagittal_tb'].update_drawings_from_structure_volume(name_u, side)
         self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
         self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
         self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u, side)
@@ -747,6 +762,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.gscenes['horizontal'].show_previous()
             elif key == Qt.Key_6:
                 self.gscenes['horizontal'].show_next()
+            elif key == Qt.Key_7:
+                self.gscenes['sagittal_tb'].show_previous()
+            elif key == Qt.Key_8:
+                self.gscenes['sagittal_tb'].show_next()
 
             elif key == Qt.Key_Space:
                 if not event.isAutoRepeat():
@@ -841,7 +860,7 @@ def point3d_to_point2d(pt3d, gscene):
         gscene (QGraphicScene)
     """
     pt3d_gscene_res = pt3d / gscene.data_feeder.downsample
-    if gscene.id == 'sagittal':
+    if gscene.id == 'sagittal' or gscene.id == 'sagittal_tb':
         pt2d = (pt3d_gscene_res[0], pt3d_gscene_res[1])
     elif gscene.id == 'coronal':
         pt2d = (gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2], pt3d_gscene_res[1])

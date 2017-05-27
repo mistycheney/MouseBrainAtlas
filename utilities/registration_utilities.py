@@ -1025,18 +1025,80 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
     return hessian
 
 
-def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5, level=.5):
+def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
+    """
+    This function uses multiple processes.
+
+    Args:
+        labeled_volume (3D ndarray of int): integer-labeled volume.
+        along_direction (str): 'x', 'y' or 'z'.
+        positions (None or list of int): if None, use all positions of input volume.
+
+    Returns:
+        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
+    """
+
+    nproc = NUM_CORES
+
+    if along_direction == 'z':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[2])
+    elif along_direction == 'x':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[1])
+    elif along_direction == 'y':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[0])
+
+    def find_contour_points_slice(p):
+        if along_direction == 'x':
+            vol_slice = labeled_volume[:, p, :]
+        if along_direction == 'y':
+            vol_slice = labeled_volume[p, :, :]
+        if along_direction == 'z':
+            vol_slice = labeled_volume[:, :, p]
+
+        cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
+        if len(cnts) == 0 or 1 not in cnts:
+            sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
+            return
+        else:
+            if len(cnts[1]) > 1:
+                sys.stderr.write('%s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (len(cnts[1]), p, map(len, cnts[1])))
+                cnt = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
+            else:
+                cnt = np.array(cnts[1][0])
+            return cnt
+
+    pool = Pool(nproc)
+    contours = dict(zip(positions, pool.map(find_contour_points_slice, positions)))
+    pool.close()
+    pool.join()
+
+    contours = {p: cnt for p, cnt in contours.iteritems() if cnt is not None}
+
+    return contours
+
+def find_contour_points(labelmap, sample_every=10, min_length=0):
     """
     Args:
-        labelmap (2d array of int):
+        labelmap (2d array of int): integer-labeled 2D image
         sample_every (int): can be interpreted as distance between points.
-
+        min_length (int): contours with fewer vertices are discarded.
+        This argument is being deprecated because the vertex number does not
+        reliably measure actual contour length in microns.
+        It is better to leave this decision to calling routines.
     Returns:
         a dict of lists: {label: list of contours each consisting of a list of (x,y) coordinates}
     """
 
-    regions = regionprops(labelmap.astype(np.int))
+    padding = 5
 
+    if np.count_nonzero(labelmap) == 0:
+        # sys.stderr.write('No contour can be found because the image is blank.\n')
+        return []
+
+    regions = regionprops(labelmap.astype(np.int))
     contour_points = {}
 
     for r in regions:
@@ -1824,7 +1886,10 @@ def fill_sparse_volume(volume_sparse):
     Fill all holes of a integer-labeled volume.
 
     Args:
-        volume_sparse (3D ndarray of int): label volume.
+        volume_sparse (3D ndarray of int): sparse label volume.
+
+    Returns:
+        volume_filled (3D ndarray of int): filled label volume.
     """
 
     # from registration_utilities import find_contour_points
@@ -1849,9 +1914,12 @@ def fill_sparse_volume(volume_sparse):
     #                         mode='constant', constant_values=0)
     #         volume[..., z][binary_closing(padded, disk(5))[10:-10, 10:-10]] = ind
 
-    # If volume is tight, as a first step of closing the dilation will fill the whole volume,
+    # Padding is necessary,
+    # because if the input volume touches the border,
+    # as a first step of closing, the dilation will fill the whole volume,
     # resulting in subsequent erosion not recovering the boundary.
     padding = 10
+    closing_element_radius = 5
     from skimage.morphology import binary_closing, ball
 
     volume = np.zeros_like(volume_sparse, np.int8)
@@ -1861,7 +1929,7 @@ def fill_sparse_volume(volume_sparse):
             continue
         padded = np.pad(volume_sparse == ind, ((padding,padding),(padding,padding),(padding,padding)),
                         mode='constant', constant_values=0)
-        volume[binary_closing(padded, ball(5))[padding:-padding, padding:-padding, padding:-padding]] = ind
+        volume[binary_closing(padded, ball(closing_element_radius))[padding:-padding, padding:-padding, padding:-padding]] = ind
 
     return volume
 

@@ -97,6 +97,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
+    REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
@@ -159,7 +160,7 @@ elif hostname.startswith('ip'):
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
-    
+
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -169,7 +170,7 @@ def parse_label(label):
     """
     Args:
         a class label
-    
+
     Returns:
         (structure name, side, surround margin, surround structure name)
     """

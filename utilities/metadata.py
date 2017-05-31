@@ -74,6 +74,7 @@ if hostname == 'yuncong-MacbookPro':
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
+    LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
@@ -159,7 +160,7 @@ elif hostname.startswith('ip'):
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
-    
+
 else:
     print 'Setting environment for Brainstem workstation'
 
@@ -169,7 +170,7 @@ def parse_label(label):
     """
     Args:
         a class label
-    
+
     Returns:
         (structure name, side, surround margin, surround structure name)
     """

@@ -158,24 +158,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
             coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             coronal_volume_resection_feeder.set_orientation('coronal')
-            # coronal_volume_resection_feeder.set_downsample_factor(32)
-            coronal_volume_resection_feeder.set_downsample_factor(8)
+            coronal_volume_resection_feeder.set_downsample_factor(32)
+            # coronal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
             self.gscenes['coronal'].set_active_i(50)
 
             horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
             horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             horizontal_volume_resection_feeder.set_orientation('horizontal')
-            # horizontal_volume_resection_feeder.set_downsample_factor(32)
-            horizontal_volume_resection_feeder.set_downsample_factor(8)
+            horizontal_volume_resection_feeder.set_downsample_factor(32)
+            # horizontal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
             self.gscenes['horizontal'].set_active_i(150)
 
             sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
             sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             sagittal_volume_resection_feeder.set_orientation('sagittal')
-            # horizontal_volume_resection_feeder.set_downsample_factor(32)
-            sagittal_volume_resection_feeder.set_downsample_factor(8)
+            sagittal_volume_resection_feeder.set_downsample_factor(32)
+            # sagittal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
             self.gscenes['sagittal_tb'].set_active_i(150)
 
@@ -631,10 +631,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            try:
-                gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
-            except Exception as e:
-                sys.stderr.write(str(e) + '\n')
+            if gscene.mode == 'crossline':
+                try:
+                    gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+                except Exception as e:
+                    sys.stderr.write(str(e) + '\n')
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):

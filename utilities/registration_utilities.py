@@ -8,7 +8,7 @@ from skimage.morphology import binary_closing, disk, binary_dilation, binary_ero
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 from shapely.geometry import Polygon
-try:	
+try:
    import cv2
 except:
     sys.stderr.write('Cannot find cv2\n')
@@ -608,8 +608,8 @@ class Aligner4(object):
         pool.close()
         pool.join()
         return scores
-        
-        
+
+
     def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, indices_m=None):
 
         from itertools import product
@@ -1025,18 +1025,80 @@ def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
     return hessian
 
 
-def find_contour_points(labelmap, sample_every=10, min_length=10, padding=5, level=.5):
+def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
+    """
+    This function uses multiple processes.
+
+    Args:
+        labeled_volume (3D ndarray of int): integer-labeled volume.
+        along_direction (str): 'x', 'y' or 'z'.
+        positions (None or list of int): if None, use all positions of input volume.
+
+    Returns:
+        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
+    """
+
+    nproc = NUM_CORES
+
+    if along_direction == 'z':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[2])
+    elif along_direction == 'x':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[1])
+    elif along_direction == 'y':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[0])
+
+    def find_contour_points_slice(p):
+        if along_direction == 'x':
+            vol_slice = labeled_volume[:, p, :]
+        if along_direction == 'y':
+            vol_slice = labeled_volume[p, :, :]
+        if along_direction == 'z':
+            vol_slice = labeled_volume[:, :, p]
+
+        cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
+        if len(cnts) == 0 or 1 not in cnts:
+            sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
+            return
+        else:
+            if len(cnts[1]) > 1:
+                sys.stderr.write('%s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (len(cnts[1]), p, map(len, cnts[1])))
+                cnt = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
+            else:
+                cnt = np.array(cnts[1][0])
+            return cnt
+
+    pool = Pool(nproc)
+    contours = dict(zip(positions, pool.map(find_contour_points_slice, positions)))
+    pool.close()
+    pool.join()
+
+    contours = {p: cnt for p, cnt in contours.iteritems() if cnt is not None}
+
+    return contours
+
+def find_contour_points(labelmap, sample_every=10, min_length=0):
     """
     Args:
-        labelmap (2d array of int): 
+        labelmap (2d array of int): integer-labeled 2D image
         sample_every (int): can be interpreted as distance between points.
-        
+        min_length (int): contours with fewer vertices are discarded.
+        This argument is being deprecated because the vertex number does not
+        reliably measure actual contour length in microns.
+        It is better to leave this decision to calling routines.
     Returns:
         a dict of lists: {label: list of contours each consisting of a list of (x,y) coordinates}
     """
-    
-    regions = regionprops(labelmap.astype(np.int))
 
+    padding = 5
+
+    if np.count_nonzero(labelmap) == 0:
+        # sys.stderr.write('No contour can be found because the image is blank.\n')
+        return []
+
+    regions = regionprops(labelmap.astype(np.int))
     contour_points = {}
 
     for r in regions:
@@ -1328,7 +1390,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
         volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
         level (float):
-        
+
     Returns:
         dict: {section: {name_s: (n,2)-ndarray}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
@@ -1369,9 +1431,9 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         for name_s, vol in volumes.iteritems():
             if np.count_nonzero(vol[..., z]) == 0:
                 continue
-                
+
             cnts_rowcol = find_contours(vol[..., z], level=level)
-                
+
             if len(cnts_rowcol) == 0:
                 sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
             else:
@@ -1380,7 +1442,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
                 best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
                 contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
                 structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
-            
+
     return structure_contours
 
 
@@ -1684,6 +1746,7 @@ def transform_volume_v2(vol, global_params, centroid_m, centroid_f):
     Returns:
         (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
     """
+
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
@@ -1820,10 +1883,13 @@ def fill_sparse_score_volume(vol):
 
 def fill_sparse_volume(volume_sparse):
     """
-    Fill all holes inside the longest contour of each z-section.
+    Fill all holes of a integer-labeled volume.
 
     Args:
-        volume_sparse (3D ndarray of int): label volume.
+        volume_sparse (3D ndarray of int): sparse label volume.
+
+    Returns:
+        volume_filled (3D ndarray of int): filled label volume.
     """
 
     # from registration_utilities import find_contour_points
@@ -1836,15 +1902,34 @@ def fill_sparse_volume(volume_sparse):
     #         pts = points_inside_contour(longest_cnt)
     #         volume[pts[:,1], pts[:,0], z] = ind
 
-    from skimage.morphology import binary_closing, disk
+    # from skimage.morphology import binary_closing, disk
+    # volume = np.zeros_like(volume_sparse, np.int8)
+    # for z in range(volume_sparse.shape[-1]):
+    #     for ind in np.unique(volume_sparse[..., z]):
+    #         # Assume background label is 0.
+    #         if ind == 0:
+    #             continue
+    #         padding = 10
+    #         padded = np.pad(volume_sparse[..., z] == ind, ((padding,padding),(padding,padding)),
+    #                         mode='constant', constant_values=0)
+    #         volume[..., z][binary_closing(padded, disk(5))[10:-10, 10:-10]] = ind
+
+    # Padding is necessary,
+    # because if the input volume touches the border,
+    # as a first step of closing, the dilation will fill the whole volume,
+    # resulting in subsequent erosion not recovering the boundary.
+    padding = 10
+    closing_element_radius = 5
+    from skimage.morphology import binary_closing, ball
 
     volume = np.zeros_like(volume_sparse, np.int8)
-    for z in range(volume_sparse.shape[-1]):
-        for ind in np.unique(volume_sparse[..., z]):
-            # Assume background label is 0.
-            if ind == 0:
-                continue
-            volume[..., z][binary_closing(volume_sparse[..., z] == ind, disk(5))] = ind
+    for ind in np.unique(volume_sparse):
+        # Assume background label is 0.
+        if ind == 0:
+            continue
+        padded = np.pad(volume_sparse == ind, ((padding,padding),(padding,padding),(padding,padding)),
+                        mode='constant', constant_values=0)
+        volume[binary_closing(padded, ball(closing_element_radius))[padding:-padding, padding:-padding, padding:-padding]] = ind
 
     return volume
 

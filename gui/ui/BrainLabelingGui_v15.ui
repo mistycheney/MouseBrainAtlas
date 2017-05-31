@@ -31,102 +31,11 @@
         </property>
         <widget class="QGraphicsView" name="coronal_gview"/>
         <widget class="QGraphicsView" name="horizontal_gview"/>
+        <widget class="QGraphicsView" name="sagittal_tb_gview"/>
        </widget>
        <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout">
-         <item row="1" column="1">
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>h_xy</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="2">
-          <widget class="QSlider" name="slider_hxy">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="tracking">
-            <bool>true</bool>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="invertedAppearance">
-            <bool>false</bool>
-           </property>
-           <property name="invertedControls">
-            <bool>false</bool>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksAbove</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="3">
-          <widget class="QLabel" name="label_4">
-           <property name="text">
-            <string>h_xz</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="4">
-          <widget class="QSlider" name="slider_hxz">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QLabel" name="label_2">
-           <property name="text">
-            <string>h_yx</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="2">
-          <widget class="QSlider" name="slider_hyx">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="3">
-          <widget class="QLabel" name="label_5">
-           <property name="text">
-            <string>h_yz</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="4">
-          <widget class="QSlider" name="slider_hyz">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
+         <item row="4" column="0">
           <spacer name="horizontalSpacer">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -139,106 +48,21 @@
            </property>
           </spacer>
          </item>
-         <item row="3" column="1">
-          <widget class="QLabel" name="label_3">
-           <property name="text">
-            <string>h_zx</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="2">
-          <widget class="QSlider" name="slider_hzx">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="3">
-          <widget class="QLabel" name="label_6">
-           <property name="text">
-            <string>h_zy</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="6">
-          <widget class="QPushButton" name="button_displayStructures">
-           <property name="text">
-            <string>Display Structures</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="4">
-          <widget class="QSlider" name="slider_hzy">
-           <property name="minimum">
-            <number>-100</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="5">
-          <widget class="QPushButton" name="button_symmetric">
-           <property name="text">
-            <string>Symmetric</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="6">
-          <widget class="QPushButton" name="button_inferSide">
-           <property name="text">
-            <string>Infer Side</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="5">
-          <widget class="QPushButton" name="button_displayOptions">
-           <property name="text">
-            <string>Display Options</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="5">
+         <item row="4" column="7">
           <widget class="QPushButton" name="button_save">
            <property name="text">
             <string>Save</string>
            </property>
           </widget>
          </item>
-         <item row="3" column="6">
+         <item row="4" column="8">
           <widget class="QPushButton" name="button_load">
            <property name="text">
             <string>Load</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="6">
-          <widget class="QLineEdit" name="lineEdit_username"/>
-         </item>
-         <item row="4" column="5">
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Username:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="4">
-          <widget class="QPushButton" name="button_stop">
-           <property name="text">
-            <string>Stop Loading</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="4">
+         <item row="0" column="6">
           <spacer name="verticalSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -250,6 +74,44 @@
             </size>
            </property>
           </spacer>
+         </item>
+         <item row="4" column="4">
+          <widget class="QPushButton" name="button_displayStructures">
+           <property name="text">
+            <string>Display Structures</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="6">
+          <widget class="QPushButton" name="button_displayOptions">
+           <property name="text">
+            <string>Display Options</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="5">
+          <widget class="QPushButton" name="button_inferSide">
+           <property name="text">
+            <string>Infer Side</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="3">
+          <widget class="QPushButton" name="button_stop">
+           <property name="text">
+            <string>Stop Loading</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Username:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="2">
+          <widget class="QLineEdit" name="lineEdit_username"/>
          </item>
         </layout>
        </widget>

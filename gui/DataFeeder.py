@@ -227,16 +227,10 @@ class VolumeResectionDataFeeder(object):
             self.y_dim, self.x_dim, self.z_dim = self.volume.shape
 
             if self.orientation == 'sagittal':
-                # self.min_i = 0
-                # self.max_i = self.z_dim - 1
                 self.n = self.z_dim
             elif self.orientation == 'coronal':
-                # self.min_i = 0
-                # self.max_i = self.x_dim - 1
                 self.n = self.x_dim
             elif self.orientation == 'horizontal':
-                # self.min_i = 0
-                # self.max_i = self.y_dim - 1
                 self.n = self.y_dim
         else:
             try:

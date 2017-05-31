@@ -56,6 +56,26 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
         return volume
 
 
+def points2d_to_points3d(pts2d_grouped_by_section, pts2d_downsample, pts3d_downsample, pts3d_origin):
+    """
+    Args:
+        pts2d_downsample ((n,2)-ndarray): 2D point (x,y) coordinates on cropped images, in pts2d_downsample resolution.
+        pts3d_origin (3-tuple): xmin, ymin, zmin in pts3d_downsample resolution.
+    
+    Returns:
+        ((n,3)-ndarray)
+    """
+    
+    pts3d = {}
+    for sec, pts2d in pts2d_grouped_by_section.iteritems():
+        z_down = np.mean(DataManager.convert_section_to_z(stack=stack, sec=sec, downsample=pts3d_downsample))
+        n = len(pts2d)
+        xys_down = pts2d * pts2d_downsample / pts3d_downsample
+        pts3d[sec] = np.c_[xys_down, z_down*np.ones((n,))] - pts3d_origin
+    
+    return np.concatenate(pts3d.values())
+    
+
 def contours_to_volume(contours_grouped_by_label=None, label_contours_tuples=None, interpolation_direction='z',
                       return_shell=False, len_interval=20):
     """

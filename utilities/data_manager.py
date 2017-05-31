@@ -551,6 +551,7 @@ class DataManager(object):
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
         elif what == 'peak_radius':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
+            
         raise
 
     @staticmethod
@@ -1673,7 +1674,7 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped_gray_jpeg', fn=random_fn, anchor_fn=anchor_fn)
+            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
             if not os.path.exists(fp):
                 continue
@@ -1948,7 +1949,7 @@ class DataManager(object):
             fp = os.path.join(DATA_DIR, 'average_nissl_intensity_mapping.npy')
         else:
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
-
+            
         return fp
 
     @staticmethod
@@ -1968,8 +1969,20 @@ class DataManager(object):
         return os.path.join(classifier_dir, '%(structure)s_clf_setting_%(setting)d.dump' % \
                      dict(structure=structure, setting=classifier_id))
 
-    #####################################
+    ####### Fluorescent ########
+    
+    @staticmethod
+    def get_labeled_neurons_filepath(stack, sec=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+        return os.path.join(LABELED_NEURONS_ROOTDIR, stack, fn, fn + ".pkl")
+    
 
+    @staticmethod
+    def load_labeled_neurons_filepath(stack, sec=None, fn=None):
+        fp = DataManager.get_labeled_neurons_filepath(**locals())        
+        download_from_s3(fp)
+        return load_pickle(fp)
 
 ##################################################
 

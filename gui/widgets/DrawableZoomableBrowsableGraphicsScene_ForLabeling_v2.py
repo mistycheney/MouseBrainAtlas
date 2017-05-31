@@ -1072,6 +1072,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # Transform the current structure volume.
             # Notify GUI to use the new volume to update contours on all gscenes.
             if self.mode == 'rotate3d' or self.mode == 'shift3d':
+                
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)

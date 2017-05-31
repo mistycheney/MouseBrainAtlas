@@ -177,7 +177,7 @@ class DataManager(object):
                                                     suffix='contours')
             download_from_s3(fp)
             contour_df = load_hdf_v2(fp)
-            
+
             fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
                                                       classifier_setting_m=classifier_setting_m,
@@ -186,7 +186,7 @@ class DataManager(object):
                                                     suffix='structures')
             download_from_s3(fp)
             structure_df = load_hdf_v2(fp)
-            
+
             return contour_df, structure_df
 
 
@@ -551,7 +551,7 @@ class DataManager(object):
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
         elif what == 'peak_radius':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
-            
+
         raise
 
     @staticmethod
@@ -770,7 +770,7 @@ class DataManager(object):
                                     warp_setting=None,
                                     downscale=32,
                                     type_m='score', type_f='score',
-                                    trial_idx=0,
+                                    trial_idx=None,
                                     structures=None,
                                     sided=True,
                                     return_polydata_only=True):
@@ -801,7 +801,7 @@ class DataManager(object):
                                     warp_setting=None,
                                     downscale=32,
                                     type_m='score', type_f='score',
-                                    trial_idx=0,
+                                    trial_idx=None,
                                     structures=None,
                                     sided=True,
                                     return_polydata_only=True):
@@ -914,7 +914,7 @@ class DataManager(object):
                                             stack_f=None,
                                             downscale=32,
                                             type_m='score', type_f='score',
-                                            trial_idx=0, **kwargs):
+                                            trial_idx=None, **kwargs):
         basename = DataManager.get_warped_volume_basename(**locals())
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
@@ -928,7 +928,7 @@ class DataManager(object):
                                             stack_f=None,
                                             downscale=32,
                                             type_m='score', type_f='score',
-                                            trial_idx=0, **kwargs):
+                                            trial_idx=None, **kwargs):
         """
         For backward compatibility.
         """
@@ -1303,7 +1303,7 @@ class DataManager(object):
         This returns the 3D bounding box.
 
         Args:
-            type (str):
+            vol_type (str):
                 annotation: with respect to aligned uncropped thumbnail
                 score/thumbnail: with respect to aligned cropped thumbnail
                 shell: with respect to aligned uncropped thumbnail
@@ -1949,7 +1949,7 @@ class DataManager(object):
             fp = os.path.join(DATA_DIR, 'average_nissl_intensity_mapping.npy')
         else:
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
-            
+
         return fp
 
     @staticmethod
@@ -1970,17 +1970,17 @@ class DataManager(object):
                      dict(structure=structure, setting=classifier_id))
 
     ####### Fluorescent ########
-    
+
     @staticmethod
     def get_labeled_neurons_filepath(stack, sec=None, fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
         return os.path.join(LABELED_NEURONS_ROOTDIR, stack, fn, fn + ".pkl")
-    
+
 
     @staticmethod
     def load_labeled_neurons_filepath(stack, sec=None, fn=None):
-        fp = DataManager.get_labeled_neurons_filepath(**locals())        
+        fp = DataManager.get_labeled_neurons_filepath(**locals())
         download_from_s3(fp)
         return load_pickle(fp)
 
@@ -2024,6 +2024,7 @@ def generate_metadata_cache():
      'MD658': (19936, 15744)}
     metadata_cache['anchor_fn'] = {}
     metadata_cache['sections_to_filenames'] = {}
+    metadata_cache['filenames_to_sections'] = {}
     metadata_cache['section_limits'] = {}
     metadata_cache['cropbox'] = {}
     metadata_cache['valid_sections'] = {}
@@ -2035,6 +2036,13 @@ def generate_metadata_cache():
             pass
         try:
             metadata_cache['sections_to_filenames'][stack] = DataManager.load_sorted_filenames(stack)[1]
+        except:
+            pass
+        try:
+            metadata_cache['filenames_to_sections'][stack] = DataManager.load_sorted_filenames(stack)[0]
+            metadata_cache['filenames_to_sections'][stack].pop('Placeholder')
+            metadata_cache['filenames_to_sections'][stack].pop('Nonexisting')
+            metadata_cache['filenames_to_sections'][stack].pop('Rescan')
         except:
             pass
         try:

@@ -508,11 +508,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                                               warp_setting=warp_setting, suffix='contours_horizontal')
         save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
 
-        # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-        # df_original.to_hdf(fn, 'contours')
-
-        # execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
-
         self.statusBar().showMessage('Labelings saved to %s.' % fn)
 
         # pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
@@ -833,77 +828,77 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 save_hdf_v2(new_structure_df, new_structure_df_fp)
                 self.statusBar().showMessage('3D structure labelings are saved to %s.\n' % new_structure_df_fp)
 
-                ##################### Save contours #####################
-
-                username = self.get_username()
-
-                # if not hasattr(self, 'username') or self.username is None:
-                #     self.username_dialog_requested()
-                    # username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-                    # if not okay: return
-                    # self.username = str(username)
-                    # self.lineEdit_username.setText(self.username)
-
-                # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
-                # labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
-
-                # contour_entries_all = []
-                # for gscene_id, gscene in self.gscenes.iteritems():
-                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
-                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
-                #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-                #     contour_entries_all += contour_entries.items()
-
-                sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-
-                # if hasattr(self, 'contour_df_loaded'):
-                #     d = self.contour_df_loaded.T.to_dict()
-                # else:
-                #     d = {}
-                # print 'loaded', d.keys()
-                # d.update(sagittal_contour_entries_curr_session)
+                # ##################### Save contours #####################
                 #
-                # print 'updated', d.keys()
+                # username = self.get_username()
                 #
-                # from pandas import DataFrame
-                # df_aligned_cropped = DataFrame(dict(d)).T
-
-                # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
-
-                df_aligned_cropped = DataFrame(sagittal_contour_entries_curr_session).T
-                sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-
-                # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-                # df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-                # df_original.to_hdf(fn, 'contours')
-
-                sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                                       classifier_setting_m=classifier_setting_m,
-                                                                      classifier_setting_f=classifier_setting_f,
-                                                                      warp_setting=warp_setting, suffix='contours_sagittal', timestamp=timestamp)
-                save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
-
-                coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-                coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                                       classifier_setting_m=classifier_setting_m,
-                                                                      classifier_setting_f=classifier_setting_f,
-                                                                      warp_setting=warp_setting, suffix='contours_coronal', timestamp=timestamp)
-                save_hdf_v2(DataFrame(coronal_contour_entries_curr_session).T, coronal_contours_df_fp)
-
-                horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-                horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                                       classifier_setting_m=classifier_setting_m,
-                                                                      classifier_setting_f=classifier_setting_f,
-                                                                      warp_setting=warp_setting, suffix='contours_horizontal', timestamp=timestamp)
-                save_hdf_v2(DataFrame(horizontal_contour_entries_curr_session).T, horizontal_contours_df_fp)
-
-                # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-                # df_original.to_hdf(fn, 'contours')
-
-                # execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
-
-                self.statusBar().showMessage('Labelings saved to %s.' % fn)
+                # # if not hasattr(self, 'username') or self.username is None:
+                # #     self.username_dialog_requested()
+                #     # username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+                #     # if not okay: return
+                #     # self.username = str(username)
+                #     # self.lineEdit_username.setText(self.username)
+                #
+                # # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
+                # # labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
+                #
+                # # contour_entries_all = []
+                # # for gscene_id, gscene in self.gscenes.iteritems():
+                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
+                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
+                # #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+                # #     contour_entries_all += contour_entries.items()
+                #
+                # sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+                #
+                # # if hasattr(self, 'contour_df_loaded'):
+                # #     d = self.contour_df_loaded.T.to_dict()
+                # # else:
+                # #     d = {}
+                # # print 'loaded', d.keys()
+                # # d.update(sagittal_contour_entries_curr_session)
+                # #
+                # # print 'updated', d.keys()
+                # #
+                # # from pandas import DataFrame
+                # # df_aligned_cropped = DataFrame(dict(d)).T
+                #
+                # # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
+                #
+                # df_aligned_cropped = DataFrame(sagittal_contour_entries_curr_session).T
+                # sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
+                #
+                # # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+                # # df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
+                # # df_original.to_hdf(fn, 'contours')
+                #
+                # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                #                                                        classifier_setting_m=classifier_setting_m,
+                #                                                       classifier_setting_f=classifier_setting_f,
+                #                                                       warp_setting=warp_setting, suffix='contours_sagittal', timestamp=timestamp)
+                # save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
+                #
+                # coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+                # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                #                                                        classifier_setting_m=classifier_setting_m,
+                #                                                       classifier_setting_f=classifier_setting_f,
+                #                                                       warp_setting=warp_setting, suffix='contours_coronal', timestamp=timestamp)
+                # save_hdf_v2(DataFrame(coronal_contour_entries_curr_session).T, coronal_contours_df_fp)
+                #
+                # horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+                # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                #                                                        classifier_setting_m=classifier_setting_m,
+                #                                                       classifier_setting_f=classifier_setting_f,
+                #                                                       warp_setting=warp_setting, suffix='contours_horizontal', timestamp=timestamp)
+                # save_hdf_v2(DataFrame(horizontal_contour_entries_curr_session).T, horizontal_contours_df_fp)
+                #
+                # # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+                # # df_original.to_hdf(fn, 'contours')
+                #
+                # # execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
+                #
+                # self.statusBar().showMessage('Labelings saved to %s.' % fn)
 
 
             elif key == Qt.Key_A:

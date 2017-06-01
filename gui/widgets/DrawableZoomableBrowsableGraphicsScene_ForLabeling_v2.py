@@ -178,12 +178,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
                     if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
-                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
+                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at section %d or z=%.2f.\n' % (self.id, name_u, side, sec, z_vol_resol))
                         continue
                     else:
                         if len(cnts_volResol[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % \
-                                            (self.id, len(cnts_volResol[1]), name_u, side, pos_ds, map(len, cnts_volResol[1])))
+                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at section %d or z=%.2f (%s). Use the longest one.\n' % \
+                                            (self.id, len(cnts_volResol[1]), name_u, side, sec, z_vol_resol, map(len, cnts_volResol[1])))
                             xys_volResol = np.array(cnts_volResol[1][np.argmax(map(len, cnts_volResol[1]))])
                         else:
                             xys_volResol = np.array(cnts_volResol[1][0])
@@ -196,8 +196,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                                 type='interpolated',
                                                                 side=side,
                                                                 side_manually_assigned=False)
-                except:
-                    sys.stderr.write("Section %d gives error!\n" % sec)
+                except Exception as e:
+                    sys.stderr.write("Section %d gives error: %s\n" % (sec, str(e)))
         else:
             matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
             print 'matched_confirmed_positions', matched_confirmed_positions

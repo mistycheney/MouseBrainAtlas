@@ -98,7 +98,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         print "%s: Updating drawings based on structure volume of %s, %s" % (self.id, name_u, side)
 
-        volume, bbox = self.structure_volumes[(name_u, side)]
+        volume = self.structure_volumes[(name_u, side)]['volume_in_bbox']
+        bbox = self.structure_volumes[(name_u, side)]['bbox']
         # for x in range(volume.shape[1]):
         #     imsave('/tmp/vol_%d.png' % x, (volume[:, x, :]*255).astype(np.uint8))
 
@@ -177,12 +178,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
                     if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
-                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
+                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at section %d or z=%.2f.\n' % (self.id, name_u, side, sec, z_vol_resol))
                         continue
                     else:
                         if len(cnts_volResol[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % \
-                                            (self.id, len(cnts_volResol[1]), name_u, side, pos_ds, map(len, cnts_volResol[1])))
+                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at section %d or z=%.2f (%s). Use the longest one.\n' % \
+                                            (self.id, len(cnts_volResol[1]), name_u, side, sec, z_vol_resol, map(len, cnts_volResol[1])))
                             xys_volResol = np.array(cnts_volResol[1][np.argmax(map(len, cnts_volResol[1]))])
                         else:
                             xys_volResol = np.array(cnts_volResol[1][0])
@@ -195,8 +196,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                                 type='interpolated',
                                                                 side=side,
                                                                 side_manually_assigned=False)
-                except:
-                    sys.stderr.write("Section %d gives error!\n" % sec)
+                except Exception as e:
+                    sys.stderr.write("Section %d gives error: %s\n" % (sec, str(e)))
         else:
             matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
             print 'matched_confirmed_positions', matched_confirmed_positions
@@ -271,7 +272,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             name_u = self.active_polygon.properties['label']
             scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, classifier_id=37)
             download_from_s3(scoremap_viz_fp)
-            w, h = DataManager.get_image_dimension(self.gui.stack)
+            # w, h = DataManager.get_image_dimension(self.gui.stack)
+            w, h = metadata_cache['image_shapes'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
         else:
@@ -1072,10 +1074,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # Transform the current structure volume.
             # Notify GUI to use the new volume to update contours on all gscenes.
             if self.mode == 'rotate3d' or self.mode == 'shift3d':
+
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
-                vol, bbox = self.structure_volumes[name_side_tuple]
+                vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
+                bbox = self.structure_volumes[name_side_tuple]['bbox']
                 print 'vol', vol.shape, 'bbox', bbox
                 ys, xs, zs = np.where(vol)
                 cx_volResol = np.mean(xs)
@@ -1134,8 +1138,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                 tfed_structure_volume_bbox_rel[4] + bbox[4],
                                                 tfed_structure_volume_bbox_rel[5] + bbox[4])
                 print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox', tfed_structure_volume_bbox
-                self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
-                self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+
+                self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
+                self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox
+                if self.mode == 'shift3d':
+                    self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                elif self.mode == 'rotate3d':
+                    self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')
 

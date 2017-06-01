@@ -83,7 +83,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         self.structure_volumes = {}
-        self.structure_adjustment_3d = defaultdict(list)
+        # self.structure_adjustments_3d = defaultdict(list)
 
         self.volume_cache = {}
         for ds in [8, 32]:
@@ -158,24 +158,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
             coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             coronal_volume_resection_feeder.set_orientation('coronal')
-            # coronal_volume_resection_feeder.set_downsample_factor(32)
-            coronal_volume_resection_feeder.set_downsample_factor(8)
+            coronal_volume_resection_feeder.set_downsample_factor(32)
+            # coronal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
             self.gscenes['coronal'].set_active_i(50)
 
             horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
             horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             horizontal_volume_resection_feeder.set_orientation('horizontal')
-            # horizontal_volume_resection_feeder.set_downsample_factor(32)
-            horizontal_volume_resection_feeder.set_downsample_factor(8)
+            horizontal_volume_resection_feeder.set_downsample_factor(32)
+            # horizontal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
             self.gscenes['horizontal'].set_active_i(150)
 
             sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
             sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             sagittal_volume_resection_feeder.set_orientation('sagittal')
-            # horizontal_volume_resection_feeder.set_downsample_factor(32)
-            sagittal_volume_resection_feeder.set_downsample_factor(8)
+            sagittal_volume_resection_feeder.set_downsample_factor(32)
+            # sagittal_volume_resection_feeder.set_downsample_factor(8)
             self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
             self.gscenes['sagittal_tb'].set_active_i(150)
 
@@ -571,44 +571,73 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         Load stored annotations.
         """
-        # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
 
-        # Load traditional version of labelings
-        # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
-        # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
+        # # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        # # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
+        #
+        # # Load traditional version of labelings
+        # # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
+        # # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
+        #
+        # # Load pipeline generated atlas-aligned annotations
+        #
+        # contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the sagittal contours annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        # print contours_df_fp
+        # download_from_s3(contours_df_fp)
+        # contour_df = load_hdf_v2(contours_df_fp)
+        #
+        # # contour_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
+        # # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='contours')
+        #
+        # self.contour_df_loaded = contour_df
+        #
+        # sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+        # self.gscenes['sagittal'].load_drawings(sagittal_contours)
+        #
+        # try:
+        #     coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
+        #     self.gscenes['coronal'].load_drawings(coronal_contours)
+        # except Exception as e:
+        #     sys.stderr.write("Error loading coronal contours: str(e)\n")
+        #
+        # try:
+        #     horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
+        #     self.gscenes['horizontal'].load_drawings(horizontal_contours)
+        # except Exception as e:
+        #     sys.stderr.write("Error loading horizontal contours: str(e)\n")
 
-        # Load pipeline generated atlas-aligned annotations
-        contour_df, structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37)
 
-        self.contour_df_loaded = contour_df
-        sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
-        self.gscenes['sagittal'].load_drawings(sagittal_contours)
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        print structures_df_fp
 
-        try:
-            coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
-            self.gscenes['coronal'].load_drawings(coronal_contours)
-        except Exception as e:
-            sys.stderr.write("Error loading coronal contours: str(e)\n")
+        download_from_s3(structures_df_fp)
+        structure_df = load_hdf_v2(structures_df_fp)
+        # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
+        # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
 
-        try:
-            horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
-            self.gscenes['horizontal'].load_drawings(horizontal_contours)
-        except Exception as e:
-            sys.stderr.write("Error loading horizontal contours: str(e)\n")
+        self.structure_df_loaded = structure_df
 
-        for _, structure_entry in structure_df.iterrows():
+        for structure_id, structure_entry in structure_df.iterrows():
+
             if structure_entry['side'] is None:
                 t = (structure_entry['name'], 'S')
             else:
                 t = (structure_entry['name'], structure_entry['side'])
-            print t
 
-            self.structure_volumes[t] = (structure_entry['volume_in_bbox'], structure_entry['bbox'])
+            if 'edits' in structure_entry:
+                edits = structure_entry['edits']
+            else:
+                edits = []
 
+            self.structure_volumes[t] = {'volume_in_bbox': structure_entry['volume_in_bbox'],
+                                        'bbox': structure_entry['bbox'],
+                                        'edits': edits,
+                                        'structure_id': structure_id}
+
+            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
             # for gscene_id in self.gscenes:
-            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, gscene_id=gscene_id)
+            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
+            self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
 
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours
@@ -631,10 +660,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            try:
-                gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
-            except Exception as e:
-                sys.stderr.write(str(e) + '\n')
+            if gscene.mode == 'crossline':
+                try:
+                    gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+                except Exception as e:
+                    sys.stderr.write(str(e) + '\n')
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -649,7 +679,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     @pyqtSlot(str, str, bool, bool)
-    def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None):
+    def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None, affected_gscenes=None):
         """
         This function is triggered by `structure_volume_updated` signal from
         any of the three gscenes.
@@ -665,6 +695,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             replacing the volume in `self.structure_volumes` if it already exists.
             Set to False, if `self.structure_volumes` already stores the new volume and therefore
             calling this function is just to update the contours.
+            from_gscene_id (str):
+            affected_gscenes (list of str):
         """
 
         # Arguments passed in are Qt Strings. This guarantees they are python str.
@@ -709,26 +741,29 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                                 [(c.scenePos().x() * factor_volResol,
                                                 c.scenePos().y() * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'coronal':
                 contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().y() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'horizontal':
                 contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().x() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+            self.structure_volumes[(name_u, side)]['volume_in_bbox'] = volume
+            self.structure_volumes[(name_u, side)]['bbox'] = bbox
 
             # volumes_3view[gscene_id] = volume
             # bboxes_3view[gscene_id] = bbox
@@ -737,10 +772,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # average_multiple_volumes(volumes_3view.values(), bboxes_3view.values())
         # self.structure_volumes[(name_u, side)] = self.gscenes['sagittal'].structure_volumes[(name_u, side)]
 
-        self.gscenes['sagittal_tb'].update_drawings_from_structure_volume(name_u, side)
-        self.gscenes['coronal'].update_drawings_from_structure_volume(name_u, side)
-        self.gscenes['horizontal'].update_drawings_from_structure_volume(name_u, side)
-        self.gscenes['sagittal'].update_drawings_from_structure_volume(name_u, side)
+        if affected_gscenes is None:
+            affected_gscenes = self.gscenes.keys()
+
+        for gscene_id in affected_gscenes:
+            self.gscenes[gscene_id].update_drawings_from_structure_volume(name_u, side)
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')
@@ -771,6 +807,104 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if not event.isAutoRepeat():
                     for gscene in self.gscenes.itervalues():
                         gscene.set_mode('crossline')
+
+
+            elif key == Qt.Key_F:
+
+                ##################### Save structure ######################
+
+                # username = self.get_username()
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+
+                # {(name, side): (vol, bbox, edits, id)}
+                new_structure_df = self.structure_df_loaded.copy()
+
+                for (name, side), structure_entry in self.structure_volumes.iteritems():
+                    struct_id = structure_entry['structure_id']
+                    new_structure_df.loc[struct_id]['volume_in_bbox'] = structure_entry['volume_in_bbox']
+                    new_structure_df.loc[struct_id]['bbox'] = structure_entry['bbox']
+                    new_structure_df.loc[struct_id]['edits'] = structure_entry['edits']
+
+                new_structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m='atlasV3',
+                                                                       classifier_setting_m=37,
+                                                                      classifier_setting_f=37,
+                                                                      warp_setting=8, suffix='structures', timestamp=timestamp)
+                save_hdf_v2(new_structure_df, new_structure_df_fp)
+                self.statusBar().showMessage('3D structure labelings are saved to %s.\n' % new_structure_df_fp)
+
+                ##################### Save contours #####################
+
+                username = self.get_username()
+
+                # if not hasattr(self, 'username') or self.username is None:
+                #     self.username_dialog_requested()
+                    # username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
+                    # if not okay: return
+                    # self.username = str(username)
+                    # self.lineEdit_username.setText(self.username)
+
+                # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
+                # labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
+
+                # contour_entries_all = []
+                # for gscene_id, gscene in self.gscenes.iteritems():
+                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
+                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
+                #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
+                #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+                #     contour_entries_all += contour_entries.items()
+
+                sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+
+                # if hasattr(self, 'contour_df_loaded'):
+                #     d = self.contour_df_loaded.T.to_dict()
+                # else:
+                #     d = {}
+                # print 'loaded', d.keys()
+                # d.update(sagittal_contour_entries_curr_session)
+                #
+                # print 'updated', d.keys()
+                #
+                # from pandas import DataFrame
+                # df_aligned_cropped = DataFrame(dict(d)).T
+
+                # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
+
+                df_aligned_cropped = DataFrame(sagittal_contour_entries_curr_session).T
+                sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
+
+                # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+                # df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
+                # df_original.to_hdf(fn, 'contours')
+
+                sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                                                                       classifier_setting_m=classifier_setting_m,
+                                                                      classifier_setting_f=classifier_setting_f,
+                                                                      warp_setting=warp_setting, suffix='contours_sagittal', timestamp=timestamp)
+                save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
+
+                coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+                coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                                                                       classifier_setting_m=classifier_setting_m,
+                                                                      classifier_setting_f=classifier_setting_f,
+                                                                      warp_setting=warp_setting, suffix='contours_coronal', timestamp=timestamp)
+                save_hdf_v2(DataFrame(coronal_contour_entries_curr_session).T, coronal_contours_df_fp)
+
+                horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+                horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                                                                       classifier_setting_m=classifier_setting_m,
+                                                                      classifier_setting_f=classifier_setting_f,
+                                                                      warp_setting=warp_setting, suffix='contours_horizontal', timestamp=timestamp)
+                save_hdf_v2(DataFrame(horizontal_contour_entries_curr_session).T, horizontal_contours_df_fp)
+
+                # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
+                # df_original.to_hdf(fn, 'contours')
+
+                # execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
+
+                self.statusBar().showMessage('Labelings saved to %s.' % fn)
+
 
             elif key == Qt.Key_A:
                 print "Reconstructing all structure volumes..."
@@ -821,7 +955,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
                     len_lossless_res = pw_max_um / XY_PIXEL_DISTANCE_LOSSLESS
 
-                    vol, bbox = self.structure_volumes[name_side_tuple]
+                    vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
+                    bbox = self.structure_volumes[name_side_tuple]['bbox']
                     c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
 
                     e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir

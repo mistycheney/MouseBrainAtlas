@@ -83,7 +83,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         self.structure_volumes = {}
-        self.structure_adjustment_3d = defaultdict(list)
+        # self.structure_adjustments_3d = defaultdict(list)
 
         self.volume_cache = {}
         for ds in [8, 32]:
@@ -598,15 +598,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         except Exception as e:
             sys.stderr.write("Error loading horizontal contours: str(e)\n")
 
-        for _, structure_entry in structure_df.iterrows():
+
+        self.structure_df_loaded = structure_df
+
+        for structure_id, structure_entry in structure_df.iterrows():
             if structure_entry['side'] is None:
                 t = (structure_entry['name'], 'S')
             else:
                 t = (structure_entry['name'], structure_entry['side'])
             print t
 
-            self.structure_volumes[t] = (structure_entry['volume_in_bbox'], structure_entry['bbox'])
+            if 'edits' in structure_entry:
+                edits = structure_entry['edits']
+            else:
+                edits = []
 
+            self.structure_volumes[t] = {'volume_in_bbox': structure_entry['volume_in_bbox'],
+                                        'bbox': structure_entry['bbox'],
+                                        'edits': edits,
+                                        'structure_id': structure_id}
             # for gscene_id in self.gscenes:
             #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, gscene_id=gscene_id)
 
@@ -710,26 +720,29 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                                 [(c.scenePos().x() * factor_volResol,
                                                 c.scenePos().y() * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'coronal':
                 contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().y() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'horizontal':
                 contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
                                                 [(c.scenePos().x() * factor_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                # volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
-                self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+                # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
+
+            self.structure_volumes[(name_u, side)]['volume_in_bbox'] = volume
+            self.structure_volumes[(name_u, side)]['bbox'] = bbox
 
             # volumes_3view[gscene_id] = volume
             # bboxes_3view[gscene_id] = bbox
@@ -772,6 +785,38 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if not event.isAutoRepeat():
                     for gscene in self.gscenes.itervalues():
                         gscene.set_mode('crossline')
+
+
+            elif key == Qt.Key_F:
+
+                # username = self.get_username()
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+
+                # {(name, side): (vol, bbox, edits, id)}
+                new_structure_df = self.structure_df_loaded.copy()
+
+                struct_id = structure_entry['structure_id']
+                for (name, side), structure_entry in self.structure_volumes.iteritems():
+                    new_structure_df.loc[struct_id]['volume_in_bbox'] = structure_entry['volume_in_bbox']
+                    new_structure_df.loc[struct_id]['bbox'] = structure_entry['bbox']
+                    new_structure_df.loc[struct_id]['edits'] = structure_entry['edits']
+
+                new_structure_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
+                                                                       classifier_setting_m=classifier_setting_m,
+                                                                      classifier_setting_f=classifier_setting_f,
+                                                                      warp_setting=warp_setting, suffix='structures', timestamp=timestamp)
+                save_hdf_v2(new_structure_df, new_structure_df_fp)
+                self.statusBar().showMessage('3D structure labelings are saved to %s.\n' % new_structure_df_fp)
+
+            #     pass
+                # fp = DataManager.get_structure_pose_corrections(stack, stack_m='atlasV3',
+                #                             classifier_setting_m=37,
+                #                             classifier_setting_f=37,
+                #                             warp_setting=8)
+                # create_parent_dir_if_not_exists(fp)
+                # save_pickle(self.structure_adjustments_3d, fp)
+                # upload_to_s3(fp)
 
             elif key == Qt.Key_A:
                 print "Reconstructing all structure volumes..."
@@ -822,7 +867,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
                     len_lossless_res = pw_max_um / XY_PIXEL_DISTANCE_LOSSLESS
 
-                    vol, bbox = self.structure_volumes[name_side_tuple]
+                    vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
+                    bbox = self.structure_volumes[name_side_tuple]['bbox']
                     c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
 
                     e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir

@@ -1,3 +1,12 @@
+# Labeling GUI
+## Key bindings
+- q: switch to 3d shift mode.
+- w: switch to 3d rotate mode.
+- s: switch to show score map (need to have active polygon) / histology image
+- f: save structure modifications.
+
+===============================
+
 After downloading `CSHL_data/macros/<stack>`
 
 upper left panel showing a picture of the slide

@@ -92,6 +92,15 @@ class DataManager(object):
     ##########################
 
     @staticmethod
+    def get_structure_pose_corrections(stack, stack_m=None,
+                                classifier_setting_m=None,
+                                classifier_setting_f=None,
+                                warp_setting=None, trial_idx=None):
+        basename = DataManager.get_warped_volume_basename(**locals())
+        fp = os.path.join(ANNOTATION_ROOTDIR, stack, basename + '_' + 'structure3d_corrections' + '.pkl')
+        return fp
+
+    @staticmethod
     def get_annotated_structures(stack):
         """
         Return existing structures on every section in annotation.
@@ -135,7 +144,7 @@ class DataManager(object):
     def get_annotation_filepath(stack, by_human, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
-                                warp_setting=None, trial_idx=None, suffix=None):
+                                warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
         if by_human:
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
         else:
@@ -144,7 +153,10 @@ class DataManager(object):
                                                               classifier_setting_f=classifier_setting_f,
                                                               warp_setting=warp_setting, trial_idx=trial_idx)
             if suffix is not None:
-                fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
+                if timestamp is not None:
+                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
+                else:
+                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
             else:
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
         return fp
@@ -153,43 +165,32 @@ class DataManager(object):
     def load_annotation_v3(stack=None, by_human=True, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
-                                warp_setting=None, trial_idx=None):
+                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
         if by_human:
-            fp = DataManager.get_annotation_filepath(stack, by_human=True)
-            download_from_s3(fp)
-            contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
-
-            try:
-                structure_df = read_hdf(fp, 'structures')
-            except Exception as e:
-                print e
-                sys.stderr.write('Annotation has no structures.\n')
-                return contour_df, None
-
-            sys.stderr.write('Loaded annotation %s.\n' % fp)
-            return contour_df, structure_df
+            # fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            # download_from_s3(fp)
+            # contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
+            #
+            # try:
+            #     structure_df = read_hdf(fp, 'structures')
+            # except Exception as e:
+            #     print e
+            #     sys.stderr.write('Annotation has no structures.\n')
+            #     return contour_df, None
+            #
+            # sys.stderr.write('Loaded annotation %s.\n' % fp)
+            # return contour_df, structure_df
+            raise Exception('Not implemented.')
         else:
             fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
                                                       classifier_setting_m=classifier_setting_m,
                                                       classifier_setting_f=classifier_setting_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix='contours')
+                                                    suffix=suffix, timestamp=timestamp)
             download_from_s3(fp)
-            contour_df = load_hdf_v2(fp)
-
-            fp = DataManager.get_annotation_filepath(stack, by_human=False,
-                                                     stack_m=stack_m,
-                                                      classifier_setting_m=classifier_setting_m,
-                                                      classifier_setting_f=classifier_setting_f,
-                                                      warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix='structures')
-            download_from_s3(fp)
-            structure_df = load_hdf_v2(fp)
-
-            return contour_df, structure_df
-
-
+            annotation_df = load_hdf_v2(fp)
+            return annotation_df
 
     @staticmethod
     def get_annotation_viz_dir(stack):
@@ -200,6 +201,9 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][sec]
         return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack, fn + '_annotation_viz.tif')
+
+
+    ########################################################
 
     @staticmethod
     def load_data(filepath, filetype):
@@ -1674,7 +1678,7 @@ class DataManager(object):
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fn = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+            fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
             if not os.path.exists(fp):
                 continue
@@ -1688,31 +1692,34 @@ class DataManager(object):
     @staticmethod
     def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
         """
-        first_sec: default to the first brainstem section defined in ``cropbox".
-        z_begin: default to the z position of the first_sec.
+        Because the z-spacing is much larger than pixel size on x-y plane,
+        the theoretical voxels are square on x-y plane but elongated in z-direction.
+        In practice we need to represent volume using cubic voxels.
+        This function computes the z-coordinate for a given section number.
+        This depends on the downsample factor of the volume.
+
+        Args:
+            downsample (int):
+            first_sec (int): default to the first brainstem section defined in ``cropbox".
+            z_begin (float): default to the z position of the first_sec.
+
+        Returns:
+            z1, z2 (2-tuple of float): in
         """
 
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-        # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+        # Voxel size in z direction in unit of x,y pixel.
 
-        # first_sec, last_sec = section_range_lookup[stack]
         if first_sec is None:
             first_sec, _ = DataManager.load_cropbox(stack)[4:]
 
-        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
-            # z_begin = int(np.floor(first_sec*voxel_z_size))
             z_begin = first_sec * voxel_z_size
-        # print 'z_begin', first_sec*voxel_z_size, z_begin
 
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size
-        # return int(z1)-z_begin, int(z2)+1-z_begin
-        # print 'z1, z2', z1-z_begin, z2-1-z_begin
         return z1-z_begin, z2-1-z_begin
-        # return int(np.round(z1-z_begin)), int(np.round(z2-1-z_begin))
-        # return int(np.round(z1))-z_begin, int(np.round(z2))-1-z_begin
 
     @staticmethod
     def convert_z_to_section(stack, z, downsample, z_begin=None):

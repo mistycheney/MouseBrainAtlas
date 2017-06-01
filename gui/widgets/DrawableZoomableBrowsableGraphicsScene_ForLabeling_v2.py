@@ -98,7 +98,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         print "%s: Updating drawings based on structure volume of %s, %s" % (self.id, name_u, side)
 
-        volume, bbox = self.structure_volumes[(name_u, side)]
+        volume = self.structure_volumes[(name_u, side)]['volume_in_bbox']
+        bbox = self.structure_volumes[(name_u, side)]['bbox']
         # for x in range(volume.shape[1]):
         #     imsave('/tmp/vol_%d.png' % x, (volume[:, x, :]*255).astype(np.uint8))
 
@@ -108,18 +109,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         volume_downsample_factor = self.structure_volumes_downscale_factor
         bbox_lossless = np.array(bbox) * volume_downsample_factor
 
-        downsample = self.data_feeder.downsample
+        data_vol_downsample_ratio = float(self.data_feeder.downsample) / volume_downsample_factor
 
-        if volume_downsample_factor <= downsample:
-            volume_downsampled = volume[::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor, ::downsample/volume_downsample_factor]
-            xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / downsample
-            print 'volume_downsampled', volume_downsampled.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
+        if data_vol_downsample_ratio > 1:
+            volume_data_resol = volume[::data_vol_downsample_ratio, ::data_vol_downsample_ratio, ::data_vol_downsample_ratio]
+            xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / self.data_feeder.downsample
+            print 'volume at data resol', volume_data_resol.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
         # These confirmed contours will not be removed.
-        matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
-                                for p in polygons \
-                                if p.properties['label'] == name_u and p.properties['side'] == side and \
-                                p.properties['type'] == 'confirmed']
+        # matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
+        #                         for p in polygons \
+        #                         if p.properties['label'] == name_u and p.properties['side'] == side and \
+        #                         p.properties['type'] == 'confirmed']
 
         # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
         # for i, p in matched_unconfirmed_polygons:
@@ -127,79 +128,121 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #         self.removeItem(p)
         #     self.drawings[i].remove(p)
 
+        # if hasattr(self.data_feeder, 'sections'):
+        #     assert self.data_feeder.orientation == 'sagittal'
+        #     matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
+        #     print 'matched_confirmed_sections', matched_confirmed_sections
+        #
+        #     if len(matched_confirmed_sections) > 0:
+        #         min_sec = np.min(matched_confirmed_sections)
+        #         max_sec = np.max(matched_confirmed_sections)
+        #     else:
+        #         # min_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=volume_downsample_factor)
+        #         # max_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmax, downsample=volume_downsample_factor)
+        #         min_sec = np.min(self.data_feeder.sections)
+        #         max_sec = np.max(self.data_feeder.sections)
+        #
+        #     print 'min_sec', min_sec, 'max_sec', max_sec
+        #     for sec in range(min_sec, max_sec+1):
+        #         # print 'section', sec
+        #
+        #         try:
+        #             # Remove if this section has unconfirmed/interpolated polygon
+        #             if sec not in self.data_feeder.sections:
+        #                 sys.stderr.write('Section %d is not loaded.\n' % sec)
+        #                 continue
+        #
+        #             i = self.data_feeder.sections.index(sec)
+        #
+        #             matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] \
+        #             if p.properties['label'] == name_u and \
+        #             p.properties['side'] == side and \
+        #             p.properties['type'] != 'confirmed']
+        #             # print 'matched_unconfirmed_polygons_to_remove', matched_unconfirmed_polygons_to_remove
+        #             for p in matched_unconfirmed_polygons_to_remove:
+        #                 # print 'before removal', self.drawings[i]
+        #                 self.drawings[i].remove(p)
+        #                 # print 'after removal', self.drawings[i]
+        #                 if i == self.active_i:
+        #                     self.removeItem(p)
+        #
+        #             if sec in matched_confirmed_sections:
+        #                 continue
+        #
+        #             z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
+        #             z_gscene_resol = .5 * z0 + .5 * z1
+        #             z_vol_resol = int(np.round(z_gscene_resol * downsample / volume_downsample_factor))
+        #
+        #             if z_vol_resol - zmin < 0 or z_vol_resol - zmin >= volume.shape[2]:
+        #                 continue
+        #
+        #             cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
+        #             if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
+        #                 sys.stderr.write('%s: No contour of reconstructed volume of %s,%s is found at section %d or z=%.2f.\n' % (self.id, name_u, side, sec, z_vol_resol))
+        #                 continue
+        #             else:
+        #                 if len(cnts_volResol[1]) > 1:
+        #                     sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at section %d or z=%.2f (%s). Use the longest one.\n' % \
+        #                                     (self.id, len(cnts_volResol[1]), name_u, side, sec, z_vol_resol, map(len, cnts_volResol[1])))
+        #                     xys_volResol = np.array(cnts_volResol[1][np.argmax(map(len, cnts_volResol[1]))])
+        #                 else:
+        #                     xys_volResol = np.array(cnts_volResol[1][0])
+        #                 gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
+        #                 gscene_ys_volResol = xys_volResol[:,1] + ymin
+        #                 gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
+        #                 gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
+        #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
+        #                                                         label=name_u, linecolor='g', section=sec,
+        #                                                         type='interpolated',
+        #                                                         side=side,
+        #                                                         side_manually_assigned=False)
+        #         except Exception as e:
+        #             sys.stderr.write("Section %d gives error: %s\n" % (sec, str(e)))
+
+
+
         if hasattr(self.data_feeder, 'sections'):
-            assert self.data_feeder.orientation == 'sagittal'
-            matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
-            print 'matched_confirmed_sections', matched_confirmed_sections
 
-            if len(matched_confirmed_sections) > 0:
-                min_sec = np.min(matched_confirmed_sections)
-                max_sec = np.max(matched_confirmed_sections)
-            else:
-                # min_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=volume_downsample_factor)
-                # max_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmax, downsample=volume_downsample_factor)
-                min_sec = np.min(self.data_feeder.sections)
-                max_sec = np.max(self.data_feeder.sections)
+            assert self.data_feeder.orientation == 'sagittal', "Current implementation only considers sagittal sections."
 
-            print 'min_sec', min_sec, 'max_sec', max_sec
-            for sec in range(min_sec, max_sec+1):
-                # print 'section', sec
+            print "Removing all unconfirmed polygons..."
+            for i in range(len(self.data_feeder.sections)):
+                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] \
+                if p.properties['label'] == name_u and p.properties['side'] == side and \
+                p.properties['type'] != 'confirmed']
+                for p in matched_unconfirmed_polygons_to_remove:
+                    self.drawings[i].remove(p)
+                    if i == self.active_i:
+                        self.removeItem(p)
 
-                try:
-                    # Remove if this section has unconfirmed/interpolated polygon
-                    if sec not in self.data_feeder.sections:
-                        sys.stderr.write('Section %d is not loaded.\n' % sec)
-                        continue
+            sections_used = []
+            positions_rel_vol_resol = []
+            for sec in self.data_feeder.sections:
+                pos_gl_vol_resol = np.mean(self.convert_section_to_z(sec=sec, downsample=volume_downsample_factor))
+                pos_rel_vol_resol = int(np.round(pos_gl_vol_resol - zmin))
+                if pos_rel_vol_resol >= 0 and pos_rel_vol_resol < volume.shape[2]:
+                    positions_rel_vol_resol.append(pos_rel_vol_resol)
+                    sections_used.append(sec)
 
-                    i = self.data_feeder.sections.index(sec)
-
-                    matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] \
-                    if p.properties['label'] == name_u and \
-                    p.properties['side'] == side and \
-                    p.properties['type'] != 'confirmed']
-                    # print 'matched_unconfirmed_polygons_to_remove', matched_unconfirmed_polygons_to_remove
-                    for p in matched_unconfirmed_polygons_to_remove:
-                        # print 'before removal', self.drawings[i]
-                        self.drawings[i].remove(p)
-                        # print 'after removal', self.drawings[i]
-                        if i == self.active_i:
-                            self.removeItem(p)
-
-                    if sec in matched_confirmed_sections:
-                        continue
-
-                    z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-                    z_gscene_resol = .5 * z0 + .5 * z1
-                    z_vol_resol = int(np.round(z_gscene_resol * downsample / volume_downsample_factor))
-
-                    if z_vol_resol - zmin < 0 or z_vol_resol - zmin >= volume.shape[2]:
-                        continue
-
-                    cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
-                    if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
-                        sys.stderr.write('%s: No contour of reconstructed volume fo %s,%s is found at position %d.\n' % (self.id, name_u, side, pos_ds))
-                        continue
-                    else:
-                        if len(cnts_volResol[1]) > 1:
-                            sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at position %d (%s). Use the longest one.\n' % \
-                                            (self.id, len(cnts_volResol[1]), name_u, side, pos_ds, map(len, cnts_volResol[1])))
-                            xys_volResol = np.array(cnts_volResol[1][np.argmax(map(len, cnts_volResol[1]))])
-                        else:
-                            xys_volResol = np.array(cnts_volResol[1][0])
-                        gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
-                        gscene_ys_volResol = xys_volResol[:,1] + ymin
-                        gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
-                        gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
-                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
-                                                                label=name_u, linecolor='g', section=sec,
-                                                                type='interpolated',
-                                                                side=side,
-                                                                side_manually_assigned=False)
-                except:
-                    sys.stderr.write("Section %d gives error!\n" % sec)
+            # volume_downsampled is the structure in bbox.
+            gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
+            m = dict(zip(positions_rel_vol_resol, sections_used))
+            gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
+            for sec, gscene_pts_rel_vol_resol in gscene_pts_rel_vol_resol_allsec.iteritems():
+                gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + xmin
+                gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + ymin
+                gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
+                # print sec, gscene_pts_gl_vol_resol
+                gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
+                # print sec, gscene_pts_gl_data_resol
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
+                                                    linecolor='r', vertex_radius=3, linewidth=5, section=sec,
+                                                    type='interpolated',
+                                                    side=side,
+                                                    side_manually_assigned=False)
         else:
-            matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
-            print 'matched_confirmed_positions', matched_confirmed_positions
+            # matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
+            # print 'matched_confirmed_positions', matched_confirmed_positions
 
             if self.data_feeder.orientation == 'sagittal':
                 pos_start_ds = 0
@@ -221,9 +264,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if pos_ds == self.active_i:
                         self.removeItem(p)
 
-            # volume_downsampled is the structure in bbox.
+            # volume_data_resol is the structure in bbox.
             if self.data_feeder.orientation == 'coronal':
-                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='x', sample_every=1)
+                gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='x', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
                     gscene_xs = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
                     gscene_ys = gscene_pts[:,1] + ymin_ds
@@ -234,7 +277,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                     side=side,
                                                     side_manually_assigned=False)
             elif self.data_feeder.orientation == 'horizontal':
-                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='y', sample_every=1)
+                gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='y', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
                     gscene_xs = gscene_pts[:,1] + xmin_ds
                     gscene_ys = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
@@ -245,7 +288,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         side=side,
                                                         side_manually_assigned=False)
             elif self.data_feeder.orientation == 'sagittal':
-                gscene_pts_allpos = find_contour_points_3d(volume_downsampled, along_direction='z', sample_every=1)
+                gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='z', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
                     gscene_xs = gscene_pts[:,0] + xmin_ds
                     gscene_ys = gscene_pts[:,1] + ymin_ds
@@ -271,7 +314,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             name_u = self.active_polygon.properties['label']
             scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, classifier_id=37)
             download_from_s3(scoremap_viz_fp)
-            w, h = DataManager.get_image_dimension(self.gui.stack)
+            # w, h = DataManager.get_image_dimension(self.gui.stack)
+            w, h = metadata_cache['image_shapes'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
         else:
@@ -1072,11 +1116,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # Transform the current structure volume.
             # Notify GUI to use the new volume to update contours on all gscenes.
             if self.mode == 'rotate3d' or self.mode == 'shift3d':
-                
+
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
-                vol, bbox = self.structure_volumes[name_side_tuple]
+                vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
+                bbox = self.structure_volumes[name_side_tuple]['bbox']
                 print 'vol', vol.shape, 'bbox', bbox
                 ys, xs, zs = np.where(vol)
                 cx_volResol = np.mean(xs)
@@ -1135,8 +1180,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                 tfed_structure_volume_bbox_rel[4] + bbox[4],
                                                 tfed_structure_volume_bbox_rel[5] + bbox[4])
                 print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox', tfed_structure_volume_bbox
-                self.structure_volumes[name_side_tuple] = (tfed_structure_volume, tfed_structure_volume_bbox)
-                self.gui.structure_adjustment_3d[name_side_tuple].append((tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+
+                self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
+                self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox
+                if self.mode == 'shift3d':
+                    self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                elif self.mode == 'rotate3d':
+                    self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')
 

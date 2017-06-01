@@ -98,6 +98,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
+    REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')

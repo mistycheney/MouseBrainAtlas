@@ -571,33 +571,49 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         Load stored annotations.
         """
-        # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
 
-        # Load traditional version of labelings
-        # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
-        # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
+        # # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
+        # # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
+        #
+        # # Load traditional version of labelings
+        # # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
+        # # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
+        #
+        # # Load pipeline generated atlas-aligned annotations
+        #
+        # contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the sagittal contours annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        # print contours_df_fp
+        # download_from_s3(contours_df_fp)
+        # contour_df = load_hdf_v2(contours_df_fp)
+        #
+        # # contour_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
+        # # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='contours')
+        #
+        # self.contour_df_loaded = contour_df
+        #
+        # sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+        # self.gscenes['sagittal'].load_drawings(sagittal_contours)
+        #
+        # try:
+        #     coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
+        #     self.gscenes['coronal'].load_drawings(coronal_contours)
+        # except Exception as e:
+        #     sys.stderr.write("Error loading coronal contours: str(e)\n")
+        #
+        # try:
+        #     horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
+        #     self.gscenes['horizontal'].load_drawings(horizontal_contours)
+        # except Exception as e:
+        #     sys.stderr.write("Error loading horizontal contours: str(e)\n")
 
-        # Load pipeline generated atlas-aligned annotations
-        contour_df, structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37)
 
-        self.contour_df_loaded = contour_df
-        sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
-        self.gscenes['sagittal'].load_drawings(sagittal_contours)
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        print structures_df_fp
 
-        try:
-            coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
-            self.gscenes['coronal'].load_drawings(coronal_contours)
-        except Exception as e:
-            sys.stderr.write("Error loading coronal contours: str(e)\n")
-
-        try:
-            horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
-            self.gscenes['horizontal'].load_drawings(horizontal_contours)
-        except Exception as e:
-            sys.stderr.write("Error loading horizontal contours: str(e)\n")
-
+        download_from_s3(structures_df_fp)
+        structure_df = load_hdf_v2(structures_df_fp)
+        # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
+        # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
 
         self.structure_df_loaded = structure_df
 
@@ -606,7 +622,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 t = (structure_entry['name'], 'S')
             else:
                 t = (structure_entry['name'], structure_entry['side'])
-            print t
 
             if 'edits' in structure_entry:
                 edits = structure_entry['edits']
@@ -617,8 +632,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                         'bbox': structure_entry['bbox'],
                                         'edits': edits,
                                         'structure_id': structure_id}
-            # for gscene_id in self.gscenes:
-            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, gscene_id=gscene_id)
+
+            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
+            for gscene_id in self.gscenes:
+                self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
 
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours
@@ -796,16 +813,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # {(name, side): (vol, bbox, edits, id)}
                 new_structure_df = self.structure_df_loaded.copy()
 
-                struct_id = structure_entry['structure_id']
                 for (name, side), structure_entry in self.structure_volumes.iteritems():
+                    struct_id = structure_entry['structure_id']
                     new_structure_df.loc[struct_id]['volume_in_bbox'] = structure_entry['volume_in_bbox']
                     new_structure_df.loc[struct_id]['bbox'] = structure_entry['bbox']
                     new_structure_df.loc[struct_id]['edits'] = structure_entry['edits']
 
-                new_structure_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                                       classifier_setting_m=classifier_setting_m,
-                                                                      classifier_setting_f=classifier_setting_f,
-                                                                      warp_setting=warp_setting, suffix='structures', timestamp=timestamp)
+                new_structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m='atlasV3',
+                                                                       classifier_setting_m=37,
+                                                                      classifier_setting_f=37,
+                                                                      warp_setting=8, suffix='structures', timestamp=timestamp)
                 save_hdf_v2(new_structure_df, new_structure_df_fp)
                 self.statusBar().showMessage('3D structure labelings are saved to %s.\n' % new_structure_df_fp)
 

@@ -271,8 +271,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']
             scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, classifier_id=37)
-            download_from_s3(scoremap_viz_fp, )
-            w, h = DataManager.get_image_dimension(self.gui.stack)
+            download_from_s3(scoremap_viz_fp)
+            # w, h = DataManager.get_image_dimension(self.gui.stack)
+            w, h = metadata_cache['image_shapes'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
         else:

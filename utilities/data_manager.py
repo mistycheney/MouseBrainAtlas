@@ -165,41 +165,32 @@ class DataManager(object):
     def load_annotation_v3(stack=None, by_human=True, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
-                                warp_setting=None, trial_idx=None, timestamp=None):
+                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
         if by_human:
-            fp = DataManager.get_annotation_filepath(stack, by_human=True)
-            download_from_s3(fp)
-            contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
-
-            try:
-                structure_df = read_hdf(fp, 'structures')
-            except Exception as e:
-                print e
-                sys.stderr.write('Annotation has no structures.\n')
-                return contour_df, None
-
-            sys.stderr.write('Loaded annotation %s.\n' % fp)
-            return contour_df, structure_df
+            # fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            # download_from_s3(fp)
+            # contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
+            #
+            # try:
+            #     structure_df = read_hdf(fp, 'structures')
+            # except Exception as e:
+            #     print e
+            #     sys.stderr.write('Annotation has no structures.\n')
+            #     return contour_df, None
+            #
+            # sys.stderr.write('Loaded annotation %s.\n' % fp)
+            # return contour_df, structure_df
+            raise Exception('Not implemented.')
         else:
             fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
                                                       classifier_setting_m=classifier_setting_m,
                                                       classifier_setting_f=classifier_setting_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix='contours', timestamp=timestamp)
+                                                    suffix=suffix, timestamp=timestamp)
             download_from_s3(fp)
-            contour_df = load_hdf_v2(fp)
-
-            fp = DataManager.get_annotation_filepath(stack, by_human=False,
-                                                     stack_m=stack_m,
-                                                      classifier_setting_m=classifier_setting_m,
-                                                      classifier_setting_f=classifier_setting_f,
-                                                      warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix='structures', timestamp=timestamp)
-            download_from_s3(fp)
-            structure_df = load_hdf_v2(fp)
-
-            return contour_df, structure_df
+            annotation_df = load_hdf_v2(fp)
+            return annotation_df
 
     @staticmethod
     def get_annotation_viz_dir(stack):

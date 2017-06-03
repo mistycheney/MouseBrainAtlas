@@ -1501,28 +1501,37 @@ class DataManager(object):
         return feature_locs_fn
 
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None):
+    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_name=None):
+        """
+        Args:
+            input_name (str): default is %(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.
+        """
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
+            
+        if input_name is None:
+            input_name = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % dict(fn=fn, anchor_fn=anchor_fn)
 
         if model_name == 'Inception-BN':
-            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-            '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.hdf' % \
-            dict(fn=fn, anchor_fn=anchor_fn))
+            # For backward compatibility.
+            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, input_name, input_name + '_features.hdf')
         else:
-            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_features.bp' % \
-        dict(fn=fn, anchor_fn=anchor_fn))
+            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, input_name, input_name + '_features.bp')
 
         return feature_fn
 
     @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None):
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_name=None):
+        """
+        Args:
+            input_name (str): default is %(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.
+        """
+        
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_name=input_name)
         download_from_s3(features_fp)
 
         try:

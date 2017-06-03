@@ -1692,31 +1692,34 @@ class DataManager(object):
     @staticmethod
     def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
         """
-        first_sec: default to the first brainstem section defined in ``cropbox".
-        z_begin: default to the z position of the first_sec.
+        Because the z-spacing is much larger than pixel size on x-y plane,
+        the theoretical voxels are square on x-y plane but elongated in z-direction.
+        In practice we need to represent volume using cubic voxels.
+        This function computes the z-coordinate for a given section number.
+        This depends on the downsample factor of the volume.
+
+        Args:
+            downsample (int):
+            first_sec (int): default to the first brainstem section defined in ``cropbox".
+            z_begin (float): default to the z position of the first_sec.
+
+        Returns:
+            z1, z2 (2-tuple of float): in
         """
 
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-        # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+        # Voxel size in z direction in unit of x,y pixel.
 
-        # first_sec, last_sec = section_range_lookup[stack]
         if first_sec is None:
             first_sec, _ = DataManager.load_cropbox(stack)[4:]
 
-        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
         if z_begin is None:
-            # z_begin = int(np.floor(first_sec*voxel_z_size))
             z_begin = first_sec * voxel_z_size
-        # print 'z_begin', first_sec*voxel_z_size, z_begin
 
         z1 = sec * voxel_z_size
         z2 = (sec + 1) * voxel_z_size
-        # return int(z1)-z_begin, int(z2)+1-z_begin
-        # print 'z1, z2', z1-z_begin, z2-1-z_begin
         return z1-z_begin, z2-1-z_begin
-        # return int(np.round(z1-z_begin)), int(np.round(z2-1-z_begin))
-        # return int(np.round(z1))-z_begin, int(np.round(z2))-1-z_begin
 
     @staticmethod
     def convert_z_to_section(stack, z, downsample, z_begin=None):

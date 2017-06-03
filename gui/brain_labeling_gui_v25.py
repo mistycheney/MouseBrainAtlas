@@ -632,8 +632,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
             # for gscene_id in self.gscenes:
             #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
-            self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
 
+            t = time.time()
+            # if structure_entry['name'] == 'VLL' and structure_entry['side'] == 'L':
+            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
+            self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
+            use_confirmed_only=False, recompute_from_contours=False, \
+            affected_gscenes=['sagittal'])
+            sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours
         # self.horizontal_contours_loaded = horizontal_contours
@@ -676,8 +682,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot(str, str, bool, bool)
     def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None, affected_gscenes=None):
         """
-        This function is triggered by `structure_volume_updated` signal from
-        any of the three gscenes.
+        This function is triggered by `structure_volume_updated` signal from a gscene.
 
         - Retrieve the volumes stored internally for each view.
         The volumes in different views are potentially different.

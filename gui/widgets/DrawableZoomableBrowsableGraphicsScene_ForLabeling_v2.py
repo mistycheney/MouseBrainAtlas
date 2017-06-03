@@ -224,7 +224,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     positions_rel_vol_resol.append(pos_rel_vol_resol)
                     sections_used.append(sec)
 
-            # volume_downsampled is the structure in bbox.
             gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
             m = dict(zip(positions_rel_vol_resol, sections_used))
             gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
@@ -232,14 +231,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + xmin
                 gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + ymin
                 gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
-                # print sec, gscene_pts_gl_vol_resol
                 gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
-                # print sec, gscene_pts_gl_data_resol
+                # t = time.time()
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
-                                                    linecolor='r', vertex_radius=3, linewidth=5, section=sec,
+                                                    linecolor='r', vertex_radius=8, linewidth=5, section=sec,
                                                     type='interpolated',
                                                     side=side,
                                                     side_manually_assigned=False)
+                # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
         else:
             # matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
             # print 'matched_confirmed_positions', matched_confirmed_positions

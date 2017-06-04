@@ -44,7 +44,7 @@ for fn in filenames:
             img_blue = imread(img_fp)[..., 2]
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
             
-            if not hasattr(args, "l") or args.l is None:
+            if not hasattr(args, "low"):
                 sys.stderr.write("No linear limits arguments are given, so use nonlinear mapping.\n")
             
                 try:
@@ -62,18 +62,24 @@ for fn in filenames:
                 img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[3000-img_blue.astype(np.int)].astype(np.uint8)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
+                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')
+
             else:
                 sys.stderr.write("Linear limits arguments detected, so use linear mapping.\n")
                 
-                low_limit = args.l
-                high_limit = args.H
+                low_limit = args.low
+                high_limit = args.high
                 
                 t = time.time()
-                img_blue_intensity_normalized = rescale_intensity(img_blue.astype(np.int), (low_limit, high_limit), np.uint8)
+                if low_limit > high_limit:
+                    img_blue_intensity_normalized = rescale_intensity(low_limit-img_blue.astype(np.int), (0, low_limit-high_limit), (0, 255)).astype(np.uint8)
+                else:
+                    img_blue_intensity_normalized = rescale_intensity(img_blue.astype(np.int), (low_limit, high_limit), (0, 255)).astype(np.uint8)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
-
+                
+                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray_linearNormalized', resol='lossless')
+                
             t = time.time()
-            output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')
             create_parent_dir_if_not_exists(output_fp)
             imsave(output_fp, img_blue_intensity_normalized)
             sys.stderr.write('Save: %.2f seconds\n' % (time.time() - t))

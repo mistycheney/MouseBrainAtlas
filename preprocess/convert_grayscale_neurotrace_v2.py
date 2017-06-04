@@ -4,6 +4,8 @@ import sys
 import os
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 
+from skimage.exposure import rescale_intensity
+
 from utilities2015 import *
 from registration_utilities import *
 from metadata import *
@@ -20,6 +22,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("stack", type=str, help="Stack")
 parser.add_argument("filenames", type=str, help="filenames")
+parser.add_argument("-l", "--low", type=int, help="Low intensity limit for linear contrast stretch")
+parser.add_argument("-H", "--high", type=int, help="High intensity limit for linear contrast stretch")
 args = parser.parse_args()
 
 ####################################
@@ -40,20 +44,33 @@ for fn in filenames:
             img_blue = imread(img_fp)[..., 2]
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
             
-            try:
-                intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=fn)
-                download_from_s3(intensity_mapping_fp)
-                intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
-            except:
-                sys.stderr.write("Error loading section-specific ntb-to-nissl intensity mapping. Load a priori mapping instead.\n")
-                intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath()
-                download_from_s3(intensity_mapping_fp)
-                intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
+            if not hasattr(args, "l") or args.l is None:
+                sys.stderr.write("No linear limits arguments are given, so use nonlinear mapping.\n")
+            
+                try:
+                    intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=fn)
+                    download_from_s3(intensity_mapping_fp)
+                    intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
+                except:
+                    sys.stderr.write("Error loading section-specific ntb-to-nissl intensity mapping. Load a priori mapping instead.\n")
+                    intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath()
+                    download_from_s3(intensity_mapping_fp)
+                    intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
 
-            t = time.time()
-            ntb_values = np.arange(0, 5000)
-            img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[3000-img_blue.astype(np.int)].astype(np.uint8)
-            sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
+                t = time.time()
+                ntb_values = np.arange(0, 5000)
+                img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[3000-img_blue.astype(np.int)].astype(np.uint8)
+                sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
+                
+            else:
+                sys.stderr.write("Linear limits arguments detected, so use linear mapping.\n")
+                
+                low_limit = args.l
+                high_limit = args.H
+                
+                t = time.time()
+                img_blue_intensity_normalized = rescale_intensity(img_blue.astype(np.int), (low_limit, high_limit), np.uint8)
+                sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
 
             t = time.time()
             output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')

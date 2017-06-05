@@ -21,10 +21,12 @@ parser = argparse.ArgumentParser(
     description='Match intensity profile of neurotrace images to adjacent Nissl.')
 parser.add_argument("stack", type=str, help="Stack name")
 parser.add_argument("filename_pairs", type=str, help="Filename pairs")
+parser.add_argument("num_regions", type=int, help="Number of regions to compute mapping", default=8)
 args = parser.parse_args()
 
 stack = args.stack
 filename_pairs = json.loads(args.filename_pairs)
+n_regions = int(args.num_regions)
 
 #############################################################################
 
@@ -75,8 +77,10 @@ for nissl_fn, ntb_fn in filename_pairs:
     
     h, w = nissl_im.shape[:2]
     
-    def match_intensity_histogram_one_random_region(region_id):
-        
+    # Must sample regions before entering multiprocesses, 
+    # otherwise the sampled results across processes will be the same.
+    regions = []
+    for _ in range(n_regions):
         while True:
             region1_w = 5000
             region1_h = 5000
@@ -94,9 +98,13 @@ for nissl_fn, ntb_fn in filename_pairs:
             nissl_tb_mask[tb_region1_ymax, tb_region1_xmin],
             nissl_tb_mask[tb_region1_ymax, tb_region1_xmax]]):
                 break
+        regions.append((region1_x, region1_y, region1_w, region1_h))
+    
+    def match_intensity_histogram_one_region(region):
+        
+        region1_x, region1_y, region1_w, region1_h = region
         
         ntb_blue_region1 = ntb_im[region1_y:region1_y+region1_h, region1_x:region1_x+region1_w, 2]
-        ntb_blue_region1_inv = 5000 - ntb_blue_region1.astype(np.int)
     
         nissl_region1 = img_as_ubyte(rgb2gray(nissl_im[region1_y:region1_y+region1_h, region1_x:region1_x+region1_w]))
 
@@ -104,22 +112,26 @@ for nissl_fn, ntb_fn in filename_pairs:
         
         t = time.time()
 
+        ntb_blue_region1_inv = 5000 - ntb_blue_region1.astype(np.int)
         ntb_inv_vals, nissl_vals = match_histogram(ntb_blue_region1_inv, nissl_region1)
     
+        ntb_blue_bins = np.arange(5001)
+    
+        ntb_blue_inv_bins = np.arange(5001)
         ntb_inv_to_nissl_mapping = np.interp(ntb_blue_inv_bins, ntb_inv_vals, nissl_vals)
         
-        ntb_matched_values_all_examples_one_section.append(ntb_inv_to_nissl_mapping)
+        ntb_to_nissl_mapping = ntb_inv_to_nissl_mapping[5000 - ntb_blue_bins]
+        ntb_to_nissl_mapping = np.round(ntb_to_nissl_mapping).astype(np.uint8)
+                        
+        ntb_matched_values_all_examples_one_section.append(ntb_to_nissl_mapping)
         region_bboxes_all_examples_one_section.append((region1_x, region1_y, region1_w, region1_h))
     
         sys.stderr.write('Compute matching: %.2f seconds.\n' % (time.time()-t))
         
-        return ntb_inv_to_nissl_mapping, (region1_x, region1_y, region1_w, region1_h)
-        
-    
-    n_regions = 8
-    
+        return ntb_to_nissl_mapping, (region1_x, region1_y, region1_w, region1_h)
+            
     pool = Pool(4)
-    res = pool.map(match_intensity_histogram_one_random_region, range(n_regions))
+    res = pool.map(match_intensity_histogram_one_region, regions)
     ntb_matched_values_all_examples_one_section, region_bboxes_all_examples_one_section = zip(*res)
     pool.close()
     pool.join()
@@ -135,6 +147,6 @@ for nissl_fn, ntb_fn in filename_pairs:
     upload_to_s3(fp)
 
     median_mapping_one_section = np.median(ntb_matched_values_all_examples_one_section, axis=0)
-    fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, fn=ntb_fn)
+    fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=ntb_fn)
     np.save(fp, np.asarray(median_mapping_one_section))
     upload_to_s3(fp)

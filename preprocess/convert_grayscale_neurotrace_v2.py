@@ -44,7 +44,7 @@ for fn in filenames:
             img_blue = imread(img_fp)[..., 2]
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
             
-            if not hasattr(args, "low"):
+            if not hasattr(args, 'low') or (hasattr(args, 'low') and args.low is None):
                 sys.stderr.write("No linear limits arguments are given, so use nonlinear mapping.\n")
             
                 try:
@@ -58,8 +58,10 @@ for fn in filenames:
                     intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
 
                 t = time.time()
-                ntb_values = np.arange(0, 5000)
-                img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[3000-img_blue.astype(np.int)].astype(np.uint8)
+                img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[img_blue.astype(np.int)].astype(np.uint8)
+                print intensity_mapping_ntb_to_nissl
+                print img_blue.min(), img_blue.max(), intensity_mapping_ntb_to_nissl.shape
+                print img_blue_intensity_normalized.min(), img_blue_intensity_normalized.max()
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
                 output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')

@@ -24,6 +24,7 @@ parser.add_argument("stack", type=str, help="Stack")
 parser.add_argument("filenames", type=str, help="filenames")
 parser.add_argument("-l", "--low", type=int, help="Low intensity limit for linear contrast stretch")
 parser.add_argument("-H", "--high", type=int, help="High intensity limit for linear contrast stretch")
+parser.add_argument("-o", "--output_version", type=str, help="Output image version")
 args = parser.parse_args()
 
 ####################################
@@ -52,16 +53,16 @@ for fn in filenames:
                     download_from_s3(intensity_mapping_fp)
                     intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
                 except:
-                    sys.stderr.write("Error loading section-specific ntb-to-nissl intensity mapping. Load a priori mapping instead.\n")
+                    sys.stderr.write("Error loading section-specific ntb-to-nissl intensity mapping. Load a default mapping instead.\n")
                     intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath()
                     download_from_s3(intensity_mapping_fp)
                     intensity_mapping_ntb_to_nissl = np.load(intensity_mapping_fp)
 
                 t = time.time()
                 img_blue_intensity_normalized = intensity_mapping_ntb_to_nissl[img_blue.astype(np.int)].astype(np.uint8)
-                print intensity_mapping_ntb_to_nissl
-                print img_blue.min(), img_blue.max(), intensity_mapping_ntb_to_nissl.shape
-                print img_blue_intensity_normalized.min(), img_blue_intensity_normalized.max()
+                # print intensity_mapping_ntb_to_nissl
+                # print img_blue.min(), img_blue.max(), intensity_mapping_ntb_to_nissl.shape
+                # print img_blue_intensity_normalized.min(), img_blue_intensity_normalized.max()
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
                 output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')
@@ -79,7 +80,7 @@ for fn in filenames:
                     img_blue_intensity_normalized = rescale_intensity(img_blue.astype(np.int), (low_limit, high_limit), (0, 255)).astype(np.uint8)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
-                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray_linearNormalized', resol='lossless')
+                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version=args.output_version, resol='lossless')
                 
             t = time.time()
             create_parent_dir_if_not_exists(output_fp)
@@ -93,7 +94,6 @@ for fn in filenames:
         else:
 
             t = time.time()
-            print img_fp
             img = imread(img_fp)
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
 

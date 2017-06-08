@@ -1600,7 +1600,7 @@ class DataManager(object):
     @staticmethod
     def get_image_filepath(stack, version, resol='lossless',
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
-                           section=None, fn=None, anchor_fn=None, modality=None):
+                           section=None, fn=None, anchor_fn=None, modality=None, ext=None):
         """
         Args:
             data_dir: This by default is DATA_DIR, but one can change this ad-hoc when calling the function
@@ -1611,6 +1611,8 @@ class DataManager(object):
         Returns:
             Absolute path of the image file.
         """
+        
+        # image_name = None
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1638,7 +1640,7 @@ class DataManager(object):
         #     else:
         #         image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % {'anchor_fn':anchor_fn}])
         elif resol == 'lossless' and version == 'cropped':
-            ext = 'tif'
+            # ext = 'tif'
             # if modality == 'fluorescent':
             #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn}])
             # else:
@@ -1662,9 +1664,14 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_cropped.tif'])
         elif resol == 'thumbnail' and (version == 'aligned' or version == 'aligned_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '.tif'])
-        else:
+        # else:
             # sys.stderr.write('No special rule for (%s, %s). So using the default image filepath composition rule.\n' % (version, resol))
-            image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])
+            # image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])
+            
+        else:
+            if ext is None:
+                ext = 'tif'
+            image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])    
             
         image_path = os.path.join(image_dir, image_name)
             

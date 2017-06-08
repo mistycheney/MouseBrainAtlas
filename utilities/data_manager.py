@@ -1682,8 +1682,8 @@ class DataManager(object):
             # image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray_contrast_stretched.tif' % {'anchor_fn':anchor_fn}])
         # elif resol == 'lossless' and version == 'cropped_16bit':
             # image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped.tif' % {'anchor_fn':anchor_fn}])            
-        elif resol == 'lossless' and version == 'cropped_gray':
-            ext = 'tif'
+        # elif resol == 'lossless' and version == 'cropped_gray':
+        #     ext = 'tif'
         #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray.tif' % {'anchor_fn':anchor_fn}])
         # elif resol == 'lossless' and version == 'cropped_gray_jpeg':
         #     image_name = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped_gray.jpg'            
@@ -1699,6 +1699,8 @@ class DataManager(object):
             # sys.stderr.write('No special rule for (%s, %s). So using the default image filepath composition rule.\n' % (version, resol))
         
         if image_name is None:
+            if ext is None:
+                ext = 'tif'
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])    
             
         image_path = os.path.join(image_dir, image_name)

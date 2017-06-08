@@ -89,8 +89,9 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, labe
         if is_invalid(fn): return
 
     if bg == 'original':
-        if image_version is not None:            
+        if image_version is None:            
             classifier_properties = classifier_settings.loc[classifier_id]
+            print classifier_properties
             image_version = classifier_properties['input_img_version']
 
         if out_downscale == 32:

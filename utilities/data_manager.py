@@ -1476,8 +1476,8 @@ class DataManager(object):
     ###########################
 
     @staticmethod
-    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None):
-        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
         download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
@@ -1485,7 +1485,7 @@ class DataManager(object):
         return indices, locations
 
     @staticmethod
-    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, version='cropped_gray'):
+    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1493,8 +1493,8 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
             
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=version)
+        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
 
         # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
         # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
@@ -1505,7 +1505,7 @@ class DataManager(object):
         return feature_locs_fn
 
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, version='cropped_gray'):
+    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
         """
         Args:
             version (str): default is cropped_gray.
@@ -1517,21 +1517,21 @@ class DataManager(object):
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=version)
+        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
 
         feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
 
         return feature_fn
 
     @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_name=None):
+    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
         """
         Args:
-            input_name (str): default is %(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.
+            version (str): default is cropped_gray.
         """
         
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_name=input_name)
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
         download_from_s3(features_fp)
 
         try:
@@ -1641,6 +1641,8 @@ class DataManager(object):
         Returns:
             Absolute path of the image file.
         """
+        
+        # image_name = None
 
         image_name = None
         
@@ -1670,7 +1672,7 @@ class DataManager(object):
         #     else:
         #         image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % {'anchor_fn':anchor_fn}])
         elif resol == 'lossless' and version == 'cropped':
-            ext = 'tif'
+            # ext = 'tif'
             # if modality == 'fluorescent':
             #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn}])
             # else:
@@ -1695,10 +1697,7 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_cropped.tif'])
         elif resol == 'thumbnail' and (version == 'aligned' or version == 'aligned_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '.tif'])
-        #else:
-            # sys.stderr.write('No special rule for (%s, %s). So using the default image filepath composition rule.\n' % (version, resol))
-        
-        if image_name is None:
+        else:
             if ext is None:
                 ext = 'tif'
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])    

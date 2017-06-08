@@ -31,15 +31,19 @@ stack = args.stack
 filenames = json.loads(args.filenames)
 classifier_id = args.classifier_id
 
+classifier_properties = classifier_settings.loc[classifier_id]
+input_img_version = classifier_properties['input_img_version']
 cnn_model = dataset_settings.loc[int(classifier_settings.loc[classifier_id]['train_set_id'].split('/')[0])]['network_model']
+svm_id = int(classifier_properties['svm_id'])
     
 ############################
 
-if classifier_id == 12:
-    available_classifiers = {2: DataManager.load_classifiers(classifier_id=2),
-                             10: DataManager.load_classifiers(classifier_id=10)}
-else:
-    available_classifiers = {classifier_id: DataManager.load_classifiers(classifier_id=classifier_id)}
+# if classifier_id == 12:
+#     available_classifiers = {2: DataManager.load_classifiers(classifier_id=2),
+#                              10: DataManager.load_classifiers(classifier_id=10)}
+# else:
+
+available_classifiers = {svm_id: DataManager.load_classifiers(classifier_id=svm_id)}
 
 def clf_predict(stack, fn, model_name):
 
@@ -47,22 +51,25 @@ def clf_predict(stack, fn, model_name):
         return
 
     try:
-        features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn)
+        features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn, input_img_version=input_img_version)
     except Exception as e:
         sys.stderr.write('%s\n' % e.message)
         return
 
-    actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, fn=fn)
-    clf_allClasses_ = available_classifiers[actual_setting]
+    # actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, fn=fn)
+    # clf_allClasses_ = available_classifiers[actual_setting]
+    
+    clf_allClasses_ = available_classifiers[svm_id]
 
     for structure, clf in clf_allClasses_.iteritems():
 
         probs = clf.predict_proba(features)[:, clf.classes_.tolist().index(1.)]
+        # output_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure, 
+        #                                                    classifier_id=actual_setting, fn=fn)
         output_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure, 
-                                                           classifier_id=actual_setting, fn=fn)
+                                                           classifier_id=classifier_id, fn=fn)
         create_parent_dir_if_not_exists(output_fn)
         bp.pack_ndarray_file(probs, output_fn)
-        
         upload_to_s3(output_fn)
 
 

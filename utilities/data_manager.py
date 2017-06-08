@@ -1476,8 +1476,8 @@ class DataManager(object):
     ###########################
 
     @staticmethod
-    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None):
-        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn)
+    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
         download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
@@ -1485,53 +1485,53 @@ class DataManager(object):
         return indices, locations
 
     @staticmethod
-    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None):
+    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
 
-        if section is not None:
-            section_to_filename = metadata_cache['sections_to_filenames'][stack]
-            fn = section_to_filename[section]
-
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
-
-        feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
-        dict(fn=fn, anchor_fn=anchor_fn))
-
-        return feature_locs_fn
-
-    @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_name=None):
-        """
-        Args:
-            input_name (str): default is %(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.
-        """
-
-        if section is not None:
+        if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
             
-        if input_name is None:
-            input_name = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped' % dict(fn=fn, anchor_fn=anchor_fn)
+        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
 
-        if model_name == 'Inception-BN':
-            # For backward compatibility.
-            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, input_name, input_name + '_features.hdf')
-        else:
-            feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, input_name, input_name + '_features.bp')
+        # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
+        # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
+        # dict(fn=fn, anchor_fn=anchor_fn))
+        
+        feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
+                                       image_basename + '_patch_locations.txt')
+        return feature_locs_fn
+
+    @staticmethod
+    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+        """
+        Args:
+            version (str): default is cropped_gray.
+        """
+
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+
+        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+
+        feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
 
         return feature_fn
 
     @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_name=None):
+    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
         """
         Args:
-            input_name (str): default is %(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped.
+            version (str): default is cropped_gray.
         """
         
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_name=input_name)
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
         download_from_s3(features_fp)
 
         try:
@@ -1549,6 +1549,36 @@ class DataManager(object):
     ##################
     ##### Image ######
     ##################
+    
+    @staticmethod
+    def get_image_version_basename(stack, version, resol='lossless', anchor_fn=None):
+        
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+        
+        if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
+            image_version_basename = stack + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
+        else:
+            image_version_basename = stack + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
+        
+        return image_version_basename
+    
+    @staticmethod
+    def get_image_basename(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
+        
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+            
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
+        
+        if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
+            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
+        else:
+            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
+        
+        return image_basename
 
     @staticmethod
     def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None,
@@ -1614,6 +1644,8 @@ class DataManager(object):
         
         # image_name = None
 
+        image_name = None
+        
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn=fn):
@@ -1653,6 +1685,7 @@ class DataManager(object):
         # elif resol == 'lossless' and version == 'cropped_16bit':
             # image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped.tif' % {'anchor_fn':anchor_fn}])            
         # elif resol == 'lossless' and version == 'cropped_gray':
+        #     ext = 'tif'
         #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray.tif' % {'anchor_fn':anchor_fn}])
         # elif resol == 'lossless' and version == 'cropped_gray_jpeg':
         #     image_name = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped_gray.jpg'            
@@ -1664,10 +1697,6 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_cropped.tif'])
         elif resol == 'thumbnail' and (version == 'aligned' or version == 'aligned_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '.tif'])
-        # else:
-            # sys.stderr.write('No special rule for (%s, %s). So using the default image filepath composition rule.\n' % (version, resol))
-            # image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])
-            
         else:
             if ext is None:
                 ext = 'tif'

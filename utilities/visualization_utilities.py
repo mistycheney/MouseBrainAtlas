@@ -45,7 +45,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 
 def generate_scoremap_layer(stack, structure, downscale, classifier_id,
                     image_shape=None, return_mask=False, sec=None, fn=None,
-                    color=(1,0,0)):
+                    color=(1,0,0), show_above=.01):
     '''
     Generate scoremap layer.
     
@@ -68,9 +68,9 @@ def generate_scoremap_layer(stack, structure, downscale, classifier_id,
     try:
         dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
                             classifier_id=classifier_id, structure=structure, downscale=32)
-        dense_score_map = rescale(dense_score_map, 32/float(downscale))
-        mask = dense_score_map > 0.
-        scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
+        dense_score_map = np.minimum(rescale(dense_score_map, 32/float(downscale)), 1.)
+        mask = dense_score_map > show_above
+        scoremap_viz = plt.cm.hot(dense_score_map)[..., :3] 
     except Exception as e:
         raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 
@@ -81,7 +81,7 @@ def generate_scoremap_layer(stack, structure, downscale, classifier_id,
     else:
         return viz
     
-def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None):
+def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01):
 
     if fn is None:
         assert sec is not None
@@ -91,7 +91,6 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, labe
     if bg == 'original':
         if image_version is None:            
             classifier_properties = classifier_settings.loc[classifier_id]
-            print classifier_properties
             image_version = classifier_properties['input_img_version']
 
         if out_downscale == 32:
@@ -104,7 +103,7 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, labe
 
     # t = time.time()
     ret = generate_scoremap_layer(stack=stack, sec=sec, fn=fn, structure=structure, downscale=out_downscale,
-                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id)
+                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id, show_above=show_above)
     # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
     scoremap_viz, mask = ret
 

@@ -1641,6 +1641,8 @@ class DataManager(object):
         Returns:
             Absolute path of the image file.
         """
+        
+        # image_name = None
 
         image_name = None
         
@@ -1670,7 +1672,7 @@ class DataManager(object):
         #     else:
         #         image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_compressed.jpg' % {'anchor_fn':anchor_fn}])
         elif resol == 'lossless' and version == 'cropped':
-            ext = 'tif'
+            # ext = 'tif'
             # if modality == 'fluorescent':
             #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_contrast_stretched' % {'anchor_fn':anchor_fn}])
             # else:
@@ -1695,10 +1697,7 @@ class DataManager(object):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_cropped.tif'])
         elif resol == 'thumbnail' and (version == 'aligned' or version == 'aligned_tif'):
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '.tif'])
-        #else:
-            # sys.stderr.write('No special rule for (%s, %s). So using the default image filepath composition rule.\n' % (version, resol))
-        
-        if image_name is None:
+        else:
             if ext is None:
                 ext = 'tif'
             image_name = '_'.join([fn, resol, 'alignedTo_' + anchor_fn + '_' + version + '.' + ext])    

@@ -32,6 +32,14 @@ args = parser.parse_args()
 stack = args.stack
 filenames = json.loads(args.filenames)
 
+def rescale_intensity_v2(im, low, high):
+    if low > high:
+        im_out = rescale_intensity(low-im.astype(np.int), (0, low-high), (0, 255)).astype(np.uint8)
+    else:
+        im_out = rescale_intensity(im.astype(np.int), (low, high), (0, 255)).astype(np.uint8)
+    return im_out
+
+
 for fn in filenames:
     
     try:
@@ -74,10 +82,7 @@ for fn in filenames:
                 high_limit = args.high
                 
                 t = time.time()
-                if low_limit > high_limit:
-                    img_blue_intensity_normalized = rescale_intensity(low_limit-img_blue.astype(np.int), (0, low_limit-high_limit), (0, 255)).astype(np.uint8)
-                else:
-                    img_blue_intensity_normalized = rescale_intensity(img_blue.astype(np.int), (low_limit, high_limit), (0, 255)).astype(np.uint8)
+                img_blue_intensity_normalized = rescale_intensity_v2(img_blue, low, high)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
                 output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version=args.output_version, resol='lossless')

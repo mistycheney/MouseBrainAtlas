@@ -6,7 +6,7 @@ try:
     import cv2
 except:
     sys.stderr.write('Cannot load cv2.\n')
-from skimage.transform import rescale
+from skimage.transform import rescale, resize
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
@@ -43,12 +43,14 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
             
     return viz
 
-def scoremap_overlay(stack, structure, downscale, classifier_id,
+def generate_scoremap_layer(stack, structure, downscale, classifier_id,
                     image_shape=None, return_mask=False, sec=None, fn=None,
-                    color=(1,0,0)):
+                    color=(1,0,0), show_above=.01, cmap_name='jet'):
     '''
-    Generate scoremap image of structure.
-    name: structure name
+    Generate scoremap layer.
+    
+    Args:
+        structure: structure name
     '''
 
     if fn is None:
@@ -65,9 +67,12 @@ def scoremap_overlay(stack, structure, downscale, classifier_id,
 
     try:
         dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
-                            classifier_id=classifier_id, structure=structure, downscale=downscale)
-        mask = dense_score_map > 0.
-        scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
+                            classifier_id=classifier_id, structure=structure, downscale=32)
+        dense_score_map = np.minimum(rescale(dense_score_map, 32/float(downscale)), 1.)
+        mask = dense_score_map > show_above
+        # scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
+        cmap = plt.get_cmap(cmap_name)
+        scoremap_viz = cmap(dense_score_map)[..., :3]
     except Exception as e:
         raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 
@@ -77,8 +82,8 @@ def scoremap_overlay(stack, structure, downscale, classifier_id,
         return viz, mask
     else:
         return viz
-
-def scoremap_overlay_on(bg, stack, structure, downscale, classifier_id, label_text=None, sec=None, fn=None):
+    
+def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
 
     if fn is None:
         assert sec is not None
@@ -86,25 +91,34 @@ def scoremap_overlay_on(bg, stack, structure, downscale, classifier_id, label_te
         if is_invalid(fn): return
 
     if bg == 'original':
-        if downscale == 32:
-            fp = DataManager.get_image_filepath(stack=stack, section=sec, fn=fn, resol='thumbnail', version='cropped')
-            download_from_s3(fp)
-            bg = imread(fp)
+        if image_version is None:            
+            classifier_properties = classifier_settings.loc[classifier_id]
+            image_version = classifier_properties['input_img_version']
+
+        if out_downscale == 32:
+            bg = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='thumbnail', version=image_version)
         else:
-            fp = DataManager.get_image_filepath(stack=stack, section=sec, fn=fn, resol='lossless', version='compressed')
-            download_from_s3(fp)
-            bg = imread(fp)[::downscale, ::downscale]
+            im = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='lossless', version=image_version)
+            bg = im[::out_downscale, ::out_downscale]
+    else:
+        bg = rescale(bg, float(in_downscale)/out_downscale)
 
     # t = time.time()
-    ret = scoremap_overlay(stack=stack, sec=sec, fn=fn, structure=structure, downscale=downscale,
-                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id)
+    ret = generate_scoremap_layer(stack=stack, sec=sec, fn=fn, structure=structure, downscale=out_downscale,
+                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id, show_above=show_above,
+                                 cmap_name=cmap_name)
     # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
     scoremap_viz, mask = ret
+    
+    if overlay_bbox is not None:
+        xmin,xmax,ymin,ymax = overlay_bbox
+        scoremap_viz = scoremap_viz[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]
+        mask = mask[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]
 
-    viz = gray2rgb(bg)
-    viz[mask] = (.3 * img_as_ubyte(scoremap_viz[mask, :3]) + .7 * viz[mask]).astype(np.uint8)
+    viz = img_as_ubyte(gray2rgb(bg))
+    viz[mask] = (overlay_alpha * scoremap_viz[mask, :3] + (1-overlay_alpha) * viz[mask]).astype(np.uint8)
 
-    # put label name at left upper corner
+    # Put label name at left upper corner.
     if label_text is not None:
         cv2.putText(viz, label_text, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, ((0,0,0)), 3)
 

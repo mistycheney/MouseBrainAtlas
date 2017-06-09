@@ -36,6 +36,8 @@ filenames = json.loads(args.filenames)
 classifier_id = args.classifier_id
 downscale = args.downscale
 
+classifier_properties = classifier_settings.loc[classifier_id]
+input_img_version = classifier_properties['input_img_version']
 cnn_model = dataset_settings.loc[int(classifier_settings.loc[classifier_id]['train_set_id'].split('/')[0])]['network_model']
 
 patch_size, spacing, w, h = get_default_gridspec(stack)
@@ -50,9 +52,9 @@ def resample(fn):
 
     try:
         _, sample_locations_roi = DataManager.load_dnn_feature_locations(stack=stack, 
-                                        model_name=cnn_model, fn=fn)
-    except:
-        sys.stderr.write('Error loading patch locations for fn %s.\n' % fn)
+                                        model_name=cnn_model, fn=fn, input_img_version=input_img_version)
+    except Exception as e:
+        sys.stderr.write('Error loading patch locations for %s: %s.\n' % (fn, str(e)))
         return
 
     actual_setting = resolve_actual_setting(setting=classifier_id, stack=stack, fn=fn)
@@ -68,7 +70,7 @@ def resample(fn):
                                                            structure=structure, 
                                                            classifier_id=actual_setting)
         except Exception as e:
-            sys.stderr.write('Error loading sparse scores for %s.\n' % structure)
+            sys.stderr.write('Error loading sparse scores for %s: %s\n' % (structure, str(e)))
             continue
 
         f_grid = np.zeros(((h-half_size)/spacing+1, (w-half_size)/spacing+1))

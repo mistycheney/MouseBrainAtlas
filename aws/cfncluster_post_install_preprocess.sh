@@ -82,5 +82,5 @@ sudo apt-get install -y imagemagick
 
 # Kakadu
 wget http://kakadusoftware.com/wp-content/uploads/2014/06/KDU79_Demo_Apps_for_Linux-x86-64_170108.zip
-unzip -fo KDU79_Demo_Apps_for_Linux-x86-64_170108.zip -d /home/ubuntu/
+unzip -o KDU79_Demo_Apps_for_Linux-x86-64_170108.zip -d /home/ubuntu/
 

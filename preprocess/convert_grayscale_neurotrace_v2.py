@@ -43,9 +43,10 @@ def rescale_intensity_v2(im, low, high):
 for fn in filenames:
     
     try:
-    
+        t = time.time()
         img_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped', resol='lossless')
         download_from_s3(img_fp)
+        sys.stderr.write('Download: %.2f seconds\n' % (time.time() - t))
 
         if stack not in all_nissl_stacks and fn.split('-')[1][0] == 'F':
 
@@ -82,7 +83,7 @@ for fn in filenames:
                 high_limit = args.high
                 
                 t = time.time()
-                img_blue_intensity_normalized = rescale_intensity_v2(img_blue, low, high)
+                img_blue_intensity_normalized = rescale_intensity_v2(img_blue, low_limit, high_limit)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
                 
                 output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version=args.output_version, resol='lossless')

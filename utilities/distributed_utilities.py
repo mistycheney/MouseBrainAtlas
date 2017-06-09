@@ -163,6 +163,10 @@ def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_
 #         run_distributed4(command, kwargs_list, stdout, exclude_nodes, use_nodes, argument_type)
         
 def request_compute_nodes(cluster_size, cluster_name, keep=True):
+    """
+    Delay from requesting and cfncluster gets notified is mainly due to EC2 initializing.
+    Once compute EC2 status changed to running, cfncluster gets notified within seconds.
+    """
     
     if cluster_size is None:
         raise Exception('Must specify cluster_size.')

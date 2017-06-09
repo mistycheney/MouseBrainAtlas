@@ -209,7 +209,13 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
     return polydata
 
-def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0.):
+def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200):
+    """
+    Convert a volume to a mesh.
+    
+    Args:
+        min_vertices (int): minimum number of vertices. Simplification will stop if the number of vertices drops below this value.
+    """
 
     vol = volume > level
 
@@ -269,12 +275,10 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
             polydata = smoother.GetOutput()
 
         n_pts = polydata.GetNumberOfPoints()
-
-        if polydata.GetNumberOfPoints() < 200:
-            break
-
         sys.stderr.write('simplify %d @ %d: %.2f seconds\n' % (simplify_iter, n_pts, time.time() - t)) #
-
+        
+        if polydata.GetNumberOfPoints() < min_vertices:
+            break
 
     return polydata
 
@@ -1143,7 +1147,22 @@ def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
     # return moving_pts_centered
 
 
-def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, smooth=False):
+def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
+                 sigma=2.):
+    """
+    Args:
+        polydata_list (list of Polydata): List of meshes whose centroids are at zero.
+        consensus_percentage (float): If None, only return the probabilistic volume and origin. Otherwise, also return the surface mesh thresholded at the given percentage.
+        num_simplify_iter (int): Number of simplification iterations for thresholded mesh generation.
+        smooth (bool): Whether to smooth for thresholded mesh generation.
+        force_symmetric (bool): If True, force the resulting volume and mesh to be symmetric wrt z.
+        sigma (float): sigma of gaussian kernel used to smooth the probability values.
+        
+    Returns:
+        average_volume_prob (3D ndarray):
+        common_mins ((3,)-ndarray): coordinate of the volume's origin
+        average_polydata (Polydata): mesh of the 3D boundary thresholded at concensus_percentage
+    """
 
     volume_list = []
     origin_list = []
@@ -1151,7 +1170,7 @@ def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, s
     for p in polydata_list:
         t = time.time()
         v, orig, _ = polydata_to_volume(p)
-        sys.stderr.write('polydata_to_volume: %.2f\n' % (time.time() - t))
+        sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
 
         volume_list.append(v)
         origin_list.append(np.array(orig, np.int))
@@ -1174,22 +1193,46 @@ def average_shape(polydata_list, consensus_percentage=.5, num_simplify_iter=0, s
 
         common_volume_list.append((common_volume > 0).astype(np.int))
 
-
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
 
-    # Threshold prob. volumes to generate structure meshes
-    average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*consensus_percentage)
+    if force_symmetric:
+        average_volume_prob = symmetricalize_volume(average_volume_prob)
+        
+    if sigma is not None:
+        from skimage.filters import gaussian
+        average_volume_prob = gaussian(average_volume_prob, sigma) # Smooth the probability 
+    
+    if consensus_percentage is not None:
 
-    sys.stderr.write('find common: %.2f\n' % (time.time() - t))
+        # Threshold prob. volumes to generate structure meshes
+        average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*consensus_percentage)
 
-    t = time.time()
-    average_polydata = volume_to_polydata(average_volume_thresholded, common_mins, num_simplify_iter=num_simplify_iter,
-                                          smooth=smooth)
-    sys.stderr.write('volume_to_polydata: %.2f\n' % (time.time() - t))
+        sys.stderr.write('find common: %.2f seconds.\n' % (time.time() - t))
 
-    return average_volume_prob, common_mins, average_polydata
+        t = time.time()
+        average_polydata = volume_to_polydata(average_volume_thresholded, common_mins, num_simplify_iter=num_simplify_iter,
+                                              smooth=smooth)
+        sys.stderr.write('volume_to_polydata: %.2f seconds.\n' % (time.time() - t))
 
+        return average_volume_prob, common_mins, average_polydata
+    
+    else:
+        return average_volume_prob, common_mins,
+
+def symmetricalize_volume(prob_vol):
+    """
+    Replace the volume with the average of its left half and right half.
+    """
+    
+    zc = prob_vol.shape[2]/2
+    prob_vol_symmetric = prob_vol.copy()
+    left_half = prob_vol[..., :zc]
+    right_half = prob_vol[..., -zc:]
+    left_half_averaged = (left_half + right_half[..., ::-1])/2.
+    prob_vol_symmetric[..., :zc] = left_half_averaged
+    prob_vol_symmetric[..., -zc:] = left_half_averaged[..., ::-1]
+    return prob_vol_symmetric
 
 
 def fit_plane(X):

@@ -792,6 +792,9 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
     """
     Generate patch addresses grouped by label.
     
+    Args:
+        stacks (list of str)
+    
     Returns:
         addresses
     """
@@ -803,11 +806,16 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
     for stack in stacks:
         
         t1 = time.time()
-        annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
-        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        annotation_grid_indices_fp = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
+        download_from_s3(annotation_grid_indices_fp)
+        grid_indices_per_label = read_hdf(annotation_grid_indices_fp, 'grid_indices').T
         sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
 
-        labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)
+        # Guarantee column is class name, row is section index.
+        assert isinstance(grid_indices_per_label.columns[0], str) and isinstance(grid_indices_per_label.index[0], int), \
+        "Must guarantee column is class name, row is section index."
+        
+        labels_this_stack = set(grid_indices_per_label.columns) & set(labels_to_sample)
 
         t1 = time.time()
         addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 

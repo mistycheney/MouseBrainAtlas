@@ -1999,8 +1999,13 @@ class DataManager(object):
         return fp
 
     @staticmethod
+    def get_dataset_patches_filepath(dataset_id):
+        patch_images_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images.hdf')
+        return patch_images_fp
+    
+    @staticmethod
     def get_dataset_features_filepath(dataset_id):
-        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.bp')
+        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
         return features_fp
 
     @staticmethod

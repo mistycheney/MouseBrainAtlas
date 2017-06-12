@@ -37,6 +37,44 @@ def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDI
 
     return merged_addresses
 
+def load_dataset_images(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+    
+    merged_patches = {}
+    merged_addresses = {}
+
+    for dataset_id in dataset_ids:
+
+        # load training addresses
+        
+        addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
+        download_from_s3(addresses_fp)
+        addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        # Load training features
+        
+        for label in labels_to_sample:
+            try:
+                patches_curr_dataset_label_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images_%s.hdf' % label)
+                download_from_s3(patches_curr_dataset_label_fp)
+                patches = bp.unpack_ndarray_file(patches_curr_dataset_label_fp)
+                
+                if label not in merged_patches:
+                    merged_patches[label] = patches
+                else:
+                    merged_patches[label] = np.vstack([merged_patches[label], patches])
+
+                if label not in merged_addresses:
+                    merged_addresses[label] = addresses_curr_dataset[label]
+                else:
+                    merged_addresses[label] += addresses_curr_dataset[label]
+
+            except Exception as e:
+                sys.stderr.write("Cannot load dataset images for label %s: %s\n" % (label, str(e)))
+                continue
+                                
+    return merged_patches, merged_addresses
+
+
 def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}

@@ -104,6 +104,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
 
+    MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
 elif hostname.startswith('ip'):
     print 'Setting environment for AWS compute node'

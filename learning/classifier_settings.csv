@@ -8,6 +8,7 @@ classifier_id,model,margin,train_set_id,neg_composition,sample_weighting,input_i
 36,gb1,500,23/24,neg_has_all_surround,,cropped_gray,36
 37,lr,500,23/24,neg_has_all_surround,,cropped_gray,37
 70,inception-bn-blue-softmax,500,60/61,neg_has_all_surround,,cropped_gray,
+71,inception-bn-blue-softmax,500,60/61/62,neg_has_all_surround,,cropped_gray,
 80,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized500,37
 81,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1000,37
 82,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1500,37

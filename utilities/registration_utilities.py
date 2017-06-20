@@ -1738,7 +1738,7 @@ def transform_volume_v2(vol, global_params, centroid_m, centroid_f):
     The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
 
     Args:
-        vol (3d array): the volume to transform
+        vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
         global_params (12-tuple): flattened vector of transform parameters
         centroid_m (3-tuple): transform center in the volume to transform
         centroid_f (3-tuple): transform center in the result volume.

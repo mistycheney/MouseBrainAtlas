@@ -9,7 +9,9 @@ sudo apt-get update
 
 # Install all Python packages
 sudo pip install --upgrade pip
-sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python
+# For shapely
+sudo apt-get install -y libgeos-dev
+sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python numdifftools
 
 # Install other utility programs
 sudo apt-get install -y tree screen

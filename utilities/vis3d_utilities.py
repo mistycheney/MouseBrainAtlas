@@ -1168,14 +1168,11 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
     origin_list = []
 
     for p in polydata_list:
-        t = time.time()
+        # t = time.time()
         v, orig, _ = polydata_to_volume(p)
-        sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
-
+        # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
         volume_list.append(v)
         origin_list.append(np.array(orig, np.int))
-
-    t = time.time()
 
     common_mins = np.min(origin_list, axis=0).astype(np.int)
     relative_origins = origin_list - common_mins
@@ -1192,10 +1189,10 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
         common_volume[y0:y0+ydim, x0:x0+xdim, z0:z0+zdim] = v
 
         common_volume_list.append((common_volume > 0).astype(np.int))
-
+        
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
-
+    
     if force_symmetric:
         average_volume_prob = symmetricalize_volume(average_volume_prob)
         
@@ -1204,19 +1201,11 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
         average_volume_prob = gaussian(average_volume_prob, sigma) # Smooth the probability 
     
     if consensus_percentage is not None:
-
         # Threshold prob. volumes to generate structure meshes
-        average_volume_thresholded = average_volume >= max(2, len(common_volume_list)*consensus_percentage)
-
-        sys.stderr.write('find common: %.2f seconds.\n' % (time.time() - t))
-
-        t = time.time()
+        average_volume_thresholded = average_volume_prob >= consensus_percentage
         average_polydata = volume_to_polydata(average_volume_thresholded, common_mins, num_simplify_iter=num_simplify_iter,
                                               smooth=smooth)
-        sys.stderr.write('volume_to_polydata: %.2f seconds.\n' % (time.time() - t))
-
-        return average_volume_prob, common_mins, average_polydata
-    
+        return average_volume_prob, common_mins, average_polydata    
     else:
         return average_volume_prob, common_mins,
 
@@ -1277,13 +1266,15 @@ def R_align_two_vectors(a, b):
 
 def average_location(centroid_allLandmarks):
     """
+    Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
+    
     Return (0,0,0) centered coordinates where (0,0,0) is a point on the midplane
     """
 
     mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
                                   for name, centroids in centroid_allLandmarks.iteritems()}
 
-    names = set([convert_name_to_unsided(name_s) for name_s in centroid_allLandmarks.keys()])
+    names = set([convert_to_original_name(name_s) for name_s in centroid_allLandmarks.keys()])
 
     # Fit a midplane from the midpoints of symmetric landmark centroids
     midpoints = {}

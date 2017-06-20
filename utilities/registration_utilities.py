@@ -9,7 +9,7 @@ from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_
 from skimage.measure import find_contours, regionprops
 from shapely.geometry import Polygon
 try:
-   import cv2
+    import cv2
 except:
     sys.stderr.write('Cannot find cv2\n')
 
@@ -70,7 +70,7 @@ def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,
     tt = np.r_[tx,ty,tz] + c - np.dot(R,c)
     return np.ravel(np.c_[R, tt])
 
-def rotate_transform_vector(v, theta_xy=None,theta_yz=None,theta_xz=None,c=(0,0,0)):
+def rotate_transform_vector(v, theta_xy=0,theta_yz=0,theta_xz=0,c=(0,0,0)):
     """
     v is 12-length parameter.
     """
@@ -79,15 +79,16 @@ def rotate_transform_vector(v, theta_xy=None,theta_yz=None,theta_xz=None,c=(0,0,
     Rz = np.array([[cos_theta_z, -sin_theta_z, 0], [sin_theta_z, cos_theta_z, 0], [0, 0, 1]])
     cos_theta_x = np.cos(theta_yz)
     sin_theta_x = np.sin(theta_yz)
-    Rx = np.array([[0, 0, 0], [0, cos_theta_x, -sin_theta_x], [0, sin_theta_x, cos_theta_x]])
+    Rx = np.array([[1, 0, 0], [0, cos_theta_x, -sin_theta_x], [0, sin_theta_x, cos_theta_x]])
     cos_theta_y = np.cos(theta_xz)
     sin_theta_y = np.sin(theta_xz)
-    Ry = np.array([[cos_theta_y, 0, -sin_theta_y], [0, 0, 0], [sin_theta_y, 0, cos_theta_y]])
-
+    Ry = np.array([[cos_theta_y, 0, -sin_theta_y], [0, 1, 0], [sin_theta_y, 0, cos_theta_y]])
+    
     R = np.zeros((3,3))
-    R[0] = v[:3]
-    R[1] = v[4:7]
-    R[2] = v[8:11]
+    R[0, :3] = v[:3]
+    R[1, :3] = v[4:7]
+    R[2, :3] = v[8:11]
+    t = v[[3,7,11]]
     R_new = np.dot(Rx, np.dot(Ry, np.dot(Rz, R)))
     t_new = t + c - np.dot(R_new, c)
     return np.ravel(np.c_[R_new, t_new])
@@ -609,6 +610,29 @@ class Aligner4(object):
         pool.join()
         return scores
 
+    
+    def compute_scores_neighborhood_samples_rotation(self, params, dtheta_xys=None, dtheta_yzs=None, dtheta_xzs=None, indices_m=None):
+        pool = Pool(processes=12)
+        
+        if dtheta_xys is not None:
+            n = len(dtheta_xys)
+        elif dtheta_yzs is not None:
+            n = len(dtheta_yzs)
+        elif dtheta_xzs is not None:
+            n = len(dtheta_xzs)
+            
+        if dtheta_xys is None:
+            dtheta_xys = np.zeros((n,))
+        if dtheta_yzs is None:
+            dtheta_yzs = np.zeros((n,))
+        if dtheta_xzs is None:
+            dtheta_xzs = np.zeros((n,))
+        
+        scores = pool.map(lambda (dtheta_xy, dtheta_yz, dtheta_xz): self.compute_score(rotate_transform_vector(params, theta_xy=dtheta_xy, theta_yz=dtheta_yz, theta_xz=dtheta_xz), indices_m=indices_m),
+                        zip(dtheta_xys, dtheta_yzs, dtheta_xzs))
+        pool.close()
+        pool.join()
+        return scores    
 
     def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, indices_m=None):
 
@@ -631,6 +655,25 @@ class Aligner4(object):
 
         return scores
 
+    def compute_scores_neighborhood_random_rotation(self, params, n, std_theta_xy=0, std_theta_xz=0, std_theta_yz=0, indices_m=None):
+        
+        random_theta_xys = np.random.uniform(-1., 1., (n,)) * std_theta_xy
+        random_theta_yzs = np.random.uniform(-1., 1., (n,)) * std_theta_yz
+        random_theta_xzs = np.random.uniform(-1., 1., (n,)) * std_theta_xz
+        
+        # scores = [self.compute_score(params + dp, indices_m=indices_m) for dp in dparams]
+        
+        random_params = [rotate_transform_vector(params, theta_xy=theta_xy, theta_yz=theta_yz, theta_xz=theta_xz) 
+                        for theta_xy, theta_yz, theta_xz in zip(random_theta_xys, random_theta_yzs, random_theta_xzs)]
+
+        #parallel
+        pool = Pool(processes=NUM_CORES/2)
+        scores = pool.map(lambda p: self.compute_score(p, indices_m=indices_m), random_params)
+        pool.close()
+        pool.join()
+        
+        return scores
+    
     def compute_scores_neighborhood_random(self, params, n, stds, indices_m=None):
 
         dparams = np.random.uniform(-1., 1., (n, len(stds))) * stds

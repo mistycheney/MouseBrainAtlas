@@ -547,16 +547,26 @@ class DataManager(object):
 
         if what == 'hessians':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')
+        #elif what == 'hessiansZscoreBased':
+        #    return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansZscoreBased', fn + '_hessiansZscoreBased.pkl')
         elif what == 'zscores':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
         elif what == 'score_landscape':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscape', fn + '_scoreLandscape.png')
+        elif what == 'score_landscape_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscapeRotations', fn + '_scoreLandscapeRotations.png')
         elif what == 'peak_width':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
         elif what == 'peak_radius':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
-
-        raise
+        elif what == 'peak_radius_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadiusRotations', fn + '_peakRadiusRotations.pkl')
+        elif what == 'hessians_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansRotations', fn + '_hessiansRotations.pkl')
+        elif what == 'zscores_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscoresRotations', fn + '_zscoresRotations.pkl')
+        
+        raise Exception("Unrecognized confidence type %s" % what)
 
     @staticmethod
     def get_classifier_filepath(structure, classifier_id):
@@ -2004,8 +2014,13 @@ class DataManager(object):
         return fp
 
     @staticmethod
+    def get_dataset_patches_filepath(dataset_id):
+        patch_images_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images.hdf')
+        return patch_images_fp
+    
+    @staticmethod
     def get_dataset_features_filepath(dataset_id):
-        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.bp')
+        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
         return features_fp
 
     @staticmethod

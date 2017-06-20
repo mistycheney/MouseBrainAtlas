@@ -37,6 +37,44 @@ def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDI
 
     return merged_addresses
 
+def load_dataset_images(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+    
+    merged_patches = {}
+    merged_addresses = {}
+
+    for dataset_id in dataset_ids:
+
+        # load training addresses
+        
+        addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
+        download_from_s3(addresses_fp)
+        addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        # Load training features
+        
+        for label in labels_to_sample:
+            try:
+                patches_curr_dataset_label_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images_%s.hdf' % label)
+                download_from_s3(patches_curr_dataset_label_fp)
+                patches = bp.unpack_ndarray_file(patches_curr_dataset_label_fp)
+                
+                if label not in merged_patches:
+                    merged_patches[label] = patches
+                else:
+                    merged_patches[label] = np.vstack([merged_patches[label], patches])
+
+                if label not in merged_addresses:
+                    merged_addresses[label] = addresses_curr_dataset[label]
+                else:
+                    merged_addresses[label] += addresses_curr_dataset[label]
+
+            except Exception as e:
+                sys.stderr.write("Cannot load dataset images for label %s: %s\n" % (label, str(e)))
+                continue
+                                
+    return merged_patches, merged_addresses
+
+
 def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
@@ -792,6 +830,9 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
     """
     Generate patch addresses grouped by label.
     
+    Args:
+        stacks (list of str)
+    
     Returns:
         addresses
     """
@@ -803,11 +844,16 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
     for stack in stacks:
         
         t1 = time.time()
-        annotation_grid_indices_fn = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
-        grid_indices_per_label = read_hdf(annotation_grid_indices_fn, 'grid_indices')
+        annotation_grid_indices_fp = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
+        download_from_s3(annotation_grid_indices_fp)
+        grid_indices_per_label = read_hdf(annotation_grid_indices_fp, 'grid_indices').T
         sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
 
-        labels_this_stack = set(grid_indices_per_label.index) & set(labels_to_sample)
+        # Guarantee column is class name, row is section index.
+        assert isinstance(grid_indices_per_label.columns[0], str) and isinstance(grid_indices_per_label.index[0], int), \
+        "Must guarantee column is class name, row is section index."
+        
+        labels_this_stack = set(grid_indices_per_label.columns) & set(labels_to_sample)
 
         t1 = time.time()
         addresses_sec_idx = sample_locations(grid_indices_per_label, labels_this_stack, 

@@ -69,7 +69,7 @@ def load_dataset_images(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
                     merged_addresses[label] += addresses_curr_dataset[label]
 
             except Exception as e:
-                sys.stderr.write("Cannot load dataset images for label %s: %s\n" % (label, str(e)))
+                # sys.stderr.write("Cannot load dataset %d images for label %s: %s\n" % (dataset_id, label, str(e)))
                 continue
                                 
     return merged_patches, merged_addresses

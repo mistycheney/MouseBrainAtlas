@@ -787,13 +787,17 @@ class DataManager(object):
                                     trial_idx=None,
                                     structures=None,
                                     sided=True,
-                                    return_polydata_only=True):
+                                    return_polydata_only=True,
+                                   include_surround=False):
 
         kwargs = locals()
 
         if structures is None:
             if sided:
-                structures = all_known_structures_sided
+                if include_surround:
+                    structures = all_known_structures_sided_with_surround
+                else:
+                    structures = all_known_structures_sided
             else:
                 structures = all_known_structures
 
@@ -1183,7 +1187,8 @@ class DataManager(object):
             fn = basename + '_' + structure
 
         if type_m == 'score':
-            return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
+            return DataManager.get_score_volume_filepath(stack=stack_m, structure=structure, downscale=downscale)
+            #return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
         else:
             raise
 
@@ -1330,7 +1335,7 @@ class DataManager(object):
 
     @staticmethod
     def get_original_volume_bbox_filepath(stack,
-                                classifier_setting,
+                                classifier_setting=None,
                                 downscale=32,
                                  vol_type='score',
                                 structure=None):

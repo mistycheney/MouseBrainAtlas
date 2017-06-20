@@ -31,15 +31,19 @@ def contours_to_mask(contours, img_shape):
     return final_mask
 
 
-def get_surround_volume(vol, distance=5, valid_level=0):
+def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
     """
-    Return the volume with voxels surrounding active voxels in the input volume set to 1.
+    Return the volume with voxels surrounding the active voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
 
     Args:
+        vol (3D ndarray of float):
+            input volume. It is the whole space rather than a bbox around structure.
         valid_level (float):
             voxels with value above this level are regarded as active.
         distance (int):
             surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
+        prob (bool):
+            if True, surround voxels are assigned 1-vol; if False, surround voxels are assigned 1.
     """
     from scipy.ndimage.morphology import distance_transform_edt
     eps = 5
@@ -54,10 +58,14 @@ def get_surround_volume(vol, distance=5, valid_level=0):
     roi = (vol > valid_level)[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1]
 
     dist_vol = distance_transform_edt(roi == 0)
-    roi_surround_vol = (dist_vol > 0) & (dist_vol < distance)
+    roi_surround_vol = (dist_vol > 0) & (dist_vol < distance) # surround part is True, otherwise False.
 
     surround_vol = np.zeros_like(vol)
-    surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1] = roi_surround_vol
+    if prob:
+        surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol] = 1. - vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol]
+    else:
+        surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1] = roi_surround_vol
+        
     return surround_vol
 
 def points_inside_contour(cnt, num_samples=None):

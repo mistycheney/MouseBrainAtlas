@@ -487,29 +487,46 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
 #
 #     return patches_padded
 
-def display_volume_sections(vol, every=5, ncols=5, direction='z', **kwargs):
+def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):
+    """
+    Args:
+        direction (str): x,y or z
+    """
     
     if direction == 'z':    
         zmin, zmax = bbox_3d(vol)[4:]
-        zs = range(zmin+1, zmax, every)
+        if start_level is None:
+            zs = range(zmin+1, zmax, every)
+        else:
+            zs = range(start_level, zmax, every)
         vizs = [vol[..., z] for z in zs]
         titles = ['z=%d' % z  for z in zs]
     elif direction == 'x':
         xmin, xmax = bbox_3d(vol)[:2]
-        xs = range(xmin+1, xmax, every)
+        if start_level is None:
+            xs = range(xmin+1, xmax, every)
+        else:
+            xs = range(start_level, xmax, every)
         vizs = [vol[:, x, :] for x in xs]
         titles = ['x=%d' % x for x in xs]
     elif direction == 'y':
         ymin, ymax = bbox_3d(vol)[2:4]
-        ys = range(ymin+1, ymax, every)
+        if start_level is None:
+            ys = range(ymin+1, ymax, every)
+        else:
+            ys = range(start_level, ymax, every)
         vizs = [vol[y, :, :] for y in ys]
         titles = ['y=%d' % y for y in ys]
+        
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
 
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
+    """
+    Args:
+        draw_contours (list of (n,2)-ndarray of (x,y) vertices)
+    """
 
     if maintain_shape:
-
         vizs = pad_patches_to_same_size(vizs)
 
     n = len(vizs)

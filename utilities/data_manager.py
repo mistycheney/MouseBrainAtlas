@@ -547,16 +547,26 @@ class DataManager(object):
 
         if what == 'hessians':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')
+        #elif what == 'hessiansZscoreBased':
+        #    return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansZscoreBased', fn + '_hessiansZscoreBased.pkl')
         elif what == 'zscores':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
         elif what == 'score_landscape':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscape', fn + '_scoreLandscape.png')
+        elif what == 'score_landscape_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_scoreLandscapeRotations', fn + '_scoreLandscapeRotations.png')
         elif what == 'peak_width':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakWidth', fn + '_peakWidth.pkl')
         elif what == 'peak_radius':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadius', fn + '_peakRadius.pkl')
-
-        raise
+        elif what == 'peak_radius_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_peakRadiusRotations', fn + '_peakRadiusRotations.pkl')
+        elif what == 'hessians_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansRotations', fn + '_hessiansRotations.pkl')
+        elif what == 'zscores_rotations':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscoresRotations', fn + '_zscoresRotations.pkl')
+        
+        raise Exception("Unrecognized confidence type %s" % what)
 
     @staticmethod
     def get_classifier_filepath(structure, classifier_id):
@@ -777,13 +787,17 @@ class DataManager(object):
                                     trial_idx=None,
                                     structures=None,
                                     sided=True,
-                                    return_polydata_only=True):
+                                    return_polydata_only=True,
+                                   include_surround=False):
 
         kwargs = locals()
 
         if structures is None:
             if sided:
-                structures = all_known_structures_sided
+                if include_surround:
+                    structures = all_known_structures_sided_with_surround
+                else:
+                    structures = all_known_structures_sided
             else:
                 structures = all_known_structures
 
@@ -1173,7 +1187,8 @@ class DataManager(object):
             fn = basename + '_' + structure
 
         if type_m == 'score':
-            return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
+            return DataManager.get_score_volume_filepath(stack=stack_m, structure=structure, downscale=downscale)
+            #return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
         else:
             raise
 
@@ -1320,7 +1335,7 @@ class DataManager(object):
 
     @staticmethod
     def get_original_volume_bbox_filepath(stack,
-                                classifier_setting,
+                                classifier_setting=None,
                                 downscale=32,
                                  vol_type='score',
                                 structure=None):

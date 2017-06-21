@@ -69,6 +69,8 @@ def volume_type_to_str(t):
         return 'outerContourVolume'
     elif t == 'intensity':
         return 'intensityVolume'
+    elif t == 'intensity_metaimage':
+        return 'intensityMetaImageVolume'
     else:
         raise Exception('Volume type %s is not recognized.' % t)
 
@@ -630,6 +632,17 @@ class DataManager(object):
     def get_intensity_volume_bbox_filepath(stack, downscale=32):
         basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
+    
+    @staticmethod
+    def get_intensity_volume_metaimage_filepath(stack, downscale=32):
+        """
+        Returns:
+            (header *.mhd filepath, data *.raw filepath)
+        """
+        basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity_metaimage', downscale=downscale)
+        vol_mhd_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.mhd')
+        vol_raw_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.raw')
+        return vol_mhd_fp, vol_raw_fp
 
     @staticmethod
     def load_annotation_as_score_volume(stack, downscale, structure):
@@ -923,6 +936,21 @@ class DataManager(object):
     #     fn = basename + '_%s' % structure
     #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
+    @staticmethod
+    def get_instance_mesh_filepath(stack_m,
+                                            structure, index,
+                                            classifier_setting_m=None,
+                                            classifier_setting_f=None,
+                                            warp_setting=None,
+                                            stack_f=None,
+                                            downscale=32,
+                                            type_m='score', type_f='score',
+                                            trial_idx=None,
+                                   **kwargs):
+        basename = DataManager.get_warped_volume_basename(**locals())
+        fn = basename + '_' + structure + '_' + str(index)
+        return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+    
     @staticmethod
     def get_mesh_filepath(stack_m,
                                             structure,
@@ -1240,6 +1268,12 @@ class DataManager(object):
     @staticmethod
     def load_original_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
                                                 return_structure_index_mapping=True):
+        """
+        Args:
+            return_structure_index_mapping (bool): if True, return both volumes and structure-label mapping. If False, return only volumes.
+        
+        Returns:
+        """
 
         if structures is None:
             if sided:
@@ -1305,6 +1339,8 @@ class DataManager(object):
             fp = DataManager.get_annotation_volume_filepath(stack=stack, downscale=downscale)
         elif volume_type == 'intensity':
             fp = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
+        elif volume_type == 'intensity_mhd':
+            fp = DataManager.get_intensity_volume_mhd_filepath(stack=stack, downscale=downscale)
         else:
             raise Exception("Volume type must be one of score, annotation or intensity.")
         return fp
@@ -1702,8 +1738,8 @@ class DataManager(object):
         # elif resol == 'lossless' and version == 'cropped_gray':
         #     ext = 'tif'
         #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray.tif' % {'anchor_fn':anchor_fn}])
-        # elif resol == 'lossless' and version == 'cropped_gray_jpeg':
-        #     image_name = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped_gray.jpg'            
+        elif resol == 'lossless' and version == 'cropped_gray_jpeg':
+            image_name = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped_gray.jpg'            
         # elif resol == 'lossless' and version == 'cropped_gray_linearNormalized':
         #     image_name = '_'.join([fn, resol, 'alignedTo_%(anchor_fn)s_cropped_gray_linearNormalized.tif' % {'anchor_fn':anchor_fn}])
         # elif resol == 'lossless' and version == 'cropped_gray_linearNormalized_jpeg':

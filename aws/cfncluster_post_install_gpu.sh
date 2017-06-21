@@ -11,6 +11,8 @@ sudo apt-get update
 sudo pip install --upgrade pip
 # sudo apt-get install -y wget
 # wget https://bootstrap.pypa.io/get-pip.py && sudo python get-pip.py
+# For shapely
+sudo apt-get install -y libgeos-dev
 sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python
 
 # Install other utility programs

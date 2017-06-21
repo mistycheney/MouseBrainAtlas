@@ -277,7 +277,7 @@ class Aligner4(object):
             else:
                 raise Exception('centroid_f not recognized.')
 
-        # print 'm:', self.centroid_m, 'f:', self.centroid_f
+        print 'm:', self.centroid_m, 'f:', self.centroid_f
 
         global nzvoxels_centered_m
         nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
@@ -796,6 +796,7 @@ class Aligner4(object):
                 max_iter_num=1000, history_len=200, terminate_thresh=.1, \
                 indices_m=None, lr1=None, lr2=None, full_lr=None,
                 std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
+                 grid_search_eta=3.,
                 reg_weights=None,
                 epsilon=1e-8):
         """Optimize.
@@ -835,6 +836,7 @@ class Aligner4(object):
             (tx_best, ty_best, tz_best, theta_xy_best), grid_search_score = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
                                                         init_n=grid_search_sample_number,
                                                         std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
+                                                                                             eta=grid_search_eta,
                                                         return_best_score=True)
             # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
             T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
@@ -886,6 +888,7 @@ class Aligner4(object):
             else:
                 raise Exception('Type must be either rigid or affine.')
 
+            sys.stderr.write('T: %s\n' % T[[3,7,11]])
             sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
 
             # self.logger.info('score: %f', s)

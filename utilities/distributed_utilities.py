@@ -205,7 +205,11 @@ def wait_num_nodes(desired_nodes, timeout=300):
         sys.stderr.write("All nodes are ready.\n")
 
 def get_node_list():
-    return sorted(check_output("qhost | awk 'NR >= 4 { print $1 }'", shell=True).strip().split('\n'))
+    s = check_output("qhost | awk 'NR >= 4 { print $1 }'", shell=True).strip()
+    if len(s) == 0:
+        return 0
+    else:
+        return sorted(s.split('\n'))
 
 def get_num_nodes():
     n_hosts = (check_output('qhost')).count('\n') - 3

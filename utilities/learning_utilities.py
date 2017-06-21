@@ -17,13 +17,16 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+def load_dataset_addresses(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
     merged_addresses = {}
 
     for dataset_id in dataset_ids:
         addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
         download_from_s3(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        if labels_to_sample is None:
+            labels_to_sample = addresses_curr_dataset.keys()
 
         for label in labels_to_sample:
             try:
@@ -69,13 +72,13 @@ def load_dataset_images(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
                     merged_addresses[label] += addresses_curr_dataset[label]
 
             except Exception as e:
-                sys.stderr.write("Cannot load dataset images for label %s: %s\n" % (label, str(e)))
+                # sys.stderr.write("Cannot load dataset %d images for label %s: %s\n" % (dataset_id, label, str(e)))
                 continue
                                 
     return merged_patches, merged_addresses
 
 
-def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+def load_datasets(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
     merged_addresses = {}
@@ -93,6 +96,9 @@ def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
         features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id)
         download_from_s3(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
+        
+        if labels_to_sample is None:
+            labels_to_sample = features_curr_dataset.keys()
 
         for label in labels_to_sample:
             try:
@@ -404,7 +410,7 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
     """
 
     # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
-    contours_df, _ = DataManager.load_annotation_v3(stack=stack)
+    contours_df = DataManager.load_annotation_v4(stack=stack)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     labeled_contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -443,7 +449,7 @@ def label_regions(stack, section, region_contours, surround_margins=None, labele
 
     if labeled_contours is None:
         # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
-        contours_df, _ = DataManager.load_annotation_v3(stack=stack)
+        contours_df = DataManager.load_annotation_v4(stack=stack)
         contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
         contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
         contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -555,7 +561,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df, _ = DataManager.load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
+    contours_df = DataManager.load_annotation_v4(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -593,7 +599,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
         DataFrame: Columns are class labels and rows are section indices.
     """
     
-    contours_df, _ = DataManager.load_annotation_v3(stack=stack, by_human=by_human, 
+    contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human, 
                                                       stack_m=stack_m, 
                                                            classifier_setting_m=classifier_setting_m,
                                                           classifier_setting_f=classifier_setting_f,

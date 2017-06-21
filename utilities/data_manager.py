@@ -162,27 +162,18 @@ class DataManager(object):
             else:
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
         return fp
-
+    
     @staticmethod
-    def load_annotation_v3(stack=None, by_human=True, stack_m=None,
+    def load_annotation_v4(stack=None, by_human=True, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
         if by_human:
-            # fp = DataManager.get_annotation_filepath(stack, by_human=True)
-            # download_from_s3(fp)
-            # contour_df = DataManager.load_data(fp, filetype='annotation_hdf')
-            #
-            # try:
-            #     structure_df = read_hdf(fp, 'structures')
-            # except Exception as e:
-            #     print e
-            #     sys.stderr.write('Annotation has no structures.\n')
-            #     return contour_df, None
-            #
-            # sys.stderr.write('Loaded annotation %s.\n' % fp)
-            # return contour_df, structure_df
-            raise Exception('Not implemented.')
+            fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            download_from_s3(fp)
+            contour_df = read_hdf(fp)
+            return contour_df
+            
         else:
             fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
@@ -193,6 +184,34 @@ class DataManager(object):
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
             return annotation_df
+
+
+    # @staticmethod
+    # def load_annotation_v3(stack=None, by_human=True, stack_m=None,
+    #                             classifier_setting_m=None,
+    #                             classifier_setting_f=None,
+    #                             warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
+    #     if by_human:
+    #         # try:
+    #         #     structure_df = read_hdf(fp, 'structures')
+    #         # except Exception as e:
+    #         #     print e
+    #         #     sys.stderr.write('Annotation has no structures.\n')
+    #         #     return contour_df, None
+    #         #
+    #         # sys.stderr.write('Loaded annotation %s.\n' % fp)
+    #         # return contour_df, structure_df
+    #         raise Exception('Not implemented.')
+    #     else:
+    #         fp = DataManager.get_annotation_filepath(stack, by_human=False,
+    #                                                  stack_m=stack_m,
+    #                                                   classifier_setting_m=classifier_setting_m,
+    #                                                   classifier_setting_f=classifier_setting_f,
+    #                                                   warp_setting=warp_setting, trial_idx=trial_idx,
+    #                                                 suffix=suffix, timestamp=timestamp)
+    #         download_from_s3(fp)
+    #         annotation_df = load_hdf_v2(fp)
+    #         return annotation_df
 
     @staticmethod
     def get_annotation_viz_dir(stack):
@@ -1124,12 +1143,17 @@ class DataManager(object):
         prob_shapes = {}
         for structure in structures:
             try:
-                vol = bp.unpack_ndarray_file(DataManager.get_prob_shape_volume_filepath(structure=structure, **kwargs))
-                origin = np.loadtxt(DataManager.get_prob_shape_origin_filepath(structure=structure, **kwargs))
+                vol_fp = DataManager.get_prob_shape_volume_filepath(structure=structure, **kwargs)
+                download_from_s3(vol_fp)
+                vol = bp.unpack_ndarray_file(vol_fp)
+                
+                origin_fp = DataManager.get_prob_shape_origin_filepath(structure=structure, **kwargs)
+                download_from_s3(origin_fp)
+                origin = np.loadtxt(origin_fp)
+                
                 prob_shapes[structure] = (vol, origin)
             except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Error loading probablistic shape for %s.\n' % structure)
+                sys.stderr.write('Error loading probablistic shape for %s: %s\n' % (structure, e))
 
         return prob_shapes
 
@@ -1265,10 +1289,9 @@ class DataManager(object):
     #                                         {'suffix': suffix}
     #     return grad_fn
 
-    @staticmethod
-    def load_original_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score',
-                                                return_structure_index_mapping=True):
-        """
+    @staticmethod        
+    def load_original_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
+		"""
         Args:
             return_structure_index_mapping (bool): if True, return both volumes and structure-label mapping. If False, return only volumes.
         
@@ -1277,7 +1300,10 @@ class DataManager(object):
 
         if structures is None:
             if sided:
-                structures = all_known_structures_sided
+                if include_surround:
+                    structures = all_known_structures_sided_with_surround
+                else:
+                    structures = all_known_structures_sided
             else:
                 structures = all_known_structures
 
@@ -1986,9 +2012,12 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+        if stack in ['MD589', 'MD585', 'MD594']:
+            fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+        else:    
+            fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
         download_from_s3(fp)
-        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+        mask = imread(fp).astype(np.bool)
         return mask
 
     @staticmethod

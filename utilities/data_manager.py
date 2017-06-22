@@ -1291,7 +1291,7 @@ class DataManager(object):
 
     @staticmethod        
     def load_original_volume_all_known_structures(stack, downscale=32, classifier_setting=None, structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
-		"""
+        """
         Args:
             return_structure_index_mapping (bool): if True, return both volumes and structure-label mapping. If False, return only volumes.
         

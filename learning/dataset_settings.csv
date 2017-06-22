@@ -5,7 +5,7 @@ dataset_id,network_model,stain,margins,num_sample_per_class,stacks,cell_features
 23,inception-bn-blue,nissl,500,1000,MD585
 24,inception-bn-blue,nissl,500,1000,MD589
 25,inception-bn-blue,nissl,500,1000,MD594
-26,inception-bn-blue,nissl,500,1000,MD589/MD585/MD594,,far negatives for Pn
+26,inception-bn-blue,nissl,500,1000,MD594/MD589/MD585,,far negatives for Pn
 50,inception-bn-blue,neurotrace_blue,500,1000,MD642
 51,inception-bn-blue,neurotrace_blue,500,1000,MD635
 60,,nissl,500,1000,MD585

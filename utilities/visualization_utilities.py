@@ -96,11 +96,12 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, labe
             image_version = classifier_properties['input_img_version']
 
         if out_downscale == 32:
-            bg = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='thumbnail', version=image_version)
+            bg = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='thumbnail', version='cropped')
         else:
             im = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='lossless', version=image_version)
             bg = im[::out_downscale, ::out_downscale]
     else:
+        assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
         bg = rescale(bg, float(in_downscale)/out_downscale)
 
     # t = time.time()

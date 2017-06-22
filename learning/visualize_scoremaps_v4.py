@@ -48,23 +48,24 @@ for fn in filenames:
     def save_scoremap(structure):
         viz_fp = DataManager.get_scoremap_viz_filepath(stack=stack, downscale=downscale, fn=fn, structure=structure, classifier_id=actual_setting)
         create_parent_dir_if_not_exists(viz_fp)
-
+        
         try:
             if add_label_text:
                 label_text = str(structure)
             else:
                 label_text = None
-
             viz = scoremap_overlay_on(bg='original', stack=stack, fn=fn, structure=structure,
-                                downscale=downscale, label_text=label_text, classifier_id=actual_setting)
+                                out_downscale=downscale, label_text=label_text, classifier_id=actual_setting,
+                                     cmap_name='hot')
             imsave(viz_fp, img_as_ubyte(viz))
             upload_to_s3(viz_fp)
         except Exception as e:
-            sys.stderr.write('%s\n' % e)
+            # raise e
+            sys.stderr.write('%s\n' % e.message)
             return
 
     # for s in all_known_structures:
-    #     save_scoremap(s) 
+        # save_scoremap(s)
 
     pool = Pool(NUM_CORES)
     pool.map(save_scoremap, all_known_structures)

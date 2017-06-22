@@ -1787,20 +1787,42 @@ class DataManager(object):
     @staticmethod
     def get_image_dimension(stack):
         """
-        Return (image width, image height).
+        Returns:
+            (image width, image height).
         """
+        
         first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
         anchor_fn = DataManager.load_anchor_filename(stack)
         filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+        
+        # while True:
+        #     random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
+        #     fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+        #     download_from_s3(fp)
+        #     if not os.path.exists(fp):
+        #         continue
+        #     try:
+        #         image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
+        #     except:
+        #         image_height, image_width = imread(fp).shape[:2]
+        #     break
+
         while True:
             random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-            fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+            fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
             if not os.path.exists(fp):
                 continue
-            image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
+            try:
+                image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
+                image_height = image_height * 32
+                image_width = image_width * 32
+            except:
+                image_height, image_width = imread(fp).shape[:2]
+                image_height = image_height * 32
+                image_width = image_width * 32
             break
-
+            
         return image_width, image_height
 
     #######################################################
@@ -2133,26 +2155,26 @@ metadata_cache = {}
 def generate_metadata_cache():
 
     global metadata_cache
-    # metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-    metadata_cache['image_shape'] =\
-    {'MD585': (16384, 12000),
-     'MD589': (15520, 11936),
-     'MD590': (17536, 13056),
-     'MD591': (16000, 13120),
-     'MD592': (17440, 12384),
-     'MD593': (17088, 12256),
-     'MD594': (17216, 11104),
-     'MD595': (18368, 13248),
-     'MD598': (18400, 12608),
-     'MD599': (18784, 12256),
-     'MD602': (22336, 12288),
-     'MD603': (20928, 13472),
-     'MD635': (20960, 14240),
-     'MD642': (28704, 15584),
-     'MD652': (22720, 15552),
-     'MD653': (25664, 16800),
-     'MD657': (27584, 16960),
-     'MD658': (19936, 15744)}
+    metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
+    # metadata_cache['image_shape'] =\
+    # {'MD585': (16384, 12000),
+    #  'MD589': (15520, 11936),
+    #  'MD590': (17536, 13056),
+    #  'MD591': (16000, 13120),
+    #  'MD592': (17440, 12384),
+    #  'MD593': (17088, 12256),
+    #  'MD594': (17216, 11104),
+    #  'MD595': (18368, 13248),
+    #  'MD598': (18400, 12608),
+    #  'MD599': (18784, 12256),
+    #  'MD602': (22336, 12288),
+    #  'MD603': (20928, 13472),
+    #  'MD635': (20960, 14240),
+    #  'MD642': (28704, 15584),
+    #  'MD652': (22720, 15552),
+    #  'MD653': (25664, 16800),
+    #  'MD657': (27584, 16960),
+    #  'MD658': (19936, 15744)}
     metadata_cache['anchor_fn'] = {}
     metadata_cache['sections_to_filenames'] = {}
     metadata_cache['filenames_to_sections'] = {}

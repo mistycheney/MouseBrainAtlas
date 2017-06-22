@@ -207,7 +207,7 @@ def wait_num_nodes(desired_nodes, timeout=300):
 def get_node_list():
     s = check_output("qhost | awk 'NR >= 4 { print $1 }'", shell=True).strip()
     if len(s) == 0:
-        return 0
+        return []
     else:
         return sorted(s.split('\n'))
 
@@ -234,6 +234,8 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         
     n_hosts = len(node_list)
     sys.stderr.write('%d nodes available.\n' % (n_hosts))
+    if n_hosts == 0:
+        return
     
     if kwargs_list is None:
         kwargs_list = {'dummy': [None]*n_hosts}

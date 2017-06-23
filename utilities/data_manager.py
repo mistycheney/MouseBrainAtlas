@@ -1813,14 +1813,14 @@ class DataManager(object):
             download_from_s3(fp)
             if not os.path.exists(fp):
                 continue
-            try:
-                image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
-                image_height = image_height * 32
-                image_width = image_width * 32
-            except:
-                image_height, image_width = imread(fp).shape[:2]
-                image_height = image_height * 32
-                image_width = image_width * 32
+            # try:
+            #     image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
+            #     image_height = image_height * 32
+            #     image_width = image_width * 32
+            # except:
+            image_height, image_width = imread(fp).shape[:2]
+            image_height = image_height * 32
+            image_width = image_width * 32
             break
             
         return image_width, image_height

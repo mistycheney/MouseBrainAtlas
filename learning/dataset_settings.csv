@@ -1,4 +1,4 @@
-dataset_id,network_model,stain,margins,num_sample_per_class,stacks,cell_features_used,comment
+dataset_id,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment
 20,Inception-BN,nissl,200/500,1000,MD585
 21,Inception-BN,nissl,200/500,1000,MD589
 22,Inception-BN,nissl,200/500,1000,MD594
@@ -6,6 +6,15 @@ dataset_id,network_model,stain,margins,num_sample_per_class,stacks,cell_features
 24,inception-bn-blue,nissl,500,1000,MD589
 25,inception-bn-blue,nissl,500,1000,MD594
 26,inception-bn-blue,nissl,500,1000,MD594/MD589/MD585,,far negatives for Pn
+27,inception-bn-blue,nissl,500,1000,MD585,,far negatives for all structures
+28,inception-bn-blue,nissl,500,1000,MD589,,far negatives for all structures
+29,inception-bn-blue,nissl,500,1000,MD594,,far negatives for all structures
+30,inception-bn-blue,nissl,200,1000,MD585
+31,inception-bn-blue,nissl,200,1000,MD589
+32,inception-bn-blue,nissl,200,1000,MD594
+33,inception-bn-blue,nissl,1000,1000,MD585
+34,inception-bn-blue,nissl,1000,1000,MD589
+35,inception-bn-blue,nissl,1000,1000,MD594
 50,inception-bn-blue,neurotrace_blue,500,1000,MD642
 51,inception-bn-blue,neurotrace_blue,500,1000,MD635
 60,,nissl,500,1000,MD585

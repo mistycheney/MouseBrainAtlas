@@ -1,31 +1,39 @@
-dataset_id,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment
-20,Inception-BN,nissl,200/500,1000,MD585
-21,Inception-BN,nissl,200/500,1000,MD589
-22,Inception-BN,nissl,200/500,1000,MD594
-23,inception-bn-blue,nissl,500,1000,MD585
-24,inception-bn-blue,nissl,500,1000,MD589
-25,inception-bn-blue,nissl,500,1000,MD594
-26,inception-bn-blue,nissl,500,1000,MD594/MD589/MD585,,far negatives for Pn
-27,inception-bn-blue,nissl,500,1000,MD585,,far negatives for all structures
-28,inception-bn-blue,nissl,500,1000,MD589,,far negatives for all structures
-29,inception-bn-blue,nissl,500,1000,MD594,,far negatives for all structures
-30,inception-bn-blue,nissl,200,1000,MD585
-31,inception-bn-blue,nissl,200,1000,MD589
-32,inception-bn-blue,nissl,200,1000,MD594
-33,inception-bn-blue,nissl,1000,1000,MD585
-34,inception-bn-blue,nissl,1000,1000,MD589
-35,inception-bn-blue,nissl,1000,1000,MD594
-50,inception-bn-blue,neurotrace_blue,500,1000,MD642
-51,inception-bn-blue,neurotrace_blue,500,1000,MD635
-60,,nissl,500,1000,MD585
-61,,nissl,500,1000,MD589
-62,,nissl,500,1000,MD594
-90,,nissl,500,1000,MD589,allSizeHist/huMomentsHist
-92,,nissl,500,1000,MD589,largeLargeLinkLenHist
-93,,nissl,500,1000,MD594,largeLargeLinkLenHist
-94,,nissl,500,1000,MD589,largeSizeHist
-95,,nissl,500,1000,MD594,largeSizeHist
-96,,nissl,500,1000,MD589,largeSizeHist/largeLargeLinkLenHist
-97,,nissl,500,1000,MD594,largeSizeHist/largeLargeLinkLenHist
-98,,nissl,500,1000,MD594,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
-99,,nissl,500,1000,MD589,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
+dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment
+20,,Inception-BN,nissl,200/500,1000,MD585
+21,,Inception-BN,nissl,200/500,1000,MD589
+22,,Inception-BN,nissl,200/500,1000,MD594
+23,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,1000,MD585
+24,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,1000,MD589
+25,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,1000,MD594
+26,,inception-bn-blue,nissl,,1000,MD594/MD589/MD585,,far negatives for Pn
+27,,inception-bn-blue,nissl,,1000,MD585,,far negatives for all structures
+28,,inception-bn-blue,nissl,,1000,MD589,,far negatives for all structures
+29,neg,inception-bn-blue,nissl,,1000,MD594,,far negatives for all structures
+30,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,200,1000,MD585
+31,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,200,1000,MD589
+32,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,200,1000,MD594
+33,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,1000,1000,MD585
+34,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,1000,1000,MD589
+35,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,1000,1000,MD594
+36,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,200,MD585
+37,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,200,MD589
+38,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,200,MD594
+39,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,3000,MD585
+40,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,3000,MD589
+41,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,3000,MD594
+50,,inception-bn-blue,neurotrace_blue,500,1000,MD642
+51,,inception-bn-blue,neurotrace_blue,500,1000,MD635
+60,,,nissl,500,1000,MD585,,raw image patches
+61,,,nissl,500,1000,MD589,,raw image patches
+62,,,nissl,500,1000,MD594,,raw image patches
+70,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,1000,MD590,,auto generated from registration result
+71,pos/surPos/surNoclass/neg,inception-bn-blue,neurotrace_blue,500,1000,MD635,,auto generated from registration result
+90,,,nissl,500,1000,MD589,allSizeHist/huMomentsHist
+92,,,nissl,500,1000,MD589,largeLargeLinkLenHist
+93,,,nissl,500,1000,MD594,largeLargeLinkLenHist
+94,,,nissl,500,1000,MD589,largeSizeHist
+95,,,nissl,500,1000,MD594,largeSizeHist
+96,,,nissl,500,1000,MD589,largeSizeHist/largeLargeLinkLenHist
+97,,,nissl,500,1000,MD594,largeSizeHist/largeLargeLinkLenHist
+98,,,nissl,500,1000,MD594,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
+99,,,nissl,500,1000,MD589,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist

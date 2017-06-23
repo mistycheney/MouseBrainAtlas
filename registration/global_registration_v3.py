@@ -61,7 +61,7 @@ std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
 print std_tx, std_ty, std_tz, std_theta_xy
 
-surround_weight = int(warp_properties['surround_weight'])
+surround_weight = float(warp_properties['surround_weight'])
 include_surround = surround_weight != 0
 
 MAX_ITER_NUM = 1000

@@ -8,3 +8,5 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 8,1,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0
 10,None,rigid,1e-5,1e5,1000,100,100,100,30,0
 11,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.1,0
+12,None,affine,1e-5,1e5,1000,2000,2000,2000,30,-0.5
+13,None,affine,1e-5,1e5,1000,2000,2000,2000,30,-1.

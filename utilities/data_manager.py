@@ -1580,7 +1580,7 @@ class DataManager(object):
         feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
                                        image_basename + '_patch_locations.txt')
         return feature_locs_fn
-
+    
     @staticmethod
     def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
         """

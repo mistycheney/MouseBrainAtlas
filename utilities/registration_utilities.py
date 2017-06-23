@@ -889,6 +889,7 @@ class Aligner4(object):
                 raise Exception('Type must be either rigid or affine.')
 
             sys.stderr.write('T: %s\n' % T[[3,7,11]])
+            sys.stderr.write('det: %.2f\n' % np.linalg.det(T.reshape((3,4))[:2, :2]))
             sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
 
             # self.logger.info('score: %f', s)

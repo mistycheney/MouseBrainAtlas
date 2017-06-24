@@ -540,10 +540,16 @@ class DataManager(object):
                                 section,
                                 type_m='score', type_f='score',
                                 downscale=32,
-                                trial_idx=None):
+                                trial_idx=None,
+                                  out_downscale=32):
+        """
+        Args:
+            downscale (int): downscale of both volumes (must be consistent).
+            out_downsample (int): downscale of the output visualization images.
+        """
 
         basename = DataManager.get_warped_volume_basename(**locals())
-        return os.path.join(REGISTRATION_VIZ_ROOTDIR, stack_m, basename, basename + '_%04d.jpg' % section)
+        return os.path.join(REGISTRATION_VIZ_ROOTDIR, stack_m, basename, 'down'+str(out_downscale), basename + '_%04d_down%d.jpg' % (section, out_downscale))
 
     @staticmethod
     def load_confidence(stack_m, stack_f,
@@ -1435,21 +1441,29 @@ class DataManager(object):
     #########################
 
     @staticmethod
+    def get_image_version_str(stack, version, resolution='lossless', downscale=None, anchor_fn=None):
+        
+        if resolution == 'thumbnail':
+            downscale = 32
+        
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+        
+        basename = resolution + '_alignedTo_' + anchor_fn + '_' + version + '_down' + str(downscale)
+        return basename
+    
+    @staticmethod
     def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, classifier_id=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-            if is_invalid(fn): raise Exception('Section is invalid: %s.' % fn)
-
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+            if is_invalid(fn): 
+                raise Exception('Section is invalid: %s.' % fn)
 
         viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
-        basename = '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
-        fn = basename + '_%(structure)s_denseScoreMap_setting_%(classifier_id)d.jpg' % dict(structure=structure, classifier_id=classifier_id)
-
-        scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, fn)
-
+        version_str = DataManager.get_image_version_str(stack=stack, version='cropped', resolution='lossless', downscale=downscale)
+        scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, 'clf' + str(classifier_id), 
+                                             fn + '_' + version_str + '_clf' + str(classifier_id) + '_scoremap.jpg')
         return scoremap_viz_filepath
 
     @staticmethod
@@ -1719,8 +1733,6 @@ class DataManager(object):
             Absolute path of the image file.
         """
         
-        # image_name = None
-
         image_name = None
         
         if section is not None:
@@ -1807,11 +1819,13 @@ class DataManager(object):
         #         image_height, image_width = imread(fp).shape[:2]
         #     break
 
+        i = 3
         while True:
-            random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
+            random_fn = section_to_filename[i]
             fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
             if not os.path.exists(fp):
+                i += 1
                 continue
             # try:
             #     image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
@@ -2256,3 +2270,4 @@ def resolve_actual_setting(setting, stack, fn=None, sec=None):
         setting_ = setting
 
     return setting_
+

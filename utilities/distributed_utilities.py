@@ -102,7 +102,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
     
-    sys.stderr.write('%.2f seconds.\n' % (time.time() - t))
+    # sys.stderr.write('%.2f seconds.\n' % (time.time() - t))
         
 def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
     if from_root is None:
@@ -173,19 +173,19 @@ def request_compute_nodes(cluster_size, cluster_name, keep=True):
         
     n_hosts = get_num_nodes()
 
-    if n_hosts < cluster_size:
-        autoscaling_description = json.loads(check_output('aws autoscaling describe-auto-scaling-groups'.split()))
-        # asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
-        matched_asg = [a['AutoScalingGroupName'] for a in autoscaling_description[u'AutoScalingGroups'] if cluster_name in a['AutoScalingGroupName']]
-        if len(matched_asg) > 0:
-            asg = matched_asg[0]
-        call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
-        if keep:
-            call("aws autoscaling update-auto-scaling-group --auto-scaling-group-name %s --min-size %d" % (asg, cluster_size), shell=True)
-            
-        print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
-    else:
-        sys.stderr.write("All nodes are ready.\n")
+    # if n_hosts < cluster_size:
+    autoscaling_description = json.loads(check_output('aws autoscaling describe-auto-scaling-groups'.split()))
+    # asg = autoscaling_description[u'AutoScalingGroups'][0]['AutoScalingGroupName']
+    matched_asg = [a['AutoScalingGroupName'] for a in autoscaling_description[u'AutoScalingGroups'] if cluster_name in a['AutoScalingGroupName']]
+    if len(matched_asg) > 0:
+        asg = matched_asg[0]
+    call("aws autoscaling set-desired-capacity --auto-scaling-group-name %s --desired-capacity %d" % (asg, cluster_size), shell=True)
+    if keep:
+        call("aws autoscaling update-auto-scaling-group --auto-scaling-group-name %s --min-size %d" % (asg, cluster_size), shell=True)
+
+    print "Setting autoscaling group %s capaticy to %d...it may take more than 5 minutes for SGE to know new hosts." % (asg, cluster_size)
+    # else:
+    #     sys.stderr.write("All nodes are ready.\n")
 
 def wait_num_nodes(desired_nodes, timeout=300):
     

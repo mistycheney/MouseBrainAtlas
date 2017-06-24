@@ -61,8 +61,12 @@ std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
 print std_tx, std_ty, std_tz, std_theta_xy
 
-surround_weight = float(warp_properties['surround_weight'])
-include_surround = surround_weight != 0
+try:
+    surround_weight = float(warp_properties['surround_weight'])
+    include_surround = surround_weight != 0 and not np.isnan(surround_weight)
+except:
+    surround_weight = str(warp_properties['surround_weight'])
+    include_surround = True
 
 MAX_ITER_NUM = 1000
 HISTORY_LEN = 10
@@ -93,7 +97,13 @@ label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in structure_subset}
 
-if isinstance(surround_weight, int) or isinstance(surround_weight, float):
+if surround_weight == 'inverse':
+    volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
+    label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
+                       /float(volume_moving_structure_sizes[label_m])
+                       if is_surround_label(name_m) else 1. \
+                       for label_m, name_m in label_to_structure_moving.iteritems()}
+elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
     label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
                    for label_m, name_m in label_to_structure_moving.iteritems()}
 else:

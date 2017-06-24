@@ -24,6 +24,7 @@ parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("classifier_setting", type=int, help="classifier_setting")
+parser.add_argument("-o", "--out_downsample", type=int, help="downsample of output visualization images", default=32)
 
 args = parser.parse_args()
 
@@ -31,15 +32,18 @@ stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 classifier_setting = args.classifier_setting
+downsample_factor = args.out_downsample
     
 ##################################################################
 
 # Read transformed volumes
 
+volume_downsample = 32
 warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
                                     classifier_setting_m=classifier_setting,
                                     classifier_setting_f=classifier_setting,
                                     warp_setting=warp_setting,
+                                                                          downscale=volume_downsample,
                                                                           sided=True)
 
 if len(warped_volumes) == 0:
@@ -53,67 +57,80 @@ level_colors = {0.1: (0,255,255),
                 0.75: (255,255,0), 
                 0.99: (255,0,255)}
 
-# Generate overlay visualization
-
-# estimate mapping between z and section
-downsample_factor = 32
-xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
-voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
-
 # For getting correct contour location
-xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = \
+bbox_down32 = \
 DataManager.load_original_volume_bbox(stack=stack_fixed, vol_type='score', structure='7N', downscale=32, classifier_setting=classifier_setting)
-print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
+xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f = bbox_down32 * 32 / volume_downsample
+# print xmin_vol_f, xmax_vol_f, ymin_vol_f, ymax_vol_f, zmin_vol_f, zmax_vol_f
 
-# Generate atlas overlay image for every section
-first_sec, last_sec = metadata_cache['section_limits'][stack_fixed]
+show_text = True
+contour_width = 1
 
 def visualize_registration_one_section(sec):
-    if is_invalid(stack=stack_fixed, sec=sec):
-        return
     
-    img = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
+    t = time.time()
     
+    if downsample_factor == 32:
+        img = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
+    else:
+        img = DataManager.load_image(stack=stack_fixed, section=sec, resol='lossless', version='cropped_gray_jpeg')
+        img = img[::downsample_factor, ::downsample_factor]
+    
+    if img.ndim == 2:
+        img = gray2rgb(img)
+        
     viz = img.copy()
     
-    z = voxel_z_size * (sec - 1) - zmin_vol_f
-    z = int(np.round(z))
+    z = int(np.mean(DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample)))
     
-    # Find moving volume annotation contours
+    # Find moving volume annotation contours.
     for name_s, vol in warped_volumes.iteritems():
+        
+        label_pos = None
+        
         for level in levels:
             cnts = find_contours(vol[..., z], level=level) # rows, cols
             for cnt in cnts:
                 # r,c to x,y
-                cnt_on_cropped = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-                cv2.polylines(viz, [cnt_on_cropped.astype(np.int)], True, level_colors[level], 1)
-
-    viz_fp = DataManager.get_alignment_viz_filepath(stack_m=stack_moving,
-                                            stack_f=stack_fixed,
-                                            classifier_setting_m=classifier_setting,
-                                            classifier_setting_f=classifier_setting,
-                                            warp_setting=warp_setting,
-                                                    section=sec)
+                cnt_on_cropped_volRes = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+                cnt_on_cropped_imgRes = cnt_on_cropped_volRes * volume_downsample / downsample_factor
+                cv2.polylines(viz, [cnt_on_cropped_imgRes.astype(np.int)], 
+                              True, level_colors[level], contour_width)
+                
+                if show_text:
+                    if label_pos is None:
+                        label_pos = np.mean(cnt_on_cropped_imgRes, axis=0)
     
+        # Show text 
+        if label_pos is not None:
+            cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)), 
+                    cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 3)
+    
+    viz_fp = DataManager.get_alignment_viz_filepath(stack_m=stack_moving,
+                                                    stack_f=stack_fixed,
+                                                    classifier_setting_m=classifier_setting,
+                                                    classifier_setting_f=classifier_setting,
+                                                    warp_setting=warp_setting,
+                                                downscale=volume_downsample,
+                                                    out_downscale=downsample_factor,
+                                          section=sec)
     try:
         create_parent_dir_if_not_exists(viz_fp)
     except:
-        # ignore os error that might occur when multiple processes simultaneously try to create dir
         pass
-    
     imsave(viz_fp, viz)
     upload_to_s3(viz_fp)
     
-
+#     sys.stderr.write('Time: %.2f seconds\n' % (time.time() - t)) # 5s
+    
 t = time.time()
 
 pool = Pool(NUM_CORES)
-pool.map(visualize_registration_one_section, range(first_sec, last_sec+1))
-pool.close()
+pool.map(visualize_registration_one_section, metadata_cache['valid_sections'][stack_fixed])
+pool.terminate()
 pool.join()
 
-sys.stderr.write('Visualize registration: %.2f seconds\n' % (time.time() - t))
-
+sys.stderr.write('Visualize registration: %.2f seconds\n' % (time.time() - t)) # 110s
 
 # for sec in range(first_sec, last_sec+1):
 # # for sec in [200]:

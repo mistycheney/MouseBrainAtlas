@@ -150,10 +150,10 @@ def execute_command(cmd):
 
     try:
         retcode = call(cmd, shell=True)
-        if retcode < 0:
-            print >>sys.stderr, "Child was terminated by signal", -retcode
-        else:
-            print >>sys.stderr, "Child returned", retcode
+        # if retcode < 0:
+            # print >>sys.stderr, "Child was terminated by signal", -retcode
+        # else:
+            # print >>sys.stderr, "Child returned", retcode
         return retcode
     except OSError as e:
         print >>sys.stderr, "Execution failed:", e

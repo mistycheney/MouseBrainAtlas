@@ -10,6 +10,7 @@ parser.add_argument("stack", type=str, help="stack")
 parser.add_argument("filenames", type=str, help="Filenames")
 parser.add_argument("classifier_id", type=int, help="classifier id")
 parser.add_argument("downscale", type=int, help="downscale factor")
+parser.add_argument("--cmap", type=str, help="colormap name", default='hot')
 parser.add_argument("-a", help="whether to add label text", action='store_true')
 
 args = parser.parse_args()
@@ -19,6 +20,7 @@ filenames = json.loads(args.filenames)
 classifier_id = args.classifier_id
 downscale = args.downscale
 add_label_text = args.a
+cmap_name = args.cmap
 
 ###############################################
 
@@ -56,7 +58,7 @@ for fn in filenames:
                 label_text = None
             viz = scoremap_overlay_on(bg='original', stack=stack, fn=fn, structure=structure,
                                 out_downscale=downscale, label_text=label_text, classifier_id=actual_setting,
-                                     cmap_name='hot')
+                                     cmap_name=cmap_name)
             imsave(viz_fp, img_as_ubyte(viz))
             upload_to_s3(viz_fp)
         except Exception as e:

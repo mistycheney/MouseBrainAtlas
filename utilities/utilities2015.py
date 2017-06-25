@@ -142,7 +142,11 @@ def create_parent_dir_if_not_exists(fp):
 
 def create_if_not_exists(path):
     if not os.path.exists(path):
-        os.makedirs(path)
+        try:
+            os.makedirs(path)
+        except Exception as e:
+            sys.stderr.write('%s\n' % e);
+            
     return path
 
 def execute_command(cmd):

@@ -48,6 +48,7 @@ def generate_scoremap_layer(stack, structure, downscale, classifier_id,
                     color=(1,0,0), show_above=.01, cmap_name='jet'):
     '''
     Generate scoremap layer.
+    Output are rescaled from down32 score maps.
     
     Args:
         structure: structure name

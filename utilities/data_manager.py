@@ -1065,6 +1065,8 @@ class DataManager(object):
                                                     sided=True,
                                                     include_surround=False,
                                                      trial_idx=None,
+                                                     return_label_mappings=False,
+                                                     name_or_index_as_key='name'
 ):
         """
         Args:
@@ -1080,30 +1082,56 @@ class DataManager(object):
             else:
                 structures = all_known_structures
 
+        loaded = False
+        sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+                
         volumes = {}
+        if not loaded:
+            structure_to_label = {}
+            label_to_structure = {}
+            index = 1
         for structure in structures:
             try:
+                
+                if loaded:
+                    index = structure_to_label[structure]
+
                 if trial_idx is None or isinstance(trial_idx, int):
-                    volumes[structure] = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
                                                         stack_f=stack_f, type_f=type_f, downscale=downscale,
                                                         classifier_setting_m=classifier_setting_m,
                                                         classifier_setting_f=classifier_setting_f,
                                                         warp_setting=warp_setting,
                                                         structure=structure,
                                                         trial_idx=trial_idx)
+
                 else:
-                    volumes[structure] = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
                                                         stack_f=stack_f, type_f=type_f, downscale=downscale,
                                                         classifier_setting_m=classifier_setting_m,
                                                         classifier_setting_f=classifier_setting_f,
                                                         warp_setting=warp_setting,
                                                         structure=structure,
                                                         trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
+
+                if name_or_index_as_key == 'name':
+                    volumes[structure] = v
+                else:
+                    volumes[index] = v
+
+                if not loaded:
+                    structure_to_label[structure] = index
+                    label_to_structure[index] = structure
+                    index += 1
+
             except Exception as e:
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
-        return volumes
+        if return_label_mappings:
+            return volumes, structure_to_label, label_to_structure
+        else:
+            return volumes
 
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
@@ -1355,7 +1383,6 @@ class DataManager(object):
                     volumes[structure] = DataManager.load_original_volume(stack=stack, structure=structure,
                                             downscale=downscale, classifier_setting=classifier_setting,
                                             volume_type=volume_type)
-
                 except:
                     sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 

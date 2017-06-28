@@ -144,9 +144,11 @@ def compute_predictions(H, abstain_label=-1):
 
     return predictions, no_decision_indices
 
-def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1):
+def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1, binary=True, decision_thresh=.5):
     """
-    probs: n_example x n_class
+    Args:
+        probs ((n_example, n_class)-ndarray of float): prediction probabilities
+        label ((n_example,)-ndarray of int): true example labels
     """
 
     n_labels = len(np.unique(labels))
@@ -166,7 +168,13 @@ def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_
                     M[tl, probs0] += 1
             else:
                 hard = np.zeros((n_labels, ))
-                hard[np.argmax(probs0)] = 1.
+                if binary:
+                    if probs0[0] > decision_thresh:
+                        hard[0] = 1.
+                    else:
+                        hard[1] = 1.
+                else:
+                    hard[np.argmax(probs0)] = 1.
                 M[tl] += hard
 
     if normalize:

@@ -79,6 +79,8 @@
 // If the mask indicates which pixels are valid, then set it to true.
 // If you do not use a mask, the option doesn't matter.
 (ErodeMask "false")
+//(ErodeFixedMask "true")
+//(ErodeMovingMask "false")
 
 // ******************** Multiresolution **********************
 

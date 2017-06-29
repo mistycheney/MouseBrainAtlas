@@ -284,13 +284,13 @@ class DataManager(object):
 
     @staticmethod
     def get_anchor_filename_filename(stack):
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s_anchor.txt' % dict(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_anchor.txt')
         return fn
 
     @staticmethod
     def load_anchor_filename(stack):
         fp = DataManager.get_anchor_filename_filename(stack)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp)
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
@@ -298,13 +298,13 @@ class DataManager(object):
     def get_cropbox_filename(stack, anchor_fn=None):
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
-        fn = THUMBNAIL_DATA_DIR + '/%(stack)s/%(stack)s' % dict(stack=stack) + '_alignedTo_' + anchor_fn + '_cropbox.txt'
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
         return fn
 
     @staticmethod
     def load_cropbox(stack, anchor_fn=None):
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp)
         cropbox = DataManager.load_data(fp, filetype='bbox')
         return cropbox
 
@@ -323,7 +323,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_sorted_filenames_filename(stack)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
@@ -1732,6 +1732,7 @@ class DataManager(object):
             image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
             image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_int%d' % int_id)
+        return image_dir
     
     
     @staticmethod
@@ -1797,13 +1798,13 @@ class DataManager(object):
         else:
             assert fn is not None
 
-        if modality is None:
-            if (stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F':
-                modality = 'fluorescent'
-            else:
-                modality = 'nissl'
+        # if modality is None:
+        #     if (stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F':
+        #         modality = 'fluorescent'
+        #     else:
+        #         modality = 'nissl'
 
-        image_dir = DataManager.get_image_dir(stack=stack, prep_id=prep_id, resol=resol, int_id=int_id, data_dir=data_dir)
+        image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, int_id=int_id, data_dir=data_dir)
         if ext is None:
             ext = 'tif'
         if int_id is None:
@@ -1898,7 +1899,7 @@ class DataManager(object):
         #     break
 
         i = 10
-        while True:
+        for _ in range(10):
             random_fn = section_to_filename[i]
             fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
             download_from_s3(fp)
@@ -1976,42 +1977,66 @@ class DataManager(object):
 
         return sec_floor
 
+    ################
+    #    Masks     #
+    ################
+    
+    # @staticmethod
+    # def get_initial_snake_contours_filepath(stack):
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     init_snake_contours_fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
+    #     return init_snake_contours_fp
 
     @staticmethod
-    def get_initial_snake_contours_filepath(stack):
-        """"""
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        init_snake_contours_fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack+'_alignedTo_'+anchor_fn+'_init_snake_contours.pkl')
-        return init_snake_contours_fp
-
-    ############################
-    #####    Masks     #########
-    ############################
-
-
+    def get_initial_snake_contours_filepath(stack):        
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_initSnakeContours.pkl')
+    
+    @staticmethod
+    def get_anchor_initial_snake_contours_filepath(stack):
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_anchorInitSnakeContours.pkl')
+    
+    # @staticmethod
+    # def get_auto_submask_rootdir_filepath(stack):
+    #     """
+    #     Args:
+    #         what (str): submask or decisions.
+    #         submask_ind (int): if what is submask, must provide submask_ind.
+    #     """
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
+    #     return dir_path
+    
     @staticmethod
     def get_auto_submask_rootdir_filepath(stack):
-        """
-        Args:
-            what (str): submask or decisions.
-            submask_ind (int): if what is submask, must provide submask_ind.
-        """
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
-        return dir_path
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_autoSubmasks')
 
     @staticmethod
     def get_auto_submask_dir_filepath(stack, fn=None, sec=None):
-        """
-        Args:
-            what (str): submask or decisions.
-            submask_ind (int): if what is submask, must provide submask_ind.
-        """
-        auto_submasks_dir = DataManager.get_auto_submask_rootdir_filepath(stack)
+        submasks_dir = DataManager.get_auto_submask_rootdir_filepath(stack)
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
-        dir_path = os.path.join(auto_submasks_dir, fn)
+        dir_path = os.path.join(submasks_dir, fn)
         return dir_path
+
+#     @staticmethod
+#     def get_auto_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
+#         """
+#         Args:
+#             what (str): submask or decisions.
+#             submask_ind (int): if what is submask, must provide submask_ind.
+#         """
+#         anchor_fn = metadata_cache['anchor_fn'][stack]
+#         dir_path = DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
+
+#         if what == 'submask':
+#             assert submask_ind is not None, "Must provide submask_ind."
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_%d.png' % submask_ind)
+#         elif what == 'decisions':
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
+#         else:
+#             raise Exception("Not recognized.")
+
+#         return fp
 
     @staticmethod
     def get_auto_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
@@ -2020,41 +2045,42 @@ class DataManager(object):
             what (str): submask or decisions.
             submask_ind (int): if what is submask, must provide submask_ind.
         """
-        anchor_fn = metadata_cache['anchor_fn'][stack]
         dir_path = DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
 
         if what == 'submask':
             assert submask_ind is not None, "Must provide submask_ind."
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_%d.png' % submask_ind)
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmask_%d.png' % submask_ind) 
+            # fp = os.path.join(dir_path, fn + + '_auto_submask_%d.png' % submask_ind)
         elif what == 'decisions':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
+            # fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmaskDecisions.csv') 
         else:
-            raise Exception("Not recognized.")
+            raise Exception("Input %s is not recognized." % what)
 
         return fp
 
     @staticmethod
     def get_user_modified_submask_rootdir_filepath(stack):
-        """
-        Args:
-            what (str): submask or decisions.
-            submask_ind (int): if what is submask, must provide submask_ind.
-        """
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_userModified_submasks')
+        dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_userModifiedSubmasks')
         return dir_path
+    
+    # @staticmethod
+    # def get_user_modified_submask_rootdir_filepath(stack):
+    #     """
+    #     Args:
+    #         what (str): submask or decisions.
+    #         submask_ind (int): if what is submask, must provide submask_ind.
+    #     """
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_userModified_submasks')
+    #     return dir_path
 
     @staticmethod
     def get_user_modified_submask_dir_filepath(stack, fn=None, sec=None):
-        """
-        Args:
-            what (str): submask or decisions.
-            submask_ind (int): if what is submask, must provide submask_ind.
-        """
-        auto_submasks_dir = DataManager.get_user_modified_submask_rootdir_filepath(stack)
+        submasks_dir = DataManager.get_user_modified_submask_rootdir_filepath(stack)
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
-        dir_path = os.path.join(auto_submasks_dir, fn)
+        dir_path = os.path.join(submasks_dir, fn)
         return dir_path
 
     @staticmethod
@@ -2064,22 +2090,46 @@ class DataManager(object):
             what (str): submask or decisions.
             submask_ind (int): if what is submask, must provide submask_ind.
         """
-        anchor_fn = metadata_cache['anchor_fn'][stack]
         dir_path = DataManager.get_user_modified_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
 
         if what == 'submask':
             assert submask_ind is not None, "Must provide submask_ind."
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_%d.png' % submask_ind)
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_userModifiedSubmask_%d.png' % submask_ind)
         elif what == 'decisions':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_decisions.csv')
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_userModifiedSubmaskDecisions.csv')
         elif what == 'parameters':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_parameters.json')
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_userModifiedParameters.json')
         elif what == 'contour_vertices':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_contour_vertices.pkl')
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_userModifiedSubmaskContourVertices.pkl')
         else:
-            raise Exception("Not recognized.")
+            raise Exception("Input %s is not recognized." % what)
 
         return fp
+
+    
+#     @staticmethod
+#     def get_user_modified_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
+#         """
+#         Args:
+#             what (str): submask or decisions.
+#             submask_ind (int): if what is submask, must provide submask_ind.
+#         """
+#         anchor_fn = metadata_cache['anchor_fn'][stack]
+#         dir_path = DataManager.get_user_modified_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
+
+#         if what == 'submask':
+#             assert submask_ind is not None, "Must provide submask_ind."
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_%d.png' % submask_ind)
+#         elif what == 'decisions':
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_decisions.csv')
+#         elif what == 'parameters':
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_parameters.json')
+#         elif what == 'contour_vertices':
+#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_contour_vertices.pkl')
+#         else:
+#             raise Exception("Not recognized.")
+
+#         return fp
 
 
     @staticmethod

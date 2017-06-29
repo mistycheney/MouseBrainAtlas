@@ -53,7 +53,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
     assert to_hostname in ['localhost', 'workstation', 'oasis', 's3', 'ec2', 's3raw', 'ec2scratch'], 'to_hostname must be one of localhost, workstation, oasis, s3, s3raw, ec2 or ec2scratch.'
 
     to_parent = os.path.dirname(to_fp)
-    
+
     t = time.time()
 
     if from_hostname in ['localhost', 'ec2', 'workstation', 'ec2scratch']:
@@ -61,19 +61,19 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         if to_hostname in ['s3', 's3raw']:
             if is_dir:
                 if includes is not None:
-                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
+                    execute_command('aws s3 cp --recursive \"%(from_fp)s\" \"s3://%(to_fp)s\" --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
                 elif include_only is not None:
-                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                    execute_command('aws s3 cp --recursive \"%(from_fp)s\" \"s3://%(to_fp)s\" --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
                 elif exclude_only is not None:
-                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
+                    execute_command('aws s3 cp --recursive \"%(from_fp)s\" \"s3://%(to_fp)s\" --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
                 else:
-                    execute_command('aws s3 cp --recursive %(from_fp)s s3://%(to_fp)s' % \
+                    execute_command('aws s3 cp --recursive \"%(from_fp)s\" \"s3://%(to_fp)s\"' % \
             dict(from_fp=from_fp, to_fp=to_fp))
             else:
-                execute_command('aws s3 cp %(from_fp)s s3://%(to_fp)s' % \
+                execute_command('aws s3 cp \"%(from_fp)s\" \"s3://%(to_fp)s\"' % \
             dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            execute_command("ssh %(to_hostname)s 'rm -rf %(to_fp)s && mkdir -p %(to_parent)s' && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s" % \
+            execute_command("ssh %(to_hostname)s 'rm -rf \"%(to_fp)s\" && mkdir -p \"%(to_parent)s\"' && scp -r \"%(from_fp)s\" %(to_hostname)s:\"%(to_fp)s\"" % \
                     dict(from_fp=from_fp, to_fp=to_fp, to_hostname=to_hostname, to_parent=to_parent))
     elif to_hostname in ['localhost', 'ec2', 'workstation', 'ec2scratch']:
         # download
@@ -81,28 +81,27 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
 
             # Clear existing folder/file
             if not include_only and not includes and not exclude_only:
-                execute_command('rm -rf %(to_fp)s && mkdir -p %(to_parent)s' % dict(to_parent=to_parent, to_fp=to_fp))
+                execute_command('rm -rf \"%(to_fp)s\" && mkdir -p \"%(to_parent)s\"' % dict(to_parent=to_parent, to_fp=to_fp))
 
             # Download from S3 using aws commandline interface.
             if is_dir:
                 if includes is not None:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
+                    execute_command('aws s3 cp --recursive \"s3://%(from_fp)s\" \"%(to_fp)s\" --exclude \"*\" %(includes_str)s' % dict(from_fp=from_fp, to_fp=to_fp, includes_str=" ".join(['--include ' + incl for incl in includes])))
                 elif include_only is not None:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
+                    execute_command('aws s3 cp --recursive \"s3://%(from_fp)s\" \"%(to_fp)s\" --exclude \"*\" --include \"%(include)s\"' % dict(from_fp=from_fp, to_fp=to_fp, include=include_only))
                 elif exclude_only is not None:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
+                    execute_command('aws s3 cp --recursive \"s3://%(from_fp)s\" \"%(to_fp)s\" --include \"*\" --exclude \"%(exclude)s\"' % dict(from_fp=from_fp, to_fp=to_fp, exclude=exclude_only))
                 else:
-                    execute_command('aws s3 cp --recursive s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
+                    execute_command('aws s3 cp --recursive \"s3://%(from_fp)s\" \"%(to_fp)s\"' % dict(from_fp=from_fp, to_fp=to_fp))
             else:
-                execute_command('aws s3 cp s3://%(from_fp)s %(to_fp)s' % dict(from_fp=from_fp, to_fp=to_fp))
+                execute_command('aws s3 cp \"s3://%(from_fp)s\" \"%(to_fp)s\"' % dict(from_fp=from_fp, to_fp=to_fp))
         else:
-            execute_command("scp -r %(from_hostname)s:%(from_fp)s %(to_fp)s" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname))
+            execute_command("scp -r %(from_hostname)s:\"%(from_fp)s\" \"%(to_fp)s\"" % dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname))
     else:
         # log onto another machine and perform upload from there.
-        execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf %(to_fp)s && mkdir -p %(to_parent)s && scp -r %(from_fp)s %(to_hostname)s:%(to_fp)s\'\"" % \
+        execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf \"%(to_fp)s\" && mkdir -p %(to_parent)s && scp -r \"%(from_fp)s\" %(to_hostname)s:\"%(to_fp)s\"\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
-    
-    # sys.stderr.write('%.2f seconds.\n' % (time.time() - t))
+
         
 def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
     if from_root is None:

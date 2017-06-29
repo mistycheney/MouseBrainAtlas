@@ -37,7 +37,7 @@ for fn_pair in filename_pairs:
 		sys.stderr.write('Result for aligning %s to %s already exists.\n' % (curr_fn, prev_fn))
 		continue
 
-	execute_command('rm -rf ' + output_subdir)
+	execute_command('rm -rf \"%s\"' % output_subdir)
 	create_if_not_exists(output_subdir)
 
 	ret = execute_command('%(elastix_bin)s -f \"%(fixed_fn)s\" -m \"%(moving_fn)s\" -out \"%(output_subdir)s\" -p \"%(rg_param)s\"' % \

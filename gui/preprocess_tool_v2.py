@@ -60,13 +60,17 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.web_service = WebService(server_ip='ec2-52-53-122-62.us-west-1.compute.amazonaws.com')
 
-        ###############################################
+        ###############
+        # LOAD macros #
+        ###############
 
         self.slide_gscene = ZoomableBrowsableGraphicsScene(id='section', gview=self.slide_gview)
         self.slide_gview.setScene(self.slide_gscene)
 
-        # slide_indices = ['N11, N12, IHC28']
-        macros_dir = os.path.join(RAW_DATA_DIR, 'macros/%(stack)s/' % {'stack': self.stack})
+        if self.stack == 'MD661' or  self.stack == 'MD662':
+            macros_dir = os.path.join(RAW_DATA_DIR, 'macros/MD662_MD661')
+        else:
+            macros_dir = os.path.join(RAW_DATA_DIR, 'macros/%(stack)s/' % {'stack': self.stack})
 
         slide_filenames = {}
         import re
@@ -802,6 +806,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         elif self.stack in all_ntb_stacks:
             # fluro
             F_series = {int(slide_name.split('_')[1]): x for slide_name, x in self.slide_position_to_fn.items() if slide_name.split('_')[0] == 'F'}
+            print F_series
             sorted_fns = []
             for i in sorted(set(F_series.keys())):
                 sorted_fns += [F_series[i][pos] for pos in range(1, 4)]

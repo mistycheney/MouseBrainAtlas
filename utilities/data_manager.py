@@ -1698,6 +1698,42 @@ class DataManager(object):
         
         return image_basename
 
+    
+    @staticmethod
+    def get_image_basename_v2(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
+        
+        if anchor_fn is None:
+            anchor_fn = metadata_cache['anchor_fn'][stack]
+            
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
+        
+        if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
+            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
+        else:
+            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
+        
+        return image_basename
+    
+    @staticmethod
+    def get_image_dir_v2(stack, prep_id, int_id=None, resol='lossless',
+                      data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
+        """
+        Args:
+            data_dir: This by default is DATA_DIR, but one can change this ad-hoc when calling the function
+            
+
+        Returns:
+            Absolute path of the image directory.
+        """
+        
+        if int_id is None:
+            image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
+        else:
+            image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_int%d' % int_id)
+    
+    
     @staticmethod
     def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None,
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
@@ -1741,6 +1777,42 @@ class DataManager(object):
         img_fp = DataManager.get_image_filepath(**locals())
         download_from_s3(img_fp)
         return imread(img_fp)
+    
+    
+    @staticmethod
+    def get_image_filepath_v2(stack, prep_id, int_id=None, resol='lossless',
+                           data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
+                           section=None, fn=None, ext=None):
+        """
+        Args:
+            
+        Returns:
+            Absolute path of the image file.
+        """
+            
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if is_invalid(fn=fn):
+                raise Exception('Section is invalid: %s.' % fn)
+        else:
+            assert fn is not None
+
+        if modality is None:
+            if (stack in all_alt_nissl_ntb_stacks or stack in all_alt_nissl_tracing_stacks) and fn.split('-')[1][0] == 'F':
+                modality = 'fluorescent'
+            else:
+                modality = 'nissl'
+
+        image_dir = DataManager.get_image_dir(stack=stack, prep_id=prep_id, resol=resol, int_id=int_id, data_dir=data_dir)
+        if ext is None:
+            ext = 'tif'
+        if int_id is None:
+            image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '.' + ext
+        else:
+            image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '_int%d' % int_id + '.' + ext
+        image_path = os.path.join(image_dir, image_name)
+            
+        return image_path
 
     @staticmethod
     def get_image_filepath(stack, version, resol='lossless',

@@ -2161,11 +2161,19 @@ class DataManager(object):
 
 def download_all_metadata():
 
-    # Download preprocess data
     for stack in all_stacks:
-        download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
-        download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
-        download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+        try:
+            download_from_s3(DataManager.get_sorted_filenames_filename(stack=stack))
+        except:
+            pass
+        try:
+            download_from_s3(DataManager.get_anchor_filename_filename(stack=stack))
+        except:
+            pass
+        try:
+            download_from_s3(DataManager.get_cropbox_filename(stack=stack))
+        except:
+            pass
 
 download_all_metadata()
 
@@ -2175,26 +2183,7 @@ metadata_cache = {}
 def generate_metadata_cache():
 
     global metadata_cache
-    metadata_cache['image_shape'] = {stack: DataManager.get_image_dimension(stack) for stack in all_stacks}
-    # metadata_cache['image_shape'] =\
-    # {'MD585': (16384, 12000),
-    #  'MD589': (15520, 11936),
-    #  'MD590': (17536, 13056),
-    #  'MD591': (16000, 13120),
-    #  'MD592': (17440, 12384),
-    #  'MD593': (17088, 12256),
-    #  'MD594': (17216, 11104),
-    #  'MD595': (18368, 13248),
-    #  'MD598': (18400, 12608),
-    #  'MD599': (18784, 12256),
-    #  'MD602': (22336, 12288),
-    #  'MD603': (20928, 13472),
-    #  'MD635': (20960, 14240),
-    #  'MD642': (28704, 15584),
-    #  'MD652': (22720, 15552),
-    #  'MD653': (25664, 16800),
-    #  'MD657': (27584, 16960),
-    #  'MD658': (19936, 15744)}
+    metadata_cache['image_shape'] = {}
     metadata_cache['anchor_fn'] = {}
     metadata_cache['sections_to_filenames'] = {}
     metadata_cache['filenames_to_sections'] = {}
@@ -2205,6 +2194,11 @@ def generate_metadata_cache():
     metadata_cache['valid_sections_all'] = {}
     metadata_cache['valid_filenames_all'] = {}
     for stack in all_stacks:
+        try:
+            metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
+        except:
+            pass
+                
         try:
             metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
         except:

@@ -288,7 +288,7 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
     
         
-def wait_qsub_complete(timeout=120*60):
+def wait_qsub_complete(timeout=None):
     """
     Wait for qsub to complete.
     
@@ -297,13 +297,22 @@ def wait_qsub_complete(timeout=120*60):
     """
 
     success = False
-    for _ in range(0, timeout/5):
-        op = check_output('qstat')
-        if "runall.sh" not in op:
-            sys.stderr.write('qsub returned.\n')
-            success = True
-            break
-        time.sleep(5)
+    if timeout is None:
+        while True:
+            op = check_output('qstat')
+            if "runall.sh" not in op:
+                sys.stderr.write('qsub returned.\n')
+                success = True
+                break
+            time.sleep(5)
+    else:
+        for _ in range(0, timeout/5):
+            op = check_output('qstat')
+            if "runall.sh" not in op:
+                sys.stderr.write('qsub returned.\n')
+                success = True
+                break
+            time.sleep(5)
 
     if not success:
         raise Exception('qsub does not return in %d seconds. Quit waiting, but SGE may still be computing..' % timeout)

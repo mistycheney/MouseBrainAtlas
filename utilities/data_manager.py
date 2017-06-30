@@ -1717,21 +1717,21 @@ class DataManager(object):
         return image_basename
     
     @staticmethod
-    def get_image_dir_v2(stack, prep_id, int_id=None, resol='lossless',
+    def get_image_dir_v2(stack, prep_id, version=None, resol='lossless',
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         """
         Args:
+            version (str): version string
             data_dir: This by default is DATA_DIR, but one can change this ad-hoc when calling the function
-            
 
         Returns:
             Absolute path of the image directory.
         """
         
-        if int_id is None:
+        if version is None:
             image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
-            image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_int%d' % int_id)
+            image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
         return image_dir
     
     
@@ -1774,6 +1774,12 @@ class DataManager(object):
         return image_dir
 
     @staticmethod
+    def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None):
+        img_fp = DataManager.get_image_filepath_v2(**locals())
+        download_from_s3(img_fp)
+        return imread(img_fp)
+    
+    @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):
         img_fp = DataManager.get_image_filepath(**locals())
         download_from_s3(img_fp)
@@ -1781,11 +1787,12 @@ class DataManager(object):
     
     
     @staticmethod
-    def get_image_filepath_v2(stack, prep_id, int_id=None, resol='lossless',
+    def get_image_filepath_v2(stack, prep_id, version=None, resol='lossless',
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
                            section=None, fn=None, ext=None):
         """
         Args:
+            version (str): the version string.
             
         Returns:
             Absolute path of the image file.
@@ -1804,13 +1811,13 @@ class DataManager(object):
         #     else:
         #         modality = 'nissl'
 
-        image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, int_id=int_id, data_dir=data_dir)
+        image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir)
         if ext is None:
             ext = 'tif'
-        if int_id is None:
+        if version is None:
             image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '.' + ext
         else:
-            image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '_int%d' % int_id + '.' + ext
+            image_name = fn + '_prep%d' % prep_id + '_' + resol + '_' + version + '.' + ext
         image_path = os.path.join(image_dir, image_name)
             
         return image_path
@@ -1881,41 +1888,25 @@ class DataManager(object):
         Returns:
             (image width, image height).
         """
-        
-        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-        anchor_fn = DataManager.load_anchor_filename(stack)
-        filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        
-        # while True:
-        #     random_fn = section_to_filename[np.random.randint(first_sec, last_sec+1, 1)[0]]
-        #     fp = DataManager.get_image_filepath(stack=stack, resol='lossless', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
-        #     download_from_s3(fp)
-        #     if not os.path.exists(fp):
-        #         continue
-        #     try:
-        #         image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
-        #     except:
-        #         image_height, image_width = imread(fp).shape[:2]
-        #     break
 
-        i = 10
-        for _ in range(10):
-            random_fn = section_to_filename[i]
-            fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
-            download_from_s3(fp)
-            if not os.path.exists(fp):
-                i += 1
-                continue
-            # try:
-            #     image_width, image_height = map(int, check_output("identify -format %%Wx%%H %s" % fp, shell=True).split('x'))
-            #     image_height = image_height * 32
-            #     image_width = image_width * 32
-            # except:
-            image_height, image_width = imread(fp).shape[:2]
-            image_height = image_height * 32
-            image_width = image_width * 32
-            break
-            
+        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+        # anchor_fn = DataManager.load_anchor_filename(stack)
+        # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+
+        for i in range(10, 20):
+            random_fn = metadata_cache['section_to_filename'][stack][i]
+            # random_fn = section_to_filename[i]
+            # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+            try:
+                img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=0, fn=random_fn)
+                break
+            except:
+                pass
+
+        image_height, image_width = img.shape[:2]
+        image_height = image_height * 32
+        image_width = image_width * 32
+
         return image_width, image_height
 
     #######################################################
@@ -2132,90 +2123,132 @@ class DataManager(object):
 #         return fp
 
 
+    # @staticmethod
+    # def get_thumbnail_mask_dir_v3(stack, version='aligned'):
+    #     """
+    #     Get directory path of thumbnail mask.
+    #
+    #     Args:
+    #         version (str): One of aligned, aligned_cropped, cropped.
+    #     """
+    #
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     if version == 'aligned':
+    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
+    #     elif version == 'aligned_cropped' or version == 'cropped':
+    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
+    #     else:
+    #         raise Exception('version %s is not recognized.' % version)
+    #     return dir_path
+
     @staticmethod
-    def get_thumbnail_mask_dir_v3(stack, version='aligned'):
+    def get_thumbnail_mask_dir_v3(stack, prep_id):
         """
         Get directory path of thumbnail mask.
-
-        Args:
-            version (str): One of aligned, aligned_cropped, cropped.
         """
-
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        if version == 'aligned':
-            dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
-        elif version == 'aligned_cropped' or version == 'cropped':
-            dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
-        else:
-            raise Exception('version %s is not recognized.' % version)
-        return dir_path
-
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_masks' % prep_id)
+        # anchor_fn = metadata_cache['anchor_fn'][stack]
+        # if version == 'aligned':
+        #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
+        # elif version == 'aligned_cropped' or version == 'cropped':
+        #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
+        # else:
+            # raise Exception('version %s is not recognized.' % version)
+        # return dir_path
 
     @staticmethod
-    def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+    def get_thumbnail_mask_filename_v3(stack, prep_id, section=None, fn=None):
         """
         Get filepath of thumbnail mask.
-
-        Args:
-            version (str): One of aligned, aligned_cropped, cropped.
         """
 
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, version=version)
+        dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, prep_id=prep_id)
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-
-        if version == 'aligned':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
-        elif version == 'aligned_cropped' or version == 'cropped':
-            fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask_cropped.png')
-        else:
-            raise Exception('version %s is not recognized.' % version)
+        fp = os.path.join(dir_path, fn + '_prep%d_thumbnail_mask.png' % prep_id)
         return fp
 
+    # @staticmethod
+    # def get_thumbnail_mask_filename_v3(stack, section=None, fn=None, version='aligned_cropped'):
+    #     """
+    #     Get filepath of thumbnail mask.
+    #
+    #     Args:
+    #         version (str): One of aligned, aligned_cropped, cropped.
+    #     """
+    #
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, version=version)
+    #     if fn is None:
+    #         fn = metadata_cache['sections_to_filenames'][stack][section]
+    #
+    #     if version == 'aligned':
+    #         fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask.png')
+    #     elif version == 'aligned_cropped' or version == 'cropped':
+    #         fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_mask_cropped.png')
+    #     else:
+    #         raise Exception('version %s is not recognized.' % version)
+    #     return fp
 
     @staticmethod
-    def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
-        if stack in ['MD589', 'MD585', 'MD594']:
-            fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
-        else:    
-            fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+    def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
+        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
         download_from_s3(fp)
         mask = imread(fp).astype(np.bool)
         return mask
 
-    @staticmethod
-    def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
-        fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
-        mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
-        return mask
+    # @staticmethod
+    # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
+    #     if stack in ['MD589', 'MD585', 'MD594']:
+    #         fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, prep_id=prep_id)
+    #     else:
+    #         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
+    #     download_from_s3(fp)
+    #     mask = imread(fp).astype(np.bool)
+    #     return mask
 
-    @staticmethod
-    def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        if version == 'aligned_cropped':
-            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
-        elif version == 'aligned':
-            mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
-        else:
-            raise Exception("version %s not recognized." % version)
-        return mask_dir
+    # @staticmethod
+    # def load_thumbnail_mask_v3(stack, section=None, fn=None, version='aligned_cropped'):
+    #     if stack in ['MD589', 'MD585', 'MD594']:
+    #         fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+    #     else:
+    #         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, version=version)
+    #     download_from_s3(fp)
+    #     mask = imread(fp).astype(np.bool)
+    #     return mask
 
-    @staticmethod
-    def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):
-        anchor_fn = metadata_cache['anchor_fn'][stack]
-        sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
-        if fn is None:
-            fn = sections_to_filenames[section]
-        mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
-        if version == 'aligned_cropped':
-            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
-        elif version == 'aligned':
-            fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
-        else:
-            raise Exception("version %s not recognized." % version)
-        return fp
+    # @staticmethod
+    # def load_thumbnail_mask_v2(stack, section=None, fn=None, version='aligned_cropped'):
+    #     fp = DataManager.get_thumbnail_mask_filename_v2(stack=stack, section=section, fn=fn, version=version)
+    #     download_from_s3(fp, local_root=DATA_ROOTDIR)
+    #     mask = DataManager.load_data(fp, filetype='image').astype(np.bool)
+    #     return mask
+    #
+    # @staticmethod
+    # def get_thumbnail_mask_dir_v2(stack, version='aligned_cropped'):
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     if version == 'aligned_cropped':
+    #         mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn + '_cropped')
+    #     elif version == 'aligned':
+    #         mask_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_masks_alignedTo_' + anchor_fn)
+    #     else:
+    #         raise Exception("version %s not recognized." % version)
+    #     return mask_dir
+    #
+    # @staticmethod
+    # def get_thumbnail_mask_filename_v2(stack, section=None, fn=None, version='aligned_cropped'):
+    #     anchor_fn = metadata_cache['anchor_fn'][stack]
+    #     sections_to_filenames = metadata_cache['sections_to_filenames'][stack]
+    #     if fn is None:
+    #         fn = sections_to_filenames[section]
+    #     mask_dir = DataManager.get_thumbnail_mask_dir_v2(stack=stack, version=version)
+    #     if version == 'aligned_cropped':
+    #         fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '_cropped.png')
+    #     elif version == 'aligned':
+    #         fp = os.path.join(mask_dir, fn + '_mask_alignedTo_' + anchor_fn + '.png')
+    #     else:
+    #         raise Exception("version %s not recognized." % version)
+    #     return fp
 
     ###################################
 

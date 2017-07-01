@@ -85,7 +85,7 @@
 // The number of resolutions. 1 Is only enough if the expected
 // deformations are small. 3 or 4 mostly works fine. For large
 // images and large deformations, 5 or 6 may even be useful.
-(NumberOfResolutions 6)
+(NumberOfResolutions 9)
 //(FinalGridSpacingInVoxels 8.0 8.0)
 //(GridSpacingSchedule 6.0 6.0 4.0 4.0 2.5 2.5 1.0 1.0)
 
@@ -113,6 +113,9 @@
 // (eg histology) it is necessary to increase this value a bit, to the size
 // of the "smallest visible structure" in the image:
 //(MaximumStepLength 4)
+
+//(MaximumNumberOfLineSearchIterations 100)
+//(StepLength 10.0)
 
 // **************** Image sampling **********************
 

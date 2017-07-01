@@ -1813,7 +1813,11 @@ class DataManager(object):
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir)
         if ext is None:
-            ext = 'tif'
+            if version == 'mask':
+                ext = 'png'
+            else:
+                ext = 'tif'
+            
         if version is None:
             image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '.' + ext
         else:
@@ -2146,7 +2150,8 @@ class DataManager(object):
         """
         Get directory path of thumbnail mask.
         """
-        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_masks' % prep_id)
+        return DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol='thumbnail', version='mask')
+        # return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_mask' % prep_id)
         # anchor_fn = metadata_cache['anchor_fn'][stack]
         # if version == 'aligned':
         #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')

@@ -52,7 +52,7 @@ T = np.linalg.inv(T2)
 
 create_parent_dir_if_not_exists(output_fp)
 
-execute_command("convert %(input_fp)s -virtual-pixel background -background %(bg_color)s +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fp)s" % \
+execute_command("convert \"%(input_fp)s\" -virtual-pixel background -background %(bg_color)s +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw \"%(output_fp)s\"" % \
                 {'sx':T[0,0],
      'sy':T[1,1],
      'rx':T[1,0],

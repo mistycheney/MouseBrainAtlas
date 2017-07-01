@@ -44,7 +44,7 @@ for fn in filenames:
     
     try:
         t = time.time()
-        img_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped', resol='lossless')
+        img_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, resol='lossless')
         download_from_s3(img_fp)
         sys.stderr.write('Download: %.2f seconds\n' % (time.time() - t))
 
@@ -53,10 +53,10 @@ for fn in filenames:
             t = time.time()
             img_blue = imread(img_fp)[..., 2]
             sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t))
-            
+
             if not hasattr(args, 'low') or (hasattr(args, 'low') and args.low is None):
                 sys.stderr.write("No linear limits arguments are given, so use nonlinear mapping.\n")
-            
+
                 try:
                     intensity_mapping_fp = DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack, ntb_fn=fn)
                     download_from_s3(intensity_mapping_fp)
@@ -73,21 +73,21 @@ for fn in filenames:
                 # print img_blue.min(), img_blue.max(), intensity_mapping_ntb_to_nissl.shape
                 # print img_blue_intensity_normalized.min(), img_blue_intensity_normalized.max()
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
-                
-                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')
+
+                output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version='gray', resol='lossless')
 
             else:
                 sys.stderr.write("Linear limits arguments detected, so use linear mapping.\n")
-                
+
                 low_limit = args.low
                 high_limit = args.high
-                
+
                 t = time.time()
                 img_blue_intensity_normalized = rescale_intensity_v2(img_blue, low_limit, high_limit)
                 sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
-                
-                output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version=args.output_version, resol='lossless')
-                
+
+                output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version=args.output_version, resol='lossless')
+
             t = time.time()
             create_parent_dir_if_not_exists(output_fp)
             imsave(output_fp, img_blue_intensity_normalized)
@@ -107,7 +107,7 @@ for fn in filenames:
             img_gray = img_as_ubyte(rgb2gray(img))
             sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
 
-            output_fp = DataManager.get_image_filepath(stack=stack, fn=fn, version='cropped_gray', resol='lossless')
+            output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version='gray', resol='lossless')
             create_parent_dir_if_not_exists(output_fp)
 
             t = time.time()
@@ -118,9 +118,9 @@ for fn in filenames:
             upload_to_s3(output_fp)
             sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
-        # else:
-        #     sys.stderr.write("Filename %s is not F or N.\n" % fn)
-    
+            # else:
+            #     sys.stderr.write("Filename %s is not F or N.\n" % fn)
+
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         

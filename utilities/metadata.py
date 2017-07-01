@@ -103,6 +103,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
 
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
@@ -158,6 +159,7 @@ elif hostname.startswith('ip'):
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
 
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
@@ -268,6 +270,7 @@ from pandas import read_csv
 dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
 classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
+preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 
 ############ Class Labels #############
 
@@ -312,7 +315,7 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_alt_nissl_tracing_stacks = ['MD657', 'MD658']
+all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']

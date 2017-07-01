@@ -84,6 +84,6 @@ d = {'sx':T[0,0],
 sys.stderr.write("Background color: %s\n" % background_color)
 
 if background_color == 'black':
-    execute_command("convert %(input_fn)s -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    execute_command("convert \"%(input_fn)s\" -virtual-pixel background -background black +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw \"%(output_fn)s\""%d)
 elif background_color == 'white':
-    execute_command("convert %(input_fn)s -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw %(output_fn)s"%d)
+    execute_command("convert \"%(input_fn)s\" -virtual-pixel background -background white +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw \"%(output_fn)s\""%d)

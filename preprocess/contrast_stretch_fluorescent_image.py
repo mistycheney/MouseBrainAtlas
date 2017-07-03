@@ -22,12 +22,14 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("stack", type=str, help="stack")
 parser.add_argument("filenames", type=str, help="Filenames")
-parser.add_argument("label_channel", type=int, help="label channel", default=1)
+parser.add_argument("-c", "--label_channel", type=int, help="label channel")
+parser.add_argument("-max", "--label_clipmax", type=int, help="label clip max value")
 args = parser.parse_args()
 
 stack = args.stack
 filenames = json.loads(args.filenames)
 label_channel = args.label_channel
+label_clipmax = args.label_clipmax
 
 def worker(fn):
     if is_invalid(fn):
@@ -35,7 +37,7 @@ def worker(fn):
     
     img = DataManager.load_image_v2(stack=stack, prep_id=2, resol='lossless', fn=fn)
     img_label_channel = img[:, :, label_channel]
-    img_label_channel_contrast_stretched = img_as_ubyte(rescale_intensity(img_label_channel, in_range=(0, 1000)))
+    img_label_channel_contrast_stretched = img_as_ubyte(rescale_intensity(img_label_channel, in_range=(0, label_clipmax)))
 
     img_blue_normalized = DataManager.load_image_v2(stack=stack, prep_id=2, resol='lossless', fn=fn, version='gray')
     

@@ -102,7 +102,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf \"%(to_fp)s\" && mkdir -p %(to_parent)s && scp -r \"%(from_fp)s\" %(to_hostname)s:\"%(to_fp)s\"\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -285,9 +285,8 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
              shell=True)
 
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
-
-
-def wait_qsub_complete(timeout=120*60):
+        
+def wait_qsub_complete(timeout=None):
     """
     Wait for qsub to complete.
 
@@ -296,13 +295,22 @@ def wait_qsub_complete(timeout=120*60):
     """
 
     success = False
-    for _ in range(0, timeout/5):
-        op = check_output('qstat')
-        if "runall.sh" not in op:
-            sys.stderr.write('qsub returned.\n')
-            success = True
-            break
-        time.sleep(5)
+    if timeout is None:
+        while True:
+            op = check_output('qstat')
+            if "runall.sh" not in op:
+                sys.stderr.write('qsub returned.\n')
+                success = True
+                break
+            time.sleep(5)
+    else:
+        for _ in range(0, timeout/5):
+            op = check_output('qstat')
+            if "runall.sh" not in op:
+                sys.stderr.write('qsub returned.\n')
+                success = True
+                break
+            time.sleep(5)
 
     if not success:
         raise Exception('qsub does not return in %d seconds. Quit waiting, but SGE may still be computing..' % timeout)

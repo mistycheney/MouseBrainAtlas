@@ -47,9 +47,11 @@ class ReadImagesThread(QThread):
         for sec in self.sections:
             # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
             try:
-                fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
-            except:
-                sys.stderr.write('Section %d is invalid.\n' % sec)
+                # fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched')
+                print fp
+            except Exception as e:
+                sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue
             if not os.path.exists(fp):
                 sys.stderr.write('Image %s does not exist.\n' % fp)

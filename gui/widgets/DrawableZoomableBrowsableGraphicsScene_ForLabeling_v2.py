@@ -303,7 +303,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
 
         if self.showing_which == 'histology':
-            image = self.data_feeder.retrive_i(i=i)
+            image = self.data_feeder.retrieve_i(i=i)
             histology_pixmap = QPixmap.fromImage(image)
             # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
             self.pixmapItem.setPixmap(histology_pixmap)

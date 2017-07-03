@@ -16,13 +16,13 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent, gscene=gscene)
 
         self.vertex_circles = []
-
         if vertex_radius is None:
             self.vertex_radius = 20
         else:
             self.vertex_radius = vertex_radius
 
         self.closed = False
+        self.edit_history = []
 
     def add_circles_for_all_vertices(self, radius=None, color='b'):
         '''
@@ -136,17 +136,25 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
     @pyqtSlot(object)
     def vertex_press(self, circle):
 
-        if self.vertex_circles.index(circle) == 0 and len(self.vertex_circles) > 2 and not self.closed:
+        # if self.vertex_circles.index(circle) == 0 and len(self.vertex_circles) > 2 and not self.closed:
+        if self.vertex_circles.index(circle) == 0 and not self.closed:
             # (self.mode == 'add vertices randomly' or self.mode == 'add vertices consecutively'):
             # the last condition is to prevent setting the flag when one clicks vertex 0 in idle mode.
             # print 'close polygon'
             self.closed = True
             self.close()
-
             self.signal_emitter.polygon_completed.emit()
 
     def close(self):
-        # def close_polygon(self, polygon=None):
+        print 'close'
         path = self.path()
         path.closeSubpath()
         self.setPath(path)
+        # print vertices_from_polygon(path=path)
+
+    def set_edit_history(self, edit_history):
+        self.edit_history = edit_history
+
+    def add_edit(self, editor):
+        from datetime import datetime
+        self.edit_history.append({'username': editor, 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})

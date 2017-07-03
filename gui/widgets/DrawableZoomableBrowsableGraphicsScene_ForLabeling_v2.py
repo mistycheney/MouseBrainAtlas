@@ -699,6 +699,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         myMenu = QMenu(self.gview)
 
         action_newPolygon = myMenu.addAction("New polygon")
+        action_newMarker = myMenu.addAction("New marker")
         action_deletePolygon = myMenu.addAction("Delete polygon")
         action_insertVertex = myMenu.addAction("Insert vertex")
         action_deleteVertices = myMenu.addAction("Delete vertices")
@@ -806,18 +807,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_downsample_factor(selected_downsample_factor)
 
         elif selected_action == action_newPolygon:
-            # self.disable_elements()
-            self.close_curr_polygon = False
-            self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
-            self.active_polygon.add_edit(editor=self.gui.get_username())
-            # self.active_polygon.set_type(None)
-            self.active_polygon.set_properties('type', 'confirmed')
-            # self.active_polygon.set_side(side=None, side_manually_assigned=False)
-            self.active_polygon.set_properties(side, None)
-            self.active_polygon.set_properties(side_manually_assigned, False)
-
-            # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
-            self.set_mode('add vertices consecutively')
+            self.start_new_polygon()
 
         elif selected_action == action_insertVertex:
             self.set_mode('add vertices randomly')
@@ -827,6 +817,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #
         elif selected_action == action_setLabel:
             self.open_label_selection_dialog()
+
+        elif selected_action == action_newMarker:
+            self.start_new_polygon(init_properties={'class': 'neuron'})
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -849,6 +842,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #
     #         self.vertex_is_moved = False
     #         # self.print_history()
+
+    def start_new_polygon(self, init_properties=None):
+        # self.disable_elements()
+        # self.close_curr_polygon = False
+        self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
+        self.active_polygon.add_edit(editor=self.gui.get_username())
+        self.active_polygon.set_properties('type', 'confirmed')
+        self.active_polygon.set_properties('side', None)
+        self.active_polygon.set_properties('side_manually_assigned', False)
+        if init_properties is not None:
+            for k, v in init_properties.iteritems():
+                self.active_polygon.set_properties(k, v)
+        self.set_mode('add vertices consecutively')
+
 
     def show_information_box(self):
         assert self.active_polygon is not None, 'Must choose an active polygon first.'
@@ -1040,7 +1047,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.set_mode('shift3d')
                 return True
 
-            elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # CLose polygon
+            elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
                 return False
@@ -1061,6 +1068,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                             p.setVisible(False)
                         else:
                             p.setVisible(True)
+
+            elif key == Qt.Key_M: # Toggle labeled cell markers
+                for i, polygons in self.drawings.iteritems():
+                    for p in polygons:
+                        if 'class' in p.properties and p.properties['class'] == 'neuron':
+                            if p.isVisible():
+                                p.setVisible(False)
+                            else:
+                                p.setVisible(True)
+
+            elif key == Qt.Key_N: # New marker
+                self.start_new_polygon(init_properties={'class': 'neuron'})
 
             elif key == Qt.Key_Control:
                 if not event.isAutoRepeat():
@@ -1248,7 +1267,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
                 self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
                 return True
-
 
             elif self.mode == 'add vertices consecutively':
                 # if in add vertices mode, left mouse press means:

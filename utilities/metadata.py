@@ -57,7 +57,7 @@ if hostname == 'yuncong-MacbookPro':
     RAW_DATA_DIR = '/home/yuncong/CSHL_data'
     DATA_DIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     DATA_ROOTDIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
-    thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
+    # thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
     THUMBNAIL_DATA_DIR = '/home/yuncong/CSHL_data_processed'
 
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
@@ -73,6 +73,7 @@ if hostname == 'yuncong-MacbookPro':
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 

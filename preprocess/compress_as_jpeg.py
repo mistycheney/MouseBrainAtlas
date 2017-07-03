@@ -27,5 +27,5 @@ output_fp = args.output_fp
 
 create_parent_dir_if_not_exists(output_fp)
 download_from_s3(input_fp)
-execute_command("convert %(input_fp)s -format jpg %(output_fp)s" % dict(input_fp=input_fp, output_fp=output_fp))
+execute_command("convert \"%(input_fp)s\" -format jpg \"%(output_fp)s\"" % dict(input_fp=input_fp, output_fp=output_fp))
 upload_to_s3(output_fp)

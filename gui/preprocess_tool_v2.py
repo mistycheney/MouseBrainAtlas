@@ -791,8 +791,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         'bbox': (ul_x, ul_y, lr_x+1-ul_x, lr_y+1-ul_y) #xmin,ymin,w,h
         }
 
-        import datetime
-        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
         pickle.dump(info, open(self.stack_data_dir + '/%(stack)s_preprocessInfo_%(timestamp)s.pkl' % {'stack': self.stack, 'timestamp':timestamp}, 'w'))
 
         execute_command('cd %(stack_data_dir)s && rm -f %(stack)s_preprocessInfo.pkl && ln -s %(stack)s_preprocessInfo_%(timestamp)s.pkl %(stack)s_preprocessInfo.pkl' % {'stack': self.stack, 'timestamp':timestamp, 'stack_data_dir':self.stack_data_dir})

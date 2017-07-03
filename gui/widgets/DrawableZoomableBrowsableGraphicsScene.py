@@ -1,5 +1,5 @@
 from collections import defaultdict
-import datetime
+from datetime import datetime
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -58,6 +58,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             vertex_color=None, vertex_radius=None,
                                             section=None, index=None):
         polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
+        polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         if vertex_color is None:
             vertex_color = self.default_vertex_color
@@ -74,10 +75,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             vertex_color=None, vertex_radius=None,
                                             label='unknown', label_pos=None,
                                             section=None, index=None, type=None,
-                                            edit_history=[], side=None, side_manually_assigned=None,
+                                            edits=[], side=None, side_manually_assigned=None,
                                             contour_id=None,
-                                            position=None):
-
+                                            position=None,
+                                            category='contour'):
 
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
@@ -102,11 +103,13 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon.set_properties('side_manually_assigned', side_manually_assigned)
         polygon.set_properties('contour_id', contour_id) # Could be None - will be generated new in convert_drawings_to_entries()
 
-        if edit_history is None or len(edit_history) == 0:
-            polygon.set_properties('edit_history',
+        if edits is None or len(edits) == 0:
+            polygon.set_properties('edits',
             [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
         else:
-            polygon.set_properties('edit_history', edit_history)
+            polygon.set_properties('edits', edits)
+
+        polygon.set_properties('class', category)
 
         return polygon
 
@@ -116,6 +119,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         This function deals with cases when changes of polygon property affect
         gscene display.
         """
+
+        # print 'polygon_property_changed triggered:\n', property_name, property_value, '\n'
 
         polygon = self.sender().parent
         # sender is signal_emitter; its parent is polygon
@@ -197,8 +202,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon.signal_emitter.press.connect(self._polygon_pressed)
         # polygon.signal_emitter.release.connect(self.polygon_release)
         polygon.signal_emitter.vertex_added.connect(self.vertex_added)
+        # polygon.signal_emitter.vertex_clicked.connect(self.vertex_clicked)
         polygon.signal_emitter.polygon_changed.connect(self.polygon_changed_callback)
-        polygon.signal_emitter.polygon_completed.connect(self.polygon_completed_callbak)
+        polygon.signal_emitter.polygon_completed.connect(self.polygon_completed_callback)
+        polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         self.drawings[index].append(polygon)
         self.drawings_mapping[polygon] = index
@@ -226,7 +233,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         #     pass
 
     @pyqtSlot()
-    def polygon_completed_callbak(self):
+    def polygon_completed_callback(self):
         polygon = self.sender().parent
         self.set_mode('idle')
         self.drawings_updated.emit(polygon)
@@ -361,8 +368,11 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                 if event.button() == Qt.LeftButton:
                     obj.mousePressEvent(event)
                     if not self.active_polygon.closed:
-                        self.active_polygon.add_vertex(gscene_x, gscene_y)
-
+                        if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                            vertex_color = 'r'
+                        else:
+                            vertex_color = 'b'
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
                     return True
 
             elif self.mode == 'add vertices randomly':
@@ -371,7 +381,11 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
                     assert self.active_polygon.closed, 'Insertion is not allowed if polygon is not closed.'
                     new_index = find_vertex_insert_position(self.active_polygon, gscene_x, gscene_y)
-                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index)
+                    if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                        vertex_color = 'r'
+                    else:
+                        vertex_color = 'b'
+                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index, color=vertex_color)
 
                     return True
 

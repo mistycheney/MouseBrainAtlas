@@ -148,7 +148,13 @@ class DataManager(object):
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
         if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+            if suffix is None:
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+            else:
+                if timestamp is not None:
+                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
+                else:
+                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               classifier_setting_m=classifier_setting_m,
@@ -340,8 +346,9 @@ class DataManager(object):
     def load_transforms(stack, downsample_factor, use_inverse, anchor_fn=None):
         """
         Args:
-            use_inverse (bool): If True, load the transforms that when multiplied to a point on original space converts it to on aligned space. In preprocessing, set to False, which means simply parse the transform files as they are.
-
+            use_inverse (bool): If True, load the transforms that when multiplied
+            to a point on original space converts it to on aligned space.
+            In preprocessing, set to False, which means simply parse the transform files as they are.
         """
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
@@ -1740,8 +1747,8 @@ class DataManager(object):
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
 
         return image_dir
-    
-    
+
+
     @staticmethod
     def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None,
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
@@ -1785,7 +1792,7 @@ class DataManager(object):
         img_fp = DataManager.get_image_filepath_v2(**locals())
         download_from_s3(img_fp)
         return imread(img_fp)
-    
+
     @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):
         img_fp = DataManager.get_image_filepath(**locals())
@@ -1799,7 +1806,7 @@ class DataManager(object):
         """
         Args:
         	version (str): the version string.
-            
+
         Returns:
             Absolute path of the image file.
         """
@@ -1818,7 +1825,7 @@ class DataManager(object):
                 ext = 'png'
             else:
                 ext = 'tif'
-            
+
         if version is None:
             image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '.' + ext
         else:
@@ -1992,7 +1999,7 @@ class DataManager(object):
     #     anchor_fn = metadata_cache['anchor_fn'][stack]
     #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
     #     return dir_path
-    
+
     @staticmethod
     def get_auto_submask_rootdir_filepath(stack):
         return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_autoSubmasks')
@@ -2036,9 +2043,9 @@ class DataManager(object):
 
         if what == 'submask':
             assert submask_ind is not None, "Must provide submask_ind."
-            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmask_%d.png' % submask_ind) 
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmask_%d.png' % submask_ind)
         elif what == 'decisions':
-            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmaskDecisions.csv') 
+            fp = os.path.join(dir_path, fn + '_prep1_thumbnail_autoSubmaskDecisions.csv')
         else:
             raise Exception("Input %s is not recognized." % what)
 
@@ -2048,7 +2055,7 @@ class DataManager(object):
     def get_user_modified_submask_rootdir_filepath(stack):
         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_userModifiedSubmasks')
         return dir_path
-    
+
     # @staticmethod
     # def get_user_modified_submask_rootdir_filepath(stack):
     #     """
@@ -2102,7 +2109,7 @@ class DataManager(object):
 
         return fp
 
-    
+
 #     @staticmethod
 #     def get_user_modified_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
 #         """

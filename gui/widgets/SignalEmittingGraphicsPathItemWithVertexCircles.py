@@ -22,7 +22,6 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
             self.vertex_radius = vertex_radius
 
         self.closed = False
-        self.edit_history = []
 
     def add_circles_for_all_vertices(self, radius=None, color='b'):
         '''
@@ -43,7 +42,12 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
     def add_circle_for_vertex(self, index, radius=None, color='b'):
         """
         Add a circle for an existing vertex.
+
+        Args:
+            color (str or tuple): color of vertex circle
         """
+
+        print color
 
         path = self.path()
         if index == -1:
@@ -103,14 +107,14 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         else:
             raise Exception('vertex_moved signal is received from a non-member vertex.')
 
-    def add_vertex(self, x, y, new_index=-1):
+    def add_vertex(self, x, y, new_index=-1, color='b'):
         if new_index == -1:
             polygon_goto(self, x, y)
         else:
             new_path = insert_vertex(self.path())
             self.setPath(new_path)
 
-        self.add_circle_for_vertex(new_index)
+        self.add_circle_for_vertex(new_index, color=color)
 
     def delete_vertices(self, indices_to_remove, merge=False):
         if merge:
@@ -136,6 +140,13 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
     @pyqtSlot(object)
     def vertex_press(self, circle):
 
+        # print '\nSignalEmittingGraphicsPathItemWithVertexCircles::vertex_press\n'
+
+        # Emit a polygon pressed signal
+        # This is necessary for one-node polygon,
+        # for which the built-in mouseclickevent will not fire if user clicks on the single vertex
+        self.signal_emitter.press.emit(self)
+
         # if self.vertex_circles.index(circle) == 0 and len(self.vertex_circles) > 2 and not self.closed:
         if self.vertex_circles.index(circle) == 0 and not self.closed:
             # (self.mode == 'add vertices randomly' or self.mode == 'add vertices consecutively'):
@@ -150,11 +161,3 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         path = self.path()
         path.closeSubpath()
         self.setPath(path)
-        # print vertices_from_polygon(path=path)
-
-    def set_edit_history(self, edit_history):
-        self.edit_history = edit_history
-
-    def add_edit(self, editor):
-        from datetime import datetime
-        self.edit_history.append({'username': editor, 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")})

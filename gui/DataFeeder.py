@@ -2,16 +2,6 @@
 
 import sys
 import os
-import datetime
-from random import random
-import subprocess
-import time
-import json
-from pprint import pprint
-import cPickle as pickle
-from itertools import groupby
-from operator import itemgetter
-from collections import defaultdict, OrderedDict, deque
 
 import numpy as np
 from PyQt4.QtCore import *

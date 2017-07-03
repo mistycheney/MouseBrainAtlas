@@ -65,7 +65,7 @@ def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
         surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol] = 1. - vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol]
     else:
         surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1] = roi_surround_vol
-        
+
     return surround_vol
 
 def points_inside_contour(cnt, num_samples=None):
@@ -896,19 +896,8 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
 
     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
-
-    # with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
-    #     fn_idx_tuples = [line.strip().split() for line in f.readlines()]
-    #     filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
-    #     # sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
-
     xmin, xmax, ymin, ymax, first_sec, last_sec = DataManager.load_cropbox(stack)
 
-    # with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
-    #     xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
-
-    # import cPickle as pickle
-    # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
@@ -918,41 +907,32 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
         sec = filename_to_section[fn]
         contour_df.loc[cnt_id, 'section'] = sec
 
-        # T = Ts[fn].copy()
-        # T[:2, 2] = T[:2, 2]*32
-        # Tinv = np.linalg.inv(T)
         Tinv = Ts[fn]
 
         n = len(cnt['vertices'])
 
         vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
-        # contour_df.loc[cnt_id, 'vertices'] = vertices_on_aligned_cropped
         contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
 
-        label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
-        contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
-        # contour_df.loc[cnt_id, 'label_position'] = label_position_on_aligned_cropped.tolist()
+        if 'label_position' in cnt and cnt['label_position'] is not None:
+            label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
+            contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
 
     return contour_df
 
 def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
+    """
+    Args:
+        contour_df (DataFrame): rows are polygon ids, columns are properties.
 
-    # with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
-    #     fn_idx_tuples = [line.strip().split() for line in f.readlines()]
-    #     # filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
-    #     sorted_filelist = {int(idx): fn for fn, idx in fn_idx_tuples}
+    Returns:
+        DataFrame: a DataFrame containing converted polygons.
+    """
 
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-    # with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_cropbox.txt'%dict(stack=stack), 'r') as f:
-    #     xmin, xmax, ymin, ymax, first_sec, last_sec = map(int, f.readline().split())
-
     xmin, xmax, ymin, ymax, first_sec, last_sec = DataManager.load_cropbox(stack)
-
-    # import cPickle as pickle
-    # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-
-    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         sec = cnt['section']
@@ -961,9 +941,6 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
             continue
         contour_df.loc[cnt_id, 'filename'] = fn
 
-        # T = Ts[fn].copy()
-        # T[:2, 2] = T[:2, 2]*32
-
         T = np.linalg.inv(Ts[fn])
 
         n = len(cnt['vertices'])
@@ -971,7 +948,8 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
         vertices_on_aligned = np.array(cnt['vertices']) + (xmin*32, ymin*32)
         contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
 
-        label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
-        contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
+        if 'label_position' in cnt and cnt['label_position'] is not None:
+            label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
+            contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
 
     return contour_df

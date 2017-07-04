@@ -1737,12 +1737,12 @@ class DataManager(object):
 
         if version is None:
             if resol == 'thumbnail':
-                image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
+                image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
             if resol == 'thumbnail':
-                image_dir = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
+                image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
 
@@ -1788,7 +1788,7 @@ class DataManager(object):
         return image_dir
 
     @staticmethod
-    def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None):
+    def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         img_fp = DataManager.get_image_filepath_v2(**locals())
         download_from_s3(img_fp)
         return imread(img_fp)
@@ -1819,7 +1819,7 @@ class DataManager(object):
             assert fn is not None
 
 
-        image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir)
+        image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
         if ext is None:
             if version == 'mask':
                 ext = 'png'
@@ -1905,15 +1905,15 @@ class DataManager(object):
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-        for i in range(10, 20):
-            random_fn = metadata_cache['section_to_filename'][stack][i]
-            # random_fn = section_to_filename[i]
-            # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
-            try:
-                img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=0, fn=random_fn)
-                break
-            except:
-                pass
+        # for i in range(10, 13):
+        random_fn = metadata_cache['valid_filenames'][stack][0]
+        # random_fn = section_to_filename[i]
+        # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+        # try:
+        img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
+            # break
+        # except:
+        #     pass
 
         image_height, image_width = img.shape[:2]
         image_height = image_height * 32
@@ -2396,11 +2396,7 @@ def generate_metadata_cache():
     metadata_cache['valid_sections_all'] = {}
     metadata_cache['valid_filenames_all'] = {}
     for stack in all_stacks:
-        try:
-            metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
-        except:
-            pass
-
+    
         try:
             metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
         except:
@@ -2438,6 +2434,12 @@ def generate_metadata_cache():
             metadata_cache['valid_filenames_all'][stack] = [fn for sec, fn in metadata_cache['sections_to_filenames'][stack].iteritems() if not is_invalid(fn=fn)]
         except:
             pass
+        
+        try:
+            metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
+        except:
+            pass
+
 
 generate_metadata_cache()
 

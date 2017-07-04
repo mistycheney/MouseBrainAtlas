@@ -750,7 +750,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     for gscene in self.gscenes.itervalues():
                         gscene.set_mode('crossline')
 
-
             elif key == Qt.Key_F:
 
                 ##################### Save structure ######################

@@ -1600,63 +1600,96 @@ class DataManager(object):
     ######  CNN Features ######
     ###########################
 
+    # @staticmethod
+    # def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    #     fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+    #     download_from_s3(fp)
+    #     locs = np.loadtxt(fp).astype(np.int)
+    #     indices = locs[:, 0]
+    #     locations = locs[:, 1:]
+    #     return indices, locations
+    
     @staticmethod
-    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
-        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, prep_id=prep_id, input_img_version=input_img_version, win=win)
         download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
         locations = locs[:, 1:]
         return indices, locations
 
+#     @staticmethod
+#     def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
+
+#         image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+#         image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+
+#         # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
+#         # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
+#         # dict(fn=fn, anchor_fn=anchor_fn))
+
+#         feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
+#                                        image_basename + '_patch_locations.txt')
+#         return feature_locs_fn
+
     @staticmethod
-    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, prep_id=2, input_img_version='gray', win=1):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
+        feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_patch_locations.txt')        
+        return feature_locs_fp
+    
+#     @staticmethod
+#     def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+#         """
+#         Args:
+#             version (str): default is cropped_gray.
+#         """
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
 
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
-        # dict(fn=fn, anchor_fn=anchor_fn))
+#         image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+#         image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
 
-        feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
-                                       image_basename + '_patch_locations.txt')
-        return feature_locs_fn
+#         feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
+
+#         return feature_fn
 
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+        """
+        Args:
+            version (str): default is cropped_gray.
+        """
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+
+        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
+        return feature_fp
+
+    @staticmethod
+    def load_dnn_features(stack, model_name, section=None, fn=None, input_img_version='gray', prep_id=2, win=1):
         """
         Args:
             version (str): default is cropped_gray.
         """
 
-        if fn is None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
-
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
-
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
-
-        feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
-
-        return feature_fn
-
-    @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
-        """
-        Args:
-            version (str): default is cropped_gray.
-        """
-
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, input_img_version=input_img_version, prep_id=prep_id, win=win)
         download_from_s3(features_fp)
 
         try:
@@ -1670,6 +1703,28 @@ class DataManager(object):
             pass
 
         return bp.unpack_ndarray_file(features_fp)
+    
+#     @staticmethod
+#     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+#         """
+#         Args:
+#             version (str): default is cropped_gray.
+#         """
+
+#         features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+#         download_from_s3(features_fp)
+
+#         try:
+#             return load_hdf(features_fp)
+#         except:
+#             pass
+
+#         try:
+#             return load_hdf_v2(features_fp)
+#         except:
+#             pass
+
+#         return bp.unpack_ndarray_file(features_fp)
 
     ##################
     ##### Image ######
@@ -1706,22 +1761,22 @@ class DataManager(object):
         return image_basename
 
 
-    @staticmethod
-    def get_image_basename_v2(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
+#     @staticmethod
+#     def get_image_basename_v2(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        if section is not None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
-            assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
 
-        if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
-            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
-        else:
-            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
+#         if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
+#             image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
+#         else:
+#             image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
 
-        return image_basename
+#         return image_basename
 
     @staticmethod
     def get_image_dir_v2(stack, prep_id, version=None, resol='lossless',
@@ -2201,7 +2256,7 @@ class DataManager(object):
         """
         Get directory path of thumbnail mask.
         """
-        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_masks' % prep_id)
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_mask' % prep_id)
 
     @staticmethod
     def get_thumbnail_mask_filename_v3(stack, prep_id, section=None, fn=None):

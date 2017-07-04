@@ -47,8 +47,6 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
             color (str or tuple): color of vertex circle
         """
 
-        print color
-
         path = self.path()
         if index == -1:
             is_closed = polygon_is_closed(path=path)

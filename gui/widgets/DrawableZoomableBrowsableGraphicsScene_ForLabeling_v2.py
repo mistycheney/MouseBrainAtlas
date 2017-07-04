@@ -59,9 +59,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def set_mode(self, mode):
         """
-        Extend by:
+        Extend inherited method by:
         - showing or hiding two cross-lines.
         """
+
+        if mode == 'add vertices once':
+            print "\nPress N and then click to put a marker. Label of the first marker is set as default for subsequent markers. Press B to clear default label.\n"
+
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_mode(mode)
         if mode == 'crossline':
             self.hline.setVisible(True)

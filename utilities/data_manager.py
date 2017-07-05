@@ -2201,7 +2201,7 @@ class DataManager(object):
         """
         Get directory path of thumbnail mask.
         """
-        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_masks' % prep_id)
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_mask' % prep_id)
 
     @staticmethod
     def get_thumbnail_mask_filename_v3(stack, prep_id, section=None, fn=None):
@@ -2396,7 +2396,7 @@ def generate_metadata_cache():
     metadata_cache['valid_sections_all'] = {}
     metadata_cache['valid_filenames_all'] = {}
     for stack in all_stacks:
-    
+
         try:
             metadata_cache['anchor_fn'][stack] = DataManager.load_anchor_filename(stack)
         except:
@@ -2434,7 +2434,7 @@ def generate_metadata_cache():
             metadata_cache['valid_filenames_all'][stack] = [fn for sec, fn in metadata_cache['sections_to_filenames'][stack].iteritems() if not is_invalid(fn=fn)]
         except:
             pass
-        
+
         try:
             metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
         except:

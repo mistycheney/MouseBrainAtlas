@@ -623,31 +623,52 @@ class DataManager(object):
 
         return clf_allClasses
 
+#     @staticmethod
+#     def load_sparse_scores(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
+
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
+
+#         sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure,
+#                                             classifier_id=classifier_id, fn=fn, anchor_fn=anchor_fn)
+#         download_from_s3(sparse_scores_fn)
+#         return DataManager.load_data(sparse_scores_fn, filetype='bp')
+
     @staticmethod
-    def load_sparse_scores(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
+    def load_sparse_scores(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
-
-        sparse_scores_fn = DataManager.get_sparse_scores_filepath(stack=stack, structure=structure,
-                                            classifier_id=classifier_id, fn=fn, anchor_fn=anchor_fn)
-        download_from_s3(sparse_scores_fn)
-        return DataManager.load_data(sparse_scores_fn, filetype='bp')
+        sparse_scores_fp = DataManager.get_sparse_scores_filepath(**locals())
+        download_from_s3(sparse_scores_fp)
+        return DataManager.load_data(sparse_scores_fp, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
+    def get_sparse_scores_filepath(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, 
+                            fn + '_prep%d'%prep_id + '_' + version,
+                            'detector%d'%detector_id,
+                            fn + '_prep%d'%prep_id + '_' + version + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
 
-        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
-                '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(classifier_id)s.hdf') % \
-                {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'classifier_id': classifier_id}
+    
+#     @staticmethod
+#     def get_sparse_scores_filepath(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
+
+#         return os.path.join(SPARSE_SCORES_ROOTDIR, stack, '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped', \
+#                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(classifier_id)s.hdf') % \
+#                 {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'classifier_id': classifier_id}
 
     @staticmethod
     def load_intensity_volume(stack, downscale=32):
@@ -1486,49 +1507,91 @@ class DataManager(object):
         basename = resolution + '_alignedTo_' + anchor_fn + '_' + version + '_down' + str(downscale)
         return basename
 
+#     @staticmethod
+#     def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, classifier_id=None):
+
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             if is_invalid(fn):
+#                 raise Exception('Section is invalid: %s.' % fn)
+
+#         viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
+#         version_str = DataManager.get_image_version_str(stack=stack, version='cropped', resolution='lossless', downscale=downscale)
+#         scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, 'clf' + str(classifier_id),
+#                                              fn + '_' + version_str + '_clf' + str(classifier_id) + '_scoremap.jpg')
+#         return scoremap_viz_filepath
+
     @staticmethod
-    def get_scoremap_viz_filepath(stack, downscale, section=None, fn=None, anchor_fn=None, structure=None, classifier_id=None):
+    def get_scoremap_viz_filepath(stack, downscale, detector_id, prep_id=2, section=None, fn=None, structure=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
+        
+        scoremap_viz_fp = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(smdown)d_viz',
+                                       '%(struct)s', '%(stack)s', 'detector%(detector_id)d',
+                                       'prep%(prep)s', '%(fn)s_prep%(prep)d_%(smdown)d_%(struct)s_%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'smdown':downscale, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
+        
+        return scoremap_viz_fp
 
-        viz_dir = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d_viz' % dict(down=downscale))
-        version_str = DataManager.get_image_version_str(stack=stack, version='cropped', resolution='lossless', downscale=downscale)
-        scoremap_viz_filepath = os.path.join(viz_dir, structure, stack, 'clf' + str(classifier_id),
-                                             fn + '_' + version_str + '_clf' + str(classifier_id) + '_scoremap.jpg')
-        return scoremap_viz_filepath
+#     @staticmethod
+#     def get_downscaled_scoremap_filepath(stack, structure, classifier_id, downscale, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             if is_invalid(fn):
+#                 raise Exception('Section is invalid: %s.' % fn)
+
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
+
+#         basename = '%(fn)s_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
+
+#         scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d' % dict(down=downscale), stack, basename,
+#         basename + '_%(structure)s_denseScoreMap_setting_%(classifier_id)d.bp' % dict(structure=structure, classifier_id=classifier_id))
+
+#         return scoremap_bp_filepath
+
+#     @staticmethod
+#     def get_downscaled_scoremap_filepath_old(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None):
+
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             if is_invalid(fn):
+#                 raise Exception('Section is invalid: %s.' % fn)
+        
+#         scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(smdown)d', 
+#                                             '%(stack)s', 
+#                                             '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d', 
+#                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
+#                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d_%(structure)s.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'smdown':downscale, 'detector_id': detector_id, 'structure':structure}
+
+#         return scoremap_bp_filepath
 
     @staticmethod
-    def get_downscaled_scoremap_filepath(stack, structure, classifier_id, downscale, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+    def get_downscaled_scoremap_filepath(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
-
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
-
-        basename = '%(fn)s_alignedTo_%(anchor_fn)s_cropped_down%(down)d' % dict(fn=fn, anchor_fn=anchor_fn, down=downscale)
-
-        scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(down)d' % dict(down=downscale), stack, basename,
-        basename + '_%(structure)s_denseScoreMap_setting_%(classifier_id)d.bp' % dict(structure=structure, classifier_id=classifier_id))
+        
+        scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(smdown)d', 
+                                            '%(stack)s', 
+                                            '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d', 
+                                           '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
+                                           '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d_%(structure)s_scoremap.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'smdown':downscale, 'detector_id': detector_id, 'structure':structure}
 
         return scoremap_bp_filepath
-
+    
     @staticmethod
-    def load_downscaled_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=32):
+    def load_downscaled_scoremap(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None, anchor_fn=None):
         """
         Return scoremaps as bp files.
         """
 
-        # Load scoremap
-        scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(stack, section=section, \
-                        fn=fn, anchor_fn=anchor_fn, structure=structure, classifier_id=classifier_id,
-                        downscale=downscale)
-
+        scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(**locals())
         download_from_s3(scoremap_bp_filepath)
 
         if not os.path.exists(scoremap_bp_filepath):
@@ -1538,125 +1601,217 @@ class DataManager(object):
         scoremap_downscaled = DataManager.load_data(scoremap_bp_filepath, filetype='bp')
         return scoremap_downscaled
 
-    @staticmethod
-    def get_scoremap_filepath(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
+#     @staticmethod
+#     def load_downscaled_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=32):
+#         """
+#         Return scoremaps as bp files.
+#         """
 
-        if section is not None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
-            if is_invalid(fn):
-                raise Exception('Section is invalid: %s.' % fn)
+#         # Load scoremap
+#         scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(stack, section=section, \
+#                         fn=fn, anchor_fn=anchor_fn, structure=structure, classifier_id=classifier_id,
+#                         downscale=downscale)
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+#         download_from_s3(scoremap_bp_filepath)
 
-        scoremap_bp_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_setting_%(classifier_id)d.hdf') \
-        % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn, classifier_id=classifier_id)
+#         if not os.path.exists(scoremap_bp_filepath):
+#             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
+#             (metadata_cache['sections_to_filenames'][stack][section], section, structure))
 
-        scoremap_bbox_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
-        '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_interpBox.txt') \
-            % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn)
+#         scoremap_downscaled = DataManager.load_data(scoremap_bp_filepath, filetype='bp')
+#         return scoremap_downscaled
 
-        if return_bbox_fp:
-            return scoremap_bp_filepath, scoremap_bbox_filepath
-        else:
-            return scoremap_bp_filepath
+#     @staticmethod
+#     def get_scoremap_filepath(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, return_bbox_fp=False):
 
-    @staticmethod
-    def load_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=1):
-        """
-        Return scoremaps.
-        """
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             if is_invalid(fn):
+#                 raise Exception('Section is invalid: %s.' % fn)
 
-        # Load scoremap
-        scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
-                                    fn=fn, anchor_fn=anchor_fn, structure=structure, return_bbox_fp=True, classifier_id=classifier_id)
-        if not os.path.exists(scoremap_bp_filepath):
-            raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
-            (metadata_cache['sections_to_filenames'][stack][section], section, structure))
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        scoremap = DataManager.load_data(scoremap_bp_filepath, filetype='hdf')
+#         scoremap_bp_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
+#         '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_setting_%(classifier_id)d.hdf') \
+#         % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn, classifier_id=classifier_id)
 
-        # Load interpolation box
-        xmin, xmax, ymin, ymax = DataManager.load_data(scoremap_bbox_filepath, filetype='bbox')
-        ymin_downscaled = ymin / downscale
-        xmin_downscaled = xmin / downscale
+#         scoremap_bbox_filepath = os.path.join(SCOREMAPS_ROOTDIR, stack, \
+#         '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_denseScoreMap_interpBox.txt') \
+#             % dict(stack=stack, fn=fn, structure=structure, anchor_fn=anchor_fn)
 
-        full_width, full_height = metadata_cache['image_shape'][stack]
-        scoremap_downscaled = np.zeros((full_height/downscale, full_width/downscale), np.float32)
+#         if return_bbox_fp:
+#             return scoremap_bp_filepath, scoremap_bbox_filepath
+#         else:
+#             return scoremap_bp_filepath
 
-        # To conserve memory, it is important to make a copy of the sub-scoremap and delete the original scoremap
-        scoremap_roi_downscaled = scoremap[::downscale, ::downscale].copy()
-        del scoremap
+#     @staticmethod
+#     def load_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=1):
+#         """
+#         Return scoremaps.
+#         """
 
-        h_downscaled, w_downscaled = scoremap_roi_downscaled.shape
+#         # Load scoremap
+#         scoremap_bp_filepath, scoremap_bbox_filepath = DataManager.get_scoremap_filepath(stack, section=section, \
+#                                     fn=fn, anchor_fn=anchor_fn, structure=structure, return_bbox_fp=True, classifier_id=classifier_id)
+#         if not os.path.exists(scoremap_bp_filepath):
+#             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
+#             (metadata_cache['sections_to_filenames'][stack][section], section, structure))
 
-        scoremap_downscaled[ymin_downscaled : ymin_downscaled + h_downscaled,
-                            xmin_downscaled : xmin_downscaled + w_downscaled] = scoremap_roi_downscaled
+#         scoremap = DataManager.load_data(scoremap_bp_filepath, filetype='hdf')
 
-        return scoremap_downscaled
+#         # Load interpolation box
+#         xmin, xmax, ymin, ymax = DataManager.load_data(scoremap_bbox_filepath, filetype='bbox')
+#         ymin_downscaled = ymin / downscale
+#         xmin_downscaled = xmin / downscale
+
+#         full_width, full_height = metadata_cache['image_shape'][stack]
+#         scoremap_downscaled = np.zeros((full_height/downscale, full_width/downscale), np.float32)
+
+#         # To conserve memory, it is important to make a copy of the sub-scoremap and delete the original scoremap
+#         scoremap_roi_downscaled = scoremap[::downscale, ::downscale].copy()
+#         del scoremap
+
+#         h_downscaled, w_downscaled = scoremap_roi_downscaled.shape
+
+#         scoremap_downscaled[ymin_downscaled : ymin_downscaled + h_downscaled,
+#                             xmin_downscaled : xmin_downscaled + w_downscaled] = scoremap_roi_downscaled
+
+#         return scoremap_downscaled
 
     ###########################
     ######  CNN Features ######
     ###########################
 
+    # @staticmethod
+    # def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    #     fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+    #     download_from_s3(fp)
+    #     locs = np.loadtxt(fp).astype(np.int)
+    #     indices = locs[:, 0]
+    #     locations = locs[:, 1:]
+    #     return indices, locations
+    
+    # @staticmethod
+    # def load_dnn_feature_locations(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+    #     fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, prep_id=prep_id, input_img_version=input_img_version, win=win)
+    #     download_from_s3(fp)
+    #     locs = np.loadtxt(fp).astype(np.int)
+    #     indices = locs[:, 0]
+    #     locations = locs[:, 1:]
+    #     return indices, locations
+    
     @staticmethod
-    def load_dnn_feature_locations(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
-        fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+    def load_patch_locations(stack, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+        fp = DataManager.get_patch_locations_filepath(**locals())
         download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
         indices = locs[:, 0]
         locations = locs[:, 1:]
         return indices, locations
+    
+#     @staticmethod
+#     def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
+
+#         image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+#         image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+
+#         # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
+#         # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
+#         # dict(fn=fn, anchor_fn=anchor_fn))
+
+#         feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
+#                                        image_basename + '_patch_locations.txt')
+#         return feature_locs_fn
+
+#     @staticmethod
+#     def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, prep_id=2, input_img_version='gray', win=1):
+
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_patch_locations.txt')        
+#         return feature_locs_fp
+
+#     @staticmethod
+#     def get_dnn_feature_locations_filepath_v2(stack, section=None, fn=None, prep_id=2, input_img_version='gray', win=1):
+
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, stack, 
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+#         return feature_locs_fp
 
     @staticmethod
-    def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    def get_patch_locations_filepath(stack, win, section=None, fn=None, prep_id=2, input_img_version='gray'):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
+        feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack, 
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+        return feature_locs_fp
+    
+#     @staticmethod
+#     def get_patch_locations_filepath_v2(stack, win, section=None, fn=None, prep_id=2, input_img_version='gray'):
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#         feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack, 
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+#         return feature_locs_fp
+    
+#     @staticmethod
+#     def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+#         """
+#         Args:
+#             version (str): default is cropped_gray.
+#         """
 
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
 
-        # feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, \
-        # '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped/%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_patch_locations.txt' % \
-        # dict(fn=fn, anchor_fn=anchor_fn))
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        feature_locs_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename,
-                                       image_basename + '_patch_locations.txt')
-        return feature_locs_fn
+#         image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
+#         image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
+
+#         feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
+
+#         return feature_fn
 
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+        """
+        Args:
+            version (str): default is cropped_gray.
+        """
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+
+        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
+        return feature_fp
+
+    @staticmethod
+    def load_dnn_features(stack, model_name, section=None, fn=None, input_img_version='gray', prep_id=2, win=1):
         """
         Args:
             version (str): default is cropped_gray.
         """
 
-        if fn is None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
-
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
-
-        image_version_basename = DataManager.get_image_version_basename(stack=stack, resol='lossless', version=input_img_version)
-        image_basename = DataManager.get_image_basename(stack=stack, fn=fn, resol='lossless', version=input_img_version)
-
-        feature_fn = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, image_version_basename, image_basename + '_features.bp')
-
-        return feature_fn
-
-    @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
-        """
-        Args:
-            version (str): default is cropped_gray.
-        """
-
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, input_img_version=input_img_version, prep_id=prep_id, win=win)
         download_from_s3(features_fp)
 
         try:
@@ -1670,6 +1825,28 @@ class DataManager(object):
             pass
 
         return bp.unpack_ndarray_file(features_fp)
+    
+#     @staticmethod
+#     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
+#         """
+#         Args:
+#             version (str): default is cropped_gray.
+#         """
+
+#         features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, anchor_fn=anchor_fn, input_img_version=input_img_version)
+#         download_from_s3(features_fp)
+
+#         try:
+#             return load_hdf(features_fp)
+#         except:
+#             pass
+
+#         try:
+#             return load_hdf_v2(features_fp)
+#         except:
+#             pass
+
+#         return bp.unpack_ndarray_file(features_fp)
 
     ##################
     ##### Image ######
@@ -1706,22 +1883,22 @@ class DataManager(object):
         return image_basename
 
 
-    @staticmethod
-    def get_image_basename_v2(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
+#     @staticmethod
+#     def get_image_basename_v2(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
 
-        if anchor_fn is None:
-            anchor_fn = metadata_cache['anchor_fn'][stack]
+#         if anchor_fn is None:
+#             anchor_fn = metadata_cache['anchor_fn'][stack]
 
-        if section is not None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
-            assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
+#         if section is not None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
+#             assert is_invalid(fn=fn), 'Section is invalid: %s.' % fn
 
-        if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
-            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
-        else:
-            image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
+#         if resol == 'lossless' and (version == 'cropped' or version == 'cropped_tif'):
+#             image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_cropped'
+#         else:
+#             image_basename = fn + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version
 
-        return image_basename
+#         return image_basename
 
     @staticmethod
     def get_image_dir_v2(stack, prep_id, version=None, resol='lossless',

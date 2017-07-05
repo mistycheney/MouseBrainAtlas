@@ -45,7 +45,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
             
     return viz
 
-def generate_scoremap_layer(stack, structure, downscale, classifier_id,
+def generate_scoremap_layer(stack, structure, downscale, detector_id,
                     image_shape=None, return_mask=False, sec=None, fn=None,
                     color=(1,0,0), show_above=.01, cmap_name='jet'):
     '''
@@ -70,7 +70,7 @@ def generate_scoremap_layer(stack, structure, downscale, classifier_id,
 
     try:
         dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
-                            classifier_id=classifier_id, structure=structure, downscale=32)
+                            detector_id=detector_id, structure=structure, downscale=32)
         dense_score_map = np.minimum(rescale(dense_score_map, 32/float(downscale)), 1.)
         mask = dense_score_map > show_above
         # scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
@@ -86,7 +86,7 @@ def generate_scoremap_layer(stack, structure, downscale, classifier_id,
     else:
         return viz
     
-def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
+def scoremap_overlay_on(bg, stack, structure, out_downscale, detector_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
 
     if fn is None:
         assert sec is not None
@@ -109,7 +109,7 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, classifier_id, labe
 
     # t = time.time()
     ret = generate_scoremap_layer(stack=stack, sec=sec, fn=fn, structure=structure, downscale=out_downscale,
-                            image_shape=bg.shape[:2], return_mask=True, classifier_id=classifier_id, show_above=show_above,
+                            image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
                                  cmap_name=cmap_name)
     # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
     scoremap_viz, mask = ret

@@ -1182,9 +1182,16 @@ class Aligner4(object):
         grad_adjusted = grad / np.sqrt(grad_historical + 1e-10)
         new_T = T + lr*grad_adjusted
         
-        # Limit the deformation at all control points.
+        # Constrain the transform
         if tf_type == 'bspline':
+            # Limit the deformation at all control points to be less than 100.
             new_T = np.sign(new_T) * np.minimum(np.abs(new_T), 100)
+        elif tf_type == 'affine':
+            pass
+            # new_T[0] = np.sign(new_T[0]) * np.maximum(np.abs(new_T[0]), 0.8)
+            # new_T[5] = np.sign(new_T[5]) * np.maximum(np.abs(new_T[5]), 0.8)
+            # new_T[10] = np.sign(new_T[10]) * np.maximum(np.abs(new_T[10]), 0.8)
+            
 
         # AdaDelta Rule
         # gamma = .9

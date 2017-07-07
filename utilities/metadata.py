@@ -96,6 +96,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
+    PATCH_LOCATIONS_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_locations')
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
@@ -134,8 +135,8 @@ elif hostname.startswith('ip'):
     ANNOTATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_annotation_viz')
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
-    PATCH_FEATURES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_features')
-    PATCH_LOCATIONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_locations')
+    PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
+    PATCH_LOCATIONS_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_locations')
     SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
     SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
     SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
@@ -278,7 +279,7 @@ classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
 preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
-windowing_settings = {1: {"patch_size": 224, "spacing": 56}}
+windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'}}
 
 ############ Class Labels #############
 

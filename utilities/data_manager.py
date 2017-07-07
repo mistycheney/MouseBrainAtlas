@@ -1904,7 +1904,7 @@ class DataManager(object):
     #     return indices, locations
     
     @staticmethod
-    def load_patch_locations(stack, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+    def load_patch_locations(stack, win, section=None, fn=None, prep_id=2, input_img_version='gray'):
         fp = DataManager.get_patch_locations_filepath(**locals())
         download_from_s3(fp)
         locs = np.loadtxt(fp).astype(np.int)
@@ -1993,27 +1993,33 @@ class DataManager(object):
 #         return feature_fn
 
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
+    def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
         """
         Args:
             version (str): default is cropped_gray.
         """
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-
-        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+ 
+        if suffix is None:
+            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
+        else:
+            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features_' + suffix + '.bp')
+            
         return feature_fp
 
     @staticmethod
-    def load_dnn_features(stack, model_name, section=None, fn=None, input_img_version='gray', prep_id=2, win=1):
+    def load_dnn_features(stack, model_name, win, section=None, fn=None, input_img_version='gray', prep_id=2, suffix=None):
         """
         Args:
             version (str): default is cropped_gray.
         """
 
-        features_fp = DataManager.get_dnn_features_filepath(stack=stack, model_name=model_name, section=section, fn=fn, input_img_version=input_img_version, prep_id=prep_id, win=win)
+        features_fp = DataManager.get_dnn_features_filepath(**locals())
         download_from_s3(features_fp)
 
         try:

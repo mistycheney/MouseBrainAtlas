@@ -296,7 +296,7 @@ class DataManager(object):
     @staticmethod
     def load_anchor_filename(stack):
         fp = DataManager.get_anchor_filename_filename(stack)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
@@ -310,7 +310,7 @@ class DataManager(object):
     @staticmethod
     def load_cropbox(stack, anchor_fn=None):
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
         cropbox = DataManager.load_data(fp, filetype='bbox')
         return cropbox
 
@@ -329,7 +329,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_sorted_filenames_filename(stack)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
@@ -352,7 +352,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
         Ts = DataManager.load_data(fp, filetype='pickle')
 
         if use_inverse:
@@ -2169,7 +2169,7 @@ class DataManager(object):
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         img_fp = DataManager.get_image_filepath_v2(**locals())
-        download_from_s3(img_fp)
+        download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         return imread(img_fp)
 
     @staticmethod
@@ -2621,7 +2621,7 @@ class DataManager(object):
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=DATA_ROOTDIR)
         mask = imread(fp).astype(np.bool)
         return mask
 

@@ -2,10 +2,9 @@
 
 import sys
 import os
-import datetime
+from datetime import datetime
 import time
 import json
-import cPickle as pickle
 from collections import defaultdict, OrderedDict
 
 import numpy as np
@@ -16,6 +15,7 @@ from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import LineString as ShapelyLineString
 from shapely.geometry import LinearRing as ShapelyLineRing
 from skimage.color import label2rgb
+from pandas import DataFrame
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
@@ -47,9 +47,10 @@ class ReadImagesThread(QThread):
         for sec in self.sections:
             # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
             try:
-                fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
-            except:
-                sys.stderr.write('Section %d is invalid.\n' % sec)
+                # fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
+            except Exception as e:
+                sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue
             if not os.path.exists(fp):
                 sys.stderr.write('Image %s does not exist.\n' % fp)
@@ -76,7 +77,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.setupUi(self)
 
         self.button_save.clicked.connect(self.save)
+        self.button_saveMarkers.clicked.connect(self.save_markers)
         self.button_load.clicked.connect(self.load)
+        self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
@@ -394,7 +397,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.itervalues():
             for section_index, polygons in gscene.drawings.iteritems():
                 for polygon in polygons:
-                    polygon.label_textItem.setVisible(checked)
+                    polygon.properties['label_textItem'].setVisible(checked)
 
     @pyqtSlot(int)
     def checkbox_showVertices_callback(self, checked):
@@ -438,62 +441,38 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     #
     #     self.contour_df_loaded.update(new_entries_df)
 
+    @pyqtSlot()
+    def save_markers(self):
+        """
+        Save markers.
+        """
+
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+
+        sagittal_markers_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username, classes=['neuron'])
+        sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack)
+        sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
+        save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
 
 
     @pyqtSlot()
     def save(self):
+        """
+        Save polygons.
+        """
 
-        username = self.get_username()
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
-        # if not hasattr(self, 'username') or self.username is None:
-        #     self.username_dialog_requested()
-            # username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-            # if not okay: return
-            # self.username = str(username)
-            # self.lineEdit_username.setText(self.username)
-
-        # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
-        # labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
-
-        # contour_entries_all = []
-        # for gscene_id, gscene in self.gscenes.iteritems():
-        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
-        #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
-        #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        #     contour_entries_all += contour_entries.items()
-
-        import datetime
-        timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-
+        # Save sagittal
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-
-        # if hasattr(self, 'contour_df_loaded'):
-        #     d = self.contour_df_loaded.T.to_dict()
-        # else:
-        #     d = {}
-        # print 'loaded', d.keys()
-        # d.update(sagittal_contour_entries_curr_session)
-        #
-        # print 'updated', d.keys()
-        #
-        # from pandas import DataFrame
-        # df_aligned_cropped = DataFrame(dict(d)).T
-
-        # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
-
-        sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-
-        # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-        # df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-        # df_original.to_hdf(fn, 'contours')
-
+        sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T, stack=self.stack)
         sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
                                                                classifier_setting_m=classifier_setting_m,
                                                               classifier_setting_f=classifier_setting_f,
                                                               warp_setting=warp_setting, suffix='contours')
         save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
 
+        # Save coronal
         coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
         coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
                                                                classifier_setting_m=classifier_setting_m,
@@ -501,6 +480,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                                               warp_setting=warp_setting, suffix='contours_coronal')
         save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
 
+        # Save horizontal
         horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
         horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
                                                                classifier_setting_m=classifier_setting_m,
@@ -510,58 +490,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.statusBar().showMessage('Labelings saved to %s.' % fn)
 
-        # pickle.dump(self.structure_volumes, open(os.path.join(labelings_dir, '%(stack)s_structure_volumes.pkl' % dict(stack=stack))))
-
-        # # if sec is not None:
-        # #
-        # #     accepted_proposal_props = []
-        # #     for polygon, props in self.accepted_proposals_allSections[sec].iteritems():
-        # #
-        # #         props_saved = props.copy()
-        # #
-        # #         # props_saved['vertices'] = [(v.scenePos().x(), v.scenePos().y()) for v in props['vertexCircles']]
-        # #
-        # #         path = polygon.path()
-        # #
-        # #         if path.elementCount() > 1 and polygon_is_closed(path=path):
-        # #             props_saved['subtype'] = PolygonType.CLOSED
-        # #             props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount()-1)]
-        # #         else:
-        # #             props_saved['subtype'] = PolygonType.OPEN
-        # #             props_saved['vertices'] = [(int(path.elementAt(i).x), int(path.elementAt(i).y)) for i in range(path.elementCount())]
-        # #
-        # #         label_pos = props['labelTextArtist'].scenePos()
-        # #         props_saved['labelPos'] = (label_pos.x(), label_pos.y())
-        # #
-        # #         props_saved.pop('vertexCircles')
-        # #         props_saved.pop('labelTextArtist')
-        # #
-        # #         accepted_proposal_props.append(props_saved)
-        #
-        #     # print '#############'
-        #     # print accepted_proposal_props
-        #
-        #     # labeling_path = self.dms[sec].save_annotation(accepted_proposal_props, self.username, timestamp)
-        #     labeling_path = DataManager.save_annotation(accepted_proposal_props, self.stack, sec, self.username, timestamp,
-        #     annotation_rootdir=annotation_midbrainIncluded_rootdir)
-        #
-        #     # print self.new_labelnames
-        #     self.dms[sec].add_labelnames(self.new_labelnames, os.environ['REPO_DIR']+'/gui/newStructureNames.txt')
-        #
-        #     self.statusBar().showMessage('Labelings saved to %s' % (self.username+'_'+timestamp))
-        #
-        #     if sec in self.gscenes:
-        #         pix = QPixmap(self.dms[sec].image_width/8, self.dms[sec].image_height/8)
-        #         painter = QPainter(pix)
-        #
-        #         self.gscenes[sec].render(painter, QRectF(0,0,self.dms[sec].image_width/8, self.dms[sec].image_height/8),
-        #                                 QRectF(0,0,self.dms[sec].image_width, self.dms[sec].image_height))
-        #         pix.save(labeling_path[:-4] + '.jpg', "JPG")
-        #         print 'Preview image saved to', labeling_path[:-4] + '.jpg'
-        #         del painter
-        #         del pix
-
     @pyqtSlot()
+    def load_markers(self):
+        """
+        """
+
+        markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        download_from_s3(markers_df_fp)
+        markers_df = load_hdf_v2(markers_df_fp)
+
+        markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack)
+        # self.structure_df_loaded = structure_df
+        markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'sagittal') & (markers_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+        self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False)
+
     def load(self):
         """
         Load stored annotations.
@@ -808,14 +750,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     for gscene in self.gscenes.itervalues():
                         gscene.set_mode('crossline')
 
-
             elif key == Qt.Key_F:
 
                 ##################### Save structure ######################
 
                 # username = self.get_username()
-                import datetime
-                timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+                timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
                 # {(name, side): (vol, bbox, edits, id)}
                 new_structure_df = self.structure_df_loaded.copy()
@@ -834,77 +774,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.statusBar().showMessage('3D structure labelings are saved to %s.\n' % new_structure_df_fp)
 
                 # ##################### Save contours #####################
-                #
-                # username = self.get_username()
-                #
-                # # if not hasattr(self, 'username') or self.username is None:
-                # #     self.username_dialog_requested()
-                #     # username, okay = QInputDialog.getText(self, "Username", "Please enter your username:", QLineEdit.Normal, 'anon')
-                #     # if not okay: return
-                #     # self.username = str(username)
-                #     # self.lineEdit_username.setText(self.username)
-                #
-                # # labelings_dir = create_if_not_exists('/home/yuncong/CSHL_labelings_new/%(stack)s/' % dict(stack=self.stack))
-                # # labelings_dir = create_if_not_exists(os.path.join(ANNOTATION_ROOTDIR, stack))
-                #
-                # # contour_entries_all = []
-                # # for gscene_id, gscene in self.gscenes.iteritems():
-                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_%(downsample)d_%(username)s_%(timstamp)s.pkl' % dict(username=self.username)))
-                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_'+self.username+'_'+timestamp+'.pkl'))
-                # #     # gscene.save_drawings(fn_template=os.path.join(labelings_dir, '%(stack)s_%(orientation)s_downsample%(downsample)d_%(username)s_%(timestamp)s.pkl'), timestamp=timestamp, username=self.username)
-                # #     contour_entries = gscene.convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-                # #     contour_entries_all += contour_entries.items()
-                #
-                # sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-                #
-                # # if hasattr(self, 'contour_df_loaded'):
-                # #     d = self.contour_df_loaded.T.to_dict()
-                # # else:
-                # #     d = {}
-                # # print 'loaded', d.keys()
-                # # d.update(sagittal_contour_entries_curr_session)
-                # #
-                # # print 'updated', d.keys()
-                # #
-                # # from pandas import DataFrame
-                # # df_aligned_cropped = DataFrame(dict(d)).T
-                #
-                # # df_aligned_cropped = DataFrame(dict(contour_entries_all)).T
-                #
-                # df_aligned_cropped = DataFrame(sagittal_contour_entries_curr_session).T
-                # sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-                #
-                # # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-                # # df_original = convert_annotation_v3_aligned_cropped_to_original(df_aligned_cropped, stack=self.stack)
-                # # df_original.to_hdf(fn, 'contours')
-                #
-                # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                #                                                        classifier_setting_m=classifier_setting_m,
-                #                                                       classifier_setting_f=classifier_setting_f,
-                #                                                       warp_setting=warp_setting, suffix='contours_sagittal', timestamp=timestamp)
-                # save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
-                #
-                # coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-                # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                #                                                        classifier_setting_m=classifier_setting_m,
-                #                                                       classifier_setting_f=classifier_setting_f,
-                #                                                       warp_setting=warp_setting, suffix='contours_coronal', timestamp=timestamp)
-                # save_hdf_v2(DataFrame(coronal_contour_entries_curr_session).T, coronal_contours_df_fp)
-                #
-                # horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-                # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                #                                                        classifier_setting_m=classifier_setting_m,
-                #                                                       classifier_setting_f=classifier_setting_f,
-                #                                                       warp_setting=warp_setting, suffix='contours_horizontal', timestamp=timestamp)
-                # save_hdf_v2(DataFrame(horizontal_contour_entries_curr_session).T, horizontal_contours_df_fp)
-                #
-                # # fn = os.path.join(labelings_dir, '%(stack)s_annotation_v3_%(timestamp)s.h5' % dict(stack=stack, timestamp=timestamp))
-                # # df_original.to_hdf(fn, 'contours')
-                #
-                # # execute_command('cd %(labelings_dir)s; rm -f %(stack)s_annotation_v3.h5; ln -s %(stack)s_annotation_v3_%(timestamp)s.h5 %(stack)s_annotation_v3.h5' % dict(labelings_dir=labelings_dir, stack=stack, timestamp=timestamp))
-                #
-                # self.statusBar().showMessage('Labelings saved to %s.' % fn)
 
+                # self.save()
 
             elif key == Qt.Key_A:
                 print "Reconstructing all structure volumes..."

@@ -16,7 +16,6 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         super(SignalEmittingGraphicsPathItemWithVertexCircles, self).__init__(path, parent=parent, gscene=gscene)
 
         self.vertex_circles = []
-
         if vertex_radius is None:
             self.vertex_radius = 20
         else:
@@ -43,6 +42,9 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
     def add_circle_for_vertex(self, index, radius=None, color='b'):
         """
         Add a circle for an existing vertex.
+
+        Args:
+            color (str or tuple): color of vertex circle
         """
 
         path = self.path()
@@ -103,14 +105,14 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         else:
             raise Exception('vertex_moved signal is received from a non-member vertex.')
 
-    def add_vertex(self, x, y, new_index=-1):
+    def add_vertex(self, x, y, new_index=-1, color='b'):
         if new_index == -1:
             polygon_goto(self, x, y)
         else:
             new_path = insert_vertex(self.path())
             self.setPath(new_path)
 
-        self.add_circle_for_vertex(new_index)
+        self.add_circle_for_vertex(new_index, color=color)
 
     def delete_vertices(self, indices_to_remove, merge=False):
         if merge:
@@ -136,17 +138,24 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
     @pyqtSlot(object)
     def vertex_press(self, circle):
 
-        if self.vertex_circles.index(circle) == 0 and len(self.vertex_circles) > 2 and not self.closed:
+        # print '\nSignalEmittingGraphicsPathItemWithVertexCircles::vertex_press\n'
+
+        # Emit a polygon pressed signal
+        # This is necessary for one-node polygon,
+        # for which the built-in mouseclickevent will not fire if user clicks on the single vertex
+        self.signal_emitter.press.emit(self)
+
+        # if self.vertex_circles.index(circle) == 0 and len(self.vertex_circles) > 2 and not self.closed:
+        if self.vertex_circles.index(circle) == 0 and not self.closed:
             # (self.mode == 'add vertices randomly' or self.mode == 'add vertices consecutively'):
             # the last condition is to prevent setting the flag when one clicks vertex 0 in idle mode.
             # print 'close polygon'
             self.closed = True
             self.close()
-
             self.signal_emitter.polygon_completed.emit()
 
     def close(self):
-        # def close_polygon(self, polygon=None):
+        print 'close'
         path = self.path()
         path.closeSubpath()
         self.setPath(path)

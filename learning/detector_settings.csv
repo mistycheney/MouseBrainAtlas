@@ -1,0 +1,2 @@
+detector_id,windowing_id,feature_network,feature_classifier_id
+1,1,inception-bn-blue,38

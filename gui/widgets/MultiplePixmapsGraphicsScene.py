@@ -143,7 +143,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         # indices = {label: self.data_feeders[label].all_sections.index(sec) for label, sec in sections.iteritems()}
 
         for label, idx in indices.iteritems():
-            image = self.data_feeders[label].retrive_i(i=idx)
+            image = self.data_feeders[label].retrieve_i(i=idx)
             pixmap = QPixmap.fromImage(image)
             self.pixmapItems[label].setPixmap(pixmap)
             self.pixmapItems[label].setVisible(True)

@@ -2,16 +2,6 @@
 
 import sys
 import os
-import datetime
-from random import random
-import subprocess
-import time
-import json
-from pprint import pprint
-import cPickle as pickle
-from itertools import groupby
-from operator import itemgetter
-from collections import defaultdict, OrderedDict, deque
 
 import numpy as np
 from PyQt4.QtCore import *
@@ -24,6 +14,146 @@ from metadata import *
 from qt_utilities import *
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
+
+class ImageDataFeeder_v2(object):
+
+    def __init__(self, name, stack, prep_id=None, sections=None, use_data_manager=True, downscale=None, labeled_filenames=None):
+        self.name = name
+        self.stack = stack
+
+        if use_data_manager:
+            assert sections is not None
+            self.sections = sections
+            self.min_section = min(self.sections)
+            self.max_section = max(self.sections)
+        else:
+            self.sections = sections
+
+        self.n = len(self.sections)
+
+        self.supported_downsample_factors = [1, 32]
+        self.image_cache = {} # {downscale: {sec: qimage}}
+
+        self.prep_id = prep_id
+
+        if downscale is not None:
+            self.set_downsample_factor(downscale)
+
+        if labeled_filenames is not None:
+            self.set_images(labeled_filenames=labeled_filenames)
+        elif use_data_manager:
+            self.load_images()
+
+    def set_orientation(self, orientation):
+        self.orientation = orientation
+        self.compute_dimension()
+
+    def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None):
+
+        if downsample is None:
+            downsample = self.downsample
+
+        if downsample not in self.image_cache:
+            self.image_cache[downsample] = {}
+
+        if sec is None:
+            sec = self.sections[i]
+
+        if qimage is None:
+            if fp is not None:
+                qimage = QImage(fp)
+            elif numpy_image is not None:
+                qimage = numpy_to_qimage(numpy_image)
+            else:
+                raise Exception('Either filepath or numpy_image must be provided.')
+
+        self.image_cache[downsample][sec] = qimage
+        self.compute_dimension()
+
+    def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
+
+        if labeled_filenames is not None:
+            assert isinstance(labeled_filenames, dict)
+            labels = labeled_filenames.keys()
+            filenames = labeled_filenames.values()
+
+        for lbl, fn in zip(labels, filenames):
+            if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
+                img = cv2.imread(fn)
+                if img is None:
+                    continue
+                qimage = numpy_to_qimage(img)
+            else:
+                qimage = QImage(fn)
+            self.set_image(qimage=qimage, sec=lbl, downsample=downsample)
+
+    def load_images(self, downsample=None, selected_sections=None):
+        """
+        If use_data_manager, use this function to load images.
+        """
+
+        if downsample is None:
+            downsample = self.downsample
+
+        if selected_sections is None:
+            selected_sections = self.sections
+
+        if downsample == 1:
+            resol = 'lossless'
+        elif downsample == 32:
+            resol = 'thumbnail'
+
+        self.image_cache[downsample] = \
+        {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol))
+        for sec in selected_sections}
+
+        self.compute_dimension()
+
+    def compute_dimension(self):
+
+        if hasattr(self, 'downsample') and self.downsample in self.image_cache and hasattr(self, 'orientation'):
+            arbitrary_img = self.image_cache[self.downsample].values()[0]
+            if self.orientation == 'sagittal':
+                self.x_dim = arbitrary_img.width()
+                self.y_dim = arbitrary_img.height()
+            elif self.orientation == 'coronal':
+                self.z_dim = arbitrary_img.width()
+                self.y_dim = arbitrary_img.height()
+            elif self.orientation == 'horizontal':
+                self.x_dim = arbitrary_img.width()
+                self.z_dim = arbitrary_img.height()
+
+    def set_downsample_factor(self, downsample):
+        if downsample not in self.supported_downsample_factors:
+            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
+            return
+        else:
+            self.downsample = downsample
+
+        self.compute_dimension()
+
+    def retrieve_i(self, i=None, sec=None, downsample=None):
+        """
+        Retrieve the i'th image in self.sections.
+        """
+
+        if downsample is None:
+            downsample = self.downsample
+
+        if downsample not in self.supported_downsample_factors:
+            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
+            return
+
+        if sec is None:
+            sec = self.sections[i]
+
+        if downsample not in self.image_cache:
+            self.image_cache[downsample] = {}
+
+        if sec not in self.image_cache[downsample]:
+            raise Exception('Image is not loaded: %d' % sec)
+
+        return self.image_cache[downsample][sec]
 
 class ImageDataFeeder(object):
 
@@ -47,7 +177,7 @@ class ImageDataFeeder(object):
         self.n = len(self.sections)
 
         self.supported_downsample_factors = [1, 32]
-        self.image_cache = {}
+        self.image_cache = {} # {downscale: {sec: qimage}}
 
         self.version = version
 
@@ -63,13 +193,16 @@ class ImageDataFeeder(object):
         self.orientation = orientation
         self.compute_dimension()
 
-    def set_image(self, sec, qimage=None, numpy_image=None, fp=None, downsample=None):
+    def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None):
 
         if downsample is None:
             downsample = self.downsample
 
         if downsample not in self.image_cache:
             self.image_cache[downsample] = {}
+
+        if sec is None:
+            sec = self.sections[i]
 
         # self.sections.append(sec)
         # self.all_sections.append(sec)
@@ -181,7 +314,7 @@ class ImageDataFeeder(object):
 
         self.compute_dimension()
 
-    def retrive_i(self, i=None, sec=None, downsample=None):
+    def retrieve_i(self, i=None, sec=None, downsample=None):
         """
         Retrieve the i'th image in self.sections.
         """
@@ -248,7 +381,7 @@ class VolumeResectionDataFeeder(object):
     def set_orientation(self, orientation):
         self.orientation = orientation
 
-    def retrive_i(self, i, orientation=None, downsample=None):
+    def retrieve_i(self, i, orientation=None, downsample=None):
         if orientation is None:
             orientation = self.orientation
 

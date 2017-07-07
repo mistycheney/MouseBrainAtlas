@@ -72,13 +72,19 @@ std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
-print std_tx, std_ty, std_tz, std_theta_xy
+
+try:
+    surround_weight = float(warp_properties['surround_weight'])
+    include_surround = surround_weight != 0 and not np.isnan(surround_weight)
+except:
+    surround_weight = str(warp_properties['surround_weight'])
+    include_surround = True
 
 reg_weight = warp_properties['regularization_weight']
-reg_weights = np.ones((3,))*reg_weight
-
-surround_weight = warp_properties['surround_weight']
-include_surround = surround_weight != 0
+if np.isnan(reg_weight):
+    reg_weights = np.zeros((3,))
+else:
+    reg_weights = np.ones((3,))*reg_weight
 
 MAX_ITER_NUM = 1000
 HISTORY_LEN = 50

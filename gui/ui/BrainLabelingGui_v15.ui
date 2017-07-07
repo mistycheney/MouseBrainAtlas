@@ -35,46 +35,6 @@
        </widget>
        <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout">
-         <item row="4" column="0">
-          <spacer name="horizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item row="4" column="7">
-          <widget class="QPushButton" name="button_save">
-           <property name="text">
-            <string>Save</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="8">
-          <widget class="QPushButton" name="button_load">
-           <property name="text">
-            <string>Load</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="6">
-          <spacer name="verticalSpacer">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
          <item row="4" column="4">
           <widget class="QPushButton" name="button_displayStructures">
            <property name="text">
@@ -96,12 +56,55 @@
            </property>
           </widget>
          </item>
+         <item row="4" column="2">
+          <widget class="QLineEdit" name="lineEdit_username"/>
+         </item>
          <item row="4" column="3">
           <widget class="QPushButton" name="button_stop">
            <property name="text">
             <string>Stop Loading</string>
            </property>
           </widget>
+         </item>
+         <item row="4" column="0">
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="4" column="7">
+          <widget class="QPushButton" name="button_save">
+           <property name="text">
+            <string>Save Contours</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="9">
+          <widget class="QPushButton" name="button_load">
+           <property name="text">
+            <string>Load Contours</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="6">
+          <spacer name="verticalSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
          </item>
          <item row="4" column="1">
           <widget class="QLabel" name="label_7">
@@ -110,8 +113,19 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="2">
-          <widget class="QLineEdit" name="lineEdit_username"/>
+         <item row="4" column="8">
+          <widget class="QPushButton" name="button_saveMarkers">
+           <property name="text">
+            <string>Save Markers</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="10">
+          <widget class="QPushButton" name="button_loadMarkers">
+           <property name="text">
+            <string>Load Markers</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>

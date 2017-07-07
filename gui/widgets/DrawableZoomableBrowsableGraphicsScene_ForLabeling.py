@@ -521,7 +521,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(QGraphicsScene):
             i = self.data_feeder.sections.index(sec)
 
         print i
-        image = self.data_feeder.retrive_i(i=i)
+        image = self.data_feeder.retrieve_i(i=i)
 
         histology_pixmap = QPixmap.fromImage(image)
 

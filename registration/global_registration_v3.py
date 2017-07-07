@@ -61,6 +61,13 @@ std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
 print std_tx, std_ty, std_tz, std_theta_xy
 
+try:
+    surround_weight = float(warp_properties['surround_weight'])
+    include_surround = surround_weight != 0 and not np.isnan(surround_weight)
+except:
+    surround_weight = str(warp_properties['surround_weight'])
+    include_surround = True
+
 MAX_ITER_NUM = 1000
 HISTORY_LEN = 10
 MAX_GRID_SEARCH_ITER_NUM = 30
@@ -71,7 +78,8 @@ lr2 = 0.1
 #####################################################################
 
 volume_moving, structure_to_label_moving, label_to_structure_moving = \
-DataManager.load_original_volume_all_known_structures(stack=stack_moving, sided=True, volume_type='score')
+DataManager.load_original_volume_all_known_structures(stack=stack_moving, sided=True, volume_type='score', 
+                                                      include_surround=include_surround)
 
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_original_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting, 
@@ -82,17 +90,24 @@ if structure_subset is None:
 else:
     structure_subset = json.loads(structure_subset)
 
+if include_surround:
+    structure_subset = structure_subset + [convert_to_surround_name(s, margin=200) for s in structure_subset]
+    
 label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in structure_subset}
 
-label_weights_m = {}
-for label_m, name_m in label_to_structure_moving.iteritems():
-    if 'surround' in name_m:
-        label_weights_m[label_m] = 0
-    else:
-        label_weights_m[label_m] = 1
-#         label_weights_m[label_m] = np.minimum(1e5 / volume_moving_structure_sizes[label_m], 1.)
+if surround_weight == 'inverse':
+    volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
+    label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
+                       /float(volume_moving_structure_sizes[label_m])
+                       if is_surround_label(name_m) else 1. \
+                       for label_m, name_m in label_to_structure_moving.iteritems()}
+elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
+    label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
+                   for label_m, name_m in label_to_structure_moving.iteritems()}
+else:
+    sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 
 ################## Optimization ######################
 
@@ -120,6 +135,7 @@ for trial_idx in range(trial_num):
                                      terminate_thresh=terminate_thresh,
                                      grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM,
                                      grid_search_sample_number=grid_search_sample_number,
+                                         grid_search_eta=3.,
                                      grad_computation_sample_number=grad_computation_sample_number,
                                      lr1=lr1, lr2=lr2,
                                      std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy)

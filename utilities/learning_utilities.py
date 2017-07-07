@@ -17,13 +17,16 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-def load_dataset_addresses(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+def load_dataset_addresses(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
     merged_addresses = {}
 
     for dataset_id in dataset_ids:
         addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id)
         download_from_s3(addresses_fp)
         addresses_curr_dataset = load_pickle(addresses_fp)
+        
+        if labels_to_sample is None:
+            labels_to_sample = addresses_curr_dataset.keys()
 
         for label in labels_to_sample:
             try:
@@ -75,7 +78,7 @@ def load_dataset_images(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
     return merged_patches, merged_addresses
 
 
-def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
+def load_datasets(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
     
     merged_features = {}
     merged_addresses = {}
@@ -93,6 +96,9 @@ def load_datasets(dataset_ids, labels_to_sample, clf_rootdir=CLF_ROOTDIR):
         features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id)
         download_from_s3(features_fp)
         features_curr_dataset = load_hdf_v2(features_fp).to_dict()
+        
+        if labels_to_sample is None:
+            labels_to_sample = features_curr_dataset.keys()
 
         for label in labels_to_sample:
             try:
@@ -138,9 +144,11 @@ def compute_predictions(H, abstain_label=-1):
 
     return predictions, no_decision_indices
 
-def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1):
+def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_label=-1, binary=True, decision_thresh=.5):
     """
-    probs: n_example x n_class
+    Args:
+        probs ((n_example, n_class)-ndarray of float): prediction probabilities
+        label ((n_example,)-ndarray of int): true example labels
     """
 
     n_labels = len(np.unique(labels))
@@ -160,7 +168,13 @@ def compute_confusion_matrix(probs, labels, soft=False, normalize=True, abstain_
                     M[tl, probs0] += 1
             else:
                 hard = np.zeros((n_labels, ))
-                hard[np.argmax(probs0)] = 1.
+                if binary:
+                    if probs0[0] > decision_thresh:
+                        hard[0] = 1.
+                    else:
+                        hard[1] = 1.
+                else:
+                    hard[np.argmax(probs0)] = 1.
                 M[tl] += hard
 
     if normalize:
@@ -404,7 +418,7 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
     """
 
     # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
-    contours_df, _ = DataManager.load_annotation_v3(stack=stack)
+    contours_df = DataManager.load_annotation_v4(stack=stack)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     labeled_contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -432,7 +446,7 @@ def label_regions_multisections(stack, region_contours, surround_margins=None):
 
 def label_regions(stack, section, region_contours, surround_margins=None, labeled_contours=None):
     """
-    Identify regions that belong to each class.
+    Identify regions (could be non-square) that belong to each class.
     
     Returns:
         dict of {label: region indices in input region_contours}
@@ -443,7 +457,7 @@ def label_regions(stack, section, region_contours, surround_margins=None, labele
 
     if labeled_contours is None:
         # contours_df = read_hdf(ANNOTATION_ROOTDIR + '/%(stack)s/%(stack)s_annotation_v3.h5' % dict(stack=stack), 'contours')
-        contours_df, _ = DataManager.load_annotation_v3(stack=stack)
+        contours_df = DataManager.load_annotation_v4(stack=stack)
         contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
         contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
         contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -471,9 +485,12 @@ def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_
         - polygons can also be a list of (name, vertices) tuples.
     if shrinked to 30%% are completely within the polygons.
 
-    scheme: 1 - negative does not include other positive classes that are in the surround
-            2 - negative include other positive classes that are in the surround
+    Args:
+        surround_margins (list of int): list of surround margins in which patches are extracted, in unit of microns.
     """
+    
+    # rename for clarity
+    surround_margins_um = surround_margins
 
     n_regions = len(region_contours)
 
@@ -485,8 +502,8 @@ def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_
     else:
         raise Exception('Polygon must be either dict or list.')
 
-    if surround_margins is None:
-        surround_margins = [100,200,300,400,500,600,700,800,900,1000]
+    if surround_margins_um is None:
+        surround_margins_um = [100,200,300,400,500,600,700,800,900,1000]
 
     # Identify patches in the foreground.
     region_centroids_tb = np.array([np.mean(cnt, axis=0)/32. for cnt in region_contours], np.int)
@@ -513,25 +530,23 @@ def identify_regions_inside(region_contours, stack=None, image_shape=None, mask_
 
     for label, poly in polygon_list:
 
-        for margin in surround_margins:
-        # margin = 500
+        for margin_um in surround_margins_um:
+
+            margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
+        
             surround = Polygon(poly).buffer(margin, resolution=2)
-            # 500 pixels (original resolution, ~ 250um) away from landmark contour
 
             path = Path(list(surround.exterior.coords))
             indices_sur = np.where([np.count_nonzero(path.contains_points(cnt)) >=  len(cnt)*.7  for cnt in region_contours])[0]
 
             # surround classes do not include patches of any no-surround class
-            indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
-            # sys.stderr.write('%d patches in %s\n' % (len(indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass']), label+'_surround_'+str(margin)+'_noclass'))
-            # print len(indices_allLandmarks[label+'_surround_noclass']), 'patches in', label+'_surround_noclass'
+            indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
 
             for l, inds in indices_inside.iteritems():
                 if l == label: continue
                 indices = np.intersect1d(indices_sur, inds)
                 if len(indices) > 0:
-                    indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
-                    # sys.stderr.write('%d patches in %s\n' % (len(indices), label+'_surround_'+str(margin)+'_'+l))
+                    indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
 
         # Identify all foreground patches except the particular label's inside patches
         indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(n_regions), np.r_[indices_bg, indices_inside[label]])
@@ -555,7 +570,7 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
 
-    contours_df, _ = DataManager.load_annotation_v3(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
+    contours_df = DataManager.load_annotation_v4(stack, annotation_rootdir=ANNOTATION_ROOTDIR)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
@@ -593,7 +608,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
         DataFrame: Columns are class labels and rows are section indices.
     """
     
-    contours_df, _ = DataManager.load_annotation_v3(stack=stack, by_human=by_human, 
+    contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human, 
                                                       stack_m=stack_m, 
                                                            classifier_setting_m=classifier_setting_m,
                                                           classifier_setting_f=classifier_setting_f,
@@ -690,10 +705,14 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
             
     Args:
         grid_spec: If none, use the default grid spec.
+        surround_margins: list of surround margin for which patches are extracted, in unit of microns
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
         Otherwise, return a list of grid indices.
     """
+    
+    # rename for clarity
+    surround_margins_um = surround_margins
 
     if grid_spec is None:
         grid_spec = get_default_gridspec(stack)
@@ -711,8 +730,8 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
     if stride is None:
         stride = grid_spec[1]
 
-    if surround_margins is None:
-        surround_margins = [100,200,300,400,500,600,700,800,900,1000]
+    if surround_margins_um is None:
+        surround_margins_um = [100,200,300,400,500,600,700,800,900,1000]
 
     sample_locations = grid_parameters_to_sample_locations(patch_size=patch_size, stride=stride, w=image_width, h=image_height)
     half_size = patch_size/2
@@ -775,12 +794,12 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
         assert polygons is not None, 'Can only supply one of bbox or polygons.'
 
         # This means we require a patch to have 30% of its radius to be within the landmark boundary to be considered inside the landmark
-        margin = int(.3*half_size)
+        tolerance_margin = int(.3*half_size)
 
-        sample_locations_ul = sample_locations - (margin, margin)
-        sample_locations_ur = sample_locations - (-margin, margin)
-        sample_locations_ll = sample_locations - (margin, -margin)
-        sample_locations_lr = sample_locations - (-margin, -margin)
+        sample_locations_ul = sample_locations - (tolerance_margin, tolerance_margin)
+        sample_locations_ur = sample_locations - (-tolerance_margin, tolerance_margin)
+        sample_locations_ll = sample_locations - (tolerance_margin, -tolerance_margin)
+        sample_locations_lr = sample_locations - (-tolerance_margin, -tolerance_margin)
 
         indices_inside = {}
         indices_allLandmarks = {}
@@ -798,7 +817,8 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
 
         for label, poly in polygon_list:
 
-            for margin in surround_margins:
+            for margin_um in surround_margins_um:
+                margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
                 path = Path(list(surround.exterior.coords))
@@ -808,13 +828,13 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                                         path.contains_points(sample_locations_ur))[0]
 
                 # surround classes do not include patches of any no-surround class
-                indices_allLandmarks[label+'_surround_'+str(margin)+'_noclass'] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+                indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
                 
                 for l, inds in indices_inside.iteritems():
                     if l == label: continue
                     indices = np.intersect1d(indices_sur, inds)
                     if len(indices) > 0:
-                        indices_allLandmarks[label+'_surround_'+str(margin)+'_'+l] = indices
+                        indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
 
             # All foreground patches except the particular label's inside patches
             indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])

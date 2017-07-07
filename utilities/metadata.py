@@ -57,7 +57,7 @@ if hostname == 'yuncong-MacbookPro':
     RAW_DATA_DIR = '/home/yuncong/CSHL_data'
     DATA_DIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
     DATA_ROOTDIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
-    thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
+    # thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
     THUMBNAIL_DATA_DIR = '/home/yuncong/CSHL_data_processed'
 
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
@@ -73,6 +73,7 @@ if hostname == 'yuncong-MacbookPro':
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 
@@ -103,6 +104,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
 
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
@@ -132,6 +134,9 @@ elif hostname.startswith('ip'):
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'
     PATCH_FEATURES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_features')
+    PATCH_LOCATIONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_locations')
+    SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
+    SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
     SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
     REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
     REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
@@ -158,7 +163,9 @@ elif hostname.startswith('ip'):
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
-
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
+    DETECTOR_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'detector_settings.csv')
+    
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
@@ -268,6 +275,9 @@ from pandas import read_csv
 dataset_settings = read_csv(DATASET_SETTINGS_CSV, header=0, index_col=0)
 classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
+preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
+detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
+windowing_settings = {1: {"patch_size": 224, "spacing": 56}}
 
 ############ Class Labels #############
 
@@ -312,7 +322,7 @@ XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
-all_alt_nissl_tracing_stacks = ['MD657', 'MD658']
+all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']

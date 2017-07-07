@@ -285,6 +285,11 @@ def path_goto(path, x, y):
 
 
 def vertices_from_polygon(polygon=None, path=None, closed=None):
+    """
+    Args:
+        path:
+        polygon:
+    """
 
     if path is None:
         path = polygon.path()

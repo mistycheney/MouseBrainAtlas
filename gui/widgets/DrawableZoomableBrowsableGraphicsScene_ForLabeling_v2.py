@@ -55,12 +55,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         self.uncertainty_lines = {}
         self.structure_onscreen_messages = {}
+        self.default_name = None
 
     def set_mode(self, mode):
         """
-        Extend by:
+        Extend inherited method by:
         - showing or hiding two cross-lines.
         """
+
+        if mode == 'add vertices once':
+            print "\nPress N and then click to put a marker. Label of the first marker is set as default for subsequent markers. Press B to clear default label.\n"
+
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_mode(mode)
         if mode == 'crossline':
             self.hline.setVisible(True)
@@ -303,7 +308,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
 
         if self.showing_which == 'histology':
-            image = self.data_feeder.retrive_i(i=i)
+            image = self.data_feeder.retrieve_i(i=i)
             histology_pixmap = QPixmap.fromImage(image)
             # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
             self.pixmapItem.setPixmap(histology_pixmap)
@@ -454,6 +459,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['label'] = abbr
         # self.active_polygon.set_label(abbr)
         self.active_polygon.set_properties('label', abbr)
+        print self.active_polygon.properties
 
         # if 'labelTextArtist' in self.accepted_proposals_allSections[self.selected_section][self.selected_polygon] and \
         #         self.accepted_proposals_allSections[self.selected_section][self.selected_polygon]['labelTextArtist'] is not None:
@@ -492,22 +498,31 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for sec, group in grouped:
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
-                # endorsers = set([edit['username'] for edit in contour['edits']] + [contour['creator']])
+                if 'flags' in contours and contour['flags'] is not None:
+                    contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+                else:
+                    contour_type = None
+                if 'class' in contours and contour['class'] is not None:
+                    contour_class = contour['class']
+                else:
+                    contour_class = None
+
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
                                                         label=contour['name'], label_pos=contour['label_position'],
                                                         linecolor='r', section=sec, type=contour_type,
                                                         side=contour['side'],
-                                                        # side_manually_assigned=contour['side_manually_assigned'] if 'side_manually_assigned' in contour else False,
                                                         side_manually_assigned=contour['side_manually_assigned'],
-                                                        edit_history=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'],
-                                                        contour_id=contour_id)
+                                                        edits=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'],
+                                                        contour_id=contour_id,
+                                                        category=contour_class)
 
-
-    def convert_drawings_to_entries(self, timestamp, username):
+    def convert_drawings_to_entries(self, timestamp, username, classes=['contour']):
         """
+        Args:
+            classes (list of str): list of classes to gather. Default is contour.
+
         Returns:
-            (dict): {polygon_id: contour information entry}
+            dict: {polygon_id: contour information entry}
         """
 
         import uuid
@@ -515,6 +530,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         contour_entries = {}
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
+                if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
+                    continue
+
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
                     polygon_id = polygon.contour_id
                 else:
@@ -525,97 +543,47 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     pos = c.scenePos()
                     vertices.append((pos.x(), pos.y()))
 
-                label_pos = polygon.label_textItem.scenePos()
-
-                contour_entry = {'name': polygon.label,
-                            'label_position': (label_pos.x(), label_pos.y()),
-                           'side': polygon.side,
-                           'creator': polygon.edit_history[0]['username'],
-                           'time_created': polygon.edit_history[0]['timestamp'],
-                            'edits': polygon.edit_history + [{'username':username, 'timestamp':timestamp}],
-                            'vertices': vertices,
-                            'downsample': self.data_feeder.downsample,
-                           'flags': 0 if polygon.type == 'confirmed' else 1,
-                            'orientation': self.data_feeder.orientation,
-                            'parent_structure': [],
-                            'side_manually_assigned': polygon.side_manually_assigned,
-                            'id': polygon_id}
-
-                if hasattr(self.data_feeder, 'sections'):
+                if polygon.properties['class'] == 'neuron':
+                    contour_entry = {'name': polygon.properties['label'],
+                            'label_position': None,
+                               'side': polygon.properties['side'],
+                               'creator': polygon.properties['edits'][0]['username'],
+                               'time_created': polygon.properties['edits'][0]['timestamp'],
+                                'edits': polygon.properties['edits'],
+                                'vertices': vertices,
+                                'downsample': self.data_feeder.downsample,
+                                'flags': None,
+                                'orientation': self.data_feeder.orientation,
+                                'parent_structure': [],
+                                'side_manually_assigned': polygon.properties['side_manually_assigned'],
+                                'id': polygon_id,
+                                'class': polygon.properties['class']}
+                    assert hasattr(self.data_feeder, 'sections')
                     contour_entry['section'] = self.data_feeder.sections[idx]
                 else:
-                    contour_entry['voxel_position'] = idx
+                    label_pos = polygon.label_textItem.scenePos()
+                    contour_entry = {'name': polygon.label,
+                                'label_position': (label_pos.x(), label_pos.y()),
+                               'side': polygon.side,
+                               'creator': polygon.edits[0]['username'],
+                               'time_created': polygon.edits[0]['timestamp'],
+                                'edits': polygon.edits + [{'username':username, 'timestamp':timestamp}],
+                                'vertices': vertices,
+                                'downsample': self.data_feeder.downsample,
+                               'flags': 0 if polygon.type == 'confirmed' else 1,
+                                'orientation': self.data_feeder.orientation,
+                                'parent_structure': [],
+                                'side_manually_assigned': polygon.side_manually_assigned,
+                                'id': polygon_id}
+
+                    if hasattr(self.data_feeder, 'sections'):
+                        contour_entry['section'] = self.data_feeder.sections[idx]
+                    else:
+                        contour_entry['voxel_position'] = idx
 
                 contour_entries[polygon_id] = contour_entry
 
         return contour_entries
-
-
-    def save_drawings(self, fn_template, timestamp, username):
-        return
-
-        import cPickle as pickle
-
-        # Cannot pickle QT objects, so need to extract the data and put in dict.
-
-        # If no labeling is loaded, create a new one
-        if not hasattr(self, 'labelings'):
-            self.labelings = {'polygons': defaultdict(list)}
-
-            if hasattr(self.data_feeder, 'sections'):
-                self.labelings['indexing_scheme'] = 'section'
-            else:
-                self.labelings['indexing_scheme'] = 'index'
-
-            self.labelings['orientation'] = self.data_feeder.orientation
-            self.labelings['downsample'] = self.data_feeder.downsample
-            self.labelings['timestamp'] = timestamp
-            self.labelings['username'] = username
-
-        # print self.drawings
-
-        for i, polygons in self.drawings.iteritems():
-
-            # Erase the labelings on a loaded section - because we will add those later as they currently appear.
-            if hasattr(self.data_feeder, 'sections'):
-                # sec = self.data_feeder.sections[i]
-                sec = self.data_feeder.sections[i]
-                self.labelings['polygons'][sec] = []
-            else:
-                self.labelings['polygons'][i] = []
-
-            # Add polygons as they currently appear
-            for polygon in polygons:
-                try:
-                    polygon_labeling = {'vertices': []}
-                    for c in polygon.vertex_circles:
-                        pos = c.scenePos()
-                        polygon_labeling['vertices'].append((pos.x(), pos.y()))
-
-                    polygon_labeling['label'] = polygon.label
-
-                    label_pos = polygon.label_textItem.scenePos()
-                    polygon_labeling['labelPos'] = (label_pos.x(), label_pos.y())
-
-                    if hasattr(self.data_feeder, 'sections'):
-                        # polygon_labeling['section'] = self.data_feeder.sections[i]
-                        self.labelings['polygons'][sec].append(polygon_labeling)
-                    else:
-                        self.labelings['polygons'][i].append(polygon_labeling)
-
-                    polygon_labeling['side'] = None
-                    polygon_labeling['type'] = polygon.type
-
-                except Exception as e:
-                    print e
-                    with open('log.txt', 'w') as f:
-                        f.write('ERROR:' + self.id + ' ' + str(i) + '\n')
-
-        fn = fn_template % dict(stack=self.data_feeder.stack, orientation=self.data_feeder.orientation,
-                                downsample=self.data_feeder.downsample, username=username, timestamp=timestamp)
-        pickle.dump(self.labelings, open(fn, 'w'))
-        sys.stderr.write('Labeling saved to %s.\n' % fn)
-
 
     def get_label_section_lookup(self):
 
@@ -642,21 +610,29 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         label_section_lookup.default_factory = None
         return label_section_lookup
 
-    # @pyqtSlot()
-    # def polygon_completed(self):
-    #     polygon = self.sender().parent
-    #     self.set_mode('idle')
-    #
-    #     self.drawings_updated.emit(polygon)
+    @pyqtSlot()
+    def polygon_completed_callback(self):
+        polygon = self.sender().parent
+        if self.mode == 'add vertices once':
+            if self.default_name is None:
+                self.open_label_selection_dialog()
+                if 'label' in self.active_polygon.properties and self.active_polygon.properties['label'] is not None:
+                    self.default_name = self.active_polygon.properties['label']
+                    print '\nself.default_name =', self.default_name, '\n'
+            else:
+                self.active_polygon.set_properties('label', self.default_name)
+        else:
+            self.open_label_selection_dialog()
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).polygon_completed_callback()
 
     # @pyqtSlot(object)
     # def polygon_closed(self, polygon):
     #     self.mode = 'idle'
 
-    @pyqtSlot()
-    def label_selection_evoked(self):
-        self.active_polygon = self.sender().parent
-        self.open_label_selection_dialog()
+    # @pyqtSlot()
+    # def label_selection_evoked(self):
+    #     self.active_polygon = self.sender().parent
+    #     self.open_label_selection_dialog()
 
     # @pyqtSlot(object)
     # def label_added(self, text_item):
@@ -699,6 +675,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         myMenu = QMenu(self.gview)
 
         action_newPolygon = myMenu.addAction("New polygon")
+        action_newMarker = myMenu.addAction("New marker")
         action_deletePolygon = myMenu.addAction("Delete polygon")
         action_insertVertex = myMenu.addAction("Insert vertex")
         action_deleteVertices = myMenu.addAction("Delete vertices")
@@ -806,27 +783,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_downsample_factor(selected_downsample_factor)
 
         elif selected_action == action_newPolygon:
-            # self.disable_elements()
-            self.close_curr_polygon = False
-            self.active_polygon = self.add_polygon(QPainterPath(), color='r', index=self.active_i)
-            self.active_polygon.add_edit(editor=self.gui.get_username())
-            # self.active_polygon.set_type(None)
-            self.active_polygon.set_properties('type', 'confirmed')
-            # self.active_polygon.set_side(side=None, side_manually_assigned=False)
-            self.active_polygon.set_properties(side, None)
-            self.active_polygon.set_properties(side_manually_assigned, False)
-
-            # self.set_mode(Mode.ADDING_VERTICES_CONSECUTIVELY)
             self.set_mode('add vertices consecutively')
+            self.start_new_polygon()
 
         elif selected_action == action_insertVertex:
             self.set_mode('add vertices randomly')
 
-        # elif selected_action == action_deletePolygon:
-        #     self.remove_polygon(self.selected_polygon)
-        #
         elif selected_action == action_setLabel:
             self.open_label_selection_dialog()
+
+        elif selected_action == action_newMarker:
+            self.set_mode('add vertices once')
+            self.start_new_polygon(init_properties={'class': 'neuron'}, color='r')
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -849,6 +817,26 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #
     #         self.vertex_is_moved = False
     #         # self.print_history()
+
+    def start_new_polygon(self, init_properties=None, color='r'):
+        """
+        Args:
+            init_properties (dict): {property_name: property_value}
+        """
+        # self.disable_elements()
+        # self.close_curr_polygon = False
+        self.active_polygon = self.add_polygon(QPainterPath(), color=color, index=self.active_i)
+
+        self.active_polygon.set_properties('type', 'confirmed')
+        self.active_polygon.set_properties('side', None)
+        self.active_polygon.set_properties('side_manually_assigned', False)
+        self.active_polygon.set_properties('contour_id', None) # Could be None - will be generated new in convert_drawings_to_entries()
+        self.active_polygon.set_properties('edits',
+        [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
+
+        if init_properties is not None:
+            for k, v in init_properties.iteritems():
+                self.active_polygon.set_properties(k, v)
 
     def show_information_box(self):
         assert self.active_polygon is not None, 'Must choose an active polygon first.'
@@ -876,24 +864,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         contour_info_text += "Side: %(side)s\n" % {'side': side_string}
 
-        if len(self.active_polygon.properties['edit_history']) > 0:
-            print self.active_polygon.properties['edit_history']
-            first_edit = self.active_polygon.properties['edit_history'][0]
+        if len(self.active_polygon.properties['edits']) > 0:
+            print self.active_polygon.properties['edits']
+            first_edit = self.active_polygon.properties['edits'][0]
             contour_info_text += "Created by %(creator)s at %(timestamp)s\n" % \
             {'creator': first_edit['username'],
-            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            'timestamp':  datetime.strftime(datetime.strptime(first_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
 
-            last_edit = self.active_polygon.properties['edit_history'][-1]
+            last_edit = self.active_polygon.properties['edits'][-1]
             contour_info_text += "Last edited by %(editor)s at %(timestamp)s\n" % \
             {'editor': last_edit['username'],
-            'timestamp':  datetime.datetime.strftime(datetime.datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
+            'timestamp':  datetime.strftime(datetime.strptime(last_edit['timestamp'], "%m%d%Y%H%M%S"), '%Y/%m/%d %H:%M')
             }
-            print self.active_polygon.properties['edit_history']
+            print self.active_polygon.properties['edits']
         else:
             sys.stderr.write('No edit history.\n')
 
         contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
+        contour_info_text += "Class: %(class)s\n" % {'class': self.active_polygon.properties['class']}
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 
@@ -1040,7 +1029,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.set_mode('shift3d')
                 return True
 
-            elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # CLose polygon
+            elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
                 return False
@@ -1061,6 +1050,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                             p.setVisible(False)
                         else:
                             p.setVisible(True)
+
+            elif key == Qt.Key_M: # Toggle labeled cell markers
+                for i, polygons in self.drawings.iteritems():
+                    for p in polygons:
+                        if 'class' in p.properties and p.properties['class'] == 'neuron':
+                            if p.isVisible():
+                                p.setVisible(False)
+                            else:
+                                p.setVisible(True)
+
+            elif key == Qt.Key_N: # New marker
+                self.set_mode('add vertices once')
+                self.start_new_polygon(init_properties={'class': 'neuron'}, color='r')
+
+            elif key == Qt.Key_B: # Clear default label name.
+                self.default_name = None
 
             elif key == Qt.Key_Control:
                 if not event.isAutoRepeat():
@@ -1249,34 +1254,29 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
                 return True
 
+            elif self.mode == 'add vertices once':
+                if event.button() == Qt.LeftButton:
+                    obj.mousePressEvent(event)
+                    if not self.active_polygon.closed:
+                        assert 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron'
+                        vertex_color = 'r'
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
+                    first_circ = self.active_polygon.vertex_circles[0]
+                    first_circ.signal_emitter.press.emit(first_circ)
+                    return False
 
             elif self.mode == 'add vertices consecutively':
-                # if in add vertices mode, left mouse press means:
-                # - closing a polygon, or
-                # - adding a vertex
 
                 if event.button() == Qt.LeftButton:
 
                     obj.mousePressEvent(event)
 
-                    # if hasattr(self, 'close_curr_polygon') and self.close_curr_polygon:
-                    #
-                    #     print 'close curr polygon UNSET'
-                    #     self.close_curr_polygon = False
-                    #     self.close_polygon()
-                    #
-                    #     # if 'label' not in self.drawings[self.active_section][self.active_polygon]:
-                    #     #     self.open_label_selection_dialog()
-                    #
-                    #     self.set_mode('idle')
-                    #
-                    # else:
-
-                        # polygon_goto(self.active_polygon, gscene_x, gscene_y)
-                        # self.add_vertex_to_polygon(self.active_polygon, gscene_x, gscene_y)
-                        # self.print_history()
                     if not self.active_polygon.closed:
-                        self.active_polygon.add_vertex(gscene_x, gscene_y)
+                        if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                            vertex_color = 'r'
+                        else:
+                            vertex_color = 'b'
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
 
                     return True
 
@@ -1286,7 +1286,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     assert self.active_polygon.closed, 'Insertion is not allowed if polygon is not closed.'
                     new_index = find_vertex_insert_position(self.active_polygon, gscene_x, gscene_y)
-                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index)
+                    if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                        vertex_color = 'r'
+                    else:
+                        vertex_color = 'b'
+                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index, color=vertex_color)
 
                     return True
 

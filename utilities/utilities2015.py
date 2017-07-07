@@ -8,7 +8,7 @@ from operator import itemgetter
 from subprocess import check_output, call
 import json
 import cPickle as pickle
-import datetime
+from datetime import datetime
 
 from multiprocess import Pool
 from skimage.io import imread, imsave
@@ -28,15 +28,15 @@ from IPython.display import display
 
 def visualize_blob_contour(binary_img, bg_img):
     """
-    Args: 
+    Args:
         binary_img: the binary image
         rgb_img: the background image
-    
+
     Returns:
         Contoured image.
     """
     from registration_utilities import find_contour_points
-    
+
     viz = gray2rgb(bg_img)
     for cnt in find_contour_points(binary_img)[1]:
         cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, color=(255,0,0), thickness=2)
@@ -142,7 +142,11 @@ def create_parent_dir_if_not_exists(fp):
 
 def create_if_not_exists(path):
     if not os.path.exists(path):
-        os.makedirs(path)
+        try:
+            os.makedirs(path)
+        except Exception as e:
+            sys.stderr.write('%s\n' % e);
+
     return path
 
 def execute_command(cmd):
@@ -150,10 +154,10 @@ def execute_command(cmd):
 
     try:
         retcode = call(cmd, shell=True)
-        if retcode < 0:
-            print >>sys.stderr, "Child was terminated by signal", -retcode
-        else:
-            print >>sys.stderr, "Child returned", retcode
+        # if retcode < 0:
+            # print >>sys.stderr, "Child was terminated by signal", -retcode
+        # else:
+            # print >>sys.stderr, "Child returned", retcode
         return retcode
     except OSError as e:
         print >>sys.stderr, "Execution failed:", e
@@ -178,19 +182,19 @@ def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, 
     int(q[1] + arrow_magnitude * np.sin(angle - np.pi/4)))
     # draw second half of arrow head
     cv2.line(image, p, q, color, thickness, line_type, shift)
-    
+
 
 def save_hdf_v2(data, fn, key='data', mode='w'):
     """
     Save data as a hdf file.
     If data is dict of dict, convert to DataFrame before saving as hdf.
     If data is dict of elementary items, convert to pandas.Series before saving as hdf.
-    
+
     Args:
         data (pandas.DataFrame, dict or dict of dict)
         mode (str): if 'w', overwrite original content. If 'a', append.
     """
-    
+
     import pandas
     create_parent_dir_if_not_exists(fn)
     if isinstance(data, pandas.DataFrame):
@@ -200,7 +204,7 @@ def save_hdf_v2(data, fn, key='data', mode='w'):
             pandas.DataFrame(data).T.to_hdf(fn, key=key, mode='w')
         else:
             pandas.Series(data=data).to_hdf(fn, key, mode='w')
-    
+
 def load_hdf_v2(fn, key='data'):
     import pandas
     return pandas.read_hdf(fn, key)
@@ -487,13 +491,15 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
 #
 #     return patches_padded
 
-def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):
+def display_volume_sections_checkerboard(vol_f, vol_m, every=5, ncols=5, direction='z', start_level=None, **kwargs):
     """
     Args:
         direction (str): x,y or z
     """
-    
-    if direction == 'z':    
+
+    assert vol_f.shape == vol_m.shape
+
+    if direction == 'z':
         zmin, zmax = bbox_3d(vol)[4:]
         if start_level is None:
             zs = range(zmin+1, zmax, every)
@@ -517,7 +523,41 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
             ys = range(start_level, ymax, every)
         vizs = [vol[y, :, :] for y in ys]
         titles = ['y=%d' % y for y in ys]
-        
+
+    display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
+
+
+def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):
+    """
+    Args:
+        direction (str): x,y or z
+    """
+
+    if direction == 'z':
+        zmin, zmax = bbox_3d(vol)[4:]
+        if start_level is None:
+            zs = range(zmin+1, zmax, every)
+        else:
+            zs = range(start_level, zmax, every)
+        vizs = [vol[..., z] for z in zs]
+        titles = ['z=%d' % z  for z in zs]
+    elif direction == 'x':
+        xmin, xmax = bbox_3d(vol)[:2]
+        if start_level is None:
+            xs = range(xmin+1, xmax, every)
+        else:
+            xs = range(start_level, xmax, every)
+        vizs = [vol[:, x, :] for x in xs]
+        titles = ['x=%d' % x for x in xs]
+    elif direction == 'y':
+        ymin, ymax = bbox_3d(vol)[2:4]
+        if start_level is None:
+            ys = range(ymin+1, ymax, every)
+        else:
+            ys = range(start_level, ymax, every)
+        vizs = [vol[y, :, :] for y in ys]
+        titles = ['y=%d' % y for y in ys]
+
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
 
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
@@ -767,7 +807,7 @@ def apply_function_to_dict(func, d):
     Args:
         func:
             a function that takes as input the list consisting of a flatten list of values of `d`, and return a list.
-        d (dict {key: list}): 
+        d (dict {key: list}):
     """
     from itertools import chain
     result = func(list(chain(*d.values())))
@@ -868,5 +908,3 @@ def write_dict_to_txt(d, fn, fmt='%f'):
     with open(fn, 'w') as f:
         for k, vals in d.iteritems():
             f.write(k + ' ' +  (' '.join([fmt]*len(vals))) % tuple(vals) + '\n')
-
-            

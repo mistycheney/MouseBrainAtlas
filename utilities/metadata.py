@@ -55,11 +55,11 @@ if hostname == 'yuncong-MacbookPro':
     REPO_DIR = os.environ['REPO_DIR']
     ROOT_DIR = '/home/yuncong'
     RAW_DATA_DIR = '/home/yuncong/CSHL_data'
-    DATA_DIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
-    DATA_ROOTDIR = '/media/yuncong/YuncongPublic/CSHL_data_processed'
+    DATA_ROOTDIR = '/media/yuncong/YuncongPublic/'
+    DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     # thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
-    THUMBNAIL_DATA_DIR = '/home/yuncong/CSHL_data_processed'
-
+    THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+   
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
@@ -116,8 +116,11 @@ elif hostname.startswith('ip'):
         ROOT_DIR = os.environ['ROOT_DIR']
     else:
         ROOT_DIR = '/shared'
-
-    DATA_ROOTDIR = '/shared'
+        
+    if 'DATA_ROOTDIR' in os.environ:
+        DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
+    else:
+        DATA_ROOTDIR = '/shared'
 
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
@@ -125,7 +128,7 @@ elif hostname.startswith('ip'):
     S3_DATA_DIR = 'CSHL_data_processed'
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
-    DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'

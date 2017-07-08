@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack", type=str, help="Stack")
 parser.add_argument("filenames", type=str, help="Filenames")
 parser.add_argument("detector_id", type=int, help="Detector id")
-parser.add_argument("-v", "--input_img_version", type=str, help="Input image version", default='gray')
+#parser.add_argument("-v", "--input_img_version", type=str, help="Input image version", default='gray')
 args = parser.parse_args()
 
 stack = args.stack
@@ -34,6 +34,7 @@ detector_id = args.detector_id
 input_img_version = args.input_img_version
 
 detector_properties = detector_settings.loc[detector_id]
+input_img_version = int(detector_properties['input_version'])
 windowing_id = int(detector_properties['windowing_id'])
 model_name = detector_properties['feature_network']
 classifier_id = int(detector_properties['feature_classifier_id'])

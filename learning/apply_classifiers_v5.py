@@ -31,10 +31,10 @@ args = parser.parse_args()
 stack = args.stack
 filenames = json.loads(args.filenames)
 detector_id = args.detector_id
-input_img_version = args.input_img_version
+#input_img_version = args.input_img_version
 
 detector_properties = detector_settings.loc[detector_id]
-input_img_version = int(detector_properties['input_version'])
+input_img_version = detector_properties['input_version']
 windowing_id = int(detector_properties['windowing_id'])
 model_name = detector_properties['feature_network']
 classifier_id = int(detector_properties['feature_classifier_id'])

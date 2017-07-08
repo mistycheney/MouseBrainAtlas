@@ -49,8 +49,7 @@ for fn in filenames:
     # try:
     t = time.time()
     img_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, resol='lossless')
-    print img_fp
-    download_from_s3(img_fp)
+    download_from_s3(img_fp, local_root=DATA_ROOTDIR)
     
     sys.stderr.write('Download: %.2f seconds\n' % (time.time() - t))
 
@@ -109,7 +108,7 @@ for fn in filenames:
         sys.stderr.write('Save: %.2f seconds\n' % (time.time() - t))
 
         t = time.time()
-        upload_to_s3(output_fp)
+        upload_to_s3(output_fp, local_root=DATA_ROOTDIR)
         sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
     else:
@@ -131,7 +130,7 @@ for fn in filenames:
         sys.stderr.write('Save: %.2f seconds\n' % (time.time() - t))
 
         t = time.time()
-        upload_to_s3(output_fp)
+        upload_to_s3(output_fp, local_root=DATA_ROOTDIR)
         sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
         # else:

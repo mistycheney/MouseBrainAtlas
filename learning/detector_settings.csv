@@ -1,4 +1,8 @@
 detector_id,input_version,windowing_id,feature_network,feature_classifier_id
 1,gray,1,inception-bn-blue,38
 2,grayL500H0,1,inception-bn-blue,38
+3,grayL1000H0,1,inception-bn-blue,38
+4,grayL1500H0,1,inception-bn-blue,38
+5,grayL2000H0,1,inception-bn-blue,38
+6,grayL2500H0,1,inception-bn-blue,38
 

@@ -54,6 +54,7 @@ def generate_scoremap_layer(stack, structure, downscale, detector_id,
     
     Args:
         structure: structure name
+        show_above: only show scoremap with score higher than this value.
     '''
 
     if fn is None:
@@ -71,11 +72,12 @@ def generate_scoremap_layer(stack, structure, downscale, detector_id,
     try:
         dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
                             detector_id=detector_id, structure=structure, downscale=32)
+        # Only use down32 because downsampling of 32 already exceeds the patch resolution (56 pixels).
+        # Higher downsampling factor just shows artificial data, which is not better than rescaling down32.
         dense_score_map = np.minimum(rescale(dense_score_map, 32/float(downscale)), 1.)
         mask = dense_score_map > show_above
-        # scoremap_viz = plt.cm.hot(dense_score_map)[..., :3]
         cmap = plt.get_cmap(cmap_name)
-        scoremap_viz = cmap(dense_score_map)[..., :3]
+        scoremap_viz = cmap(dense_score_map)[..., :3] # cmap() must take values between 0 and 1.
     except Exception as e:
         raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 
@@ -98,11 +100,13 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, detector_id, label_
             classifier_properties = classifier_settings.loc[classifier_id]
             image_version = classifier_properties['input_img_version']
 
-        if out_downscale == 32:
-            bg = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='thumbnail', version='cropped')
-        else:
-            im = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='lossless', version=image_version)
-            bg = im[::out_downscale, ::out_downscale]
+        # if out_downscale == 32 and image_version == '':
+        #     # bg = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='thumbnail', version='cropped')
+        #     bg = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='thumbnail', prep_id=2)
+        # else:
+        # im = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='lossless', version=image_version)
+        im = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='lossless', prep_id=2, version=image_version)
+        bg = im[::out_downscale, ::out_downscale]
     else:
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
         bg = rescale(bg, float(in_downscale)/out_downscale)

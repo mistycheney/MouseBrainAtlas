@@ -898,12 +898,12 @@ class Aligner4(object):
             if parallel:
                 pool = Pool(processes=8)
                 scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy),
-                                                        indices_m=indices_m), samples)
+                                                        indices_m=indices_m, tf_type='affine'), samples)
                 pool.close()
                 pool.join()
             else:
             # serial
-                scores = [self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m)
+                scores = [self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m, tf_type='affine')
                             for tx, ty, tz, theta_xy in samples]
 
             sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
@@ -1182,9 +1182,16 @@ class Aligner4(object):
         grad_adjusted = grad / np.sqrt(grad_historical + 1e-10)
         new_T = T + lr*grad_adjusted
         
-        # Limit the deformation at all control points.
+        # Constrain the transform
         if tf_type == 'bspline':
+            # Limit the deformation at all control points to be less than 100.
             new_T = np.sign(new_T) * np.minimum(np.abs(new_T), 100)
+        elif tf_type == 'affine':
+            pass
+            # new_T[0] = np.sign(new_T[0]) * np.maximum(np.abs(new_T[0]), 0.8)
+            # new_T[5] = np.sign(new_T[5]) * np.maximum(np.abs(new_T[5]), 0.8)
+            # new_T[10] = np.sign(new_T[10]) * np.maximum(np.abs(new_T[10]), 0.8)
+            
 
         # AdaDelta Rule
         # gamma = .9
@@ -2069,7 +2076,7 @@ def transform_volume_v2(vol, tf_params, centroid_m, centroid_f):
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
-    nzs_m_aligned_to_f = transform_points(tf_params, pts=nzvoxels_m_temp,
+    nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp,
                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
 
     nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
@@ -2115,7 +2122,7 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f=None, yd
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
-    nzs_m_aligned_to_f = transform_points(global_params, pts=nzvoxels_m_temp,
+    nzs_m_aligned_to_f = transform_points_affine(global_params, pts=nzvoxels_m_temp,
                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
 
     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)

@@ -61,9 +61,6 @@ echo "sudosgeadmin() { sudo -u sgeadmin -i \$1; }" >> /home/ubuntu/.bashrc
 # after manually changing it in the aws web console.
 echo "increase_ebs_size() { sudo resize2fs /dev/xvdb; }" >> /home/ubuntu/.bashrc
 
-# Set an alias for starting the notebook.
-echo "start_notebook() { jupyter notebook --notebook-dir \$1 & }" >> /home/ubuntu/.bashrc
-
 #################################
 
 # Code repo
@@ -73,3 +70,12 @@ chown -R ubuntu $REPO_DIR
 
 # Set environment variable.
 echo "export REPO_DIR=$REPO_DIR" >> /home/ubuntu/.bashrc
+
+##################################
+
+# Start the notebook if is master.
+case ${cfn_node_type} in
+MasterServer)
+    screen; jupyter notebook --notebook-dir $REPO_DIR; screen -d
+    ;;
+esac

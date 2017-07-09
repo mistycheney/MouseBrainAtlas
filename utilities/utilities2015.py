@@ -26,6 +26,15 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def rescale_intensity_v2(im, low, high):
+    from skimage.exposure import rescale_intensity
+    if low > high:
+        im_out = rescale_intensity(low-im.astype(np.int), (0, low-high), (0, 255)).astype(np.uint8)
+    else:
+        im_out = rescale_intensity(im.astype(np.int), (low, high), (0, 255)).astype(np.uint8)
+    return im_out
+
+
 def visualize_blob_contour(binary_img, bg_img):
     """
     Args:

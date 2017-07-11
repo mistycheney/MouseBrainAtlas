@@ -37,13 +37,6 @@ filenames = json.loads(args.filenames)
 use_section_specific_mapping = args.use_sec_specific
 output_version = args.output_version
 
-def rescale_intensity_v2(im, low, high):
-    if low > high:
-        im_out = rescale_intensity(low-im.astype(np.int), (0, low-high), (0, 255)).astype(np.uint8)
-    else:
-        im_out = rescale_intensity(im.astype(np.int), (low, high), (0, 255)).astype(np.uint8)
-    return im_out
-
 for fn in filenames:
     
     # try:

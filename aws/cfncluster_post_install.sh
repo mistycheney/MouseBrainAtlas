@@ -6,6 +6,7 @@ echo "export AWS_SECRET_ACCESS_KEY=$3" >> /home/ubuntu/.bashrc
 echo "export AWS_DEFAULT_REGION=$4" >> /home/ubuntu/.bashrc
 
 sudo apt-get update
+sudo apt install -y python-pip
 
 # Install all Python packages
 sudo pip install --upgrade pip
@@ -74,8 +75,8 @@ echo "export REPO_DIR=$REPO_DIR" >> /home/ubuntu/.bashrc
 ##################################
 
 # Start the notebook if is master.
-case ${cfn_node_type} in
-MasterServer)
-    screen; jupyter notebook --notebook-dir $REPO_DIR; screen -d
-    ;;
-esac
+. /etc/cfncluster/cfnconfig
+
+if [ "$cfn_node_type" == "MasterServer" ]; then
+    screen -d -m bash -c "jupyter notebook /shared/MouseBrainAtlas"
+fi

@@ -717,7 +717,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
                                     if p.properties['label'] == name_u and \
                                     p.properties['side'] == side and \
-                                    p.properties['type'] != 'interpolated']
+                                    p.properties['type'] == 'confirmed']
             else:
                 matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
                 if p.properties['label'] == name_u and p.properties['side'] == side]

@@ -165,7 +165,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # t = time.time()
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
                                                     linecolor='r', vertex_radius=8, linewidth=5, section=sec,
-                                                    type='interpolated',
+                                                    type='intersected',
                                                     side=side,
                                                     side_manually_assigned=False)
                 # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
@@ -206,7 +206,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                     linecolor='g', vertex_radius=1, linewidth=2, index=pos+xmin_ds,
-                                                    type='interpolated',
+                                                    type='intersected',
                                                     side=side,
                                                     side_manually_assigned=False)
             elif self.data_feeder.orientation == 'horizontal':
@@ -223,7 +223,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                         linecolor='g', vertex_radius=1, linewidth=2, index=pos+ymin_ds,
-                                                        type='interpolated',
+                                                        type='intersected',
                                                         side=side,
                                                         side_manually_assigned=False)
             elif self.data_feeder.orientation == 'sagittal':
@@ -240,7 +240,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                         linecolor='g', vertex_radius=1, linewidth=2, index=pos+zmin_ds,
-                                                        type='interpolated',
+                                                        type='intersected',
                                                         side=side,
                                                         side_manually_assigned=False)
 
@@ -443,7 +443,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
                 if 'flags' in contours and contour['flags'] is not None:
-                    contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+                    contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
                 else:
                     contour_type = None
                 if 'class' in contours and contour['class'] is not None:

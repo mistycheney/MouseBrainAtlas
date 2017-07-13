@@ -296,7 +296,7 @@ class DataManager(object):
     @staticmethod
     def load_anchor_filename(stack):
         fp = DataManager.get_anchor_filename_filename(stack)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
@@ -310,7 +310,7 @@ class DataManager(object):
     @staticmethod
     def load_cropbox(stack, anchor_fn=None):
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         cropbox = DataManager.load_data(fp, filetype='bbox')
         return cropbox
 
@@ -329,7 +329,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_sorted_filenames_filename(stack)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
@@ -352,7 +352,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         Ts = DataManager.load_data(fp, filetype='pickle')
 
         if use_inverse:
@@ -379,10 +379,10 @@ class DataManager(object):
     # def get_original_volume_basename(stack, classifier_setting=None, downscale=32, volume_type='score', **kwargs):
     #     return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
     #     downscale=downscale, type_m=volume_type)
-    
+
     @staticmethod
     def get_original_volume_basename(stack, prep_id=None, detector_id=None, downscale=32, structure=None, volume_type='score', **kwargs):
-        
+
         components = []
         if prep_id is not None:
             components.append('prep%(prep)d' % {'prep':prep_id})
@@ -396,34 +396,39 @@ class DataManager(object):
         if structure is not None:
             basename += '_' + structure
         return basename
-    
+
     @staticmethod
-    def get_warped_volume_basename(stack_m, 
-                                   stack_f,
-                                   warp_setting,
-                                   prep_id_m=None, 
+    def get_warped_volume_basename(stack_m,
+                                   stack_f=None,
+                                   warp_setting=None,
+                                   prep_id_m=None,
                                    prep_id_f=None,
                                    detector_id_m=None,
                                    detector_id_f=None,
-                                   downscale=32, 
+                                   downscale=32,
                                    structure_m=None,
                                    structure_f=None,
                                    vol_type_m='score',
-                                   vol_type_f='score', 
+                                   vol_type_f='score',
                                    trial_idx=None,
                                    **kwargs):
-        
+
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
                                                   downscale=downscale, volume_type=vol_type_m, structure=structure_m)
-        basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f, 
-                                                  downscale=downscale, volume_type=vol_type_f, structure=structure_f)
-        vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
         
+        if stack_f is None:
+            assert warp_setting is None
+            vol_name = basename_m
+        else:
+            basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
+                                                  downscale=downscale, volume_type=vol_type_f, structure=structure_f)
+            vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
+
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-            
+
         return vol_name
-    
+
 #     @staticmethod
 #     def get_warped_volume_basename(stack_m, stack_f=None,
 #                                 classifier_setting_m=None,
@@ -480,7 +485,7 @@ class DataManager(object):
 #     classifier_setting_m=None, classifier_setting_f=None,
 #     type_f='score', type_m='score', prep_m=2, prep_f=2, param_suffix=None,
 #     downscale=32, trial_idx=None):
-        
+
 #         # basename = DataManager.get_warped_volume_basename(**locals())
 #         # if param_suffix is None:
 #         #     return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
@@ -492,35 +497,35 @@ class DataManager(object):
 #         #                         {'param_suffix':param_suffix})
 
 #         if param_suffix is None:
-#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s', 
+#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
 #                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume',
 #                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume_parameters.txt') % \
 #             {'stack_m':stack_m, 'stack_f':stack_f, 'prep_m':prep_m, 'detector_id':detector_id, 'svdown':downscale, 'struct':structure}
 #             return vol_fp
 
 #         else:
-#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s', 
+#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
 #                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume',
 #                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume_parameters_%(suffix)s.txt') % \
 #             {'stack':stack, 'prep':prep_id, 'detector_id':detector_id, 'svdown':downscale, 'struct':structure,
 #             'suffix':param_suffix}
 
     @staticmethod
-    def get_alignment_parameters_filepath(stack_f, stack_m, 
+    def get_alignment_parameters_filepath(stack_f, stack_m,
                                           warp_setting,
-                                          prep_id_m=None, prep_id_f=None, 
+                                          prep_id_m=None, prep_id_f=None,
                                           detector_id_m=None, detector_id_f=None,
                                           structure_f=None, structure_m=None,
                                           vol_type_f='score', vol_type_m='score', 
                                           downscale=32, 
                                           trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
-        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s', 
+        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
                               '%(basename)s',
-                              '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}            
+                              '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
         return fp
 
-        
+
     # @staticmethod
     # def load_alignment_parameters(stack_f, stack_m, warp_setting,
     # classifier_setting_m=None, classifier_setting_f=None,
@@ -529,7 +534,7 @@ class DataManager(object):
     #     params_fp = DataManager.get_alignment_parameters_filepath(**locals())
     #     download_from_s3(params_fp)
     #     return DataManager.load_data(params_fp, 'transform_params')
-    
+
     @staticmethod
     def load_alignment_parameters(stack_f, stack_m, warp_setting,
                                   prep_id_m=None, prep_id_f=None,
@@ -569,7 +574,7 @@ class DataManager(object):
             ext = 'png'
         fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, reg_basename, reg_basename + '_' + what + '.' + ext)
         return fp
-    
+
 #     @staticmethod
 #     def get_alignment_score_plot_filepath(stack_f, stack_m, warp_setting,
 #     classifier_setting_m=None, classifier_setting_f=None,
@@ -584,14 +589,14 @@ class DataManager(object):
 #             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
 #                             basename, basename + '_scoreEvolution_%(param_suffix)s.png' % \
 #                             {'param_suffix': param_suffix})
-    
+
     # @staticmethod
-    # def get_alignment_parameter_basename(stack_f, stack_m, 
+    # def get_alignment_parameter_basename(stack_f, stack_m,
     #                                       warp_setting,
-    #                                       prep_id_m=None, prep_id_f=None, 
+    #                                       prep_id_m=None, prep_id_f=None,
     #                                       detector_id_m=None, detector_id_f=None,
-    #                                       vol_type_f='score', vol_type_m='score', 
-    #                                       param_suffix=None, downscale=32, 
+    #                                       vol_type_f='score', vol_type_m='score',
+    #                                       param_suffix=None, downscale=32,
     #                                       trial_idx=None):
     #     param_name = DataManager.get_warped_volume_basename(**locals())
     #     if param_suffix is not None:
@@ -615,22 +620,22 @@ class DataManager(object):
 #                                 {'param_suffix':param_suffix})
 
     # @staticmethod
-    # def get_score_history_filepath(stack_f, stack_m, 
+    # def get_score_history_filepath(stack_f, stack_m,
     #                               warp_setting,
-    #                               prep_id_m=None, prep_id_f=None, 
+    #                               prep_id_m=None, prep_id_f=None,
     #                               detector_id_m=None, detector_id_f=None,
-    #                               vol_type_f='score', vol_type_m='score', 
-    #                               param_suffix=None, downscale=32, 
+    #                               vol_type_f='score', vol_type_m='score',
+    #                               param_suffix=None, downscale=32,
     #                               trial_idx=None):
     #     vol_name = DataManager.get_warped_volume_basename(**locals())
     #     vol_name + '_scoreHistory.bp'
     #     # basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
     #     #                                           downscale=downscale, volume_type=vol_type_m)
-    #     # basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f, 
+    #     # basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
     #     #                                           downscale=downscale, volume_type=vol_type_f)
     #     # vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
     #     return vol_name
-        
+
 #         basename = DataManager.get_warped_volume_basename(**locals())
 
 #         if param_suffix is None:
@@ -794,12 +799,12 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-        return os.path.join(SPARSE_SCORES_ROOTDIR, stack, 
+        return os.path.join(SPARSE_SCORES_ROOTDIR, stack,
                             fn + '_prep%d'%prep_id + '_' + version,
                             'detector%d'%detector_id,
                             fn + '_prep%d'%prep_id + '_' + version + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
 
-    
+
 #     @staticmethod
 #     def get_sparse_scores_filepath(stack, structure, classifier_id, sec=None, fn=None, anchor_fn=None):
 #         if fn is None:
@@ -947,13 +952,13 @@ class DataManager(object):
     @staticmethod
     def load_mesh(stack_m,
                                     structure,
-                                    classifier_setting_m=None,
+                                    detector_id_m=None,
                                     stack_f=None,
-                                    classifier_setting_f=None,
+                                    detector_id_f=None,
                                     warp_setting=None,
                                     downscale=32,
-                                    type_m='score', type_f='score',
-                                    trial_idx=0,
+                                    vol_type_m='score', vol_type_f='score',
+                                    trial_idx=None,
                                     return_polydata_only=True,
                                     **kwargs):
         mesh_fp = DataManager.get_mesh_filepath(**locals())
@@ -962,36 +967,72 @@ class DataManager(object):
             raise Exception('Mesh is empty: %s.' % structure)
         return mesh
 
-    @staticmethod
-    def load_mesh_atlasV2(stack_m,
-                                    structure,
-                                    classifier_setting_m=None,
-                                    stack_f=None,
-                                    classifier_setting_f=None,
-                                    warp_setting=None,
-                                    downscale=32,
-                                    type_m='score', type_f='score',
-                                    trial_idx=0,
-                                    return_polydata_only=True,
-                                    **kwargs):
-        """
-        For backward compatibility.
-        """
+#     @staticmethod
+#     def load_mesh_atlasV2(stack_m,
+#                                     structure,
+#                                     classifier_setting_m=None,
+#                                     stack_f=None,
+#                                     classifier_setting_f=None,
+#                                     warp_setting=None,
+#                                     downscale=32,
+#                                     type_m='score', type_f='score',
+#                                     trial_idx=0,
+#                                     return_polydata_only=True,
+#                                     **kwargs):
+#         """
+#         For backward compatibility.
+#         """
 
-        mesh_fp = DataManager.get_mesh_filepath_atlasV2(**locals())
-        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
-        if mesh is None:
-            raise Exception('Mesh is empty: %s.' % structure)
-        return mesh
+#         mesh_fp = DataManager.get_mesh_filepath_atlasV2(**locals())
+#         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
+#         if mesh is None:
+#             raise Exception('Mesh is empty: %s.' % structure)
+#         return mesh
+
+#     @staticmethod
+#     def load_meshes(stack_m,
+#                                     stack_f=None,
+#                                     classifier_setting_m=None,
+#                                     classifier_setting_f=None,
+#                                     warp_setting=None,
+#                                     downscale=32,
+#                                     type_m='score', type_f='score',
+#                                     trial_idx=None,
+#                                     structures=None,
+#                                     sided=True,
+#                                     return_polydata_only=True,
+#                                    include_surround=False):
+
+#         kwargs = locals()
+
+#         if structures is None:
+#             if sided:
+#                 if include_surround:
+#                     structures = all_known_structures_sided_with_surround
+#                 else:
+#                     structures = all_known_structures_sided
+#             else:
+#                 structures = all_known_structures
+
+#         meshes = {}
+#         for structure in structures:
+#             try:
+#                 meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
+#             except Exception as e:
+#                 sys.stderr.write('%s\n' % e)
+#                 sys.stderr.write('Error loading mesh for %s.\n' % structure)
+
+#         return meshes
+
 
     @staticmethod
     def load_meshes(stack_m,
                                     stack_f=None,
-                                    classifier_setting_m=None,
-                                    classifier_setting_f=None,
+                                    detector_id_m=None,
+                                    detector_id_f=None,
                                     warp_setting=None,
                                     downscale=32,
-                                    type_m='score', type_f='score',
+                                    vol_type_m='score', vol_type_f='score',
                                     trial_idx=None,
                                     structures=None,
                                     sided=True,
@@ -1014,44 +1055,43 @@ class DataManager(object):
             try:
                 meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
             except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Error loading mesh for %s.\n' % structure)
+                sys.stderr.write('Error loading mesh for %s: %s.\n' % (structure, e))
 
         return meshes
 
-    @staticmethod
-    def load_meshes_atlasV2(stack_m,
-                                    stack_f=None,
-                                    classifier_setting_m=None,
-                                    classifier_setting_f=None,
-                                    warp_setting=None,
-                                    downscale=32,
-                                    type_m='score', type_f='score',
-                                    trial_idx=None,
-                                    structures=None,
-                                    sided=True,
-                                    return_polydata_only=True):
-        """
-        For backward compatibility.
-        """
+#     @staticmethod
+#     def load_meshes_atlasV2(stack_m,
+#                                     stack_f=None,
+#                                     classifier_setting_m=None,
+#                                     classifier_setting_f=None,
+#                                     warp_setting=None,
+#                                     downscale=32,
+#                                     type_m='score', type_f='score',
+#                                     trial_idx=None,
+#                                     structures=None,
+#                                     sided=True,
+#                                     return_polydata_only=True):
+#         """
+#         For backward compatibility.
+#         """
 
-        kwargs = locals()
+#         kwargs = locals()
 
-        if structures is None:
-            if sided:
-                structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
+#         if structures is None:
+#             if sided:
+#                 structures = all_known_structures_sided
+#             else:
+#                 structures = all_known_structures
 
-        meshes = {}
-        for structure in structures:
-            try:
-                meshes[structure] = DataManager.load_mesh_atlasV2(structure=structure, **kwargs)
-            except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Error loading mesh for %s.\n' % structure)
+#         meshes = {}
+#         for structure in structures:
+#             try:
+#                 meshes[structure] = DataManager.load_mesh_atlasV2(structure=structure, **kwargs)
+#             except Exception as e:
+#                 sys.stderr.write('%s\n' % e)
+#                 sys.stderr.write('Error loading mesh for %s.\n' % structure)
 
-        return meshes
+#         return meshes
 
     # @staticmethod
     # def load_transformed_volume_meshes(stack_m,
@@ -1148,34 +1188,35 @@ class DataManager(object):
 
     @staticmethod
     def get_mesh_filepath(stack_m,
-                                            structure,
-                                            classifier_setting_m=None,
-                                            classifier_setting_f=None,
-                                            warp_setting=None,
-                                            stack_f=None,
-                                            downscale=32,
-                                            type_m='score', type_f='score',
-                                            trial_idx=None, **kwargs):
+                            structure,
+                            detector_id_m=None,
+                            detector_id_f=None,
+                            warp_setting=None,
+                            stack_f=None,
+                            downscale=32,
+                            vol_type_m='score', 
+                          vol_type_f='score',
+                            trial_idx=None, **kwargs):
         basename = DataManager.get_warped_volume_basename(**locals())
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
-    @staticmethod
-    def get_mesh_filepath_atlasV2(stack_m,
-                                            structure,
-                                            classifier_setting_m=None,
-                                            classifier_setting_f=None,
-                                            warp_setting=None,
-                                            stack_f=None,
-                                            downscale=32,
-                                            type_m='score', type_f='score',
-                                            trial_idx=None, **kwargs):
-        """
-        For backward compatibility.
-        """
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fn = basename + '_%s' % structure
-        return os.path.join(MESH_ROOTDIR, stack_m, basename, 'structure_mesh', fn + '.stl')
+    # @staticmethod
+    # def get_mesh_filepath_atlasV2(stack_m,
+    #                                         structure,
+    #                                         classifier_setting_m=None,
+    #                                         classifier_setting_f=None,
+    #                                         warp_setting=None,
+    #                                         stack_f=None,
+    #                                         downscale=32,
+    #                                         type_m='score', type_f='score',
+    #                                         trial_idx=None, **kwargs):
+    #     """
+    #     For backward compatibility.
+    #     """
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fn = basename + '_%s' % structure
+    #     return os.path.join(MESH_ROOTDIR, stack_m, basename, 'structure_mesh', fn + '.stl')
 
     # @staticmethod
     # def get_transformed_volume_mesh_filepath(stack_m,
@@ -1190,7 +1231,11 @@ class DataManager(object):
     #     basename = DataManager.get_warped_volume_basename(**locals())
     #     fn = basename + '_%s' % structure
     #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
-
+    
+    ###############
+    # Volumes I/O #
+    ###############
+    
     @staticmethod
     def load_volume_all_known_structures(stack_m, stack_f,
                                         warp_setting,
@@ -1226,10 +1271,10 @@ class DataManager(object):
         fp = DataManager.get_transformed_volume_filepath(**locals())
         download_from_s3(fp)
         return DataManager.load_data(fp, filetype='bp')
-    
+
 
     @staticmethod
-    def load_transformed_volume_all_known_structures(stack_m, 
+    def load_transformed_volume_all_known_structures(stack_m,
                                                      stack_f,
                                                     warp_setting,
                                                     detector_id_m=None,
@@ -1547,19 +1592,19 @@ class DataManager(object):
 
     @staticmethod
     def get_score_volume_filepath(stack, structure, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)        
-        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s', 
-                              '%(basename)s', 
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
                               'score_volumes',
                              '%(basename)s_%(struct)s.bp') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
         return vol_fp
-    
+
     @staticmethod
     def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)        
-        fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s', 
-                              '%(basename)s', 
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+        fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
                               'score_volumes',
                              '%(basename)s_%(struct)s_bbox.txt') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
@@ -1567,9 +1612,9 @@ class DataManager(object):
 
     @staticmethod
     def get_volume_gradient_filepath_template(stack, structure, prep_id=None, detector_id=None, downscale=32, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)        
-        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s', 
-                              '%(basename)s', 
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
                               'score_volume_gradients',
                              '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
@@ -1737,11 +1782,11 @@ class DataManager(object):
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
-        
+
         scoremap_viz_fp = os.path.join(SCOREMAP_VIZ_ROOTDIR, 'down%(smdown)d',
                                        '%(struct)s', '%(stack)s', 'detector%(detector_id)d',
                                        'prep%(prep)s', '%(fn)s_prep%(prep)d_down%(smdown)d_%(struct)s_detector%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'smdown':downscale, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
-        
+
         return scoremap_viz_fp
 
 #     @staticmethod
@@ -1769,10 +1814,10 @@ class DataManager(object):
 #             fn = metadata_cache['sections_to_filenames'][stack][section]
 #             if is_invalid(fn):
 #                 raise Exception('Section is invalid: %s.' % fn)
-        
-#         scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(smdown)d', 
-#                                             '%(stack)s', 
-#                                             '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d', 
+
+#         scoremap_bp_filepath = os.path.join(ROOT_DIR, 'CSHL_scoremaps_down%(smdown)d',
+#                                             '%(stack)s',
+#                                             '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
 #                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
 #                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d_%(structure)s.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'smdown':downscale, 'detector_id': detector_id, 'structure':structure}
 
@@ -1785,15 +1830,15 @@ class DataManager(object):
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
-        
-        scoremap_bp_filepath = os.path.join(SCOREMAP_ROOTDIR, 'down%(smdown)d', 
-                                            '%(stack)s', 
-                                            '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d', 
+
+        scoremap_bp_filepath = os.path.join(SCOREMAP_ROOTDIR, 'down%(smdown)d',
+                                            '%(stack)s',
+                                            '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d_%(structure)s_scoremap.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'smdown':downscale, 'detector_id': detector_id, 'structure':structure}
 
         return scoremap_bp_filepath
-    
+
     @staticmethod
     def load_downscaled_scoremap(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None):
         """
@@ -1816,8 +1861,8 @@ class DataManager(object):
         Return scoremap as bp file.
         """
         return DataManager.load_downscaled_scoremap(**locals())
-        
-    
+
+
 #     @staticmethod
 #     def load_downscaled_scoremap(stack, structure, classifier_id, section=None, fn=None, anchor_fn=None, downscale=32):
 #         """
@@ -1908,7 +1953,7 @@ class DataManager(object):
     #     indices = locs[:, 0]
     #     locations = locs[:, 1:]
     #     return indices, locations
-    
+
     # @staticmethod
     # def load_dnn_feature_locations(stack, model_name, section=None, fn=None, prep_id=2, win=1, input_img_version='gray'):
     #     fp = DataManager.get_dnn_feature_locations_filepath(stack=stack, model_name=model_name, section=section, fn=fn, prep_id=prep_id, input_img_version=input_img_version, win=win)
@@ -1917,7 +1962,7 @@ class DataManager(object):
     #     indices = locs[:, 0]
     #     locations = locs[:, 1:]
     #     return indices, locations
-    
+
     @staticmethod
     def load_patch_locations(stack, win, section=None, fn=None, prep_id=2, input_img_version='gray'):
         fp = DataManager.get_patch_locations_filepath(**locals())
@@ -1926,7 +1971,7 @@ class DataManager(object):
         indices = locs[:, 0]
         locations = locs[:, 1:]
         return indices, locations
-    
+
 #     @staticmethod
 #     def get_dnn_feature_locations_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
 
@@ -1952,9 +1997,9 @@ class DataManager(object):
 
 #         if fn is None:
 #             fn = metadata_cache['sections_to_filenames'][stack][section]
-#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
-#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
-#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_patch_locations.txt')        
+#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_patch_locations.txt')
 #         return feature_locs_fp
 
 #     @staticmethod
@@ -1962,9 +2007,9 @@ class DataManager(object):
 
 #         if fn is None:
 #             fn = metadata_cache['sections_to_filenames'][stack][section]
-#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, stack, 
-#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
-#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+#         feature_locs_fp = os.path.join(PATCH_FEATURES_ROOTDIR, stack,
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')
 #         return feature_locs_fp
 
     @staticmethod
@@ -1972,21 +2017,21 @@ class DataManager(object):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-        feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack, 
-                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
-                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+        feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack,
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')
         return feature_locs_fp
-    
+
 #     @staticmethod
 #     def get_patch_locations_filepath_v2(stack, win, section=None, fn=None, prep_id=2, input_img_version='gray'):
 
 #         if fn is None:
 #             fn = metadata_cache['sections_to_filenames'][stack][section]
-#         feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack, 
-#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
-#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')        
+#         feature_locs_fp = os.path.join(PATCH_LOCATIONS_ROOTDIR, stack,
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_patchLocations.txt')
 #         return feature_locs_fp
-    
+
 #     @staticmethod
 #     def get_dnn_features_filepath(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
 #         """
@@ -2015,16 +2060,16 @@ class DataManager(object):
         """
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
- 
+
         if suffix is None:
-            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
-                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
         else:
-            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack, 
-                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}, 
+            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
+                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features_' + suffix + '.bp')
-            
+
         return feature_fp
 
     @staticmethod
@@ -2048,7 +2093,7 @@ class DataManager(object):
             pass
 
         return bp.unpack_ndarray_file(features_fp)
-    
+
 #     @staticmethod
 #     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
 #         """
@@ -2190,7 +2235,10 @@ class DataManager(object):
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         img_fp = DataManager.get_image_filepath_v2(**locals())
-        download_from_s3(img_fp, local_root=DATA_ROOTDIR)
+        if resol == 'lossless':
+            download_from_s3(img_fp, local_root=DATA_ROOTDIR)
+        else:
+            download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         return imread(img_fp)
 
     @staticmethod

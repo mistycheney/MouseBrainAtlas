@@ -8,6 +8,9 @@ from SignalEmittingItems import *
 from ZoomableBrowsableGraphicsSceneWithReadonlyPolygon import ZoomableBrowsableGraphicsSceneWithReadonlyPolygon
 from SignalEmittingGraphicsPathItemWithVertexCircles import SignalEmittingGraphicsPathItemWithVertexCircles
 
+sys.path.append(os.environ['REPO_DIR'] + '/utilities')
+from metadata import *
+
 class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon):
     """
     Extend base class by:
@@ -79,7 +82,6 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             contour_id=None,
                                             position=None,
                                             category='contour'):
-
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
@@ -103,6 +105,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon.set_properties('side_manually_assigned', side_manually_assigned)
         polygon.set_properties('contour_id', contour_id) # Could be None - will be generated new in convert_drawings_to_entries()
 
+        polygon.set_properties('orientation', self.data_feeder.orientation)
+
         if edits is None or len(edits) == 0:
             polygon.set_properties('edits',
             [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
@@ -110,6 +114,18 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             polygon.set_properties('edits', edits)
 
         polygon.set_properties('class', category)
+
+        if hasattr(self.data_feeder, 'sections'):
+            polygon.set_properties('section', section)
+            d_voxel = np.mean(self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample))
+            d_um = d_voxel * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            polygon.set_properties('position_um', d_um)
+            # print 'd_voxel', d_voxel, 'position_um', d_um
+        else:
+            polygon.set_properties('voxel_position', index)
+            d_um = index * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            polygon.set_properties('position_um', d_um)
+            # print 'index', index, 'position_um', d_um
 
         return polygon
 

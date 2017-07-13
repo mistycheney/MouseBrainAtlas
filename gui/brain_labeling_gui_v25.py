@@ -45,10 +45,9 @@ class ReadImagesThread(QThread):
 
     def run(self):
         for sec in self.sections:
-            # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
             try:
-                # fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
-                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='grayJpeg')
+                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
             except Exception as e:
                 sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue
@@ -78,14 +77,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.button_save.clicked.connect(self.save)
         self.button_saveMarkers.clicked.connect(self.save_markers)
+        self.button_saveStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load)
         self.button_loadMarkers.clicked.connect(self.load_markers)
+        self.button_loadStructures.clicked.connect(self.load_structures)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
-        self.structure_volumes = {}
+        self.structure_volumes = defaultdict(dict)
         # self.structure_adjustments_3d = defaultdict(list)
 
         self.volume_cache = {}
@@ -97,7 +98,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 sys.stderr.write('Intensity volume of downsample %d does not exist.\n' % ds)
 
         self.splitter.setSizes([500, 500, 500])
-        self.splitter_3.setSizes([1000, 500])
+        self.splitter_2.setSizes([1000, 500])
 
         self.sagittal_tb_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal_tb', gui=self, gview=self.sagittal_tb_gview)
         self.sagittal_tb_gview.setScene(self.sagittal_tb_gscene)
@@ -422,7 +423,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.itervalues():
             for section_index, polygons in gscene.drawings.iteritems():
                 for polygon in polygons:
-                    if polygon.type == 'interpolated':
+                    if polygon.type != 'confirmed':
                         polygon.setVisible(not bool(checked))
 
     @pyqtSlot()
@@ -454,49 +455,91 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
         save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
 
+    @pyqtSlot()
+    def save_structures(self):
+        """
+        Save 3D structure volumes.
+        """
+
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        import uuid
+
+        entries = {}
+        for (name, side), v in self.structure_volumes.iteritems():
+            entry = {}
+            entry['volume_in_bbox'] = v['volume_in_bbox']
+            entry['bbox'] = v['bbox']
+            entry['name'] = name
+            entry['side'] = side
+            if 'edits' not in v or v['edits'] is None or len(v['edits']) == 0:
+                entry['edits'] =  [{'username':self.username, 'timestamp':timestamp}]
+            else:
+                entry['edits'] =  v['edits'] + [{'username':self.username, 'timestamp':timestamp}]
+
+            if hasattr(v, 'structure_id') and v.properties['structure_id'] is not None:
+                structure_id = v.properties['structure_id']
+            else:
+                structure_id = str(uuid.uuid4().fields[-1])
+
+            entries[structure_id] = entry
+
+        structure_df = DataFrame(entries).T
+        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
+        save_hdf_v2(structure_df, structure_df_fp)
 
     @pyqtSlot()
     def save(self):
         """
-        Save polygons.
+        Save structure boundaries.
         """
 
         timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
         # Save sagittal
-        sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
+        sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # print sagittal_contour_entries_curr_session
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T, stack=self.stack)
-        sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                               classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, suffix='contours')
+        sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
+        # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+        #                                                        classifier_setting_m=classifier_setting_m,
+        #                                                       classifier_setting_f=classifier_setting_f,
+        #                                                       warp_setting=warp_setting, suffix='contours')
         save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
+        self.statusBar().showMessage('Sagittal boundaries saved to %s.' % sagittal_contours_df_fp)
+        print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
         # Save coronal
-        coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-        coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                               classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, suffix='contours_coronal')
-        save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
+        coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # print coronal_contour_entries_curr_session
+        if len(coronal_contour_entries_curr_session) > 0:
+            # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+            #                                                        classifier_setting_m=classifier_setting_m,
+            #                                                       classifier_setting_f=classifier_setting_f,
+            #                                                       warp_setting=warp_setting, suffix='contours_coronal')
+            coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
+            save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
+            self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
+            print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
         # Save horizontal
-        horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username).items()
-        horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=stack_f, by_human=False, stack_m=stack_m,
-                                                               classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, suffix='contours_horizontal')
-        save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
-
-        self.statusBar().showMessage('Labelings saved to %s.' % fn)
+        horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        if len(horizontal_contour_entries_curr_session) > 0:
+            # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+            #                                                        classifier_setting_m=classifier_setting_m,
+            #                                                       classifier_setting_f=classifier_setting_f,
+            #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
+            horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
+            save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
+            self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
+            print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
 
     @pyqtSlot()
     def load_markers(self):
         """
         """
 
-        markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-        download_from_s3(markers_df_fp)
+        markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose marker annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        # download_from_s3(markers_df_fp)
         markers_df = load_hdf_v2(markers_df_fp)
 
         markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack)
@@ -504,10 +547,61 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'sagittal') & (markers_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False)
 
+    @pyqtSlot()
+    def load_structures(self):
+
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        # print structures_df_fp
+        structure_df = load_hdf_v2(structures_df_fp)
+        # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
+        # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
+
+        self.structure_df_loaded = structure_df
+
+        for structure_id, structure_entry in structure_df.iterrows():
+
+            if structure_entry['side'] is None:
+                t = (structure_entry['name'], 'S')
+            else:
+                t = (structure_entry['name'], structure_entry['side'])
+
+            if 'edits' in structure_entry:
+                edits = structure_entry['edits']
+            else:
+                edits = []
+
+            self.structure_volumes[t] = {'volume_in_bbox': structure_entry['volume_in_bbox'],
+                                        'bbox': structure_entry['bbox'],
+                                        'edits': edits,
+                                        'structure_id': structure_id}
+
+            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
+            # for gscene_id in self.gscenes:
+            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
+
+            t = time.time()
+            # if structure_entry['name'] == 'VLL' and structure_entry['side'] == 'L':
+            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
+            self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
+            use_confirmed_only=False, recompute_from_contours=False, \
+            affected_gscenes=['sagittal'])
+            sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
+
+
     def load(self):
         """
-        Load stored annotations.
+        Load contours.
         """
+
+        # Load sagittal contours
+        sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
+        # print sagittal_contours_df
+
+        sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack)
+        # self.structure_df_loaded = structure_df
+        sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal') & (sagittal_contours_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+        self.gscenes['sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
 
         # # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
         # # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
@@ -543,45 +637,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # except Exception as e:
         #     sys.stderr.write("Error loading horizontal contours: str(e)\n")
 
-
-        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-        print structures_df_fp
-
-        download_from_s3(structures_df_fp)
-        structure_df = load_hdf_v2(structures_df_fp)
-        # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
-
-        self.structure_df_loaded = structure_df
-
-        for structure_id, structure_entry in structure_df.iterrows():
-
-            if structure_entry['side'] is None:
-                t = (structure_entry['name'], 'S')
-            else:
-                t = (structure_entry['name'], structure_entry['side'])
-
-            if 'edits' in structure_entry:
-                edits = structure_entry['edits']
-            else:
-                edits = []
-
-            self.structure_volumes[t] = {'volume_in_bbox': structure_entry['volume_in_bbox'],
-                                        'bbox': structure_entry['bbox'],
-                                        'edits': edits,
-                                        'structure_id': structure_id}
-
-            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
-            # for gscene_id in self.gscenes:
-            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
-
-            t = time.time()
-            # if structure_entry['name'] == 'VLL' and structure_entry['side'] == 'L':
-            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
-            self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
-            use_confirmed_only=False, recompute_from_contours=False, \
-            affected_gscenes=['sagittal'])
-            sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
         # self.sagittal_contours_loaded = sagittal_contours
         # self.coronal_contours_loaded = coronal_contours
         # self.horizontal_contours_loaded = horizontal_contours
@@ -666,38 +721,37 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
                                     if p.properties['label'] == name_u and \
                                     p.properties['side'] == side and \
-                                    p.properties['type'] != 'interpolated']
+                                    p.properties['type'] == 'confirmed']
             else:
                 matched_confirmed_polygons = [p for i, polygons in gscene.drawings.iteritems() for p in polygons \
-                if p.properties['label'] == name_u and \
-                p.properties['side'] == side]
+                if p.properties['label'] == name_u and p.properties['side'] == side]
 
             if len(matched_confirmed_polygons) < 2:
                 sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, (name_u, side)))
                 return
 
-            factor_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
+            factor_dataResol_to_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
             if from_gscene_id == 'sagittal' or from_gscene_id == 'sagittal_tb':
-                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                [(c.scenePos().x() * factor_volResol,
-                                                c.scenePos().y() * factor_volResol)
+                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                                                [(c.scenePos().x() * factor_dataResol_to_volResol,
+                                                c.scenePos().y() * factor_dataResol_to_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
+                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
 
             elif from_gscene_id == 'coronal':
-                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                [(c.scenePos().y() * factor_volResol,
-                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_volResol)
+                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                                                [(c.scenePos().y() * factor_dataResol_to_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_dataResol_to_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
                 # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'horizontal':
-                contour_points_grouped_by_pos = {p.properties['position'] * factor_volResol: \
-                                                [(c.scenePos().x() * factor_volResol,
-                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_volResol)
+                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                                                [(c.scenePos().x() * factor_dataResol_to_volResol,
+                                                (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_dataResol_to_volResol)
                                                 for c in p.vertex_circles] for p in matched_confirmed_polygons}
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox

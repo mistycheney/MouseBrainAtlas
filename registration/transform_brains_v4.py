@@ -113,8 +113,7 @@ else:
                                                   prep_id_f=2,
                                                   detector_id_f=detector_id,
                                                 warp_setting=upstream_warp_setting, 
-                                                structure_f=structure,
-                                               structure_m=structure)
+                                               structure=structure)
 
             # Do Transform
             local_transformed_moving_structure_vol = transform_volume(vol=global_transformed_moving_structure_vol, 
@@ -129,7 +128,8 @@ else:
                                                       detector_id_f=detector_id,
                                                         warp_setting=warp_setting,
                                                         structure_f=structure,
-                                                       structure_m=structure)
+                                                       structure_m=structure,
+                                                       structure=structure)
 
             create_parent_dir_if_not_exists(local_transformed_moving_structure_fp)
             bp.pack_ndarray_file(local_transformed_moving_structure_vol, local_transformed_moving_structure_fp)

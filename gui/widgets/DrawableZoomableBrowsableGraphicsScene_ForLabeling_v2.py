@@ -147,7 +147,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     positions_rel_vol_resol.append(pos_rel_vol_resol)
                     sections_used.append(sec)
 
-            gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
+            if self.data_feeder.downsample == 1:
+                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=20, positions=positions_rel_vol_resol)
+            else:
+                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
             m = dict(zip(positions_rel_vol_resol, sections_used))
             gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
 
@@ -291,7 +294,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                             if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                                 p.set_properties('side', 'L')
                                 p.set_properties('side_manually_assigned', False)
-                                sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                                # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
                     rname = convert_to_right_name(p.properties['label'])
                     if rname in structure_ranges:
@@ -299,7 +302,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                             if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                                 p.set_properties('side', 'R')
                                 p.set_properties('side_manually_assigned', False)
-                                sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                                # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
 
     def set_conversion_func_section_to_z(self, func):
@@ -426,7 +429,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Load annotation contours and place drawings.
         """
 
-        CONTOUR_IS_INTERPOLATED = 1
+        # CONTOUR_IS_INTERPOLATED = 1
 
         if not append:
             self.drawings = defaultdict(list)
@@ -442,11 +445,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for sec, group in grouped:
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                if 'flags' in contours and contour['flags'] is not None:
+                # if 'flags' in contours and contour['flags'] is not None:
                     # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
-                    contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
+                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
+                if 'type' in contours and contour['type'] is not None:
+                    contour_type = contour['type']
                 else:
                     contour_type = None
+
                 if 'class' in contours and contour['class'] is not None:
                     contour_class = contour['class']
                 else:
@@ -476,6 +482,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
+                    sys.stderr.write("polygon has no class\n")
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
@@ -498,7 +505,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 'edits': polygon.properties['edits'],
                                 'vertices': vertices,
                                 'downsample': self.data_feeder.downsample,
-                                'flags': None,
+                                'type': None,
                                 'orientation': self.data_feeder.orientation,
                                 'parent_structure': [],
                                 'side_manually_assigned': polygon.properties['side_manually_assigned'],
@@ -517,11 +524,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 'edits': polygon.properties['edits'] + [{'username':username, 'timestamp':timestamp}],
                                 'vertices': vertices,
                                 'downsample': self.data_feeder.downsample,
-                               'flags': 0 if polygon.properties['type'] == 'confirmed' else 1,
+                            #    'flags': 0 if polygon.properties['type'] == 'confirmed' else 1,
+                                'type': polygon.properties['type'],
                                 'orientation': self.data_feeder.orientation,
                                 'parent_structure': [],
                                 'side_manually_assigned': polygon.properties['side_manually_assigned'],
-                                'id': polygon_id}
+                                'id': polygon_id,
+                                'class': polygon.properties['class']}
 
                     if hasattr(self.data_feeder, 'sections'):
                         contour_entry['section'] = self.data_feeder.sections[idx]

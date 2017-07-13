@@ -45,10 +45,9 @@ class ReadImagesThread(QThread):
 
     def run(self):
         for sec in self.sections:
-            # image = QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='compressed'))
             try:
-                # fp = DataManager.get_image_filepath(stack=self.stack, section=sec, resol='lossless', version='cropped_gray_jpeg')
-                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='grayJpeg')
+                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
             except Exception as e:
                 sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue
@@ -424,7 +423,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.itervalues():
             for section_index, polygons in gscene.drawings.iteritems():
                 for polygon in polygons:
-                    if polygon.type == 'interpolated':
+                    if polygon.type != 'confirmed':
                         polygon.setVisible(not bool(checked))
 
     @pyqtSlot()
@@ -498,6 +497,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Save sagittal
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # print sagittal_contour_entries_curr_session
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T, stack=self.stack)
         sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
         # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
@@ -506,9 +506,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #                                                       warp_setting=warp_setting, suffix='contours')
         save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
         self.statusBar().showMessage('Sagittal boundaries saved to %s.' % sagittal_contours_df_fp)
+        print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
         # Save coronal
         coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # print coronal_contour_entries_curr_session
         if len(coronal_contour_entries_curr_session) > 0:
             # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
             #                                                        classifier_setting_m=classifier_setting_m,
@@ -517,6 +519,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
             save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
             self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
+            print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
         # Save horizontal
         horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
@@ -528,7 +531,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
             save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
             self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
-
+            print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
 
     @pyqtSlot()
     def load_markers(self):
@@ -548,7 +551,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_structures(self):
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-        print structures_df_fp
+        # print structures_df_fp
         structure_df = load_hdf_v2(structures_df_fp)
         # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
         # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
@@ -593,6 +596,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Load sagittal contours
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
+        # print sagittal_contours_df
 
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack)
         # self.structure_df_loaded = structure_df

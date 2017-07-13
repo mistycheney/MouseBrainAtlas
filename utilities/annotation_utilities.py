@@ -172,7 +172,7 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
     else:
         d = set(label_section_lookup.keys()) & set(filtered_labels)
 
-    d_unsided = set(map(convert_name_to_unsided, d))
+    d_unsided = set(map(convert_to_unsided_label, d))
 
     for name_u in d_unsided:
 
@@ -933,6 +933,8 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
 
     xmin, xmax, ymin, ymax, first_sec, last_sec = DataManager.load_cropbox(stack)
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
+
+    # print contour_df
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         sec = cnt['section']

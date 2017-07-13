@@ -71,7 +71,7 @@ for fn in filenames:
     # for s in all_known_structures:
         # save_scoremap(s)
 
-    pool = Pool(NUM_CORES)
+    pool = Pool(NUM_CORES/2)
     pool.map(save_scoremap, all_known_structures)
     pool.close()
     pool.join()

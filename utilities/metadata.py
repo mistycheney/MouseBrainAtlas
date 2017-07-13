@@ -54,12 +54,13 @@ if hostname == 'yuncong-MacbookPro':
     # REPO_DIR = '/home/yuncong/Brain' # use os.environ['REPO_DIR'] instead
     REPO_DIR = os.environ['REPO_DIR']
     ROOT_DIR = '/home/yuncong'
-    RAW_DATA_DIR = '/home/yuncong/CSHL_data'
     DATA_ROOTDIR = '/media/yuncong/YuncongPublic/'
+    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+
+    RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
-    # thumbnail_data_dir = '/home/yuncong/CSHL_data_processed'
-    THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
-   
+    THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
+
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
@@ -75,13 +76,14 @@ if hostname == 'yuncong-MacbookPro':
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
     PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
     DETECTOR_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'detector_settings.csv')
-    
+
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
+    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
     RAW_DATA_DIR = DATA_ROOTDIR
 
@@ -92,7 +94,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     REPO_DIR = os.environ['REPO_DIR']
 
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
-    THUMBNAIL_DATA_DIR = DATA_DIR
+    THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -124,7 +126,7 @@ elif hostname.startswith('ip'):
         ROOT_DIR = os.environ['ROOT_DIR']
     else:
         ROOT_DIR = '/shared'
-        
+
     if 'DATA_ROOTDIR' in os.environ:
         DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
     else:

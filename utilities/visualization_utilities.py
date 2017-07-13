@@ -117,8 +117,11 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_s
         #     bg = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='thumbnail', prep_id=2)
         # else:
         # im = DataManager.load_image(stack=stack, section=sec, fn=fn, resol='lossless', version=image_version)
-        im = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='lossless', prep_id=2, version=image_version)
-        bg = im[::out_downscale, ::out_downscale]
+        try:
+            im = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='lossless', prep_id=2, version=image_version)
+            bg = im[::out_downscale, ::out_downscale]
+        except:
+            bg = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='down'+str(out_downscale), prep_id=2, version=image_version)
     else:
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
         bg = rescale(bg, float(in_downscale)/out_downscale)
@@ -201,9 +204,11 @@ def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, s
     
     if bg == 'original':
         if out_downsample == 32:
-            bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
+            # bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='thumbnail')
         else:
-            bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='lossless', version='cropped_gray_jpeg')
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='lossless', prep_id=2, version='grayJpeg')
+            # bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='lossless', version='cropped_gray_jpeg')
     #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
             bg = bg[::out_downsample, ::out_downsample]
     

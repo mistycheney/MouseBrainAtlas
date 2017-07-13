@@ -121,101 +121,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / self.data_feeder.downsample
             print 'volume at data resol', volume_data_resol.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
-        # These confirmed contours will not be removed.
-        # matched_confirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems()
-        #                         for p in polygons \
-        #                         if p.properties['label'] == name_u and p.properties['side'] == side and \
-        #                         p.properties['type'] == 'confirmed']
-
-        # matched_unconfirmed_polygons = [(i, p) for i, polygons in self.drawings.iteritems() for p in polygons if p.label == name_u and p.type == 'interpolated']
-        # for i, p in matched_unconfirmed_polygons:
-        #     if i == self.active_i:
-        #         self.removeItem(p)
-        #     self.drawings[i].remove(p)
-
-        # if hasattr(self.data_feeder, 'sections'):
-        #     assert self.data_feeder.orientation == 'sagittal'
-        #     matched_confirmed_sections = [self.data_feeder.sections[i] for i, p in matched_confirmed_polygons]
-        #     print 'matched_confirmed_sections', matched_confirmed_sections
-        #
-        #     if len(matched_confirmed_sections) > 0:
-        #         min_sec = np.min(matched_confirmed_sections)
-        #         max_sec = np.max(matched_confirmed_sections)
-        #     else:
-        #         # min_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmin, downsample=volume_downsample_factor)
-        #         # max_sec = DataManager.convert_z_to_section(stack=self.data_feeder.stack, z=zmax, downsample=volume_downsample_factor)
-        #         min_sec = np.min(self.data_feeder.sections)
-        #         max_sec = np.max(self.data_feeder.sections)
-        #
-        #     print 'min_sec', min_sec, 'max_sec', max_sec
-        #     for sec in range(min_sec, max_sec+1):
-        #         # print 'section', sec
-        #
-        #         try:
-        #             # Remove if this section has unconfirmed/interpolated polygon
-        #             if sec not in self.data_feeder.sections:
-        #                 sys.stderr.write('Section %d is not loaded.\n' % sec)
-        #                 continue
-        #
-        #             i = self.data_feeder.sections.index(sec)
-        #
-        #             matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] \
-        #             if p.properties['label'] == name_u and \
-        #             p.properties['side'] == side and \
-        #             p.properties['type'] != 'confirmed']
-        #             # print 'matched_unconfirmed_polygons_to_remove', matched_unconfirmed_polygons_to_remove
-        #             for p in matched_unconfirmed_polygons_to_remove:
-        #                 # print 'before removal', self.drawings[i]
-        #                 self.drawings[i].remove(p)
-        #                 # print 'after removal', self.drawings[i]
-        #                 if i == self.active_i:
-        #                     self.removeItem(p)
-        #
-        #             if sec in matched_confirmed_sections:
-        #                 continue
-        #
-        #             z0, z1 = DataManager.convert_section_to_z(stack=self.data_feeder.stack, sec=sec, downsample=downsample)
-        #             z_gscene_resol = .5 * z0 + .5 * z1
-        #             z_vol_resol = int(np.round(z_gscene_resol * downsample / volume_downsample_factor))
-        #
-        #             if z_vol_resol - zmin < 0 or z_vol_resol - zmin >= volume.shape[2]:
-        #                 continue
-        #
-        #             cnts_volResol = find_contour_points(volume[:, :, z_vol_resol - zmin].astype(np.uint8), sample_every=1)
-        #             if len(cnts_volResol) == 0 or 1 not in cnts_volResol:
-        #                 sys.stderr.write('%s: No contour of reconstructed volume of %s,%s is found at section %d or z=%.2f.\n' % (self.id, name_u, side, sec, z_vol_resol))
-        #                 continue
-        #             else:
-        #                 if len(cnts_volResol[1]) > 1:
-        #                     sys.stderr.write('%s: %s contours of reconstructed volume of %s,%s is found at section %d or z=%.2f (%s). Use the longest one.\n' % \
-        #                                     (self.id, len(cnts_volResol[1]), name_u, side, sec, z_vol_resol, map(len, cnts_volResol[1])))
-        #                     xys_volResol = np.array(cnts_volResol[1][np.argmax(map(len, cnts_volResol[1]))])
-        #                 else:
-        #                     xys_volResol = np.array(cnts_volResol[1][0])
-        #                 gscene_xs_volResol = xys_volResol[:,0] + xmin # the coordinate on gscene's x axis
-        #                 gscene_ys_volResol = xys_volResol[:,1] + ymin
-        #                 gscene_points_volResol = np.c_[gscene_xs_volResol, gscene_ys_volResol]
-        #                 gscene_points_currResol = gscene_points_volResol * volume_downsample_factor / downsample
-        #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_points_currResol),
-        #                                                         label=name_u, linecolor='g', section=sec,
-        #                                                         type='interpolated',
-        #                                                         side=side,
-        #                                                         side_manually_assigned=False)
-        #         except Exception as e:
-        #             sys.stderr.write("Section %d gives error: %s\n" % (sec, str(e)))
-
-
-
         if hasattr(self.data_feeder, 'sections'):
 
             assert self.data_feeder.orientation == 'sagittal', "Current implementation only considers sagittal sections."
 
             print "Removing all unconfirmed polygons..."
+
+            matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
+            if p.properties['label'] == name_u and p.properties['side'] == side and \
+            p.properties['type'] != 'confirmed']
+            for i in range(len(self.data_feeder.sections))}
+
             for i in range(len(self.data_feeder.sections)):
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[i] \
-                if p.properties['label'] == name_u and p.properties['side'] == side and \
-                p.properties['type'] != 'confirmed']
-                for p in matched_unconfirmed_polygons_to_remove:
+                for p in matched_unconfirmed_polygons_to_remove[i]:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
                         self.removeItem(p)
@@ -229,10 +147,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     positions_rel_vol_resol.append(pos_rel_vol_resol)
                     sections_used.append(sec)
 
-            gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
+            if self.data_feeder.downsample == 1:
+                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=20, positions=positions_rel_vol_resol)
+            else:
+                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
             m = dict(zip(positions_rel_vol_resol, sections_used))
             gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
+
             for sec, gscene_pts_rel_vol_resol in gscene_pts_rel_vol_resol_allsec.iteritems():
+
+                # if this section already has a confirmed contour, do not add a new one.
+                if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+                p.properties['type'] == 'confirmed' for p in self.drawings[self.data_feeder.sections.index(sec)]]):
+                    continue
+
                 gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + xmin
                 gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + ymin
                 gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
@@ -240,13 +168,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # t = time.time()
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
                                                     linecolor='r', vertex_radius=8, linewidth=5, section=sec,
-                                                    type='interpolated',
+                                                    type='intersected',
                                                     side=side,
                                                     side_manually_assigned=False)
                 # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
         else:
-            # matched_confirmed_positions = [i for i, p in matched_confirmed_polygons]
-            # print 'matched_confirmed_positions', matched_confirmed_positions
 
             if self.data_feeder.orientation == 'sagittal':
                 pos_start_ds = 0
@@ -272,34 +198,52 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if self.data_feeder.orientation == 'coronal':
                 gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='x', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
+
+                    # if this position already has a confirmed contour, do not add a new one.
+                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+                    p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
+                        continue
+
                     gscene_xs = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
                     gscene_ys = gscene_pts[:,1] + ymin_ds
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                     linecolor='g', vertex_radius=1, linewidth=2, index=pos+xmin_ds,
-                                                    type='interpolated',
+                                                    type='intersected',
                                                     side=side,
                                                     side_manually_assigned=False)
             elif self.data_feeder.orientation == 'horizontal':
                 gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='y', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
+
+                    # if this position already has a confirmed contour, do not add a new one.
+                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+                    p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
+                        continue
+
                     gscene_xs = gscene_pts[:,1] + xmin_ds
                     gscene_ys = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                         linecolor='g', vertex_radius=1, linewidth=2, index=pos+ymin_ds,
-                                                        type='interpolated',
+                                                        type='intersected',
                                                         side=side,
                                                         side_manually_assigned=False)
             elif self.data_feeder.orientation == 'sagittal':
                 gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='z', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
+
+                    # if this position already has a confirmed contour, do not add a new one.
+                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+                    p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
+                        continue
+
                     gscene_xs = gscene_pts[:,0] + xmin_ds
                     gscene_ys = gscene_pts[:,1] + ymin_ds
                     gscene_pts = np.c_[gscene_xs, gscene_ys]
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
                                                         linecolor='g', vertex_radius=1, linewidth=2, index=pos+zmin_ds,
-                                                        type='interpolated',
+                                                        type='intersected',
                                                         side=side,
                                                         side_manually_assigned=False)
 
@@ -335,27 +279,30 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                if p.label in structure_ranges:
-                    assert p.label in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % p.label
-                    if section_index >= structure_ranges[p.label][0] and section_index <= structure_ranges[p.label][1]:
-                        if p.side is None or not p.side_manually_assigned:
-                            p.set_side('S', side_manually_assigned=False)
+                if p.properties['label'] in structure_ranges:
+                    assert p.properties['label'] in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % p.properties['label']
+                    if section_index >= structure_ranges[p.properties['label']][0] and section_index <= structure_ranges[p.properties['label']][1]:
+                        if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                            p.set_properties('side', 'S')
+                            p.set_properties('side_manually_assigned', False)
                     else:
                         raise Exception('Polygon is on a section not in structure_range.')
                 else:
-                    lname = convert_to_left_name(p.label)
+                    lname = convert_to_left_name(p.properties['label'])
                     if lname in structure_ranges:
                         if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
-                            if p.side is None or not p.side_manually_assigned:
-                                p.set_side('L', side_manually_assigned=False)
-                                sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.label))
+                            if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                p.set_properties('side', 'L')
+                                p.set_properties('side_manually_assigned', False)
+                                # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
-                    rname = convert_to_right_name(p.label)
+                    rname = convert_to_right_name(p.properties['label'])
                     if rname in structure_ranges:
                         if section_index >= structure_ranges[rname][0] and section_index <= structure_ranges[rname][1]:
-                            if p.side is None or not p.side_manually_assigned:
-                                p.set_side('R', side_manually_assigned=False)
-                                sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.label))
+                            if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                p.set_properties('side', 'R')
+                                p.set_properties('side_manually_assigned', False)
+                                # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
 
     def set_conversion_func_section_to_z(self, func):
@@ -482,7 +429,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Load annotation contours and place drawings.
         """
 
-        CONTOUR_IS_INTERPOLATED = 1
+        # CONTOUR_IS_INTERPOLATED = 1
 
         if not append:
             self.drawings = defaultdict(list)
@@ -498,10 +445,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for sec, group in grouped:
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                if 'flags' in contours and contour['flags'] is not None:
-                    contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+                # if 'flags' in contours and contour['flags'] is not None:
+                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
+                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
+                if 'type' in contours and contour['type'] is not None:
+                    contour_type = contour['type']
                 else:
                     contour_type = None
+
                 if 'class' in contours and contour['class'] is not None:
                     contour_class = contour['class']
                 else:
@@ -531,6 +482,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
+                    sys.stderr.write("polygon has no class\n")
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
@@ -544,6 +496,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     vertices.append((pos.x(), pos.y()))
 
                 if polygon.properties['class'] == 'neuron':
+                    # labeled neuron markers
                     contour_entry = {'name': polygon.properties['label'],
                             'label_position': None,
                                'side': polygon.properties['side'],
@@ -552,7 +505,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 'edits': polygon.properties['edits'],
                                 'vertices': vertices,
                                 'downsample': self.data_feeder.downsample,
-                                'flags': None,
+                                'type': None,
                                 'orientation': self.data_feeder.orientation,
                                 'parent_structure': [],
                                 'side_manually_assigned': polygon.properties['side_manually_assigned'],
@@ -561,20 +514,23 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     assert hasattr(self.data_feeder, 'sections')
                     contour_entry['section'] = self.data_feeder.sections[idx]
                 else:
-                    label_pos = polygon.label_textItem.scenePos()
-                    contour_entry = {'name': polygon.label,
+                    # structure boundaries
+                    label_pos = polygon.properties['label_textItem'].scenePos()
+                    contour_entry = {'name': polygon.properties['label'],
                                 'label_position': (label_pos.x(), label_pos.y()),
-                               'side': polygon.side,
-                               'creator': polygon.edits[0]['username'],
-                               'time_created': polygon.edits[0]['timestamp'],
-                                'edits': polygon.edits + [{'username':username, 'timestamp':timestamp}],
+                               'side': polygon.properties['side'],
+                               'creator': polygon.properties['edits'][0]['username'],
+                               'time_created': polygon.properties['edits'][0]['timestamp'],
+                                'edits': polygon.properties['edits'] + [{'username':username, 'timestamp':timestamp}],
                                 'vertices': vertices,
                                 'downsample': self.data_feeder.downsample,
-                               'flags': 0 if polygon.type == 'confirmed' else 1,
+                            #    'flags': 0 if polygon.properties['type'] == 'confirmed' else 1,
+                                'type': polygon.properties['type'],
                                 'orientation': self.data_feeder.orientation,
                                 'parent_structure': [],
-                                'side_manually_assigned': polygon.side_manually_assigned,
-                                'id': polygon_id}
+                                'side_manually_assigned': polygon.properties['side_manually_assigned'],
+                                'id': polygon_id,
+                                'class': polygon.properties['class']}
 
                     if hasattr(self.data_feeder, 'sections'):
                         contour_entry['section'] = self.data_feeder.sections[idx]
@@ -591,19 +547,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                if p.side_manually_assigned:
+                if p.properties['side_manually_assigned']:
                     if p.side is None:
-                        label = p.label
+                        label = p.properties['label']
                     elif p.side == 'S':
-                        label = p.label
+                        label = p.properties['label']
                     elif p.side == 'L':
-                        label = convert_to_left_name(p.label)
+                        label = convert_to_left_name(p.properties['label'])
                     elif p.side == 'R':
-                        label = convert_to_right_name(p.label)
+                        label = convert_to_right_name(p.properties['label'])
                     else:
                         raise Exception('Side property must be None, L or R.')
                 else:
-                    label = p.label
+                    label = p.properties['label']
 
                 label_section_lookup[label].append(section_index)
 
@@ -746,7 +702,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_mode('delete vertices')
 
         elif selected_action in action_sides:
-            self.active_polygon.set_properties('side', selected_action)
+            self.active_polygon.set_properties('side', action_sides[selected_action])
             self.active_polygon.set_properties('side_manually_assigned', True)
             # self.active_polygon.set_side(action_sides[selected_action], side_manually_assigned=True)
 
@@ -776,7 +732,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.removeItem(self.active_polygon)
 
         elif selected_action == action_reconstruct:
-            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
+            assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
+            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], True, True)
 
         elif selected_action in action_resolutions:
             selected_downsample_factor = action_resolutions[selected_action]
@@ -784,7 +741,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif selected_action == action_newPolygon:
             self.set_mode('add vertices consecutively')
-            self.start_new_polygon()
+            self.start_new_polygon(init_properties={'class': 'contour'})
 
         elif selected_action == action_insertVertex:
             self.set_mode('add vertices randomly')
@@ -827,12 +784,26 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # self.close_curr_polygon = False
         self.active_polygon = self.add_polygon(QPainterPath(), color=color, index=self.active_i)
 
+        self.active_polygon.set_properties('orientation', self.data_feeder.orientation)
+
         self.active_polygon.set_properties('type', 'confirmed')
         self.active_polygon.set_properties('side', None)
         self.active_polygon.set_properties('side_manually_assigned', False)
         self.active_polygon.set_properties('contour_id', None) # Could be None - will be generated new in convert_drawings_to_entries()
         self.active_polygon.set_properties('edits',
         [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
+
+        if hasattr(self.data_feeder, 'sections'):
+            self.active_polygon.set_properties('section', self.active_section)
+            d_voxel = np.mean(self.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample))
+            d_um = d_voxel * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            self.active_polygon.set_properties('position_um', d_um)
+            # print 'd_voxel', d_voxel, 'position_um', d_um
+        else:
+            self.active_polygon.set_properties('voxel_position', self.active_i)
+            d_um = self.active_i * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            self.active_polygon.set_properties('position_um', d_um)
+            # print 'index', index, 'position_um', d_um
 
         if init_properties is not None:
             for k, v in init_properties.iteritems():

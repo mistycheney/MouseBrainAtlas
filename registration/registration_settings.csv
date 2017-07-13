@@ -13,3 +13,5 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 13,None,affine,1e-5,1e5,1000,2000,2000,2000,30,-1.
 14,None,bspline,1e-5,1e5,1000,2000,2000,2000,30,-1.,
 15,13,bspline,1e-5,1e5,1000,2000,2000,2000,30,-1.,
+16,None,affine,1e-5,1e5,1000,2000,2000,2000,30,inverse,
+17,16,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0

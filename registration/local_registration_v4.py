@@ -147,7 +147,7 @@ for structure in structures:
         aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 
         scores_all_trials = []
-        parameters_all_trials = []
+        T_all_trials = []
         traj_all_trials = []
        
         for trial_idx in range(trial_num):
@@ -239,7 +239,7 @@ for structure in structures:
                                                                   structure_m=structure,
                                                           warp_setting=warp_setting,
                                                          trial_idx=None, what='parameters')
-        DataManager.save_alignment_parameters(params_fp, parameters_all_trials[best_trial], 
+        DataManager.save_alignment_parameters(params_fp, T_all_trials[best_trial], 
                                               aligner.centroid_m, aligner.centroid_f,
                                               aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
                                               aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)

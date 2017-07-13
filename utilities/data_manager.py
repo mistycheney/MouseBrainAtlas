@@ -1460,6 +1460,8 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
         if structure is not None:
             fn = basename + '_%s' % structure
+        else:
+            fn = basename
         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
 
 

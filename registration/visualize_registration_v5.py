@@ -42,6 +42,7 @@ downsample_factor = args.out_downsample
 volume_downsample = 32
 warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, 
                                                                           stack_f=stack_fixed, 
+                                                                          prep_id_f=2,
                                                                         detector_id_f=detector_id,
                                                                         warp_setting=warp_setting,
                                                                           downscale=volume_downsample,

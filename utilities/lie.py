@@ -13,7 +13,12 @@ def matrix_exp(w):
     return exp_w
 
 def matrix_exp_v(v):
-    """Return the exponenial map for translation + rotation 6-vector v."""
+    """
+    Return the exponenial map for translation + rotation 6-vector v.
+    
+    Args:
+        v ((6,)-ndarray): the vector composed of translation parameters and rotation parameters.
+    """
     t = v[:3]
     w = v[3:]
 

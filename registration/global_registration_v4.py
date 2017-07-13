@@ -69,7 +69,7 @@ except:
     include_surround = True
 
 MAX_ITER_NUM = 1000
-HISTORY_LEN = 10
+HISTORY_LEN = 20
 MAX_GRID_SEARCH_ITER_NUM = 30
 
 lr1 = 10
@@ -116,6 +116,13 @@ aligner.set_centroid(centroid_m='volume_centroid', centroid_f='centroid_m')
 # aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 # aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', indices_m=[name_to_label_moving['SNR_R']])
 
+aligner.set_label_weights(label_weights=label_weights_m)
+
+grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 
+                       grid_search_sample_number=5,
+                      std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=0,
+                       grid_search_eta=3.)
+
 gradient_filepath_map_f = \
 {ind_f: DataManager.get_volume_gradient_filepath_template(\
                                                           stack=stack_fixed, 
@@ -125,23 +132,22 @@ gradient_filepath_map_f = \
  for ind_m, ind_f in label_mapping_m2f.iteritems()}
 
 aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
-aligner.set_label_weights(label_weights=label_weights_m)
 
 parameters_all_trials = []
 scores_all_trials = []
+traj_all_trials = []
 
 for trial_idx in range(trial_num):
 
     while True:
         try:
-            T, scores = aligner.optimize(tf_type=transform_type, max_iter_num=MAX_ITER_NUM, history_len=HISTORY_LEN, 
+            T, scores = aligner.optimize(tf_type=transform_type, 
+                                         max_iter_num=MAX_ITER_NUM, 
+                                         history_len=HISTORY_LEN, 
                                          terminate_thresh=terminate_thresh,
-                                         grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM,
-                                         grid_search_sample_number=grid_search_sample_number,
-                                         grid_search_eta=3.,
                                          grad_computation_sample_number=grad_computation_sample_number,
                                          lr1=lr1, lr2=lr2,
-                                         std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy)
+                                         init_T=grid_search_T)
             break
 
         except Exception as e:
@@ -172,8 +178,7 @@ for trial_idx in range(trial_num):
     upload_to_s3(history_fp)
 
     # Save score plot
-    score_plot_fp = \
-    history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+    score_plot_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
                                                   prep_id_f=2,
@@ -185,8 +190,21 @@ for trial_idx in range(trial_num):
     plt.close(fig)
     upload_to_s3(score_plot_fp)
     
+    # Save trajectory
+    trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+                                                  stack_f=stack_fixed,
+                                                  detector_id_f=detector_id,
+                                                  prep_id_f=2,
+                                                  warp_setting=warp_setting,
+                                                 trial_idx=trial_idx, what='trajectory')
+    bp.pack_ndarray_file(np.array(aligner.Ts), trajectory_fp)
+    upload_to_s3(trajectory_fp)
+    
+    ########
+    
     parameters_all_trials.append(T)
     scores_all_trials.append(scores)
+    traj_all_trials.append(aligner.Ts)
 
 best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
 
@@ -227,3 +245,13 @@ plt.plot(scores_all_trials[best_trial]);
 plt.savefig(score_plot_fp, bbox_inches='tight')
 plt.close(fig)
 upload_to_s3(score_plot_fp)
+
+# Save trajectory
+trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+                                                  stack_f=stack_fixed,
+                                                  detector_id_f=detector_id,
+                                                  prep_id_f=2,
+                                                  warp_setting=warp_setting,
+                                                 trial_idx=None, what='trajectory')
+bp.pack_ndarray_file(np.array(traj_all_trials[best_trial]), trajectory_fp)
+upload_to_s3(trajectory_fp)

@@ -510,6 +510,7 @@ class DataManager(object):
                                           warp_setting,
                                           prep_id_m=None, prep_id_f=None, 
                                           detector_id_m=None, detector_id_f=None,
+                                          structure_f=None, structure_m=None,
                                           vol_type_f='score', vol_type_m='score', 
                                           downscale=32, 
                                           trial_idx=None):
@@ -533,6 +534,7 @@ class DataManager(object):
     def load_alignment_parameters(stack_f, stack_m, warp_setting,
                                   prep_id_m=None, prep_id_f=None,
                                   detector_id_m=None, detector_id_f=None,
+                                  structure_f=None, structure_m=None,
                                   vol_type_f='score', vol_type_m='score',
                                   downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
@@ -555,12 +557,13 @@ class DataManager(object):
     def get_alignment_result_filepath(stack_f, stack_m, warp_setting, what,
                                       detector_id_m=None, detector_id_f=None,
                                       prep_id_m=None, prep_id_f=None,
+                                      structure_f=None, structure_m=None, 
                                       vol_type_f='score', vol_type_m='score',
                                       downscale=32, trial_idx=None):
         reg_basename = DataManager.get_warped_volume_basename(**locals())
         if what == 'parameters':
             ext = 'txt'
-        elif what == 'scoreHistory':
+        elif what == 'scoreHistory' or what == 'trajectory':
             ext = 'bp'
         elif what == 'scoreEvolution':
             ext = 'png'
@@ -679,14 +682,14 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_alignment_viz_filepath(stack_m, stack_f,
-                                classifier_setting_m,
-                                classifier_setting_f,
-                                warp_setting,
-                                section,
-                                type_m='score', type_f='score',
-                                downscale=32,
-                                trial_idx=None,
+    def get_alignment_viz_filepath(stack_m, stack_f,                                   
+                                   warp_setting,
+                                    section,
+                                   prep_id_m=None, prep_id_f=None,
+                                   detector_id_m=None, detector_id_f=None,
+                                    vol_type_m='score', vol_type_f='score',
+                                    downscale=32,
+                                    trial_idx=None,
                                   out_downscale=32):
         """
         Args:
@@ -694,8 +697,8 @@ class DataManager(object):
             out_downsample (int): downscale of the output visualization images.
         """
 
-        basename = DataManager.get_warped_volume_basename(**locals())
-        return os.path.join(REGISTRATION_VIZ_ROOTDIR, stack_m, basename, 'down'+str(out_downscale), basename + '_%04d_down%d.jpg' % (section, out_downscale))
+        reg_basename = DataManager.get_warped_volume_basename(**locals())
+        return os.path.join(REGISTRATION_VIZ_ROOTDIR, stack_m, reg_basename, 'down'+str(out_downscale), reg_basename + '_%04d_down%d.jpg' % (section, out_downscale))
 
     @staticmethod
     def load_confidence(stack_m, stack_f,
@@ -1211,6 +1214,10 @@ class DataManager(object):
                                 warp_setting,
                                 detector_id_m=None,
                                 detector_id_f=None,
+                                prep_id_m=None,
+                                prep_id_f=None,
+                                structure_f=None,
+                                structure_m=None,
                                 vol_type_m='score',
                                 vol_type_f='score',
                                 structure=None,
@@ -1229,8 +1236,8 @@ class DataManager(object):
                                                     detector_id_f=None,
                                                      prep_id_m=None,
                                                      prep_id_f=None,
-                                                    type_m='score',
-                                                    type_f='score',
+                                                    vol_type_m='score',
+                                                    vol_type_f='score',
                                                     downscale=32,
                                                     structures=None,
                                                     sided=True,
@@ -1268,9 +1275,11 @@ class DataManager(object):
                     index = structure_to_label[structure]
 
                 if trial_idx is None or isinstance(trial_idx, int):
-                    v = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
-                                                            stack_f=stack_f, type_f=type_f, 
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+                                                            stack_f=stack_f, vol_type_f=vol_type_f, 
                                                             downscale=downscale,
+                                                            prep_id_m=prep_id_m,
+                                                            prep_id_f=prep_id_f,
                                                             detector_id_m=detector_id_m,
                                                             detector_id_f=detector_id_f,
                                                             warp_setting=warp_setting,
@@ -1278,9 +1287,11 @@ class DataManager(object):
                                                             trial_idx=trial_idx)
 
                 else:
-                    v = DataManager.load_transformed_volume(stack_m=stack_m, type_m=type_m,
-                                                            stack_f=stack_f, type_f=type_f, 
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+                                                            stack_f=stack_f, vol_type_f=vol_type_f, 
                                                             downscale=downscale,
+                                                            prep_id_m=prep_id_m,
+                                                            prep_id_f=prep_id_f,
                                                             detector_id_m=detector_id_m,
                                                             detector_id_f=detector_id_f,
                                                             warp_setting=warp_setting,
@@ -1389,8 +1400,12 @@ class DataManager(object):
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
                                         warp_setting,
+                                        prep_id_m=None,
+                                        prep_id_f=None,
                                         detector_id_m=None,
                                         detector_id_f=None,
+                                        structure_m=None,
+                                        structure_f=None,
                                         downscale=32,
                                         vol_type_m='score',
                                         vol_type_f='score',

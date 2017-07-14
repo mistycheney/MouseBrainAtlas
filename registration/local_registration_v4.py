@@ -103,11 +103,12 @@ for structure in structures:
 
         if include_surround:
             volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, 
-                                         stack_f=stack_fixed, detector_id_f=detector_id, warp_setting=upstream_warp_setting, 
+                                         stack_f=stack_fixed, detector_id_f=detector_id, prep_id_f=2, warp_setting=upstream_warp_setting, 
                                         structures=[structure, convert_to_surround_name(structure, margin='200')])
         else:
             volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
                                                                          detector_id_f=detector_id,
+                                                                                     prep_id_f=2,
                                                                          warp_setting=upstream_warp_setting, 
                                                                          structures=[structure])
 

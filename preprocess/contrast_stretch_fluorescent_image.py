@@ -48,7 +48,7 @@ def worker(fn):
     output_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=2, resol='lossless', fn=fn, version='contrastStretched', ext='jpg')
     create_parent_dir_if_not_exists(output_fp)
     imsave(output_fp, contrast_stretched_img)
-    upload_to_s3(output_fp)    
+    upload_to_s3(output_fp, local_root=DATA_ROOTDIR)    
     
 pool = Pool(2)
 pool.map(worker, filenames)

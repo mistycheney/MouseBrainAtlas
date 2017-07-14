@@ -83,8 +83,9 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
-    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+    # THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+    THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
     RAW_DATA_DIR = DATA_ROOTDIR
 
     ON_AWS = False
@@ -107,7 +108,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
-    
+
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')

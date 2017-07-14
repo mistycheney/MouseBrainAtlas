@@ -45,7 +45,8 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
             
     return viz
 
-def generate_scoremap_layer(stack, structure, downscale, detector_id,
+def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_scoremap_downscale=32,
+                            detector_id=None,
                     image_shape=None, return_mask=False, sec=None, fn=None,
                     color=(1,0,0), show_above=.01, cmap_name='jet'):
     '''
@@ -55,6 +56,8 @@ def generate_scoremap_layer(stack, structure, downscale, detector_id,
     Args:
         structure: structure name
         show_above: only show scoremap with score higher than this value.
+        downscale: downscale factor of the output scoremap
+        scoremap: if given, the dense score map.
     '''
 
     if fn is None:
@@ -70,14 +73,15 @@ def generate_scoremap_layer(stack, structure, downscale, detector_id,
     # scoremap_viz[..., 3] = scoremap_n**3
 
     try:
-        dense_score_map = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
+        if scoremap is None:
+            scoremap = DataManager.load_downscaled_scoremap(stack=stack, section=sec, fn=fn,
                             detector_id=detector_id, structure=structure, downscale=32)
         # Only use down32 because downsampling of 32 already exceeds the patch resolution (56 pixels).
         # Higher downsampling factor just shows artificial data, which is not better than rescaling down32.
-        dense_score_map = np.minimum(rescale(dense_score_map, 32/float(downscale)), 1.)
-        mask = dense_score_map > show_above
+        scoremap = np.minimum(rescale(scoremap, in_scoremap_downscale/float(downscale)), 1.)
+        mask = scoremap > show_above
         cmap = plt.get_cmap(cmap_name)
-        scoremap_viz = cmap(dense_score_map)[..., :3] # cmap() must take values between 0 and 1.
+        scoremap_viz = cmap(scoremap)[..., :3] # cmap() must take values between 0 and 1.
     except Exception as e:
         raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 
@@ -88,14 +92,22 @@ def generate_scoremap_layer(stack, structure, downscale, detector_id,
     else:
         return viz
     
-def scoremap_overlay_on(bg, stack, structure, out_downscale, detector_id, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
+def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_scoremap_downscale=32, detector_id=None, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
 
     if fn is None:
         assert sec is not None
         fn = metadata_cache['sections_to_filenames'][stack][sec]
         if is_invalid(fn): return
+    
+    # t = time.time()
+    scoremap_viz_mask = generate_scoremap_layer(stack=stack, scoremap=scoremap, in_scoremap_downscale=in_scoremap_downscale, 
+                                  sec=sec, fn=fn, structure=structure, downscale=out_downscale,
+                        image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
+                             cmap_name=cmap_name)
+    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
+    scoremap_viz, mask = scoremap_viz_mask
 
-    if bg == 'original':
+    if isinstance(bg, str) and bg == 'original':
         if image_version is None:            
             classifier_properties = classifier_settings.loc[classifier_id]
             image_version = classifier_properties['input_img_version']
@@ -114,13 +126,6 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, detector_id, label_
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
         bg = rescale(bg, float(in_downscale)/out_downscale)
 
-    # t = time.time()
-    ret = generate_scoremap_layer(stack=stack, sec=sec, fn=fn, structure=structure, downscale=out_downscale,
-                            image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
-                                 cmap_name=cmap_name)
-    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
-    scoremap_viz, mask = ret
-    
     if overlay_bbox is not None:
         xmin,xmax,ymin,ymax = overlay_bbox
         scoremap_viz = scoremap_viz[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]

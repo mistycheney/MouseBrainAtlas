@@ -83,8 +83,9 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
-    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+    # THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+    THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
     RAW_DATA_DIR = DATA_ROOTDIR
 
     ON_AWS = False
@@ -100,6 +101,11 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
     PATCH_LOCATIONS_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_locations')
+
+    SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
+    SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
+    SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
+
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 

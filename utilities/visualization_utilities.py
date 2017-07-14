@@ -99,14 +99,6 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_s
         fn = metadata_cache['sections_to_filenames'][stack][sec]
         if is_invalid(fn): return
     
-    # t = time.time()
-    scoremap_viz_mask = generate_scoremap_layer(stack=stack, scoremap=scoremap, in_scoremap_downscale=in_scoremap_downscale, 
-                                  sec=sec, fn=fn, structure=structure, downscale=out_downscale,
-                        image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
-                             cmap_name=cmap_name)
-    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
-    scoremap_viz, mask = scoremap_viz_mask
-
     if isinstance(bg, str) and bg == 'original':
         if image_version is None:            
             classifier_properties = classifier_settings.loc[classifier_id]
@@ -126,8 +118,20 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_s
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
         bg = rescale(bg, float(in_downscale)/out_downscale)
 
+            # t = time.time()
+    scoremap_viz_mask = generate_scoremap_layer(stack=stack, scoremap=scoremap, in_scoremap_downscale=in_scoremap_downscale, 
+                                  sec=sec, fn=fn, structure=structure, downscale=out_downscale,
+                        image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
+                             cmap_name=cmap_name)
+    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
+    scoremap_viz, mask = scoremap_viz_mask
+    
+    if scoremap_viz.shape != bg.shape:
+        scoremap_viz = resize(scoremap_viz, bg.shape + (3,), preserve_range=True)
+        mask = resize(mask, bg.shape).astype(np.bool)
+        
     if overlay_bbox is not None:
-        xmin,xmax,ymin,ymax = overlay_bbox
+        xmin, xmax, ymin, ymax = overlay_bbox
         scoremap_viz = scoremap_viz[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]
         mask = mask[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]
 

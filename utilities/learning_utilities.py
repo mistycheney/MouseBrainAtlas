@@ -244,8 +244,8 @@ def locate_patches_given_addresses_v2(addresses):
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
-def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_spec=None,
-                                    grid_locations=None, version='compressed'):
+def extract_patches_given_locations(stack=None, sec=None, img=None, locs=None, indices=None, grid_spec=None,
+                                    grid_locations=None, version='compressed', patch_size=None):
     """
     Return patches at given locations.
 
@@ -259,16 +259,19 @@ def extract_patches_given_locations(stack, sec, locs=None, indices=None, grid_sp
         list of patches.
     """
 
-    t = time.time()
-    img = DataManager.load_image(stack=stack, section=sec, version=version)
-    sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t)) 
+    if img is None:
+        t = time.time()
+        img = DataManager.load_image(stack=stack, section=sec, version=version)
+        sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t)) 
 
-    if grid_spec is None:
-        grid_spec = get_default_gridspec(stack)
+    if patch_size is None:
+        if grid_spec is None:
+            grid_spec = get_default_gridspec(stack)
 
-    patch_size, _, _, _ = grid_spec
+        patch_size, _, _, _ = grid_spec
+    
     half_size = patch_size/2
-
+    
     if indices is not None:
         assert locs is None, 'Cannot specify both indices and locs.'
         if grid_locations is None:

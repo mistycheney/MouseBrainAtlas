@@ -601,7 +601,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
                                                     classifier_setting_m=None, 
                                                     classifier_setting_f=None, 
                                                     warp_setting=None, trial_idx=None,
-                                              surround_margins=None):
+                                              surround_margins=None, suffix=None, timestamp=None, prep_id=2):
     """
     Load the structure annotation.
     Use the default grid spec.
@@ -616,14 +616,14 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
                                                            classifier_setting_m=classifier_setting_m,
                                                           classifier_setting_f=classifier_setting_f,
                                                           warp_setting=warp_setting,
-                                                          trial_idx=trial_idx)
+                                                          trial_idx=trial_idx, suffix=suffix, timestamp=timestamp)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
     contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
     
     if by_human:    
         contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
     
-    download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack), is_dir=True)
+    download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=prep_id), is_dir=True)
     
     contours_grouped = contours_df.groupby('section')
 
@@ -633,7 +633,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human,
         if is_invalid(sec=sec, stack=stack):
             continue
         polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in cnt_group.iterrows()]
-        mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec)
+        mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
         patch_indices_allSections_allStructures[sec] = \
         locate_patches_v2(grid_spec=get_default_gridspec(stack), mask_tb=mask_tb, polygons=polygons_this_sec, \
                           surround_margins=surround_margins)
@@ -708,7 +708,7 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
             
     Args:
         grid_spec: If none, use the default grid spec.
-        surround_margins: list of surround margin for which patches are extracted, in unit of microns
+        surround_margins: list of surround margin for which patches are extracted, in unit of microns. Default: [100,200,...1000]
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
         Otherwise, return a list of grid indices.
@@ -849,12 +849,13 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
 
     
     
-def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
+def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample, grid_indices_lookup_fps):
     """
     Generate patch addresses grouped by label.
     
     Args:
-        stacks (list of str)
+        stacks (list of str):
+        grid_indices_lookup_fps (dict of str):
     
     Returns:
         addresses
@@ -867,9 +868,29 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample):
     for stack in stacks:
         
         t1 = time.time()
-        annotation_grid_indices_fp = os.path.join(ANNOTATION_ROOTDIR, stack, stack + '_annotation_grid_indices.h5')
-        download_from_s3(annotation_grid_indices_fp)
-        grid_indices_per_label = read_hdf(annotation_grid_indices_fp, 'grid_indices').T
+        
+        download_from_s3(grid_indices_lookup_fps[stack])
+        if not os.path.exists(grid_indices_lookup_fps[stack]):
+            raise Exception('Cannot find grid indices lookup. Use function generate_annotation_to_grid_indices_lookup to generate.')
+        try:
+            grid_indices_per_label = load_hdf_v2(grid_indices_lookup_fps[stack])
+        except:
+            grid_indices_per_label = read_hdf(grid_indices_lookup_fps[stack], 'grid_indices').T
+                
+        def convert_data_from_sided_to_unsided(data):
+            """
+            Args:
+                data: rows are sections, columns are SIDED labels.
+            """
+            new_data = defaultdict(dict)
+            for name_s in data.columns:
+                name_u = convert_to_unsided_label(name_s)
+                for sec, grid_indices in data[name_s].iteritems():
+                    new_data[name_u][sec] = grid_indices
+            return DataFrame(new_data)
+        
+        grid_indices_per_label = convert_data_from_sided_to_unsided(grid_indices_per_label)
+        
         sys.stderr.write('Read: %.2f seconds\n' % (time.time() - t1))
 
         # Guarantee column is class name, row is section index.

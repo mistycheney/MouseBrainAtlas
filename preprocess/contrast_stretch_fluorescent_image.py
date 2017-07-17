@@ -18,7 +18,7 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Stretch contrast')
+    description='Stretch contrast. Keep only two channels: blue (neurotrace) and label.')
 
 parser.add_argument("stack", type=str, help="stack")
 parser.add_argument("filenames", type=str, help="Filenames")
@@ -42,7 +42,7 @@ def worker(fn):
     img_blue_normalized = DataManager.load_image_v2(stack=stack, prep_id=2, resol='lossless', fn=fn, version='gray')
     
     contrast_stretched_img = np.zeros(img.shape, np.uint8)
-    contrast_stretched_img[..., 1] = img_label_channel_contrast_stretched
+    contrast_stretched_img[..., label_channel] = img_label_channel_contrast_stretched
     contrast_stretched_img[..., 2] = rescale_intensity(-img_blue_normalized)
     
     output_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=2, resol='lossless', fn=fn, version='contrastStretched', ext='jpg')
@@ -50,10 +50,10 @@ def worker(fn):
     imsave(output_fp, contrast_stretched_img)
     upload_to_s3(output_fp, local_root=DATA_ROOTDIR)    
     
-pool = Pool(2)
-pool.map(worker, filenames)
-pool.close()
-pool.join()
+# pool = Pool(2)
+# pool.map(worker, filenames)
+# pool.close()
+# pool.join()
 
-# for fn in filenames:
-#     worker(fn)
+for fn in filenames:
+    worker(fn)

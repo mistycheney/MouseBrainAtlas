@@ -127,8 +127,6 @@ else:
                                                       prep_id_f=2,
                                                       detector_id_f=detector_id,
                                                         warp_setting=warp_setting,
-                                                        structure_f=structure,
-                                                       structure_m=structure,
                                                        structure=structure)
 
             create_parent_dir_if_not_exists(local_transformed_moving_structure_fp)

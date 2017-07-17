@@ -1,4 +1,4 @@
-dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment
+dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment,raw_image_dataset
 20,,Inception-BN,nissl,200/500,1000,MD585
 21,,Inception-BN,nissl,200/500,1000,MD589
 22,,Inception-BN,nissl,200/500,1000,MD594
@@ -26,6 +26,12 @@ dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,ce
 60,,,nissl,500,1000,MD585,,raw image patches
 61,,,nissl,500,1000,MD589,,raw image patches
 62,,,nissl,500,1000,MD594,,raw image patches
+63,pos/surPos/surNoclass/neg,,nissl,500,1000,MD585,,raw image patches with variations
+64,pos/surPos/surNoclass/neg,,nissl,500,1000,MD589,,raw image patches with variations
+65,pos/surPos/surNoclass/neg,,nissl,500,1000,MD594,,raw image patches with variations
+66,pos/surPos/surNoclass/neg,,nissl,500,1000,MD585,,features of image patches with variations,63
+67,pos/surPos/surNoclass/neg,,nissl,500,1000,MD589,,features of image patches with variations,64
+68,pos/surPos/surNoclass/neg,,nissl,500,1000,MD594,,features of image patches with variations,65
 70,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,1000,MD590,,auto generated from registration result
 71,pos/surPos/surNoclass/neg,inception-bn-blue,neurotrace_blue,500,1000,MD635,,auto generated from registration result
 90,,,nissl,500,1000,MD589,allSizeHist/huMomentsHist

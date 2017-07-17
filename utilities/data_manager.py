@@ -113,7 +113,7 @@ class DataManager(object):
         return annotated_structures
 
     @staticmethod
-    def load_annotation_to_grid_indices_lookup(stack, by_human, stack_m=None,
+    def load_annotation_to_grid_indices_lookup(stack, win_id, by_human, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None):
@@ -121,25 +121,26 @@ class DataManager(object):
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
 
-        if os.path.exists(grid_indices_lookup_fp):
+        if not os.path.exists(grid_indices_lookup_fp):
             raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_annotation_to_grid_indices_lookup`")
         else:
-            grid_indices_lookup = read_hdf(grid_indices_lookup_fp, 'grid_indices')
+            grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
+            # grid_indices_lookup = read_hdf(grid_indices_lookup_fp, 'grid_indices')
             return grid_indices_lookup
 
     @staticmethod
-    def get_annotation_to_grid_indices_lookup_filepath(stack, by_human, stack_m=None,
+    def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m=None,
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None):
         if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3_grid_indices_lookup.hdf' % {'stack':stack})
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               classifier_setting_m=classifier_setting_m,
                                                               classifier_setting_f=classifier_setting_f,
                                                               warp_setting=warp_setting, trial_idx=trial_idx)
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_grid_indices_lookup.hdf' % {'basename': basename})
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_win%(win)d_grid_indices_lookup.hdf' % {'basename': basename, 'win':win_id})
         return fp
 
     @staticmethod
@@ -148,7 +149,7 @@ class DataManager(object):
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
         if by_human:
-            if suffix is None:
+            if suffix is None:                
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
             else:
                 if timestamp is not None:
@@ -175,7 +176,7 @@ class DataManager(object):
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
         if by_human:
-            fp = DataManager.get_annotation_filepath(stack, by_human=True)
+            fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp)
             download_from_s3(fp)
             contour_df = read_hdf(fp)
             return contour_df
@@ -2775,18 +2776,31 @@ class DataManager(object):
         return fp
 
     @staticmethod
-    def get_dataset_patches_filepath(dataset_id):
-        patch_images_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images.hdf')
+    def get_dataset_dir(dataset_id):
+        return os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id)
+    
+    @staticmethod
+    def get_dataset_patches_filepath(dataset_id, structure=None):
+        if structure is None:
+            patch_images_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images.hdf')
+        else:
+            patch_images_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_images_%s.hdf' % structure)
         return patch_images_fp
 
     @staticmethod
-    def get_dataset_features_filepath(dataset_id):
-        features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.hdf')
+    def get_dataset_features_filepath(dataset_id, structure=None, ext='bp'):
+        if structure is None:
+            features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.' + ext)
+        else:
+            features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features_%s.' % structure + ext)
         return features_fp
 
     @staticmethod
-    def get_dataset_addresses_filepath(dataset_id):
-        addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+    def get_dataset_addresses_filepath(dataset_id, structure=None):
+        if structure is None:
+            addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses.pkl')
+        else:
+            addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses_%s.pkl' % structure)
         return addresses_fp
 
     @staticmethod

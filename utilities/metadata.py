@@ -83,8 +83,9 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
     ROOT_DIR = '/home/yuncong/'
-    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+    # THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+    THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
     RAW_DATA_DIR = DATA_ROOTDIR
 
     ON_AWS = False
@@ -100,6 +101,11 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
     PATCH_LOCATIONS_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_locations')
+
+    SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
+    SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
+    SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
+
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
@@ -126,7 +132,12 @@ elif hostname.startswith('ip'):
         DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
     else:
         DATA_ROOTDIR = '/shared'
-
+        
+    if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
+        THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
+    else:
+        THUMBNAIL_DATA_ROOTDIR = '/shared'
+    
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -134,7 +145,7 @@ elif hostname.startswith('ip'):
     REPO_DIR = os.environ['REPO_DIR']
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
-    THUMBNAIL_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data_processed')
+    THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
@@ -285,7 +296,9 @@ classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
 preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
-windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'}}
+windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 
+                      2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'},
+                     3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'}}
 
 ############ Class Labels #############
 

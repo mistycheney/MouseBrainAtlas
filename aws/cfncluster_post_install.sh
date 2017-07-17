@@ -6,6 +6,8 @@ echo "export AWS_SECRET_ACCESS_KEY=$3" >> /home/ubuntu/.bashrc
 echo "export AWS_DEFAULT_REGION=$4" >> /home/ubuntu/.bashrc
 
 sudo apt-get update
+sudo apt install awscli
+
 sudo apt install -y python-pip
 
 # Install all Python packages

@@ -1,11 +1,16 @@
 #! /bin/bash
 
 # Set aws credentials for AWS CLI
+# Note that if this script is executed by cfncluster, the argument index should be 2,3 and 4.
+# otherwise the argument index should be 1,2 and 3.
 echo "export AWS_ACCESS_KEY_ID=$2" >> /home/ubuntu/.bashrc
 echo "export AWS_SECRET_ACCESS_KEY=$3" >> /home/ubuntu/.bashrc
 echo "export AWS_DEFAULT_REGION=$4" >> /home/ubuntu/.bashrc
 
 sudo apt-get update
+sudo apt install awscli
+
+sudo apt install -y python-pip
 
 # Install all Python packages
 sudo pip install --upgrade pip
@@ -13,7 +18,7 @@ sudo pip install --upgrade pip
 # wget https://bootstrap.pypa.io/get-pip.py && sudo python get-pip.py
 # For shapely
 sudo apt-get install -y libgeos-dev
-sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python
+sudo pip install numpy scipy matplotlib tables scikit-learn scikit-image multiprocess jupyter bloscpack pandas shapely boto3 opencv-python numdifftools
 
 # Install other utility programs
 sudo apt-get install -y tree screen
@@ -64,9 +69,6 @@ echo "sudosgeadmin() { sudo -u sgeadmin -i \$1; }" >> /home/ubuntu/.bashrc
 # after manually changing it in the aws web console.
 echo "increase_ebs_size() { sudo resize2fs /dev/xvdb; }" >> /home/ubuntu/.bashrc
 
-# Set an alias for starting the notebook.
-echo "start_notebook() { jupyter notebook --notebook-dir \$1 & }" >> /home/ubuntu/.bashrc
-
 #########################################################################
 
 # Code repo
@@ -83,8 +85,8 @@ echo "export REPO_DIR=$REPO_DIR" >> /home/ubuntu/.bashrc
 sudo add-apt-repository -y ppa:graphics-drivers/ppa
 sudo apt-get update
 sudo apt-get install -y nvidia-367
-sudo apt-get install mesa-common-dev
-sudo apt-get install freeglut3-dev
+sudo apt-get install -y mesa-common-dev
+sudo apt-get install -y freeglut3-dev
 sudo nvidia-xconfig --cool-bits=28
 
 # Install CUDA

@@ -151,7 +151,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
         image_feeder.set_orientation('sagittal')
-        # image_feeder.set_downsample_factor(1)
         image_feeder.set_downsample_factor(self.sagittal_downsample)
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
 
@@ -210,12 +209,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def image_loaded(self, qimage, sec):
+        """
+        Callback for when an image is loaded.
+
+        Args:
+            qimage (QImage): the image
+            sec (int): section
+        """
+
         self.gscenes['sagittal'].data_feeder.set_image(sec=sec, qimage=qimage)
-        print 'Image', sec, 'received.'
         if self.gscenes['sagittal'].active_section == sec:
             self.gscenes['sagittal'].update_image()
-            # self.sagittal_gview.adjustSize()
+
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
+        print 'Image', sec, 'received.'
 
     @pyqtSlot()
     def username_changed(self):
@@ -486,6 +493,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = DataFrame(entries).T
         structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
         save_hdf_v2(structure_df, structure_df_fp)
+        print 'Sagittal markers saved to %s.' % structure_df_fp
 
     @pyqtSlot()
     def save(self):
@@ -543,8 +551,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         markers_df = load_hdf_v2(markers_df_fp)
 
         markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack)
-        # self.structure_df_loaded = structure_df
         markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'sagittal') & (markers_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+
+        # for i, marker_entry in markers_df_cropped_sagittal.iterrows():
+        #     if 'label' not in marker_entry:
+        #         print marker_entry
+
         self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False)
 
     @pyqtSlot()

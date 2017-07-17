@@ -424,7 +424,7 @@ def take_screenshot(win, file_path, magnification=10):
     writer.SetInputConnection(windowToImageFilter.GetOutputPort());
     writer.Write();
 
-def actor_sphere(position=(0,0,0), radius=.5):
+def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.)):
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(position[0], position[1], position[2])
     sphereSource.SetRadius(radius)
@@ -436,10 +436,12 @@ def actor_sphere(position=(0,0,0), radius=.5):
     #create an actor
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
+    sphereActor.GetProperty().SetColor(color)
+
     return sphereActor
 
 
-def add_axes(iren):
+def add_axes(iren, text_color=(1,1,1)):
 
     axes = vtk.vtkAxesActor()
 
@@ -447,6 +449,10 @@ def add_axes(iren):
     transform = vtk.vtkTransform()
     transform.Translate(0.0, 0.0, 0.0);
     axes.SetUserTransform(transform)
+
+    axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
+    axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
+    axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
 
     widget = vtk.vtkOrientationMarkerWidget()
     widget.SetOutlineColor( 0.9300, 0.5700, 0.1300 );
@@ -526,7 +532,7 @@ def save_mesh(polydata, fn, color=(255,255,255)):
 
 def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
-            axes=True, background_color=(0,0,0),
+            axes=True, background_color=(0,0,0), axes_label_color=(1,1,1),
             animate=False, movie_fn=None):
 
     ren1 = vtk.vtkRenderer()
@@ -624,7 +630,7 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
     # iren.SetInteractorStyle(MyInteractorStyle(parent=iren, snapshot_fn=None))
 
     if axes:
-        axes = add_axes(iren)
+        axes = add_axes(iren, text_color=axes_label_color)
 
     renWin.Render()
 

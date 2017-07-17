@@ -260,7 +260,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']
-            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, classifier_id=37)
+            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, detector_id=1, prep_id=2)
             download_from_s3(scoremap_viz_fp)
             # w, h = DataManager.get_image_dimension(self.gui.stack)
             w, h = metadata_cache['image_shapes'][self.gui.stack]
@@ -580,6 +580,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         else:
             self.open_label_selection_dialog()
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).polygon_completed_callback()
+
+    @pyqtSlot(object)
+    def polygon_pressed_callback(self, polygon):
+        # polygon = self.sender().parent
+        if self.mode == 'remove marker':
+            self.drawings[self.active_i].remove(polygon)
+            self.removeItem(polygon)
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).polygon_pressed_callback(polygon)
 
     # @pyqtSlot(object)
     # def polygon_closed(self, polygon):
@@ -1034,6 +1042,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif key == Qt.Key_N: # New marker
                 self.set_mode('add vertices once')
                 self.start_new_polygon(init_properties={'class': 'neuron'}, color='r')
+
+            elif key == Qt.Key_R: # Remove marker
+                self.set_mode('remove marker')
 
             elif key == Qt.Key_B: # Clear default label name.
                 self.default_name = None

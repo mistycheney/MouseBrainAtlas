@@ -215,7 +215,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
         polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
 
-        polygon.signal_emitter.press.connect(self._polygon_pressed)
+        polygon.signal_emitter.press.connect(self.polygon_pressed_callback)
         # polygon.signal_emitter.release.connect(self.polygon_release)
         polygon.signal_emitter.vertex_added.connect(self.vertex_added)
         # polygon.signal_emitter.vertex_clicked.connect(self.vertex_clicked)
@@ -255,7 +255,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         self.drawings_updated.emit(polygon)
 
     @pyqtSlot(object)
-    def _polygon_pressed(self, polygon):
+    def polygon_pressed_callback(self, polygon):
 
         print 'polygon pressed'
 
@@ -265,7 +265,6 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         else:
             self.active_polygon = polygon
             print 'active polygon selected', self.active_polygon
-
             self.polygon_pressed.emit(polygon)
 
     def show_context_menu(self, pos):

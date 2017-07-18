@@ -11,6 +11,25 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 
+def annotation_volume_to_score_volume(ann_vol, label_to_structure):
+    """
+    Convert an interger-valued annotation volume to a set of probability-valued score volumes.
+    
+    Args:
+        ann_vol (3D array of int): the annotation volume in which a voxel is an integer indicating the structure class
+    
+    Returns:
+        dict of 3D array of float: {structure name: volume}. Each voxel is a probability vector, where exactly one entry is 1.
+    """
+    
+    all_indices = set(np.unique(ann_vol)) - {0}
+    volume = {label_to_structure[i]: np.zeros_like(ann_vol, dtype=np.float16) for i in all_indices}
+    for i in all_indices:
+        mask = ann_vol == i
+        volume[label_to_structure[i]][mask] = 1.
+        del mask
+    return volume
+
 
 def contours_to_mask(contours, img_shape):
     """
@@ -869,7 +888,7 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
     # import cPickle as pickle
     # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
-    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1)
+    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
         fn = cnt['filename']

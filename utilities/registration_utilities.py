@@ -2206,11 +2206,13 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval, c
 
     return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
-def transform_volume_v2(vol, tf_params, centroid_m, centroid_f):
+def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
     First, centroid_m and centroid_f are aligned.
     Then the tranform parameterized by tf_params is applied.
     The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
+    
+    coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
 
     Args:
         vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
@@ -2245,14 +2247,15 @@ def transform_volume_v2(vol, tf_params, centroid_m, centroid_f):
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        # dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        dense_volume = volume_m_aligned_to_f
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 
     return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
 
-def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f=None, ydim_f=None, zdim_f=None):
+def transform_volume(vol, global_params, centroid_m=(0,0,0), centroid_f=(0,0,0), xdim_f=None, ydim_f=None, zdim_f=None):
     """
     First, centroid_m and centroid_f are aligned.
     Then the tranform parameterized by global_params is applied.
@@ -2296,7 +2299,6 @@ def transform_volume(vol, global_params, centroid_m, centroid_f, xdim_f=None, yd
         raise Exception('transform_volume: Volume must be either float or int.')
 
     return dense_volume
-
 
 def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m):
 
@@ -2407,17 +2409,3 @@ def fill_sparse_volume(volume_sparse):
         volume[binary_closing(padded, ball(closing_element_radius))[padding:-padding, padding:-padding, padding:-padding]] = ind
 
     return volume
-
-
-def annotation_volume_to_score_volume(ann_vol, label_to_structure):
-    """
-    Convert annotation volume (voxel is an integer indicating the structure class) to
-    score volume (voxel is a probability vector - in this case exactly one entry is 1.)
-    """
-    all_indices = set(np.unique(ann_vol)) - {0}
-    volume_f = {label_to_structure[i]: np.zeros_like(ann_vol, dtype=np.float16) for i in all_indices}
-    for i in all_indices:
-        mask = ann_vol == i
-        volume_f[label_to_structure[i]][mask] = 1.
-        del mask
-    return volume_f

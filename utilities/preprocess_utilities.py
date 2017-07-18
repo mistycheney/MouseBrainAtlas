@@ -37,6 +37,60 @@ PIXEL_CHANGE_TERMINATE_CRITERIA = 3
 AREA_CHANGE_RATIO_MAX = 10.0
 AREA_CHANGE_RATIO_MIN = .1
 
+def parse_elastix_parameter_file(filepath, tf_type='rigid2d'):
+    """
+    Parse elastix parameter result file.
+    """
+    
+    def parameter_file_to_dict(filename):
+        d = {}
+        with open(filename, 'r') as f:
+            for line in f.readlines():
+                if line.startswith('('):
+                    tokens = line[1:-2].split(' ')
+                    key = tokens[0]
+                    if len(tokens) > 2:
+                        value = []
+                        for v in tokens[1:]:
+                            try:
+                                value.append(float(v))
+                            except ValueError:
+                                value.append(v)
+                    else:
+                        v = tokens[1]
+                        try:
+                            value = (float(v))
+                        except ValueError:
+                            value = v
+                    d[key] = value
+
+            return d
+    
+    d = parameter_file_to_dict(filepath)
+    
+    if tf_type == 'rigid2d':
+        rot_rad, x_mm, y_mm = d['TransformParameters']
+        center = np.array(d['CenterOfRotationPoint']) / np.array(d['Spacing'])
+        # center[1] = d['Size'][1] - center[1]
+
+        xshift = x_mm / d['Spacing'][0]
+        yshift = y_mm / d['Spacing'][1]
+
+        R = np.array([[np.cos(rot_rad), -np.sin(rot_rad)],
+                      [np.sin(rot_rad), np.cos(rot_rad)]])
+        shift = center + (xshift, yshift) - np.dot(R, center)
+        T = np.vstack([np.column_stack([R, shift]), [0,0,1]])
+        return T
+    
+    elif tf_type == 'affine3d':
+        p = np.array( d['TransformParameters'])
+        L = p[:9].reshape((3,3))
+        shift = p[9:] / np.array(d['Spacing'])
+        center = np.array(d['CenterOfRotationPoint']) / np.array(d['Spacing'])
+        # shift = center + shift - np.dot(L, center)
+        # T = np.column_stack([L, shift])
+        return L, shift, center
+
 def brightfieldize_image(img):
     border = np.median(np.concatenate([img[:10, :].flatten(), img[-10:, :].flatten(), img[:, :10].flatten(), img[:, -10:].flatten()]))
     if border < 123:

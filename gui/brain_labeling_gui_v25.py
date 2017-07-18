@@ -46,8 +46,9 @@ class ReadImagesThread(QThread):
     def run(self):
         for sec in self.sections:
             try:
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='jpeg')
                 # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='grayJpeg')
-                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
+                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
             except Exception as e:
                 sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue

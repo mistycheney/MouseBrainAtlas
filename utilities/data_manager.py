@@ -63,7 +63,7 @@ def volume_type_to_str(t):
         return 'scoreVolume'
     elif t == 'annotation':
         return 'annotationVolume'
-    elif t == 'annotation_as_score':
+    elif t == 'annotationAsScore':
         return 'annotationAsScoreVolume'
     elif t == 'outer_contour':
         return 'outerContourVolume'
@@ -344,7 +344,7 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_transforms(stack, downsample_factor, use_inverse, anchor_fn=None):
+    def load_transforms(stack, downsample_factor, use_inverse=True, anchor_fn=None):
         """
         Args:
             use_inverse (bool): If True, load the transforms that when multiplied
@@ -843,6 +843,17 @@ class DataManager(object):
         basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity_metaimage', downscale=downscale)
         vol_mhd_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.mhd')
         vol_raw_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.raw')
+        return vol_mhd_fp, vol_raw_fp
+    
+    @staticmethod
+    def get_intensity_volume_mask_metaimage_filepath(stack, downscale=32):
+        """
+        Returns:
+            (header *.mhd filepath, data *.raw filepath)
+        """
+        basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity_metaimage', downscale=downscale)
+        vol_mhd_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_mask.mhd')
+        vol_raw_fp = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_mask.raw')
         return vol_mhd_fp, vol_raw_fp
 
     @staticmethod
@@ -1595,7 +1606,7 @@ class DataManager(object):
 
     @staticmethod
     def get_score_volume_filepath(stack, structure, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
         vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -1604,8 +1615,8 @@ class DataManager(object):
         return vol_fp
 
     @staticmethod
-    def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+    def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score'):
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -1701,12 +1712,14 @@ class DataManager(object):
             fp = DataManager.get_score_volume_filepath(**locals())
         elif volume_type == 'annotation':
             fp = DataManager.get_annotation_volume_filepath(stack=stack, downscale=downscale)
+        elif volume_type == 'annotationAsScore':
+            fp = DataManager.get_score_volume_filepath(**locals())
         elif volume_type == 'intensity':
             fp = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
         elif volume_type == 'intensity_mhd':
             fp = DataManager.get_intensity_volume_mhd_filepath(stack=stack, downscale=downscale)
         else:
-            raise Exception("Volume type must be one of score, annotation or intensity.")
+            raise Exception("Volume type must be one of score, annotation, annotationAsScore or intensity.")
         return fp
 
     @staticmethod
@@ -1743,8 +1756,9 @@ class DataManager(object):
         if volume_type == 'annotation':
             bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
         elif volume_type == 'score':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure=structure, downscale=downscale,
-            detector_id=detector_id, prep_id=prep_id)
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
+        elif volume_type == 'annotationAsScore':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
         elif volume_type == 'shell':
             bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
         elif volume_type == 'thumbnail':

@@ -54,8 +54,8 @@ class ReadImagesThread(QThread):
             if not os.path.exists(fp):
                 sys.stderr.write('Image %s does not exist.\n' % fp)
                 continue
-            image = QImage(fp)
-            self.emit(SIGNAL('image_loaded(QImage, int)'), image, sec)
+            qimage = QImage(fp)
+            self.emit(SIGNAL('image_loaded(QImage, int)'), qimage, sec)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):

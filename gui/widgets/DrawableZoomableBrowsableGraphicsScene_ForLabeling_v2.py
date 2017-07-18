@@ -5,6 +5,7 @@ from datetime import datetime
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import numpy as np
+from qimage2ndarray import recarray_view, array2qimage
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from data_manager import DataManager
@@ -43,6 +44,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
         self.gui = gui
         self.showing_which = 'histology'
+        self.blue_pixmap_cached = None
+        self.blue_pixmap_cache_section = None
+        self.red_pixmap_cached = None
+        self.red_pixmap_cache_section = None
+        self.green_pixmap_cached = None
+        self.green_pixmap_cache_section = None
 
         self.hline = QGraphicsLineItem()
         self.hline.setPen(CROSSLINE_RED_PEN)
@@ -254,18 +261,50 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         if self.showing_which == 'histology':
             image = self.data_feeder.retrieve_i(i=i)
             histology_pixmap = QPixmap.fromImage(image)
-            # histology_pixmap = QPixmap.fromImage(self.qimages[sec])
             self.pixmapItem.setPixmap(histology_pixmap)
             self.pixmapItem.setVisible(True)
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']
-            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=32, section=sec, structure=name_u, detector_id=1, prep_id=2)
+            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=8, section=sec, structure=name_u, detector_id=1, prep_id=2)
             download_from_s3(scoremap_viz_fp)
-            # w, h = DataManager.get_image_dimension(self.gui.stack)
             w, h = metadata_cache['image_shapes'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
+            self.pixmapItem.setVisible(True)
+            
+        elif self.showing_which == 'blue_only':
+            if self.blue_pixmap_cache_section != sec:
+                qimage = self.data_feeder.retrieve_i(i=i)
+                img = recarray_view(qimage)
+                channel = img["b"]
+                img_blue = np.dstack([np.zeros(channel.shape, channel.dtype), np.zeros(channel.shape, channel.dtype), channel])
+                qimage_blue = array2qimage(img_blue)
+                self.blue_pixmap_cached = QPixmap.fromImage(qimage_blue)
+                self.blue_pixmap_cache_section = sec
+            self.pixmapItem.setPixmap(self.blue_pixmap_cached)
+            self.pixmapItem.setVisible(True)
+
+        elif self.showing_which == 'red_only':
+            if self.red_pixmap_cache_section != sec:
+                channel = recarray_view(self.data_feeder.retrieve_i(i=i))["r"]
+                qimage_red = array2qimage(np.dstack([channel, np.zeros(channel.shape, channel.dtype), np.zeros(channel.shape, channel.dtype)]))
+                self.red_pixmap_cached = QPixmap.fromImage(qimage_red)
+                self.red_pixmap_cache_section = sec
+            self.pixmapItem.setPixmap(self.red_pixmap_cached)
+            self.pixmapItem.setVisible(True)
+
+        elif self.showing_which == 'green_only':
+            if self.green_pixmap_cache_section != sec:
+                qimage = self.data_feeder.retrieve_i(i=i)
+                img = recarray_view(qimage)
+                channel = img["g"]
+                img_green = np.dstack([np.zeros(channel.shape, channel.dtype), channel, np.zeros(channel.shape, channel.dtype)])
+                qimage_green = array2qimage(img_green)
+                self.green_pixmap_cached = QPixmap.fromImage(qimage_green)
+                self.green_pixmap_cache_section = sec
+            self.pixmapItem.setPixmap(self.green_pixmap_cached)
+            self.pixmapItem.setVisible(True)
         else:
             raise Exception("Show option %s is not recognized." % self.showing_which)
 
@@ -993,6 +1032,30 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.showing_which = 'histology'
                 else:
                     self.showing_which = 'scoremap'
+                self.update_image()
+                return True
+
+            elif key == Qt.Key_X:
+                if self.showing_which != 'red_only':
+                    self.showing_which = 'red_only'
+                else:
+                    self.showing_which = 'histology'
+                self.update_image()
+                return True
+
+            elif key == Qt.Key_Y:
+                if self.showing_which != 'blue_only':
+                    self.showing_which = 'blue_only'
+                else:
+                    self.showing_which = 'histology'
+                self.update_image()
+                return True
+
+            elif key == Qt.Key_Z:
+                if self.showing_which != 'green_only':
+                    self.showing_which = 'green_only'
+                else:
+                    self.showing_which = 'histology'
                 self.update_image()
                 return True
 

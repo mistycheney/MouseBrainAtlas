@@ -1,12 +1,13 @@
-warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample_number,grid_search_sample_number,std_tx_um,std_ty_um,std_tz_um,std_theta_xy_degree,surround_weight,regularization_weight
+warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample_number,grid_search_sample_number,std_tx_um,std_ty_um,std_tz_um,std_theta_xy_degree,surround_weight,regularization_weight,comment
 1,None,affine,1e-5,1e5,1000,2000,2000,2000,30,0
 2,1,rigid,1e-5,1e5,1e4,100,100,100,30,0
 4,1,rigid,1e-6,1e5,1e4,100,100,100,10,0,1e-6
 5,1,rigid,1e-6,1e5,1e4,100,100,100,30,inverse,0
 6,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.5,0
 7,None,rigid,1e-6,1e5,1000,50,50,50,10,0
-8,1,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0
-9,13,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0
+8,None,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0,align mid-sagittal planes
+9,8,rigid,1e-6,1e5,1e4,200,200,200,30,,,global registration given mid-sagittal planes are aligned
+18,8,affine,1e-6,1e5,1e4,200,200,200,30,,,global registration given mid-sagittal planes are aligned
 10,None,rigid,1e-5,1e5,1000,100,100,100,30,0
 11,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.1,0
 12,None,affine,1e-5,1e5,1000,2000,2000,2000,30,-0.5

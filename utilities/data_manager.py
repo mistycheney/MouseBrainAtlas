@@ -869,8 +869,9 @@ class DataManager(object):
 
     @staticmethod
     def load_annotation_volume(stack, downscale):
-        fn = DataManager.get_annotation_volume_filepath(**locals())
-        return DataManager.load_data(fn, filetype='bp')
+        fp = DataManager.get_annotation_volume_filepath(**locals())
+        download_from_s3(fp)
+        return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
     def get_annotation_volume_filepath(stack, downscale):
@@ -1626,7 +1627,7 @@ class DataManager(object):
 
     @staticmethod
     def get_volume_gradient_filepath_template(stack, structure, prep_id=None, detector_id=None, downscale=32, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id)
+        basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, downscale=downscale, volume_type=volume_type, **kwargs)
         grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volume_gradients',

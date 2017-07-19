@@ -30,7 +30,7 @@ parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("detector_id", type=int, help="Detector id")
 parser.add_argument("-n", "--trial_num", type=int, help="number of trials", default=1)
-parser.add_argument("-s", "--structures", type=str, help="structure", default=None)
+parser.add_argument("-s", "--structures", type=str, help="Json encoding of structure name list")
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -38,8 +38,11 @@ stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 detector_id = args.detector_id
 trial_num = args.trial_num
-structure_subset = args.structures
-
+if hasattr(args, "structures"):
+    structure_subset = json.loads(args.structures)
+else:
+    structure_subset = all_known_structures_sided
+    
 ###################################################################
 
 warp_properties = registration_settings.loc[warp_setting]
@@ -84,11 +87,6 @@ DataManager.load_original_volume_all_known_structures(stack=stack_moving, sided=
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
 DataManager.load_original_volume_all_known_structures(stack=stack_fixed, detector_id=detector_id, prep_id=2,
                                                    sided=False, volume_type='score')
-
-if structure_subset is None:
-    structure_subset = label_to_structure_moving.values()    
-else:
-    structure_subset = json.loads(structure_subset)
 
 if include_surround:
     structure_subset = structure_subset + [convert_to_surround_name(s, margin=200) for s in structure_subset]

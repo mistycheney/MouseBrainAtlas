@@ -23,7 +23,7 @@ def upload_to_s3(fp, local_root=None, is_dir=False):
                         is_dir=is_dir,
                         from_root=local_root)
 
-def download_from_s3(fp, local_root=None, is_dir=False, redownload=False):
+def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, include_only=None):
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
         local_root = ROOT_DIR
@@ -34,7 +34,8 @@ def download_from_s3(fp, local_root=None, is_dir=False, redownload=False):
                             from_hostname='s3',
                             to_hostname=HOST_ID,
                             is_dir=is_dir,
-                            to_root=local_root)
+                            to_root=local_root,
+                            include_only=include_only)
 
 
 def relative_to_local(abs_fp, local_root=None):

@@ -37,7 +37,7 @@ PIXEL_CHANGE_TERMINATE_CRITERIA = 3
 AREA_CHANGE_RATIO_MAX = 10.0
 AREA_CHANGE_RATIO_MIN = .1
 
-def parse_elastix_parameter_file(filepath, tf_type='rigid2d'):
+def parse_elastix_parameter_file(filepath, tf_type=None):
     """
     Parse elastix parameter result file.
     """
@@ -68,7 +68,8 @@ def parse_elastix_parameter_file(filepath, tf_type='rigid2d'):
     
     d = parameter_file_to_dict(filepath)
     
-    if tf_type == 'rigid2d':
+    if tf_type is None:
+        # For alignment composition script
         rot_rad, x_mm, y_mm = d['TransformParameters']
         center = np.array(d['CenterOfRotationPoint']) / np.array(d['Spacing'])
         # center[1] = d['Size'][1] - center[1]
@@ -81,6 +82,29 @@ def parse_elastix_parameter_file(filepath, tf_type='rigid2d'):
         shift = center + (xshift, yshift) - np.dot(R, center)
         T = np.vstack([np.column_stack([R, shift]), [0,0,1]])
         return T
+    
+    elif tf_type == 'rigid3d':
+        p = np.array(d['TransformParameters'])
+        center = np.array(d['CenterOfRotationPoint']) / np.array(d['Spacing'])
+        shift = p[3:] / np.array(d['Spacing'])
+        
+        thetax, thetay, thetaz = p[:3]
+        # Important to use the negative angle.
+        cx = np.cos(-thetax)
+        cy = np.cos(-thetay)
+        cz = np.cos(-thetaz)
+        sx = np.sin(-thetax)
+        sy = np.sin(-thetay)
+        sz = np.sin(-thetaz)
+        Rx = np.array([[1,0,0], [0, cx, sx],[0, -sx, cx]])
+        Ry = np.array([[cy, 0, sy],[0, 1, 0], [-sy,0, cy]])
+        Rz = np.array([[cz, sz, 0],[-sz, cz, 0], [0,0,1]])
+
+        R = np.dot(np.dot(Rz, Ry), Rx)
+        # R = np.dot(np.dot(Rx, Ry), Rz)
+        # The order could be Rx,Ry,Rz - not sure.
+        
+        return R, shift, center
     
     elif tf_type == 'affine3d':
         p = np.array( d['TransformParameters'])

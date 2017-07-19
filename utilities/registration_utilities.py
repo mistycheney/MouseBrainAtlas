@@ -1464,7 +1464,7 @@ def find_contour_points(labelmap, sample_every=10, min_length=0):
 
     if np.count_nonzero(labelmap) == 0:
         # sys.stderr.write('No contour can be found because the image is blank.\n')
-        return []
+        return {}
 
     regions = regionprops(labelmap.astype(np.int))
     contour_points = {}
@@ -2247,8 +2247,8 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        # dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
-        dense_volume = volume_m_aligned_to_f
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        #dense_volume = volume_m_aligned_to_f
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 
@@ -2295,6 +2295,7 @@ def transform_volume(vol, global_params, centroid_m=(0,0,0), centroid_f=(0,0,0),
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
         dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        #dense_volume = volume_m_aligned_to_f
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 
@@ -2360,7 +2361,7 @@ def fill_sparse_score_volume(vol):
 
 def fill_sparse_volume(volume_sparse):
     """
-    Fill all holes of a integer-labeled volume.
+    Fill all holes of a integer-labeled volume. Assuming background label is 0.
 
     Args:
         volume_sparse (3D ndarray of int): sparse label volume.
@@ -2368,28 +2369,6 @@ def fill_sparse_volume(volume_sparse):
     Returns:
         volume_filled (3D ndarray of int): filled label volume.
     """
-
-    # from registration_utilities import find_contour_points
-    # from annotation_utilities import points_inside_contour
-    #
-    # volume = np.zeros_like(volume_sparse, np.int8)
-    # for z in range(volume_sparse.shape[-1]):
-    #     for ind, cnts in find_contour_points(volume_sparse[..., z]).iteritems():
-    #         longest_cnt = cnts[np.argsort(map(len, cnts))[-1]]
-    #         pts = points_inside_contour(longest_cnt)
-    #         volume[pts[:,1], pts[:,0], z] = ind
-
-    # from skimage.morphology import binary_closing, disk
-    # volume = np.zeros_like(volume_sparse, np.int8)
-    # for z in range(volume_sparse.shape[-1]):
-    #     for ind in np.unique(volume_sparse[..., z]):
-    #         # Assume background label is 0.
-    #         if ind == 0:
-    #             continue
-    #         padding = 10
-    #         padded = np.pad(volume_sparse[..., z] == ind, ((padding,padding),(padding,padding)),
-    #                         mode='constant', constant_values=0)
-    #         volume[..., z][binary_closing(padded, disk(5))[10:-10, 10:-10]] = ind
 
     # Padding is necessary,
     # because if the input volume touches the border,
@@ -2401,11 +2380,18 @@ def fill_sparse_volume(volume_sparse):
 
     volume = np.zeros_like(volume_sparse, np.int8)
     for ind in np.unique(volume_sparse):
+
         # Assume background label is 0.
         if ind == 0:
             continue
-        padded = np.pad(volume_sparse == ind, ((padding,padding),(padding,padding),(padding,padding)),
+            
+        vb = volume_sparse == ind
+        xmin,xmax,ymin,ymax,zmin,zmax = bbox_3d(vb)
+        vs = vb[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]
+        vs_padded = np.pad(vs, ((padding,padding),(padding,padding),(padding,padding)),
                         mode='constant', constant_values=0)
-        volume[binary_closing(padded, ball(closing_element_radius))[padding:-padding, padding:-padding, padding:-padding]] = ind
+        vs_padded_filled = binary_closing(vs_padded, ball(closing_element_radius))
+        vs_filled = vs_padded_filled[padding:-padding, padding:-padding, padding:-padding]
+        volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1][vs_filled.astype(np.bool)] = ind
 
     return volume

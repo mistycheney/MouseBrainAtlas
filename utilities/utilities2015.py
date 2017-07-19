@@ -26,6 +26,47 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def crop_and_pad_volume(in_vol, in_bbox, out_bbox):
+    
+    out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
+    out_xdim = out_xmax - out_xmin + 1
+    out_ydim = out_ymax - out_ymin + 1
+    out_zdim = out_zmax - out_zmin + 1
+    
+    in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
+    in_xdim = in_xmax - in_xmin + 1
+    in_ydim = in_ymax - in_ymin + 1
+    in_zdim = in_zmax - in_zmin + 1
+    
+#     if out_xmax > in_xmax:
+#         in_vol = np.pad(in_vol, pad_width=[0,(0, out_xmax-in_xmax),0], mode='constant', constant_value=0)
+#         print 'pad x'
+#     if out_ymax > in_ymax:
+#         in_vol = np.pad(in_vol, pad_width=[(0, out_ymax-in_ymax),0,0], mode='constant', constant_value=0)
+#         print 'pad y'
+#     if out_zmax > in_zmax:
+#         in_vol = np.pad(in_vol, pad_width=[0,0,(0, out_zmax-in_zmax)], mode='constant', constant_value=0)
+#         print 'pad z'
+    
+    out_vol = np.zeros((out_ydim, out_xdim, out_zdim), in_vol.dtype)
+    ymin = max(in_ymin, out_ymin)
+    xmin = max(in_xmin, out_xmin)
+    zmin = max(in_zmin, out_zmin)
+    ymax = min(in_ymax, out_ymax)
+    xmax = min(in_xmax, out_xmax)
+    zmax = min(in_zmax, out_zmax)
+#     print ymin, xmin, zmin
+    assert ymin >= 0 and xmin >= 0 and zmin >= 0
+    out_vol[ymin:ymax+1, 
+            xmin:xmax+1, 
+            zmin:zmax+1] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]
+    
+    assert out_vol.shape[1] == out_xdim
+    assert out_vol.shape[0] == out_ydim
+    assert out_vol.shape[2] == out_zdim
+    
+    return out_vol
+
 def rescale_intensity_v2(im, low, high):
     from skimage.exposure import rescale_intensity
     if low > high:

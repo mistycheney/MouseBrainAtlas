@@ -74,9 +74,14 @@ chown -R ubuntu $REPO_DIR
 # Set environment variable.
 echo "export REPO_DIR=$REPO_DIR" >> /home/ubuntu/.bashrc
 
+#####################################
+
+# Install imagemagick
+sudo apt-get install -y imagemagick
+
 ##################################
 
-# Start the notebook if is master.
+# Start the notebook if is master. - Does not work
 . /etc/cfncluster/cfnconfig
 
 if [ "$cfn_node_type" == "MasterServer" ]; then

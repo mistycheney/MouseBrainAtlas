@@ -148,14 +148,32 @@ class DataManager(object):
                                 classifier_setting_m=None,
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
+        """
+        Args:
+            timestamp (str): can be "latest".
+        """
+        
+        
         if by_human:
-            if suffix is None:                
-                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+            # if suffix is None:                
+            #     fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+            # else:
+            if timestamp is not None:
+                if timestamp == 'latest':
+                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*contours*", redownload=True)
+                    import re
+                    timestamps = []
+                    for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix':'contours'}, fn)
+                        if m is not None:
+                            ts = m.groups()[0]
+                            timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                    timestamp = sorted(timestamps)[-1][1]
+                    print "latest timestamp: ", timestamp
+                    
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
             else:
-                if timestamp is not None:
-                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
-                else:
-                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               classifier_setting_m=classifier_setting_m,

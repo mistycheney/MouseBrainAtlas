@@ -21,6 +21,8 @@ CROSSLINE_PEN_WIDTH = 2
 CROSSLINE_RED_PEN = QPen(Qt.red)
 CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
 
+MARKER_COLOR_CHAR = 'w'
+
 reference_resources = {
 '5N': {'BrainInfo': 'http://braininfo.rprc.washington.edu/centraldirectory.aspx?ID=559',
         'PubMed': 'https://www.ncbi.nlm.nih.gov/pubmed/query.fcgi?cmd=search&db=PubMed&term=%22motor+nucleus%22+OR+%22motor+nucleus+of+trigeminal+nerve%22+OR+%22motor+trigeminal+nucleus%22+OR+%22Nucleus+motorius+nervi+trigemini%22+OR+%22trigeminal+motor+nucleus%22&dispmax=20&relentrezdate=No+Limit',
@@ -44,12 +46,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
         self.gui = gui
         self.showing_which = 'histology'
-        self.blue_pixmap_cached = None
-        self.blue_pixmap_cache_section = None
-        self.red_pixmap_cached = None
-        self.red_pixmap_cache_section = None
-        self.green_pixmap_cached = None
-        self.green_pixmap_cache_section = None
+        self.per_channel_pixmap_cached = {}
+        self.per_channel_pixmap_cache_section = None
 
         self.hline = QGraphicsLineItem()
         self.hline.setPen(CROSSLINE_RED_PEN)
@@ -272,39 +270,33 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
             self.pixmapItem.setVisible(True)
-            
-        elif self.showing_which == 'blue_only':
-            if self.blue_pixmap_cache_section != sec:
+
+        elif self.showing_which == 'blue_only' or self.showing_which == 'red_only' or self.showing_which == 'green_only' :
+            if self.per_channel_pixmap_cache_section != sec:
                 qimage = self.data_feeder.retrieve_i(i=i)
                 img = recarray_view(qimage)
-                channel = img["b"]
-                img_blue = np.dstack([np.zeros(channel.shape, channel.dtype), np.zeros(channel.shape, channel.dtype), channel])
+                img_shape = img["b"].shape
+                img_dtype = img["b"].dtype
+                img_blue = np.dstack([np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype), img["b"]])
+                img_red = np.dstack([img["r"], np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype)])
+                img_green = np.dstack([np.zeros(img_shape, img_dtype), img["g"], np.zeros(img_shape, img_dtype)])
                 qimage_blue = array2qimage(img_blue)
-                self.blue_pixmap_cached = QPixmap.fromImage(qimage_blue)
-                self.blue_pixmap_cache_section = sec
-            self.pixmapItem.setPixmap(self.blue_pixmap_cached)
-            self.pixmapItem.setVisible(True)
-
-        elif self.showing_which == 'red_only':
-            if self.red_pixmap_cache_section != sec:
-                channel = recarray_view(self.data_feeder.retrieve_i(i=i))["r"]
-                qimage_red = array2qimage(np.dstack([channel, np.zeros(channel.shape, channel.dtype), np.zeros(channel.shape, channel.dtype)]))
-                self.red_pixmap_cached = QPixmap.fromImage(qimage_red)
-                self.red_pixmap_cache_section = sec
-            self.pixmapItem.setPixmap(self.red_pixmap_cached)
-            self.pixmapItem.setVisible(True)
-
-        elif self.showing_which == 'green_only':
-            if self.green_pixmap_cache_section != sec:
-                qimage = self.data_feeder.retrieve_i(i=i)
-                img = recarray_view(qimage)
-                channel = img["g"]
-                img_green = np.dstack([np.zeros(channel.shape, channel.dtype), channel, np.zeros(channel.shape, channel.dtype)])
+                qimage_red = array2qimage(img_red)
                 qimage_green = array2qimage(img_green)
-                self.green_pixmap_cached = QPixmap.fromImage(qimage_green)
-                self.green_pixmap_cache_section = sec
-            self.pixmapItem.setPixmap(self.green_pixmap_cached)
+                self.per_channel_pixmap_cached['b'] = QPixmap.fromImage(qimage_blue)
+                self.per_channel_pixmap_cached['g'] = QPixmap.fromImage(qimage_green)
+                self.per_channel_pixmap_cached['r'] = QPixmap.fromImage(qimage_red)
+                self.per_channel_pixmap_cache_section = sec
+
+            if self.showing_which == 'blue_only':
+                self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['b'])
+            elif self.showing_which == 'red_only':
+                self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['r'])
+            elif self.showing_which == 'green_only':
+                self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['g'])
+
             self.pixmapItem.setVisible(True)
+
         else:
             raise Exception("Show option %s is not recognized." % self.showing_which)
 
@@ -463,12 +455,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.label_selection_dialog.accept()
 
 
-    def load_drawings(self, contours, append=False):
+    def load_drawings(self, contours, append=False, vertex_color=None):
         """
         Load annotation contours and place drawings.
-        """
 
-        # CONTOUR_IS_INTERPOLATED = 1
+        Args:
+            vertex_color (str or (3,)-array of 255-based int):
+
+        """
 
         if not append:
             self.drawings = defaultdict(list)
@@ -482,11 +476,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         grouped = contours.groupby('section')
 
         for sec, group in grouped:
+            # assert sec in metadata_cache['valid_sections'][self.gui.stack], "Section %d is labeled but the section is not valid." % sec
+            if sec not in metadata_cache['valid_sections'][self.gui.stack]:
+                sys.stderr.write( "Section %d is labeled but the section is not valid.\n" % sec)
+                continue
+                
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                # if 'flags' in contours and contour['flags'] is not None:
-                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
-                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
                 if 'type' in contours and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
@@ -495,11 +491,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if 'class' in contours and contour['class'] is not None:
                     contour_class = contour['class']
                 else:
-                    contour_class = None
+                    contour_class = 'contour'
+                    # contour_class = None
 
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
                                                         label=contour['name'], label_pos=contour['label_position'],
-                                                        linecolor='r', section=sec, type=contour_type,
+                                                        linecolor='r', vertex_color=vertex_color,
+                                                        section=sec, type=contour_type,
                                                         side=contour['side'],
                                                         side_manually_assigned=contour['side_manually_assigned'],
                                                         edits=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'],
@@ -521,7 +519,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
-                    sys.stderr.write("polygon has no class\n")
+                    # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    sys.stderr.write("polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
@@ -798,7 +797,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif selected_action == action_newMarker:
             self.set_mode('add vertices once')
-            self.start_new_polygon(init_properties={'class': 'neuron'}, color='r')
+            self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR)
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -1043,7 +1042,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.update_image()
                 return True
 
+
             elif key == Qt.Key_Y:
+                if self.showing_which != 'green_only':
+                    self.showing_which = 'green_only'
+                else:
+                    self.showing_which = 'histology'
+                self.update_image()
+                return True
+
+            elif key == Qt.Key_Z:
                 if self.showing_which != 'blue_only':
                     self.showing_which = 'blue_only'
                 else:
@@ -1051,13 +1059,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.update_image()
                 return True
 
-            elif key == Qt.Key_Z:
-                if self.showing_which != 'green_only':
-                    self.showing_which = 'green_only'
-                else:
-                    self.showing_which = 'histology'
-                self.update_image()
-                return True
 
             elif key == Qt.Key_I:
                 self.show_information_box()
@@ -1104,7 +1105,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif key == Qt.Key_N: # New marker
                 self.set_mode('add vertices once')
-                self.start_new_polygon(init_properties={'class': 'neuron'}, color='r')
+                self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR_CHAR)
 
             elif key == Qt.Key_R: # Remove marker
                 self.set_mode('remove marker')
@@ -1304,8 +1305,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     obj.mousePressEvent(event)
                     if not self.active_polygon.closed:
                         assert 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron'
-                        vertex_color = 'r'
-                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=MARKER_COLOR_CHAR)
                     first_circ = self.active_polygon.vertex_circles[0]
                     first_circ.signal_emitter.press.emit(first_circ)
                     return False
@@ -1332,7 +1332,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     assert self.active_polygon.closed, 'Insertion is not allowed if polygon is not closed.'
                     new_index = find_vertex_insert_position(self.active_polygon, gscene_x, gscene_y)
                     if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
-                        vertex_color = 'r'
+                        vertex_color = MARKER_COLOR_CHAR
                     else:
                         vertex_color = 'b'
                     self.active_polygon.add_vertex(gscene_x, gscene_y, new_index, color=vertex_color)

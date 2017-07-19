@@ -70,6 +70,9 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         elif color == 'b':
             ellipse.setPen(Qt.blue)
             ellipse.setBrush(Qt.blue)
+        elif color == 'w':
+            ellipse.setPen(Qt.white)
+            ellipse.setBrush(Qt.white)
         elif isinstance(color, tuple) or isinstance(color, list):
             ellipse.setPen(QColor(color[0], color[1], color[2]))
             ellipse.setBrush(QColor(color[0], color[1], color[2]))

@@ -194,10 +194,12 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             pen = QPen(Qt.green)
         elif color == 'b':
             pen = QPen(Qt.blue)
+        elif color == 'w':
+            pen = QPen(Qt.white)
         elif isinstance(color, tuple) or  isinstance(color, list):
             pen = QPen(QColor(color[0], color[1], color[2]))
         else:
-            raise Exception('color argument to polygon must be r,g or b')
+            raise Exception('color argument to polygon must be r,g,b or w')
 
         if linewidth is None:
             linewidth = self.default_line_width

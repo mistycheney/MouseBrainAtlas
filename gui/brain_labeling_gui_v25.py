@@ -611,53 +611,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Load contours.
         """
 
-        # Load sagittal contours
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
-        # print sagittal_contours_df
-
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack)
-        # self.structure_df_loaded = structure_df
         sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal') & (sagittal_contours_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
-
-        # # self.gscenes['sagittal'].load_drawings(username='Lauren', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir)
-        # # self.gscenes['sagittal'].load_drawings(username='yuncong', timestamp='latest', annotation_rootdir=annotation_midbrainIncluded_v2_rootdir
-        #
-        # # Load traditional version of labelings
-        # # contour_df_original, structure_df = DataManager.load_annotation_v3(stack=self.stack)
-        # # contour_df = convert_annotation_v3_original_to_aligned_cropped(contour_df_original, stack=self.stack)
-        #
-        # # Load pipeline generated atlas-aligned annotations
-        #
-        # contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the sagittal contours annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-        # print contours_df_fp
-        # download_from_s3(contours_df_fp)
-        # contour_df = load_hdf_v2(contours_df_fp)
-        #
-        # # contour_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        # # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='contours')
-        #
-        # self.contour_df_loaded = contour_df
-        #
-        # sagittal_contours = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
-        # self.gscenes['sagittal'].load_drawings(sagittal_contours)
-        #
-        # try:
-        #     coronal_contours = contour_df[(contour_df['orientation'] == 'coronal') & (contour_df['downsample'] == self.gscenes['coronal'].data_feeder.downsample)]
-        #     self.gscenes['coronal'].load_drawings(coronal_contours)
-        # except Exception as e:
-        #     sys.stderr.write("Error loading coronal contours: str(e)\n")
-        #
-        # try:
-        #     horizontal_contours = contour_df[(contour_df['orientation'] == 'horizontal') & (contour_df['downsample'] == self.gscenes['horizontal'].data_feeder.downsample)]
-        #     self.gscenes['horizontal'].load_drawings(horizontal_contours)
-        # except Exception as e:
-        #     sys.stderr.write("Error loading horizontal contours: str(e)\n")
-
-        # self.sagittal_contours_loaded = sagittal_contours
-        # self.coronal_contours_loaded = coronal_contours
-        # self.horizontal_contours_loaded = horizontal_contours
 
     @pyqtSlot()
     def active_image_updated(self):

@@ -464,8 +464,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         """
 
-        # CONTOUR_IS_INTERPOLATED = 1
-
         if not append:
             self.drawings = defaultdict(list)
 
@@ -478,11 +476,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         grouped = contours.groupby('section')
 
         for sec, group in grouped:
+            # assert sec in metadata_cache['valid_sections'][self.gui.stack], "Section %d is labeled but the section is not valid." % sec
+            if sec not in metadata_cache['valid_sections'][self.gui.stack]:
+                sys.stderr.write( "Section %d is labeled but the section is not valid.\n" % sec)
+                continue
+                
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                # if 'flags' in contours and contour['flags'] is not None:
-                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else None
-                    # contour_type = 'interpolated' if contour['flags'] & CONTOUR_IS_INTERPOLATED else 'confirmed'
                 if 'type' in contours and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
@@ -519,9 +519,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
-                    raise Exception("polygon has no class")
-                    # sys.stderr.write("polygon has no class\n")
-                    # continue
+                    # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    sys.stderr.write("polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
                     polygon_id = polygon.contour_id

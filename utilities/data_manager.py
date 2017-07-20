@@ -164,10 +164,13 @@ class DataManager(object):
                     import re
                     timestamps = []
                     for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
-                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix':'contours'}, fn)
+                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
                         if m is not None:
                             ts = m.groups()[0]
-                            timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                            try:
+                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                            except:
+                                pass
                     timestamp = sorted(timestamps)[-1][1]
                     print "latest timestamp: ", timestamp
                     
@@ -562,7 +565,7 @@ class DataManager(object):
                                   vol_type_f='score', vol_type_m='score',
                                   downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-        download_from_s3(params_fp)
+        download_from_s3(params_fp, redownload=True)
         return DataManager.load_data(params_fp, 'transform_params')
 
     # @save_to_s3(fpkw='fp', fppos=0)

@@ -354,3 +354,15 @@ all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
 
 import multiprocessing
 NUM_CORES = multiprocessing.cpu_count()
+
+############## Colors ##############
+
+from utilities2015 import high_contrast_colors
+hc_perm = [ 0,  5, 28, 26, 12, 11,  4,  8, 25, 22,  3,  1, 20, 19, 27, 13, 24,
+       17, 16, 15,  7, 14, 21, 18, 23,  2, 10,  9,  6]
+high_contrast_colors = [high_contrast_colors[i] for i in hc_perm]
+name_sided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)] 
+                     for i, s in enumerate(all_known_structures_sided) }
+name_unsided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)] 
+                     for i, s in enumerate(all_known_structures) }
+stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n in enumerate(all_stacks)}

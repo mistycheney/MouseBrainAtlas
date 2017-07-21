@@ -3,6 +3,7 @@
 import numpy as np
 import sys
 import os
+import time
 
 from skimage.morphology import binary_closing, disk, binary_dilation, binary_erosion
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
@@ -12,13 +13,14 @@ try:
     import cv2
 except:
     sys.stderr.write('Cannot find cv2\n')
-
+import matplotlib.pyplot as plt
+from multiprocess import Pool
+    
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from distributed_utilities import download_from_s3
 from metadata import *
-
-import matplotlib.pyplot as plt
+from lie import matrix_exp_v
 
 def parallel_where_binary(binary_volume, num_samples=None):
     """
@@ -120,13 +122,6 @@ def N(i,t):
     else:
         return 0
     
-# from joblib import Parallel, delayed
-import time
-from lie import matrix_exp_v
-import logging
-
-from multiprocess import Pool
-
 volume_f = None
 volume_m = None
 nzvoxels_m = None
@@ -1967,7 +1962,7 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
                              ctrl_x_intervals=None,
                              ctrl_y_intervals=None,
                              ctrl_z_intervals=None,
-                             pts=None, c=None, pts_centered=None, c_prime=0, 
+                             pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0), 
                             NuNvNw_allTestPts=None):
     """
     Args:
@@ -2021,6 +2016,8 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
                                   for testPt_i in range(len(pts_centered))])
         sys.stderr.write("Compute NuNvNw: %.2f seconds.\n" % (time.time() - t))
 
+    # the expression inside np.ravel gives array of shape (n_ctrlx, n_ctrly, nctrlz)
+        
     # print NuNvNw_allTestPts.shape
     # (157030, 1008)
     # (n_test, n_ctrlx * n_ctrly * n_ctrlz)

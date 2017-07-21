@@ -32,34 +32,38 @@ def crop_and_pad_volume(in_vol, in_bbox, out_bbox):
     out_xdim = out_xmax - out_xmin + 1
     out_ydim = out_ymax - out_ymin + 1
     out_zdim = out_zmax - out_zmin + 1
+    # print 'out', out_xdim, out_ydim, out_zdim
     
     in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
     in_xdim = in_xmax - in_xmin + 1
     in_ydim = in_ymax - in_ymin + 1
     in_zdim = in_zmax - in_zmin + 1
+    # print 'in', in_xdim, in_ydim, in_zdim
     
-#     if out_xmax > in_xmax:
-#         in_vol = np.pad(in_vol, pad_width=[0,(0, out_xmax-in_xmax),0], mode='constant', constant_value=0)
-#         print 'pad x'
-#     if out_ymax > in_ymax:
-#         in_vol = np.pad(in_vol, pad_width=[(0, out_ymax-in_ymax),0,0], mode='constant', constant_value=0)
-#         print 'pad y'
-#     if out_zmax > in_zmax:
-#         in_vol = np.pad(in_vol, pad_width=[0,0,(0, out_zmax-in_zmax)], mode='constant', constant_value=0)
-#         print 'pad z'
+    if out_xmax > in_xmax:
+        in_vol = np.pad(in_vol, pad_width=[(0,0),(0, out_xmax-in_xmax),(0,0)], mode='constant', constant_values=0)
+        # print 'pad x'
+    if out_ymax > in_ymax:
+        in_vol = np.pad(in_vol, pad_width=[(0, out_ymax-in_ymax),(0,0),(0,0)], mode='constant', constant_values=0)
+        # print 'pad y'
+    if out_zmax > in_zmax:
+        in_vol = np.pad(in_vol, pad_width=[(0,0),(0,0),(0, out_zmax-in_zmax)], mode='constant', constant_values=0)
+        # print 'pad z'
     
     out_vol = np.zeros((out_ydim, out_xdim, out_zdim), in_vol.dtype)
     ymin = max(in_ymin, out_ymin)
     xmin = max(in_xmin, out_xmin)
     zmin = max(in_zmin, out_zmin)
-    ymax = min(in_ymax, out_ymax)
-    xmax = min(in_xmax, out_xmax)
-    zmax = min(in_zmax, out_zmax)
-#     print ymin, xmin, zmin
+    ymax = out_ymax
+    xmax = out_xmax
+    zmax = out_zmax
+    # print 'in_vol', np.array(in_vol.shape)[[1,0,2]]
+    # print xmin, xmax, ymin, ymax, zmin, zmax
+    # print xmin-in_xmin, xmax+1-in_xmin
     assert ymin >= 0 and xmin >= 0 and zmin >= 0
-    out_vol[ymin:ymax+1, 
-            xmin:xmax+1, 
-            zmin:zmax+1] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]
+    out_vol[ymin-out_ymin:ymax+1-out_ymin, 
+            xmin-out_xmin:xmax+1-out_xmin, 
+            zmin-out_zmin:zmax+1-out_zmin] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]
     
     assert out_vol.shape[1] == out_xdim
     assert out_vol.shape[0] == out_ydim
@@ -471,7 +475,7 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
     if ndim == 2:
         common_box = (pad_value*np.ones((common_shape[0], common_shape[1]))).astype(dt)
     elif ndim == 3:
-        common_box = (pad_value*np.ones((common_shape[0], common_shape[1], 3))).astype(dt)
+        common_box = (pad_value*np.ones((common_shape[0], common_shape[1], p.shape[2]))).astype(dt)
 
     patches_padded = []
     for p in vizs:
@@ -555,7 +559,7 @@ def display_volume_sections_checkerboard(vol_f, vol_m, every=5, ncols=5, directi
             zs = range(zmin+1, zmax, every)
         else:
             zs = range(start_level, zmax, every)
-        vizs = [vol[..., z] for z in zs]
+        vizs = [vol[:, :, z] for z in zs]
         titles = ['z=%d' % z  for z in zs]
     elif direction == 'x':
         xmin, xmax = bbox_3d(vol)[:2]
@@ -589,7 +593,7 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
             zs = range(zmin+1, zmax, every)
         else:
             zs = range(start_level, zmax, every)
-        vizs = [vol[..., z] for z in zs]
+        vizs = [vol[:, :, z] for z in zs]
         titles = ['z=%d' % z  for z in zs]
     elif direction == 'x':
         xmin, xmax = bbox_3d(vol)[:2]
@@ -609,7 +613,8 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
         titles = ['y=%d' % y for y in ys]
 
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
-
+    
+    
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
     """
     Args:
@@ -784,13 +789,19 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
     if dst_rgb.dtype == np.uint8:
         dst_rgb = img_as_float(dst_rgb)
+        
+    if src_rgb.ndim == 2:
+        src_rgb = gray2rgb(src_rgb)
+    
+    if dst_rgb.ndim == 2:
+        dst_rgb = gray2rgb(dst_rgb)
 
     if isinstance(src_alpha, float) or  isinstance(src_alpha, int):
         src_alpha = src_alpha * np.ones((src_rgb.shape[0], src_rgb.shape[1]))
 
     if isinstance(dst_alpha, float) or  isinstance(dst_alpha, int):
         dst_alpha = dst_alpha * np.ones((dst_rgb.shape[0], dst_rgb.shape[1]))
-
+        
     out_alpha = src_alpha + dst_alpha * (1. - src_alpha)
     out_rgb = (src_rgb * src_alpha[..., None] +
                dst_rgb * dst_alpha[..., None] * (1. - src_alpha[..., None])) / out_alpha[..., None]

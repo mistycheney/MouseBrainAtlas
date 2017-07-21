@@ -468,6 +468,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack)
         sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
         save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
+        print 'Sagittal markers saved to %s.' % sagittal_markers_fp
 
     @pyqtSlot()
     def save_structures(self):
@@ -500,7 +501,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = DataFrame(entries).T
         structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
         save_hdf_v2(structure_df, structure_df_fp)
-        print 'Sagittal markers saved to %s.' % structure_df_fp
+        print '3D structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
     def save(self):

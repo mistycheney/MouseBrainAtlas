@@ -37,36 +37,37 @@ PIXEL_CHANGE_TERMINATE_CRITERIA = 3
 AREA_CHANGE_RATIO_MAX = 10.0
 AREA_CHANGE_RATIO_MIN = .1
 
+
+def parameter_elastix_parameter_file_to_dict(filename):
+    d = {}
+    with open(filename, 'r') as f:
+        for line in f.readlines():
+            if line.startswith('('):
+                tokens = line[1:-2].split(' ')
+                key = tokens[0]
+                if len(tokens) > 2:
+                    value = []
+                    for v in tokens[1:]:
+                        try:
+                            value.append(float(v))
+                        except ValueError:
+                            value.append(v)
+                else:
+                    v = tokens[1]
+                    try:
+                        value = (float(v))
+                    except ValueError:
+                        value = v
+                d[key] = value
+
+        return d
+
 def parse_elastix_parameter_file(filepath, tf_type=None):
     """
     Parse elastix parameter result file.
     """
     
-    def parameter_file_to_dict(filename):
-        d = {}
-        with open(filename, 'r') as f:
-            for line in f.readlines():
-                if line.startswith('('):
-                    tokens = line[1:-2].split(' ')
-                    key = tokens[0]
-                    if len(tokens) > 2:
-                        value = []
-                        for v in tokens[1:]:
-                            try:
-                                value.append(float(v))
-                            except ValueError:
-                                value.append(v)
-                    else:
-                        v = tokens[1]
-                        try:
-                            value = (float(v))
-                        except ValueError:
-                            value = v
-                    d[key] = value
-
-            return d
-    
-    d = parameter_file_to_dict(filepath)
+    d = parameter_elastix_parameter_file_to_dict(filepath)
     
     if tf_type is None:
         # For alignment composition script
@@ -113,6 +114,15 @@ def parse_elastix_parameter_file(filepath, tf_type=None):
         center = np.array(d['CenterOfRotationPoint']) / np.array(d['Spacing'])
         # shift = center + shift - np.dot(L, center)
         # T = np.column_stack([L, shift])
+        return L, shift, center
+    
+    elif tf_type == 'bspline3d':
+        n_params = d['NumberOfParameters']
+        p = np.array(d['TransformParameters'])
+        grid_size = d['GridSize']
+        grid_spacing = d['GridSpacing']
+        grid_origin = d['GridOrigin']
+        
         return L, shift, center
 
 def brightfieldize_image(img):

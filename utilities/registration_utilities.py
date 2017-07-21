@@ -1964,6 +1964,9 @@ def transform_points_2d(T, pts=None, c=None, pts_centered=None, c_prime=0):
 
 def transform_points_bspline(buvwx, buvwy, buvwz, 
                              volume_shape=None, interval=None, 
+                             ctrl_x_intervals=None,
+                             ctrl_y_intervals=None,
+                             ctrl_z_intervals=None,
                              pts=None, c=None, pts_centered=None, c_prime=0, 
                             NuNvNw_allTestPts=None):
     """
@@ -1983,10 +1986,12 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
     if NuNvNw_allTestPts is None:
     
         xdim, ydim, zdim = volume_shape
-
-        ctrl_x_intervals = np.arange(0, xdim, interval)
-        ctrl_y_intervals = np.arange(0, ydim, interval)
-        ctrl_z_intervals = np.arange(0, zdim, interval)
+        if ctrl_x_intervals is None:
+            ctrl_x_intervals = np.arange(0, xdim, interval)
+        if ctrl_y_intervals is None:
+            ctrl_y_intervals = np.arange(0, ydim, interval)
+        if ctrl_z_intervals is None:
+            ctrl_z_intervals = np.arange(0, zdim, interval)
         
         ctrl_x_intervals_centered = ctrl_x_intervals - c[0]
         ctrl_y_intervals_centered = ctrl_y_intervals - c[1]
@@ -1996,8 +2001,10 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
 
         NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
                                     for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
+        
         NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
                                     for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
+        
         NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
                                     for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
 
@@ -2157,7 +2164,12 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     return dense_volume
 
 
-def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval, centroid_m, centroid_f):
+def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=None, 
+                             ctrl_x_intervals=None,
+                             ctrl_y_intervals=None,
+                             ctrl_z_intervals=None,
+                             centroid_m=(0,0,0), centroid_f=(0,0,0),
+                            fill_holes=True):
     """
     Args:
         vol (3D-ndarray or 2-tuple): input volume. If tuple, (volume in bbox, bbox).
@@ -2176,6 +2188,9 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval, c
     
     nzs_m_aligned_to_f = transform_points_bspline(buvwx, buvwy, buvwz, volume_shape=volume_shape, 
                                                   interval=interval,
+                                                  ctrl_x_intervals=ctrl_x_intervals,
+                                                  ctrl_y_intervals=ctrl_y_intervals,
+                                                  ctrl_z_intervals=ctrl_z_intervals,
                                                   pts=nzvoxels_m_temp,
                                                   c=centroid_m, c_prime=centroid_f).astype(np.int16)
 
@@ -2197,14 +2212,16 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval, c
 
     del nzs_m_aligned_to_f
 
-    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
-    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    if fill_holes:
+        if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+            dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+        elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+            dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        else:
+            raise Exception('transform_volume: Volume must be either float or int.')
+        return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
     else:
-        raise Exception('transform_volume: Volume must be either float or int.')
-
-    return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
+        return volume_m_aligned_to_f, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
 def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
@@ -2395,3 +2412,67 @@ def fill_sparse_volume(volume_sparse):
         volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1][vs_filled.astype(np.bool)] = ind
 
     return volume
+
+def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
+    """
+    Get a boolean volume with grid lines set to True.
+    
+    Args:
+        s (int): the spacing between dots if broken lines are desired.
+    """
+    
+    xdim, ydim, zdim = vol_shape
+    vol = np.zeros((ydim, xdim, zdim), np.bool)
+    xs = xs.astype(np.int)
+    ys = ys.astype(np.int)
+    zs = zs.astype(np.int)
+    xs = xs[(xs >= 0) & (xs < xdim)]
+    ys = ys[(ys >= 0) & (ys < ydim)]
+    zs = zs[(zs >= 0) & (zs < zdim)]
+    if include_borderline:
+        if 0 not in xs:
+            xs = np.r_[0, xs, xdim-1]
+        else:
+            xs = np.r_[xs, xdim-1]
+        if 0 not in ys:
+            ys = np.r_[0, ys, ydim-1]
+        else:
+            ys = np.r_[ys, ydim-1]
+        if 0 not in zs:
+            zs = np.r_[0, zs, zdim-1]
+        else:
+            zs = np.r_[zs, zdim-1]
+    for y in ys:
+        vol[y, xs, ::s] = 1
+        vol[y, ::s, zs] = 1
+    for x in xs:
+        vol[ys, x, ::s] = 1
+        vol[::s, x, zs] = 1
+    for z in zs:
+        vol[ys, ::s, z] = 1
+        vol[::s, xs, z] = 1
+        
+    return vol
+
+def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
+    """
+    Get a boolean volume with grid point set to True.
+    """
+    
+    xdim, ydim, zdim = vol_shape
+    vol = np.zeros((ydim, xdim, zdim), np.bool)
+    xs = xs.astype(np.int)
+    ys = ys.astype(np.int)
+    zs = zs.astype(np.int)
+    xs = xs[(xs >= 0) & (xs < xdim)]
+    ys = ys[(ys >= 0) & (ys < ydim)]
+    zs = zs[(zs >= 0) & (zs < zdim)]
+    gp_xs, gp_ys, gp_zs = np.meshgrid(xs, ys, zs, indexing='ij')
+    gp_xyzs = np.c_[gp_xs.flatten(), gp_ys.flatten(), gp_zs.flatten()]
+    vol[gp_xyzs[:,1], gp_xyzs[:,0], gp_xyzs[:,2]] = 1
+    
+    if return_nz:
+        return vol, gp_xyzs
+    else:
+        return vol
+

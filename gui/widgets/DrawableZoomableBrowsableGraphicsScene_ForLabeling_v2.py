@@ -273,16 +273,30 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif self.showing_which == 'blue_only' or self.showing_which == 'red_only' or self.showing_which == 'green_only' :
             if self.per_channel_pixmap_cache_section != sec:
-                qimage = self.data_feeder.retrieve_i(i=i)
-                img = recarray_view(qimage)
-                img_shape = img["b"].shape
-                img_dtype = img["b"].dtype
-                img_blue = np.dstack([np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype), img["b"]])
-                img_red = np.dstack([img["r"], np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype)])
-                img_green = np.dstack([np.zeros(img_shape, img_dtype), img["g"], np.zeros(img_shape, img_dtype)])
-                qimage_blue = array2qimage(img_blue)
-                qimage_red = array2qimage(img_red)
-                qimage_green = array2qimage(img_green)
+                # qimage = self.data_feeder.retrieve_i(i=i)
+                # t = time.time()
+                # img = recarray_view(qimage)
+                # print 'recarray_view', time.time() - t
+                # img_shape = img["b"].shape
+                # img_dtype = img["b"].dtype
+                # img_blue = np.dstack([np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype), img["b"]])
+                # img_red = np.dstack([img["r"], np.zeros(img_shape, img_dtype), np.zeros(img_shape, img_dtype)])
+                # img_green = np.dstack([np.zeros(img_shape, img_dtype), img["g"], np.zeros(img_shape, img_dtype)])
+                # t = time.time()
+                # qimage_blue = array2qimage(img_blue)
+                # qimage_red = array2qimage(img_red)
+                # qimage_green = array2qimage(img_green)
+                # print 'array2qimage', time.time() - t
+
+                t = time.time()
+                blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedBlue', ext='jpg')
+                qimage_blue = QImage(blue_fp)
+                green_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedGreen', ext='jpg')
+                qimage_green = QImage(green_fp)
+                red_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedRed', ext='jpg')
+                qimage_red = QImage(red_fp)
+                print 'read images', time.time() - t # 9s for first read, 4s for subsequent
+
                 self.per_channel_pixmap_cached['b'] = QPixmap.fromImage(qimage_blue)
                 self.per_channel_pixmap_cached['g'] = QPixmap.fromImage(qimage_green)
                 self.per_channel_pixmap_cached['r'] = QPixmap.fromImage(qimage_red)
@@ -480,7 +494,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if sec not in metadata_cache['valid_sections'][self.gui.stack]:
                 sys.stderr.write( "Section %d is labeled but the section is not valid.\n" % sec)
                 continue
-                
+
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
                 if 'type' in contours and contour['type'] is not None:
@@ -520,7 +534,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
                     # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
-                    sys.stderr.write("polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
@@ -532,6 +546,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 for c in polygon.vertex_circles:
                     pos = c.scenePos()
                     vertices.append((pos.x(), pos.y()))
+
+                if len(vertices) == 0:
+                    sys.stderr.write("Polygon has no vertices.\n")
+                    continue
 
                 if polygon.properties['class'] == 'neuron':
                     # labeled neuron markers
@@ -1014,6 +1032,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         if structure in self.structure_onscreen_messages:
             self.removeItem(self.structure_onscreen_messages[structure])
         self.structure_onscreen_messages.pop(structure)
+
+
+    def show_next(self, cycle=False):
+        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).show_next(cycle=cycle)
+        assert all(['label' in p.properties for p in self.drawings[self.active_i]])
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()

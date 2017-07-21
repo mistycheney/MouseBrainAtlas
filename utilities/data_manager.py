@@ -906,15 +906,15 @@ class DataManager(object):
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod
-    def get_volume_label_to_name_filepath(stack):
+    def get_annotation_volume_label_to_name_filepath(stack):
         basename = DataManager.get_original_volume_basename(volume_type='annotation', **locals())
         fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_nameToLabel.txt')
         # fn = os.path.join(volume_dir, stack, stack+'_down32_annotationVolume_nameToLabel.txt')
         return fn
 
     @staticmethod
-    def load_volume_label_to_name(stack):
-        fn = DataManager.get_volume_label_to_name_filepath(stack)
+    def load_annotation_volume_label_to_name(stack):
+        fn = DataManager.get_annotation_volume_label_to_name_filepath(stack)
         label_to_name, name_to_label = DataManager.load_data(fn, filetype='label_name_map')
         return label_to_name, name_to_label
 

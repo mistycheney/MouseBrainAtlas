@@ -2416,6 +2416,9 @@ def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
     
     Args:
         s (int): the spacing between dots if broken lines are desired.
+        
+    Returns:
+        3D array of boolean
     """
     
     xdim, ydim, zdim = vol_shape

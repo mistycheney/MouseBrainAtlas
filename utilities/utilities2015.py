@@ -26,19 +26,35 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
-def crop_and_pad_volume(in_vol, in_bbox, out_bbox):
+def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+
+    if in_bbox is None:
+        in_xmin = 0
+        in_ymin = 0
+        in_zmin = 0
+        in_xmax = in_vol.shape[1] - 1
+        in_ymax = in_vol.shape[0] - 1
+        in_zmax = in_vol.shape[2] - 1
+    else:
+        in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
+        in_xdim = in_xmax - in_xmin + 1
+        in_ydim = in_ymax - in_ymin + 1
+        in_zdim = in_zmax - in_zmin + 1
+        # print 'in', in_xdim, in_ydim, in_zdim
     
-    out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
-    out_xdim = out_xmax - out_xmin + 1
-    out_ydim = out_ymax - out_ymin + 1
-    out_zdim = out_zmax - out_zmin + 1
-    # print 'out', out_xdim, out_ydim, out_zdim
-    
-    in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
-    in_xdim = in_xmax - in_xmin + 1
-    in_ydim = in_ymax - in_ymin + 1
-    in_zdim = in_zmax - in_zmin + 1
-    # print 'in', in_xdim, in_ydim, in_zdim
+    if out_bbox is None:
+        out_xmin = 0
+        out_ymin = 0
+        out_zmin = 0
+        out_xmax = in_xmax
+        out_ymax = in_ymax
+        out_zmax = in_zmax
+    else:
+        out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
+        out_xdim = out_xmax - out_xmin + 1
+        out_ydim = out_ymax - out_ymin + 1
+        out_zdim = out_zmax - out_zmin + 1
+        # print 'out', out_xdim, out_ydim, out_zdim
     
     if out_xmax > in_xmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0, out_xmax-in_xmax),(0,0)], mode='constant', constant_values=0)

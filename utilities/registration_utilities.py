@@ -2086,7 +2086,7 @@ def transform_slice(img, T, centroid_m, centroid_f, xdim_f, ydim_f):
 
     return dense_img
 
-def transform_points_inverse(T, pts_prime=None, c_prime=None, pts_prime_centered=None, c=0):
+def transform_points_inverse(T, pts_prime=None, c_prime=np.array((0,0,0)), pts_prime_centered=None, c=np.array((0,0,0))):
     '''
     T: 1x12 vector, transform that maps pts to pts_prime
     c: center of volume 1

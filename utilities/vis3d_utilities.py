@@ -424,7 +424,7 @@ def take_screenshot(win, file_path, magnification=10):
     writer.SetInputConnection(windowToImageFilter.GetOutputPort());
     writer.Write();
 
-def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.)):
+def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.), opacity=1.):
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(position[0], position[1], position[2])
     sphereSource.SetRadius(radius)
@@ -437,7 +437,8 @@ def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.)):
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
     sphereActor.GetProperty().SetColor(color)
-
+    sphereActor.GetProperty().SetOpacity(opacity)
+    
     return sphereActor
 
 

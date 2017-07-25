@@ -291,23 +291,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 t = time.time()
                 blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedBlue', ext='jpg')
                 qimage_blue = QImage(blue_fp)
-                green_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedGreen', ext='jpg')
-                qimage_green = QImage(green_fp)
-                red_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedRed', ext='jpg')
-                qimage_red = QImage(red_fp)
+                # green_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedGreen', ext='jpg')
+                # qimage_green = QImage(green_fp)
+                # red_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedRed', ext='jpg')
+                # qimage_red = QImage(red_fp)
                 print 'read images', time.time() - t # 9s for first read, 4s for subsequent
 
+                if 'b' in self.per_channel_pixmap_cached:
+                    del self.per_channel_pixmap_cached['b']
                 self.per_channel_pixmap_cached['b'] = QPixmap.fromImage(qimage_blue)
-                self.per_channel_pixmap_cached['g'] = QPixmap.fromImage(qimage_green)
-                self.per_channel_pixmap_cached['r'] = QPixmap.fromImage(qimage_red)
+                # self.per_channel_pixmap_cached['g'] = QPixmap.fromImage(qimage_green)
+                # self.per_channel_pixmap_cached['r'] = QPixmap.fromImage(qimage_red)
                 self.per_channel_pixmap_cache_section = sec
 
             if self.showing_which == 'blue_only':
                 self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['b'])
-            elif self.showing_which == 'red_only':
-                self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['r'])
-            elif self.showing_which == 'green_only':
-                self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['g'])
+            # elif self.showing_which == 'red_only':
+            #     self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['r'])
+            # elif self.showing_which == 'green_only':
+            #     self.pixmapItem.setPixmap(self.per_channel_pixmap_cached['g'])
 
             self.pixmapItem.setVisible(True)
 

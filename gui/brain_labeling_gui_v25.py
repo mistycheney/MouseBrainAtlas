@@ -38,6 +38,31 @@ MARKER_COLOR_CHAR = 'w'
 
 #######################################################################
 
+class ReadRGBComponentImagesThread(QThread):
+    def __init__(self, stack, sections):
+        QThread.__init__(self)
+        self.stack = stack
+        self.sections = sections
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        for sec in self.gscenes['sagittal'].active_section:
+            if sec in self.gscenes['sagittal'].per_channel_pixmap_cached:
+                continue
+            try:
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretchedBlue')
+            except Exception as e:
+                sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
+                continue
+            if not os.path.exists(fp):
+                sys.stderr.write('Image %s does not exist.\n' % fp)
+                continue
+            qimage = QImage(fp)
+            self.emit(SIGNAL('component_image_loaded(QImage, int)'), qimage, sec)
+
+
 class ReadImagesThread(QThread):
     def __init__(self, stack, sections, img_version):
         QThread.__init__(self)
@@ -214,7 +239,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene in self.gscenes.values():
             gscene.set_structure_volumes_downscale_factor(self.volume_downsample_factor)
 
-    @pyqtSlot()
+        #####################
+        # Load R/G/B images #
+        #####################
+
+        # self.read_component_images_thread = ReadRGBComponentImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1))
+        # self.connect(self.read_component_images_thread, SIGNAL("component_image_loaded(QImage, int)"), self.component_image_loaded)
+        # self.read_component_images_thread.start()
+
+    @pyqtSlot(object, int)
     def image_loaded(self, qimage, sec):
         """
         Callback for when an image is loaded.
@@ -230,6 +263,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
         print 'Image', sec, 'received.'
+
+
+    @pyqtSlot(object, int)
+    def component_image_loaded(self, qimage_blue, sec):
+        """
+        Callback for when R/G/B images are loaded.
+
+        Args:
+            qimage (QImage): the image
+            sec (int): section
+        """
+
+        self.gscenes['sagittal'].per_channel_pixmap_cached[sec] = qimage_blue
+        self.statusBar().showMessage('R/G/B images %d loaded.\n' % sec)
+        print 'R/G/B images', sec, 'received.'
 
     @pyqtSlot()
     def username_changed(self):
@@ -468,7 +516,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack)
         sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
         save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
+        upload_to_s3(sagittal_markers_fp)
         print 'Sagittal markers saved to %s.' % sagittal_markers_fp
+        self.statusBar().showMessage('Sagittal markers saved to %s.' % sagittal_markers_fp)
 
     @pyqtSlot()
     def save_structures(self):
@@ -501,6 +551,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = DataFrame(entries).T
         structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
         save_hdf_v2(structure_df, structure_df_fp)
+        upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
@@ -520,6 +571,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #                                                       classifier_setting_f=classifier_setting_f,
         #                                                       warp_setting=warp_setting, suffix='contours')
         save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
+        upload_to_s3(sagittal_contours_df_fp)
         self.statusBar().showMessage('Sagittal boundaries saved to %s.' % sagittal_contours_df_fp)
         print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
@@ -533,6 +585,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #                                                       warp_setting=warp_setting, suffix='contours_coronal')
             coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
             save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
+            upload_to_s3(coronal_contours_df_fp)
             self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
             print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
@@ -545,6 +598,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
             horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
             save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
+            upload_to_s3(horizontal_contours_df_fp)
             self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
             print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
 

@@ -915,6 +915,7 @@ class DataManager(object):
     @staticmethod
     def load_annotation_volume_label_to_name(stack):
         fn = DataManager.get_annotation_volume_label_to_name_filepath(stack)
+        download_from_s3(fn)
         label_to_name, name_to_label = DataManager.load_data(fn, filetype='label_name_map')
         return label_to_name, name_to_label
 

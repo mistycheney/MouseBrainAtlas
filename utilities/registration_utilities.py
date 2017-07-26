@@ -1965,6 +1965,8 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
                              pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0), 
                             NuNvNw_allTestPts=None):
     """
+    Transform points by a B-spline transform.
+    
     Args:
         volume_shape ((3,)-ndarray of int): (xdim, ydim, zdim)
         interval (int): control point spacing in x,y,z directions.
@@ -2034,8 +2036,10 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
     return transformed_pts
 
 
-def transform_points_affine(T, pts=None, c=0, pts_centered=None, c_prime=0):
+def transform_points_affine(T, pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0)):
     '''
+    Transform points by a rigid or affine transform.
+    
     Args:
         T ((nparams,)-ndarray): flattened array of transform parameters.
         c ((3,)-ndarray): origin of input points
@@ -2157,6 +2161,9 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     """
     Transform points by a weighted-average transform.
     
+    Args:
+        rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+    
     Returns:
         ((n,3)-ndarray): transformed points.
     """
@@ -2175,13 +2182,7 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     nzs_m_aligned_to_f = np.zeros((len(pts), 3), dtype=np.float16)
 
     for i, rigid_params in enumerate(rigid_param_list):
-
-        params, centroid_m, centroid_f, \
-        xdim_m, ydim_m, zdim_m, \
-        xdim_f, ydim_f, zdim_f = rigid_params
-
-        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(params, pts=pts,
-                            c=centroid_m, c_prime=centroid_f).astype(np.float16)
+        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(rigid_params, pts=pts).astype(np.float16)
 
     nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)    
     return nzs_m_aligned_to_f
@@ -2189,6 +2190,10 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
 def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox):
     """
     Transform volume by a weighted-average transform.
+    
+    Args:
+        rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+
     """
     
     xmin_f, xmax_f, ymin_f, ymax_f, zmin_f, zmax_f = out_bbox
@@ -2213,8 +2218,7 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = volume_m_aligned_to_f
-        #dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 
@@ -2228,6 +2232,8 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
                              centroid_m=(0,0,0), centroid_f=(0,0,0),
                             fill_holes=True):
     """
+    Transform volume by a B-spline transform.
+    
     Args:
         vol (3D-ndarray or 2-tuple): input volume. If tuple, (volume in bbox, bbox).
         volume_shape (3-tuple); xdim,ydim,zdim

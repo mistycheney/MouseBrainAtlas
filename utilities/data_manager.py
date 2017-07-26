@@ -451,87 +451,6 @@ class DataManager(object):
 
         return vol_name
 
-#     @staticmethod
-#     def get_warped_volume_basename(stack_m, stack_f=None,
-#                                 classifier_setting_m=None,
-#                                 classifier_setting_f=None,
-#                                 warp_setting=None,
-#                                 downscale=32, type_f='score', type_m='score',
-#                                 trial_idx=None, **kwargs):
-
-#         if classifier_setting_m is None:
-#             basename1 = '%(s1)s_down%(d1)d_%(t1)s' % \
-#             {'s1': stack_m,
-#             'd1': downscale,
-#             't1': volume_type_to_str(type_m)}
-#         else:
-#             basename1 = '%(s1)s_down%(d1)d_%(t1)s_clf_%(c1)d' % \
-#             {'s1': stack_m,
-#             'd1': downscale,
-#             'c1': classifier_setting_m,
-#             't1': volume_type_to_str(type_m)}
-
-#         if stack_f is not None:
-#             if classifier_setting_f is None:
-#                 basename2 = \
-#                 '%(s2)s_down%(d2)d_%(t2)s' % \
-#                 {'s2': stack_f,
-#                 'd2': downscale,
-#                 't2': volume_type_to_str(type_f)}
-#             else:
-#                 basename2 = \
-#                 '%(s2)s_down%(d2)d_%(t2)s_clf_%(c2)d' % \
-#                 {'s2': stack_f,
-#                 'd2': downscale,
-#                 'c2': classifier_setting_f,
-#                 't2': volume_type_to_str(type_f)}
-
-#             basename = basename1 + '_warp_%(w)d_' % {'w': warp_setting} + basename2
-#         else:
-#             basename = basename1
-
-#             # basename = '%(s1)s_down%(d1)d_%(t1)s_clf_%(c1)d_warp_%(w)d_%(s2)s_down%(d2)d_%(t2)s_clf_%(c2)d' % \
-#             #   {'s1': stack_m, 's2': stack_f,
-#             #   'd1': downscale, 'd2': downscale,
-#             #   'c1': classifier_setting_m, 'c2': classifier_setting_f,
-#             #   'w': warp_setting,
-#             #   't1': volume_type_to_str(type_m), 't2': volume_type_to_str(type_f)}
-
-#         if trial_idx is not None:
-#             basename += '_trial_%d' % trial_idx
-
-#         return basename
-
-#     @staticmethod
-#     def get_alignment_parameters_filepath(stack_f, stack_m, warp_setting,
-#     classifier_setting_m=None, classifier_setting_f=None,
-#     type_f='score', type_m='score', prep_m=2, prep_f=2, param_suffix=None,
-#     downscale=32, trial_idx=None):
-
-#         # basename = DataManager.get_warped_volume_basename(**locals())
-#         # if param_suffix is None:
-#         #     return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#         #             basename, basename + '_parameters.txt' % \
-#         #             {'param_suffix':param_suffix})
-#         # else:
-#         #     return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#         #                         basename, basename + '_parameters_%(param_suffix)s.txt' % \
-#         #                         {'param_suffix':param_suffix})
-
-#         if param_suffix is None:
-#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
-#                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume',
-#                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume_parameters.txt') % \
-#             {'stack_m':stack_m, 'stack_f':stack_f, 'prep_m':prep_m, 'detector_id':detector_id, 'svdown':downscale, 'struct':structure}
-#             return vol_fp
-
-#         else:
-#             vol_fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
-#                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume',
-#                                   '%(stack_m)s_down%(svdown)d_scoreVolume_warp%(warp)d_%(stack_f)s_prep%(prep)d_detector%(detector)d_down%(svdown)d_scoreVolume_parameters_%(suffix)s.txt') % \
-#             {'stack':stack, 'prep':prep_id, 'detector_id':detector_id, 'svdown':downscale, 'struct':structure,
-#             'suffix':param_suffix}
-
     @staticmethod
     def get_alignment_parameters_filepath(stack_f, stack_m,
                                           warp_setting,
@@ -547,16 +466,6 @@ class DataManager(object):
                               '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
         return fp
 
-
-    # @staticmethod
-    # def load_alignment_parameters(stack_f, stack_m, warp_setting,
-    # classifier_setting_m=None, classifier_setting_f=None,
-    # type_f='score', type_m='score', param_suffix=None,
-    # downscale=32, trial_idx=None):
-    #     params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-    #     download_from_s3(params_fp)
-    #     return DataManager.load_data(params_fp, 'transform_params')
-
     @staticmethod
     def load_alignment_parameters(stack_f, stack_m, warp_setting,
                                   prep_id_m=None, prep_id_f=None,
@@ -568,7 +477,6 @@ class DataManager(object):
         download_from_s3(params_fp, redownload=True)
         return DataManager.load_data(params_fp, 'transform_params')
 
-    # @save_to_s3(fpkw='fp', fppos=0)
     @staticmethod
     def save_alignment_parameters(fp, params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f):
 
@@ -581,7 +489,7 @@ class DataManager(object):
             f.write(array_to_one_liner([xdim_f, ydim_f, zdim_f]))
 
     @staticmethod
-    def get_alignment_result_filepath(stack_f, stack_m, warp_setting, what,
+    def get_alignment_result_filepath(stack_f, stack_m, warp_setting, what, ext=None,
                                       detector_id_m=None, detector_id_f=None,
                                       prep_id_m=None, prep_id_f=None,
                                       structure_f=None, structure_m=None, 
@@ -598,78 +506,6 @@ class DataManager(object):
             ext = 'pkl'
         fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, reg_basename, reg_basename + '_' + what + '.' + ext)
         return fp
-
-#     @staticmethod
-#     def get_alignment_score_plot_filepath(stack_f, stack_m, warp_setting,
-#     classifier_setting_m=None, classifier_setting_f=None,
-#     type_f='score', type_m='score', param_suffix=None,
-#     downscale=32, trial_idx=None):
-#         basename = DataManager.get_warped_volume_basename(**locals())
-
-#         if param_suffix is None:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                             basename, basename + '_scoreEvolution.png')
-#         else:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                             basename, basename + '_scoreEvolution_%(param_suffix)s.png' % \
-#                             {'param_suffix': param_suffix})
-
-    # @staticmethod
-    # def get_alignment_parameter_basename(stack_f, stack_m,
-    #                                       warp_setting,
-    #                                       prep_id_m=None, prep_id_f=None,
-    #                                       detector_id_m=None, detector_id_f=None,
-    #                                       vol_type_f='score', vol_type_m='score',
-    #                                       param_suffix=None, downscale=32,
-    #                                       trial_idx=None):
-    #     param_name = DataManager.get_warped_volume_basename(**locals())
-    #     if param_suffix is not None:
-    #         param_name += '_param_' + param_suffix
-    #     return param_name
-
-#     @staticmethod
-#     def get_score_history_filepath(stack_f, stack_m, warp_setting,
-#     classifier_setting_m=None, classifier_setting_f=None,
-#     type_f='score', type_m='score', param_suffix=None,
-#     downscale=32, trial_idx=None):
-#         basename = DataManager.get_warped_volume_basename(**locals())
-
-#         if param_suffix is None:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                     basename, basename + '_scoreHistory.bp' % \
-#                     {'param_suffix':param_suffix})
-#         else:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                                 basename, basename + '_scoreHistory_%(param_suffix)s.bp' % \
-#                                 {'param_suffix':param_suffix})
-
-    # @staticmethod
-    # def get_score_history_filepath(stack_f, stack_m,
-    #                               warp_setting,
-    #                               prep_id_m=None, prep_id_f=None,
-    #                               detector_id_m=None, detector_id_f=None,
-    #                               vol_type_f='score', vol_type_m='score',
-    #                               param_suffix=None, downscale=32,
-    #                               trial_idx=None):
-    #     vol_name = DataManager.get_warped_volume_basename(**locals())
-    #     vol_name + '_scoreHistory.bp'
-    #     # basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-    #     #                                           downscale=downscale, volume_type=vol_type_m)
-    #     # basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-    #     #                                           downscale=downscale, volume_type=vol_type_f)
-    #     # vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
-    #     return vol_name
-
-#         basename = DataManager.get_warped_volume_basename(**locals())
-
-#         if param_suffix is None:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                     basename, basename + '_scoreHistory.bp' % \
-#                     {'param_suffix':param_suffix})
-#         else:
-#             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m,
-#                                 basename, basename + '_scoreHistory_%(param_suffix)s.bp' % \
-#                                 {'param_suffix':param_suffix})
 
     ####### Best trial index file #########
 
@@ -1329,8 +1165,14 @@ class DataManager(object):
                                                      name_or_index_as_key='name'
 ):
         """
+        Load transformed volumes for all structures.
+        
         Args:
             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
+            
+        Returns:
+            if return_label_mappings is True, returns (volumes, structure_to_label, label_to_structure), volumes is dict.
+            else, returns volumes.
         """
 
         if structures is None:

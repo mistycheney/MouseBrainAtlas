@@ -21,6 +21,44 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
+def plot_roc_curve(fp_allthresh, tp_allthresh, optimal_th, title=''):
+    """
+    Plot ROC curve.
+    """
+
+    plt.plot([fp_allthresh[th] for th in np.arange(0, 1, 0.01)],
+             [tp_allthresh[th] for th in np.arange(0, 1, 0.01)]);
+
+    plt.scatter(fp_allthresh[optimal_th], tp_allthresh[optimal_th], 
+                marker='o', facecolors='none', edgecolors='k')
+    
+    plt.plot(np.arange(0, 1, 0.01), np.arange(0, 1, 0.01), c='k', linestyle='--');
+    
+    plt.legend();
+    plt.axis('equal');
+    plt.ylabel('True positive rate');
+    plt.xlabel('False positive rate');
+    plt.title(title);
+    plt.show();
+    
+def plot_pr_curve(precision_allthresh, recall_allthresh, optimal_th, title=''):
+    """
+    Plot precision-recall curve. X axis is recall and y axis is precision.
+    """
+
+    plt.plot([recall_allthresh[th] for th in np.arange(0, 1, 0.01)],
+             [precision_allthresh[th] for th in np.arange(0, 1, 0.01)]);
+
+    plt.scatter(recall_allthresh[optimal_th], precision_allthresh[optimal_th], 
+                marker='o', facecolors='none', edgecolors='k')
+        
+    plt.legend();
+    plt.axis('equal');
+    plt.ylabel('Precision');
+    plt.xlabel('Recall');
+    plt.title(title);
+    plt.show();
+
 def load_mxnet_model(model_dir_name, model_name, num_gpus=8, batch_size = 256):
     download_from_s3(os.path.join(MXNET_MODEL_ROOTDIR, model_dir_name), is_dir=True)
     model_iteration = 0

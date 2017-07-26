@@ -796,6 +796,11 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
 
 
 def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
+    """
+    Args:
+        what (str): tb, score or probability. 
+        A caveat when `what` is probability - zero-valued voxels are not transparent, so later actors will block previous actors.
+    """
 
     imagedata = volume_to_imagedata(volume, origin=origin)
 
@@ -1297,6 +1302,8 @@ def average_location(centroid_allLandmarks):
             midpoints[name] = .5 * mean_centroid_allLandmarks[lname] + .5 * mean_centroid_allLandmarks[rname]
         else:
             midpoints[name] = mean_centroid_allLandmarks[name]
+    
+    print midpoints
 
     midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
 
@@ -1323,5 +1330,5 @@ def average_location(centroid_allLandmarks):
         else:
             x, y, _ = points_midplane_oriented[name]
             canonical_locations[name] = np.r_[x, y, 0]
-
+            
     return canonical_locations, midplane_point, midplane_normal

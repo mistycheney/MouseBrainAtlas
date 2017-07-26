@@ -2111,22 +2111,68 @@ def mahalanobis_distance_sq(nzs, mu, sigma):
     dms = np.array([np.dot(d, np.dot(sigma_inv, d)) for d in ds])
     return dms
 
-def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights):
 
-    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_points, sigmas, weights):
+    """
+    Transform points by the inverse of a weighted-average transform.
+    
+    Args:
+        pts_prime ((n,3)-ndarray): points to transform
+        rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+    
+    Returns:
+        ((n,3)-ndarray): transformed points.
+    """
+
+    n_comp = len(rigid_param_list)
+    n_voxels = len(pts_prime)
+     
+    Rs = [r.reshape((3,4))[:3,:3] for r in rigid_param_list]
+    ts = [r.reshape((3,4))[:, 3] for r in rigid_param_list]
+    Rs_inverse = [np.linalg.inv(R) for R in Rs]
+    ts_inverse = [-np.dot(Rinv, t) for Rinv, t in zip(Rs_inverse, ts)]
+    
+    anchor_points_prime = np.array([np.dot(R, a) + t for R, t, a in zip(Rs, ts, anchor_points)])
+    # print zip(anchor_points, anchor_points_prime)
 
     if sigmas[0].ndim == 2: # sigma is covariance matrix
-        nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(nzvoxels_m_temp, ap, sigma))
+        nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts_prime, ap, sigma))
+                            for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+    elif sigmas[0].ndim == 1: # sigma is a single scalar
+        nzvoxels_weights = np.array([w*np.exp(-np.sum((pts_prime - ap)**2, axis=1)/sigma**2) \
+                            for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+    nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+    # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
+    # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+    # n_components x n_voxels
+    
+    # print nzvoxels_weights
+        
+    nzs_m_aligned_to_f = np.array([np.sum([w * (np.dot(Rinv, p) + tinv) for w, Rinv,tinv in zip(ws, Rs_inverse,ts_inverse)], axis=0) 
+                                   for p, ws in zip(pts_prime, nzvoxels_weights.T)]).astype(np.int16)
+    return nzs_m_aligned_to_f
+
+
+def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, weights):
+    """
+    Transform points by a weighted-average transform.
+    
+    Returns:
+        ((n,3)-ndarray): transformed points.
+    """
+
+    if sigmas[0].ndim == 2: # sigma is covariance matrix
+        nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts, ap, sigma))
                             for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     elif sigmas[0].ndim == 1: # sigma is a single scalar
-        nzvoxels_weights = np.array([w*np.exp(-np.sum((nzvoxels_m_temp - ap)**2, axis=1)/sigma**2) \
+        nzvoxels_weights = np.array([w*np.exp(-np.sum((pts - ap)**2, axis=1)/sigma**2) \
                             for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # n_components x n_voxels
 
-    nzs_m_aligned_to_f = np.zeros((len(nzvoxels_m_temp), 3), dtype=np.float16)
+    nzs_m_aligned_to_f = np.zeros((len(pts), 3), dtype=np.float16)
 
     for i, rigid_params in enumerate(rigid_param_list):
 
@@ -2134,16 +2180,30 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
         xdim_m, ydim_m, zdim_m, \
         xdim_f, ydim_f, zdim_f = rigid_params
 
-        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points(params, pts=nzvoxels_m_temp,
+        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(params, pts=pts,
                             c=centroid_m, c_prime=centroid_f).astype(np.float16)
 
-    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)
+    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)    
+    return nzs_m_aligned_to_f
+    
+def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox):
+    """
+    Transform volume by a weighted-average transform.
+    """
+    
+    xmin_f, xmax_f, ymin_f, ymax_f, zmin_f, zmax_f = out_bbox
+    xdim_f = xmax_f + 1 - xmin_f
+    ydim_f = ymax_f + 1 - ymin_f
+    zdim_f = zmax_f + 1 - zmin_f
+    
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    nzs_m_aligned_to_f = transform_points_polyrigid(nzvoxels_m_temp, rigid_param_list, anchor_points, sigmas, weights)
     xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
 
     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
 
-    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-    (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+    valid = (xs_f >= xmin_f) & (ys_f >= ymin_f) & (zs_f >= zmin_f) & \
+    (xs_f < xmax_f) & (ys_f < ymax_f) & (zs_f < zmax_f)
 
     xs_m, ys_m, zs_m = nzvoxels_m_temp.T
 
@@ -2151,10 +2211,10 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     vol[ys_m[valid], xs_m[valid], zs_m[valid]]
 
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        # score volume
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        dense_volume = volume_m_aligned_to_f
+        #dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 

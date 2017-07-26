@@ -594,6 +594,8 @@ class DataManager(object):
             ext = 'bp'
         elif what == 'scoreEvolution':
             ext = 'png'
+        elif what == 'parametersWeightedAverage':
+            ext = 'pkl'
         fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, reg_basename, reg_basename + '_' + what + '.' + ext)
         return fp
 

@@ -26,7 +26,43 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
+    if bboxes is None:
+        bboxes = np.array([b for v, b in vol_bbox_tuples])
+    xmin, ymin, zmin = np.min(bboxes[:, [0,2,4]], axis=0)
+    xmax, ymax, zmax = np.max(bboxes[:, [1,3,5]], axis=0)
+    bbox = xmin, xmax, ymin, ymax, zmin, zmax
+    return bbox
+
+def crop_and_pad_volumes(out_bbox, vol_bbox_dict=None, vol_bbox_tuples=None):
+    """
+    Args:
+        out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
+        vol_bbox_dict (dict {key: (vol, bbox)})
+        vol_bbox_tuples (list of (vol, bbox) tuples)
+    """
+    if vol_bbox_tuples is not None:
+        vols = [crop_and_pad_volume(v, b, out_bbox) for (v, b) in vol_bbox_tuples]
+    elif vol_bbox_dict is not None:
+        vols = {l: crop_and_pad_volume(v, b, out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
+    return vols
+
+def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
+    """
+    Args:
+        vol_bbox_dict (dict {key: (vol, bbox)})
+        
+    Returns:
+        (3d array, (6,)-ndarray): (overall_volume, bounding box)
+    """
+    volume_m_aligned_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
+    volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
+    return volume_m_aligned, volume_m_aligned_bbox
+
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+    
+    in_bbox = np.array(in_bbox).astype(np.int)
+    out_bbox = np.array(out_bbox).astype(np.int)
 
     if in_bbox is None:
         in_xmin = 0
@@ -76,7 +112,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     # print 'in_vol', np.array(in_vol.shape)[[1,0,2]]
     # print xmin, xmax, ymin, ymax, zmin, zmax
     # print xmin-in_xmin, xmax+1-in_xmin
-    assert ymin >= 0 and xmin >= 0 and zmin >= 0
+    # assert ymin >= 0 and xmin >= 0 and zmin >= 0
     out_vol[ymin-out_ymin:ymax+1-out_ymin, 
             xmin-out_xmin:xmax+1-out_xmin, 
             zmin-out_zmin:zmax+1-out_zmin] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]

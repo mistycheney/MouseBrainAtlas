@@ -1273,7 +1273,7 @@ def R_align_two_vectors(a, b):
     v_skew = np.array([[0, -v[2], v[1]],
                       [v[2], 0, -v[0]],
                       [-v[1], v[0], 0]])
-    R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/s**2
+    R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/(s + 1e-5)**2
     return R
 
 def average_location(centroid_allLandmarks):

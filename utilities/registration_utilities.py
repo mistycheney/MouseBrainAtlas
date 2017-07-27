@@ -384,13 +384,14 @@ class Aligner4(object):
     #
     #     sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
-    def load_gradient(self, gradient_filepath_map_f, indices_f=None):
+    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, graidents=None):
         """Load gradients.
 
         Need to pass gradient_filepath_map_f in from outside because Aligner class should be agnostic about structure names.
 
         Args:
             gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
+            graidents (dict of (3,dimx,dimy,dimz) arrays): 
 
         """
 
@@ -399,28 +400,32 @@ class Aligner4(object):
             print indices_f
 
         global grad_f
-        grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
+        
+        if gradients is not None:
+            grad_f = graidents
+        else:
+            grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
 
-        t1 = time.time()
+            t1 = time.time()
 
-        for ind_f in indices_f:
+            for ind_f in indices_f:
 
-            t = time.time()
+                t = time.time()
 
-            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
-            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
-            download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
+                download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
+                download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
+                download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
 
-            if hasattr(self, 'zl'):
-                grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
-                grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
-                grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
-            else:
-                grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
-                grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
-                grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+                if hasattr(self, 'zl'):
+                    grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
+                    grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
+                    grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
+                else:
+                    grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+                    grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+                    grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
 
-            sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
+                sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
 
         sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 

@@ -58,12 +58,17 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
     volume_m_aligned_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
     volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
     return volume_m_aligned, volume_m_aligned_bbox
+<<<<<<< HEAD
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     
     in_bbox = np.array(in_bbox).astype(np.int)
     out_bbox = np.array(out_bbox).astype(np.int)
+=======
+>>>>>>> a337ec945cc3162c3185ab63df40acabddb2a187
 
+def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+    
     if in_bbox is None:
         in_xmin = 0
         in_ymin = 0
@@ -72,6 +77,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
         in_ymax = in_vol.shape[0] - 1
         in_zmax = in_vol.shape[2] - 1
     else:
+        in_bbox = np.array(in_bbox).astype(np.int)
         in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
         in_xdim = in_xmax - in_xmin + 1
         in_ydim = in_ymax - in_ymin + 1
@@ -86,6 +92,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
         out_ymax = in_ymax
         out_zmax = in_zmax
     else:
+        out_bbox = np.array(out_bbox).astype(np.int)
         out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
         out_xdim = out_xmax - out_xmin + 1
         out_ydim = out_ymax - out_ymin + 1
@@ -687,6 +694,8 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
+            if vizs[i].dtype == np.float16:
+                vizs[i] = vizs[i].astype(np.float32)
             axes[i].imshow(vizs[i], **kwargs);
             if titles is not None:
                 axes[i].set_title(titles[i], fontsize=30);

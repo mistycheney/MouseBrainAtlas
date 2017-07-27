@@ -58,11 +58,14 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
     volume_m_aligned_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
     volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
     return volume_m_aligned, volume_m_aligned_bbox
+<<<<<<< HEAD
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     
     in_bbox = np.array(in_bbox).astype(np.int)
     out_bbox = np.array(out_bbox).astype(np.int)
+=======
+>>>>>>> a337ec945cc3162c3185ab63df40acabddb2a187
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     

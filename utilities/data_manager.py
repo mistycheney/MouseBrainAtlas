@@ -1099,6 +1099,7 @@ class DataManager(object):
         else:
             return volumes
 
+<<<<<<< HEAD
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
                                         warp_setting,
@@ -1160,6 +1161,8 @@ class DataManager(object):
             fn = basename
         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '_bbox.txt')
 
+=======
+>>>>>>> a337ec945cc3162c3185ab63df40acabddb2a187
     @staticmethod
     def load_transformed_volume_bbox(stack_m, stack_f,
                                         warp_setting,

@@ -1099,8 +1099,6 @@ class DataManager(object):
         else:
             return volumes
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
                                         warp_setting,

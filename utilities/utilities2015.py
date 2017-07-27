@@ -26,8 +26,41 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
-def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
+    if bboxes is None:
+        bboxes = np.array([b for v, b in vol_bbox_tuples])
+    xmin, ymin, zmin = np.min(bboxes[:, [0,2,4]], axis=0)
+    xmax, ymax, zmax = np.max(bboxes[:, [1,3,5]], axis=0)
+    bbox = xmin, xmax, ymin, ymax, zmin, zmax
+    return bbox
 
+def crop_and_pad_volumes(out_bbox, vol_bbox_dict=None, vol_bbox_tuples=None):
+    """
+    Args:
+        out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
+        vol_bbox_dict (dict {key: (vol, bbox)})
+        vol_bbox_tuples (list of (vol, bbox) tuples)
+    """
+    if vol_bbox_tuples is not None:
+        vols = [crop_and_pad_volume(v, b, out_bbox) for (v, b) in vol_bbox_tuples]
+    elif vol_bbox_dict is not None:
+        vols = {l: crop_and_pad_volume(v, b, out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
+    return vols
+
+def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
+    """
+    Args:
+        vol_bbox_dict (dict {key: (vol, bbox)})
+        
+    Returns:
+        (3d array, (6,)-ndarray): (overall_volume, bounding box)
+    """
+    volume_m_aligned_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
+    volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
+    return volume_m_aligned, volume_m_aligned_bbox
+
+def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+    
     if in_bbox is None:
         in_xmin = 0
         in_ymin = 0
@@ -36,6 +69,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
         in_ymax = in_vol.shape[0] - 1
         in_zmax = in_vol.shape[2] - 1
     else:
+        in_bbox = np.array(in_bbox).astype(np.int)
         in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
         in_xdim = in_xmax - in_xmin + 1
         in_ydim = in_ymax - in_ymin + 1
@@ -50,6 +84,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
         out_ymax = in_ymax
         out_zmax = in_zmax
     else:
+        out_bbox = np.array(out_bbox).astype(np.int)
         out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
         out_xdim = out_xmax - out_xmin + 1
         out_ydim = out_ymax - out_ymin + 1
@@ -76,7 +111,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     # print 'in_vol', np.array(in_vol.shape)[[1,0,2]]
     # print xmin, xmax, ymin, ymax, zmin, zmax
     # print xmin-in_xmin, xmax+1-in_xmin
-    assert ymin >= 0 and xmin >= 0 and zmin >= 0
+    # assert ymin >= 0 and xmin >= 0 and zmin >= 0
     out_vol[ymin-out_ymin:ymax+1-out_ymin, 
             xmin-out_xmin:xmax+1-out_xmin, 
             zmin-out_zmin:zmax+1-out_zmin] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]
@@ -651,6 +686,8 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
         if i >= n:
             axes[i].axis('off');
         else:
+            if vizs[i].dtype == np.float16:
+                vizs[i] = vizs[i].astype(np.float32)
             axes[i].imshow(vizs[i], **kwargs);
             if titles is not None:
                 axes[i].set_title(titles[i], fontsize=30);

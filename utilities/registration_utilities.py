@@ -384,7 +384,7 @@ class Aligner4(object):
     #
     #     sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
-    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, graidents=None):
+    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None):
         """Load gradients.
 
         Need to pass gradient_filepath_map_f in from outside because Aligner class should be agnostic about structure names.
@@ -402,7 +402,7 @@ class Aligner4(object):
         global grad_f
         
         if gradients is not None:
-            grad_f = graidents
+            grad_f = gradients
         else:
             grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
 

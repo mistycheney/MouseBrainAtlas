@@ -1159,7 +1159,7 @@ def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
     # return moving_pts_centered
 
 
-def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
+def average_shape(polydata_list=None, volume_list=None, origin_list=None, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
                  sigma=2.):
     """
     Args:
@@ -1176,15 +1176,16 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
         average_polydata (Polydata): mesh of the 3D boundary thresholded at concensus_percentage
     """
 
-    volume_list = []
-    origin_list = []
+    if volume_list is None:    
+        volume_list = []
+        origin_list = []
 
-    for p in polydata_list:
-        # t = time.time()
-        v, orig, _ = polydata_to_volume(p)
-        # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
-        volume_list.append(v)
-        origin_list.append(np.array(orig, np.int))
+        for p in polydata_list:
+            # t = time.time()
+            v, orig, _ = polydata_to_volume(p)
+            # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
+            volume_list.append(v)
+            origin_list.append(np.array(orig, np.int))
 
     common_mins = np.min(origin_list, axis=0).astype(np.int)
     relative_origins = origin_list - common_mins
@@ -1215,11 +1216,11 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
     if consensus_percentage is not None:
         # Threshold prob. volumes to generate structure meshes
         average_volume_thresholded = average_volume_prob >= consensus_percentage
-        average_polydata = volume_to_polydata(average_volume_thresholded, common_mins, num_simplify_iter=num_simplify_iter,
+        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_mins, num_simplify_iter=num_simplify_iter,
                                               smooth=smooth)
         return average_volume_prob, common_mins, average_polydata    
     else:
-        return average_volume_prob, common_mins,
+        return average_volume_prob, common_mins
 
 def symmetricalize_volume(prob_vol):
     """

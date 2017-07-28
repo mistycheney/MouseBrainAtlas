@@ -59,10 +59,6 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
     volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
     return volume_m_aligned, volume_m_aligned_bbox
 
-def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
-    
-    in_bbox = np.array(in_bbox).astype(np.int)
-    out_bbox = np.array(out_bbox).astype(np.int)
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     
@@ -76,9 +72,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     else:
         in_bbox = np.array(in_bbox).astype(np.int)
         in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
-        in_xdim = in_xmax - in_xmin + 1
-        in_ydim = in_ymax - in_ymin + 1
-        in_zdim = in_zmax - in_zmin + 1
+    in_xdim = in_xmax - in_xmin + 1
+    in_ydim = in_ymax - in_ymin + 1
+    in_zdim = in_zmax - in_zmin + 1
         # print 'in', in_xdim, in_ydim, in_zdim
     
     if out_bbox is None:
@@ -91,9 +87,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     else:
         out_bbox = np.array(out_bbox).astype(np.int)
         out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax = out_bbox
-        out_xdim = out_xmax - out_xmin + 1
-        out_ydim = out_ymax - out_ymin + 1
-        out_zdim = out_zmax - out_zmin + 1
+    out_xdim = out_xmax - out_xmin + 1
+    out_ydim = out_ymax - out_ymin + 1
+    out_zdim = out_zmax - out_zmin + 1
         # print 'out', out_xdim, out_ydim, out_zdim
     
     if out_xmax > in_xmax:

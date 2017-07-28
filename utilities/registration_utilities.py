@@ -325,6 +325,11 @@ class Aligner4(object):
             sys.stderr.write("Compute every control point's contribution to every nonzero test point: %.2f seconds.\n" % (time.time()-t) )
             
     def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
+        """
+        Args:
+            centroid_m (str or (3,)-ndarray): Coordinates or one of structure_centroid, volume_centroid, origin
+            centroid_f (str or (3,)-ndarray): Coordinates or one of centroid_m, structure_centroid, volume_centroid, origin
+        """
 
         if indices_m is None:
             indices_m = self.all_indices_m
@@ -342,6 +347,8 @@ class Aligner4(object):
         if isinstance(centroid_f, basestring):
             if centroid_f == 'centroid_m':
                 self.centroid_f = self.centroid_m
+            elif centroid_m == 'structure_centroid':
+                self.centroid_f = np.hstack([np.nonzero(volume_f[self.labelIndexMap_m2f[i]]) for i in indices_m]).mean(axis=1)[[1,0,2]]
             elif centroid_f == 'volume_centroid':
                 self.centroid_f = np.r_[.5*self.xdim_f, .5*self.ydim_f, .5*self.zdim_f]
             elif centroid_f == 'origin':
@@ -349,7 +356,7 @@ class Aligner4(object):
             else:
                 raise Exception('centroid_f not recognized.')
 
-        print 'm:', self.centroid_m, 'f:', self.centroid_f
+        sys.stderr.write("centroid_m: %s, centroid_f: %s\n" % (self.centroid_m, self.centroid_f))
 
         global nzvoxels_centered_m
         nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
@@ -397,7 +404,7 @@ class Aligner4(object):
 
         if indices_f is None:
             indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
-            print indices_f
+            sys.stderr.write('indices_f: %s\n' % indices_f) 
 
         global grad_f
         
@@ -427,17 +434,87 @@ class Aligner4(object):
 
                 sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
 
-        sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
+            sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
+#     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid, random_sample_num=None):
+#         """
+#         Args:
+#             T (ndarray): transform parameter vector
+#             tf_type (str): rigid, affine or bspline.
+#             return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
+#             random_sample_num (int): 
+#         """
+        
+#         if random_sample_num is not None:
+#             import random
+#             nzvoxels_m_indices_sampled = random.sample(xrange(len(nzvoxels_centered_m[ind_m])), random_sample_num)
+#             nzvoxels_centered_m_sampled = nzvoxels_centered_m[ind_m][nzvoxels_m_indices_sampled]
+#         else:
+#             nzvoxels_centered_m_sampled = nzvoxels_centered_m[ind_m]
+        
+#         if tf_type == 'affine' or tf_type == 'rigid':
+#             t = time.time()
+#             pts_prime_sampled = transform_points_affine(np.array(T), 
+#                                                 pts_centered=nzvoxels_centered_m_sampled,
+#                                                 c_prime=self.centroid_f).astype(np.int16)
+#             sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
+                        
+#         elif tf_type == 'bspline':
+#             n_params = len(T)
+#             buvwx = T[:n_params/3]
+#             buvwy = T[n_params/3:n_params/3*2]
+#             buvwz = T[n_params/3*2:]
+#             pts_prime = transform_points_bspline(buvwx, buvwy, buvwz, 
+#                                                  pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
+#                                                 NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
+
+#         # print 'before'
+#         # print nzvoxels_centered_m[ind_m]
+#         # print 'after'
+#         # print pts_prime
+
+#         # t = time.time()
+#         xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
+#         valid = (xs_prime_sampled >= 0) & (ys_prime_sampled >= 0) & (zs_prime_sampled >= 0) & \
+#                 (xs_prime_sampled < self.xdim_f) & (ys_prime_sampled < self.ydim_f) & (zs_prime_sampled < self.zdim_f)
+#         # sys.stderr.write("find valid: %.2f s\n" % (time.time() - t))
+
+#         nzvoxels_m_indices_sampled = nzvoxels_m_indices_sampled[valid]
+#         # pts_prime_sampled = pts_prime_sampled[valid]
+
+#         # print pts_prime.max(axis=0), pts_prime.min(axis=0)
+#         # print self.xdim_f, self.ydim_f, self.zdim_f
+
+#         # sys.stderr.write("%d total mov, %d valid\n" % (len(nzvoxels_centered_m[ind_m]), np.count_nonzero(valid)))
+#         # print len(pts_prime), np.count_nonzero(valid)
+
+#         if np.any(valid):
+#             xs_prime_sampled = xs_prime_sampled[valid]
+#             ys_prime_sampled = ys_prime_sampled[valid]
+#             zs_prime_sampled = zs_prime_sampled[valid]
+
+#             if return_valid:
+#                 return xs_prime_sampled, ys_prime_sampled, zs_prime_sampled, nzvoxels_m_indices_sampled
+#             else:
+#                 return xs_prime_sampled, ys_prime_sampled, zs_prime_sampled
+#         else:
+#             return None
+            
     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid):
         """
         Args:
+            T (ndarray): transform parameter vector
             tf_type (str): rigid, affine or bspline.
+            return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
         """
-
+        
         if tf_type == 'affine' or tf_type == 'rigid':
-            pts_prime = transform_points_affine(np.array(T), pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f).astype(np.int16)
-            
+            # t = time.time()
+            pts_prime = transform_points_affine(np.array(T), 
+                                                pts_centered=nzvoxels_centered_m[ind_m],
+                                                c_prime=self.centroid_f).astype(np.int16)
+            # sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
+                        
         elif tf_type == 'bspline':
             n_params = len(T)
             buvwx = T[:n_params/3]
@@ -452,10 +529,12 @@ class Aligner4(object):
         # print 'after'
         # print pts_prime
 
+        # t = time.time()
         xs_prime, ys_prime, zs_prime = pts_prime.T
         valid = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
                 (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
-
+        # sys.stderr.write("find valid: %.2f s\n" % (time.time() - t))
+        
         # print pts_prime.max(axis=0), pts_prime.min(axis=0)
         # print self.xdim_f, self.ydim_f, self.zdim_f
 
@@ -483,44 +562,70 @@ class Aligner4(object):
             ind_m (int): index of a structure.
         """
         
+        # t = time.time()            
+
         try:
-            s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
+            score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
         except Exception as e:
-            sys.stderr.write('%s\n' % e)
+            sys.stderr.write('Error computing score: %s\n' % e)
             return 0, 0
-                
+        
+        # sys.stderr.write("compute_score_one: %.2f s\n" % (time.time() - t)) 
+        
         # Moving volume's valid voxel coordinates (not centralized).
-        xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indices].T
+        t = time.time()
+        # xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indicators].T
+        xyzs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indicators]
+        sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t)) 
+
         # Moving volume's value at valid voxels. (n_valid_nz_m, )
-        S_m_valid_scores = volume_m[ind_m][ys_valid, xs_valid, zs_valid]
+        t = time.time()
+        # S_m_valid_scores = volume_m[ind_m][ys_valid, xs_valid, zs_valid]
+        S_m_valid_scores = volume_m[ind_m][xyzs_valid[:,1], xyzs_valid[:,0], xyzs_valid[:,2]]
+        sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t)) 
+        
         # Moving volume's valid voxel coordinates (centralized).
-        dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid_moving_voxel_indices].T
-        n = np.count_nonzero(valid_moving_voxel_indices)
+        t = time.time()
+        dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid_moving_voxel_indicators].T
+        sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t)) 
+                
+        # t = time.time()
+        n = np.count_nonzero(valid_moving_voxel_indicators)
         # Typical n ranges from 63984 to 451341
+        # sys.stderr.write("count_nonzero: %.2f s\n" % (time.time() - t)) 
         
         if tf_type == 'bspline':
-            NuNvNw_allTestPts = self.NuNvNw_allTestPts[ind_m][valid_moving_voxel_indices].copy()
+            NuNvNw_allTestPts = self.NuNvNw_allTestPts[ind_m][valid_moving_voxel_indicators].copy()
         
         # score += label_weights[name] * voxel_probs_valid.sum()
         # score += s
-
+        
         ind_f = self.labelIndexMap_m2f[ind_m]
         
         # Fixed volume's gradients at valid voxels.
+        
+        t = time.time()
         Sx = grad_f[ind_f][0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         Sy = grad_f[ind_f][1, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         Sz = grad_f[ind_f][2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
-
+        sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t)) 
+        
         xs_prime_valid = xs_prime_valid.astype(np.float)
         ys_prime_valid = ys_prime_valid.astype(np.float)
         zs_prime_valid = zs_prime_valid.astype(np.float)
         
+        t = time.time()                    
+        
         # Sample within valid voxels.
+        # Note that sampling takes time. Maybe it is better not sampling.
         if num_samples is not None:
             n_sample = min(int(num_samples), n)
             sys.stderr.write('%d: %d samples out of %d\n' % (ind_m, n_sample, n))
             
-            ii = np.random.choice(range(n), n_sample, replace=False)
+            # ii = np.random.(range(n), n_sample, replace=False)
+            import random
+            ii = random.sample(range(n), n_sample)
+
             Sx = Sx[ii]
             Sy = Sy[ii]
             Sz = Sz[ii]
@@ -537,8 +642,12 @@ class Aligner4(object):
                 NuNvNw_allTestPts = NuNvNw_allTestPts[ii]
         else:
             n_sample = n
-
+    
+        sys.stderr.write("sample: %.2f s\n" % (time.time() - t)) 
+        
         if tf_type == 'rigid' or tf_type == 'affine':
+            
+            t = time.time()
         
             # q is dF/dp for a single voxel, where p is a transform parameter.
             if tf_type == 'rigid':
@@ -548,6 +657,7 @@ class Aligner4(object):
                         -Sx*ys_prime_valid + Sy*xs_prime_valid]
             elif tf_type == 'affine':
                 q = np.c_[Sx*dxs, Sx*dys, Sx*dzs, Sx, Sy*dxs, Sy*dys, Sy*dzs, Sy, Sz*dxs, Sz*dys, Sz*dzs, Sz]
+            sys.stderr.write("compute gradient, all voxels: %.2f s\n" % (time.time() - t)) 
             
             # dMdA += label_weights[name] * q.sum(axis=0)
             # grad += q.sum(axis=0)
@@ -556,8 +666,10 @@ class Aligner4(object):
 
             # Whether to scale gradient to match the scores' scale depends on whether AdaGrad is used;
             # if used, then the scale will be automatically adapted so the scaling does not matter
+            t = time.time()
             grad = q.sum(axis=0) / 1e6
-            
+            sys.stderr.write("compute gradient, sum: %.2f s\n" % (time.time() - t)) 
+
         elif tf_type == 'bspline':
             
             dqxdbuvwx_allTestPts = NuNvNw_allTestPts
@@ -576,22 +688,15 @@ class Aligner4(object):
             dFdbuvwz = np.dot(S_m_valid_scores, dSdbuvwz_allTestPts) # (n_ctrl, )
             # print 'dFdbuvwz', dFdbuvwz.shape
             
-            # plt.figure();
-            # plt.stem(dFdbuvwx);
-            # plt.show();
-            # plt.figure();
-            # plt.stem(dFdbuvwy)
-            # plt.show();
-            # plt.figure();
-            # plt.stem(dFdbuvwz)
-            # plt.show();
-            
             grad = np.concatenate([dFdbuvwx, dFdbuvwy, dFdbuvwz]) # (n_ctrl*3, )
             # print 'grad', grad.shape
             sys.stderr.write('grad_min: %.2f, grad_max: %.2f\n' % (grad.min(), grad.max())) 
             
             q = None
 
+        
+        # t = time.time()
+        
         # regularized version
         if tf_type == 'rigid' or tf_type == 'affine':
             tx = T[3]
@@ -610,12 +715,14 @@ class Aligner4(object):
                 grad[11] = grad[11] - 2*self.reg_weights[2] * tz
         elif tf_type == 'bspline':
             pass
+        
+        # sys.stderr.write("3: %.2f s\n" % (time.time() - t)) 
 
         # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
-        del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, \
-            xs_valid, ys_valid, zs_valid, S_m_valid_scores
-
-        return s, grad
+        del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, S_m_valid_scores
+        # del xs_valid, ys_valid, zs_valid
+            
+        return score, grad
 
     def compute_score_and_gradient(self, T, tf_type, num_samples=None, indices_m=None):
         """
@@ -650,7 +757,9 @@ class Aligner4(object):
 
         # serial
         for ind_m in indices_m:
+            # t = time.time()
             score_one, grad_one = self.compute_score_and_gradient_one(T, tf_type=tf_type, num_samples=num_samples, ind_m=ind_m)
+            # sys.stderr.write("compute_score_and_gradient_one: %.2f s\n" % (time.time()-t))
             # sys.stderr.write("%d, %f\n" % (ind_m, score_one))
             # print "grad_one", grad_one.shape
             # grad += grad_one
@@ -691,9 +800,9 @@ class Aligner4(object):
             - valid (boolean array):
         """
         
-        # t = time.time()
+        t = time.time()
         res = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
-        # sys.stderr.write("get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
+        sys.stderr.write("get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
 
         if res is None:
             raise Exception('No valid voxels after transform: ind_m = %d' % ind_m)
@@ -701,8 +810,10 @@ class Aligner4(object):
         xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = res
         ind_f = self.labelIndexMap_m2f[ind_m]
 
-        # Reducing the scale of voxel value is important for keeping the sum in the represeantable range of the chosen data type.
+        # Reducing the scale of voxel value is important for keeping the sum (i.e. the following line) in the represeantable range of the chosen data type.
+        t = time.time()
         voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+        sys.stderr.write("fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
 
         # Unregularized version
         # s = voxel_probs_valid.sum()
@@ -719,7 +830,7 @@ class Aligner4(object):
             s_reg = 0
         
         s = s - s_reg
-
+        
         if return_valid:
             return s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices
         else:
@@ -1209,6 +1320,9 @@ class Aligner4(object):
                 sys.stderr.write('min: %.2f, max: %.2f\n' % (new_T.min(), new_T.max()))
                 
             scores.append(s)
+            
+            if np.isnan(s):
+                break
 
             self.Ts.append(new_T)
 
@@ -1254,7 +1368,9 @@ class Aligner4(object):
             indices_m = self.all_indices_m
 
         # print 'T:', np.ravel(T)
+        # t = time.time()
         score, grad = self.compute_score_and_gradient(T, tf_type='rigid', num_samples=num_samples, indices_m=indices_m)
+        # sys.stderr.write("compute_score_and_gradient: %.2f s\n" % (time.time() - t))
         # grad is (6,)-array
         
         # print 'score:', score

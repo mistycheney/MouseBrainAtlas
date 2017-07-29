@@ -26,6 +26,12 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def dice(hm, hf):
+    """
+    Compute the Dice similarity index between two boolean images. The value ranges between 0 and 1.
+    """
+    return 2 * np.count_nonzero(hm & hf) / float(np.count_nonzero(hm) + np.count_nonzero(hf))
+
 def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     if bboxes is None:
         bboxes = np.array([b for v, b in vol_bbox_tuples])
@@ -34,7 +40,7 @@ def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     bbox = xmin, xmax, ymin, ymax, zmin, zmax
     return bbox
 
-def crop_and_pad_volumes(out_bbox, vol_bbox_dict=None, vol_bbox_tuples=None):
+def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None):
     """
     Args:
         out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
@@ -42,22 +48,26 @@ def crop_and_pad_volumes(out_bbox, vol_bbox_dict=None, vol_bbox_tuples=None):
         vol_bbox_tuples (list of (vol, bbox) tuples)
     """
     if vol_bbox_tuples is not None:
-        vols = [crop_and_pad_volume(v, b, out_bbox) for (v, b) in vol_bbox_tuples]
+        vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in vol_bbox_tuples]
     elif vol_bbox_dict is not None:
-        vols = {l: crop_and_pad_volume(v, b, out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
+        vols = {l: crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
     return vols
 
-def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict):
+def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None):
     """
     Args:
         vol_bbox_dict (dict {key: (vol, bbox)})
         
     Returns:
-        (3d array, (6,)-ndarray): (overall_volume, bounding box)
+        (list of 3d arrays, (6,)-ndarray): (list of volumes in overall coordinate system, the common overall bounding box)
     """
-    volume_m_aligned_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
-    volume_m_aligned = crop_and_pad_volumes(out_bbox=volume_m_aligned_bbox, vol_bbox_dict=vol_bbox_dict)
-    return volume_m_aligned, volume_m_aligned_bbox
+    if vol_bbox_dict is not None:
+        volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
+        volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_dict=vol_bbox_dict)
+    else:
+        volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_tuples)
+        volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_tuples=vol_bbox_tuples)
+    return volumes, volume_bbox
 
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):

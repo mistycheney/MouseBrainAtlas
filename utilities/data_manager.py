@@ -840,64 +840,6 @@ class DataManager(object):
             raise Exception('Mesh is empty: %s.' % structure)
         return mesh
 
-#     @staticmethod
-#     def load_mesh_atlasV2(stack_m,
-#                                     structure,
-#                                     classifier_setting_m=None,
-#                                     stack_f=None,
-#                                     classifier_setting_f=None,
-#                                     warp_setting=None,
-#                                     downscale=32,
-#                                     type_m='score', type_f='score',
-#                                     trial_idx=0,
-#                                     return_polydata_only=True,
-#                                     **kwargs):
-#         """
-#         For backward compatibility.
-#         """
-
-#         mesh_fp = DataManager.get_mesh_filepath_atlasV2(**locals())
-#         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
-#         if mesh is None:
-#             raise Exception('Mesh is empty: %s.' % structure)
-#         return mesh
-
-#     @staticmethod
-#     def load_meshes(stack_m,
-#                                     stack_f=None,
-#                                     classifier_setting_m=None,
-#                                     classifier_setting_f=None,
-#                                     warp_setting=None,
-#                                     downscale=32,
-#                                     type_m='score', type_f='score',
-#                                     trial_idx=None,
-#                                     structures=None,
-#                                     sided=True,
-#                                     return_polydata_only=True,
-#                                    include_surround=False):
-
-#         kwargs = locals()
-
-#         if structures is None:
-#             if sided:
-#                 if include_surround:
-#                     structures = all_known_structures_sided_with_surround
-#                 else:
-#                     structures = all_known_structures_sided
-#             else:
-#                 structures = all_known_structures
-
-#         meshes = {}
-#         for structure in structures:
-#             try:
-#                 meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
-#             except Exception as e:
-#                 sys.stderr.write('%s\n' % e)
-#                 sys.stderr.write('Error loading mesh for %s.\n' % structure)
-
-#         return meshes
-
-
     @staticmethod
     def load_meshes(stack_m,
                                     stack_f=None,
@@ -931,22 +873,52 @@ class DataManager(object):
                 sys.stderr.write('Error loading mesh for %s: %s.\n' % (structure, e))
 
         return meshes
+    
+    
+    @staticmethod
+    def get_structure_viz_filepath(atlas_name, structure, suffix, **kwargs):
+        """
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'visualizations', structure, atlas_name + '_' + structure + '_' + suffix + '.png')
+    
+    @staticmethod
+    def get_structure_mean_shape_filepath(atlas_name, structure, **kwargs):
+        """
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShape.bp')
 
     @staticmethod
-    def get_instance_mesh_filepath(stack_m,
-                                            structure, index,
-                                            classifier_setting_m=None,
-                                            classifier_setting_f=None,
-                                            warp_setting=None,
-                                            stack_f=None,
-                                            downscale=32,
-                                            type_m='score', type_f='score',
-                                            trial_idx=None,
-                                   **kwargs):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fn = basename + '_' + structure + '_' + str(index)
-        return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+    def get_structure_mean_shape_origin_filepath(atlas_name, structure, **kwargs):
+        """
+        Mean shape origin, relative to the template instance's centroid.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShapeOrigin.txt')
+    
+    @staticmethod
+    def get_structure_mean_mesh_filepath(atlas_name, structure, **kwargs):
+        """
+        Structure mean mesh, relative to the template instance's centroid.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanMesh.stl')
+    
+    @staticmethod
+    def get_instance_mesh_filepath(atlas_name, structure, index, **kwargs):
+        """
+        Filepath of the instance mesh to derive mean shapes in atlas.
+        
+        Args:
+            index (int): the index of the instance. The template instance is at index 0.
+        
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'instance_meshes', atlas_name + '_' + structure + '_' + str(index) + '.stl')
 
+    @staticmethod
+    def get_instance_sources_filepath(atlas_name, structure, **kwargs):
+        """
+        Path to the instance mesh sources file.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'instance_sources', atlas_name + '_' + structure + '_sources.pkl')
+    
     @staticmethod
     def get_mesh_filepath(stack_m,
                             structure,
@@ -1204,70 +1176,68 @@ class DataManager(object):
 
         return prob_shapes
 
-    @staticmethod
-    def get_prob_shape_viz_filepath(stack_m, stack_f=None,
-                                        warp_setting=None,
-                                        classifier_setting_m=None,
-                                        classifier_setting_f=None,
-                                        downscale=32,
-                                         type_m='score',
-                                         type_f='score',
-                                        structure=None,
-                                        trial_idx=0,
-                                        suffix=None,
-                                        **kwargs):
-        """
-        Return prob. shape volume filepath.
-        """
+#     @staticmethod
+#     def get_prob_shape_viz_filepath(stack_m, structure,
+#                                     stack_f=None,
+#                                         warp_setting=None,
+#                                         classifier_setting_m=None,
+#                                         classifier_setting_f=None,
+#                                         downscale=32,
+#                                          type_m='score',
+#                                          type_f='score',
+#                                         trial_idx=0,
+#                                         suffix=None,
+#                                         **kwargs):
+#         """
+#         Return prob. shape volume filepath.
+#         """
 
-        basename = DataManager.get_warped_volume_basename(**locals())
+#         basename = DataManager.get_warped_volume_basename(**locals())
+#         assert structure is not None
+#         fn = basename + '_' + structure + '_' + suffix
+#         return os.path.join(, stack_m, basename, 'probabilistic_shape_viz', structure, fn + '.png')
 
-        assert structure is not None
-        fn = basename + '_' + structure + '_' + suffix
+#     @staticmethod
+#     def get_prob_shape_volume_filepath(stack_m, stack_f=None,
+#                                         warp_setting=None,
+#                                         classifier_setting_m=None,
+#                                         classifier_setting_f=None,
+#                                         downscale=32,
+#                                          type_m='score',
+#                                          type_f='score',
+#                                         structure=None,
+#                                         trial_idx=0, **kwargs):
+#         """
+#         Return prob. shape volume filepath.
+#         """
 
-        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shape_viz', structure, fn + '.png')
+#         basename = DataManager.get_warped_volume_basename(**locals())
+#         if structure is not None:
+#             fn = basename + '_' + structure
 
-    @staticmethod
-    def get_prob_shape_volume_filepath(stack_m, stack_f=None,
-                                        warp_setting=None,
-                                        classifier_setting_m=None,
-                                        classifier_setting_f=None,
-                                        downscale=32,
-                                         type_m='score',
-                                         type_f='score',
-                                        structure=None,
-                                        trial_idx=0, **kwargs):
-        """
-        Return prob. shape volume filepath.
-        """
+#         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '.bp')
 
-        basename = DataManager.get_warped_volume_basename(**locals())
-        if structure is not None:
-            fn = basename + '_' + structure
+#     @staticmethod
+#     def get_prob_shape_origin_filepath(stack_m, stack_f=None,
+#                                         warp_setting=None,
+#                                         classifier_setting_m=None,
+#                                         classifier_setting_f=None,
+#                                         downscale=32,
+#                                          type_m='score',
+#                                          type_f='score',
+#                                         structure=None,
+#                                         trial_idx=0, **kwargs):
+#         """
+#         Return prob. shape volume origin filepath.
 
-        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '.bp')
+#         Note that these origins are with respect to
 
-    @staticmethod
-    def get_prob_shape_origin_filepath(stack_m, stack_f=None,
-                                        warp_setting=None,
-                                        classifier_setting_m=None,
-                                        classifier_setting_f=None,
-                                        downscale=32,
-                                         type_m='score',
-                                         type_f='score',
-                                        structure=None,
-                                        trial_idx=0, **kwargs):
-        """
-        Return prob. shape volume origin filepath.
+#         """
 
-        Note that these origins are with respect to
-
-        """
-
-        basename = DataManager.get_warped_volume_basename(**locals())
-        if structure is not None:
-            fn = basename + '_' + structure
-        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '_origin.txt')
+#         basename = DataManager.get_warped_volume_basename(**locals())
+#         if structure is not None:
+#             fn = basename + '_' + structure
+#         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '_origin.txt')
 
     @staticmethod
     def get_volume_filepath(stack_m, stack_f=None,

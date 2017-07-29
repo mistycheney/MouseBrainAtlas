@@ -2284,6 +2284,7 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     
     Args:
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+        weights (list of float): weights of component transforms. Only the relative magnitude matters.
     
     Returns:
         ((n,3)-ndarray): transformed points.
@@ -2291,10 +2292,12 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
 
     if sigmas[0].ndim == 2: # sigma is covariance matrix
         nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts, ap, sigma))
-                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)]) + 1e-6
     elif sigmas[0].ndim == 1: # sigma is a single scalar
         nzvoxels_weights = np.array([w*np.exp(-np.sum((pts - ap)**2, axis=1)/sigma**2) \
-                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)]) + 1e-6
+    # add a small constant to prevent from being rounded to 0.
+        
     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
@@ -2308,7 +2311,7 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)    
     return nzs_m_aligned_to_f
     
-def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox):
+def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox, fill_holes=True):
     """
     Transform volume by a weighted-average transform.
     
@@ -2336,12 +2339,15 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
     vol[ys_m[valid], xs_m[valid], zs_m[valid]]
 
-    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
-    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    if fill_holes:
+        if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+            dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+        elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+            dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        else:
+            raise Exception('transform_volume: Volume must be either float or int.')
     else:
-        raise Exception('transform_volume: Volume must be either float or int.')
+        dense_volume = volume_m_aligned_to_f
 
     return dense_volume
 

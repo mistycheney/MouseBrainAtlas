@@ -76,6 +76,10 @@ def poisson_reconstruct_meshlab(polydata=None, input_fn=None, output_fn=None):
 
 
 def polydata_to_mesh(polydata):
+    """
+    Returns:
+        (vertices, faces)
+    """
 
     vertices = np.array([polydata.GetPoint(i) for i in range(polydata.GetNumberOfPoints())])
 
@@ -459,7 +463,7 @@ def add_axes(iren, text_color=(1,1,1)):
     widget.SetOutlineColor( 0.9300, 0.5700, 0.1300 );
     widget.SetOrientationMarker( axes );
     widget.SetInteractor( iren );
-    widget.SetViewport( 0.0, 0.0, 0.2, 0.2 );
+    # widget.SetViewport( 0.0, 0.0, 0.2, 0.2 );
     widget.SetEnabled( 1 );
     widget.InteractiveOn();
     return widget
@@ -1186,22 +1190,26 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
             # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
             volume_list.append(v)
             origin_list.append(np.array(orig, np.int))
+    
+    bbox_list = [(xm, xm+v.shape[1], ym, ym+v.shape[0], zm, zm+v.shape[2]) for v,(xm,ym,zm) in zip(volume_list, origin_list)]
+    common_volume_list, common_volume_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_tuples=zip(volume_list, bbox_list))
+    common_volume_list = map(lambda v: (v > 0).astype(np.int), common_volume_list)
 
-    common_mins = np.min(origin_list, axis=0).astype(np.int)
-    relative_origins = origin_list - common_mins
+    # common_mins = np.min(origin_list, axis=0).astype(np.int)
+    # relative_origins = origin_list - common_mins
 
-    common_xdim, common_ydim, common_zdim = np.max([(v.shape[1]+o[0], v.shape[0]+o[1], v.shape[2]+o[2])
-                                                    for v,o in zip(volume_list, relative_origins)], axis=0)
+#     common_xdim, common_ydim, common_zdim = np.max([(v.shape[1]+o[0], v.shape[0]+o[1], v.shape[2]+o[2])
+#                                                     for v,o in zip(volume_list, relative_origins)], axis=0)
 
-    common_volume_list = []
+#     common_volume_list = []
 
-    for i, v in enumerate(volume_list):
-        common_volume = np.zeros( (common_ydim, common_xdim, common_zdim), np.uint8)
-        x0, y0, z0 = relative_origins[i]
-        ydim, xdim, zdim = v.shape
-        common_volume[y0:y0+ydim, x0:x0+xdim, z0:z0+zdim] = v
+#     for i, v in enumerate(volume_list):
+#         common_volume = np.zeros( (common_ydim, common_xdim, common_zdim), np.uint8)
+#         x0, y0, z0 = relative_origins[i]
+#         ydim, xdim, zdim = v.shape
+#         common_volume[y0:y0+ydim, x0:x0+xdim, z0:z0+zdim] = v
 
-        common_volume_list.append((common_volume > 0).astype(np.int))
+#         common_volume_list.append((common_volume > 0).astype(np.int))
         
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
@@ -1213,14 +1221,16 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
         from skimage.filters import gaussian
         average_volume_prob = gaussian(average_volume_prob, sigma) # Smooth the probability 
     
+    common_origin = np.array(common_volume_bbox)[[0,2,4]]
+    
     if consensus_percentage is not None:
         # Threshold prob. volumes to generate structure meshes
         average_volume_thresholded = average_volume_prob >= consensus_percentage
-        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_mins, num_simplify_iter=num_simplify_iter,
+        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_origin, num_simplify_iter=num_simplify_iter,
                                               smooth=smooth)
-        return average_volume_prob, common_mins, average_polydata    
+        return average_volume_prob, common_origin, average_polydata    
     else:
-        return average_volume_prob, common_mins
+        return average_volume_prob, common_origin
 
 def symmetricalize_volume(prob_vol):
     """
@@ -1304,7 +1314,7 @@ def average_location(centroid_allLandmarks):
         else:
             midpoints[name] = mean_centroid_allLandmarks[name]
     
-    print midpoints
+    # print midpoints
 
     midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
 

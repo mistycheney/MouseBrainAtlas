@@ -65,6 +65,8 @@ def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
             if True, surround voxels are assigned 1-vol; if False, surround voxels are assigned 1.
     """
     from scipy.ndimage.morphology import distance_transform_edt
+    distance = int(np.round(distance))
+    
     eps = 5
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
     ydim, xdim, zdim = vol.shape
@@ -74,6 +76,7 @@ def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
     roi_xmax = min(xdim-1, xmax + distance + eps)
     roi_ymax = min(ydim-1, ymax + distance + eps)
     roi_zmax = min(zdim-1, zmax + distance + eps)
+    # print roi_ymin,roi_ymax+1, roi_xmin,roi_xmax+1, roi_zmin,roi_zmax+1
     roi = (vol > valid_level)[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1]
 
     dist_vol = distance_transform_edt(roi == 0)

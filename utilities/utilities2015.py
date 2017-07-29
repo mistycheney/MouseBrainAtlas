@@ -46,6 +46,9 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
         out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
         vol_bbox_dict (dict {key: (vol, bbox)})
         vol_bbox_tuples (list of (vol, bbox) tuples)
+        
+    Returns:
+        list of 3d arrays
     """
     if vol_bbox_tuples is not None:
         vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in vol_bbox_tuples]
@@ -53,7 +56,7 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
         vols = {l: crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
     return vols
 
-def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None):
+def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None, vol_origin_dict=None):
     """
     Args:
         vol_bbox_dict (dict {key: (vol, bbox)})
@@ -61,16 +64,25 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=Non
     Returns:
         (list of 3d arrays, (6,)-ndarray): (list of volumes in overall coordinate system, the common overall bounding box)
     """
+    
+    if vol_origin_dict is not None:
+        vol_bbox_dict = {k: (v, (o[0], o[0]+v.shape[1]-1, o[1], o[1]+v.shape[0]-1, o[2], o[2]+v.shape[2]-1)) for k,(v,o) in vol_origin_dict.iteritems()}
+                         
     if vol_bbox_dict is not None:
         volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
         volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_dict=vol_bbox_dict)
     else:
         volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_tuples)
         volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_tuples=vol_bbox_tuples)
-    return volumes, volume_bbox
+    return volumes, np.array(volume_bbox)
 
 
 def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+    """
+    Args:
+        in_bbox ((6,) array): the bounding box that the input volume is defined on. If None, assume origin is at (0,0,0) of the input volume.
+        out_bbox ((6,) array): the bounding box that the output volume is defined on.
+    """
     
     if in_bbox is None:
         in_xmin = 0

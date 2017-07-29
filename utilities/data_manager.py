@@ -330,10 +330,22 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_cropbox(stack, anchor_fn=None):
+    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False):
+        """
+        Args:
+            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+        """
+        
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        cropbox = DataManager.load_data(fp, filetype='bbox')
+        
+        if convert_section_to_z:
+            xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
+            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
+            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
+            cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
+        else:    
+            cropbox = np.loadtxt(fp).astype(np.int)
         return cropbox
 
     @staticmethod
@@ -772,56 +784,23 @@ class DataManager(object):
         shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, basename + "_smoothed.stl")
         return shell_mesh_fn
 
-    # @staticmethod
-    # def load_meshes(stack, classifier_setting=None, structures=None, sided=False, return_polydata_only=True):
-    #
-    #     kwargs = locals()
-    #
-    #     if structures is None:
-    #         if sided:
-    #             structures = all_known_structures_sided
-    #         else:
-    #             structures = all_known_structures
-    #
-    #     meshes = {}
-    #     for structure in structures:
-    #         try:
-    #             meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
-    #         except Exception as e:
-    #             sys.stderr.write('%s\n' % e)
-    #             sys.stderr.write('Error loading mesh for %s.\n' % structure)
-    #
-    #     return meshes
+    
+    @staticmethod
+    def get_mesh_filepath(stack_m,
+                            structure,
+                            detector_id_m=None,
+                            detector_id_f=None,
+                            warp_setting=None,
+                            stack_f=None,
+                            downscale=32,
+                            vol_type_m='score', 
+                          vol_type_f='score',
+                            trial_idx=None, **kwargs):
+        basename = DataManager.get_warped_volume_basename(**locals())
+        fn = basename + '_%s' % structure
+        return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
-
-
-    # @staticmethod
-    # def get_mesh_filepath(stack, structure, classifier_setting, downscale=32):
-    #     basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, classifier_setting=classifier_setting)
-    #     fn = basename + '_%s' % structure
-    #     mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, 'structure_mesh', fn + '.stl')
-    #     print mesh_fn
-    #     return mesh_fn
-
-    # @staticmethod
-    # def get_annotation_volume_mesh_filepath(stack, downscale, label):
-    #     fn = os.path.join(MESH_ROOTDIR, stack, "%(stack)s_down%(ds)s_annotationVolume_%(name)s_smoothed.stl" % {'stack': stack, 'name': label, 'ds':downscale})
-    #     return fn
-    #
-    # @staticmethod
-    # def load_annotation_volume_mesh(stack, downscale, label, return_polydata_only=True):
-    #     fn = DataManager.get_annotation_volume_mesh_filepath(stack, downscale, label)
-    #     return load_mesh_stl(fn, return_polydata_only=return_polydata_only)
-
-
-    # @staticmethod
-    # def load_mesh(stack, structure, classifier_setting, return_polydata_only=True, **kwargs):
-    #     mesh_fn = DataManager.get_mesh_filepath(stack=stack, structure=structure, classifier_setting=classifier_setting)
-    #     mesh = load_mesh_stl(mesh_fn, return_polydata_only=return_polydata_only)
-    #     if mesh is None:
-    #         raise Exception('Mesh is empty.')
-    #     return mesh
-
+    
     @staticmethod
     def load_mesh(stack_m,
                                     structure,
@@ -875,6 +854,63 @@ class DataManager(object):
         return meshes
     
     
+#     @staticmethod
+#     def load_atlas_mesh(atlas_name, structure, return_polydata_only=True, **kwargs):
+#         mesh_fp = DataManager.get_structure_mean_mesh_filepath(atlas_name=atlas_name, structure=structure)
+#         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
+#         if mesh is None:
+#             raise Exception('Mesh is empty: %s.' % structure)
+#         return mesh
+    
+#     @staticmethod
+#     def load_atlas_meshes(atlas_name, structures=None, sided=True, return_polydata_only=True, include_surround=False):
+#         kwargs = locals()
+#         if structures is None:
+#             if sided:
+#                 if include_surround:
+#                     structures = all_known_structures_sided_with_surround
+#                 else:
+#                     structures = all_known_structures_sided
+#             else:
+#                 structures = all_known_structures
+
+#         meshes = {}
+#         for structure in structures:
+#             try:
+#                 meshes[structure] = DataManager.load_atlas_mesh(atlas_name=atlas_name, structure=structure)
+#             except Exception as e:
+#                 sys.stderr.write('Error loading mesh for %s: %s.\n' % (structure, e))
+
+#         return meshes
+    
+    @staticmethod
+    def get_atlas_canonical_centroid_filepath(atlas_name, **kwargs):
+        """
+        Filepath of the atlas canonical centroid data. The centroid is with respect to aligned uncropped MD589.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalCentroid.txt')
+    
+    @staticmethod
+    def get_atlas_canonical_normal_filepath(atlas_name, **kwargs):
+        """
+        Filepath of the atlas canonical centroid data.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalNormal.txt')
+    
+    @staticmethod
+    def get_structure_mean_positions_filepath(atlas_name, **kwargs):
+        """
+        Filepath of the structure mean positions.        
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_meanPositions.pkl')
+        
+    @staticmethod
+    def get_instance_centroids_filepath(atlas_name, **kwargs):
+        """
+        Filepath of the structure mean positions.        
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_instanceCentroids.pkl')
+    
     @staticmethod
     def get_structure_viz_filepath(atlas_name, structure, suffix, **kwargs):
         """
@@ -919,21 +955,6 @@ class DataManager(object):
         """
         return os.path.join(MESH_ROOTDIR, atlas_name, 'instance_sources', atlas_name + '_' + structure + '_sources.pkl')
     
-    @staticmethod
-    def get_mesh_filepath(stack_m,
-                            structure,
-                            detector_id_m=None,
-                            detector_id_f=None,
-                            warp_setting=None,
-                            stack_f=None,
-                            downscale=32,
-                            vol_type_m='score', 
-                          vol_type_f='score',
-                            trial_idx=None, **kwargs):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fn = basename + '_%s' % structure
-        return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
-
 
     ###############
     # Volumes I/O #

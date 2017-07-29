@@ -469,6 +469,10 @@ def add_axes(iren, text_color=(1,1,1)):
     return widget
 
 def load_mesh_stl(fn, return_polydata_only=False):
+    """
+    Args:
+        return_polydata_only (bool): If true, return polydata; if false (default), return (vertices, faces)
+    """
 
     if not os.path.exists(fn):
         sys.stderr.write('load_mesh_stl: File does not exist %s\n' % fn)

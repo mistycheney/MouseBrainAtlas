@@ -424,7 +424,7 @@ def take_screenshot(win, file_path, magnification=10):
     writer.SetInputConnection(windowToImageFilter.GetOutputPort());
     writer.Write();
 
-def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.)):
+def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.), opacity=1.):
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(position[0], position[1], position[2])
     sphereSource.SetRadius(radius)
@@ -437,7 +437,8 @@ def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.)):
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
     sphereActor.GetProperty().SetColor(color)
-
+    sphereActor.GetProperty().SetOpacity(opacity)
+    
     return sphereActor
 
 
@@ -795,6 +796,11 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
 
 
 def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
+    """
+    Args:
+        what (str): tb, score or probability. 
+        A caveat when `what` is probability - zero-valued voxels are not transparent, so later actors will block previous actors.
+    """
 
     imagedata = volume_to_imagedata(volume, origin=origin)
 
@@ -1153,7 +1159,7 @@ def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
     # return moving_pts_centered
 
 
-def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
+def average_shape(polydata_list=None, volume_list=None, origin_list=None, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
                  sigma=2.):
     """
     Args:
@@ -1170,15 +1176,16 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
         average_polydata (Polydata): mesh of the 3D boundary thresholded at concensus_percentage
     """
 
-    volume_list = []
-    origin_list = []
+    if volume_list is None:    
+        volume_list = []
+        origin_list = []
 
-    for p in polydata_list:
-        # t = time.time()
-        v, orig, _ = polydata_to_volume(p)
-        # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
-        volume_list.append(v)
-        origin_list.append(np.array(orig, np.int))
+        for p in polydata_list:
+            # t = time.time()
+            v, orig, _ = polydata_to_volume(p)
+            # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
+            volume_list.append(v)
+            origin_list.append(np.array(orig, np.int))
 
     common_mins = np.min(origin_list, axis=0).astype(np.int)
     relative_origins = origin_list - common_mins
@@ -1209,11 +1216,11 @@ def average_shape(polydata_list, consensus_percentage=None, num_simplify_iter=0,
     if consensus_percentage is not None:
         # Threshold prob. volumes to generate structure meshes
         average_volume_thresholded = average_volume_prob >= consensus_percentage
-        average_polydata = volume_to_polydata(average_volume_thresholded, common_mins, num_simplify_iter=num_simplify_iter,
+        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_mins, num_simplify_iter=num_simplify_iter,
                                               smooth=smooth)
         return average_volume_prob, common_mins, average_polydata    
     else:
-        return average_volume_prob, common_mins,
+        return average_volume_prob, common_mins
 
 def symmetricalize_volume(prob_vol):
     """
@@ -1267,7 +1274,7 @@ def R_align_two_vectors(a, b):
     v_skew = np.array([[0, -v[2], v[1]],
                       [v[2], 0, -v[0]],
                       [-v[1], v[0], 0]])
-    R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/s**2
+    R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/(s + 1e-5)**2
     return R
 
 def average_location(centroid_allLandmarks):
@@ -1296,6 +1303,8 @@ def average_location(centroid_allLandmarks):
             midpoints[name] = .5 * mean_centroid_allLandmarks[lname] + .5 * mean_centroid_allLandmarks[rname]
         else:
             midpoints[name] = mean_centroid_allLandmarks[name]
+    
+    print midpoints
 
     midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
 
@@ -1322,5 +1331,5 @@ def average_location(centroid_allLandmarks):
         else:
             x, y, _ = points_midplane_oriented[name]
             canonical_locations[name] = np.r_[x, y, 0]
-
+            
     return canonical_locations, midplane_point, midplane_normal

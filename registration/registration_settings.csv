@@ -6,7 +6,7 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 6,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.5,0
 7,None,rigid,1e-6,1e5,1000,50,50,50,10,0
 8,None,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0,align mid-sagittal planes
-9,8,rigid,1e-6,1e5,1e4,200,200,200,30,,,global registration given mid-sagittal planes are aligned
+9,8,rigid,1e-6,1e5,1e4,2000,2000,2000,30,,,global registration given mid-sagittal planes are aligned
 18,8,affine,1e-6,1e5,1e4,200,200,200,30,,,global registration given mid-sagittal planes are aligned
 10,None,rigid,1e-5,1e5,1000,100,100,100,30,0
 11,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.1,0
@@ -16,3 +16,4 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 15,13,bspline,1e-5,1e5,1000,2000,2000,2000,30,-1.,
 16,None,affine,1e-5,1e5,1000,2000,2000,2000,30,inverse,
 17,16,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0
+19,16,weighted_avg,,,,200,200,200,30,,,weighted average of rigid transforms

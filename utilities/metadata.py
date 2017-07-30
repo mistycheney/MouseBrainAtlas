@@ -316,6 +316,7 @@ all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin=2
 all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
+
 linear_landmark_names_unsided = ['outerContour']
 volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
 all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided

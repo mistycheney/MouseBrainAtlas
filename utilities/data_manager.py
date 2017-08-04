@@ -134,7 +134,7 @@ class DataManager(object):
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None):
         if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               classifier_setting_m=classifier_setting_m,

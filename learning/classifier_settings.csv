@@ -19,6 +19,7 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 73,lr,500,66/67/68,neg_has_all_surround,,cropped_gray,73,using mirror variations for training; use only surround as negative
 74,lr,500,72/73/74,neg_has_all_surround,,cropped_gray,74,using rotation and intensity variations for training; use only surround as negative
 75,lr,500,72/73/74,neg_has_surround_and_negative,,cropped_gray,75,using rotation and intensity variations for training; use both surr and neg
+76,lr,500,75/76/77,neg_has_surround_and_negative,,cropped_gray,76,using no rotation for training; use both surr and neg
 80,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized500,37,
 81,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1000,37,
 82,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1500,37,

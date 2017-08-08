@@ -300,7 +300,9 @@ preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
 windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 
                       2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'},
-                     3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'}}
+                     3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'},
+                     4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
+                     5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'}}
 
 ############ Class Labels #############
 

@@ -657,7 +657,7 @@ class DataManager(object):
 #         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
-    def load_sparse_scores(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
+    def load_sparse_scores(stack, structure, detector_id, prep_id=2, sec=None, fn=None):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -667,14 +667,14 @@ class DataManager(object):
         return DataManager.load_data(sparse_scores_fp, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
+    def get_sparse_scores_filepath(stack, structure, detector_id, prep_id=2, sec=None, fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack,
-                            fn + '_prep%d'%prep_id + '_' + version,
+                            fn + '_prep%d'%prep_id,
                             'detector%d'%detector_id,
-                            fn + '_prep%d'%prep_id + '_' + version + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
+                            fn + '_prep%d'%prep_id + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
 
 
 #     @staticmethod
@@ -1926,12 +1926,11 @@ class DataManager(object):
         else:
             assert fn is not None
 
-
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
         if ext is None:
             if version == 'mask':
                 ext = 'png'
-            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg':
+            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg' or version == 'grayDefaultJpeg':
                 ext = 'jpg'
             else:
                 ext = 'tif'

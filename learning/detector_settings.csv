@@ -9,4 +9,6 @@ detector_id,input_version,windowing_id,feature_network,feature_classifier_id
 8,grayL700H0,1,inception-bn-blue,38
 9,grayL800H0,1,inception-bn-blue,38
 10,grayL900H0,1,inception-bn-blue,38
-
+11,gray,3,inception-bn-blue,72
+12,grayDefault,4,inception-bn-blue,72
+13,gray,4,inception-bn-blue,72

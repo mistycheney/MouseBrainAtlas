@@ -95,6 +95,7 @@ def convert_image_patches_to_features(patches, model, mean_img, batch_size):
         n_pad = batch_size - len(patches)
         patches_mean_subtracted_input = np.concatenate([patches_mean_subtracted_input, np.zeros((n_pad,1) + mean_img.shape, mean_img.dtype)])
     
+    print patches_mean_subtracted_input.shape
     data_iter = mx.io.NDArrayIter(
                     patches_mean_subtracted_input, 
                     batch_size=batch_size,

@@ -88,6 +88,24 @@ def volume_type_to_str(t):
 
 
 class DataManager(object):
+    
+    
+    ##############
+    ##   SPM    ##
+    ##############
+    
+    @staticmethod
+    def get_sift_descriptors_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_descriptors', stack, fn + '_sift_descriptors.bp')
+   
+    @staticmethod
+    def get_sift_keypoints_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_keypoints', stack, fn + '_sift_keypoints.bp')
+    
 
     ##########################
     ###    Annotation    #####

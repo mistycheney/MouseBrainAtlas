@@ -76,7 +76,7 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
         prefix = res[0][0]
         sec = int(res[0][1])
         
-	if secs is not None and sec not in secs:
+        if secs is not None and sec not in secs:
             continue
         filenames.append((prefix, sec))
 
@@ -124,7 +124,7 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
 
 def compute_vocabulary():
     '''
-    Load vocabulary (as a sklearn.KMeans object)
+    Compute or load the SIFT descriptor dictionary/vocabulary.
     '''
 
     output_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/'
@@ -190,8 +190,11 @@ def compute_vocabulary():
 
 
 def compute_labelmap(stack, sec, force=False):
+    """
+    Compute SIFT descriptor word map.
+    """
 
-    output_dir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/sift_wordmap/%(stack)s' % {'stack': stack})
+    output_dir = create_if_not_exists('/shared/CSHL_SPM/sift_wordmap/%(stack)s' % {'stack': stack})
     labelmap_fp = os.path.join(output_dir, '%(stack)s_%(sec)04d_labelmap.hdf' % {'stack': stack, 'sec': sec})
 
     if os.path.exists(labelmap_fp) and not force:
@@ -257,6 +260,17 @@ from multiprocess import Pool
 labelmap_global = None
 
 def compute_spm_histograms(labelmap, sample_locs, patch_size, M):
+    """
+    Args:
+        labelmap (2d-ndarray of int):
+        sample_locs (2d-ndarray): List of (x,y) locations at which to sample the SPM histograms
+        M (int): number of unique SIFT descriptor words, aka. size of vocabulary
+        
+    Returns:
+        hists_arr0 ((1,M)-array of int)
+        hists_arr1 ((4,M)-array of int)
+        hists_arr2 ((16,M)-array of int)
+    """
 
     global labelmap_global
     labelmap_global = labelmap

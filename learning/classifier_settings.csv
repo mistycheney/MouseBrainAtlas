@@ -15,11 +15,11 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 50,lr,500,27/28/29/60/61/62,neg_has_surround_and_negative,,cropped_gray,50,using mirror variations of patches to train
 70,inception-bn-blue-softmax,500,60/61,neg_has_all_surround,,cropped_gray,,
 71,inception-bn-blue-softmax,500,60/61/62,neg_has_all_surround,,cropped_gray,,
-72,lr,500,66/67/68,neg_has_surround_and_negative,,cropped_gray,72,using mirror variations of patches to train
-73,lr,500,66/67/68,neg_has_all_surround,,cropped_gray,73,using mirror variations for training; use only surround as negative
-74,lr,500,72/73/74,neg_has_all_surround,,cropped_gray,74,using rotation and intensity variations for training; use only surround as negative
-75,lr,500,72/73/74,neg_has_surround_and_negative,,cropped_gray,75,using rotation and intensity variations for training; use both surr and neg
-76,lr,500,75/76/77,neg_has_surround_and_negative,,cropped_gray,76,using no rotation for training; use both surr and neg
+72,lr,500,66/67/68,neg_has_surround_and_negative,,,72,using mirror variations of patches to train; use both surround and far as negative
+73,lr,500,66/67/68,neg_has_all_surround,,,73,using mirror variations for training; use only surround as negative
+74,lr,500,72/73/74,neg_has_all_surround,,,74,using rotation and intensity variations for training; use only surround as negative
+75,lr,500,72/73/74,neg_has_surround_and_negative,,,75,using rotation and intensity variations for training; use both surr and neg
+76,lr,500,75/76/77,neg_has_surround_and_negative,,,76,using no rotation for training; use both surr and neg
 80,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized500,37,
 81,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1000,37,
 82,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1500,37,

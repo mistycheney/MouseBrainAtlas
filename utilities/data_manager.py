@@ -95,6 +95,27 @@ class DataManager(object):
     ##############
     
     @staticmethod
+    def get_spm_histograms_filepath(stack, ):
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+    
+    @staticmethod
+    def get_spm_histograms_filepath(stack):
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+    
+    @staticmethod
+    def get_sift_descriptor_vocabulary_filepath():
+        """
+        Return a sklearn.KMeans classifier object.
+        """
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+   
+    @staticmethod
+    def get_sift_descriptors_labelmap_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_labelmap', stack, fn + '_sift_labelmap.bp')
+   
+    @staticmethod
     def get_sift_descriptors_filepath(stack, section=None, fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]

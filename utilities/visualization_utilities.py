@@ -184,7 +184,7 @@ def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, s
                                             fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=32,
                             users=None, level_colors=None, levels=None, show_text=True,
-                             contours=None, contour_width=1):
+                             contours=None, contour_width=1, bg_img_version='grayJpeg'):
     """
     Args:
         levels (list of float): probability levels at which the contours are drawn.
@@ -208,11 +208,9 @@ def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, s
     
     if bg == 'original':
         if out_downsample == 32:
-            # bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='thumbnail', version='cropped_tif')
             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='thumbnail')
         else:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='lossless', prep_id=2, version='grayJpeg')
-            # bg = DataManager.load_image(stack=stack_fixed, section=sec, resol='lossless', version='cropped_gray_jpeg')
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='lossless', prep_id=2, version=bg_img_version)
     #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
             bg = bg[::out_downsample, ::out_downsample]
     

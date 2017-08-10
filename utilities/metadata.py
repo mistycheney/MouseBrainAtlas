@@ -190,6 +190,8 @@ elif hostname.startswith('ip'):
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
+    
+    CSHL_SPM_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_SPM')
 
 else:
     print 'Setting environment for Brainstem workstation'

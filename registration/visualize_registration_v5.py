@@ -25,6 +25,7 @@ parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
 parser.add_argument("detector_id", type=int, help="Detector id")
+parser.add_argument("-v", "--bg_img_version", type=str, help="Background image version", default='grayJpeg')
 parser.add_argument("-o", "--out_downsample", type=int, help="downsample of output visualization images", default=32)
 
 args = parser.parse_args()
@@ -34,6 +35,7 @@ stack_moving = args.stack_moving
 warp_setting = args.warp_setting
 detector_id = args.detector_id
 downsample_factor = args.out_downsample
+bg_img_version = args.bg_img_version
     
 ##################################################################
 
@@ -76,7 +78,8 @@ def visualize_registration_one_section(sec):
     
     viz = annotation_from_warped_atlas_overlay_on(bg='original', warped_volumes=warped_volumes, 
                                                   volume_origin=(xmin_vol_f, ymin_vol_f, zmin_vol_f),
-                                                  stack_fixed=stack_fixed, sec=sec, out_downsample=8)
+                                                  stack_fixed=stack_fixed, sec=sec, out_downsample=8,
+                                                 bg_img_version=bg_img_version)
     
     viz_fp = DataManager.get_alignment_viz_filepath(stack_m=stack_moving,
                                                     stack_f=stack_fixed,

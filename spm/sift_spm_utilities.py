@@ -76,7 +76,7 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
         prefix = res[0][0]
         sec = int(res[0][1])
         
-	if secs is not None and sec not in secs:
+        if secs is not None and sec not in secs:
             continue
         filenames.append((prefix, sec))
 
@@ -122,107 +122,137 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
 
     return data, addresses
 
-def compute_vocabulary():
-    '''
-    Load vocabulary (as a sklearn.KMeans object)
-    '''
+# def compute_vocabulary():
+#     '''
+#     Compute or load the SIFT descriptor dictionary/vocabulary.
+#     '''
 
-    output_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/'
+#     output_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/'
 
-    if os.path.exists(output_dir + '/vocab.pkl'):
+#     if os.path.exists(output_dir + '/vocab.pkl'):
 
-        # Load vocabulary
-        vocabulary = joblib.load(output_dir + '/vocab.pkl')
+#         # Load vocabulary
+#         vocabulary = joblib.load(output_dir + '/vocab.pkl')
 
-    else:
+#     else:
 
-        if os.path.exists(output_dir + '/sift_descriptors_pool_arr.bp'):
+#         if os.path.exists(output_dir + '/sift_descriptors_pool_arr.bp'):
 
-            # Load descriptor pool
-            descriptors_pool_arr = bp.unpack_ndarray_file(output_dir + '/sift_descriptors_pool_arr.bp')
+#             # Load descriptor pool
+#             descriptors_pool_arr = bp.unpack_ndarray_file(output_dir + '/sift_descriptors_pool_arr.bp')
 
-            t = time.time()
+#             t = time.time()
 
-            vocabulary = KMeans(init='random', n_clusters=M, n_init=10)
-            vocabulary.fit(descriptors_pool_arr)
+#             vocabulary = KMeans(init='random', n_clusters=M, n_init=10)
+#             vocabulary.fit(descriptors_pool_arr)
 
-            sys.stderr.write('sift: %.2f seconds\n' % (time.time() - t)) # 300 seconds
+#             sys.stderr.write('sift: %.2f seconds\n' % (time.time() - t)) # 300 seconds
 
-            cluster_centers = vocabulary.cluster_centers_
+#             cluster_centers = vocabulary.cluster_centers_
 
-            joblib.dump(vocabulary, output_dir + '/vocab.pkl')
+#             joblib.dump(vocabulary, output_dir + '/vocab.pkl')
 
-        else:
+#         else:
 
-            # Generate SIFT descriptor pool
-            descriptors_pool = []
+#             # Generate SIFT descriptor pool
+#             descriptors_pool = []
 
-            sift = cv2.SIFT();
+#             sift = cv2.SIFT();
 
-            for sec in range(first_detect_sec, last_detect_sec+1, 10):
+#             for sec in range(first_detect_sec, last_detect_sec+1, 10):
 
-                print sec
+#                 print sec
 
-                xmin, ymin, w, h = detect_bbox_lookup['MD589'] # in thumbnail resolution
-                # convert to lossless resolution
-                xmin = xmin * 32
-                ymin = ymin * 32
-                w = w * 32
-                h = h * 32
-                xmax = xmin + w - 1
-                ymax = ymin + h - 1
+#                 xmin, ymin, w, h = detect_bbox_lookup['MD589'] # in thumbnail resolution
+#                 # convert to lossless resolution
+#                 xmin = xmin * 32
+#                 ymin = ymin * 32
+#                 w = w * 32
+#                 h = h * 32
+#                 xmax = xmin + w - 1
+#                 ymax = ymin + h - 1
 
-                img = imread(DataManager.get_image_filepath(stack='MD589', section=sec, version='rgb-jpg'))[ymin:ymax+1, xmin:xmax+1]
+#                 img = imread(DataManager.get_image_filepath(stack='MD589', section=sec, version='rgb-jpg'))[ymin:ymax+1, xmin:xmax+1]
 
-                keypoints, descriptors = sift.detectAndCompute(img, None)
+#                 keypoints, descriptors = sift.detectAndCompute(img, None)
 
-                n = 1000
-                random_indices = np.random.choice(range(len(descriptors)), n, replace=False)
+#                 n = 1000
+#                 random_indices = np.random.choice(range(len(descriptors)), n, replace=False)
 
-                descriptors_pool.append(descriptors[random_indices])
+#                 descriptors_pool.append(descriptors[random_indices])
 
-            descriptors_pool_arr = np.vstack(descriptors_pool)
-            print len(descriptors_pool_arr), 'in descriptor pool'
+#             descriptors_pool_arr = np.vstack(descriptors_pool)
+#             print len(descriptors_pool_arr), 'in descriptor pool'
 
-            bp.pack_ndarray_file(descriptors_pool_arr, output_dir + '/sift_descriptors_pool_arr.bp')
+#             bp.pack_ndarray_file(descriptors_pool_arr, output_dir + '/sift_descriptors_pool_arr.bp')
 
-    return vocabulary
+#     return vocabulary
 
-
-def compute_labelmap(stack, sec, force=False):
-
-    output_dir = create_if_not_exists('/oasis/projects/nsf/csd395/yuncong/CSHL_SIFT_SPM_features/sift_wordmap/%(stack)s' % {'stack': stack})
-    labelmap_fp = os.path.join(output_dir, '%(stack)s_%(sec)04d_labelmap.hdf' % {'stack': stack, 'sec': sec})
-
-    if os.path.exists(labelmap_fp) and not force:
-
-        # Load labelmap
-        labelmap = load_hdf(labelmap_fp)
-    else:
-
-        sift = cv2.SIFT()
-
-        # Compute keypoints and assign labels
-
-        image_path = DataManager.get_image_filepath(stack=stack, section=sec, version='rgb-jpg')
-        image = imread(image_path)
-
-        xmin, ymin, w, h = detect_bbox_lookup[stack] # in thumbnail resolution
-        # convert to lossless resolution
-        xmin = xmin * 32
-        ymin = ymin * 32
-        w = w * 32
-        h = h * 32
-        xmax = xmin + w - 1
-        ymax = ymin + h - 1
+def compute_sift_keypoints_and_descriptors(stack, section):
+    try:
+        keypoints = bp.unpack_ndarray_file(DataManager.get_sift_keypoints_filepath(stack=stack, section=section))
+        descriptors = bp.unpack_ndarray_file(DataManager.get_sift_descriptors_filepath(stack=stack, section=section))
+    except:
+        image = DataManager.load_image_v2(stack=stack, section=sec, prep_id=2, version='gray')
+        mask = DataManager.load_image_v2(stack=stack, section=sec, prep_id=2, version='mask', resol='thumbnail')
+        xmin_tb, xmax_tb, ymin_tb, ymax_tb = bbox_2d(mask)
+        xmin = xmin_tb * 32
+        xmax = (xmax_tb + 1) * 32
+        ymin = ymin_tb * 32
+        ymax = (ymax_tb + 1) * 32
 
         img = image[ymin:ymax+1, xmin:xmax+1].copy()
 
-        t = time.time()
         keypoints, descriptors = sift.detectAndCompute(img, None);
-        sys.stderr.write('sift: %.2f seconds\n' % (time.time() - t)) # 128 dim descriptor ～ 170 seconds
+        keypoints = np.array([k.pt for k in keypoints]) + (xmin, ymin)
+        
+    return keypoints, descriptors
 
-        keypoints_arr = np.array([k.pt for k in keypoints])
+def compute_vocabulary(stacks=['MD589'], every_num_sec=10, n_per_sec=1000, M=200):
+    '''
+    Compute or load the SIFT descriptor dictionary/vocabulary.
+    '''
+
+    kmeans_fp = DataManager.get_sift_descriptor_vocabulary_filepath()
+
+    if os.path.exists(kmeans_fp):
+        # Load vocabulary
+        vocabulary_kmeans = joblib.load(kmeans_fp)
+    else:
+        # Generate SIFT descriptor pool
+        sift = cv2.xfeatures2d.SIFT_create()
+        descriptors_pool = []
+        for stack in stacks:
+            for sec in metadata_cache['valid_sections'][stack][::every_num_sec]:
+                _, descriptors = compute_sift_keypoints_and_descriptors(stack, section=sec)
+                random_indices = np.random.choice(range(len(descriptors)), n_per_sec, replace=False)
+                descriptors_pool.append(descriptors[random_indices])
+        descriptors_pool_arr = np.concatenate(descriptors_pool)
+        print len(descriptors_pool_arr), 'in descriptor pool'
+
+        # bp.pack_ndarray_file(descriptors_pool_arr, output_dir + '/sift_descriptors_pool_arr.bp')
+
+        vocabulary_kmeans = KMeans(init='random', n_clusters=M, n_init=10)
+        vocabulary_kmeans.fit(descriptors_pool)
+        # cluster_centers = vocabulary.cluster_centers_
+            
+    return vocabulary_kmeans
+
+
+def compute_labelmap(stack, section=None, fn=None, force=False):
+    """
+    Compute SIFT descriptor word map.
+    """
+    
+    labelmap_fp = DataManager.get_sift_descriptors_labelmap_filepath(stack, section=section, fn=fn)
+
+    if os.path.exists(labelmap_fp) and not force:
+        # Load labelmap
+        labelmap = bp.unpack_ndarray_file(labelmap_fp)
+    else:
+        keypoints, descriptors = compute_sift_keypoints_and_descriptors(stack=stack, section=section)
+
+        # Compute keypoints and assign labels
         print len(keypoints), 'keypoints' # ~ 500k
 
         t = time.time()
@@ -240,13 +270,12 @@ def compute_labelmap(stack, sec, force=False):
         #     cv2.circle(viz, (int(x), int(y)), 3, colors[l], -1)
         # display_image(viz)
 
-        # generate labelmap
+        # Generate labelmap
 
-        labelmap = np.zeros(image.shape[:2], np.int)
-        keypoints_arr_int = np.floor(keypoints_arr + (xmin, ymin)).astype(np.int)  # coords on original image
+        w, h = metadata_cache['image_shape'][stack]
+        labelmap = np.zeros((h, w), np.int)
+        keypoints_arr_int = keypoints.astype(np.int)
         labelmap[keypoints_arr_int[:,1], keypoints_arr_int[:,0]] = keypoint_labels + 1
-
-        save_hdf(labelmap, labelmap_fp)
 
     return labelmap
 
@@ -257,6 +286,17 @@ from multiprocess import Pool
 labelmap_global = None
 
 def compute_spm_histograms(labelmap, sample_locs, patch_size, M):
+    """
+    Args:
+        labelmap (2d-ndarray of int):
+        sample_locs (2d-ndarray): List of (x,y) locations at which to sample the SPM histograms
+        M (int): number of unique SIFT descriptor words, aka. size of vocabulary
+        
+    Returns:
+        hists_arr0 ((1,M)-array of int)
+        hists_arr1 ((4,M)-array of int)
+        hists_arr2 ((16,M)-array of int)
+    """
 
     global labelmap_global
     labelmap_global = labelmap

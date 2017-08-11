@@ -190,6 +190,8 @@ elif hostname.startswith('ip'):
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
+    
+    CSHL_SPM_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_SPM')
 
 else:
     print 'Setting environment for Brainstem workstation'
@@ -300,7 +302,9 @@ preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
 windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 
                       2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'},
-                     3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'}}
+                     3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'},
+                     4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
+                     5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'}}
 
 ############ Class Labels #############
 
@@ -315,6 +319,7 @@ all_known_structures_sided = sum([[n] if n in singular_structures
 all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin=200) for s in all_known_structures_sided]
 all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
+
 
 linear_landmark_names_unsided = ['outerContour']
 volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))

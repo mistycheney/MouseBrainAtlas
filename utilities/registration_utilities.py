@@ -411,6 +411,7 @@ class Aligner4(object):
         if gradients is not None:
             grad_f = gradients
         else:
+            assert gradient_filepath_map_f is not None, 'gradient_filepath_map_f not specified.'
             grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
 
             t1 = time.time()
@@ -436,69 +437,6 @@ class Aligner4(object):
 
             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
-#     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid, random_sample_num=None):
-#         """
-#         Args:
-#             T (ndarray): transform parameter vector
-#             tf_type (str): rigid, affine or bspline.
-#             return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
-#             random_sample_num (int): 
-#         """
-        
-#         if random_sample_num is not None:
-#             import random
-#             nzvoxels_m_indices_sampled = random.sample(xrange(len(nzvoxels_centered_m[ind_m])), random_sample_num)
-#             nzvoxels_centered_m_sampled = nzvoxels_centered_m[ind_m][nzvoxels_m_indices_sampled]
-#         else:
-#             nzvoxels_centered_m_sampled = nzvoxels_centered_m[ind_m]
-        
-#         if tf_type == 'affine' or tf_type == 'rigid':
-#             t = time.time()
-#             pts_prime_sampled = transform_points_affine(np.array(T), 
-#                                                 pts_centered=nzvoxels_centered_m_sampled,
-#                                                 c_prime=self.centroid_f).astype(np.int16)
-#             sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
-                        
-#         elif tf_type == 'bspline':
-#             n_params = len(T)
-#             buvwx = T[:n_params/3]
-#             buvwy = T[n_params/3:n_params/3*2]
-#             buvwz = T[n_params/3*2:]
-#             pts_prime = transform_points_bspline(buvwx, buvwy, buvwz, 
-#                                                  pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
-#                                                 NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
-
-#         # print 'before'
-#         # print nzvoxels_centered_m[ind_m]
-#         # print 'after'
-#         # print pts_prime
-
-#         # t = time.time()
-#         xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
-#         valid = (xs_prime_sampled >= 0) & (ys_prime_sampled >= 0) & (zs_prime_sampled >= 0) & \
-#                 (xs_prime_sampled < self.xdim_f) & (ys_prime_sampled < self.ydim_f) & (zs_prime_sampled < self.zdim_f)
-#         # sys.stderr.write("find valid: %.2f s\n" % (time.time() - t))
-
-#         nzvoxels_m_indices_sampled = nzvoxels_m_indices_sampled[valid]
-#         # pts_prime_sampled = pts_prime_sampled[valid]
-
-#         # print pts_prime.max(axis=0), pts_prime.min(axis=0)
-#         # print self.xdim_f, self.ydim_f, self.zdim_f
-
-#         # sys.stderr.write("%d total mov, %d valid\n" % (len(nzvoxels_centered_m[ind_m]), np.count_nonzero(valid)))
-#         # print len(pts_prime), np.count_nonzero(valid)
-
-#         if np.any(valid):
-#             xs_prime_sampled = xs_prime_sampled[valid]
-#             ys_prime_sampled = ys_prime_sampled[valid]
-#             zs_prime_sampled = zs_prime_sampled[valid]
-
-#             if return_valid:
-#                 return xs_prime_sampled, ys_prime_sampled, zs_prime_sampled, nzvoxels_m_indices_sampled
-#             else:
-#                 return xs_prime_sampled, ys_prime_sampled, zs_prime_sampled
-#         else:
-#             return None
             
     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid):
         """
@@ -603,7 +541,7 @@ class Aligner4(object):
         ind_f = self.labelIndexMap_m2f[ind_m]
         
         # Fixed volume's gradients at valid voxels.
-        
+                
         t = time.time()
         Sx = grad_f[ind_f][0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         Sy = grad_f[ind_f][1, ys_prime_valid, xs_prime_valid, zs_prime_valid]

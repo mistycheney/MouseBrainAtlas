@@ -88,6 +88,45 @@ def volume_type_to_str(t):
 
 
 class DataManager(object):
+    
+    
+    ##############
+    ##   SPM    ##
+    ##############
+    
+    @staticmethod
+    def get_spm_histograms_filepath(stack, ):
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+    
+    @staticmethod
+    def get_spm_histograms_filepath(stack):
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+    
+    @staticmethod
+    def get_sift_descriptor_vocabulary_filepath():
+        """
+        Return a sklearn.KMeans classifier object.
+        """
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+   
+    @staticmethod
+    def get_sift_descriptors_labelmap_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_labelmap', stack, fn + '_sift_labelmap.bp')
+   
+    @staticmethod
+    def get_sift_descriptors_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_descriptors', stack, fn + '_sift_descriptors.bp')
+   
+    @staticmethod
+    def get_sift_keypoints_filepath(stack, section=None, fn=None):
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_keypoints', stack, fn + '_sift_keypoints.bp')
+    
 
     ##########################
     ###    Annotation    #####
@@ -134,7 +173,7 @@ class DataManager(object):
                                 classifier_setting_f=None,
                                 warp_setting=None, trial_idx=None):
         if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               classifier_setting_m=classifier_setting_m,
@@ -657,7 +696,7 @@ class DataManager(object):
 #         return DataManager.load_data(sparse_scores_fn, filetype='bp')
 
     @staticmethod
-    def load_sparse_scores(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
+    def load_sparse_scores(stack, structure, detector_id, prep_id=2, sec=None, fn=None):
 
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -667,14 +706,14 @@ class DataManager(object):
         return DataManager.load_data(sparse_scores_fp, filetype='bp')
 
     @staticmethod
-    def get_sparse_scores_filepath(stack, structure, detector_id, prep_id=2, version='gray', sec=None, fn=None):
+    def get_sparse_scores_filepath(stack, structure, detector_id, prep_id=2, sec=None, fn=None):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         return os.path.join(SPARSE_SCORES_ROOTDIR, stack,
-                            fn + '_prep%d'%prep_id + '_' + version,
+                            fn + '_prep%d'%prep_id,
                             'detector%d'%detector_id,
-                            fn + '_prep%d'%prep_id + '_' + version + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
+                            fn + '_prep%d'%prep_id + '_detector%d'%detector_id + '_' + structure + '_sparseScores.bp')
 
 
 #     @staticmethod
@@ -1926,12 +1965,11 @@ class DataManager(object):
         else:
             assert fn is not None
 
-
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
         if ext is None:
             if version == 'mask':
                 ext = 'png'
-            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg':
+            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg' or version == 'grayDefaultJpeg':
                 ext = 'jpg'
             else:
                 ext = 'tif'

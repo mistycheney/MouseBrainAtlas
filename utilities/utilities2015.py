@@ -26,6 +26,18 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+def jaccard_masks(m1, m2, wrt_min=False):
+    """
+    Args:
+        m1 (ndarray of boolean):
+        m2 (ndarray of boolean):
+        wrt_min (bool): If true, the denominator is the minimum between two masks.
+    """
+    if wrt_min:
+        return np.count_nonzero(m1 & m2) / float(min(np.count_nonzero(m1), np.count_nonzero(m2)))
+    else:
+        return np.count_nonzero(m1 & m2) / float(np.count_nonzero(m1 | m2))
+
 def dice(hm, hf):
     """
     Compute the Dice similarity index between two boolean images. The value ranges between 0 and 1.
@@ -113,6 +125,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     out_ydim = out_ymax - out_ymin + 1
     out_zdim = out_zmax - out_zmin + 1
         # print 'out', out_xdim, out_ydim, out_zdim
+    
+    if out_xmin > in_xmax or out_xmax < in_xmin or out_ymin > in_ymax or out_ymax < in_ymin or out_zmin > in_zmax or out_zmax < in_zmin:
+        return np.zeros((out_ydim, out_xdim, out_zdim), np.int)
     
     if out_xmax > in_xmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0, out_xmax-in_xmax),(0,0)], mode='constant', constant_values=0)

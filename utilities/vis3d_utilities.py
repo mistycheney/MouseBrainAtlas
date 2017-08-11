@@ -616,6 +616,13 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
         camera.SetViewUp(0, -1, 0)
         camera.SetPosition(-2, 0, 0)
         camera.SetFocalPoint(-1, 0, 0)
+        
+#     elif init_angle == 'coronal_anteriorToPosterior':
+
+#         # coronal
+#         camera.SetViewUp(0, -1, 0)
+#         camera.SetPosition(-2, 0, 0)
+#         camera.SetFocalPoint(-1, 0, 0)
 
     elif init_angle == 'horizontal_bottomUp':
 

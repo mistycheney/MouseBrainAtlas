@@ -12,3 +12,4 @@ detector_id,input_version,windowing_id,feature_network,feature_classifier_id
 12,grayDefault,4,inception-bn-blue,72
 13,grayDefault,5,inception-bn-blue,73
 14,grayDefault,5,inception-bn-blue,72
+15,gray,5,inception-bn-blue,73

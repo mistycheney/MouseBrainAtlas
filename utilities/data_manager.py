@@ -95,12 +95,14 @@ class DataManager(object):
     ##############
     
     @staticmethod
-    def get_spm_histograms_filepath(stack, ):
-        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
-    
-    @staticmethod
-    def get_spm_histograms_filepath(stack):
-        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_vocabulary.clf')
+    def get_spm_histograms_filepath(stack, level, section=None, fn=None):
+        """
+        Args:
+            level (int): 0, 1 or 2
+        """
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+        return os.path.join(CSHL_SPM_ROOTDIR, 'sift_histograms', stack, fn + '_sift_histograms_l%d.bp' % level)
     
     @staticmethod
     def get_sift_descriptor_vocabulary_filepath():

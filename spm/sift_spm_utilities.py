@@ -189,20 +189,21 @@ def load_spm_histograms(stack, name, n_sample_per_sec=None, n_sample=1000, use_l
 #     return vocabulary
 
 def compute_sift_keypoints_and_descriptors(stack, section):
+    
     try:
         keypoints = bp.unpack_ndarray_file(DataManager.get_sift_keypoints_filepath(stack=stack, section=section))
         descriptors = bp.unpack_ndarray_file(DataManager.get_sift_descriptors_filepath(stack=stack, section=section))
     except:
-        image = DataManager.load_image_v2(stack=stack, section=sec, prep_id=2, version='gray')
-        mask = DataManager.load_image_v2(stack=stack, section=sec, prep_id=2, version='mask', resol='thumbnail')
+        image = DataManager.load_image_v2(stack=stack, section=section, prep_id=2, version='gray')
+        mask = DataManager.load_image_v2(stack=stack, section=section, prep_id=2, version='mask', resol='thumbnail')
         xmin_tb, xmax_tb, ymin_tb, ymax_tb = bbox_2d(mask)
         xmin = xmin_tb * 32
         xmax = (xmax_tb + 1) * 32
         ymin = ymin_tb * 32
         ymax = (ymax_tb + 1) * 32
 
+        sift = cv2.xfeatures2d.SIFT_create()
         img = image[ymin:ymax+1, xmin:xmax+1].copy()
-
         keypoints, descriptors = sift.detectAndCompute(img, None);
         keypoints = np.array([k.pt for k in keypoints]) + (xmin, ymin)
         
@@ -220,7 +221,6 @@ def compute_vocabulary(stacks=['MD589'], every_num_sec=10, n_per_sec=1000, M=200
         vocabulary_kmeans = joblib.load(kmeans_fp)
     else:
         # Generate SIFT descriptor pool
-        sift = cv2.xfeatures2d.SIFT_create()
         descriptors_pool = []
         for stack in stacks:
             for sec in metadata_cache['valid_sections'][stack][::every_num_sec]:

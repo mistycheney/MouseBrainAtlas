@@ -469,25 +469,24 @@ class Aligner4(object):
 
         # t = time.time()
         xs_prime, ys_prime, zs_prime = pts_prime.T
-        valid = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
+        valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
                 (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
         # sys.stderr.write("find valid: %.2f s\n" % (time.time() - t))
         
         # print pts_prime.max(axis=0), pts_prime.min(axis=0)
         # print self.xdim_f, self.ydim_f, self.zdim_f
 
-        # sys.stderr.write("%d total mov, %d valid\n" % (len(nzvoxels_centered_m[ind_m]), np.count_nonzero(valid)))
+        # sys.stderr.write("%d total moving, %d valid\n" % (len(nzvoxels_centered_m[ind_m]), np.count_nonzero(valid_moving_voxel_indicator)))
         # print len(pts_prime), np.count_nonzero(valid)
 
-        if np.any(valid):
-            xs_prime_valid = xs_prime[valid]
-            ys_prime_valid = ys_prime[valid]
-            zs_prime_valid = zs_prime[valid]
+        xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
+        ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
+        zs_prime_valid = zs_prime[valid_moving_voxel_indicator]
 
-            if return_valid:
-                return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid
-            else:
-                return xs_prime_valid, ys_prime_valid, zs_prime_valid
+        if return_valid:
+            return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
+        else:
+            return xs_prime_valid, ys_prime_valid, zs_prime_valid
 
 
     def compute_score_and_gradient_one(self, T, tf_type, num_samples=None, ind_m=None):
@@ -502,51 +501,38 @@ class Aligner4(object):
         
         # t = time.time()            
 
-        try:
-            score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
-        except Exception as e:
-            sys.stderr.write('Error computing score: %s\n' % e)
-            return 0, 0
+        score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
         
         # sys.stderr.write("compute_score_one: %.2f s\n" % (time.time() - t)) 
         
         # Moving volume's valid voxel coordinates (not centralized).
-        t = time.time()
-        # xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indicators].T
+        # t = time.time()
         xyzs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indicators]
-        sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t)) 
-
+        # sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t)) 
         # Moving volume's value at valid voxels. (n_valid_nz_m, )
-        t = time.time()
-        # S_m_valid_scores = volume_m[ind_m][ys_valid, xs_valid, zs_valid]
+        # t = time.time()
         S_m_valid_scores = volume_m[ind_m][xyzs_valid[:,1], xyzs_valid[:,0], xyzs_valid[:,2]]
-        sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t)) 
+        # sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t)) 
         
         # Moving volume's valid voxel coordinates (centralized).
-        t = time.time()
-        dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid_moving_voxel_indicators].T
-        sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t)) 
-                
         # t = time.time()
-        n = np.count_nonzero(valid_moving_voxel_indicators)
-        # Typical n ranges from 63984 to 451341
-        # sys.stderr.write("count_nonzero: %.2f s\n" % (time.time() - t)) 
-        
+        dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid_moving_voxel_indicators].T
+        # sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t)) 
+                
         if tf_type == 'bspline':
             NuNvNw_allTestPts = self.NuNvNw_allTestPts[ind_m][valid_moving_voxel_indicators].copy()
-        
-        # score += label_weights[name] * voxel_probs_valid.sum()
-        # score += s
         
         ind_f = self.labelIndexMap_m2f[ind_m]
         
         # Fixed volume's gradients at valid voxels.
-                
-        t = time.time()
+
+        # t = time.time()
         Sx = grad_f[ind_f][0, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         Sy = grad_f[ind_f][1, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         Sz = grad_f[ind_f][2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
-        sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t)) 
+        if np.all(Sx == 0) and np.all(Sy == 0) and np.all(Sz == 0):
+            raise Exception("Image gradient at all valid voxel is zero.")
+        # sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t)) 
         
         xs_prime_valid = xs_prime_valid.astype(np.float)
         ys_prime_valid = ys_prime_valid.astype(np.float)
@@ -557,36 +543,37 @@ class Aligner4(object):
         # Sample within valid voxels.
         # Note that sampling takes time. Maybe it is better not sampling.
         if num_samples is not None:
-            n_sample = min(int(num_samples), n)
-            sys.stderr.write('%d: %d samples out of %d\n' % (ind_m, n_sample, n))
             
-            # ii = np.random.(range(n), n_sample, replace=False)
+            # t = time.time()
+            n_valid = np.count_nonzero(valid_moving_voxel_indicators)
+            # Typical n ranges from 63984 to 451341
+            # sys.stderr.write("count_nonzero: %.2f s\n" % (time.time() - t))
+            n_sample = min(num_samples, n_valid)
+            sys.stderr.write('%d: use %d samples out of %d valid\n' % (ind_m, n_sample, n_valid))
             import random
-            ii = random.sample(range(n), n_sample)
+            ii = sorted(random.sample(range(n_valid), n_sample))
 
+            S_m_valid_scores = S_m_valid_scores[ii]
+            dxs = dxs[ii]
+            dys = dys[ii]
+            dzs = dzs[ii]
             Sx = Sx[ii]
             Sy = Sy[ii]
             Sz = Sz[ii]
             xs_prime_valid = xs_prime_valid[ii]
             ys_prime_valid = ys_prime_valid[ii]
             zs_prime_valid = zs_prime_valid[ii]
-            dxs = dxs[ii]
-            dys = dys[ii]
-            dzs = dzs[ii]
-
-            S_m_valid_scores = S_m_valid_scores[ii]
             
             if tf_type == 'bspline':
                 NuNvNw_allTestPts = NuNvNw_allTestPts[ii]
-        else:
-            n_sample = n
-    
+        # else:
+        #     n_sample = n_valid
+        
         sys.stderr.write("sample: %.2f s\n" % (time.time() - t)) 
         
         if tf_type == 'rigid' or tf_type == 'affine':
             
-            t = time.time()
-        
+            # t = time.time()
             # q is dF/dp for a single voxel, where p is a transform parameter.
             if tf_type == 'rigid':
                 q = np.c_[Sx, Sy, Sz,
@@ -595,18 +582,16 @@ class Aligner4(object):
                         -Sx*ys_prime_valid + Sy*xs_prime_valid]
             elif tf_type == 'affine':
                 q = np.c_[Sx*dxs, Sx*dys, Sx*dzs, Sx, Sy*dxs, Sy*dys, Sy*dzs, Sy, Sz*dxs, Sz*dys, Sz*dzs, Sz]
-            sys.stderr.write("compute gradient, all voxels: %.2f s\n" % (time.time() - t)) 
+            # sys.stderr.write("compute gradient, all voxels: %.2f s\n" % (time.time() - t)) 
             
-            # dMdA += label_weights[name] * q.sum(axis=0)
-            # grad += q.sum(axis=0)
-            # grad += (S_m_valid_scores[:,None] * q).sum(axis=0)
-            # grad = q.sum(axis=0)
-
             # Whether to scale gradient to match the scores' scale depends on whether AdaGrad is used;
             # if used, then the scale will be automatically adapted so the scaling does not matter
-            t = time.time()
-            grad = q.sum(axis=0) / 1e6
-            sys.stderr.write("compute gradient, sum: %.2f s\n" % (time.time() - t)) 
+            # t = time.time()
+            # grad = q.sum(axis=0) / 1e6
+            grad = (S_m_valid_scores[:,None] * q).sum(axis=0)
+            if np.all(grad == 0):
+                raise Exception("Gradient is zero.")
+            # sys.stderr.write("compute gradient, sum: %.2f s\n" % (time.time() - t)) 
 
         elif tf_type == 'bspline':
             
@@ -653,7 +638,7 @@ class Aligner4(object):
                 grad[11] = grad[11] - 2*self.reg_weights[2] * tz
         elif tf_type == 'bspline':
             pass
-        
+                
         # sys.stderr.write("3: %.2f s\n" % (time.time() - t)) 
 
         # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
@@ -696,14 +681,18 @@ class Aligner4(object):
         # serial
         for ind_m in indices_m:
             # t = time.time()
-            score_one, grad_one = self.compute_score_and_gradient_one(T, tf_type=tf_type, num_samples=num_samples, ind_m=ind_m)
-            # sys.stderr.write("compute_score_and_gradient_one: %.2f s\n" % (time.time()-t))
-            # sys.stderr.write("%d, %f\n" % (ind_m, score_one))
-            # print "grad_one", grad_one.shape
-            # grad += grad_one
-            # score += score_one
-            grad += self.label_weights[ind_m] * grad_one
-            score += self.label_weights[ind_m] * score_one
+            try:
+                score_one, grad_one = self.compute_score_and_gradient_one(T, tf_type=tf_type, num_samples=num_samples, ind_m=ind_m)
+                # sys.stderr.write("compute_score_and_gradient_one: %.2f s\n" % (time.time()-t))
+                # sys.stderr.write("%d, %f\n" % (ind_m, score_one))
+                # print "grad_one", grad_one.shape
+                # grad += grad_one
+                # score += score_one
+                grad += self.label_weights[ind_m] * grad_one
+                score += self.label_weights[ind_m] * score_one
+
+            except Exception as e:
+                sys.stderr.write('Error computing score/gradient for %d: %s\n' % (ind_m, e))
 
         # # parallel
         ## Parallel does not save time, maybe because the computation for each subprocess is too short.
@@ -738,27 +727,28 @@ class Aligner4(object):
             - valid (boolean array):
         """
         
-        t = time.time()
-        res = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
-        sys.stderr.write("get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
+        # t = time.time()
+        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
+        # sys.stderr.write("Timing 2: get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
+        
+        n_total = len(nzvoxels_centered_m[ind_m])
+        n_valid = np.count_nonzero(valid_moving_voxel_indicator)
+        n_invalid = n_total - n_valid
+        # sys.stderr.write('%d: %d valid, %d out-of-bound voxels after transform.\n' % (ind_m, n_valid, n_invalid))
+        if n_valid == 0:
+            raise Exception('%d: No valid voxels after transform.' % ind_m)
 
-        if res is None:
-            raise Exception('No valid voxels after transform: ind_m = %d' % ind_m)
-
-        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices = res
         ind_f = self.labelIndexMap_m2f[ind_m]
 
         # Reducing the scale of voxel value is important for keeping the sum (i.e. the following line) in the represeantable range of the chosen data type.
-        t = time.time()
+        # t = time.time()
         voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
-        sys.stderr.write("fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
+        # sys.stderr.write("Timing 2: fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
+        
+        # Penalize out-of-bound voxels, minus 1 for each such voxel
+        s = voxel_probs_valid.sum() - np.sign(self.label_weights[ind_m]) * n_invalid / 1e6
 
-        # Unregularized version
-        # s = voxel_probs_valid.sum()
-
-        # Regularized version
-        s = voxel_probs_valid.sum()
-
+        # Regularize
         if tf_type == 'affine' or tf_type == 'rigid':
             tx = T[3]
             ty = T[7]
@@ -770,7 +760,7 @@ class Aligner4(object):
         s = s - s_reg
         
         if return_valid:
-            return s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indices
+            return s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
         else:
             return s
 
@@ -788,6 +778,7 @@ class Aligner4(object):
             try:
                 score_all_landmarks[ind_m] = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=False)
             except Exception as e:
+                sys.stderr.write('Error computing score for %d: %s\n' % (ind_m, e))
                 score_all_landmarks[ind_m] = 0
 
         # score = np.sum(score_all_landmarks.values())
@@ -834,6 +825,10 @@ class Aligner4(object):
         return scores    
 
     def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, dtheta_xys=None, indices_m=None):
+        """
+        Args:
+            params ((12,)-array): the parameter vector around which the neighborhood is taken.
+        """
 
         from itertools import product
 
@@ -1146,13 +1141,15 @@ class Aligner4(object):
 
     def optimize(self, tf_type, init_T=None, label_weights=None, \
                 # grid_search_iteration_number=0, grid_search_sample_number=1000,
-                grad_computation_sample_number=10000,
-                max_iter_num=1000, history_len=200, terminate_thresh=.1, \
+                grad_computation_sample_number=None,
+                max_iter_num=1000, history_len=200, terminate_thresh_rot=.005, \
+                 terminate_thresh_trans=.4, \
                 indices_m=None, lr1=None, lr2=None, full_lr=None,
                 # std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                  # grid_search_eta=3.,
                 reg_weights=None,
-                epsilon=1e-8):
+                epsilon=1e-8,
+                affine_scaling_limits=None):
         """Optimize.
         Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
 
@@ -1236,7 +1233,8 @@ class Aligner4(object):
                 new_T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=lr, \
                                 grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
                                 indices_m=indices_m, tf_type='affine',
-                                                                           num_samples=grad_computation_sample_number)
+                                                                           num_samples=grad_computation_sample_number,
+                                                                               scaling_limits=affine_scaling_limits)
                 
             elif tf_type == 'bspline':
                 
@@ -1265,11 +1263,14 @@ class Aligner4(object):
             self.Ts.append(new_T)
 
             # sys.stderr.write('%f seconds\n' % (time.time()-t)) # 1.77s/iteration
-
-            if iteration > 2*history_len:
-                if np.abs(np.mean(scores[iteration-history_len:iteration]) - \
-                          np.mean(scores[iteration-2*history_len:iteration-history_len])) < terminate_thresh:
-                    break
+            
+            Ts = np.array(self.Ts)
+            
+            if tf_type == 'affine' or tf_type == 'rigid':
+                if iteration > history_len:
+                    if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
+                    np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
+                        break
 
             if s > score_best:
                 best_gradient_descent_params = T
@@ -1308,6 +1309,7 @@ class Aligner4(object):
         # print 'T:', np.ravel(T)
         # t = time.time()
         score, grad = self.compute_score_and_gradient(T, tf_type='rigid', num_samples=num_samples, indices_m=indices_m)
+        sys.stderr.write("%f, %s\n" % (score, grad))
         # sys.stderr.write("compute_score_and_gradient: %.2f s\n" % (time.time() - t))
         # grad is (6,)-array
         
@@ -1316,7 +1318,7 @@ class Aligner4(object):
 
         # # AdaGrad Rule
         grad_historical += grad**2
-        grad_adjusted = grad /  np.sqrt(grad_historical + epsilon)
+        grad_adjusted = grad / np.sqrt(grad_historical + epsilon)
         # Note: It is wrong to do: grad_adjusted = grad /  (np.sqrt(grad_historical) + epsilon)
         v_opt = lr * grad_adjusted # no minus sign because maximizing
 
@@ -1352,7 +1354,7 @@ class Aligner4(object):
         return np.column_stack([R_new, t_new]).flatten(), score, grad_historical, sq_updates_historical
     
     
-    def step_gd(self, T, lr, grad_historical, sq_updates_historical, tf_type, surround=False, surround_weight=2., num_samples=None, indices_m=None):
+    def step_gd(self, T, lr, grad_historical, sq_updates_historical, tf_type, surround=False, surround_weight=2., num_samples=None, indices_m=None, scaling_limits=None):
         """
         One optimization step using gradient descent with Adagrad.
 
@@ -1390,9 +1392,14 @@ class Aligner4(object):
             new_T = np.sign(new_T) * np.minimum(np.abs(new_T), 100)
         elif tf_type == 'affine':
             # pass
-            new_T[0] = np.sign(new_T[0]) * np.minimum(np.maximum(np.abs(new_T[0]), 0.9), 1.1)
-            new_T[5] = np.sign(new_T[5]) * np.minimum(np.maximum(np.abs(new_T[5]), 0.9), 1.1)
-            new_T[10] = np.sign(new_T[10]) * np.minimum(np.maximum(np.abs(new_T[10]), 0.9), 1.1)
+            if scaling_limits is not None:                
+                new_T[0] = np.sign(new_T[0]) * np.minimum(np.maximum(np.abs(new_T[0]), scaling_limits[0]), scaling_limits[1])
+                new_T[5] = np.sign(new_T[5]) * np.minimum(np.maximum(np.abs(new_T[5]), scaling_limits[0]), scaling_limits[1])
+                new_T[10] = np.sign(new_T[10]) * np.minimum(np.maximum(np.abs(new_T[10]), scaling_limits[0]), scaling_limits[1])
+            else:
+                new_T[0] = np.sign(new_T[0]) * np.abs(new_T[0])
+                new_T[5] = np.sign(new_T[5]) * np.abs(new_T[5])
+                new_T[10] = np.sign(new_T[10]) * np.abs(new_T[10])
             
 
         # AdaDelta Rule

@@ -113,6 +113,7 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_s
             im = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='lossless', prep_id=2, version=image_version)
             bg = im[::out_downscale, ::out_downscale]
         except:
+            sys.stderr.write('Cannot load lossless jpeg, load downsampled jpeg instead.\n')
             bg = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='down'+str(out_downscale), prep_id=2, version=image_version)
     else:
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
@@ -207,13 +208,22 @@ def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, s
     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
     
     if bg == 'original':
+        
         if out_downsample == 32:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='thumbnail')
+            resol_str = 'thumbnail'
+        elif out_downsample == 1:
+            resol_str = 'lossless'
         else:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, resol='lossless', prep_id=2, version=bg_img_version)
+            resol_str = 'down'+str(out_downsample)
+            
+        try:
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
+        except Exception as e:
+            sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
     #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
             bg = bg[::out_downsample, ::out_downsample]
-    
+
     if bg.ndim == 2:
         bg = gray2rgb(bg)
         

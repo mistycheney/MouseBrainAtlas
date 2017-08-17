@@ -82,6 +82,10 @@ def contours_to_volume(contours_grouped_by_label=None, label_contours_tuples=Non
                       return_shell=False, len_interval=20):
     """
     Return volume as 3D array, and origin (xmin,xmax,ymin,ymax,zmin,zmax)
+    
+    Args:
+        contours_grouped_by_label ({int: list of (3,n)-arrays}): 
+    
     """
 
     import sys

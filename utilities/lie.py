@@ -19,11 +19,13 @@ def matrix_exp_v(v):
     Args:
         v ((6,)-ndarray): the vector composed of translation parameters and rotation parameters.
     """
-    t = v[:3]
-    w = v[3:]
+    t = v[:3] # translation components
+    w = v[3:] # rotation components
 
-    theta = np.sqrt(np.sum(w**2))
-
+    # epsilon = 1e-8
+    epsilon = 0
+    theta = np.sqrt(np.sum(w**2)) + epsilon # Is this way to resolve divide-by-zero problem correct?
+    
     wx, wy, wz = w
     w_skew = np.array([[0, -wz, wy], [wz, 0, -wx], [-wy, wx, 0]])
     exp_w = np.eye(3) + np.sin(theta)/theta*w_skew + (1-np.cos(theta))/(theta**2)*np.dot(w_skew, w_skew)

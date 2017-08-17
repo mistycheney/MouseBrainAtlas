@@ -88,7 +88,14 @@ def volume_type_to_str(t):
 
 
 class DataManager(object):
+
+    ########################
+    ##   Lauren's data    ##
+    ########################
     
+    @staticmethod
+    def get_lauren_markers_filepath(stack, structure):
+        return os.path.join('/shared/lauren_data/', 'markers', stack, stack + '_markers_%s.bp' % structure)
     
     ##############
     ##   SPM    ##

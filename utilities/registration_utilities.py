@@ -1309,7 +1309,6 @@ class Aligner4(object):
         # print 'T:', np.ravel(T)
         # t = time.time()
         score, grad = self.compute_score_and_gradient(T, tf_type='rigid', num_samples=num_samples, indices_m=indices_m)
-        sys.stderr.write("%f, %s\n" % (score, grad))
         # sys.stderr.write("compute_score_and_gradient: %.2f s\n" % (time.time() - t))
         # grad is (6,)-array
         

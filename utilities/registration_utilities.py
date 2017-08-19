@@ -692,6 +692,7 @@ class Aligner4(object):
                 score += self.label_weights[ind_m] * score_one
 
             except Exception as e:
+                raise e
                 sys.stderr.write('Error computing score/gradient for %d: %s\n' % (ind_m, e))
 
         # # parallel

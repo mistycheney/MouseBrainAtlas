@@ -438,19 +438,53 @@ class Aligner4(object):
             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
             
-    def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid):
+    def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid, n_sample=None):
         """
         Args:
             T (ndarray): transform parameter vector
             tf_type (str): rigid, affine or bspline.
             return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
         """
-        
+                
         if tf_type == 'affine' or tf_type == 'rigid':
             # t = time.time()
-            pts_prime = transform_points_affine(np.array(T), 
+            if n_sample is not None:
+                
+                num_nz = len(nzvoxels_centered_m[ind_m])
+                valid_moving_voxel_indicator = np.zeros((num_nz,), np.bool)
+                
+                # t = time.time()
+                import random
+                random_indices = np.array(random.sample( xrange(num_nz), min(num_nz, n_sample) ))
+                # sys.stderr.write('random_indices: %.2f seconds\n' % (time.time() - t))
+
+                pts_prime_sampled = transform_points_affine(np.array(T), 
+                                                pts_centered=nzvoxels_centered_m[ind_m][random_indices],
+                                                c_prime=self.centroid_f).astype(np.int16)
+                
+                xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
+                valid_indicator_within_sampled = (xs_prime_sampled >= 0) & (ys_prime_sampled >= 0) & (zs_prime_sampled >= 0) & \
+                        (xs_prime_sampled < self.xdim_f) & (ys_prime_sampled < self.ydim_f) & (zs_prime_sampled < self.zdim_f)
+                valid_moving_voxel_indicator[random_indices[valid_indicator_within_sampled]] = 1
+
+                xs_prime_valid = xs_prime_sampled[valid_indicator_within_sampled]
+                ys_prime_valid = ys_prime_sampled[valid_indicator_within_sampled]
+                zs_prime_valid = zs_prime_sampled[valid_indicator_within_sampled]
+
+            else:
+                pts_prime = transform_points_affine(np.array(T), 
                                                 pts_centered=nzvoxels_centered_m[ind_m],
                                                 c_prime=self.centroid_f).astype(np.int16)
+                
+                xs_prime, ys_prime, zs_prime = pts_prime.T
+                
+                valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
+                        (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
+                
+                xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
+                ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
+                zs_prime_valid = zs_prime[valid_moving_voxel_indicator]
+                                
             # sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
                         
         elif tf_type == 'bspline':
@@ -462,26 +496,6 @@ class Aligner4(object):
                                                  pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
                                                 NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
 
-        # print 'before'
-        # print nzvoxels_centered_m[ind_m]
-        # print 'after'
-        # print pts_prime
-
-        # t = time.time()
-        xs_prime, ys_prime, zs_prime = pts_prime.T
-        valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
-                (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
-        # sys.stderr.write("find valid: %.2f s\n" % (time.time() - t))
-        
-        # print pts_prime.max(axis=0), pts_prime.min(axis=0)
-        # print self.xdim_f, self.ydim_f, self.zdim_f
-
-        # sys.stderr.write("%d total moving, %d valid\n" % (len(nzvoxels_centered_m[ind_m]), np.count_nonzero(valid_moving_voxel_indicator)))
-        # print len(pts_prime), np.count_nonzero(valid)
-
-        xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
-        ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
-        zs_prime_valid = zs_prime[valid_moving_voxel_indicator]
 
         if return_valid:
             return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
@@ -501,7 +515,9 @@ class Aligner4(object):
         
         # t = time.time()            
 
-        score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
+        score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=num_samples)
+        
+        # sys.stderr.write('Valid voxels: %d\n' % np.count_nonzero(valid_moving_voxel_indicators)) 
         
         # sys.stderr.write("compute_score_one: %.2f s\n" % (time.time() - t)) 
         
@@ -538,38 +554,38 @@ class Aligner4(object):
         ys_prime_valid = ys_prime_valid.astype(np.float)
         zs_prime_valid = zs_prime_valid.astype(np.float)
         
-        t = time.time()                    
+#         t = time.time()                    
         
-        # Sample within valid voxels.
-        # Note that sampling takes time. Maybe it is better not sampling.
-        if num_samples is not None:
+#         # Sample within valid voxels.
+#         # Note that sampling takes time. Maybe it is better not sampling.
+#         if num_samples is not None:
             
-            # t = time.time()
-            n_valid = np.count_nonzero(valid_moving_voxel_indicators)
-            # Typical n ranges from 63984 to 451341
-            # sys.stderr.write("count_nonzero: %.2f s\n" % (time.time() - t))
-            n_sample = min(num_samples, n_valid)
-            sys.stderr.write('%d: use %d samples out of %d valid\n' % (ind_m, n_sample, n_valid))
-            import random
-            ii = sorted(random.sample(range(n_valid), n_sample))
+#             # t = time.time()
+#             n_valid = np.count_nonzero(valid_moving_voxel_indicators)
+#             # Typical n ranges from 63984 to 451341
+#             # sys.stderr.write("count_nonzero: %.2f s\n" % (time.time() - t))
+#             n_sample = min(num_samples, n_valid)
+#             sys.stderr.write('%d: use %d samples out of %d valid\n' % (ind_m, n_sample, n_valid))
+#             import random
+#             ii = sorted(random.sample(range(n_valid), n_sample))
 
-            S_m_valid_scores = S_m_valid_scores[ii]
-            dxs = dxs[ii]
-            dys = dys[ii]
-            dzs = dzs[ii]
-            Sx = Sx[ii]
-            Sy = Sy[ii]
-            Sz = Sz[ii]
-            xs_prime_valid = xs_prime_valid[ii]
-            ys_prime_valid = ys_prime_valid[ii]
-            zs_prime_valid = zs_prime_valid[ii]
+#             S_m_valid_scores = S_m_valid_scores[ii]
+#             dxs = dxs[ii]
+#             dys = dys[ii]
+#             dzs = dzs[ii]
+#             Sx = Sx[ii]
+#             Sy = Sy[ii]
+#             Sz = Sz[ii]
+#             xs_prime_valid = xs_prime_valid[ii]
+#             ys_prime_valid = ys_prime_valid[ii]
+#             zs_prime_valid = zs_prime_valid[ii]
             
-            if tf_type == 'bspline':
-                NuNvNw_allTestPts = NuNvNw_allTestPts[ii]
-        # else:
-        #     n_sample = n_valid
+#             if tf_type == 'bspline':
+#                 NuNvNw_allTestPts = NuNvNw_allTestPts[ii]
+#         # else:
+#         #     n_sample = n_valid
         
-        sys.stderr.write("sample: %.2f s\n" % (time.time() - t)) 
+#         sys.stderr.write("sample: %.2f s\n" % (time.time() - t)) 
         
         if tf_type == 'rigid' or tf_type == 'affine':
             
@@ -708,7 +724,7 @@ class Aligner4(object):
         return score, grad
 
 
-    def compute_score_one(self, T, tf_type, ind_m, return_valid=False):
+    def compute_score_one(self, T, tf_type, ind_m, return_valid=False, n_sample=None):
         """
         Compute score for one label.
         Notice that raw overlap score is divided by 1e6 before returned.
@@ -729,7 +745,7 @@ class Aligner4(object):
         """
         
         # t = time.time()
-        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True)
+        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=n_sample)
         # sys.stderr.write("Timing 2: get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
         
         n_total = len(nzvoxels_centered_m[ind_m])

@@ -53,8 +53,8 @@ if upstream_warp_setting == 'None':
     upstream_warp_setting = None
 transform_type = warp_properties['transform_type']
 terminate_thresh = warp_properties['terminate_thresh']
-grad_computation_sample_number = warp_properties['grad_computation_sample_number']
-grid_search_sample_number = warp_properties['grid_search_sample_number']
+grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
+grid_search_sample_number = int(warp_properties['grid_search_sample_number'])
 std_tx_um = warp_properties['std_tx_um']
 std_ty_um = warp_properties['std_ty_um']
 std_tz_um = warp_properties['std_tz_um']
@@ -64,13 +64,15 @@ std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
 std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
 print std_tx, std_ty, std_tz, std_theta_xy
 
-try:
-    surround_weight = float(warp_properties['surround_weight'])
+surround_weight = warp_properties['surround_weight']
+if isinstance(surround_weight, float) or isinstance(surround_weight, int):
+    surround_weight = float(surround_weight)
     include_surround = surround_weight != 0 and not np.isnan(surround_weight)
-except:
-    surround_weight = str(warp_properties['surround_weight'])
+elif isinstance(surround_weight, str):
+    surround_weight = str(surround_weight)
+    # Setting surround_weight as inverse is very important. Using -1 often gives false peaks.
     include_surround = True
-
+    
 MAX_ITER_NUM = 1000
 HISTORY_LEN = 20
 MAX_GRID_SEARCH_ITER_NUM = 30
@@ -95,31 +97,53 @@ label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in structure_subset}
 
-if surround_weight == 'inverse':
-    volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
-    label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
-                       /float(volume_moving_structure_sizes[label_m])
-                       if is_surround_label(name_m) else 1. \
-                       for label_m, name_m in label_to_structure_moving.iteritems()}
-elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
-    label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
-                   for label_m, name_m in label_to_structure_moving.iteritems()}
-else:
-    sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+positive_weight = 'size'
 
+cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+pool = Pool(NUM_CORES)
+volume_moving_structure_sizes = dict(zip(volume_moving.keys(), 
+                                         pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff), 
+                                                  volume_moving.keys())))
+pool.close()
+pool.join()
+
+label_weights_m = {}
+
+for label_m in label_mapping_m2f.iterkeys():
+    name_m = label_to_structure_moving[label_m]
+    if not is_surround_label(name_m):
+        if positive_weight == 'size':
+            label_weights_m[label_m] = 1.
+        elif positive_weight == 'inverse':
+            p = np.percentile(volume_moving_structure_sizes.values(), 50)
+            label_weights_m[label_m] =  np.minimum(p / volume_moving_structure_sizes[label_m], 1.)
+        else:
+            sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
+            
+for label_m in label_mapping_m2f.iterkeys():
+    name_m = label_to_structure_moving[label_m]
+    if is_surround_label(name_m):
+        label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
+        if surround_weight == 'inverse':
+            label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+        elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
+            label_weights_m[label_m] = surround_weight
+        else:
+            sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+            
 ################## Optimization ######################
 
 aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=label_mapping_m2f)
-aligner.set_centroid(centroid_m='volume_centroid', centroid_f='centroid_m')
-# aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
+# aligner.set_centroid(centroid_m='volume_centroid', centroid_f='centroid_m')
+aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
 # aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', indices_m=[name_to_label_moving['SNR_R']])
 
 aligner.set_label_weights(label_weights=label_weights_m)
 
-grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 
-                       grid_search_sample_number=5,
-                      std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=0,
-                       grid_search_eta=3.)
+# grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 
+#                        grid_search_sample_number=5,
+#                       std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=0,
+#                        grid_search_eta=3.)
 
 gradient_filepath_map_f = \
 {ind_f: DataManager.get_volume_gradient_filepath_template(\
@@ -142,10 +166,13 @@ for trial_idx in range(trial_num):
             T, scores = aligner.optimize(tf_type=transform_type, 
                                          max_iter_num=MAX_ITER_NUM, 
                                          history_len=HISTORY_LEN, 
-                                         terminate_thresh=terminate_thresh,
+                                     terminate_thresh_rot=.002,
+                                     terminate_thresh_trans=.2,
                                          grad_computation_sample_number=grad_computation_sample_number,
                                          lr1=lr1, lr2=lr2,
-                                         init_T=grid_search_T)
+                                         #init_T=grid_search_T
+                                         affine_scaling_limits=(.5, 1.2)
+                                        )
             break
 
         except Exception as e:

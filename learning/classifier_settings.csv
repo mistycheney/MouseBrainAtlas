@@ -1,4 +1,4 @@
-classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,input_img_version,svm_id,comments
+classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,input_img_version,svm_id,comment,num_samples_per_class
 30,lr,500,20/21,neg_has_all_surround,,cropped_gray,30,
 31,lr,500,21/22,neg_has_all_surround,,cropped_gray,31,
 32,lr,500,20/22,neg_has_all_surround,,cropped_gray,32,
@@ -16,10 +16,13 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 70,inception-bn-blue-softmax,500,60/61,neg_has_all_surround,,cropped_gray,,
 71,inception-bn-blue-softmax,500,60/61/62,neg_has_all_surround,,cropped_gray,,
 72,lr,500,66/67/68,neg_has_surround_and_negative,,,72,using mirror variations of patches to train; use both surround and far as negative
-73,lr,500,66/67/68,neg_has_all_surround,,,73,using mirror variations for training; use only surround as negative
+73,lr,500,66/67/68,neg_has_all_surround,,,73,using mirror variations for training; use only surround as negative,
 74,lr,500,72/73/74,neg_has_all_surround,,,74,using rotation and intensity variations for training; use only surround as negative
 75,lr,500,72/73/74,neg_has_surround_and_negative,,,75,using rotation and intensity variations for training; use both surr and neg
 76,lr,500,75/76/77,neg_has_surround_and_negative,,,76,using no rotation for training; use both surr and neg
+77,lr,500,66/67/68,neg_has_all_surround,,,77,using mirror variations for training; use only surround as negative;100 samples,100
+78,xgb2,500,66/67/68,neg_has_all_surround,,,78,using mirror variations for training; use only surround as negative;sklearn gradient boost,10000
+79,lin_svc,500,66/67/68,neg_has_all_surround,,,79,using mirror variations for training; use only surround as negative;svm,10000
 80,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized500,37,
 81,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1000,37,
 82,lr,500,23/24,neg_has_all_surround,,cropped_gray_linearNormalized1500,37,
@@ -30,3 +33,10 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 97,gb2,500,97,neg_has_all_surround,,cropped_gray,97,
 98,gb2,500,99,neg_has_all_surround,,cropped_gray,98,
 99,lr,500,99,neg_has_all_surround,,cropped_gray,99,
+110,lr,500,66/67/68,neg_has_all_surround,,,110,using mirror variations for training; use only surround as negative;1000 samples,1000
+111,lr,500,66/67/68,neg_has_all_surround,,,111,using mirror variations for training; use only surround as negative;10000 samples,10000
+112,lr,500,66/67,neg_has_all_surround,,,112,using mirror variations for training; use only surround as negative;1000 samples,1000
+113,lr,500,66/67,neg_has_all_surround,,,113,using mirror variations for training; use only surround as negative;10000 samples,10000
+114,lr,500,78/79,neg_has_all_surround,,,114,using mirror variations for training; use only surround as negative;100000 samples,100000
+115,xgb2,500,66/67,neg_has_all_surround,,,115,using mirror variations for training; use only surround as negative;sklearn gradient boost,10000
+116,lin_svc,500,66/67,neg_has_all_surround,,,116,using mirror variations for training; use only surround as negative;svm,10000

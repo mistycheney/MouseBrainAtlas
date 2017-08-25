@@ -88,6 +88,48 @@ def volume_type_to_str(t):
 
 
 class DataManager(object):
+    
+    ################################################
+    ##   Conversion between coordinate systems    ##
+    ################################################
+    
+    @staticmethod
+    def get_crop_bbox_rel2uncropped(stack):
+    
+        crop_xmin_rel2uncropped, crop_xmax_rel2uncropped, \
+        crop_ymin_rel2uncropped, crop_ymax_rel2uncropped, \
+        = metadata_cache['cropbox'][stack]
+
+        s1, s2 = metadata_cache['section_limits'][stack]
+        crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
+        crop_zmax_rel2uncropped = int(np.ceil(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s2, downsample=32, z_begin=0))))
+
+        crop_bbox_rel2uncropped = \
+        np.array([crop_xmin_rel2uncropped, crop_xmax_rel2uncropped, \
+        crop_ymin_rel2uncropped, crop_ymax_rel2uncropped, \
+        crop_zmin_rel2uncropped, crop_zmax_rel2uncropped])
+        return crop_bbox_rel2uncropped
+
+    @staticmethod
+    def get_score_bbox_rel2uncropped(stack):
+        score_vol_f_xmin_rel2cropped, score_vol_f_xmax_rel2cropped, \
+        score_vol_f_ymin_rel2cropped, score_vol_f_ymax_rel2cropped, \
+        score_vol_f_zmin_rel2uncropped, score_vol_f_zmax_rel2uncropped, \
+        = DataManager.load_original_volume_bbox(stack=stack, volume_type='score', 
+                                              structure='7N', downscale=32, prep_id=2, detector_id=15)
+        
+        s1, s2 = metadata_cache['section_limits'][stack]
+        crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
+        crop_zmax_rel2uncropped = int(np.ceil(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s2, downsample=32, z_begin=0))))
+        
+        score_vol_f_zmin_rel2cropped = score_vol_f_zmin_rel2uncropped - crop_zmin_rel2uncropped
+        score_vol_f_zmax_rel2cropped = score_vol_f_zmax_rel2uncropped - crop_zmax_rel2uncropped
+
+        score_vol_f_bbox_rel2cropped = np.array([score_vol_f_xmin_rel2cropped, score_vol_f_xmax_rel2cropped, \
+        score_vol_f_ymin_rel2cropped, score_vol_f_ymax_rel2cropped, \
+        score_vol_f_zmin_rel2cropped, score_vol_f_zmax_rel2cropped,])
+
+        return score_vol_f_bbox_rel2cropped
 
     ########################
     ##   Lauren's data    ##

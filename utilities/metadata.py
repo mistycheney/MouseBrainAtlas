@@ -310,7 +310,8 @@ windowing_settings = {1: {"patch_size": 224, "spacing": 56},
 
 paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VLL', 'RMC', 'SNC', 'SNR', '3N', '4N',
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
-singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
+# singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
+singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
 all_known_structures = paired_structures + singular_structures
 all_known_structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
@@ -321,7 +322,8 @@ all_known_structures_sided_with_surround = sorted(all_known_structures_sided + a
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
 
-linear_landmark_names_unsided = ['outerContour']
+#linear_landmark_names_unsided = ['outerContour']
+linear_landmark_names_unsided = []
 volumetric_landmark_names_unsided = list(set(paired_structures + singular_structures) - set(linear_landmark_names_unsided))
 all_landmark_names_unsided = volumetric_landmark_names_unsided + linear_landmark_names_unsided
 

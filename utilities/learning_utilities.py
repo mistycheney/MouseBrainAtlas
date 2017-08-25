@@ -236,7 +236,7 @@ def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR
             labels_to_sample = []
             for dataset_id in dataset_ids:
                 dataset_dir = DataManager.get_dataset_dir(dataset_id=dataset_id)
-                download_from_s3(dataset_dir, is_dir=True)
+                #download_from_s3(dataset_dir, is_dir=True)
                 for fn in os.listdir(dataset_dir):
                     g = re.match('patch_features_(.*).bp', fn).groups()
                     if len(g) > 0:
@@ -247,13 +247,13 @@ def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR
                 # Load training features
 
                 features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=label)
-                download_from_s3(features_fp)
+                #download_from_s3(features_fp)
                 features = bp.unpack_ndarray_file(features_fp)
             
                 # load training addresses
 
                 addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=label)
-                download_from_s3(addresses_fp)
+                #download_from_s3(addresses_fp)
                 addresses = load_pickle(addresses_fp)
 
                 if label not in merged_features:
@@ -437,99 +437,45 @@ def locate_patches_given_addresses_v2(addresses):
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
 
-def extract_patches_given_locations(stack=None, sec=None, img=None, locs=None, indices=None, grid_spec=None,
-                                    grid_locations=None, version='compressed', patch_size=None):
+def extract_patches_given_locations(patch_size, locs, 
+                                    img=None, 
+                                    stack=None, sec=None, version=None, prep_id=2):
     """
-    Return patches at given locations.
+    Extract patches from one image at given locations.
+    The image can be given, or the user can provide stack,sec,version,prep_id.
 
     Args:
-        indices:
-            grid indices
-        locs:
-            patch centers
+        img: the image
+        locs ((n,2)-array): patch centers
+        patch_size (int): size of a patch, assume square
 
     Returns:
-        list of patches.
+        list of (patch_size, patch_size)-arrays.
     """
 
     if img is None:
         t = time.time()
-        img = DataManager.load_image(stack=stack, section=sec, version=version)
+        img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t)) 
 
-    if patch_size is None:
-        if grid_spec is None:
-            grid_spec = get_default_gridspec(stack)
-
-        patch_size, _, _, _ = grid_spec
-    
     half_size = patch_size/2
-    
-    if indices is not None:
-        assert locs is None, 'Cannot specify both indices and locs.'
-        if grid_locations is None:
-            grid_locations = grid_parameters_to_sample_locations(grid_spec)
-        locs = grid_locations[indices]
-
-    #print [(y-half_size, y+half_size, x-half_size, x+half_size) for x, y in locs]
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     return patches
 
-def extract_patches_given_locations_multiple_sections_parallel(addresses, location_or_grid_index='location', version='compressed'):
+def extract_patches_given_locations_multiple_sections(addresses, 
+                                                      version=None, prep_id=2, 
+                                                      win_id=None, patch_size=None, 
+                                                      location_or_grid_index='location'):
     """
-    Args:
-        addresses:
-            list of (stack, section, framewise_index)
-    Returns:
-        list of patches
-    """
-
-    from collections import defaultdict
-
-    locations_grouped = {}
-    for stack_sec, list_index_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (i, x): (x[0],x[1])),
-        key=lambda (i,x): (x[0], x[1])):
-        locations_grouped[stack_sec] = [(address[2], list_index) for list_index, address in list_index_and_address_grouper]
-
-    # def f(stack_sec, locations_allSections):
-    #     stack, sec = stack_sec
-    #     locs_thisSec, list_indices = map(list, zip(*locations_allSections))
-    #     if location_or_grid_index == 'location':
-    #         extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
-    #     else:
-    #         extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
-    #     return extracted_patches, list_indices
+    Extract patches from multiple images.
     
-    # from multiprocess import Pool
-    # pool = Pool(2)
-    # res = pool.map(lambda (stack_sec, locs): f(stack_sec, locs), locations_grouped.items())
-    # extracted_patches_lists, list_indices_lists = zip(*res)
-    # patches_all = list(chain(*extracted_patches_lists))
-    # list_indices_all = list(chain(*list_indices_lists))
-    
-    patches_all = []
-    list_indices_all = []
-    for (stack, sec), locations_allSections in locations_grouped.iteritems():
-        locs_thisSec, list_indices = map(list, zip(*locations_allSections))
-        t = time.time()
-        if location_or_grid_index == 'location':
-            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
-        else:
-            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
-        sys.stderr.write('extract_patches_given_locations (%s,%d): %.2f seconds.\n' % (stack, sec, time.time()-t))
-        patches_all += extracted_patches
-        list_indices_all += list_indices
-
-    patch_all_inOriginalOrder = [patches_all[i] for i in np.argsort(list_indices_all)]
-    return patch_all_inOriginalOrder
-
-def extract_patches_given_locations_multiple_sections(addresses, location_or_grid_index='location', version='compressed'):
-    """
     Args:
-        addresses:
-            list of (stack, section, framewise_index)
+        addresses (list of tuples):
+            if location_or_grid_index is 'location', then this is a list of (stack, section, location), patch_size is required.
+            if location_or_grid_index is 'grid_index', then this is a list of (stack, section, framewise_index), win_id is required.
+            
     Returns:
-        list of patches
+        list of (patch_size, patch_size)-arrays.
     """
 
     from collections import defaultdict
@@ -543,11 +489,18 @@ def extract_patches_given_locations_multiple_sections(addresses, location_or_gri
     list_indices_all = []
     for stack_sec, locations_allSections in locations_grouped.iteritems():
         stack, sec = stack_sec
-        locs_thisSec, list_indices = map(list, zip(*locations_allSections))
         if location_or_grid_index == 'location':
-            extracted_patches = extract_patches_given_locations(stack, sec, locs=locs_thisSec, version=version)
+            locs_thisSec, list_indices = map(list, zip(*locations_allSections))
         else:
-            extracted_patches = extract_patches_given_locations(stack, sec, indices=locs_thisSec, version=version)
+            ginds_thisSec, list_indices = map(list, zip(*locations_allSections))
+            assert win_id is not None
+            patch_size = windowing_settings[win_id]['patch_size']
+            locs_thisSec = grid_parameters_to_sample_locations(patch_size=patch_size, 
+                                                       stride=windowing_settings[win_id]['spacing'],
+                                                      w=metadata_cache['image_shape'][stack][0],
+                                                       h=metadata_cache['image_shape'][stack][1])[ginds_thisSec]
+        extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, version=version,
+                                                               patch_size=patch_size)
         patches_all += extracted_patches
         list_indices_all += list_indices
 

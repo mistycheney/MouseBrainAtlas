@@ -6,8 +6,11 @@ from data_manager import *
 
 def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_bbox=True):
     """
-    images_grouped_by_z: dict of images, key is section index. First brain section should have index 0.
-    voxel_size: (xdim,ydim,zdim) in unit of pixel size.
+    Args:
+        images (dict of 2D images): key is section index. First section has index 0.
+        voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
+        firse_sec (int): the beginning section of the bounding box
+        last_sec (int): the ending section of the bounding box
     """
 
     if isinstance(images, dict):

@@ -1,0 +1,137 @@
+{
+    "Rules": [
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD585/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD585 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD590/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD590 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD591/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD591 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD592/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD592 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD593/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD593 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD594/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD594 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD595/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD595 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD598/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD598 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD599/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD599 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD602/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD602 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/detected_cells/MD603/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data MD603 to Glacier"
+        },
+        {
+            "Status": "Enabled",
+            "Prefix": "CSHL_cells_v2/classifiers/",
+            "Transitions": [
+                {
+                    "Days": 0,
+                    "StorageClass": "GLACIER"
+                }
+            ],
+            "ID": "Move Cell Data classifiers to Glacier"
+        }
+
+    ]
+}

@@ -576,7 +576,8 @@ class DataManager(object):
                                   vol_type_f='score', vol_type_m='score',
                                   downscale=32, trial_idx=None):
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-        download_from_s3(params_fp, redownload=True)
+        # download_from_s3(params_fp, redownload=True)
+        download_from_s3(params_fp, redownload=False)
         return DataManager.load_data(params_fp, 'transform_params')
 
     @staticmethod

@@ -603,7 +603,6 @@ class Aligner4(object):
             # Whether to scale gradient to match the scores' scale depends on whether AdaGrad is used;
             # if used, then the scale will be automatically adapted so the scaling does not matter
             # t = time.time()
-            # grad = q.sum(axis=0) / 1e6
             grad = (S_m_valid_scores[:,None] * q).sum(axis=0)
             if np.all(grad == 0):
                 raise Exception("Gradient is zero.")

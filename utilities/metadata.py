@@ -149,6 +149,9 @@ elif hostname.startswith('ip'):
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
+    
+    MESH_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_meshes')
+    
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     ANNOTATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_annotation_viz')

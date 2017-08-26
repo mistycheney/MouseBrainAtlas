@@ -65,16 +65,25 @@ else:
     
 transform_type = warp_properties['transform_type']
 terminate_thresh = warp_properties['terminate_thresh']
-grad_computation_sample_number = warp_properties['grad_computation_sample_number']
-grid_search_sample_number = warp_properties['grid_search_sample_number']
-std_tx_um = warp_properties['std_tx_um']
-std_ty_um = warp_properties['std_ty_um']
-std_tz_um = warp_properties['std_tz_um']
-std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
+if not np.isnan(warp_properties['grid_search_sample_number']):
+    grid_search_sample_number = int(warp_properties['grid_search_sample_number'])
+if not np.isnan(warp_properties['std_tx_um']):
+    std_tx_um = warp_properties['std_tx_um']
+    std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_ty_um']):
+    std_ty_um = warp_properties['std_ty_um']
+    std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_tz_um']):
+    std_tz_um = warp_properties['std_tz_um']
+    std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_theta_xy_degree']):
+    std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+if not np.isnan(warp_properties['max_iter_num']):
+    max_iter_num = int(warp_properties['max_iter_num'])
 
+positive_weight = 'size'
+    
 try:
     surround_weight = float(warp_properties['surround_weight'])
     include_surround = surround_weight != 0 and not np.isnan(surround_weight)
@@ -88,9 +97,9 @@ if np.isnan(reg_weight):
 else:
     reg_weights = np.ones((3,))*reg_weight
 
-MAX_ITER_NUM = 10000
+#MAX_ITER_NUM = 10000
 HISTORY_LEN = 200
-MAX_GRID_SEARCH_ITER_NUM = 30
+#MAX_GRID_SEARCH_ITER_NUM = 30
 
 lr1 = 10
 lr2 = 0.1
@@ -118,18 +127,38 @@ for structure in structures:
 
         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                              for label_m, name_m in label_to_structure_moving.iteritems()}
+        
+        cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+        pool = Pool(NUM_CORES)
+        volume_moving_structure_sizes = dict(zip(volume_moving.keys(), 
+                                                 pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff), 
+                                                          label_mapping_m2f.iterkeys())))
+        pool.close()
+        pool.join()
 
-        if surround_weight == 'inverse':
-            volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
-            label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
-                               /float(volume_moving_structure_sizes[label_m])
-                               if is_surround_label(name_m) else 1. \
-                               for label_m, name_m in label_to_structure_moving.iteritems()}
-        elif isinstace(surround_weight, int) or isinstace(surround_weight, float):
-            label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
-                               for label_m, name_m in label_to_structure_moving.iteritems()}
-        else:
-            sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+        label_weights_m = {}
+
+        for label_m in label_mapping_m2f.iterkeys():
+            name_m = label_to_structure_moving[label_m]
+            if not is_surround_label(name_m):
+                if positive_weight == 'size':
+                    label_weights_m[label_m] = 1.
+                elif positive_weight == 'inverse':
+                    p = np.percentile(volume_moving_structure_sizes.values(), 50)
+                    label_weights_m[label_m] =  np.minimum(p / volume_moving_structure_sizes[label_m], 1.)
+                else:
+                    sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
+
+        for label_m in label_mapping_m2f.iterkeys():
+            name_m = label_to_structure_moving[label_m]
+            if is_surround_label(name_m):
+                label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
+                if surround_weight == 'inverse':
+                    label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+                elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
+                    label_weights_m[label_m] = surround_weight
+                else:
+                    sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 
         aligner = Aligner4(volume_fixed, volume_moving, 
                            labelIndexMap_m2f=label_mapping_m2f)
@@ -140,10 +169,10 @@ for structure in structures:
         aligner.set_regularization_weights(reg_weights)
         aligner.set_label_weights(label_weights_m)
 
-        grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 
-                       grid_search_sample_number=5,
-                      std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=0,
-                       grid_search_eta=3., stop_radius_voxel=3)
+        # grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 
+        #                grid_search_sample_number=5,
+        #               std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=0,
+        #                grid_search_eta=3., stop_radius_voxel=3)
         
         aligner.load_gradient(gradient_filepath_map_f=gradient_filepath_map_f) # 120s = 2 mins
 
@@ -154,13 +183,17 @@ for structure in structures:
         for trial_idx in range(trial_num):
 
             T, scores = aligner.optimize(tf_type=transform_type, 
-                                         max_iter_num=MAX_ITER_NUM, 
+                                         max_iter_num=max_iter_num, 
                                          history_len=HISTORY_LEN, 
-                                         terminate_thresh=1e-5,
+                                         #terminate_thresh=1e-5,
                                          grad_computation_sample_number=grad_computation_sample_number,
+                                         terminate_thresh_rot=.005,
+                                         terminate_thresh_trans=.4,
                                          lr1=lr1, lr2=lr2,
-                                         init_T=grid_search_T)
-
+                                         #nit_T=grid_search_T
+                                        )
+            T = aligner.Ts[-1]
+            
             T_all_trials.append(T)
             scores_all_trials.append(scores)
             traj_all_trials.append(np.array(aligner.Ts))

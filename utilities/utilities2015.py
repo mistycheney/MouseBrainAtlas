@@ -292,11 +292,11 @@ def create_if_not_exists(path):
 
     return path
 
-def execute_command(cmd):
+def execute_command(cmd, stdout=None, stderr=None):
     print cmd
 
     try:
-        retcode = call(cmd, shell=True)
+        retcode = call(cmd, shell=True, stdout=stdout, stderr=stderr)
         # if retcode < 0:
             # print >>sys.stderr, "Child was terminated by signal", -retcode
         # else:

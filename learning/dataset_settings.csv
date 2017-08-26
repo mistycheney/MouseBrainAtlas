@@ -40,6 +40,9 @@ dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,ce
 75,pos/surPos/surNoclass/neg,,nissl,500,1000,MD585,,raw mage patches and features with no variation,75
 76,pos/surPos/surNoclass/neg,,nissl,500,1000,MD589,,raw mage patches and features with no variation,76
 77,pos/surPos/surNoclass/neg,,nissl,500,1000,MD594,,raw mage patches and features with no variation,77
+78,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD585,,features of image patches with rotation variations,78
+79,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD589,,features of image patches with rotation variations,79
+80,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD594,,features of image patches with rotation variations,80
 90,,,nissl,500,1000,MD589,allSizeHist/huMomentsHist
 92,,,nissl,500,1000,MD589,largeLargeLinkLenHist
 93,,,nissl,500,1000,MD594,largeLargeLinkLenHist

@@ -1298,17 +1298,22 @@ def R_align_two_vectors(a, b):
     R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/(s + 1e-5)**2
     return R
 
-def average_location(centroid_allLandmarks):
+def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None):
     """
     Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
     
+    Args:
+        centroid_allLandmarks (dict {str: (n,3)-array})
+        mean_centroid_allLandmarks (dict {str: (3,)-array})
+    
     Return (0,0,0) centered coordinates where (0,0,0) is a point on the midplane
     """
-
-    mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
+    
+    if mean_centroid_allLandmarks is None:
+        mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
                                   for name, centroids in centroid_allLandmarks.iteritems()}
 
-    names = set([convert_to_original_name(name_s) for name_s in centroid_allLandmarks.keys()])
+    names = set([convert_to_original_name(name_s) for name_s in mean_centroid_allLandmarks.keys()])    
 
     # Fit a midplane from the midpoints of symmetric landmark centroids
     midpoints = {}

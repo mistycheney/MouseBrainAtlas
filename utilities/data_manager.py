@@ -185,8 +185,8 @@ class DataManager(object):
 
     @staticmethod
     def get_structure_pose_corrections(stack, stack_m=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
                                 warp_setting=None, trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
         fp = os.path.join(ANNOTATION_ROOTDIR, stack, basename + '_' + 'structure3d_corrections' + '.pkl')
@@ -204,8 +204,8 @@ class DataManager(object):
 
     @staticmethod
     def load_annotation_to_grid_indices_lookup(stack, win_id, by_human, stack_m=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
                                 warp_setting=None, trial_idx=None):
 
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
@@ -215,28 +215,28 @@ class DataManager(object):
             raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_annotation_to_grid_indices_lookup`")
         else:
             grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
-            # grid_indices_lookup = read_hdf(grid_indices_lookup_fp, 'grid_indices')
             return grid_indices_lookup
 
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
                                 warp_setting=None, trial_idx=None):
         if by_human:
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
-                                                              classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, trial_idx=trial_idx)
+                                                              detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting, 
+                                                              trial_idx=trial_idx)
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_win%(win)d_grid_indices_lookup.hdf' % {'basename': basename, 'win':win_id})
         return fp
 
     @staticmethod
     def get_annotation_filepath(stack, by_human, stack_m=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
         """
         Args:
@@ -269,9 +269,10 @@ class DataManager(object):
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
-                                                              classifier_setting_m=classifier_setting_m,
-                                                              classifier_setting_f=classifier_setting_f,
-                                                              warp_setting=warp_setting, trial_idx=trial_idx)
+                                                              detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting, 
+                                                              trial_idx=trial_idx)
             if suffix is not None:
                 if timestamp is not None:
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
@@ -283,8 +284,8 @@ class DataManager(object):
 
     @staticmethod
     def load_annotation_v4(stack=None, by_human=True, stack_m=None,
-                                classifier_setting_m=None,
-                                classifier_setting_f=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
         if by_human:
             fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp)
@@ -295,41 +296,14 @@ class DataManager(object):
         else:
             fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
-                                                      classifier_setting_m=classifier_setting_m,
-                                                      classifier_setting_f=classifier_setting_f,
+                                                      detector_id_m=classifier_setting_m,
+                                                      detector_id_f=classifier_setting_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
                                                     suffix=suffix, timestamp=timestamp)
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
             return annotation_df
 
-
-    # @staticmethod
-    # def load_annotation_v3(stack=None, by_human=True, stack_m=None,
-    #                             classifier_setting_m=None,
-    #                             classifier_setting_f=None,
-    #                             warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
-    #     if by_human:
-    #         # try:
-    #         #     structure_df = read_hdf(fp, 'structures')
-    #         # except Exception as e:
-    #         #     print e
-    #         #     sys.stderr.write('Annotation has no structures.\n')
-    #         #     return contour_df, None
-    #         #
-    #         # sys.stderr.write('Loaded annotation %s.\n' % fp)
-    #         # return contour_df, structure_df
-    #         raise Exception('Not implemented.')
-    #     else:
-    #         fp = DataManager.get_annotation_filepath(stack, by_human=False,
-    #                                                  stack_m=stack_m,
-    #                                                   classifier_setting_m=classifier_setting_m,
-    #                                                   classifier_setting_f=classifier_setting_f,
-    #                                                   warp_setting=warp_setting, trial_idx=trial_idx,
-    #                                                 suffix=suffix, timestamp=timestamp)
-    #         download_from_s3(fp)
-    #         annotation_df = load_hdf_v2(fp)
-    #         return annotation_df
 
     @staticmethod
     def get_annotation_viz_dir(stack):

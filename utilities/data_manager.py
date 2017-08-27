@@ -206,6 +206,8 @@ class DataManager(object):
     def load_annotation_to_grid_indices_lookup(stack, win_id, by_human, stack_m=None,
                                 detector_id_m=None,
                                 detector_id_f=None,
+                                               prep_id_m=None,
+                                               prep_id_f=None,
                                 warp_setting=None, trial_idx=None):
 
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
@@ -221,6 +223,8 @@ class DataManager(object):
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m=None,
                                 detector_id_m=None,
                                 detector_id_f=None,
+                                                       prep_id_m=None,
+                                                       prep_id_f=None,
                                 warp_setting=None, trial_idx=None):
         if by_human:
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
@@ -228,6 +232,8 @@ class DataManager(object):
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,
                                                               detector_id_f=detector_id_f,
+                                                              prep_id_m=prep_id_m,
+                                                              prep_id_f=prep_id_f,
                                                               warp_setting=warp_setting, 
                                                               trial_idx=trial_idx)
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_win%(win)d_grid_indices_lookup.hdf' % {'basename': basename, 'win':win_id})
@@ -237,6 +243,8 @@ class DataManager(object):
     def get_annotation_filepath(stack, by_human, stack_m=None,
                                 detector_id_m=None,
                                 detector_id_f=None,
+                                prep_id_m=None,
+                                prep_id_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
         """
         Args:
@@ -271,6 +279,8 @@ class DataManager(object):
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,
                                                               detector_id_f=detector_id_f,
+                                                              prep_id_m=prep_id_m,
+                                                              prep_id_f=prep_id_f,
                                                               warp_setting=warp_setting, 
                                                               trial_idx=trial_idx)
             if suffix is not None:

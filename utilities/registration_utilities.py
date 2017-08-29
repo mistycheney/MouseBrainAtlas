@@ -707,7 +707,7 @@ class Aligner4(object):
                 score += self.label_weights[ind_m] * score_one
 
             except Exception as e:
-                raise e
+                #raise e
                 sys.stderr.write('Error computing score/gradient for %d: %s\n' % (ind_m, e))
 
         # # parallel
@@ -764,7 +764,7 @@ class Aligner4(object):
         # voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
         
         # This one considers the values of atlas voxels.
-        xs_valid, ys_valid, zs_valid = nzvoxels_centered_m[ind_m].astype(np.int16)[valid_moving_voxel_indicator].T
+        xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m].astype(np.int16)[valid_moving_voxel_indicator].T
         voxel_probs_valid = volume_m[ind_m][ys_valid, xs_valid, zs_valid] * volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
         
         # sys.stderr.write("Timing 2: fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))

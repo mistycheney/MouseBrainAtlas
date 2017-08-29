@@ -680,15 +680,15 @@ class DataManager(object):
                             trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
 
-        # if param_suffix is None:
-        #     fn = basename + '_parameters' % {'param_suffix':param_suffix}
-        # else:
-        #     fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
+        if param_suffix is None:
+            fn = basename + '_parameters' % {'param_suffix':param_suffix}
+        else:
+            fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
 
         if what == 'hessians':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')
-        #elif what == 'hessiansZscoreBased':
-        #    return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansZscoreBased', fn + '_hessiansZscoreBased.pkl')
+        elif what == 'hessiansZscoreBased':
+            return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessiansZscoreBased', fn + '_hessiansZscoreBased.pkl')
         elif what == 'zscores':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_zscores', fn + '_zscores.pkl')
         elif what == 'score_landscape':

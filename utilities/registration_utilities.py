@@ -744,7 +744,8 @@ class Aligner4(object):
         """
         
         # t = time.time()
-        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=n_sample)
+        xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = \
+        self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=n_sample)
         # sys.stderr.write("Timing 2: get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
         
         n_total = len(nzvoxels_centered_m[ind_m])
@@ -758,7 +759,14 @@ class Aligner4(object):
 
         # Reducing the scale of voxel value is important for keeping the sum (i.e. the following line) in the represeantable range of the chosen data type.
         # t = time.time()
-        voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+        
+        # This one does not consider the values of atlas voxels.
+        # voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+        
+        # This one considers the values of atlas voxels.
+        xs_valid, ys_valid, zs_valid = nzvoxels_centered_m[ind_m].astype(np.int16)[valid_moving_voxel_indicator].T
+        voxel_probs_valid = volume_m[ind_m][ys_valid, xs_valid, zs_valid] * volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
+        
         # sys.stderr.write("Timing 2: fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
         
         # Penalize out-of-bound voxels, minus 1 for each such voxel

@@ -654,8 +654,14 @@ class DataManager(object):
 
     @staticmethod
     def load_confidence(stack_m, stack_f,
-                            classifier_setting_m, classifier_setting_f, warp_setting, what,
-                            type_m='score', type_f='score', param_suffix=None,
+                        warp_setting, what,
+                        detector_id_m=None,
+                                detector_id_f=None, 
+                        prep_id_m=None,
+                        prep_id_f=None,
+                        structure_f=None,
+                        structure_m=None,
+                            type_m='score', type_f='score',
                             trial_idx=None):
         fp = DataManager.get_confidence_filepath(**locals())
         download_from_s3(fp)
@@ -663,15 +669,21 @@ class DataManager(object):
 
     @staticmethod
     def get_confidence_filepath(stack_m, stack_f,
-                            classifier_setting_m, classifier_setting_f, warp_setting, what,
+                                warp_setting, what,
+                                detector_id_m=None,
+                                detector_id_f=None, 
+                                prep_id_m=None,
+                                prep_id_f=None,
+                                structure_f=None,
+                        structure_m=None,
                             type_m='score', type_f='score', param_suffix=None,
                             trial_idx=None):
         basename = DataManager.get_warped_volume_basename(**locals())
 
-        if param_suffix is None:
-            fn = basename + '_parameters' % {'param_suffix':param_suffix}
-        else:
-            fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
+        # if param_suffix is None:
+        #     fn = basename + '_parameters' % {'param_suffix':param_suffix}
+        # else:
+        #     fn = basename + '_parameters_%(param_suffix)s' % {'param_suffix':param_suffix}
 
         if what == 'hessians':
             return os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, basename + '_hessians', fn + '_hessians.pkl')

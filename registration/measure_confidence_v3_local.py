@@ -84,20 +84,21 @@ print
 print 'surround', surround_weight
 print 'regularization', reg_weights
 
-downscale = 32
-xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downscale
+positive_weight = 'size'
 
 pool_radius_um_list = np.array([25, 50, 100, 150, 200, 300, 400])
-stepsizes_um = np.array([25, 50, 100, 150, 200, 300, 400])
+stepsize_um_list = np.array([25, 50, 100, 150, 200, 300, 400])
+
+#################################################################
 
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
-    DataManager.load_original_volume_all_known_structures(stack=stack_fixed, 
-                                                          prep_id=2,
-                                                          detector_id=detector_id,
-                                                         sided=False, volume_type='score')
+DataManager.load_original_volume_all_known_structures(stack=stack_fixed, 
+                                                      prep_id=2,
+                                                      detector_id=detector_id,
+                                                     sided=False, volume_type='score')
 
-# for structure in all_known_structures_sided:
-for structure in ['SC']:
+for structure in all_known_structures_sided:
+#     for structure in ['7N_L']:
 
     try:
 
@@ -172,8 +173,6 @@ for structure in ['SC']:
 
         zscores = {}
 
-        # pool_radius_um_list = np.arange(25, 400, 20)
-#             pool_radius_um_list = np.linspace(25, 400, 5)
         for pool_radius_um in pool_radius_um_list:
 
             pool_radius_pixel = pool_radius_um / xy_pixel_distance
@@ -223,8 +222,7 @@ for structure in ['SC']:
                                          indices_m=labels_for_computing_confidence)
 
         hessians_all_stepsizes = {}
-#             stepsizes_um = np.linspace(25, 400, 5)
-        for stepsize_um in stepsizes_um:
+        for stepsize_um in stepsize_um_list:
             stepsize = stepsize_um / xy_pixel_distance
             h = nd.Hessian(lambda (tx, ty, tz): perturb(tx, ty, tz), step=(stepsize, stepsize, stepsize))
             H = h((0,0,0))

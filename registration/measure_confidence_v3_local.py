@@ -25,85 +25,123 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
-parser.add_argument("classifier_setting", type=int, help="classifier_setting")
-parser.add_argument("--trial_idx", type=int, help="trial index", default=0)
+parser.add_argument("detector_id", type=int, help="detector_id")
+#parser.add_argument("--trial_idx", type=int, help="trial index", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
-classifier_setting = args.classifier_setting
-trial_idx = args.trial_idx
+detector_id = args.detector_id
+#trial_idx = args.trial_idx
 
 ###################################################################################
 
 import numdifftools as nd
 
-if warp_setting == 1:
-    upstream_warp_setting = None
-    transform_type = 'affine'
-elif warp_setting == 2:
-    upstream_warp_setting = 1
-    transform_type = 'rigid'
-    include_surround = False
-elif warp_setting == 4:
-    upstream_warp_setting = 1
-    transform_type = 'rigid'
-    reg_weights = np.array([1e-6, 1e-6, 1e-6])
-    include_surround = False
-elif warp_setting == 5:
-    upstream_warp_setting = 1
-    transform_type = 'rigid'
-    reg_weights = np.array([0,0,0])
-    include_surround = True
-    surround_weight = 0
-else:
-    raise Exception('Warp setting not recognized.')
+warp_properties = registration_settings.loc[warp_setting]
+print warp_properties
 
-if trial_idx in [0, 1]:
-    upstream_trial_idx = 0
+upstream_warp_setting = warp_properties['upstream_warp_id']
+if upstream_warp_setting == 'None':
+    upstream_warp_setting = None
+else:
+    upstream_warp_setting = int(upstream_warp_setting)
+    
+transform_type = warp_properties['transform_type']
+terminate_thresh = warp_properties['terminate_thresh']
+grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
+if not np.isnan(warp_properties['grid_search_sample_number']):
+    grid_search_sample_number = int(warp_properties['grid_search_sample_number'])
+if not np.isnan(warp_properties['std_tx_um']):
+    std_tx_um = warp_properties['std_tx_um']
+    std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_ty_um']):
+    std_ty_um = warp_properties['std_ty_um']
+    std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_tz_um']):
+    std_tz_um = warp_properties['std_tz_um']
+    std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+if not np.isnan(warp_properties['std_theta_xy_degree']):
+    std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+if not np.isnan(warp_properties['max_iter_num']):
+    max_iter_num = int(warp_properties['max_iter_num'])
+    
+try:
+    surround_weight = float(warp_properties['surround_weight'])
+    include_surround = surround_weight != 0 and not np.isnan(surround_weight)
+except:
+    surround_weight = str(warp_properties['surround_weight'])
+    include_surround = True
+
+reg_weight = warp_properties['regularization_weight']
+if np.isnan(reg_weight):
+    reg_weights = np.zeros((3,))
+else:
+    reg_weights = np.ones((3,))*reg_weight
+
+print
+print 'surround', surround_weight
+print 'regularization', reg_weights
+
+downscale = 32
+xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downscale
+
+pool_radius_um_list = np.array([25, 50, 100, 150, 200, 300, 400])
+stepsizes_um = np.array([25, 50, 100, 150, 200, 300, 400])
 
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
-DataManager.load_score_volume_all_known_structures(stack=stack_fixed, classifier_setting=classifier_setting)
+    DataManager.load_original_volume_all_known_structures(stack=stack_fixed, 
+                                                          prep_id=2,
+                                                          detector_id=detector_id,
+                                                         sided=False, volume_type='score')
 
-
-for structure in all_known_structures_sided:
-# for structure in ['7N_L']:
+# for structure in all_known_structures_sided:
+for structure in ['SC']:
 
     try:
 
+        ##############################
+        # Initialize aligner object. #
+        ##############################
+
         if include_surround:
             volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
-                                                                         classifier_setting_m=classifier_setting,
-                                                                         classifier_setting_f=classifier_setting,
-                                                                         warp_setting=upstream_warp_setting,
-                                                                         trial_idx=upstream_trial_idx,
-                                                                         structures=[structure,
-                                                                                     convert_to_surround_name(structure, margin='x1.5')])
+                                                                         detector_id_f=detector_id,
+                                                 prep_id_f=2,
+                                                                         warp_setting=upstream_warp_setting, 
+                                                                         structures=[structure, 
+                                                                                     convert_to_surround_name(structure, margin='200')])
         else:
             volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
-                                                                         classifier_setting_m=classifier_setting,
-                                                                         classifier_setting_f=classifier_setting,
-                                                                         warp_setting=upstream_warp_setting,
-                                                                         trial_idx=upstream_trial_idx,
+                                                                         detector_id_f=detector_id,
+                                                 prep_id_f=2,
+                                                                         warp_setting=upstream_warp_setting, 
                                                                          structures=[structure])
 
         structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
         label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
         volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
 
-        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
+        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                              for label_m, name_m in label_to_structure_moving.iteritems()}
 
-        label_weights_m = {label_m: surround_weight if 'surround' in name_m else 1. \
-                           for label_m, name_m in label_to_structure_moving.iteritems()}
+        if surround_weight == 'inverse':
+            volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
+            label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
+                               /float(volume_moving_structure_sizes[label_m])
+                               if is_surround_label(name_m) else 1. \
+                               for label_m, name_m in label_to_structure_moving.iteritems()}
+        elif isinstace(surround_weight, int) or isinstace(surround_weight, float):
+            label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
+                               for label_m, name_m in label_to_structure_moving.iteritems()}
+        else:
+            sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 
+        aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=label_mapping_m2f)
 
-        aligner = Aligner4(volume_fixed, volume_moving,
-                           labelIndexMap_m2f=label_mapping_m2f)
-
-        aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m',
-                             indices_m=[structure_to_label_moving[structure]])
+        aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', 
+                             indices_m=[structure_to_label_moving[structure]])                            
 
         aligner.set_regularization_weights(reg_weights)
         aligner.set_label_weights(label_weights_m)
@@ -114,12 +152,11 @@ for structure in all_known_structures_sided:
 
         tx_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
         DataManager.load_alignment_parameters(stack_m=stack_moving, stack_f=stack_fixed,
-                                              classifier_setting_m=classifier_setting,
-                                              classifier_setting_f=classifier_setting,
+                                              detector_id_f=detector_id,
+                                                 prep_id_f=2,
                                               warp_setting=warp_setting,
-                                              param_suffix=structure,
-                                              trial_idx=trial_idx)
-
+                                              structure_f=structure,
+                                             structure_m=structure)
 
 #         structures_for_computing_confidence = {'7N_L', '7N_R', '5N_L', '5N_R', '12N'}
 #         labels_for_computing_confidence = [structure_to_label_moving[s] for s in structures_for_computing_confidence]
@@ -127,41 +164,7 @@ for structure in all_known_structures_sided:
 
         labels_for_computing_confidence = [structure_to_label_moving[structure]]
 
-        downscale = 32
-        xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downscale
-
         fmax = aligner.compute_score(tx_params, indices_m=labels_for_computing_confidence)
-
-        ####################
-        # Compute Hessians #
-        ####################
-
-        def perturb(tx, ty, tz):
-            return aligner.compute_score(tx_params + [0,0,0,tx,0,0,0,ty,0,0,0,tz],
-                                         indices_m=labels_for_computing_confidence)
-
-        hessians_all_stepsizes = {}
-        stepsizes = np.linspace(1, 20, 5) # pixel size = 15um
-
-        for stepsize in stepsizes:
-            h = nd.Hessian(lambda (tx, ty, tz): perturb(tx, ty, tz), step=(stepsize, stepsize, stepsize))
-            H = h((0,0,0))
-            stepsize_um = stepsize * xy_pixel_distance
-            hessians_all_stepsizes[stepsize_um] = (H, fmax)
-
-
-        #################
-        # Save hessians #
-        #################
-
-        fp = DataManager.get_confidence_filepath(stack_m=stack_moving, stack_f=stack_fixed,
-                                   classifier_setting_m=classifier_setting, classifier_setting_f=classifier_setting,
-                                   warp_setting=warp_setting, trial_idx=trial_idx,
-                                                 param_suffix=structure,
-                                   what='hessians')
-
-        create_if_not_exists(os.path.dirname(fp))
-        save_pickle(hessians_all_stepsizes, fp)
 
         ###################
         # Compute z-score #
@@ -170,7 +173,7 @@ for structure in all_known_structures_sided:
         zscores = {}
 
         # pool_radius_um_list = np.arange(25, 400, 20)
-        pool_radius_um_list = np.linspace(25, 400, 5)
+#             pool_radius_um_list = np.linspace(25, 400, 5)
         for pool_radius_um in pool_radius_um_list:
 
             pool_radius_pixel = pool_radius_um / xy_pixel_distance
@@ -184,8 +187,8 @@ for structure in all_known_structures_sided:
         #     neighbor_scores = aligner.compute_scores_neighborhood_grid(tx_params, dxs=dxs, dys=dys, dzs=dzs,
         #                                                                indices_m=labels_for_computing_confidence)
 
-            neighbor_scores = aligner.compute_scores_neighborhood_random(tx_params, n=3000,
-                            stds=np.array([0,0,0,pool_radius_pixel,0,0,0,pool_radius_pixel,0,0,0,pool_radius_pixel]),
+            neighbor_scores = aligner.compute_scores_neighborhood_random(tx_params, n=3000, 
+                            stds=np.array([0,0,0,pool_radius_pixel,0,0,0,pool_radius_pixel,0,0,0,pool_radius_pixel]), 
                             indices_m=labels_for_computing_confidence)
 
             sys.stderr.write('Compute scores: %.2f seconds.\n' % (time.time() - t))
@@ -196,20 +199,58 @@ for structure in all_known_structures_sided:
 
             zscores[pool_radius_um] = (z, fmax, mean, std)
 
-
         #################
         # Save z-scores #
         #################
 
-        fp = DataManager.get_confidence_filepath(stack_m=stack_moving, stack_f=stack_fixed,
-                                   classifier_setting_m=classifier_setting, classifier_setting_f=classifier_setting,
-                                   warp_setting=warp_setting, trial_idx=trial_idx,
-                                                 param_suffix=structure,
-                                   what='zscores')
-
-        create_if_not_exists(os.path.dirname(fp))
+        fp = DataManager.get_confidence_filepath(stack_m=stack_moving, stack_f=stack_fixed, 
+                                                 detector_id_f=detector_id,
+                                                 prep_id_f=2,
+                                                 warp_setting=warp_setting,
+                                                 structure_f=structure,
+                                                 structure_m=structure,
+                                                 what='zscores')
+        create_parent_dir_if_not_exists(fp)
         save_pickle(zscores, fp)
+        upload_to_s3(fp)
+
+        ####################
+        # Compute Hessians #
+        ####################
+
+        def perturb(tx, ty, tz):
+            return aligner.compute_score(tx_params + [0,0,0,tx,0,0,0,ty,0,0,0,tz],
+                                         indices_m=labels_for_computing_confidence)
+
+        hessians_all_stepsizes = {}
+#             stepsizes_um = np.linspace(25, 400, 5)
+        for stepsize_um in stepsizes_um:
+            stepsize = stepsize_um / xy_pixel_distance
+            h = nd.Hessian(lambda (tx, ty, tz): perturb(tx, ty, tz), step=(stepsize, stepsize, stepsize))
+            H = h((0,0,0))
+            hessians_all_stepsizes[stepsize_um] = (H, fmax)
+#                 U, S, UT = np.linalg.svd(H)
+#                 steepest_dir = U[:,0]
+#                 flattest_dir = U[:,-1]
+#                 stepsize_um = stepsize * xy_pixel_distance
+#                 hessians_all_stepsizes[stepsize_um] = (H, fmax, steepest_dir, flattest_dir)
+
+        #################
+        # Save hessians #
+        #################
+
+        fp = DataManager.get_confidence_filepath(stack_m=stack_moving, stack_f=stack_fixed,
+                                               detector_id_f=detector_id,
+                                                 prep_id_f=2,
+                                               warp_setting=warp_setting,
+                                                 structure_f=structure,
+                                                 structure_m=structure,
+                                                 what='hessians')
+
+        create_parent_dir_if_not_exists(fp)
+        save_pickle(hessians_all_stepsizes, fp)
+        upload_to_s3(fp)           
+
 
     except Exception as e:
-        sys.stderr.write('%s\n' % e)
-        sys.stderr.write('Error transforming volume %s.\n' % structure)
+        sys.stderr.write('Error transforming volume %s: %s\n' % (structure, e))

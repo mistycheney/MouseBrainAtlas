@@ -25,15 +25,15 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
-parser.add_argument("classifier_setting", type=int, help="classifier_setting")
-parser.add_argument("--trial_idx", type=int, help="trial index", default=0)
+parser.add_argument("detector_id", type=int, help="detector_id")
+#parser.add_argument("--trial_idx", type=int, help="trial index", default=0)
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
 stack_moving = args.stack_moving
 warp_setting = args.warp_setting
-classifier_setting = args.classifier_setting
-trial_idx = args.trial_idx
+detector_id = args.detector_id
+#trial_idx = args.trial_idx
 
 ###################################################################################
 

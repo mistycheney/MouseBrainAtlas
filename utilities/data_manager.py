@@ -1491,6 +1491,8 @@ class DataManager(object):
         vol_fp = DataManager.get_original_volume_filepath(**locals())
         download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
+        if volume_type == 'annotationAsScore':
+            volume = volume.astype(np.float32)
         return volume
 
     @staticmethod

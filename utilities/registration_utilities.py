@@ -2320,6 +2320,90 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
     return dense_volume
 
 
+def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=100.):
+    """
+    Generate weighting parameters for the weighted averaging transform.
+    
+    Args:
+    
+    Returns:
+        tuple (rigid_parameters (dict of (3,4)-array), anchor_points (dict of (3,)-array), sigmas (dict of float), weights (dict of float))
+    """
+    
+    from data_manager import DataManager
+    from utilities2015 import consolidate
+    
+    cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+    
+    volumes = {}
+    for structure in structures:
+        try:
+            volumes[structure] = \
+            DataManager.load_transformed_volume(stack_m=stack_m, 
+                                                stack_f=stack_f,
+                                                warp_setting=20,
+                                                vol_type_f='annotationAsScore', 
+                                                vol_type_m='annotationAsScore', 
+                                                                    downscale=32,
+                                                 structure=structure)
+        except Exception as e:
+            sys.stderr.write("Error loading volume for %s: %s\n" % (structure, str(e)))
+            
+    structures = volumes.keys()
+        
+    volume_moving_structure_sizes = {}
+    for structure in structures:
+        volume_moving_structure_sizes[structure] = np.count_nonzero(volumes[structure] > cutoff)
+    
+    
+    total_size = sum(volume_moving_structure_sizes[s] for s in structures)
+    structure_sizes_percent = {s: float(volume_moving_structure_sizes[s])/total_size 
+                               for s in structures}
+    # each structure's size as a percetage of all structures' size.
+    ################
+
+    structure_covars = {}
+    for s in structures:
+        v = volumes[s]
+        ys, xs, zs = np.where(v)
+        nzs = np.c_[xs, ys, zs]
+        nzsc = nzs - nzs.mean(axis=0)
+        C = np.dot(nzsc.T, nzsc)/float(len(nzsc))
+        S, V = np.linalg.eigh(C)
+        structure_covars[s] = C
+
+    ##################
+
+    # Read Transform of each structure, do polyrigid transform
+
+    rigid_parameters = {}
+    anchor_points = {}
+    weights = {}
+    sigmas = {}
+    
+    for structure in structures:
+        try:
+            local_params, cm_rel2ann, cf_rel2ann, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
+    DataManager.load_alignment_parameters(stack_m=stack_m, stack_f=stack_f,
+                                                            warp_setting=17, 
+                                                                 vol_type_m='annotationAsScore', 
+                                                                 vol_type_f='annotationAsScore', downscale=32,
+                                             structure_m=structure,
+                                             structure_f=structure)
+            rigid_parameters[structure] = consolidate(local_params, cm_rel2ann, cf_rel2ann)[:3].flatten()
+            anchor_points[structure] = cm_rel2ann
+#             if structure == '7N_R':
+#                 weights[structure] = 1
+#             else:
+#                 weights[structure] = 0
+            weights[structure] = structure_sizes_percent[structure]
+            sigmas[structure] = alpha * structure_covars[structure]
+        except Exception as e:
+            sys.stderr.write("Error loading structure-specific transform for %s: %s.\n" % (structure, str(e)))
+    
+    return rigid_parameters, anchor_points, sigmas, weights
+
+
 def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=None, 
                              ctrl_x_intervals=None,
                              ctrl_y_intervals=None,
@@ -2570,70 +2654,3 @@ def fill_sparse_volume(volume_sparse):
         volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1][vs_filled.astype(np.bool)] = ind
 
     return volume
-
-def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
-    """
-    Get a boolean volume with grid lines set to True.
-    
-    Args:
-        s (int): the spacing between dots if broken lines are desired.
-        
-    Returns:
-        3D array of boolean
-    """
-    
-    xdim, ydim, zdim = vol_shape
-    vol = np.zeros((ydim, xdim, zdim), np.bool)
-    xs = xs.astype(np.int)
-    ys = ys.astype(np.int)
-    zs = zs.astype(np.int)
-    xs = xs[(xs >= 0) & (xs < xdim)]
-    ys = ys[(ys >= 0) & (ys < ydim)]
-    zs = zs[(zs >= 0) & (zs < zdim)]
-    if include_borderline:
-        if 0 not in xs:
-            xs = np.r_[0, xs, xdim-1]
-        else:
-            xs = np.r_[xs, xdim-1]
-        if 0 not in ys:
-            ys = np.r_[0, ys, ydim-1]
-        else:
-            ys = np.r_[ys, ydim-1]
-        if 0 not in zs:
-            zs = np.r_[0, zs, zdim-1]
-        else:
-            zs = np.r_[zs, zdim-1]
-    for y in ys:
-        vol[y, xs, ::s] = 1
-        vol[y, ::s, zs] = 1
-    for x in xs:
-        vol[ys, x, ::s] = 1
-        vol[::s, x, zs] = 1
-    for z in zs:
-        vol[ys, ::s, z] = 1
-        vol[::s, xs, z] = 1
-        
-    return vol
-
-def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
-    """
-    Get a boolean volume with grid point set to True.
-    """
-    
-    xdim, ydim, zdim = vol_shape
-    vol = np.zeros((ydim, xdim, zdim), np.bool)
-    xs = xs.astype(np.int)
-    ys = ys.astype(np.int)
-    zs = zs.astype(np.int)
-    xs = xs[(xs >= 0) & (xs < xdim)]
-    ys = ys[(ys >= 0) & (ys < ydim)]
-    zs = zs[(zs >= 0) & (zs < zdim)]
-    gp_xs, gp_ys, gp_zs = np.meshgrid(xs, ys, zs, indexing='ij')
-    gp_xyzs = np.c_[gp_xs.flatten(), gp_ys.flatten(), gp_zs.flatten()]
-    vol[gp_xyzs[:,1], gp_xyzs[:,0], gp_xyzs[:,2]] = 1
-    
-    if return_nz:
-        return vol, gp_xyzs
-    else:
-        return vol
-

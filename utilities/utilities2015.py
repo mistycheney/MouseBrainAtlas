@@ -26,6 +26,156 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+
+def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
+    """
+    Get the coordinates of grid lines.
+    
+    Args:
+        spacing (int): the spacing between dots if broken lines are desired.
+        
+    Returns:
+        (n,3)-array
+    """
+    
+    xmin,xmax,ymin,ymax,zmin,zmax = bbox
+    
+    xdim, ydim, zdim = (xmax+1-xmin, ymax+1-ymin, zmax+1-zmin)
+    
+    xs = np.arange(0, xdim, 1)
+    ys = np.arange(0, ydim, 1)
+    zs = np.arange(0, zdim, 1)
+    
+    vol = np.zeros((ydim, xdim, zdim), np.bool)
+    xs = xs.astype(np.int)
+    ys = ys.astype(np.int)
+    zs = zs.astype(np.int)
+    xs = xs[(xs >= 0) & (xs < xdim)]
+    ys = ys[(ys >= 0) & (ys < ydim)]
+    zs = zs[(zs >= 0) & (zs < zdim)]
+    if include_borderline:
+        if 0 not in xs:
+            xs = np.r_[0, xs, xdim-1]
+        else:
+            xs = np.r_[xs, xdim-1]
+        if 0 not in ys:
+            ys = np.r_[0, ys, ydim-1]
+        else:
+            ys = np.r_[ys, ydim-1]
+        if 0 not in zs:
+            zs = np.r_[0, zs, zdim-1]
+        else:
+            zs = np.r_[zs, zdim-1]
+    for y in ys:
+        vol[y, xs, ::spacing] = 1
+        vol[y, ::spacing, zs] = 1
+    for x in xs:
+        vol[ys, x, ::spacing] = 1
+        vol[::spacing, x, zs] = 1
+    for z in zs:
+        vol[ys, ::spacing, z] = 1
+        vol[::spacing, xs, z] = 1
+     
+    ys, xs, zs = np.nonzero(vol)
+            
+    return np.c_[xs, ys, zs]
+            
+            
+def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
+    """
+    Get a boolean volume with grid lines set to True.
+    
+    Args:
+        s (int): the spacing between dots if broken lines are desired.
+        
+    Returns:
+        3D array of boolean
+    """
+    
+    xs, ys, zs = get_grid_mesh_coordinates(**locals())
+    
+    xdim, ydim, zdim = vol_shape
+    vol = np.zeros((ydim, xdim, zdim), np.bool)
+    xs = xs.astype(np.int)
+    ys = ys.astype(np.int)
+    zs = zs.astype(np.int)
+    xs = xs[(xs >= 0) & (xs < xdim)]
+    ys = ys[(ys >= 0) & (ys < ydim)]
+    zs = zs[(zs >= 0) & (zs < zdim)]
+    if include_borderline:
+        if 0 not in xs:
+            xs = np.r_[0, xs, xdim-1]
+        else:
+            xs = np.r_[xs, xdim-1]
+        if 0 not in ys:
+            ys = np.r_[0, ys, ydim-1]
+        else:
+            ys = np.r_[ys, ydim-1]
+        if 0 not in zs:
+            zs = np.r_[0, zs, zdim-1]
+        else:
+            zs = np.r_[zs, zdim-1]
+    for y in ys:
+        vol[y, xs, ::s] = 1
+        vol[y, ::s, zs] = 1
+    for x in xs:
+        vol[ys, x, ::s] = 1
+        vol[::s, x, zs] = 1
+    for z in zs:
+        vol[ys, ::s, z] = 1
+        vol[::s, xs, z] = 1
+        
+    return vol
+
+def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
+    """
+    Get a boolean volume with grid point set to True.
+    """
+    
+    xdim, ydim, zdim = vol_shape
+    vol = np.zeros((ydim, xdim, zdim), np.bool)
+    xs = xs.astype(np.int)
+    ys = ys.astype(np.int)
+    zs = zs.astype(np.int)
+    xs = xs[(xs >= 0) & (xs < xdim)]
+    ys = ys[(ys >= 0) & (ys < ydim)]
+    zs = zs[(zs >= 0) & (zs < zdim)]
+    gp_xs, gp_ys, gp_zs = np.meshgrid(xs, ys, zs, indexing='ij')
+    gp_xyzs = np.c_[gp_xs.flatten(), gp_ys.flatten(), gp_zs.flatten()]
+    vol[gp_xyzs[:,1], gp_xyzs[:,0], gp_xyzs[:,2]] = 1
+    
+    if return_nz:
+        return vol, gp_xyzs
+    else:
+        return vol
+
+def return_gridline_points_v2(xdim, ydim, spacing, z):
+    xs = np.arange(0, xdim, spacing)
+    ys = np.arange(0, ydim, spacing)
+    return return_gridline_points(xs, ys, z, xdim, ydim)
+    
+def return_gridline_points(xs, ys, z, w, h):
+    grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
+    return grid_points
+
+
+def consolidate(params, centroid_m, centroid_f):
+    """
+    Convert the set (parameter, centroid m, centroid f) to a single matrix.
+    
+    Args:
+        params ((12,)-array):
+        centroid_m ((3,)-array):
+        centroid_f ((3,)-array):
+        
+    Returns:
+        ((3,4)-array)
+    """
+    G = params.reshape((3,4))
+    R = G[:3,:3]
+    t = - np.dot(R, centroid_m) + G[:3,3] + centroid_f
+    return np.vstack([np.c_[R,t], [0,0,0,1]])
+
 def jaccard_masks(m1, m2, wrt_min=False):
     """
     Args:

@@ -98,7 +98,7 @@ DataManager.load_original_volume_all_known_structures(stack=stack_fixed,
                                                      sided=False, volume_type='score')
 
 for structure in all_known_structures_sided:
-#     for structure in ['7N_L']:
+# for structure in ['7N_L']:
 
     try:
 
@@ -107,16 +107,14 @@ for structure in all_known_structures_sided:
         ##############################
 
         if include_surround:
-            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
-                                                                         detector_id_f=detector_id,
-                                                 prep_id_f=2,
-                                                                         warp_setting=upstream_warp_setting, 
-                                                                         structures=[structure, 
-                                                                                     convert_to_surround_name(structure, margin='200')])
+            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, 
+                                         stack_f=stack_fixed, prep_id_f=2, detector_id_f=detector_id, warp_setting=upstream_warp_setting, 
+                                        structures=[structure, convert_to_surround_name(structure, margin='200')])
         else:
-            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, stack_f=stack_fixed,
+            volume_moving = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_moving, 
+                                                                                     stack_f=stack_fixed,
+                                                                                     prep_id_f=2, 
                                                                          detector_id_f=detector_id,
-                                                 prep_id_f=2,
                                                                          warp_setting=upstream_warp_setting, 
                                                                          structures=[structure])
 
@@ -127,22 +125,50 @@ for structure in all_known_structures_sided:
         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
                              for label_m, name_m in label_to_structure_moving.iteritems()}
 
-        if surround_weight == 'inverse':
-            volume_moving_structure_sizes = {l: np.count_nonzero(vol > 0) for l, vol in volume_moving.iteritems()}
-            label_weights_m = {label_m: -volume_moving_structure_sizes[structure_to_label_moving[convert_to_nonsurround_name(name_m)]]
-                               /float(volume_moving_structure_sizes[label_m])
-                               if is_surround_label(name_m) else 1. \
-                               for label_m, name_m in label_to_structure_moving.iteritems()}
-        elif isinstace(surround_weight, int) or isinstace(surround_weight, float):
-            label_weights_m = {label_m: surround_weight if is_surround_label(name_m) else 1. \
-                               for label_m, name_m in label_to_structure_moving.iteritems()}
-        else:
-            sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+        ######################
 
-        aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=label_mapping_m2f)
+        cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+        # volume_moving_structure_sizes = {m_ind: np.count_nonzero(volume_moving[m_ind] > cutoff) 
+        #                                  for m_ind in label_mapping_m2f.iterkeys()}
+        pool = Pool(NUM_CORES)
+        volume_moving_structure_sizes = dict(zip(volume_moving.keys(), 
+                                                 pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff), 
+                                                          label_mapping_m2f.iterkeys())))
+        pool.close()
+        pool.join()
+
+        ########################
+
+        label_weights_m = {}
+
+        for label_m in label_mapping_m2f.iterkeys():
+            name_m = label_to_structure_moving[label_m]
+            if not is_surround_label(name_m):
+                if positive_weight == 'size':
+                    label_weights_m[label_m] = 1.
+                elif positive_weight == 'inverse':
+                    p = np.percentile(volume_moving_structure_sizes.values(), 50)
+                    label_weights_m[label_m] =  np.minimum(p / volume_moving_structure_sizes[label_m], 1.)
+                else:
+                    sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
+
+        for label_m in label_mapping_m2f.iterkeys():
+            name_m = label_to_structure_moving[label_m]
+            if is_surround_label(name_m):
+                label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
+                if surround_weight == 'inverse':
+                    label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+                elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
+                    label_weights_m[label_m] = surround_weight
+                else:
+                    sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+
+
+        aligner = Aligner4(volume_fixed, volume_moving, 
+                           labelIndexMap_m2f=label_mapping_m2f)
 
         aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', 
-                             indices_m=[structure_to_label_moving[structure]])                            
+                             indices_m=[structure_to_label_moving[structure]])
 
         aligner.set_regularization_weights(reg_weights)
         aligner.set_label_weights(label_weights_m)
@@ -175,7 +201,7 @@ for structure in all_known_structures_sided:
 
         for pool_radius_um in pool_radius_um_list:
 
-            pool_radius_pixel = pool_radius_um / xy_pixel_distance
+            pool_radius_pixel = pool_radius_um / XY_PIXEL_DISTANCE_TB
 
             t = time.time()
 
@@ -223,7 +249,7 @@ for structure in all_known_structures_sided:
 
         hessians_all_stepsizes = {}
         for stepsize_um in stepsize_um_list:
-            stepsize = stepsize_um / xy_pixel_distance
+            stepsize = stepsize_um / XY_PIXEL_DISTANCE_TB
             h = nd.Hessian(lambda (tx, ty, tz): perturb(tx, ty, tz), step=(stepsize, stepsize, stepsize))
             H = h((0,0,0))
             hessians_all_stepsizes[stepsize_um] = (H, fmax)
@@ -248,7 +274,6 @@ for structure in all_known_structures_sided:
         create_parent_dir_if_not_exists(fp)
         save_pickle(hessians_all_stepsizes, fp)
         upload_to_s3(fp)           
-
 
     except Exception as e:
         sys.stderr.write('Error transforming volume %s: %s\n' % (structure, e))

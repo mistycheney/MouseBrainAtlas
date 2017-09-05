@@ -28,9 +28,11 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
-parser.add_argument("detector_id", type=int, help="Detector id")
+parser.add_argument("-d", "--detector_id", type=int, help="Detector id", default=None)
 parser.add_argument("-n", "--trial_num", type=int, help="number of trials", default=1)
 parser.add_argument("-s", "--structures", type=str, help="Json encoding of structure name list")
+parser.add_argument("--stack_fixed_type", type=str, help="Fixed stack type", default='score')
+parser.add_argument("--stack_moving_type", type=str, help="Moving stack type", default='score')
 args = parser.parse_args()
 
 stack_fixed = args.stack_fixed
@@ -42,6 +44,17 @@ if hasattr(args, "structures"):
     structure_subset = json.loads(args.structures)
 else:
     structure_subset = all_known_structures_sided
+stack_fixed_type = args.stack_fixed_type
+stack_moving_type = args.stack_moving_type
+
+if stack_fixed_type == 'score':
+    prep_id = 2
+    negate_surround = True
+    f_is_sided = False
+else:
+    prep_id = None
+    negate_surround = False
+    f_is_sided = True
     
 ###################################################################
 
@@ -66,6 +79,8 @@ std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
 if not np.isnan(warp_properties['max_iter_num']):
     max_iter_num = int(warp_properties['max_iter_num'])
 
+positive_weight = 'size'
+    
 surround_weight = warp_properties['surround_weight']
 if isinstance(surround_weight, float) or isinstance(surround_weight, int):
     surround_weight = float(surround_weight)
@@ -84,21 +99,29 @@ lr2 = 0.1
 #####################################################################
 
 volume_moving, structure_to_label_moving, label_to_structure_moving = \
-DataManager.load_original_volume_all_known_structures(stack=stack_moving, sided=True, volume_type='score', 
+DataManager.load_original_volume_all_known_structures(stack=stack_moving, sided=True, volume_type=stack_moving_type, 
                                                       include_surround=include_surround)
 
 volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
-DataManager.load_original_volume_all_known_structures(stack=stack_fixed, detector_id=detector_id, prep_id=2,
-                                                   sided=False, volume_type='score')
+DataManager.load_original_volume_all_known_structures(stack=stack_fixed, detector_id=detector_id, prep_id=prep_id,
+                                                      sided=f_is_sided, volume_type=stack_fixed_type)
 
 if include_surround:
     structure_subset = structure_subset + [convert_to_surround_name(s, margin=200) for s in structure_subset]
     
-label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
-                     for label_m, name_m in label_to_structure_moving.iteritems()
-                     if name_m in structure_subset}
-
-positive_weight = 'size'
+label_mapping_m2f = {}    
+for label_m, name_m in label_to_structure_moving.iteritems():
+    if name_m in structure_subset:
+        if f_is_sided:
+            name_f = name_m
+        else:
+            name_f = convert_to_original_name(name_m)
+        if name_f in structure_to_label_fixed:
+            label_mapping_m2f[label_m] = structure_to_label_fixed[name_f]
+    
+# label_mapping_m2f = {label_m: structure_to_label_fixed[name_m if f_is_sided else convert_to_original_name(name_m)] 
+#                      for label_m, name_m in label_to_structure_moving.iteritems()
+#                      if name_m in structure_subset}
 
 cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
 pool = Pool(NUM_CORES)
@@ -126,7 +149,11 @@ for label_m in label_mapping_m2f.iterkeys():
     if is_surround_label(name_m):
         label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
         if surround_weight == 'inverse':
-            label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+            if negate_surround:
+                label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+            else:
+                label_weights_m[label_m] = label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+            
         elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
             label_weights_m[label_m] = surround_weight
         else:
@@ -151,7 +178,8 @@ gradient_filepath_map_f = \
                                                           stack=stack_fixed, 
                                                           structure=label_to_structure_fixed[ind_f],
                                                           detector_id=detector_id, 
-                                                         prep_id=2)
+                                                         prep_id=prep_id,
+                                                         volume_type=stack_fixed_type)
  for ind_m, ind_f in label_mapping_m2f.iteritems()}
 
 gradients = {ind_f: np.zeros((3,)+volume_fixed.values()[0].shape, dtype=np.float16) 
@@ -204,8 +232,10 @@ for trial_idx in range(trial_num):
     DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                              vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=trial_idx, what='parameters')
     DataManager.save_alignment_parameters(params_fp, T, 
                                           aligner.centroid_m, aligner.centroid_f,
@@ -217,8 +247,10 @@ for trial_idx in range(trial_num):
     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                                           vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=trial_idx, what='scoreHistory')
     bp.pack_ndarray_file(np.array(scores), history_fp)
     upload_to_s3(history_fp)
@@ -227,8 +259,10 @@ for trial_idx in range(trial_num):
     score_plot_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                                              vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=trial_idx, what='scoreEvolution')
     fig = plt.figure();
     plt.plot(scores);
@@ -240,8 +274,10 @@ for trial_idx in range(trial_num):
     trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                                              vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=trial_idx, what='trajectory')
     bp.pack_ndarray_file(np.array(aligner.Ts), trajectory_fp)
     upload_to_s3(trajectory_fp)
@@ -259,8 +295,10 @@ params_fp = \
     DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                              vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=None, what='parameters')
 DataManager.save_alignment_parameters(params_fp, parameters_all_trials[best_trial], 
                                       aligner.centroid_m, aligner.centroid_f,
@@ -272,8 +310,10 @@ upload_to_s3(params_fp)
 history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                               stack_f=stack_fixed,
                                               detector_id_f=detector_id,
-                                              prep_id_f=2,
+                                              prep_id_f=prep_id,
                                               warp_setting=warp_setting,
+                                                       vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                              trial_idx=None, what='scoreHistory')
 bp.pack_ndarray_file(np.array(scores_all_trials[best_trial]), history_fp)
 upload_to_s3(history_fp)
@@ -283,8 +323,10 @@ score_plot_fp = \
 history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                               stack_f=stack_fixed,
                                               detector_id_f=detector_id,
-                                              prep_id_f=2,
+                                              prep_id_f=prep_id,
                                               warp_setting=warp_setting,
+                                                       vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                              trial_idx=None, what='scoreEvolution')
 fig = plt.figure();
 plt.plot(scores_all_trials[best_trial]);
@@ -296,8 +338,10 @@ upload_to_s3(score_plot_fp)
 trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
                                                   stack_f=stack_fixed,
                                                   detector_id_f=detector_id,
-                                                  prep_id_f=2,
+                                                  prep_id_f=prep_id,
                                                   warp_setting=warp_setting,
+                                                          vol_type_m=stack_moving_type,
+                                              vol_type_f=stack_fixed_type,
                                                  trial_idx=None, what='trajectory')
 bp.pack_ndarray_file(np.array(traj_all_trials[best_trial]), trajectory_fp)
 upload_to_s3(trajectory_fp)

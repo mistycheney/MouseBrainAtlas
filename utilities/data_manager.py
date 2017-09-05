@@ -1379,7 +1379,7 @@ class DataManager(object):
         return vol_fp
 
     @staticmethod
-    def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score'):
+    def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
@@ -1494,19 +1494,31 @@ class DataManager(object):
         return volume
 
     @staticmethod
-    def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32):
+    def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32,
+                                 relative_to_uncropped=False):
         """
         This returns the 3D bounding box.
 
         Args:
-            volume_type (str):
+            volume_type (str): takes one of the following values.
                 annotation: with respect to aligned uncropped thumbnail
                 score/thumbnail: with respect to aligned cropped thumbnail
                 shell: with respect to aligned uncropped thumbnail
+            relative_to_uncropped (bool): if True, all 6 numbers in the returned bbox is relative to the uncropped volume. If False, the first four numbers are relative to the cropped, the last two numbers are relative to the uncropped (a mistake from the past).
+                
+        Returns:
+            volume_bbox (6-tuple): (xmin, xmax, ymin, ymax, zmin, zmax).
         """
+        
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
         download_from_s3(bbox_fp)
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
+        
+        if relative_to_uncropped:
+            if volume_type == 'score':
+                crop_bbox_rel2uncropped = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
+                volume_bbox = np.r_[volume_bbox[:4] + crop_bbox_rel2uncropped[[0,0,2,2]], crop_bbox_rel2uncropped[4:]]
+        
         return volume_bbox
 
 
@@ -1516,7 +1528,7 @@ class DataManager(object):
                                           prep_id=None,
                                 downscale=32,
                                  volume_type='score',
-                                structure=None):
+                                structure=None, **kwargs):
         if volume_type == 'annotation':
             bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
         elif volume_type == 'score':

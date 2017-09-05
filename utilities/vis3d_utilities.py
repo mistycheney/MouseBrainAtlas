@@ -391,7 +391,15 @@ def vectormap_to_imagedata(arr, colors):
     return imagedata
 
 
-def volume_to_imagedata(arr, origin=(0,0,0)):
+def volume_to_imagedata(arr, origin=(0,0,0), auxdata=None):
+    """
+    Args:
+        arr (3d-array of uint8 or float32):
+        origin (3-tuple): the origin coordinate of the given volume
+        
+    Returns:
+        (vtkImageData): Each point (in vtk parlance) gets ONE scalar value which is the value of an input volume voxel. Respects the (x,y,z) dimension ordering.
+    """
 
     imagedata = vtk.vtkImageData()
     imagedata.SetDimensions([arr.shape[1], arr.shape[0], arr.shape[2]])
@@ -399,15 +407,19 @@ def volume_to_imagedata(arr, origin=(0,0,0)):
     imagedata.SetOrigin(origin[0], origin[1], origin[2])
 
     v3 = np.transpose(arr, [2,0,1])
-
+    v3 = v3.flatten()
+    if auxdata is not None:
+        auxdata = np.transpose(auxdata, [2,0,1])
+        v3 = np.column_stack([v3, auxdata.flatten()])
+        
     if arr.dtype == np.uint8:
         t = vtk.VTK_UNSIGNED_CHAR
     elif arr.dtype == np.float32:
         t = vtk.VTK_FLOAT
     else:
-        sys.stderr.write('Data type must be uint8 or float32.\n')
-
-    imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(v3.flat, deep=True, array_type=t)) # deep copy must be true
+        raise Exception('Data type must be uint8 or float32.')
+    
+    imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(v3, deep=True, array_type=t)) # deep copy must be true
     return imagedata
 
 ############################### VTK Utils #####################################
@@ -424,6 +436,7 @@ def take_screenshot(win, file_path, magnification=10):
     windowToImageFilter.Update();
 
     writer = vtk.vtkPNGWriter()
+    create_parent_dir_if_not_exists(file_path)
     writer.SetFileName(file_path);
     writer.SetInputConnection(windowToImageFilter.GetOutputPort());
     writer.Write();
@@ -539,10 +552,11 @@ def save_mesh(polydata, fn, color=(255,255,255)):
 #             take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
 #         return
 
-def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
+def launch_vtk(actors, init_angle=None, window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
             axes=True, background_color=(0,0,0), axes_label_color=(1,1,1),
-            animate=False, movie_fn=None):
+            animate=False, movie_fn=None,
+              view_up=None, position=None, focal=None):
 
     ren1 = vtk.vtkRenderer()
     ren1.SetBackground(background_color)
@@ -582,7 +596,12 @@ def launch_vtk(actors, init_angle='30', window_name=None, window_size=None,
 
     camera = vtk.vtkCamera()
 
-    if init_angle == '15':
+    if init_angle is None:
+        camera.SetViewUp(view_up[0], view_up[1], view_up[2])
+        camera.SetPosition(position[0], position[1], position[2])
+        camera.SetFocalPoint(focal[0], focal[1], focal[2])
+    
+    elif init_angle == '15':
 
         # 30 degree
         camera.SetViewUp(0, -1, 0)
@@ -810,22 +829,28 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
     return a
 
 
-def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
+def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
     """
     Args:
-        what (str): tb, score or probability. 
-        A caveat when `what` is probability - zero-valued voxels are not transparent, so later actors will block previous actors.
+        what (str): tb, score or probability. A caveat when what="probability" is that zero-valued voxels are not transparent, so later actors will block previous actors.
+        c (3-tuple): color
+        
     """
 
-    imagedata = volume_to_imagedata(volume, origin=origin)
+    imagedata = volume_to_imagedata(volume, origin=origin, auxdata=auxdata)
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
-    # volumeMapper.SetBlendModeToComposite()
-    volumeMapper.SetInputData(imagedata)
+    volumeMapper.SetBlendModeToComposite()
+    
+    # Setting this results in blank
+    # funcRayCast = vtk.vtkVolumeRayCastCompositeFunction()
+    # # funcRayCast.SetCompositeMethodToClassifyFirst()
+    # funcRayCast.SetCompositeMethodToInterpolateFirst()
+    # volumeMapper = vtk.vtkVolumeRayCastMapper()
+    # volumeMapper.SetVolumeRayCastFunction(funcRayCast)
 
+    volumeMapper.SetInputData(imagedata)
     volumeProperty = vtk.vtkVolumeProperty()
-    #     volumeProperty.ShadeOff()
-    # volumeProperty.SetInterpolationType(vtk.VTK_LINEAR_INTERPOLATION)
 
     if what == 'tb':
 
@@ -869,19 +894,22 @@ def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opa
     # volumeGradientOpacity.AddPoint(2, 1.0)
 
     elif what == 'score':
+        
+        volumeProperty.IndependentComponentsOff()
 
         compositeOpacity = vtk.vtkPiecewiseFunction()
         compositeOpacity.AddPoint(0.0, 0.0)
-        # compositeOpacity.AddPoint(0.95, .0)
-        # compositeOpacity.AddPoint(0.96, .2)
-        compositeOpacity.AddPoint(0.9999, .0)
-        compositeOpacity.AddPoint(1.0, .2)
-        volumeProperty.SetScalarOpacity(compositeOpacity)
+        # compositeOpacity.AddPoint(0.95, 0.0)
+        compositeOpacity.AddPoint(1.0, 1.0)
 
         color = vtk.vtkColorTransferFunction()
-        color.AddRGBPoint(0.0, 1, 1, 1)
-        color.AddRGBPoint(0.95, 1, 1, 1)
-        color.AddRGBPoint(1.0, 1,1,1)
+        color.AddRGBPoint(0.0, c[0], c[1], c[2])
+        color.AddRGBPoint(1.0, c[0], c[1], c[2])
+        
+        # volumeGradientOpacity = vtk.vtkPiecewiseFunction()
+        # volumeGradientOpacity.AddPoint(0,  0.0)
+        # volumeGradientOpacity.AddPoint(10,  1.0)
+        # volumeGradientOpacity.AddPoint(2, 1.0)
 
     elif what == 'probability':
         compositeOpacity = vtk.vtkPiecewiseFunction()
@@ -924,9 +952,13 @@ def actor_volume(volume, what, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opa
     else:
         sys.stderr.write('Color/opacity profile not recognized.\n')
 
-    volumeProperty.SetScalarOpacity(compositeOpacity)
+    # volumeProperty.ShadeOff()
     volumeProperty.SetColor(color)
+    volumeProperty.SetScalarOpacity(compositeOpacity)
+    # Use the scalar at index 1
+    # volumeProperty.SetScalarOpacity(0, compositeOpacity)
     # volumeProperty.SetGradientOpacity(volumeGradientOpacity)
+    # volumeProperty.SetInterpolationTypeToLinear()
 
     volume = vtk.vtkVolume()
     volume.SetMapper(volumeMapper)

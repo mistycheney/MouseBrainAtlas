@@ -622,6 +622,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def load_structures(self):
+        """
+        Load a 3D structure annotation file.
+        """
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         # print structures_df_fp

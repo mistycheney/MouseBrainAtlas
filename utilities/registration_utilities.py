@@ -2279,12 +2279,55 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)    
     return nzs_m_aligned_to_f
     
+
+def transform_volume_polyrigid_v2(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox, fill_holes=True):
+    """
+    NEEDS REVIEW.
+    
+    Transform volume by weighted-average transform.
+    
+    Args:
+        rigid_param_list (list of (12,)-ndarrays): list of rigid transforms, with initial shifts incorporated.
+        weights (list of float): weights of component transforms. Only the relative magnitude matters.
+    """
+    
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points_polyrigid(nzvoxels_m_temp, rigid_param_list, anchor_points, sigmas, weights).astype(np.int16)
+
+    nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
+    nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
+
+    xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
+    ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
+    zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
+
+    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+    xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+    volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
+
+    del nzs_m_aligned_to_f
+
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        #dense_volume = volume_m_aligned_to_f
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    return dense_volume
+
+    
 def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox, fill_holes=True):
     """
-    Transform volume by a weighted-average transform.
+    Transform volume by weighted-average transform.
     
     Args:
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+        weights (list of float): weights of component transforms. Only the relative magnitude matters.
 
     """
     
@@ -2342,8 +2385,12 @@ def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=10
             DataManager.load_transformed_volume(stack_m=stack_m, 
                                                 stack_f=stack_f,
                                                 warp_setting=20,
-                                                vol_type_f='annotationAsScore', 
-                                                vol_type_m='annotationAsScore', 
+                                                vol_type_f='score', 
+                                                vol_type_m='score', 
+                                                prep_id_f=2,
+                                                detector_id_f=15,
+                                                # vol_type_f='annotationAsScore', 
+                                                # vol_type_m='annotationAsScore', 
                                                                     downscale=32,
                                                  structure=structure)
         except Exception as e:
@@ -2386,8 +2433,13 @@ def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=10
             local_params, cm_rel2ann, cf_rel2ann, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
     DataManager.load_alignment_parameters(stack_m=stack_m, stack_f=stack_f,
                                                             warp_setting=17, 
-                                                                 vol_type_m='annotationAsScore', 
-                                                                 vol_type_f='annotationAsScore', downscale=32,
+                                                                 # vol_type_m='annotationAsScore', 
+                                                                 # vol_type_f='annotationAsScore', 
+                                                              vol_type_m='score', 
+                                                                 vol_type_f='score', 
+                                                              prep_id_f=2,
+                                                              detector_id_f=15,
+                                          downscale=32,
                                              structure_m=structure,
                                              structure_f=structure)
             rigid_parameters[structure] = consolidate(local_params, cm_rel2ann, cf_rel2ann)[:3].flatten()

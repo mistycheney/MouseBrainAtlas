@@ -552,9 +552,9 @@ def save_mesh(polydata, fn, color=(255,255,255)):
 #             take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
 #         return
 
-def launch_vtk(actors, init_angle=None, window_name=None, window_size=None,
+def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
-            axes=True, background_color=(0,0,0), axes_label_color=(1,1,1),
+            axes=True, background_color=(1,1,1), axes_label_color=(1,1,1),
             animate=False, movie_fn=None,
               view_up=None, position=None, focal=None):
 
@@ -596,7 +596,7 @@ def launch_vtk(actors, init_angle=None, window_name=None, window_size=None,
 
     camera = vtk.vtkCamera()
 
-    if init_angle is None:
+    if view_up is not None and position is not None and focal is not None:
         camera.SetViewUp(view_up[0], view_up[1], view_up[2])
         camera.SetPosition(position[0], position[1], position[2])
         camera.SetFocalPoint(focal[0], focal[1], focal[2])
@@ -834,6 +834,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
     Args:
         what (str): tb, score or probability. A caveat when what="probability" is that zero-valued voxels are not transparent, so later actors will block previous actors.
         c (3-tuple): color
+        tb_colors (dict {int: 3-tuple}): color transfer function that maps intensity value to color tuple.
         
     """
 
@@ -903,8 +904,24 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         compositeOpacity.AddPoint(1.0, 1.0)
 
         color = vtk.vtkColorTransferFunction()
-        color.AddRGBPoint(0.0, c[0], c[1], c[2])
-        color.AddRGBPoint(1.0, c[0], c[1], c[2])
+        
+        color.AddRGBPoint(0.0, 0,0,0)
+
+        if tb_colors is not None:
+            for v, c in sorted(tb_colors.items()):
+                vl = v - .5
+                vr = v + .5
+                cp1 = vl-.25
+                cp2 = vr-.25
+                color.AddRGBPoint(cp1, .5*cp1/200., .5*cp1/200., .5*cp1/200., .5, 1.)
+                color.AddRGBPoint(v, c[0], c[1], c[2], .5, 1.)
+                color.AddRGBPoint(cp2, .5*cp2/200., .5*cp2/200., .5*cp2/200., .5, 1.)
+            color.AddRGBPoint(vr, .5*vr/200., .5*vr/200., .5*vr/200.)
+        color.AddRGBPoint(200.0, .5,.5,.5)
+        color.AddRGBPoint(255.0, 1,1,1)
+        
+#         color.AddRGBPoint(0.0, c[0], c[1], c[2])
+#         color.AddRGBPoint(1.0, c[0], c[1], c[2])
         
         # volumeGradientOpacity = vtk.vtkPiecewiseFunction()
         # volumeGradientOpacity.AddPoint(0,  0.0)

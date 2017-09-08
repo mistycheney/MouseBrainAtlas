@@ -876,6 +876,7 @@ class DataManager(object):
     def get_mesh_filepath(stack_m,
                             structure,
                             detector_id_m=None,
+                          prep_id_f=None,
                             detector_id_f=None,
                             warp_setting=None,
                             stack_f=None,
@@ -893,6 +894,7 @@ class DataManager(object):
                                     structure,
                                     detector_id_m=None,
                                     stack_f=None,
+                                  prep_id_f=None,
                                     detector_id_f=None,
                                     warp_setting=None,
                                     downscale=32,
@@ -908,17 +910,18 @@ class DataManager(object):
 
     @staticmethod
     def load_meshes(stack_m,
-                                    stack_f=None,
-                                    detector_id_m=None,
-                                    detector_id_f=None,
-                                    warp_setting=None,
-                                    downscale=32,
-                                    vol_type_m='score', vol_type_f='score',
-                                    trial_idx=None,
-                                    structures=None,
-                                    sided=True,
-                                    return_polydata_only=True,
-                                   include_surround=False):
+                    stack_f=None,
+                    detector_id_m=None,
+                    prep_id_f=None,
+                    detector_id_f=None,
+                    warp_setting=None,
+                    downscale=32,
+                    vol_type_m='score', vol_type_f='score',
+                    trial_idx=None,
+                    structures=None,
+                    sided=True,
+                    return_polydata_only=True,
+                   include_surround=False):
 
         kwargs = locals()
 
@@ -1517,10 +1520,10 @@ class DataManager(object):
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
         
         if relative_to_uncropped:
-            if volume_type == 'score':
+            if volume_type == 'score' or volume_type == 'thumbnail':
                 crop_bbox_rel2uncropped = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
                 volume_bbox = np.r_[volume_bbox[:4] + crop_bbox_rel2uncropped[[0,0,2,2]], crop_bbox_rel2uncropped[4:]]
-        
+            
         return volume_bbox
 
 

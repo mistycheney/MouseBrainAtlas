@@ -1533,6 +1533,8 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
 
 def find_contour_points(labelmap, sample_every=10, min_length=0):
     """
+    Find contour coordinates.
+    
     Args:
         labelmap (2d array of int): integer-labeled 2D image
         sample_every (int): can be interpreted as distance between points.

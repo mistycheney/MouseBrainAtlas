@@ -1,0 +1,26 @@
+- Show the need for deformable registration
+  - pair of structures, far away, so deformation is more apparent
+- Show that low-res intensity based registration is not useful
+  - intensity of ROI and background is similar
+  - no high gradient or tissue boundary nearby
+
+MD590-N46-2015.08.03-20.05.19_MD590_3_0136
+lossless 12N 10449 8283 2042 1320
+
+MD591-IHC44-2015.08.28-06.07.20_MD591_2_0131_prep2_thumbnail.tif
+lossless
+12N
+# xmin = 8906
+# ymin = 9009
+# xdim = 4206
+# ydim = 2314
+new version: 12N 8736, 8416, 4832, 2304
+3N 3050 4786 2522 1513
+
+MD592-IHC46-2015.08.25-23.08.46_MD592_1_0136_prep2_lossless_jpeg
+12N 8619 7576 4922 1328
+3N 1542 5586 3534 1137
+make these:
+12N 8864, 6976, 4832, 2304
+3N 2496 5344 2522 1515
+

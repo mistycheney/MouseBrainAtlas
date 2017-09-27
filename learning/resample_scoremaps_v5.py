@@ -36,7 +36,7 @@ stack = args.stack
 filenames = json.loads(args.filenames)
 detector_id = args.detector_id
 downscale = args.downscale
-input_img_version = args.input_img_version
+#input_img_version = args.input_img_version
 
 detector_properties = detector_settings.loc[detector_id]
 windowing_id = int(detector_properties['windowing_id'])
@@ -52,10 +52,18 @@ patch_size = windowing_properties['patch_size']
 spacing = windowing_properties['spacing']
 w, h = metadata_cache['image_shape'][stack]
 # patch_size, spacing, w, h = get_default_gridspec(stack)
-half_size = patch_size/2
 
 def resample(fn):
+    """
+    Args:
+        w (int): width of full resolution image
+        h (int): height of full resolution image
+        spacing (int): spacing of patch grid
+        patch_size (int): patch size in full resolution
+    """
 
+    half_size = patch_size/2
+    
     if is_invalid(stack=stack, fn=fn):
         return
 

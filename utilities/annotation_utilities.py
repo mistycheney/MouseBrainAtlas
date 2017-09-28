@@ -90,14 +90,13 @@ def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
 
     return surround_vol
 
-
 def get_surround_volume_v2(vol, bbox, distance=5, valid_level=0, prob=False):
     """
     Return the (volume, bbox) with voxels surrounding the active voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
 
     Args:
-        vol (3D ndarray of float):
-            input volume. It is the whole space rather than a bbox around structure.
+        vol (3D ndarray of float): input volume in bbox.
+        bbox ((6,)-array): bbox
         valid_level (float):
             voxels with value above this level are regarded as active.
         distance (int):
@@ -133,7 +132,8 @@ def get_surround_volume_v2(vol, bbox, distance=5, valid_level=0, prob=False):
         return surround_vol, roi_bbox
     else:
         return roi_surround_vol, roi_bbox
-
+    
+    
 def points_inside_contour(cnt, num_samples=None):
     xmin, ymin = cnt.min(axis=0)
     xmax, ymax = cnt.max(axis=0)

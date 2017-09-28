@@ -9,8 +9,8 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
     Args:
         images (dict of 2D images): key is section index. First section has index 0.
         voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
-        firse_sec (int): the beginning section of the bounding box
-        last_sec (int): the ending section of the bounding box
+        firse_sec (int): the beginning section of the bounding box. Default is the the smallest key of `images`.
+        last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
     """
 
     if isinstance(images, dict):
@@ -20,7 +20,6 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
             last_sec = np.max(sections)
         if first_sec is None:
             first_sec = np.min(sections)
-
     elif callable(images):
         try:
             ydim, xdim = images(100).shape[:2]
@@ -41,10 +40,7 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
 
     volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
 
-    # bar = show_progress_bar(first_sec, last_sec)
-
     for i in range(len(images.keys())-1):
-        # bar.value = sections[i]
         z1 = sections[i] * voxel_z_size
         z2 = sections[i+1] * voxel_z_size
         if isinstance(images, dict):
@@ -94,7 +90,6 @@ def contours_to_volume(contours_grouped_by_label=None, label_contours_tuples=Non
     import sys
     sys.path.append(os.environ['REPO_DIR'] + '/utilities')
     from annotation_utilities import interpolate_contours_to_volume
-
 
     if label_contours_tuples is not None:
         contours_grouped_by_label = {}

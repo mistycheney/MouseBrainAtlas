@@ -645,14 +645,16 @@ def average_multiple_volumes(volumes, bboxes):
     return overall_volume, (overall_xmin, overall_xmax, overall_ymin, overall_ymax, overall_zmin, overall_zmax)
 
 def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
-                                    return_contours=False, len_interval=20):
+                                    return_contours=False, len_interval=20, fill=True):
     """Interpolate contours.
 
     Args:
-        return_contours (bool): If true, return resampled contours \{int: (n,2)-ndarrays\}. If false, return (volume, bbox) tuple.
-        return_voxels (bool): If true, return points inside contours.
+        return_contours (bool): If true, only return resampled contours \{int: (n,2)-ndarrays\}. If false, return (volume, bbox) tuple.
+        return_voxels (bool): If true, only return points inside contours.
+        fill (bool): If true, the volume is just the shell. Otherwise, the volume is filled. 
 
     Returns:
+        If default, return (volume, bbox).
         volume (3D binary ndarray):
         bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
 
@@ -700,19 +702,32 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
 
         return {i: contour_pts.astype(np.int) for i, contour_pts in interpolated_contours.iteritems()}
 
-    interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
-    if return_voxels:
-        return interpolated_interior_points
+    if fill:
 
-    volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
-    for i, pts in interpolated_interior_points.iteritems():
-        if interpolation_direction == 'z':
-            volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
-        elif interpolation_direction == 'y':
-            volume[i-ymin, pts[:,0]-xmin, pts[:,1]-zmin] = 1
-        elif interpolation_direction == 'x':
-            volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
+        interpolated_interior_points = {i: points_inside_contour(contour_pts.astype(np.int)) for i, contour_pts in interpolated_contours.iteritems()}
+        if return_voxels:
+            return interpolated_interior_points
 
+        volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
+        for i, pts in interpolated_interior_points.iteritems():
+            if interpolation_direction == 'z':
+                volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
+            elif interpolation_direction == 'y':
+                volume[i-ymin, pts[:,0]-xmin, pts[:,1]-zmin] = 1
+            elif interpolation_direction == 'x':
+                volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
+
+    else:
+        volume = np.zeros((ymax-ymin+1, xmax-xmin+1, zmax-zmin+1), np.bool)
+        for i, pts in interpolated_contours.iteritems():
+            pts = pts.astype(np.int)
+            if interpolation_direction == 'z':
+                volume[pts[:,1]-ymin, pts[:,0]-xmin, i-zmin] = 1
+            elif interpolation_direction == 'y':
+                volume[i-ymin, pts[:,0]-xmin, pts[:,1]-zmin] = 1
+            elif interpolation_direction == 'x':
+                volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
+        
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 
 

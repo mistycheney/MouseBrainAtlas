@@ -2453,7 +2453,7 @@ class DataManager(object):
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-        download_from_s3(fp, local_root=DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         mask = imread(fp).astype(np.bool)
         return mask
 

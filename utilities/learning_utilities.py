@@ -224,52 +224,53 @@ def load_dataset_images(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOT
     return merged_patches, merged_addresses
 
 
-def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
+# Moved to DataManager class method.
+# def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
     
-    merged_features = {}
-    merged_addresses = {}
+#     merged_features = {}
+#     merged_addresses = {}
 
-    for dataset_id in dataset_ids:
+#     for dataset_id in dataset_ids:
 
-        if labels_to_sample is None:
-            import re
-            labels_to_sample = []
-            for dataset_id in dataset_ids:
-                dataset_dir = DataManager.get_dataset_dir(dataset_id=dataset_id)
-                #download_from_s3(dataset_dir, is_dir=True)
-                for fn in os.listdir(dataset_dir):
-                    g = re.match('patch_features_(.*).bp', fn).groups()
-                    if len(g) > 0:
-                        labels_to_sample.append(g[0])
+#         if labels_to_sample is None:
+#             import re
+#             labels_to_sample = []
+#             for dataset_id in dataset_ids:
+#                 dataset_dir = DataManager.get_dataset_dir(dataset_id=dataset_id)
+#                 #download_from_s3(dataset_dir, is_dir=True)
+#                 for fn in os.listdir(dataset_dir):
+#                     g = re.match('patch_features_(.*).bp', fn).groups()
+#                     if len(g) > 0:
+#                         labels_to_sample.append(g[0])
         
-        for label in labels_to_sample:
-            try:
-                # Load training features
+#         for label in labels_to_sample:
+#             try:
+#                 # Load training features
 
-                features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=label)
-                #download_from_s3(features_fp)
-                features = bp.unpack_ndarray_file(features_fp)
+#                 features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=label)
+#                 #download_from_s3(features_fp)
+#                 features = bp.unpack_ndarray_file(features_fp)
             
-                # load training addresses
+#                 # load training addresses
 
-                addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=label)
-                #download_from_s3(addresses_fp)
-                addresses = load_pickle(addresses_fp)
+#                 addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=label)
+#                 #download_from_s3(addresses_fp)
+#                 addresses = load_pickle(addresses_fp)
 
-                if label not in merged_features:
-                    merged_features[label] = features
-                else:
-                    merged_features[label] = np.concatenate([merged_features[label], features])
+#                 if label not in merged_features:
+#                     merged_features[label] = features
+#                 else:
+#                     merged_features[label] = np.concatenate([merged_features[label], features])
 
-                if label not in merged_addresses:
-                    merged_addresses[label] = addresses
-                else:
-                    merged_addresses[label] += addresses
+#                 if label not in merged_addresses:
+#                     merged_addresses[label] = addresses
+#                 else:
+#                     merged_addresses[label] += addresses
 
-            except Exception as e:
-                continue
+#             except Exception as e:
+#                 continue
                                 
-    return merged_features, merged_addresses
+#     return merged_features, merged_addresses
 
 def load_datasets(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR, ext='hdf'):
     

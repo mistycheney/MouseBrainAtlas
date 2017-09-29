@@ -277,6 +277,8 @@ class Aligner4(object):
     
     def set_bspline_grid_size(self, interval):
         """
+        Set class internal variable `NuNvNw_allTestPts`.
+        
         Args:
             interval (float): x,y,z interval in voxels.
         """
@@ -446,63 +448,73 @@ class Aligner4(object):
             return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
         """
                 
-        if tf_type == 'affine' or tf_type == 'rigid':
+        # t = time.time()
+        if n_sample is not None:
+
+            num_nz = len(nzvoxels_centered_m[ind_m])
+            valid_moving_voxel_indicator = np.zeros((num_nz,), np.bool)
+
             # t = time.time()
-            if n_sample is not None:
-                
-                num_nz = len(nzvoxels_centered_m[ind_m])
-                valid_moving_voxel_indicator = np.zeros((num_nz,), np.bool)
-                
-                # t = time.time()
-                import random
-                random_indices = np.array(random.sample( xrange(num_nz), min(num_nz, n_sample) ))
-                # sys.stderr.write('random_indices: %.2f seconds\n' % (time.time() - t))
+            import random
+            random_indices = np.array(random.sample( xrange(num_nz), min(num_nz, n_sample) ))
+            # sys.stderr.write('random_indices: %.2f seconds\n' % (time.time() - t))
 
+            if tf_type == 'affine' or tf_type == 'rigid':
                 pts_prime_sampled = transform_points_affine(np.array(T), 
-                                                pts_centered=nzvoxels_centered_m[ind_m][random_indices],
-                                                c_prime=self.centroid_f).astype(np.int16)
-                
-                xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
-                valid_indicator_within_sampled = (xs_prime_sampled >= 0) & (ys_prime_sampled >= 0) & (zs_prime_sampled >= 0) & \
-                        (xs_prime_sampled < self.xdim_f) & (ys_prime_sampled < self.ydim_f) & (zs_prime_sampled < self.zdim_f)
-                valid_moving_voxel_indicator[random_indices[valid_indicator_within_sampled]] = 1
-
-                xs_prime_valid = xs_prime_sampled[valid_indicator_within_sampled]
-                ys_prime_valid = ys_prime_sampled[valid_indicator_within_sampled]
-                zs_prime_valid = zs_prime_sampled[valid_indicator_within_sampled]
-
+                                            pts_centered=nzvoxels_centered_m[ind_m][random_indices],
+                                            c_prime=self.centroid_f).astype(np.int16)
+            elif tf_type == 'bspline':                    
+                n_params = len(T)
+                buvwx = T[:n_params/3]
+                buvwy = T[n_params/3:n_params/3*2]
+                buvwz = T[n_params/3*2:]
+                pts_prime_sampled = transform_points_bspline(buvwx, buvwy, buvwz, \
+                                                             pts_centered=nzvoxels_centered_m[ind_m][random_indices],
+                                                             c_prime=self.centroid_f,
+                            NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m][random_indices]).astype(np.int16)
             else:
-                pts_prime = transform_points_affine(np.array(T), 
-                                                pts_centered=nzvoxels_centered_m[ind_m],
-                                                c_prime=self.centroid_f).astype(np.int16)
-                
-                xs_prime, ys_prime, zs_prime = pts_prime.T
-                
-                valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
-                        (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
-                
-                xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
-                ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
-                zs_prime_valid = zs_prime[valid_moving_voxel_indicator]
-                                
-            # sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
-                        
-        elif tf_type == 'bspline':
-            n_params = len(T)
-            buvwx = T[:n_params/3]
-            buvwy = T[n_params/3:n_params/3*2]
-            buvwz = T[n_params/3*2:]
-            pts_prime = transform_points_bspline(buvwx, buvwy, buvwz, 
-                                                 pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
-                                                NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
+                raise
 
+            xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
+            valid_indicator_within_sampled = (xs_prime_sampled >= 0) & (ys_prime_sampled >= 0) & (zs_prime_sampled >= 0) & \
+                    (xs_prime_sampled < self.xdim_f) & (ys_prime_sampled < self.ydim_f) & (zs_prime_sampled < self.zdim_f)
+            valid_moving_voxel_indicator[random_indices[valid_indicator_within_sampled]] = 1
+
+            xs_prime_valid = xs_prime_sampled[valid_indicator_within_sampled]
+            ys_prime_valid = ys_prime_sampled[valid_indicator_within_sampled]
+            zs_prime_valid = zs_prime_sampled[valid_indicator_within_sampled]
+
+        else:
+            if tf_type == 'affine' or tf_type == 'rigid':
+                pts_prime = transform_points_affine(np.array(T), 
+                                            pts_centered=nzvoxels_centered_m[ind_m],
+                                            c_prime=self.centroid_f).astype(np.int16)
+            elif tf_type == 'bspline':
+                n_params = len(T)
+                buvwx = T[:n_params/3]
+                buvwy = T[n_params/3:n_params/3*2]
+                buvwz = T[n_params/3*2:]
+                pts_prime = transform_points_bspline(buvwx, buvwy, buvwz, 
+                                                     pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
+                                                    NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
+
+            xs_prime, ys_prime, zs_prime = pts_prime.T
+
+            valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
+                    (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
+
+            xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
+            ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
+            zs_prime_valid = zs_prime[valid_moving_voxel_indicator]
+
+        # sys.stderr.write("transform all points: %.2f s\n" % (time.time() - t))
 
         if return_valid:
             return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
         else:
             return xs_prime_valid, ys_prime_valid, zs_prime_valid
-
-
+                            
+            
     def compute_score_and_gradient_one(self, T, tf_type, num_samples=None, ind_m=None):
         """
         Compute score and gradient of one structure.
@@ -656,10 +668,12 @@ class Aligner4(object):
                 
         # sys.stderr.write("3: %.2f s\n" % (time.time() - t)) 
 
-        # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
-        del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, S_m_valid_scores
-        # del xs_valid, ys_valid, zs_valid
+        if tf_type == 'rigid' or tf_type == 'affine':
+            # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
+            del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, S_m_valid_scores
+            # del xs_valid, ys_valid, zs_valid
             
+
         return score, grad
 
     def compute_score_and_gradient(self, T, tf_type, num_samples=None, indices_m=None):
@@ -707,7 +721,7 @@ class Aligner4(object):
                 score += self.label_weights[ind_m] * score_one
 
             except Exception as e:
-                #raise e
+                raise e
                 sys.stderr.write('Error computing score/gradient for %d: %s\n' % (ind_m, e))
 
         # # parallel
@@ -1173,12 +1187,16 @@ class Aligner4(object):
                  # grid_search_eta=3.,
                 reg_weights=None,
                 epsilon=1e-8,
-                affine_scaling_limits=None):
+                affine_scaling_limits=None,
+                bspline_deformation_limit=None):
         """Optimize.
         Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
 
         Args:
             reg_weights: for (tx,ty,tz)
+            affine_scaling_limits (2 tuple of float): min/max for the diagonal elements of affine matrix.
+            bspline_deformation_limit (float): maximum deformation of any bspline control point in any direction.
+            
         """
 
         if indices_m is None:
@@ -1265,7 +1283,8 @@ class Aligner4(object):
                 new_T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=lr1, \
                                 grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
                                 indices_m=indices_m, tf_type='bspline',
-                                                                           num_samples=grad_computation_sample_number)
+                                                                           num_samples=grad_computation_sample_number,
+                                                                               bspline_deformation_limit=bspline_deformation_limit)
 
             else:
                 raise Exception('Type must be either rigid or affine.')                
@@ -1377,7 +1396,7 @@ class Aligner4(object):
         return np.column_stack([R_new, t_new]).flatten(), score, grad_historical, sq_updates_historical
     
     
-    def step_gd(self, T, lr, grad_historical, sq_updates_historical, tf_type, surround=False, surround_weight=2., num_samples=None, indices_m=None, scaling_limits=None):
+    def step_gd(self, T, lr, grad_historical, sq_updates_historical, tf_type, surround=False, surround_weight=2., num_samples=None, indices_m=None, scaling_limits=None, bspline_deformation_limit=100):
         """
         One optimization step using gradient descent with Adagrad.
 
@@ -1385,6 +1404,9 @@ class Aligner4(object):
             T ((12,) vector): flattened vector of 3x4 transform matrix.
             lr ((12,) vector): learning rate
             dMdA_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad
+            
+            scaling_limits (2-tuple of float): applicable only to affine registration; the minimum/maximum values for any of the three diagonal elements of the affine matrix.
+            bspline_deformation_limit (float): applicable only to bspline registration; the maximum deformation in any of x,y,z directions allowed for any control point.
 
         Returns:
             (tuple): tuple containing:
@@ -1411,10 +1433,9 @@ class Aligner4(object):
         
         # Constrain the transform
         if tf_type == 'bspline':
-            # Limit the deformation at all control points to be less than 100.
-            new_T = np.sign(new_T) * np.minimum(np.abs(new_T), 100)
+            # Limit the deformation at all control points to be less than bspline_deformation_limit.
+            new_T = np.sign(new_T) * np.minimum(np.abs(new_T), bspline_deformation_limit)
         elif tf_type == 'affine':
-            # pass
             if scaling_limits is not None:                
                 new_T[0] = np.sign(new_T[0]) * np.minimum(np.maximum(np.abs(new_T[0]), scaling_limits[0]), scaling_limits[1])
                 new_T[5] = np.sign(new_T[5]) * np.minimum(np.maximum(np.abs(new_T[5]), scaling_limits[0]), scaling_limits[1])
@@ -1433,7 +1454,10 @@ class Aligner4(object):
         # new_T = T + update
         # sq_updates_historical = gamma * sq_updates_historical + (1-gamma) * update**2
 
-        sys.stderr.write("in T: %.2f %.2f %.2f, out T: %.2f %.2f %.2f\n" % (T[3], T[7], T[11], new_T[3], new_T[7], new_T[11]))
+        if tf_type == 'affine' or tf_type == 'rigid':
+            sys.stderr.write("in T: %.2f %.2f %.2f, out T: %.2f %.2f %.2f\n" % (T[3], T[7], T[11], new_T[3], new_T[7], new_T[11]))
+        else:
+            sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max())) 
         return new_T, score, grad_historical, sq_updates_historical
 
 
@@ -2062,6 +2086,7 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
         volume_shape ((3,)-ndarray of int): (xdim, ydim, zdim)
         interval (int): control point spacing in x,y,z directions.
         pts ((n,3)-ndarray): input point coordinates.
+        NuNvNw_allTestPts ((n_test, n_ctrlx * n_ctrly * n_ctrlz)-array)
     
     Returns:
         transformed_pts ((n,3)-ndarray): transformed point coordinates.

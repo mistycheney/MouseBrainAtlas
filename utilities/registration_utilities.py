@@ -102,25 +102,101 @@ def rotate_transform_vector(v, theta_xy=0,theta_yz=0,theta_xz=0,c=(0,0,0)):
     return np.ravel(np.c_[R_new, t_new])
 
 
-def N(i,t):
+def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
     """
-    Cubic B-spline base functions.
-    
     Args:
-        i (int): control point index. Can be negative (?)
-        t (float): position.
+        control_points (1d-array): normalized in the unit of spacing interval
+        test_points (1d-array): normalized in the unit of spacing interval
     """
     
-    if i <= t and t < i+1:
-        return (t-i)**3/6.
-    elif i+1 <= t and t < i+2:
-        return (t-i)**2*(i+2-t)/6. + (t-i)*(i+3-t)*(t-i-1)/6. + (i+4-t)*(t-i-1)**2/6.
-    elif i+2 <= t and t < i+3:
-        return (t-i)*(i+3-t)**2/6. + (i+4-t)*(i+3-t)*(t-i-1)/6. + (i+4-t)**2*(t-i-2)/6.
-    elif i+3 <= t and t < i+4:
-        return (i+4-t)**3/6.
-    else:
-        return 0
+    test_points_x_normalized = test_points
+    ctrl_point_x_normalized = control_points
+    
+    D = np.subtract.outer(test_points_x_normalized, ctrl_point_x_normalized) # (#testpts, #ctrlpts)
+    
+    in_1 = ((D >= 0) & (D < 1)).astype(np.int)
+    in_2 = ((D >= 1) & (D < 2)).astype(np.int)
+    in_3 = ((D >= 2) & (D < 3)).astype(np.int)
+    in_4 = ((D >= 3) & (D < 4)).astype(np.int)
+    F = in_1 * D**3/6. + \
+    in_2 * (D**2*(2-D)/6. + D*(3-D)*(D-1)/6. + (4-D)*(D-1)**2/6.) + \
+    in_3 * (D*(3-D)**2/6. + (4-D)*(3-D)*(D-1)/6. + (4-D)**2*(D-2)/6.) + \
+    in_4 * (4-D)**3/6.
+    
+    return F.T # (#ctrl, #test)
+
+# def bspline_N(i, t):
+#     """
+#     Cubic B-spline base functions.
+    
+#     Args:
+#         i (int): control point index. Can be negative (?)
+#         t (float): position.
+#     """
+    
+#     d = t - i
+#     in_1 = ((d >= 0) & (d < 1)).astype(np.int)
+#     in_2 = ((d >= 1) & (d < 2)).astype(np.int)
+#     in_3 = ((d >= 2) & (d < 3)).astype(np.int)
+#     in_4 = ((d >= 3) & (d < 4)).astype(np.int)
+#     return \
+#     in_1 * d**3/6. + \
+#     in_2 * (d**2*(2-d)/6. + d*(3-d)*(d-1)/6. + (4-d)*(d-1)**2/6.) + \
+#     in_3 * (d*(3-d)**2/6. + (4-d)*(3-d)*(d-1)/6. + (4-d)**2*(d-2)/6.) + \
+#     in_4 * (4-d)**3/6.
+
+# def N(i, t):
+#     """
+#     Cubic B-spline base functions.
+    
+#     Args:
+#         i (int): control point index. Can be negative (?)
+#         t (float): position.
+#     """
+#     d = t - i
+    
+#     if d >= 0 and d < 1:
+#         return d**3/6.
+#     elif d >= 1 and d < 2:
+#         return d**2*(2-d)/6. + d*(3-d)*(d-1)/6. + (4-d)*(d-1)**2/6.
+#     elif d >= 2 and d < 3:
+#         return d*(3-d)**2/6. + (4-d)*(3-d)*(d-1)/6. + (4-d)**2*(d-2)/6.
+#     elif d >= 3 and d < 4:
+#         return (4-d)**3/6.
+#     else:
+#         return 0
+    
+    # if i <= t and t < i+1:
+    #     return (t-i)**3/6.
+    # elif i+1 <= t and t < i+2:
+    #     return (t-i)**2*(i+2-t)/6. + (t-i)*(i+3-t)*(t-i-1)/6. + (i+4-t)*(t-i-1)**2/6.
+    # elif i+2 <= t and t < i+3:
+    #     return (t-i)*(i+3-t)**2/6. + (i+4-t)*(i+3-t)*(t-i-1)/6. + (i+4-t)**2*(t-i-2)/6.
+    # elif i+3 <= t and t < i+4:
+    #     return (i+4-t)**3/6.
+    # else:
+    #     return 0
+
+
+# def N(i,t):
+#     """
+#     Cubic B-spline base functions.
+    
+#     Args:
+#         i (int): control point index. Can be negative (?)
+#         t (float): position.
+#     """
+    
+#     if i <= t and t < i+1:
+#         return (t-i)**3/6.
+#     elif i+1 <= t and t < i+2:
+#         return (t-i)**2*(i+2-t)/6. + (t-i)*(i+3-t)*(t-i-1)/6. + (i+4-t)*(t-i-1)**2/6.
+#     elif i+2 <= t and t < i+3:
+#         return (t-i)*(i+3-t)**2/6. + (i+4-t)*(i+3-t)*(t-i-1)/6. + (i+4-t)**2*(t-i-2)/6.
+#     elif i+3 <= t and t < i+4:
+#         return (i+4-t)**3/6.
+#     else:
+#         return 0
     
 volume_f = None
 volume_m = None
@@ -299,17 +375,24 @@ class Aligner4(object):
             
             t = time.time()
         
-            NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) 
-                                         for testPt_i, (x, y, z) in enumerate(test_pts)]
-                                        for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
+            NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval), 
+                                                                         test_points=test_pts[:,0]/float(interval))
+            NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval), 
+                                                                         test_points=test_pts[:,1]/float(interval))
+            NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval), 
+                                                                         test_points=test_pts[:,2]/float(interval))
+            
+            # NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) 
+            #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
+            #                             for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
             # (n_ctrlx, n_all_nz_m)
-            NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) 
-                                         for testPt_i, (x, y, z) in enumerate(test_pts)]
-                                        for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
+            # NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) 
+            #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
+            #                             for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
             # (n_ctrly, n_all_nz_m)
-            NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) 
-                                         for testPt_i, (x, y, z) in enumerate(test_pts)]
-                                        for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
+            # NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) 
+            #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
+            #                             for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
             # (n_ctrlz, n_all_nz_m)
             # print 'NwPz_allTestPts', NwPz_allTestPts.shape
             
@@ -324,7 +407,7 @@ class Aligner4(object):
             # print 'self.NuNvNw_allTestPts', self.NuNvNw_allTestPts[ind_m].shape
             # (n_all_nz_m, n_ctrl)
 
-            sys.stderr.write("Compute every control point's contribution to every nonzero test point: %.2f seconds.\n" % (time.time()-t) )
+            sys.stderr.write("Compute every control point's contribution to every nonzero test point, 3 dimensions: %.2f seconds.\n" % (time.time()-t) )
             
     def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
         """
@@ -1314,6 +1397,11 @@ class Aligner4(object):
                     if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
                     np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
                         break
+            elif tf_type == 'bspline':
+                if iteration > history_len:
+                    if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
+                    np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
+                        break
 
             if s > score_best:
                 best_gradient_descent_params = T
@@ -2112,14 +2200,21 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
     
         t = time.time()
 
-        NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
-                                    for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
+        NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval), 
+                                                                     test_points=pts_centered[:,0]/float(interval))
+        NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval), 
+                                                                     test_points=pts_centered[:,1]/float(interval))
+        NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval), 
+                                                                     test_points=pts_centered[:,2]/float(interval))
+            
+#         NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
+#                                     for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
         
-        NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
-                                    for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
+#         NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
+#                                     for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
         
-        NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
-                                    for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
+#         NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
+#                                     for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
 
         sys.stderr.write("Compute NuPx/NvPy/NwPz: %.2f seconds.\n" % (time.time() - t))
 
@@ -2493,8 +2588,8 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
     Transform volume by a B-spline transform.
     
     Args:
-        vol (3D-ndarray or 2-tuple): input volume. If tuple, (volume in bbox, bbox).
-        volume_shape (3-tuple); xdim,ydim,zdim
+        vol (3d-ndarray or 2-tuple): input binary volume. If tuple, (volume in bbox, bbox).
+        volume_shape (3-tuple): xdim, ydim, zdim
         interval (float): control point spacing in three directions.
     """
     

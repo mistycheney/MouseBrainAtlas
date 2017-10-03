@@ -399,11 +399,14 @@ class Aligner4(object):
             sys.stderr.write("Compute NuPx/NvPy/NwPz: %.2f seconds.\n" % (time.time()-t) )
 
             t = time.time()
-
-            self.NuNvNw_allTestPts[ind_m] = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
-                                                                                  NvPy_allTestPts[:,testPt_i], 0), 
-                                                                     NwPz_allTestPts[:,testPt_i], 0))
-                                  for testPt_i in range(len(test_pts))])
+            
+            # self.NuNvNw_allTestPts[ind_m] = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
+            #                                                                       NvPy_allTestPts[:,testPt_i], 0), 
+            #                                                          NwPz_allTestPts[:,testPt_i], 0))
+            #                       for testPt_i in range(len(test_pts))])
+            
+            self.NuNvNw_allTestPts[ind_m] = np.einsum('it,jt,kt->ijkt', NuPx_allTestPts, NvPy_allTestPts, NwPz_allTestPts).reshape((-1, NuPx_allTestPts.shape[-1])).T
+            
             # print 'self.NuNvNw_allTestPts', self.NuNvNw_allTestPts[ind_m].shape
             # (n_all_nz_m, n_ctrl)
 
@@ -1120,129 +1123,6 @@ class Aligner4(object):
         else:
             return params_best_upToNow
 
-
-#     def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True,
-#                     std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60),
-#                     return_best_score=True,
-#                     eta=3.):
-#         """Grid search.
-
-#         Args:
-#             grid_search_iteration_number (int): number of iteration
-#             eta: sample number and sigma = initial value * np.exp(-iter/eta), default = 3.
-
-#         Returns:
-#             params_best_upToNow ((12,) float array): found parameters
-
-#         """
-#         params_best_upToNow = (0, 0, 0, 0)
-#         params_secondbest_upToNow = (0,0,0,0)
-#         score_best_upToNow = -np.inf
-
-#         if indices_m is None:
-#             indices_m = self.all_indices_m
-
-#         for iteration in range(grid_search_iteration_number):
-
-#             # self.logger.info('grid search iteration %d', iteration)
-
-#             init_tx, init_ty, init_tz, init_theta_xy = params_best_upToNow
-
-#             n = int(init_n*np.exp(-iteration/eta)) / 2
-
-#             sigma_tx = std_tx*np.exp(-iteration/eta)
-#             sigma_ty = std_ty*np.exp(-iteration/eta)
-#             sigma_tz = std_tz*np.exp(-iteration/eta)
-#             sigma_theta_xy = std_theta_xy*np.exp(-iteration/eta)
-
-#             tx_grid = init_tx + sigma_tx * np.r_[0, (2 * np.random.random(n) - 1)]
-#             ty_grid = init_ty + sigma_ty * np.r_[0, (2 * np.random.random(n) - 1)]
-#             tz_grid = init_tz + sigma_tz * np.r_[0, (2 * np.random.random(n) - 1)]
-#             theta_xy_grid = init_theta_xy + sigma_theta_xy * np.r_[0, (2 * np.random.random(n) - 1)]
-
-#             samples = np.c_[tx_grid, ty_grid, tz_grid, theta_xy_grid]
-            
-#             #######################
-#             init_tx, init_ty, init_tz, init_theta_xy = params_secondbest_upToNow
-
-#             n = int(init_n*np.exp(-iteration/eta)) / 2
-
-#             sigma_tx = std_tx*np.exp(-iteration/eta)
-#             sigma_ty = std_ty*np.exp(-iteration/eta)
-#             sigma_tz = std_tz*np.exp(-iteration/eta)
-#             sigma_theta_xy = std_theta_xy*np.exp(-iteration/eta)
-
-#             tx_grid = init_tx + sigma_tx * np.r_[0, (2 * np.random.random(n) - 1)]
-#             ty_grid = init_ty + sigma_ty * np.r_[0, (2 * np.random.random(n) - 1)]
-#             tz_grid = init_tz + sigma_tz * np.r_[0, (2 * np.random.random(n) - 1)]
-#             theta_xy_grid = init_theta_xy + sigma_theta_xy * np.r_[0, (2 * np.random.random(n) - 1)]
-
-#             samples = np.concatenate([samples, np.c_[tx_grid, ty_grid, tz_grid, theta_xy_grid]])
-
-#             ###############################
-            
-#             t = time.time()
-
-#             # empirical speedup 7x
-#             # parallel
-#             if parallel:
-#                 pool = Pool(processes=8)
-#                 scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy),
-#                                                         indices_m=indices_m, tf_type='affine'), samples)
-#                 pool.close()
-#                 pool.join()
-#             else:
-#             # serial
-#                 scores = [self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m, tf_type='affine')
-#                             for tx, ty, tz, theta_xy in samples]
-
-#             sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
-
-#             sample_indices_sorted = np.argsort(scores)[::-1]
-            
-#             sample_index_best = sample_indices_sorted[0]
-#             tx_best, ty_best, tz_best, theta_xy_best = samples[sample_index_best]
-#             score_best = scores[sample_index_best]
-            
-#             sys.stderr.write('tx_best: %.2f (voxel), ty_best: %.2f, tz_best: %.2f, theta_xy_best: %.2f (deg), score=%.2f\n' % \
-#             (tx_best, ty_best, tz_best, np.rad2deg(theta_xy_best), score_best))
-#             sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg)\n' % \
-#             (sigma_tx, sigma_ty, sigma_tz, np.rad2deg(sigma_theta_xy)))
-
-#             if score_best > score_best_upToNow:
-#                 # self.logger.info('%f %f', score_best_upToNow, score_best)
-#                 sys.stderr.write('New best: %f %f\n' % (score_best_upToNow, score_best))
-
-#                 score_best_upToNow = score_best
-#                 params_best_upToNow = tx_best, ty_best, tz_best, theta_xy_best
-                
-#                 for i in sample_indices_sorted[1:]:
-#                     tx, ty, tz, theta_xy = samples[i]
-#                     # s = scores[i]
-#                     if np.linalg.norm((tx-tx_best, ty-ty_best, tz-tz_best)) > 30:
-#                         tx_secondbest, ty_secondbest, tz_secondbest, theta_xy_secondbest = (tx, ty, tz, theta_xy)
-                        
-#                         score_secondbest_upToNow = score_secondbest
-#                         params_secondbest_upToNow = tx_secondbest, ty_secondbest, tz_secondbest, theta_xy_secondbest
-                        
-#                         sys.stderr.write('New second_best: tx_secondbest: %.2f (voxel), ty_secondbest: %.2f, tz_secondbest: %.2f, theta_xy_secondbest: %.2f (deg), score=%.2f\n' % \
-#             (tx_secondbest, ty_secondbest, tz_secondbest, np.rad2deg(theta_xy_secondbest), score_secondbest_upToNow))
-                        
-#                         break
-#                 sys.stderr.write("i=%d\n" % i)
-
-#             if sigma_tx < 10:
-#                 break
-
-#                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
-#         sys.stderr.write('params_best_upToNow: %f %f %f %f\n' % (tx_best, ty_best, tz_best, theta_xy_best))
-
-#         if return_best_score:
-#             return params_best_upToNow, score_best_upToNow
-#         else:
-#             return params_best_upToNow
-
-
     def do_grid_search(self, grid_search_iteration_number=10, grid_search_sample_number=1000,
                       std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                        grid_search_eta=3., stop_radius_voxel=10,
@@ -1399,8 +1279,7 @@ class Aligner4(object):
                         break
             elif tf_type == 'bspline':
                 if iteration > history_len:
-                    if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
-                    np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
+                    if np.all([np.std(Ts[iteration-history_len:iteration, :], axis=0) < terminate_thresh_trans]):
                         break
 
             if s > score_best:
@@ -1497,11 +1376,9 @@ class Aligner4(object):
             bspline_deformation_limit (float): applicable only to bspline registration; the maximum deformation in any of x,y,z directions allowed for any control point.
 
         Returns:
-            (tuple): tuple containing:
-
-                new_T ((12,) vector): the new parameters
-                score (float): current score
-                dMdv_historical ((12,) vector): new accumulated gradient magnitude, used for Adagrad
+            new_T ((12,) vector): the new parameters
+            score (float): current score
+            dMdv_historical ((12,) vector): new accumulated gradient magnitude, used for Adagrad
         """
 
         if indices_m is None:
@@ -1533,7 +1410,6 @@ class Aligner4(object):
                 new_T[5] = np.sign(new_T[5]) * np.abs(new_T[5])
                 new_T[10] = np.sign(new_T[10]) * np.abs(new_T[10])
             
-
         # AdaDelta Rule
         # gamma = .9
         # epsilon = 1e-10
@@ -1544,26 +1420,23 @@ class Aligner4(object):
 
         if tf_type == 'affine' or tf_type == 'rigid':
             sys.stderr.write("in T: %.2f %.2f %.2f, out T: %.2f %.2f %.2f\n" % (T[3], T[7], T[11], new_T[3], new_T[7], new_T[11]))
-        else:
+        elif tf_type == 'bspline':
             sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max())) 
         return new_T, score, grad_historical, sq_updates_historical
 
 
 from scipy.optimize import approx_fprime
 
-def hessian ( x0, f, epsilon=1.e-5, linear_approx=False, *args ):
+def hessian(x0, f, epsilon=1.e-5, linear_approx=False, *args):
     """
     A numerical approximation to the Hessian matrix of cost function at
     location x0 (hopefully, the minimum)
 
-    Parameters
-    ----------
-    x0 :
-        point
-    f :
-        cost function
-
+    Args:
+        x0: point
+        f: cost function
     """
+    
     # ``calculate_cost_function`` is the cost function implementation
     # The next line calculates an approximation to the first
     # derivative
@@ -2223,10 +2096,13 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
         # (n_ctrlx, n_test)
 
         t = time.time()
-        NuNvNw_allTestPts = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
-                                                                         NvPy_allTestPts[:,testPt_i], 0), 
-                                                            NwPz_allTestPts[:,testPt_i], 0))
-                                  for testPt_i in range(len(pts_centered))])
+        
+        NuNvNw_allTestPts = np.einsum('it,jt,kt->ijkt', NuPx_allTestPts, NvPy_allTestPts, NwPz_allTestPts).reshape((-1, NuPx_allTestPts.shape[-1])).T
+        
+        # NuNvNw_allTestPts = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
+        #                                                                  NvPy_allTestPts[:,testPt_i], 0), 
+        #                                                     NwPz_allTestPts[:,testPt_i], 0))
+        #                           for testPt_i in range(len(pts_centered))])
         sys.stderr.write("Compute NuNvNw: %.2f seconds.\n" % (time.time() - t))
 
     # the expression inside np.ravel gives array of shape (n_ctrlx, n_ctrly, nctrlz)

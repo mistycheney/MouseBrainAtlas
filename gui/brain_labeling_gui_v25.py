@@ -761,7 +761,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if p.properties['label'] == name_u and p.properties['side'] == side]
 
             if len(matched_confirmed_polygons) < 2:
-                sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, (name_u, side)))
+                sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (from_gscene_id, (name_u, side)))
                 return
 
             factor_dataResol_to_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor

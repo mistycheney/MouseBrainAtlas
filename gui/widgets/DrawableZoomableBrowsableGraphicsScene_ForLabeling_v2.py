@@ -120,9 +120,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         bbox_lossless = np.array(bbox) * volume_downsample_factor
 
         data_vol_downsample_ratio = float(self.data_feeder.downsample) / volume_downsample_factor
+        print 'data_vol_downsample_ratio', data_vol_downsample_ratio
 
         if data_vol_downsample_ratio > 1:
-            volume_data_resol = volume[::data_vol_downsample_ratio, ::data_vol_downsample_ratio, ::data_vol_downsample_ratio]
+
+            volume_data_resol = volume[::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio)]
             xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_lossless) / self.data_feeder.downsample
             print 'volume at data resol', volume_data_resol.shape, xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds
 
@@ -499,12 +501,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             for contour_id, contour in group.iterrows():
                 vertices = contour['vertices']
-                if 'type' in contours and contour['type'] is not None:
+
+                # type = confirmed or intersected
+                if sec >= 170 and sec < 180 and contour['type'] == 'confirmed':
+                    print sec, contour['name'], 'type', contour['type']
+                if 'type' in contour and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
                     contour_type = None
 
-                if 'class' in contours and contour['class'] is not None:
+                # class = neuron or contour
+                if 'class' in contour and contour['class'] is not None:
                     contour_class = contour['class']
                 else:
                     contour_class = 'contour'
@@ -876,6 +883,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.active_polygon.set_properties(k, v)
 
     def show_information_box(self):
+        """
+        Show the information box of a polygon contour.
+        """
+
         assert self.active_polygon is not None, 'Must choose an active polygon first.'
 
         contour_info_text = "Abbreviation: %(name)s\n" % {'name': self.active_polygon.properties['label']}

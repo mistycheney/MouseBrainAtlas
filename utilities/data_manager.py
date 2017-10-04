@@ -2548,12 +2548,30 @@ class DataManager(object):
         return patch_images_fp
 
     @staticmethod
+    def load_dataset_patches(dataset_id, structure=None):
+        """
+        FIXME: file extension is hdf but the format is actually bp.
+        
+        Returns:
+            (n,224,224)-array: patches
+        """
+        fp = DataManager.get_dataset_patches_filepath(dataset_id=dataset_id, structure=structure)
+        download_from_s3(fp)
+        return bp.unpack_ndarray_file(fp)
+    
+    @staticmethod
     def get_dataset_features_filepath(dataset_id, structure=None, ext='bp'):
         if structure is None:
             features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features.' + ext)
         else:
             features_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_features_%s.' % structure + ext)
         return features_fp
+
+    @staticmethod
+    def load_dataset_features(dataset_id, structure=None):
+        fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=structure)
+        download_from_s3(fp)
+        return bp.unpack_ndarray_file(fp)
 
     @staticmethod
     def get_dataset_addresses_filepath(dataset_id, structure=None):
@@ -2563,6 +2581,12 @@ class DataManager(object):
             addresses_fp = os.path.join(CLF_ROOTDIR, 'datasets', 'dataset_%d' % dataset_id, 'patch_addresses_%s.pkl' % structure)
         return addresses_fp
 
+    @staticmethod
+    def load_dataset_addresses(dataset_id, structure=None):
+        fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=structure)
+        download_from_s3(fp)
+        return load_pickle(fp)
+    
     @staticmethod
     def get_classifier_filepath(classifier_id, structure):
         classifier_id_dir = os.path.join(CLF_ROOTDIR, 'setting_%d' % classifier_id)
@@ -2584,6 +2608,62 @@ class DataManager(object):
         fp = DataManager.get_labeled_neurons_filepath(**locals())
         download_from_s3(fp)
         return load_pickle(fp)
+    
+    @staticmethod
+    def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
+        """
+        Load multiple datasets, returns both features and addresses.
+        
+        Returns:
+            (merged_features, merged_addresses)        
+        """
+    
+        merged_features = {}
+        merged_addresses = {}
+
+        for dataset_id in dataset_ids:
+
+            if labels_to_sample is None:
+                import re
+                labels_to_sample = []
+                for dataset_id in dataset_ids:
+                    dataset_dir = DataManager.get_dataset_dir(dataset_id=dataset_id)
+                    #download_from_s3(dataset_dir, is_dir=True)
+                    for fn in os.listdir(dataset_dir):
+                        g = re.match('patch_features_(.*).bp', fn).groups()
+                        if len(g) > 0:
+                            labels_to_sample.append(g[0])
+
+            for label in labels_to_sample:
+                try:
+                    # Load training features
+
+                    # features_fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=label)
+                    #download_from_s3(features_fp)
+                    # features = bp.unpack_ndarray_file(features_fp)
+                    features = DataManager.load_dataset_features(dataset_id=dataset_id, structure=label)
+
+                    # load training addresses
+
+                    # addresses_fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=label)
+                    # #download_from_s3(addresses_fp)
+                    # addresses = load_pickle(addresses_fp)
+                    addresses = DataManager.load_dataset_addresses(dataset_id=dataset_id, structure=label)
+
+                    if label not in merged_features:
+                        merged_features[label] = features
+                    else:
+                        merged_features[label] = np.concatenate([merged_features[label], features])
+
+                    if label not in merged_addresses:
+                        merged_addresses[label] = addresses
+                    else:
+                        merged_addresses[label] += addresses
+
+                except Exception as e:
+                    continue
+
+        return merged_features, merged_addresses
 
 ##################################################
 

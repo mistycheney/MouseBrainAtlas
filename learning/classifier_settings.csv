@@ -40,3 +40,5 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 114,lr,500,78/79,neg_has_all_surround,,,114,using mirror variations for training; use only surround as negative;100000 samples,100000
 115,xgb2,500,66/67,neg_has_all_surround,,,115,using mirror variations for training; use only surround as negative;sklearn gradient boost,10000
 116,lin_svc,500,66/67,neg_has_all_surround,,,116,using mirror variations for training; use only surround as negative;svm,10000
+
+120,lr,500,75/76/77,neg_has_all_surround,,,120,classifier based on greylevel intensity,1000

@@ -112,7 +112,7 @@ class SignalEmittingGraphicsPathItemWithVertexCircles(SignalEmittingGraphicsPath
         if new_index == -1:
             polygon_goto(self, x, y)
         else:
-            new_path = insert_vertex(self.path())
+            new_path = insert_vertex(self.path(), x, y, new_index)
             self.setPath(new_path)
 
         self.add_circle_for_vertex(new_index, color=color)

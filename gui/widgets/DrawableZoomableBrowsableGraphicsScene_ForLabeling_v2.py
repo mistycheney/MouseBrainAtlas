@@ -266,9 +266,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']
-            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=8, section=sec, structure=name_u, detector_id=1, prep_id=2)
+            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=8, section=sec, structure=name_u, detector_id=15, prep_id=2)
             download_from_s3(scoremap_viz_fp)
-            w, h = metadata_cache['image_shapes'][self.gui.stack]
+            w, h = metadata_cache['image_shape'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
             self.pixmapItem.setPixmap(scoremap_pixmap)
             self.pixmapItem.setVisible(True)
@@ -824,7 +824,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif selected_action == action_newMarker:
             self.set_mode('add vertices once')
-            self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR)
+            self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR_CHAR)
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -1071,6 +1071,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 return True
 
             elif key == Qt.Key_X:
+                print 'x'
                 if self.showing_which != 'red_only':
                     self.showing_which = 'red_only'
                 else:
@@ -1080,6 +1081,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
 
             elif key == Qt.Key_Y:
+                print 'y'
                 if self.showing_which != 'green_only':
                     self.showing_which = 'green_only'
                 else:
@@ -1088,6 +1090,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 return True
 
             elif key == Qt.Key_Z:
+                print 'z'
                 if self.showing_which != 'blue_only':
                     self.showing_which = 'blue_only'
                 else:
@@ -1129,6 +1132,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                             p.setVisible(False)
                         else:
                             p.setVisible(True)
+
+            elif key == Qt.Key_L: # Toggle all labels
+                for i, polygons in self.drawings.iteritems():
+                    for p in polygons:
+                        textitem = p.properties['label_textItem']
+                        if textitem.isVisible():
+                            textitem.setVisible(False)
+                        else:
+                            textitem.setVisible(True)
 
             elif key == Qt.Key_M: # Toggle labeled cell markers
                 for i, polygons in self.drawings.iteritems():
@@ -1270,9 +1282,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
                 self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox
                 if self.mode == 'shift3d':
-                    self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    if 'edits' not in self.structure_volumes[name_side_tuple]:
+                        self.structure_volumes[name_side_tuple]['edits'] = []
+                    else:
+                        self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
                 elif self.mode == 'rotate3d':
-                    self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    if 'edits' not in self.structure_volumes[name_side_tuple]:
+                        self.structure_volumes[name_side_tuple]['edits'] = []
+                    else:
+                        self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
 
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')
@@ -1379,7 +1397,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 items_in_rubberband = self.analyze_rubberband_selection()
 
                 for polygon, vertex_indices in items_in_rubberband.iteritems():
-                    polygon.delete_vertices(vertex_indices)
+                    polygon.delete_vertices(vertex_indices, merge=True)
                     # if self.mode == Mode.DELETE_ROI_DUPLICATE:
                     #     self.delete_vertices(polygon, vertex_indices)
                     # elif self.mode == Mode.DELETE_ROI_MERGE:

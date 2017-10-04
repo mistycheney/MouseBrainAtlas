@@ -191,6 +191,9 @@ def split_array(vertex_indices, n, is_closed):
         return sec_ins, sec_outs
 
 def insert_vertex(path, x, y, new_index):
+    """
+    Insert a vertex into a path at the given position.
+    """
 
     new_path = QPainterPath()
     for i in range(path.elementCount()+1): # +1 is important, because the new_index can be after the last vertex

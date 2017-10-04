@@ -64,8 +64,9 @@ if hostname == 'yuncong-MacbookPro':
     VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
-    # ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_data_labelings_losslessAlignCropped'
+
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3'
+    CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_DATA_DIR = 'CSHL_data_processed'
@@ -81,7 +82,7 @@ if hostname == 'yuncong-MacbookPro':
     PATCH_LOCATIONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_locations')
     SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
     SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
-    
+
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
@@ -139,12 +140,12 @@ elif hostname.startswith('ip'):
         DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
     else:
         DATA_ROOTDIR = '/shared'
-        
+
     if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
         THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
     else:
         THUMBNAIL_DATA_ROOTDIR = '/shared'
-    
+
     ON_AWS = True
     S3_DATA_BUCKET = 'mousebrainatlas-data'
     S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
@@ -154,9 +155,9 @@ elif hostname.startswith('ip'):
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
-    
+
     MESH_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_meshes')
-    
+
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
     ANNOTATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_annotation_viz')
@@ -198,7 +199,7 @@ elif hostname.startswith('ip'):
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
-    
+
     CSHL_SPM_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_SPM')
 
 else:
@@ -308,7 +309,7 @@ classifier_settings = read_csv(CLASSIFIER_SETTINGS_CSV, header=0, index_col=0)
 registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
 preprocess_settings = read_csv(PREPROCESS_SETTINGS_CSV, header=0, index_col=0)
 detector_settings = read_csv(DETECTOR_SETTINGS_CSV, header=0, index_col=0)
-windowing_settings = {1: {"patch_size": 224, "spacing": 56}, 
+windowing_settings = {1: {"patch_size": 224, "spacing": 56},
                       2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'},
                      3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'},
                      4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
@@ -378,8 +379,8 @@ from utilities2015 import high_contrast_colors
 hc_perm = [ 0,  5, 28, 26, 12, 11,  4,  8, 25, 22,  3,  1, 20, 19, 27, 13, 24,
        17, 16, 15,  7, 14, 21, 18, 23,  2, 10,  9,  6]
 high_contrast_colors = [high_contrast_colors[i] for i in hc_perm]
-name_sided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)] 
+name_sided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
                      for i, s in enumerate(all_known_structures_sided) }
-name_unsided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)] 
+name_unsided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
                      for i, s in enumerate(all_known_structures) }
 stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n in enumerate(all_stacks)}

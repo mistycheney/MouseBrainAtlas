@@ -15,7 +15,7 @@ except:
     sys.stderr.write('Cannot find cv2\n')
 import matplotlib.pyplot as plt
 from multiprocess import Pool
-    
+
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from utilities2015 import *
 from distributed_utilities import download_from_s3
@@ -91,7 +91,7 @@ def rotate_transform_vector(v, theta_xy=0,theta_yz=0,theta_xz=0,c=(0,0,0)):
     cos_theta_y = np.cos(theta_xz)
     sin_theta_y = np.sin(theta_xz)
     Ry = np.array([[cos_theta_y, 0, -sin_theta_y], [0, 1, 0], [sin_theta_y, 0, cos_theta_y]])
-    
+
     R = np.zeros((3,3))
     R[0, :3] = v[:3]
     R[1, :3] = v[4:7]
@@ -108,12 +108,12 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
         control_points (1d-array): normalized in the unit of spacing interval
         test_points (1d-array): normalized in the unit of spacing interval
     """
-    
+
     test_points_x_normalized = test_points
     ctrl_point_x_normalized = control_points
-    
+
     D = np.subtract.outer(test_points_x_normalized, ctrl_point_x_normalized) # (#testpts, #ctrlpts)
-    
+
     in_1 = ((D >= 0) & (D < 1)).astype(np.int)
     in_2 = ((D >= 1) & (D < 2)).astype(np.int)
     in_3 = ((D >= 2) & (D < 3)).astype(np.int)
@@ -122,18 +122,18 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
     in_2 * (D**2*(2-D)/6. + D*(3-D)*(D-1)/6. + (4-D)*(D-1)**2/6.) + \
     in_3 * (D*(3-D)**2/6. + (4-D)*(3-D)*(D-1)/6. + (4-D)**2*(D-2)/6.) + \
     in_4 * (4-D)**3/6.
-    
+
     return F.T # (#ctrl, #test)
 
 # def bspline_N(i, t):
 #     """
 #     Cubic B-spline base functions.
-    
+
 #     Args:
 #         i (int): control point index. Can be negative (?)
 #         t (float): position.
 #     """
-    
+
 #     d = t - i
 #     in_1 = ((d >= 0) & (d < 1)).astype(np.int)
 #     in_2 = ((d >= 1) & (d < 2)).astype(np.int)
@@ -148,13 +148,13 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 # def N(i, t):
 #     """
 #     Cubic B-spline base functions.
-    
+
 #     Args:
 #         i (int): control point index. Can be negative (?)
 #         t (float): position.
 #     """
 #     d = t - i
-    
+
 #     if d >= 0 and d < 1:
 #         return d**3/6.
 #     elif d >= 1 and d < 2:
@@ -165,7 +165,7 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 #         return (4-d)**3/6.
 #     else:
 #         return 0
-    
+
     # if i <= t and t < i+1:
     #     return (t-i)**3/6.
     # elif i+1 <= t and t < i+2:
@@ -181,12 +181,12 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 # def N(i,t):
 #     """
 #     Cubic B-spline base functions.
-    
+
 #     Args:
 #         i (int): control point index. Can be negative (?)
 #         t (float): position.
 #     """
-    
+
 #     if i <= t and t < i+1:
 #         return (t-i)**3/6.
 #     elif i+1 <= t and t < i+2:
@@ -197,7 +197,7 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 #         return (i+4-t)**3/6.
 #     else:
 #         return 0
-    
+
 volume_f = None
 volume_m = None
 nzvoxels_m = None
@@ -350,19 +350,19 @@ class Aligner4(object):
 
     def set_regularization_weights(self, reg_weights):
         self.reg_weights = reg_weights
-    
+
     def set_bspline_grid_size(self, interval):
         """
         Set class internal variable `NuNvNw_allTestPts`.
-        
+
         Args:
             interval (float): x,y,z interval in voxels.
         """
-                
+
         ctrl_x_intervals = np.arange(0, self.xdim_m, interval)
         ctrl_y_intervals = np.arange(0, self.ydim_m, interval)
         ctrl_z_intervals = np.arange(0, self.zdim_m, interval)
-        
+
         ctrl_x_intervals_centered = ctrl_x_intervals - self.centroid_m[0]
         ctrl_y_intervals_centered = ctrl_y_intervals - self.centroid_m[1]
         ctrl_z_intervals_centered = ctrl_z_intervals - self.centroid_m[2]
@@ -370,48 +370,48 @@ class Aligner4(object):
         self.n_ctrl = len(ctrl_x_intervals) * len(ctrl_y_intervals) * len(ctrl_z_intervals)
 
         self.NuNvNw_allTestPts = {}
-        
+
         for ind_m, test_pts in nzvoxels_centered_m.iteritems():
-            
+
             t = time.time()
-        
-            NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval), 
+
+            NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval),
                                                                          test_points=test_pts[:,0]/float(interval))
-            NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval), 
+            NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval),
                                                                          test_points=test_pts[:,1]/float(interval))
-            NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval), 
+            NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval),
                                                                          test_points=test_pts[:,2]/float(interval))
-            
-            # NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) 
+
+            # NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval))
             #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
             #                             for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
             # (n_ctrlx, n_all_nz_m)
-            # NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) 
+            # NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval))
             #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
             #                             for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
             # (n_ctrly, n_all_nz_m)
-            # NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) 
+            # NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval))
             #                              for testPt_i, (x, y, z) in enumerate(test_pts)]
             #                             for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
             # (n_ctrlz, n_all_nz_m)
             # print 'NwPz_allTestPts', NwPz_allTestPts.shape
-            
+
             sys.stderr.write("Compute NuPx/NvPy/NwPz: %.2f seconds.\n" % (time.time()-t) )
 
             t = time.time()
-            
-            # self.NuNvNw_allTestPts[ind_m] = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
-            #                                                                       NvPy_allTestPts[:,testPt_i], 0), 
+
+            # self.NuNvNw_allTestPts[ind_m] = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i],
+            #                                                                       NvPy_allTestPts[:,testPt_i], 0),
             #                                                          NwPz_allTestPts[:,testPt_i], 0))
             #                       for testPt_i in range(len(test_pts))])
-            
+
             self.NuNvNw_allTestPts[ind_m] = np.einsum('it,jt,kt->ijkt', NuPx_allTestPts, NvPy_allTestPts, NwPz_allTestPts).reshape((-1, NuPx_allTestPts.shape[-1])).T
-            
+
             # print 'self.NuNvNw_allTestPts', self.NuNvNw_allTestPts[ind_m].shape
             # (n_all_nz_m, n_ctrl)
 
             sys.stderr.write("Compute every control point's contribution to every nonzero test point, 3 dimensions: %.2f seconds.\n" % (time.time()-t) )
-            
+
     def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
         """
         Args:
@@ -486,16 +486,16 @@ class Aligner4(object):
 
         Args:
             gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
-            graidents (dict of (3,dimx,dimy,dimz) arrays): 
+            graidents (dict of (3,dimx,dimy,dimz) arrays):
 
         """
 
         if indices_f is None:
             indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
-            sys.stderr.write('indices_f: %s\n' % indices_f) 
+            sys.stderr.write('indices_f: %s\n' % indices_f)
 
         global grad_f
-        
+
         if gradients is not None:
             grad_f = gradients
         else:
@@ -525,7 +525,7 @@ class Aligner4(object):
 
             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
-            
+
     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid, n_sample=None):
         """
         Args:
@@ -533,7 +533,7 @@ class Aligner4(object):
             tf_type (str): rigid, affine or bspline.
             return_valid (bool): whether to return a boolean list indicating which nonzero moving voxels are valid.
         """
-                
+
         # t = time.time()
         if n_sample is not None:
 
@@ -546,10 +546,10 @@ class Aligner4(object):
             # sys.stderr.write('random_indices: %.2f seconds\n' % (time.time() - t))
 
             if tf_type == 'affine' or tf_type == 'rigid':
-                pts_prime_sampled = transform_points_affine(np.array(T), 
+                pts_prime_sampled = transform_points_affine(np.array(T),
                                             pts_centered=nzvoxels_centered_m[ind_m][random_indices],
                                             c_prime=self.centroid_f).astype(np.int16)
-            elif tf_type == 'bspline':                    
+            elif tf_type == 'bspline':
                 n_params = len(T)
                 buvwx = T[:n_params/3]
                 buvwy = T[n_params/3:n_params/3*2]
@@ -572,7 +572,7 @@ class Aligner4(object):
 
         else:
             if tf_type == 'affine' or tf_type == 'rigid':
-                pts_prime = transform_points_affine(np.array(T), 
+                pts_prime = transform_points_affine(np.array(T),
                                             pts_centered=nzvoxels_centered_m[ind_m],
                                             c_prime=self.centroid_f).astype(np.int16)
             elif tf_type == 'bspline':
@@ -580,7 +580,7 @@ class Aligner4(object):
                 buvwx = T[:n_params/3]
                 buvwy = T[n_params/3:n_params/3*2]
                 buvwz = T[n_params/3*2:]
-                pts_prime = transform_points_bspline(buvwx, buvwy, buvwz, 
+                pts_prime = transform_points_bspline(buvwx, buvwy, buvwz,
                                                      pts_centered=nzvoxels_centered_m[ind_m], c_prime=self.centroid_f,
                                                     NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
 
@@ -599,45 +599,45 @@ class Aligner4(object):
             return xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
         else:
             return xs_prime_valid, ys_prime_valid, zs_prime_valid
-                            
-            
+
+
     def compute_score_and_gradient_one(self, T, tf_type, num_samples=None, ind_m=None):
         """
         Compute score and gradient of one structure.
-         
+
         Args:
             T ((nparam,)-array): flattened array of transform parameters.
             tf_type (str): rigid, affine or bspline.
             ind_m (int): index of a structure.
         """
-        
-        # t = time.time()            
+
+        # t = time.time()
 
         score, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicators = self.compute_score_one(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=num_samples)
-        
-        # sys.stderr.write('Valid voxels: %d\n' % np.count_nonzero(valid_moving_voxel_indicators)) 
-        
-        # sys.stderr.write("compute_score_one: %.2f s\n" % (time.time() - t)) 
-        
+
+        # sys.stderr.write('Valid voxels: %d\n' % np.count_nonzero(valid_moving_voxel_indicators))
+
+        # sys.stderr.write("compute_score_one: %.2f s\n" % (time.time() - t))
+
         # Moving volume's valid voxel coordinates (not centralized).
         # t = time.time()
         xyzs_valid = nzvoxels_m[ind_m][valid_moving_voxel_indicators]
-        # sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t)) 
+        # sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t))
         # Moving volume's value at valid voxels. (n_valid_nz_m, )
         # t = time.time()
         S_m_valid_scores = volume_m[ind_m][xyzs_valid[:,1], xyzs_valid[:,0], xyzs_valid[:,2]]
-        # sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t)) 
-        
+        # sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t))
+
         # Moving volume's valid voxel coordinates (centralized).
         # t = time.time()
         dxs, dys, dzs = nzvoxels_centered_m[ind_m][valid_moving_voxel_indicators].T
-        # sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t)) 
-                
+        # sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t))
+
         if tf_type == 'bspline':
             NuNvNw_allTestPts = self.NuNvNw_allTestPts[ind_m][valid_moving_voxel_indicators].copy()
-        
+
         ind_f = self.labelIndexMap_m2f[ind_m]
-        
+
         # Fixed volume's gradients at valid voxels.
 
         # t = time.time()
@@ -646,18 +646,18 @@ class Aligner4(object):
         Sz = grad_f[ind_f][2, ys_prime_valid, xs_prime_valid, zs_prime_valid]
         if np.all(Sx == 0) and np.all(Sy == 0) and np.all(Sz == 0):
             raise Exception("Image gradient at all valid voxel is zero.")
-        # sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t)) 
-        
+        # sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t))
+
         xs_prime_valid = xs_prime_valid.astype(np.float)
         ys_prime_valid = ys_prime_valid.astype(np.float)
         zs_prime_valid = zs_prime_valid.astype(np.float)
-        
-#         t = time.time()                    
-        
+
+#         t = time.time()
+
 #         # Sample within valid voxels.
 #         # Note that sampling takes time. Maybe it is better not sampling.
 #         if num_samples is not None:
-            
+
 #             # t = time.time()
 #             n_valid = np.count_nonzero(valid_moving_voxel_indicators)
 #             # Typical n ranges from 63984 to 451341
@@ -677,16 +677,16 @@ class Aligner4(object):
 #             xs_prime_valid = xs_prime_valid[ii]
 #             ys_prime_valid = ys_prime_valid[ii]
 #             zs_prime_valid = zs_prime_valid[ii]
-            
+
 #             if tf_type == 'bspline':
 #                 NuNvNw_allTestPts = NuNvNw_allTestPts[ii]
 #         # else:
 #         #     n_sample = n_valid
-        
-#         sys.stderr.write("sample: %.2f s\n" % (time.time() - t)) 
-        
+
+#         sys.stderr.write("sample: %.2f s\n" % (time.time() - t))
+
         if tf_type == 'rigid' or tf_type == 'affine':
-            
+
             # t = time.time()
             # q is dF/dp for a single voxel, where p is a transform parameter.
             if tf_type == 'rigid':
@@ -696,18 +696,18 @@ class Aligner4(object):
                         -Sx*ys_prime_valid + Sy*xs_prime_valid]
             elif tf_type == 'affine':
                 q = np.c_[Sx*dxs, Sx*dys, Sx*dzs, Sx, Sy*dxs, Sy*dys, Sy*dzs, Sy, Sz*dxs, Sz*dys, Sz*dzs, Sz]
-            # sys.stderr.write("compute gradient, all voxels: %.2f s\n" % (time.time() - t)) 
-            
+            # sys.stderr.write("compute gradient, all voxels: %.2f s\n" % (time.time() - t))
+
             # Whether to scale gradient to match the scores' scale depends on whether AdaGrad is used;
             # if used, then the scale will be automatically adapted so the scaling does not matter
             # t = time.time()
             grad = (S_m_valid_scores[:,None] * q).sum(axis=0)
             if np.all(grad == 0):
                 raise Exception("Gradient is zero.")
-            # sys.stderr.write("compute gradient, sum: %.2f s\n" % (time.time() - t)) 
+            # sys.stderr.write("compute gradient, sum: %.2f s\n" % (time.time() - t))
 
         elif tf_type == 'bspline':
-            
+
             dqxdbuvwx_allTestPts = NuNvNw_allTestPts
             # (n_valid_nz_m, n_ctrl)
             dqydbuvwy_allTestPts = NuNvNw_allTestPts
@@ -723,16 +723,16 @@ class Aligner4(object):
             dFdbuvwy = np.dot(S_m_valid_scores, dSdbuvwy_allTestPts) # (n_ctrl, )
             dFdbuvwz = np.dot(S_m_valid_scores, dSdbuvwz_allTestPts) # (n_ctrl, )
             # print 'dFdbuvwz', dFdbuvwz.shape
-            
+
             grad = np.concatenate([dFdbuvwx, dFdbuvwy, dFdbuvwz]) # (n_ctrl*3, )
             # print 'grad', grad.shape
-            sys.stderr.write('grad_min: %.2f, grad_max: %.2f\n' % (grad.min(), grad.max())) 
-            
+            sys.stderr.write('grad_min: %.2f, grad_max: %.2f\n' % (grad.min(), grad.max()))
+
             q = None
 
-        
+
         # t = time.time()
-        
+
         # regularized version
         if tf_type == 'rigid' or tf_type == 'affine':
             tx = T[3]
@@ -751,14 +751,14 @@ class Aligner4(object):
                 grad[11] = grad[11] - 2*self.reg_weights[2] * tz
         elif tf_type == 'bspline':
             pass
-                
-        # sys.stderr.write("3: %.2f s\n" % (time.time() - t)) 
+
+        # sys.stderr.write("3: %.2f s\n" % (time.time() - t))
 
         if tf_type == 'rigid' or tf_type == 'affine':
             # del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid
             del q, Sx, Sy, Sz, dxs, dys, dzs, xs_prime_valid, ys_prime_valid, zs_prime_valid, S_m_valid_scores
             # del xs_valid, ys_valid, zs_valid
-            
+
 
         return score, grad
 
@@ -789,7 +789,7 @@ class Aligner4(object):
             grad = np.zeros((12,))
         elif tf_type == 'bspline':
             grad = np.zeros((self.n_ctrl*3,))
-            
+
         if indices_m is None:
             indices_m = self.all_indices_m
 
@@ -842,12 +842,12 @@ class Aligner4(object):
             - zs_prime_valid (array):
             - valid (boolean array):
         """
-        
+
         # t = time.time()
         xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator = \
         self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=n_sample)
         # sys.stderr.write("Timing 2: get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
-        
+
         n_total = len(nzvoxels_centered_m[ind_m])
         n_valid = np.count_nonzero(valid_moving_voxel_indicator)
         n_invalid = n_total - n_valid
@@ -859,16 +859,16 @@ class Aligner4(object):
 
         # Reducing the scale of voxel value is important for keeping the sum (i.e. the following line) in the represeantable range of the chosen data type.
         # t = time.time()
-        
+
         # This one does not consider the values of atlas voxels.
         # voxel_probs_valid = volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
-        
+
         # This one considers the values of atlas voxels.
         xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m].astype(np.int16)[valid_moving_voxel_indicator].T
         voxel_probs_valid = volume_m[ind_m][ys_valid, xs_valid, zs_valid] * volume_f[ind_f][ys_prime_valid, xs_prime_valid, zs_prime_valid] / 1e6
-        
+
         # sys.stderr.write("Timing 2: fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
-        
+
         # Penalize out-of-bound voxels, minus 1 for each such voxel
         s = voxel_probs_valid.sum() - np.sign(self.label_weights[ind_m]) * n_invalid / 1e6
 
@@ -880,9 +880,9 @@ class Aligner4(object):
             s_reg = self.reg_weights[0]*tx**2 + self.reg_weights[1]*ty**2 + self.reg_weights[2]*tz**2
         else:
             s_reg = 0
-        
+
         s = s - s_reg
-        
+
         if return_valid:
             return s, xs_prime_valid, ys_prime_valid, zs_prime_valid, valid_moving_voxel_indicator
         else:
@@ -924,29 +924,29 @@ class Aligner4(object):
         pool.join()
         return scores
 
-    
+
     def compute_scores_neighborhood_samples_rotation(self, params, dtheta_xys=None, dtheta_yzs=None, dtheta_xzs=None, indices_m=None):
         pool = Pool(processes=12)
-        
+
         if dtheta_xys is not None:
             n = len(dtheta_xys)
         elif dtheta_yzs is not None:
             n = len(dtheta_yzs)
         elif dtheta_xzs is not None:
             n = len(dtheta_xzs)
-            
+
         if dtheta_xys is None:
             dtheta_xys = np.zeros((n,))
         if dtheta_yzs is None:
             dtheta_yzs = np.zeros((n,))
         if dtheta_xzs is None:
             dtheta_xzs = np.zeros((n,))
-        
+
         scores = pool.map(lambda (dtheta_xy, dtheta_yz, dtheta_xz): self.compute_score(rotate_transform_vector(params, theta_xy=dtheta_xy, theta_yz=dtheta_yz, theta_xz=dtheta_xz), indices_m=indices_m),
                         zip(dtheta_xys, dtheta_yzs, dtheta_xzs))
         pool.close()
         pool.join()
-        return scores    
+        return scores
 
     def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, dtheta_xys=None, indices_m=None):
         """
@@ -977,14 +977,14 @@ class Aligner4(object):
         return scores
 
     def compute_scores_neighborhood_random_rotation(self, params, n, std_theta_xy=0, std_theta_xz=0, std_theta_yz=0, indices_m=None):
-        
+
         random_theta_xys = np.random.uniform(-1., 1., (n,)) * std_theta_xy
         random_theta_yzs = np.random.uniform(-1., 1., (n,)) * std_theta_yz
         random_theta_xzs = np.random.uniform(-1., 1., (n,)) * std_theta_xz
-        
+
         # scores = [self.compute_score(params + dp, indices_m=indices_m) for dp in dparams]
-        
-        random_params = [rotate_transform_vector(params, theta_xy=theta_xy, theta_yz=theta_yz, theta_xz=theta_xz) 
+
+        random_params = [rotate_transform_vector(params, theta_xy=theta_xy, theta_yz=theta_yz, theta_xz=theta_xz)
                         for theta_xy, theta_yz, theta_xz in zip(random_theta_xys, random_theta_yzs, random_theta_xzs)]
 
         #parallel
@@ -992,9 +992,9 @@ class Aligner4(object):
         scores = pool.map(lambda p: self.compute_score(p, indices_m=indices_m), random_params)
         pool.close()
         pool.join()
-        
+
         return scores
-    
+
     def compute_scores_neighborhood_random(self, params, n, stds, indices_m=None):
 
         dparams = np.random.uniform(-1., 1., (n, len(stds))) * stds
@@ -1026,7 +1026,7 @@ class Aligner4(object):
         H = h(T.flatten())
         return H
 
-    
+
     def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True,
                     std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60),
                     return_best_score=True,
@@ -1039,7 +1039,7 @@ class Aligner4(object):
          Returns:
              params_best_upToNow ((12,) float array): found parameters
         """
-    
+
         params_best_upToNow = (0, 0, 0, 0)
         score_best_upToNow = -np.inf
 
@@ -1062,7 +1062,7 @@ class Aligner4(object):
 
             sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg), n:%d\n' % \
             (sigma_tx, sigma_ty, sigma_tz, np.rad2deg(sigma_theta_xy), n))
-            
+
             tx_grid = init_tx + sigma_tx * np.linspace(-1,1,n)
             ty_grid = init_ty + sigma_ty * np.linspace(-1,1,n)
             tz_grid = init_tz + sigma_tz * np.linspace(-1,1,n)
@@ -1070,14 +1070,14 @@ class Aligner4(object):
             theta_xy_grid = [0]
 
             # samples = np.c_[tx_grid, ty_grid, tz_grid, theta_xy_grid]
-            
+
             #############
-            
+
             t = time.time()
-            
-            scores = self.compute_scores_neighborhood_grid(np.array([1,0,0,0,0,1,0,0,0,0,1,0]), 
+
+            scores = self.compute_scores_neighborhood_grid(np.array([1,0,0,0,0,1,0,0,0,0,1,0]),
                                                    dxs=tx_grid, dys=ty_grid, dzs=tz_grid, dtheta_xys=theta_xy_grid,
-                                                   indices_m=indices_m)    
+                                                   indices_m=indices_m)
             i_best = np.argmax(scores)
             score_best = scores[i_best]
             i_tx, i_ty, i_tz, i_thetaxy = np.unravel_index(i_best, (len(tx_grid), len(ty_grid), len(tz_grid), len(theta_xy_grid)))
@@ -1085,7 +1085,7 @@ class Aligner4(object):
             ty_best = ty_grid[i_ty]
             tz_best = tz_grid[i_tz]
             theta_xy_best = theta_xy_grid[i_thetaxy]
-            
+
             # # empirical speedup 7x
             # # parallel
             # if parallel:
@@ -1100,7 +1100,7 @@ class Aligner4(object):
             #                 for tx, ty, tz, theta_xy in samples]
 
             sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
-            
+
             sys.stderr.write('tx_best: %.2f (voxel), ty_best: %.2f, tz_best: %.2f, theta_xy_best: %.2f (deg), score=%f\n' % \
             (tx_best, ty_best, tz_best, np.rad2deg(theta_xy_best), score_best))
 
@@ -1127,10 +1127,10 @@ class Aligner4(object):
                       std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                        grid_search_eta=3., stop_radius_voxel=10,
                       indices_m=None):
-        
+
         if indices_m is None:
             indices_m = self.all_indices_m
-        
+
         (tx_best, ty_best, tz_best, theta_xy_best), grid_search_score = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
                                                     init_n=grid_search_sample_number,
                                                     std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
@@ -1159,7 +1159,7 @@ class Aligner4(object):
             reg_weights: for (tx,ty,tz)
             affine_scaling_limits (2 tuple of float): min/max for the diagonal elements of affine matrix.
             bspline_deformation_limit (float): maximum deformation of any bspline control point in any direction.
-            
+
         """
 
         if indices_m is None:
@@ -1192,7 +1192,7 @@ class Aligner4(object):
                 lr1 = 10
         else:
             raise Exception('Type must be either rigid or affine.')
-            
+
 
         if init_T is None:
             if tf_type == 'affine' or tf_type == 'rigid':
@@ -1201,7 +1201,7 @@ class Aligner4(object):
                 T = np.zeros((self.n_ctrl*3,))
         else:
             T = init_T
-            
+
         score_best = -np.inf
         scores = []
         self.Ts = [T]
@@ -1227,7 +1227,7 @@ class Aligner4(object):
                     verbose=False, num_samples=grad_computation_sample_number,
                     indices_m=indices_m,
                     epsilon=epsilon)
-                
+
             elif tf_type == 'affine':
 
                 if full_lr is not None:
@@ -1240,9 +1240,9 @@ class Aligner4(object):
                                 indices_m=indices_m, tf_type='affine',
                                                                            num_samples=grad_computation_sample_number,
                                                                                scaling_limits=affine_scaling_limits)
-                
+
             elif tf_type == 'bspline':
-                
+
                 new_T, s, grad_historical, sq_updates_historical = self.step_gd(T, lr=lr1, \
                                 grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
                                 indices_m=indices_m, tf_type='bspline',
@@ -1250,28 +1250,28 @@ class Aligner4(object):
                                                                                bspline_deformation_limit=bspline_deformation_limit)
 
             else:
-                raise Exception('Type must be either rigid or affine.')                
-                
+                raise Exception('Type must be either rigid or affine.')
+
             sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
             sys.stderr.write('current score: %f\n' % s)
-                
+
             if tf_type == 'rigid' or tf_type == 'affine':
                 sys.stderr.write('new_T: %s\n' % new_T[[3,7,11]])
                 sys.stderr.write('det: %.2f\n' % np.linalg.det(new_T.reshape((3,4))[:3, :3]))
             elif tf_type == 'bspline':
                 sys.stderr.write('min: %.2f, max: %.2f\n' % (new_T.min(), new_T.max()))
-                
+
             scores.append(s)
-            
+
             if np.isnan(s):
                 break
 
             self.Ts.append(new_T)
 
             # sys.stderr.write('%f seconds\n' % (time.time()-t)) # 1.77s/iteration
-            
+
             Ts = np.array(self.Ts)
-            
+
             if tf_type == 'affine' or tf_type == 'rigid':
                 if iteration > history_len:
                     if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
@@ -1285,7 +1285,7 @@ class Aligner4(object):
             if s > score_best:
                 best_gradient_descent_params = T
                 score_best = s
-                
+
             T = new_T
 
         # if grid_search_iteration_number > 0:
@@ -1321,7 +1321,7 @@ class Aligner4(object):
         score, grad = self.compute_score_and_gradient(T, tf_type='rigid', num_samples=num_samples, indices_m=indices_m)
         # sys.stderr.write("compute_score_and_gradient: %.2f s\n" % (time.time() - t))
         # grad is (6,)-array
-        
+
         # print 'score:', score
         # print 'grad:', grad
 
@@ -1361,8 +1361,8 @@ class Aligner4(object):
         # print 't_new', t_new
 
         return np.column_stack([R_new, t_new]).flatten(), score, grad_historical, sq_updates_historical
-    
-    
+
+
     def step_gd(self, T, lr, grad_historical, sq_updates_historical, tf_type, surround=False, surround_weight=2., num_samples=None, indices_m=None, scaling_limits=None, bspline_deformation_limit=100):
         """
         One optimization step using gradient descent with Adagrad.
@@ -1371,7 +1371,7 @@ class Aligner4(object):
             T ((12,) vector): flattened vector of 3x4 transform matrix.
             lr ((12,) vector): learning rate
             dMdA_historical ((12,) vector): accumulated gradiant magnitude, for Adagrad
-            
+
             scaling_limits (2-tuple of float): applicable only to affine registration; the minimum/maximum values for any of the three diagonal elements of the affine matrix.
             bspline_deformation_limit (float): applicable only to bspline registration; the maximum deformation in any of x,y,z directions allowed for any control point.
 
@@ -1385,7 +1385,7 @@ class Aligner4(object):
             indices_m = self.all_indices_m
 
         score, grad = self.compute_score_and_gradient(T, tf_type=tf_type, num_samples=num_samples, indices_m=indices_m)
-        
+
         # if surround:
         #     s_surr, dMdA_surr = compute_score_and_gradient(T, name, surround=True, num_samples=num_samples)
         #     dMdA -= surround_weight * dMdA_surr
@@ -1395,13 +1395,13 @@ class Aligner4(object):
         grad_historical += grad**2
         grad_adjusted = grad / np.sqrt(grad_historical + 1e-10)
         new_T = T + lr*grad_adjusted
-        
+
         # Constrain the transform
         if tf_type == 'bspline':
             # Limit the deformation at all control points to be less than bspline_deformation_limit.
             new_T = np.sign(new_T) * np.minimum(np.abs(new_T), bspline_deformation_limit)
         elif tf_type == 'affine':
-            if scaling_limits is not None:                
+            if scaling_limits is not None:
                 new_T[0] = np.sign(new_T[0]) * np.minimum(np.maximum(np.abs(new_T[0]), scaling_limits[0]), scaling_limits[1])
                 new_T[5] = np.sign(new_T[5]) * np.minimum(np.maximum(np.abs(new_T[5]), scaling_limits[0]), scaling_limits[1])
                 new_T[10] = np.sign(new_T[10]) * np.minimum(np.maximum(np.abs(new_T[10]), scaling_limits[0]), scaling_limits[1])
@@ -1409,7 +1409,7 @@ class Aligner4(object):
                 new_T[0] = np.sign(new_T[0]) * np.abs(new_T[0])
                 new_T[5] = np.sign(new_T[5]) * np.abs(new_T[5])
                 new_T[10] = np.sign(new_T[10]) * np.abs(new_T[10])
-            
+
         # AdaDelta Rule
         # gamma = .9
         # epsilon = 1e-10
@@ -1421,7 +1421,7 @@ class Aligner4(object):
         if tf_type == 'affine' or tf_type == 'rigid':
             sys.stderr.write("in T: %.2f %.2f %.2f, out T: %.2f %.2f %.2f\n" % (T[3], T[7], T[11], new_T[3], new_T[7], new_T[11]))
         elif tf_type == 'bspline':
-            sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max())) 
+            sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max()))
         return new_T, score, grad_historical, sq_updates_historical
 
 
@@ -1436,7 +1436,7 @@ def hessian(x0, f, epsilon=1.e-5, linear_approx=False, *args):
         x0: point
         f: cost function
     """
-    
+
     # ``calculate_cost_function`` is the cost function implementation
     # The next line calculates an approximation to the first
     # derivative
@@ -1460,115 +1460,6 @@ def hessian(x0, f, epsilon=1.e-5, linear_approx=False, *args):
         hessian[:, j] = (f2 - f1)/epsilon[j] # scale...
         xx[j] = xx0 # Restore initial value of x0
     return hessian
-
-
-def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
-    """
-    This function uses multiple processes.
-
-    Args:
-        labeled_volume (3D ndarray of int): integer-labeled volume.
-        along_direction (str): 'x', 'y' or 'z'.
-        positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
-
-    Returns:
-        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
-    """
-
-    nproc = NUM_CORES
-
-    if along_direction == 'z':
-        if positions is None:
-            positions = range(0, labeled_volume.shape[2])
-    elif along_direction == 'x':
-        if positions is None:
-            positions = range(0, labeled_volume.shape[1])
-    elif along_direction == 'y':
-        if positions is None:
-            positions = range(0, labeled_volume.shape[0])
-
-    def find_contour_points_slice(p):
-        if along_direction == 'x':
-            vol_slice = labeled_volume[:, p, :]
-        if along_direction == 'y':
-            vol_slice = labeled_volume[p, :, :]
-        if along_direction == 'z':
-            vol_slice = labeled_volume[:, :, p]
-
-        cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
-        if len(cnts) == 0 or 1 not in cnts:
-            sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
-            return
-        else:
-            if len(cnts[1]) > 1:
-                sys.stderr.write('%s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (len(cnts[1]), p, map(len, cnts[1])))
-                cnt = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
-            else:
-                cnt = np.array(cnts[1][0])
-            return cnt
-
-    pool = Pool(nproc)
-    contours = dict(zip(positions, pool.map(find_contour_points_slice, positions)))
-    pool.close()
-    pool.join()
-
-    contours = {p: cnt for p, cnt in contours.iteritems() if cnt is not None}
-
-    return contours
-
-def find_contour_points(labelmap, sample_every=10, min_length=0):
-    """
-    Find contour coordinates.
-    
-    Args:
-        labelmap (2d array of int): integer-labeled 2D image
-        sample_every (int): can be interpreted as distance between points.
-        min_length (int): contours with fewer vertices are discarded.
-        This argument is being deprecated because the vertex number does not
-        reliably measure actual contour length in microns.
-        It is better to leave this decision to calling routines.
-    Returns:
-        a dict of lists: {label: list of contours each consisting of a list of (x,y) coordinates}
-    """
-
-    padding = 5
-
-    if np.count_nonzero(labelmap) == 0:
-        # sys.stderr.write('No contour can be found because the image is blank.\n')
-        return {}
-
-    regions = regionprops(labelmap.astype(np.int))
-    contour_points = {}
-
-    for r in regions:
-
-        (min_row, min_col, max_row, max_col) = r.bbox
-
-        padded = np.pad(r.filled_image, ((padding,padding),(padding,padding)),
-                        mode='constant', constant_values=0)
-
-        contours = find_contours(padded, level=.5, fully_connected='high')
-        contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > min_length]
-        if len(contours) > 0:
-#             if len(contours) > 1:
-#                 sys.stderr.write('%d: region has more than one part\n' % r.label)
-
-            contours = sorted(contours, key=lambda c: len(c), reverse=True)
-            contours_list = [c-(padding, padding) for c in contours]
-            contour_points[r.label] = sorted([c[np.arange(0, c.shape[0], sample_every)][:, ::-1] + (min_col, min_row)
-                                for c in contours_list], key=lambda c: len(c), reverse=True)
-
-        elif len(contours) == 0:
-#             sys.stderr.write('no contour is found\n')
-            continue
-
-    #         viz = np.zeros_like(r.filled_image)
-    #         viz[pts_sampled[:,0], pts_sampled[:,1]] = 1
-    #         plt.imshow(viz, cmap=plt.cm.gray);
-    #         plt.show();
-
-    return contour_points
-
 
 def show_contours(cnts, bg, title):
     viz = bg.copy()
@@ -2033,32 +1924,32 @@ def transform_points_2d(T, pts=None, c=None, pts_centered=None, c_prime=0):
     pts_prime = np.dot(A, pts_centered.T) + (t + c_prime)[:,None]
     return pts_prime.T
 
-def transform_points_bspline(buvwx, buvwy, buvwz, 
-                             volume_shape=None, interval=None, 
+def transform_points_bspline(buvwx, buvwy, buvwz,
+                             volume_shape=None, interval=None,
                              ctrl_x_intervals=None,
                              ctrl_y_intervals=None,
                              ctrl_z_intervals=None,
-                             pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0), 
+                             pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0),
                             NuNvNw_allTestPts=None):
     """
     Transform points by a B-spline transform.
-    
+
     Args:
         volume_shape ((3,)-ndarray of int): (xdim, ydim, zdim)
         interval (int): control point spacing in x,y,z directions.
         pts ((n,3)-ndarray): input point coordinates.
         NuNvNw_allTestPts ((n_test, n_ctrlx * n_ctrly * n_ctrlz)-array)
-    
+
     Returns:
         transformed_pts ((n,3)-ndarray): transformed point coordinates.
     """
-    
+
     if pts_centered is None:
         assert pts is not None
         pts_centered = pts - c
 
     if NuNvNw_allTestPts is None:
-    
+
         xdim, ydim, zdim = volume_shape
         if ctrl_x_intervals is None:
             ctrl_x_intervals = np.arange(0, xdim, interval)
@@ -2066,26 +1957,26 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
             ctrl_y_intervals = np.arange(0, ydim, interval)
         if ctrl_z_intervals is None:
             ctrl_z_intervals = np.arange(0, zdim, interval)
-        
+
         ctrl_x_intervals_centered = ctrl_x_intervals - c[0]
         ctrl_y_intervals_centered = ctrl_y_intervals - c[1]
         ctrl_z_intervals_centered = ctrl_z_intervals - c[2]
-    
+
         t = time.time()
 
-        NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval), 
+        NuPx_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_x_intervals_centered/float(interval),
                                                                      test_points=pts_centered[:,0]/float(interval))
-        NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval), 
+        NvPy_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_y_intervals_centered/float(interval),
                                                                      test_points=pts_centered[:,1]/float(interval))
-        NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval), 
+        NwPz_allTestPts = compute_bspline_cp_contribution_to_test_pts(control_points=ctrl_z_intervals_centered/float(interval),
                                                                      test_points=pts_centered[:,2]/float(interval))
-            
+
 #         NuPx_allTestPts = np.array([[N(ctrl_x/float(interval), x/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
 #                                     for ctrlXInterval_i, ctrl_x in enumerate(ctrl_x_intervals_centered)])
-        
+
 #         NvPy_allTestPts = np.array([[N(ctrl_y/float(interval), y/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
 #                                     for ctrlYInterval_i, ctrl_y in enumerate(ctrl_y_intervals_centered)])
-        
+
 #         NwPz_allTestPts = np.array([[N(ctrl_z/float(interval), z/float(interval)) for testPt_i, (x, y, z) in enumerate(pts_centered)]
 #                                     for ctrlZInterval_i, ctrl_z in enumerate(ctrl_z_intervals_centered)])
 
@@ -2096,21 +1987,21 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
         # (n_ctrlx, n_test)
 
         t = time.time()
-        
+
         NuNvNw_allTestPts = np.einsum('it,jt,kt->ijkt', NuPx_allTestPts, NvPy_allTestPts, NwPz_allTestPts).reshape((-1, NuPx_allTestPts.shape[-1])).T
-        
-        # NuNvNw_allTestPts = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i], 
-        #                                                                  NvPy_allTestPts[:,testPt_i], 0), 
+
+        # NuNvNw_allTestPts = np.array([np.ravel(np.tensordot(np.tensordot(NuPx_allTestPts[:,testPt_i],
+        #                                                                  NvPy_allTestPts[:,testPt_i], 0),
         #                                                     NwPz_allTestPts[:,testPt_i], 0))
         #                           for testPt_i in range(len(pts_centered))])
         sys.stderr.write("Compute NuNvNw: %.2f seconds.\n" % (time.time() - t))
 
     # the expression inside np.ravel gives array of shape (n_ctrlx, n_ctrly, nctrlz)
-        
+
     # print NuNvNw_allTestPts.shape
     # (157030, 1008)
     # (n_test, n_ctrlx * n_ctrly * n_ctrlz)
-    
+
     # t = time.time()
     sum_uvw_NuNvNwbuvwx = np.dot(NuNvNw_allTestPts, buvwx)
     sum_uvw_NuNvNwbuvwy = np.dot(NuNvNw_allTestPts, buvwy)
@@ -2126,25 +2017,25 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
 def transform_points_affine(T, pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0)):
     '''
     Transform points by a rigid or affine transform.
-    
+
     Args:
         T ((nparams,)-ndarray): flattened array of transform parameters.
         c ((3,)-ndarray): origin of input points
         c_prime((3,)-ndarray): origin of output points
         pts ((n,3)-ndararay): coodrinates of input points
     '''
-    
+
     if pts_centered is None:
         assert pts is not None
         pts_centered = pts - c
-        
+
     Tm = np.reshape(T, (3,4))
     t = Tm[:, 3]
     A = Tm[:, :3]
     pts_prime = np.dot(A, pts_centered.T) + (t + c_prime)[:,None]
-    
+
     return pts_prime.T
-    
+
 
 def transform_slice(img, T, centroid_m, centroid_f, xdim_f, ydim_f):
     nz_ys, nz_xs = np.where(img > 0)
@@ -2206,23 +2097,23 @@ def mahalanobis_distance_sq(nzs, mu, sigma):
 def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_points, sigmas, weights):
     """
     Transform points by the inverse of a weighted-average transform.
-    
+
     Args:
         pts_prime ((n,3)-ndarray): points to transform
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
-    
+
     Returns:
         ((n,3)-ndarray): transformed points.
     """
 
     n_comp = len(rigid_param_list)
     n_voxels = len(pts_prime)
-     
+
     Rs = [r.reshape((3,4))[:3,:3] for r in rigid_param_list]
     ts = [r.reshape((3,4))[:, 3] for r in rigid_param_list]
     Rs_inverse = [np.linalg.inv(R) for R in Rs]
     ts_inverse = [-np.dot(Rinv, t) for Rinv, t in zip(Rs_inverse, ts)]
-    
+
     anchor_points_prime = np.array([np.dot(R, a) + t for R, t, a in zip(Rs, ts, anchor_points)])
     # print zip(anchor_points, anchor_points_prime)
 
@@ -2236,10 +2127,10 @@ def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_point
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # n_components x n_voxels
-    
+
     # print nzvoxels_weights
-        
-    nzs_m_aligned_to_f = np.array([np.sum([w * (np.dot(Rinv, p) + tinv) for w, Rinv,tinv in zip(ws, Rs_inverse,ts_inverse)], axis=0) 
+
+    nzs_m_aligned_to_f = np.array([np.sum([w * (np.dot(Rinv, p) + tinv) for w, Rinv,tinv in zip(ws, Rs_inverse,ts_inverse)], axis=0)
                                    for p, ws in zip(pts_prime, nzvoxels_weights.T)]).astype(np.int16)
     return nzs_m_aligned_to_f
 
@@ -2247,11 +2138,11 @@ def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_point
 def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, weights):
     """
     Transform points by a weighted-average transform.
-    
+
     Args:
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
         weights (list of float): weights of component transforms. Only the relative magnitude matters.
-    
+
     Returns:
         ((n,3)-ndarray): transformed points.
     """
@@ -2263,7 +2154,7 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
         nzvoxels_weights = np.array([w*np.exp(-np.sum((pts - ap)**2, axis=1)/sigma**2) \
                             for ap, sigma, w in zip(anchor_points, sigmas, weights)]) + 1e-6
     # add a small constant to prevent from being rounded to 0.
-        
+
     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
@@ -2274,21 +2165,21 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
     for i, rigid_params in enumerate(rigid_param_list):
         nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(rigid_params, pts=pts).astype(np.float16)
 
-    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)    
+    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)
     return nzs_m_aligned_to_f
-    
+
 
 def transform_volume_polyrigid_v2(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox, fill_holes=True):
     """
     NEEDS REVIEW.
-    
+
     Transform volume by weighted-average transform.
-    
+
     Args:
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms, with initial shifts incorporated.
         weights (list of float): weights of component transforms. Only the relative magnitude matters.
     """
-    
+
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
@@ -2318,22 +2209,22 @@ def transform_volume_polyrigid_v2(vol, rigid_param_list, anchor_points, sigmas, 
 
     return dense_volume
 
-    
+
 def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, weights, out_bbox, fill_holes=True):
     """
     Transform volume by weighted-average transform.
-    
+
     Args:
         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
         weights (list of float): weights of component transforms. Only the relative magnitude matters.
 
     """
-    
+
     xmin_f, xmax_f, ymin_f, ymax_f, zmin_f, zmax_f = out_bbox
     xdim_f = xmax_f + 1 - xmin_f
     ydim_f = ymax_f + 1 - ymin_f
     zdim_f = zmax_f + 1 - zmin_f
-    
+
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     nzs_m_aligned_to_f = transform_points_polyrigid(nzvoxels_m_temp, rigid_param_list, anchor_points, sigmas, weights)
     xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
@@ -2364,45 +2255,45 @@ def transform_volume_polyrigid(vol, rigid_param_list, anchor_points, sigmas, wei
 def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=100.):
     """
     Generate weighting parameters for the weighted averaging transform.
-    
+
     Args:
-    
+
     Returns:
         tuple (rigid_parameters (dict of (3,4)-array), anchor_points (dict of (3,)-array), sigmas (dict of float), weights (dict of float))
     """
-    
+
     from data_manager import DataManager
     from utilities2015 import consolidate
-    
+
     cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
-    
+
     volumes = {}
     for structure in structures:
         try:
             volumes[structure] = \
-            DataManager.load_transformed_volume(stack_m=stack_m, 
+            DataManager.load_transformed_volume(stack_m=stack_m,
                                                 stack_f=stack_f,
                                                 warp_setting=20,
-                                                vol_type_f='score', 
-                                                vol_type_m='score', 
+                                                vol_type_f='score',
+                                                vol_type_m='score',
                                                 prep_id_f=2,
                                                 detector_id_f=15,
-                                                # vol_type_f='annotationAsScore', 
-                                                # vol_type_m='annotationAsScore', 
+                                                # vol_type_f='annotationAsScore',
+                                                # vol_type_m='annotationAsScore',
                                                                     downscale=32,
                                                  structure=structure)
         except Exception as e:
             sys.stderr.write("Error loading volume for %s: %s\n" % (structure, str(e)))
-            
+
     structures = volumes.keys()
-        
+
     volume_moving_structure_sizes = {}
     for structure in structures:
         volume_moving_structure_sizes[structure] = np.count_nonzero(volumes[structure] > cutoff)
-    
-    
+
+
     total_size = sum(volume_moving_structure_sizes[s] for s in structures)
-    structure_sizes_percent = {s: float(volume_moving_structure_sizes[s])/total_size 
+    structure_sizes_percent = {s: float(volume_moving_structure_sizes[s])/total_size
                                for s in structures}
     # each structure's size as a percetage of all structures' size.
     ################
@@ -2425,16 +2316,16 @@ def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=10
     anchor_points = {}
     weights = {}
     sigmas = {}
-    
+
     for structure in structures:
         try:
             local_params, cm_rel2ann, cf_rel2ann, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f = \
     DataManager.load_alignment_parameters(stack_m=stack_m, stack_f=stack_f,
-                                                            warp_setting=17, 
-                                                                 # vol_type_m='annotationAsScore', 
-                                                                 # vol_type_f='annotationAsScore', 
-                                                              vol_type_m='score', 
-                                                                 vol_type_f='score', 
+                                                            warp_setting=17,
+                                                                 # vol_type_m='annotationAsScore',
+                                                                 # vol_type_f='annotationAsScore',
+                                                              vol_type_m='score',
+                                                                 vol_type_f='score',
                                                               prep_id_f=2,
                                                               detector_id_f=15,
                                           downscale=32,
@@ -2450,11 +2341,11 @@ def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=10
             sigmas[structure] = alpha * structure_covars[structure]
         except Exception as e:
             sys.stderr.write("Error loading structure-specific transform for %s: %s.\n" % (structure, str(e)))
-    
+
     return rigid_parameters, anchor_points, sigmas, weights
 
 
-def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=None, 
+def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=None,
                              ctrl_x_intervals=None,
                              ctrl_y_intervals=None,
                              ctrl_z_intervals=None,
@@ -2462,23 +2353,23 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
                             fill_holes=True):
     """
     Transform volume by a B-spline transform.
-    
+
     Args:
         vol (3d-ndarray or 2-tuple): input binary volume. If tuple, (volume in bbox, bbox).
         volume_shape (3-tuple): xdim, ydim, zdim
         interval (float): control point spacing in three directions.
     """
-    
+
     if isinstance(vol, tuple):
         vol_in_bbox, (xmin, xmax, ymin, ymax, zmin, zmax) = vol
         vol_dtype = vol_in_bbox.dtype
-        nzvoxels_m_temp = parallel_where_binary(vol_in_bbox > 0) + (xmin, ymin, zmin)        
+        nzvoxels_m_temp = parallel_where_binary(vol_in_bbox > 0) + (xmin, ymin, zmin)
     else:
         nzvoxels_m_temp = parallel_where_binary(vol > 0)
         vol_dtype = vol.dtype
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-    
-    nzs_m_aligned_to_f = transform_points_bspline(buvwx, buvwy, buvwz, volume_shape=volume_shape, 
+
+    nzs_m_aligned_to_f = transform_points_bspline(buvwx, buvwy, buvwz, volume_shape=volume_shape,
                                                   interval=interval,
                                                   ctrl_x_intervals=ctrl_x_intervals,
                                                   ctrl_y_intervals=ctrl_y_intervals,
@@ -2496,7 +2387,7 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol_dtype)
     xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_bbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
     xs_m, ys_m, zs_m = nzvoxels_m_temp.T
-    
+
     if isinstance(vol, tuple):
         volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_bbox] = vol_in_bbox[ys_m-ymin, xs_m-xmin, zs_m-zmin]
     else:
@@ -2517,15 +2408,19 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
 
 def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
-    First, centroid_m and centroid_f are aligned.
-    Then the tranform parameterized by tf_params is applied.
-    The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
-    
+
+    One can specify initial shift and the transform separately.
+    First, `centroid_m` and `centroid_f` are aligned.
+    Then the tranform (R,t) parameterized by `tf_params` is applied.
+    The relationship between coordinates in the fixed and moving volumes is:
     coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
+
+    One can also incorporate the initial shift into tf_params. In that case, do not specify `centroid_m` and `centroid_f`.
+    coord_f = np.dot(T, coord_m)
 
     Args:
         vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
-        tf_params ((nparam,)-ndarray): flattened vector of transform parameters
+        tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
         centroid_m (3-tuple): transform center in the volume to transform
         centroid_f (3-tuple): transform center in the result volume.
 
@@ -2693,7 +2588,7 @@ def fill_sparse_volume(volume_sparse):
         # Assume background label is 0.
         if ind == 0:
             continue
-            
+
         vb = volume_sparse == ind
         xmin,xmax,ymin,ymax,zmin,zmax = bbox_3d(vb)
         vs = vb[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]

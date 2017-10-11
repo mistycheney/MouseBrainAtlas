@@ -26,26 +26,210 @@ import bloscpack as bp
 from ipywidgets import FloatProgress
 from IPython.display import display
 
+from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
+from skimage.measure import find_contours, regionprops
+
+def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
+    """
+    This function uses multiple processes.
+
+    Args:
+        labeled_volume (3D ndarray of int): integer-labeled volume.
+        along_direction (str): 'x', 'y' or 'z'.
+        positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
+
+    Returns:
+        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
+    """
+
+    nproc = NUM_CORES
+
+    if along_direction == 'z':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[2])
+    elif along_direction == 'x':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[1])
+    elif along_direction == 'y':
+        if positions is None:
+            positions = range(0, labeled_volume.shape[0])
+
+    def find_contour_points_slice(p):
+        if along_direction == 'x':
+            vol_slice = labeled_volume[:, p, :]
+        if along_direction == 'y':
+            vol_slice = labeled_volume[p, :, :]
+        if along_direction == 'z':
+            vol_slice = labeled_volume[:, :, p]
+
+        cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
+        if len(cnts) == 0 or 1 not in cnts:
+            sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
+            return
+        else:
+            if len(cnts[1]) > 1:
+                sys.stderr.write('%s contours of reconstructed volume is found at position %d (%s). Use the longest one.\n' % (len(cnts[1]), p, map(len, cnts[1])))
+                cnt = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
+            else:
+                cnt = np.array(cnts[1][0])
+            return cnt
+
+    pool = Pool(nproc)
+    contours = dict(zip(positions, pool.map(find_contour_points_slice, positions)))
+    pool.close()
+    pool.join()
+
+    contours = {p: cnt for p, cnt in contours.iteritems() if cnt is not None}
+
+    return contours
+
+def find_contour_points(labelmap, sample_every=10, min_length=0):
+    """
+    Find contour coordinates.
+
+    Args:
+        labelmap (2d array of int): integer-labeled 2D image
+        sample_every (int): can be interpreted as distance between points.
+        min_length (int): contours with fewer vertices are discarded.
+        This argument is being deprecated because the vertex number does not
+        reliably measure actual contour length in microns.
+        It is better to leave this decision to calling routines.
+    Returns:
+        a dict of lists: {label: list of contours each consisting of a list of (x,y) coordinates}
+    """
+
+    padding = 5
+
+    if np.count_nonzero(labelmap) == 0:
+        # sys.stderr.write('No contour can be found because the image is blank.\n')
+        return {}
+
+    regions = regionprops(labelmap.astype(np.int))
+    contour_points = {}
+
+    for r in regions:
+
+        (min_row, min_col, max_row, max_col) = r.bbox
+
+        padded = np.pad(r.filled_image, ((padding,padding),(padding,padding)),
+                        mode='constant', constant_values=0)
+
+        contours = find_contours(padded, level=.5, fully_connected='high')
+        contours = [cnt.astype(np.int) for cnt in contours if len(cnt) > min_length]
+        if len(contours) > 0:
+#             if len(contours) > 1:
+#                 sys.stderr.write('%d: region has more than one part\n' % r.label)
+
+            contours = sorted(contours, key=lambda c: len(c), reverse=True)
+            contours_list = [c-(padding, padding) for c in contours]
+            contour_points[r.label] = sorted([c[np.arange(0, c.shape[0], sample_every)][:, ::-1] + (min_col, min_row)
+                                for c in contours_list], key=lambda c: len(c), reverse=True)
+
+        elif len(contours) == 0:
+#             sys.stderr.write('no contour is found\n')
+            continue
+
+    #         viz = np.zeros_like(r.filled_image)
+    #         viz[pts_sampled[:,0], pts_sampled[:,1]] = 1
+    #         plt.imshow(viz, cmap=plt.cm.gray);
+    #         plt.show();
+
+    return contour_points
+
+def draw_alignment(warped_atlas, fixed_volumes, level_spacing=10, zs=None, ncols=5, structures=None, colors=None,
+                  markers=None):
+    """
+    Args:
+        structures (list of str or int): structures to show; the type matches the keys of `warped_atlas` and `fixed_volumes`.
+        colors (dict ): {structure id: (3,)-array}
+        markers ((n,3)-array): coordinates of markers
+    """
+
+    ydim_f, xdim_f, zdim_f = fixed_volumes.values()[0].shape
+
+    aspect_ratio = float(xdim_f)/ydim_f # width / height
+
+    if zs is None:
+        zs = np.arange(0, zdim, level_spacing)
+    n = len(zs)
+
+    nrows = int(np.ceil(len(zs) / float(ncols)))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, squeeze=True,
+                             figsize=(ncols*5*aspect_ratio, nrows*5))
+    axes = axes.flatten()
+
+    for zi in range(len(axes)):
+        if zi >= n:
+            axes[zi].axis('off');
+        else:
+            z = zs[zi]
+
+            viz = np.zeros((ydim_f, xdim_f, 3), np.uint8)
+
+            for l in fixed_volumes.keys():
+                if l not in structures:
+                    continue
+                zslice = fixed_volumes[l][..., z]
+                contours = find_contour_points(zslice)
+                if len(contours) == 0:
+                    continue
+
+                for cnt in contours[1]:
+                    cv2.polylines(viz, pts=[cnt.astype(np.int)], isClosed=True,
+                              thickness=1,
+                              color=colors[l])
+
+            if markers is not None:
+                markers_on_slice = markers[(markers[...,2] > z-1) & (markers[...,2] < z+1)]
+                for m in markers_on_slice:
+                    cv2.circle(viz, center=tuple(m[:2].astype(np.int)), radius=2, color=(255,255,255), thickness=-1)
+
+            ####################
+
+            cutoff_level = 0.5
+
+            for l in warped_atlas.keys():
+                if l not in structures:
+                    continue
+                zslice = warped_atlas[l][..., z]
+                contours = find_contour_points(zslice > cutoff_level)
+                if len(contours) == 0:
+                    continue
+
+                for cnt in contours[1]:
+                    cv2.polylines(viz, pts=[cnt.astype(np.int)], isClosed=True,
+                              thickness=1,
+                             color=colors[l])
+
+            ######################
+
+            axes[zi].imshow(viz)
+            axes[zi].set_title("z=%d" % z)
+            axes[zi].set_xticks([]);
+            axes[zi].set_yticks([]);
+
+    plt.show()
+
 
 def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
     """
     Get the coordinates of grid lines.
-    
+
     Args:
         spacing (int): the spacing between dots if broken lines are desired.
-        
+
     Returns:
         (n,3)-array
     """
-    
+
     xmin,xmax,ymin,ymax,zmin,zmax = bbox
-    
+
     xdim, ydim, zdim = (xmax+1-xmin, ymax+1-ymin, zmax+1-zmin)
-    
+
     xs = np.arange(0, xdim, 1)
     ys = np.arange(0, ydim, 1)
     zs = np.arange(0, zdim, 1)
-    
+
     vol = np.zeros((ydim, xdim, zdim), np.bool)
     xs = xs.astype(np.int)
     ys = ys.astype(np.int)
@@ -75,25 +259,25 @@ def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
     for z in zs:
         vol[ys, ::spacing, z] = 1
         vol[::spacing, xs, z] = 1
-     
+
     ys, xs, zs = np.nonzero(vol)
-            
+
     return np.c_[xs, ys, zs]
-            
-            
+
+
 def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
     """
     Get a boolean volume with grid lines set to True.
-    
+
     Args:
         s (int): the spacing between dots if broken lines are desired.
-        
+
     Returns:
         3D array of boolean
     """
-    
+
     xs, ys, zs = get_grid_mesh_coordinates(**locals())
-    
+
     xdim, ydim, zdim = vol_shape
     vol = np.zeros((ydim, xdim, zdim), np.bool)
     xs = xs.astype(np.int)
@@ -124,14 +308,14 @@ def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
     for z in zs:
         vol[ys, ::s, z] = 1
         vol[::s, xs, z] = 1
-        
+
     return vol
 
 def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
     """
     Get a boolean volume with grid point set to True.
     """
-    
+
     xdim, ydim, zdim = vol_shape
     vol = np.zeros((ydim, xdim, zdim), np.bool)
     xs = xs.astype(np.int)
@@ -143,7 +327,7 @@ def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
     gp_xs, gp_ys, gp_zs = np.meshgrid(xs, ys, zs, indexing='ij')
     gp_xyzs = np.c_[gp_xs.flatten(), gp_ys.flatten(), gp_zs.flatten()]
     vol[gp_xyzs[:,1], gp_xyzs[:,0], gp_xyzs[:,2]] = 1
-    
+
     if return_nz:
         return vol, gp_xyzs
     else:
@@ -153,7 +337,7 @@ def return_gridline_points_v2(xdim, ydim, spacing, z):
     xs = np.arange(0, xdim, spacing)
     ys = np.arange(0, ydim, spacing)
     return return_gridline_points(xs, ys, z, xdim, ydim)
-    
+
 def return_gridline_points(xs, ys, z, w, h):
     grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
     return grid_points
@@ -162,12 +346,12 @@ def return_gridline_points(xs, ys, z, w, h):
 def consolidate(params, centroid_m, centroid_f):
     """
     Convert the set (parameter, centroid m, centroid f) to a single matrix.
-    
+
     Args:
         params ((12,)-array):
         centroid_m ((3,)-array):
         centroid_f ((3,)-array):
-        
+
     Returns:
         ((3,4)-array)
     """
@@ -208,7 +392,7 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
         out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
         vol_bbox_dict (dict {key: (vol, bbox)})
         vol_bbox_tuples (list of (vol, bbox) tuples)
-        
+
     Returns:
         list of 3d arrays
     """
@@ -222,14 +406,14 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=Non
     """
     Args:
         vol_bbox_dict (dict {key: (vol, bbox)})
-        
+
     Returns:
-        (list of 3d arrays, (6,)-ndarray): (list of volumes in overall coordinate system, the common overall bounding box)
+        (list or dict of 3d arrays, (6,)-ndarray): (volumes in overall coordinate system, the common overall bounding box)
     """
-    
+
     if vol_origin_dict is not None:
         vol_bbox_dict = {k: (v, (o[0], o[0]+v.shape[1]-1, o[1], o[1]+v.shape[0]-1, o[2], o[2]+v.shape[2]-1)) for k,(v,o) in vol_origin_dict.iteritems()}
-                         
+
     if vol_bbox_dict is not None:
         volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
         volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_dict=vol_bbox_dict)
@@ -239,17 +423,21 @@ def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=Non
     return volumes, np.array(volume_bbox)
 
 
-def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
+def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     """
+    Crop and pad an volume.
+
+    in_vol and in_bbox together define the input volume in a underlying space.
+    out_bbox then defines how to crop the underlying space, which generates the output volume.
+
     Args:
         in_bbox ((6,) array): the bounding box that the input volume is defined on. If None, assume origin is at (0,0,0) of the input volume.
+        in_origin ((3,) array): the input volume origin coordinate in the space. Used only if in_bbox is not specified. Default is (0,0,0), meaning the input volume is located at the origin of the underlying space.
         out_bbox ((6,) array): the bounding box that the output volume is defined on.
     """
-    
+
     if in_bbox is None:
-        in_xmin = 0
-        in_ymin = 0
-        in_zmin = 0
+        in_xmin, in_ymin, in_zmin = in_origin
         in_xmax = in_vol.shape[1] - 1
         in_ymax = in_vol.shape[0] - 1
         in_zmax = in_vol.shape[2] - 1
@@ -260,7 +448,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     in_ydim = in_ymax - in_ymin + 1
     in_zdim = in_zmax - in_zmin + 1
         # print 'in', in_xdim, in_ydim, in_zdim
-    
+
     if out_bbox is None:
         out_xmin = 0
         out_ymin = 0
@@ -275,10 +463,10 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     out_ydim = out_ymax - out_ymin + 1
     out_zdim = out_zmax - out_zmin + 1
         # print 'out', out_xdim, out_ydim, out_zdim
-    
+
     if out_xmin > in_xmax or out_xmax < in_xmin or out_ymin > in_ymax or out_ymax < in_ymin or out_zmin > in_zmax or out_zmax < in_zmin:
         return np.zeros((out_ydim, out_xdim, out_zdim), np.int)
-    
+
     if out_xmax > in_xmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0, out_xmax-in_xmax),(0,0)], mode='constant', constant_values=0)
         # print 'pad x'
@@ -288,7 +476,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     if out_zmax > in_zmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0,0),(0, out_zmax-in_zmax)], mode='constant', constant_values=0)
         # print 'pad z'
-    
+
     out_vol = np.zeros((out_ydim, out_xdim, out_zdim), in_vol.dtype)
     ymin = max(in_ymin, out_ymin)
     xmin = max(in_xmin, out_xmin)
@@ -300,14 +488,14 @@ def crop_and_pad_volume(in_vol, in_bbox=None, out_bbox=None):
     # print xmin, xmax, ymin, ymax, zmin, zmax
     # print xmin-in_xmin, xmax+1-in_xmin
     # assert ymin >= 0 and xmin >= 0 and zmin >= 0
-    out_vol[ymin-out_ymin:ymax+1-out_ymin, 
-            xmin-out_xmin:xmax+1-out_xmin, 
+    out_vol[ymin-out_ymin:ymax+1-out_ymin,
+            xmin-out_xmin:xmax+1-out_xmin,
             zmin-out_zmin:zmax+1-out_zmin] = in_vol[ymin-in_ymin:ymax+1-in_ymin, xmin-in_xmin:xmax+1-in_xmin, zmin-in_zmin:zmax+1-in_zmin]
-    
+
     assert out_vol.shape[1] == out_xdim
     assert out_vol.shape[0] == out_ydim
     assert out_vol.shape[2] == out_zdim
-    
+
     return out_vol
 
 def rescale_intensity_v2(im, low, high):
@@ -852,14 +1040,14 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
         titles = ['y=%d' % y for y in ys]
 
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
-    
-    
+
+
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
     """
     Args:
         draw_contours (list of (n,2)-ndarray of (x,y) vertices)
     """
-    
+
     if maintain_shape:
         vizs = pad_patches_to_same_size(vizs)
 
@@ -1030,10 +1218,10 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
     if dst_rgb.dtype == np.uint8:
         dst_rgb = img_as_float(dst_rgb)
-        
+
     if src_rgb.ndim == 2:
         src_rgb = gray2rgb(src_rgb)
-    
+
     if dst_rgb.ndim == 2:
         dst_rgb = gray2rgb(dst_rgb)
 
@@ -1042,7 +1230,7 @@ def alpha_blending(src_rgb, dst_rgb, src_alpha, dst_alpha):
 
     if isinstance(dst_alpha, float) or  isinstance(dst_alpha, int):
         dst_alpha = dst_alpha * np.ones((dst_rgb.shape[0], dst_rgb.shape[1]))
-        
+
     out_alpha = src_alpha + dst_alpha * (1. - src_alpha)
     out_rgb = (src_rgb * src_alpha[..., None] +
                dst_rgb * dst_alpha[..., None] * (1. - src_alpha[..., None])) / out_alpha[..., None]

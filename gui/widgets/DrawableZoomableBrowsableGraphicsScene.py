@@ -88,7 +88,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
         if len(polygon.vertex_circles) == 2:
-            raise
+            raise Exception("polygon has only two vertices.")
         polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         # Compute the polygon's coordinate in the depth dimension.

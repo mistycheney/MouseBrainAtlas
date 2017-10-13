@@ -1298,12 +1298,26 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
                     else:
-                        self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                        # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                        edit_entry = {'username': self.gui.get_username(),
+                        'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+                        'type': 'shift3d',
+                        'transform':tf,
+                        'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
+                        'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                        self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
                 elif self.mode == 'rotate3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
                     else:
-                        self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                        # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                        edit_entry = {'username': self.gui.get_username(),
+                        'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+                        'type': 'rotate3d',
+                        'transform':tf,
+                        'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
+                        'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                        self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')

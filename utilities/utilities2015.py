@@ -73,7 +73,11 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
                 cnt = np.array(cnts[1][np.argmax(map(len, cnts[1]))])
             else:
                 cnt = np.array(cnts[1][0])
-            return cnt
+            if len(cnt) <= 2:
+                sys.stderr.write('contour has less than three vertices. Ignore.\n')
+                return
+            else:
+                return cnt
 
     pool = Pool(nproc)
     contours = dict(zip(positions, pool.map(find_contour_points_slice, positions)))

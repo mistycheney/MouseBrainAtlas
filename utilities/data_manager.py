@@ -258,7 +258,7 @@ class DataManager(object):
             # else:
             if timestamp is not None:
                 if timestamp == 'latest':
-                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*contours*", redownload=True)
+                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
                     import re
                     timestamps = []
                     for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
@@ -285,6 +285,21 @@ class DataManager(object):
                                                               trial_idx=trial_idx)
             if suffix is not None:
                 if timestamp is not None:
+                    if timestamp == 'latest':
+                        download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
+                        import re
+                        timestamps = []
+                        for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                            m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                            if m is not None:
+                                ts = m.groups()[0]
+                                try:
+                                    timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                                except:
+                                    pass
+                        timestamp = sorted(timestamps)[-1][1]
+                        print "latest timestamp: ", timestamp
+
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
                 else:
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})

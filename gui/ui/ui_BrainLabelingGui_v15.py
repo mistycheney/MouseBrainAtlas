@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui/BrainLabelingGui_v15.ui'
+# Form implementation generated from reading ui file 'BrainLabelingGui_v15.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -77,6 +77,9 @@ class Ui_BrainLabelingGui(object):
         self.button_loadStructures = QtGui.QPushButton(self.centralwidget)
         self.button_loadStructures.setObjectName(_fromUtf8("button_loadStructures"))
         self.horizontalLayout.addWidget(self.button_loadStructures)
+        self.button_loadWarpedAtlas = QtGui.QPushButton(self.centralwidget)
+        self.button_loadWarpedAtlas.setObjectName(_fromUtf8("button_loadWarpedAtlas"))
+        self.horizontalLayout.addWidget(self.button_loadWarpedAtlas)
         self.button_load = QtGui.QPushButton(self.centralwidget)
         self.button_load.setObjectName(_fromUtf8("button_load"))
         self.horizontalLayout.addWidget(self.button_load)
@@ -86,7 +89,7 @@ class Ui_BrainLabelingGui(object):
         self.verticalLayout.addLayout(self.horizontalLayout)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1521, 19))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1521, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         BrainLabelingGui.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(BrainLabelingGui)
@@ -110,6 +113,7 @@ class Ui_BrainLabelingGui(object):
         self.button_save.setText(_translate("BrainLabelingGui", "Save Contours", None))
         self.button_saveMarkers.setText(_translate("BrainLabelingGui", "Save Markers", None))
         self.button_loadStructures.setText(_translate("BrainLabelingGui", "Load Structures", None))
+        self.button_loadWarpedAtlas.setText(_translate("BrainLabelingGui", "Load Warped Atlas", None))
         self.button_load.setText(_translate("BrainLabelingGui", "Load Contours", None))
         self.button_loadMarkers.setText(_translate("BrainLabelingGui", "Load Markers", None))
         self.toolBar.setWindowTitle(_translate("BrainLabelingGui", "toolBar", None))

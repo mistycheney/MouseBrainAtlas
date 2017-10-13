@@ -112,8 +112,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_saveStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load)
         self.button_loadMarkers.clicked.connect(self.load_markers)
-        # self.button_loadStructures.clicked.connect(self.load_structures)
-        self.button_loadStructures.clicked.connect(self.load_warped_atlas_volume)
+        self.button_loadStructures.clicked.connect(self.load_structures)
+        self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
@@ -538,9 +538,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entry['name'] = name
             entry['side'] = side
             if 'edits' not in v or v['edits'] is None or len(v['edits']) == 0:
-                entry['edits'] =  [{'username':self.username, 'timestamp':timestamp}]
+                entry['edits'] = []
             else:
-                entry['edits'] =  v['edits'] + [{'username':self.username, 'timestamp':timestamp}]
+                entry['edits'] = v['edits']
+            #     entry['edits'] =  [{'type': 'creation', 'username':self.username, 'timestamp':timestamp}]
+            # else:
 
             if hasattr(v, 'structure_id') and v.properties['structure_id'] is not None:
                 structure_id = v.properties['structure_id']
@@ -643,12 +645,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for sec, contours_by_sided_name in warped_atlas_contours_by_section.iteritems():
             for sided_name, contour in contours_by_sided_name.iteritems():
 
+                unsided_name, side, _, _ = parse_label(sided_name)
+
+                if (unsided_name, side) in self.structure_volumes:
+                    sys.stderr.write('Structure %s,%s already loaded as edited volume. Skipped.\n' % (unsided_name, side))
+                    continue
+
                 if len(contour) < 3:
                     sys.stderr.write("On sec %d, %s has only %d vertices. Skipped.\n" % (sec, sided_name, len(contour)))
                     continue
 
                 polygon_id = str(uuid.uuid4().fields[-1])
-                unsided_name, side, _, _ = parse_label(sided_name)
                 contour_entry = {'name': unsided_name,
                             'label_position': np.mean(contour, axis=0),
                            'side': side,
@@ -665,7 +672,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                             'class': 'contour',
                             'section': sec}
                 contour_entries[polygon_id] = contour_entry
-
 
         warped_atlas_contours_df = pd.DataFrame(contour_entries).T
         self.gscenes['sagittal'].load_drawings(warped_atlas_contours_df, append=False)
@@ -710,7 +716,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
             self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
             use_confirmed_only=False, recompute_from_contours=False, \
-            affected_gscenes=['sagittal'])
+            affected_gscenes=['sagittal', 'sagittal_tb', 'horizontal', 'coronal'])
             sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
 
 
@@ -926,7 +932,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 curr_structure_label = self.gscenes['sagittal'].active_polygon.properties['label']
                 curr_structure_side = self.gscenes['sagittal'].active_polygon.properties['side']
                 self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side,
-                use_confirmed_only=False, recompute_from_contours=False)
+                use_confirmed_only=False, recompute_from_contours=False, from_gscene_id='sagittal')
 
             elif key == Qt.Key_U:
 

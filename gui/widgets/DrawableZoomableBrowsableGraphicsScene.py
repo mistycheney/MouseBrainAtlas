@@ -61,6 +61,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             vertex_color=None, vertex_radius=None,
                                             section=None, index=None):
         polygon = self.add_polygon(path, color=linecolor, linewidth=linewidth, index=index, section=section)
+        if len(polygon.vertex_circles) == 2:
+            raise
         polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         if vertex_color is None:
@@ -85,6 +87,8 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
+        if len(polygon.vertex_circles) == 2:
+            raise
         polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         # Compute the polygon's coordinate in the depth dimension.

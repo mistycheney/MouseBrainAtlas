@@ -14,14 +14,14 @@ from data_manager import *
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
     """
     Convert an interger-valued annotation volume to a set of probability-valued score volumes.
-    
+
     Args:
         ann_vol (3D array of int): the annotation volume in which a voxel is an integer indicating the structure class
-    
+
     Returns:
         dict of 3D array of float: {structure name: volume}. Each voxel is a probability vector, where exactly one entry is 1.
     """
-    
+
     all_indices = set(np.unique(ann_vol)) - {0}
     volume = {label_to_structure[i]: np.zeros_like(ann_vol, dtype=np.float16) for i in all_indices}
     for i in all_indices:
@@ -66,7 +66,7 @@ def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
     """
     from scipy.ndimage.morphology import distance_transform_edt
     distance = int(np.round(distance))
-    
+
     eps = 5
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
     ydim, xdim, zdim = vol.shape
@@ -103,13 +103,13 @@ def get_surround_volume_v2(vol, bbox, distance=5, valid_level=0, prob=False):
             surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
         prob (bool):
             if True, surround voxels are assigned 1-vol; if False, surround voxels are assigned 1.
-            
+
     Returns:
         (volume, bbox)
     """
     from scipy.ndimage.morphology import distance_transform_edt
     distance = int(np.round(distance))
-    
+
     eps = 5
     xmin, xmax, ymin, ymax, zmin, zmax = bbox
     # ydim, xdim, zdim = vol.shape
@@ -132,8 +132,8 @@ def get_surround_volume_v2(vol, bbox, distance=5, valid_level=0, prob=False):
         return surround_vol, roi_bbox
     else:
         return roi_surround_vol, roi_bbox
-    
-    
+
+
 def points_inside_contour(cnt, num_samples=None):
     xmin, ymin = cnt.min(axis=0)
     xmax, ymax = cnt.max(axis=0)
@@ -651,7 +651,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
     Args:
         return_contours (bool): If true, only return resampled contours \{int: (n,2)-ndarrays\}. If false, return (volume, bbox) tuple.
         return_voxels (bool): If true, only return points inside contours.
-        fill (bool): If true, the volume is just the shell. Otherwise, the volume is filled. 
+        fill (bool): If true, the volume is just the shell. Otherwise, the volume is filled.
 
     Returns:
         If default, return (volume, bbox).
@@ -727,7 +727,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
                 volume[i-ymin, pts[:,0]-xmin, pts[:,1]-zmin] = 1
             elif interpolation_direction == 'x':
                 volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
-        
+
     return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
 
 

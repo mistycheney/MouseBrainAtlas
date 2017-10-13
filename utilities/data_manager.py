@@ -1107,15 +1107,19 @@ class DataManager(object):
                                                      common_shape=True
 ):
         """
-        Load transformed volumes (vol_inbbox, vol_bbox) for all structures.
+        Load transformed volumes for all structures and normalize them into a common shape.
 
         Args:
             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
             common_shape (bool): If true, volumes are normalized to the same shape.
 
         Returns:
-            if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
-            else, returns (volumes, common_bbox).
+            If `common_shape` is True:
+                if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
+                else, returns (volumes, common_bbox).
+            If `common_shape` is False:
+                if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
+                else, returns volume_bbox_tuples.
         """
 
         if structures is None:
@@ -1182,12 +1186,18 @@ class DataManager(object):
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
-        volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
+        if common_shape:
+            volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
 
-        if return_label_mappings:
-            return volumes_normalized, common_bbox, structure_to_label, label_to_structure
+            if return_label_mappings:
+                return volumes_normalized, common_bbox, structure_to_label, label_to_structure
+            else:
+                return volumes_normalized, common_bbox
         else:
-            return volumes_normalized, common_bbox
+            if return_label_mappings:
+                return volumes, structure_to_label, label_to_structure
+            else:
+                return volumes
 
     @staticmethod
     def load_transformed_volume_all_known_structures(stack_m,
@@ -2239,7 +2249,7 @@ class DataManager(object):
     #######################################################
 
     @staticmethod
-    def convert_section_to_z(stack, sec, downsample, z_begin=None, first_sec=None):
+    def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None):
         """
         Because the z-spacing is much larger than pixel size on x-y plane,
         the theoretical voxels are square on x-y plane but elongated in z-direction.
@@ -2248,12 +2258,12 @@ class DataManager(object):
         This depends on the downsample factor of the volume.
 
         Args:
-            downsample (int):
-            first_sec (int): default to the first brainstem section defined in ``cropbox".
-            z_begin (float): default to the z position of the first_sec.
+            first_sec (int): Default is the first brainstem section defined in ``cropbox".
+            z_begin (float): the origin z, counted from section index 1 (which is not necessarily `first_sec`).
+            Default is the z position of the `first_sec`.
 
         Returns:
-            z1, z2 (2-tuple of float): in
+            z1, z2 (2-tuple of float): the z-levels of the beginning and end of the queried section, counted from `z_begin`.
         """
 
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
@@ -2261,7 +2271,8 @@ class DataManager(object):
         # Voxel size in z direction in unit of x,y pixel.
 
         if first_sec is None:
-            first_sec, _ = DataManager.load_cropbox(stack)[4:]
+            # first_sec, _ = DataManager.load_cropbox(stack)[4:]
+            first_sec = metadata_cache['section_limits'][stack][0]
 
         if z_begin is None:
             z_begin = first_sec * voxel_z_size

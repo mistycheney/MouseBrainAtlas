@@ -1711,7 +1711,10 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
     return map_z_to_section
 
-def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5, sample_every=1):
+from data_manager import *
+
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5, sample_every=1,
+first_sec=1):
     """
     Re-section atlas volumes and obtain structure contours on each section.
 
@@ -1719,7 +1722,8 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         volumes (dict of 3D ndarrays of float): {structure: volume}. volume is a 3d array of probability values.
         downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
         volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
-        level (float):
+        first_sec (int): the first section that the beginning of the input volume is at. Default is 1.
+        level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
 
     Returns:
         dict: {section: {name_s: (n,2)-ndarray}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
@@ -1757,7 +1761,8 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
 
     for sec in sections:
         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
-        z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+        # z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+        z = int(np.mean(DataManager.convert_section_to_z(sec=sec, downsample=downsample_factor, first_sec=first_sec))) - zmin_vol_f
         for name_s, vol in volumes.iteritems():
             if np.count_nonzero(vol[..., z]) == 0:
                 continue
@@ -1769,7 +1774,14 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
             else:
                 if len(cnts_rowcol) > 1:
                     sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d. Keep only the longest.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
+
                 best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
+
+                # Address contours with identical first point and last point - remove last point
+                if all(np.array(best_cnt[0]) == np.array(best_cnt[-1])):
+                    # sys.stderr.write("Detected contour with identical first point and last point. section %d, %s, len %d\n" % (sec, sided_name, len(contour)))
+                    best_cnt = best_cnt[:-1]
+
                 contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
                 structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
 

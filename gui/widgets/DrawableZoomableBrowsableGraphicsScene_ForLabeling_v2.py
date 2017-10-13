@@ -478,8 +478,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Load annotation contours and place drawings.
 
         Args:
+            contours (DataFrame): row indices are random polygon_ids, and columns include vertices, edits, creator, section, type, name, side, class, label_position, time_created
             vertex_color (str or (3,)-array of 255-based int):
-
         """
 
         if not append:
@@ -503,8 +503,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 vertices = contour['vertices']
 
                 # type = confirmed or intersected
-                if sec >= 170 and sec < 180 and contour['type'] == 'confirmed':
-                    print sec, contour['name'], 'type', contour['type']
+                # if sec >= 170 and sec < 180 and contour['type'] == 'confirmed':
+                #     print sec, contour['name'], 'type', contour['type']
                 if 'type' in contour and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
@@ -516,6 +516,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     contour_class = 'contour'
                     # contour_class = None
+
+                # p = vertices_from_polygon(path=vertices_to_path(vertices))
+                # if len(p) != len(vertices):
+                #     print vertices
+                #     print p
+                #     raise Exception("")
 
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
                                                         label=contour['name'], label_pos=contour['label_position'],
@@ -736,6 +742,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             action_confirmPolygon.setVisible(False)
 
         action_reconstruct = myMenu.addAction("Update 3D structure")
+        action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using also unconfirmed contours)")
         action_showInfo = myMenu.addAction("Show contour information")
         action_showReferences = myMenu.addAction("Show reference resources")
 
@@ -807,6 +814,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif selected_action == action_reconstruct:
             assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], True, True)
+
+        elif selected_action == action_reconstructUsingUnconfirmed:
+            assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
+            self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
 
         elif selected_action in action_resolutions:
             selected_downsample_factor = action_resolutions[selected_action]
@@ -1281,6 +1292,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
                 self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox
+
+                # Append edits
                 if self.mode == 'shift3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []

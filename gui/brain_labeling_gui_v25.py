@@ -112,7 +112,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_saveStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load)
         self.button_loadMarkers.clicked.connect(self.load_markers)
-        self.button_loadStructures.clicked.connect(self.load_structures)
+        # self.button_loadStructures.clicked.connect(self.load_structures)
+        self.button_loadStructures.clicked.connect(self.load_warped_atlas_volume)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
@@ -551,7 +552,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = DataFrame(entries).T
         structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
         save_hdf_v2(structure_df, structure_df_fp)
-        upload_to_s3(structure_df_fp)
+        # upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
@@ -619,6 +620,55 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #         print marker_entry
 
         self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
+
+    @pyqtSlot()
+    def load_warped_atlas_volume(self):
+        """
+        Load warped atlas volumes.
+        """
+
+        warped_atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
+        return_label_mappings=False,
+        name_or_index_as_key='name')
+
+        from registration_utilities import get_structure_contours_from_aligned_atlas
+
+        warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(warped_atlas_volumes, volume_origin=(0,0,0),
+        sections=metadata_cache['valid_sections'][self.stack],
+        downsample_factor=32, level=.5, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
+
+        import uuid
+
+        contour_entries = {}
+        for sec, contours_by_sided_name in warped_atlas_contours_by_section.iteritems():
+            for sided_name, contour in contours_by_sided_name.iteritems():
+
+                if len(contour) < 3:
+                    sys.stderr.write("On sec %d, %s has only %d vertices. Skipped.\n" % (sec, sided_name, len(contour)))
+                    continue
+
+                polygon_id = str(uuid.uuid4().fields[-1])
+                unsided_name, side, _, _ = parse_label(sided_name)
+                contour_entry = {'name': unsided_name,
+                            'label_position': np.mean(contour, axis=0),
+                           'side': side,
+                           'creator': 'hector',
+                           'time_created': datetime.now().strftime("%m%d%Y%H%M%S"),
+                            'edits': [],
+                            'vertices': contour,
+                            'downsample': 32,
+                            'type': 'intersected',
+                            'orientation': 'sagittal',
+                            'parent_structure': [],
+                            'side_manually_assigned': True,
+                            'id': polygon_id,
+                            'class': 'contour',
+                            'section': sec}
+                contour_entries[polygon_id] = contour_entry
+
+
+        warped_atlas_contours_df = pd.DataFrame(contour_entries).T
+        self.gscenes['sagittal'].load_drawings(warped_atlas_contours_df, append=False)
 
     @pyqtSlot()
     def load_structures(self):
@@ -992,7 +1042,7 @@ if __name__ == "__main__":
     parser.add_argument("stack_name", type=str, help="stack name")
     parser.add_argument("-f", "--first_sec", type=int, help="first section")
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
-    parser.add_argument("-v", "--img_version", type=str, help="image version")
+    parser.add_argument("-v", "--img_version", type=str, help="image version", default='jpeg')
     parser.add_argument("-d", "--downsample", type=int, help="downsample", default=1)
     args = parser.parse_args()
 

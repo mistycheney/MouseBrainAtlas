@@ -42,7 +42,8 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
         contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
     """
 
-    nproc = NUM_CORES
+    import multiprocessing
+    nproc = multiprocessing.cpu_count()
 
     if along_direction == 'z':
         if positions is None:

@@ -533,7 +533,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         entries = {}
         for (name, side), v in self.structure_volumes.iteritems():
             entry = {}
-            entry['volume_in_bbox'] = v['volume_in_bbox']
+            # entry['volume_in_bbox'] = v['volume_in_bbox']
+            entry['volume_in_bbox'] = bp.pack_ndarray_str(v['volume_in_bbox'])
             entry['bbox'] = v['bbox']
             entry['name'] = name
             entry['side'] = side
@@ -554,7 +555,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = DataFrame(entries).T
         structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
         save_hdf_v2(structure_df, structure_df_fp)
-        # upload_to_s3(structure_df_fp)
+        upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
@@ -685,8 +686,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         # print structures_df_fp
         structure_df = load_hdf_v2(structures_df_fp)
-        # structure_df = DataManager.load_annotation_v3(stack=self.stack, by_human=False,
-        # stack_m='atlasV3', warp_setting=8, classifier_setting_m=37, classifier_setting_f=37, suffix='structures')
 
         self.structure_df_loaded = structure_df
 
@@ -702,7 +701,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             else:
                 edits = []
 
-            self.structure_volumes[t] = {'volume_in_bbox': structure_entry['volume_in_bbox'],
+            self.structure_volumes[t] = {'volume_in_bbox': bp.unpack_ndarray_str(structure_entry['volume_in_bbox']).astype(np.bool),
                                         'bbox': structure_entry['bbox'],
                                         'edits': edits,
                                         'structure_id': structure_id}
@@ -712,8 +711,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
 
             t = time.time()
-            # if structure_entry['name'] == 'VLL' and structure_entry['side'] == 'L':
-            #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False, affected_gscenes=['sagittal'])
             self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
             use_confirmed_only=False, recompute_from_contours=False, \
             affected_gscenes=['sagittal', 'sagittal_tb', 'horizontal', 'coronal'])

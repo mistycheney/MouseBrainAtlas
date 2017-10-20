@@ -313,7 +313,8 @@ windowing_settings = {1: {"patch_size": 224, "spacing": 56},
                       2: {'patch_size':224, 'spacing':56, 'comment':'larger margin'},
                      3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'},
                      4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
-                     5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'}}
+                     5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'},
+                     6: {'patch_size': 448, 'spacing':64, 'comment': 'twice as large patch'}}
 
 ############ Class Labels #############
 

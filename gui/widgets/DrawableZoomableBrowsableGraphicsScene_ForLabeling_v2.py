@@ -1243,6 +1243,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
                         active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                        print 'active_structure_center_2d_gscene_resol', active_structure_center_2d_gscene_resol
                     elif self.id == 'coronal':
                         active_structure_center_2d_gscene_resol = np.array((self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
                                                                             cy_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))

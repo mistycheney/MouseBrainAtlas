@@ -2460,13 +2460,19 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
 
     del nzs_m_aligned_to_f
 
+    t = time.time()
+
     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
-        #dense_volume = volume_m_aligned_to_f
+        if not np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
+            dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        else:
+            dense_volume = volume_m_aligned_to_f
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
+
+    sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
 
     return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 

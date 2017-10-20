@@ -1243,7 +1243,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
                         active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
-                        print 'active_structure_center_2d_gscene_resol', active_structure_center_2d_gscene_resol
+                        # print 'active_structure_center_2d_gscene_resol', active_structure_center_2d_gscene_resol, 'self.data_feeder.downsample', self.data_feeder.downsample
                     elif self.id == 'coronal':
                         active_structure_center_2d_gscene_resol = np.array((self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
                                                                             cy_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))
@@ -1253,11 +1253,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     vec2 = np.array((gscene_x - active_structure_center_2d_gscene_resol[0], gscene_y - active_structure_center_2d_gscene_resol[1]))
                     vec1 = np.array((self.press_screen_x - active_structure_center_2d_gscene_resol[0], self.press_screen_y - active_structure_center_2d_gscene_resol[1]))
-                    vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
-                    x2 = np.dot(vec2, vec1/vec1n)
-                    y2 = (vec2 - x2*vec1/vec1n)[1]
-                    theta_ccwise = np.arctan2(y2, x2)
-                    print active_structure_center_2d_gscene_resol, vec2, vec1, x2, y2
+                    # vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
+                    # x2 = np.dot(vec2, vec1/vec1n)
+                    # y2 = (vec2 - x2*vec1/vec1n)[1]
+                    # theta_ccwise = np.arctan2(y2, x2)
+                    theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+                    print active_structure_center_2d_gscene_resol, vec2, vec1
+                    # x2, y2
                     print theta_ccwise, np.rad2deg(theta_ccwise)
                     if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)

@@ -1250,7 +1250,7 @@ def addresses_to_features_parallel(addresses, model_name, win_id, n_processes=16
                     sys.stderr.write('Patch in annotation but not in mask: %s %d %s @%d\n' % (stack, sec, fn, gi))
                     sampled_list_indices.append(None)
 
-            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn)
+            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, win=win_id, fn=fn)
             features_ret = [features[i].copy() if i is not None else None for i in sampled_list_indices]
             del features
 

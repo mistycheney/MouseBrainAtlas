@@ -1972,6 +1972,7 @@ class DataManager(object):
         """
         Args:
             version (str): default is cropped_gray.
+            win (int): the spacing/size scheme
         """
 
         features_fp = DataManager.get_dnn_features_filepath(**locals())

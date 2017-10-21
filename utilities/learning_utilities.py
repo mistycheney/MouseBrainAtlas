@@ -1269,7 +1269,7 @@ def addresses_to_features_parallel(addresses, model_name, win_id, n_processes=16
     return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
 
 
-def addresses_to_features(addresses, model_name='inception-bn-blue', win_id):
+def addresses_to_features(addresses, model_name, win_id):
     """
     Args:
         addresses (list of (stack, sec, grid index)-tuples)

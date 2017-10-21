@@ -982,7 +982,12 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
-                path = Path(list(surround.exterior.coords))
+                try:
+                    path = Path(list(surround.exterior.coords))
+                except Exception as e:
+                    print poly
+                    sys.stderr.write("Error encountered while processing %s (margin %d um): %s\n" % (label, margin_um, str(e)))
+                    continue
                 indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
                                         path.contains_points(sample_locations_lr) &\
                                         path.contains_points(sample_locations_ul) &\
@@ -1072,7 +1077,7 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample, 
     return addresses
 
 
-def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name, grid_indices_lookup_fps):
+def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name, grid_indices_lookup_fps, win_id):
     """
     Generate a dataset using the following steps:
     - Load structure polygons
@@ -1132,7 +1137,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
 
     t = time.time()
     # test_features = apply_function_to_dict(lambda x: addresses_to_features(x, model_name=model_name), test_addresses)
-    features = apply_function_to_dict(lambda x: addresses_to_features_parallel(x, model_name=model_name, n_processes=4), addresses)
+    features = apply_function_to_dict(lambda x: addresses_to_features_parallel(x, model_name=model_name, win_id=win_id, n_processes=4), addresses)
     sys.stderr.write('Map addresses to features: %.2f seconds\n' % (time.time() - t))
 
     # Remove features that are None
@@ -1208,8 +1213,13 @@ def addresses_to_locations(addresses):
     locations = list(chain(*locations))
     return [v for i, v in sorted(locations)]
 
-def addresses_to_features_parallel(addresses, model_name, n_processes=16):
+def addresses_to_features_parallel(addresses, model_name, win_id, n_processes=16):
     """
+    Args:
+        addresses (list of (stack, sec, grid index)-tuples)
+        model_name (str): neural network name
+        win_id (int): the spacing/size scheme
+
     If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
@@ -1228,7 +1238,8 @@ def addresses_to_features_parallel(addresses, model_name, n_processes=16):
             features_ret = [None for _ in sampled_grid_indices]
         else:
             # Load mapping grid index -> location
-            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            # all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices, _ = DataManager.load_patch_locations(stack=stack, win=win_id, fn=fn)
             all_grid_indices = all_grid_indices.tolist()
 
             sampled_list_indices = []
@@ -1239,7 +1250,7 @@ def addresses_to_features_parallel(addresses, model_name, n_processes=16):
                     sys.stderr.write('Patch in annotation but not in mask: %s %d %s @%d\n' % (stack, sec, fn, gi))
                     sampled_list_indices.append(None)
 
-            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, fn=fn)
+            features = DataManager.load_dnn_features(stack=stack, model_name=model_name, win=win_id, fn=fn)
             features_ret = [features[i].copy() if i is not None else None for i in sampled_list_indices]
             del features
 
@@ -1258,8 +1269,13 @@ def addresses_to_features_parallel(addresses, model_name, n_processes=16):
     return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
 
 
-def addresses_to_features(addresses, model_name='Sat16ClassFinetuned'):
+def addresses_to_features(addresses, model_name, win_id):
     """
+    Args:
+        addresses (list of (stack, sec, grid index)-tuples)
+        model_name (str): neural network name
+        win_id (int): the spacing/size scheme
+
     If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
@@ -1283,7 +1299,8 @@ def addresses_to_features(addresses, model_name='Sat16ClassFinetuned'):
             list_indices_all_stack_section += list_indices
         else:
             # Load mapping grid index -> location
-            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            # all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices, _ = DataManager.load_patch_locations(stack=stack, win=win_id, fn=fn)
             all_grid_indices = all_grid_indices.tolist()
 
             sampled_list_indices = []

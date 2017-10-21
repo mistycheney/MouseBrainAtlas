@@ -574,6 +574,10 @@ class DataManager(object):
                                   structure_f=None, structure_m=None,
                                   vol_type_f='score', vol_type_m='score',
                                   downscale=32, trial_idx=None):
+        """
+        Returns
+            (flattened parameters, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f)
+        """
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
         # download_from_s3(params_fp, redownload=True)
         download_from_s3(params_fp, redownload=False)
@@ -1968,6 +1972,7 @@ class DataManager(object):
         """
         Args:
             version (str): default is cropped_gray.
+            win (int): the spacing/size scheme
         """
 
         features_fp = DataManager.get_dnn_features_filepath(**locals())

@@ -1077,7 +1077,7 @@ def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample, 
     return addresses
 
 
-def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name, grid_indices_lookup_fps):
+def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name, grid_indices_lookup_fps, win_id):
     """
     Generate a dataset using the following steps:
     - Load structure polygons
@@ -1137,7 +1137,7 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
 
     t = time.time()
     # test_features = apply_function_to_dict(lambda x: addresses_to_features(x, model_name=model_name), test_addresses)
-    features = apply_function_to_dict(lambda x: addresses_to_features_parallel(x, model_name=model_name, n_processes=4), addresses)
+    features = apply_function_to_dict(lambda x: addresses_to_features_parallel(x, model_name=model_name, win_id=win_id, n_processes=4), addresses)
     sys.stderr.write('Map addresses to features: %.2f seconds\n' % (time.time() - t))
 
     # Remove features that are None

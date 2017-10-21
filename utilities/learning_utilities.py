@@ -1213,8 +1213,13 @@ def addresses_to_locations(addresses):
     locations = list(chain(*locations))
     return [v for i, v in sorted(locations)]
 
-def addresses_to_features_parallel(addresses, model_name, n_processes=16):
+def addresses_to_features_parallel(addresses, model_name, win_id, n_processes=16):
     """
+    Args:
+        addresses (list of (stack, sec, grid index)-tuples)
+        model_name (str): neural network name
+        win_id (int): the spacing/size scheme
+
     If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
@@ -1233,7 +1238,8 @@ def addresses_to_features_parallel(addresses, model_name, n_processes=16):
             features_ret = [None for _ in sampled_grid_indices]
         else:
             # Load mapping grid index -> location
-            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            # all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices, _ = DataManager.load_patch_locations(stack=stack, win=win_id, fn=fn)
             all_grid_indices = all_grid_indices.tolist()
 
             sampled_list_indices = []
@@ -1263,8 +1269,13 @@ def addresses_to_features_parallel(addresses, model_name, n_processes=16):
     return [feature_list[i] for i in np.argsort(list_indices_all_stack_section)]
 
 
-def addresses_to_features(addresses, model_name='Sat16ClassFinetuned'):
+def addresses_to_features(addresses, model_name='inception-bn-blue', win_id):
     """
+    Args:
+        addresses (list of (stack, sec, grid index)-tuples)
+        model_name (str): neural network name
+        win_id (int): the spacing/size scheme
+
     If certain input address is outside the mask, the corresponding feature returned is None.
     """
 
@@ -1288,7 +1299,8 @@ def addresses_to_features(addresses, model_name='Sat16ClassFinetuned'):
             list_indices_all_stack_section += list_indices
         else:
             # Load mapping grid index -> location
-            all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            # all_grid_indices, _ = DataManager.load_dnn_feature_locations(stack=stack, model_name=model_name, fn=fn)
+            all_grid_indices, _ = DataManager.load_patch_locations(stack=stack, win=win_id, fn=fn)
             all_grid_indices = all_grid_indices.tolist()
 
             sampled_list_indices = []

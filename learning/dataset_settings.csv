@@ -52,3 +52,7 @@ dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,ce
 97,,,nissl,500,1000,MD594,largeSizeHist/largeLargeLinkLenHist
 98,,,nissl,500,1000,MD594,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
 99,,,nissl,500,1000,MD589,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
+110,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD585,,twice as large patches,110
+111,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD589,,twice as large patches,111
+112,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD594,,twice as large patches,112
+

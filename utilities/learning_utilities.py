@@ -745,10 +745,10 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
 
 def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                                    stack_m=None,
-                                                    classifier_setting_m=None,
-                                                    classifier_setting_f=None,
+                                                   detector_id_m=None,
+                                                    detector_id_f=None,
                                                     warp_setting=None, trial_idx=None,
-                                              surround_margins=None, suffix=None, timestamp=None, prep_id=2,
+                                              surround_margins=None, suffix='contours', timestamp='latest', prep_id=2,
                                               ):
     """
     Load the structure annotation.
@@ -771,8 +771,8 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
 
     contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
                                                       stack_m=stack_m,
-                                                           classifier_setting_m=classifier_setting_m,
-                                                          classifier_setting_f=classifier_setting_f,
+                                                           detector_id_m=detector_id_m,
+                                                          detector_id_f=detector_id_f,
                                                           warp_setting=warp_setting,
                                                           trial_idx=trial_idx, suffix=suffix, timestamp=timestamp)
     contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]

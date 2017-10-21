@@ -1,4 +1,4 @@
-dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment,raw_image_dataset
+dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,cell_features_used,comment,raw_image_dataset,win_id
 20,,Inception-BN,nissl,200/500,1000,MD585
 21,,Inception-BN,nissl,200/500,1000,MD589
 22,,Inception-BN,nissl,200/500,1000,MD594
@@ -52,7 +52,7 @@ dataset_id,classes,network_model,stain,margins_um,num_sample_per_class,stacks,ce
 97,,,nissl,500,1000,MD594,largeSizeHist/largeLargeLinkLenHist
 98,,,nissl,500,1000,MD594,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
 99,,,nissl,500,1000,MD589,largeOrientationHist/largeSizeHist/largeLargeLinkLenHist/largeSmallLinkLenHist
-110,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD585,,twice as large patches,110
-111,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD589,,twice as large patches,111
-112,pos/surPos/surNoclass/neg,inception-bn-blue,nissl,500,10000,MD594,,twice as large patches,112
+110,pos/surPos/surNoclass/neg,,nissl,500,10000,MD585,,raw images but twice as large patches,110,6
+111,pos/surPos/surNoclass/neg,,nissl,500,10000,MD589,,raw images but twice as large patches,111,6
+112,pos/surPos/surNoclass/neg,,nissl,500,10000,MD594,,raw images but twice as large patches,112,6
 

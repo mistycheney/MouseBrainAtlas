@@ -494,7 +494,7 @@ def extract_patches_given_locations_multiple_sections(addresses,
             locs_thisSec, list_indices = map(list, zip(*locations_allSections))
         else:
             ginds_thisSec, list_indices = map(list, zip(*locations_allSections))
-            assert win_id is not None
+            assert win_id is not None, "If using grid indices, must specify win_id."
             patch_size = windowing_settings[win_id]['patch_size']
             locs_thisSec = grid_parameters_to_sample_locations(patch_size=patch_size,
                                                        stride=windowing_settings[win_id]['spacing'],

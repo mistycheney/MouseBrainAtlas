@@ -982,7 +982,12 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
-                path = Path(list(surround.exterior.coords))
+                try:
+                    path = Path(list(surround.exterior.coords))
+                except Exception as e:
+                    print poly
+                    sys.stderr.write("Error encountered while processing %s (margin %d um): %s\n" % (label, margin_um, str(e)))
+                    continue
                 indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
                                         path.contains_points(sample_locations_lr) &\
                                         path.contains_points(sample_locations_ul) &\

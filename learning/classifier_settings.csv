@@ -42,7 +42,7 @@ classifier_id,model,margin_um,train_set_id,neg_composition,sample_weighting,inpu
 116,lin_svc,500,66/67,neg_has_all_surround,,,116,using mirror variations for training; use only surround as negative;svm,10000
 120,lr,500,75/76/77,neg_has_all_surround,,,120,classifier based on greylevel intensity,1000
 130,lr,500,110/111/112,neg_has_all_surround,,,130,twice as large patch,10000
-131,lr,500,110/111,neg_has_all_surround,,,131,twice as large patch,10000
-132,lr,500,110/112,neg_has_all_surround,,,132,twice as large patch,10000
-133,lr,500,111/112,neg_has_all_surround,,,133,twice as large patch,10000
-134,lr,500,110/111/112,neg_has_all_surround,,,134,twice as large patch;1000 samples,1000
+131,lr,500,113/114,neg_has_all_surround,,,131,trained using MD585 and MD589;twice as large patch,10000
+132,lr,500,113/115,neg_has_all_surround,,,132,trained using MD585 and MD594;twice as large patch,10000
+133,lr,500,114/115,neg_has_all_surround,,,133,trained using MD589 and MD594;twice as large patch,10000
+134,lr,500,113/114/115,neg_has_all_surround,,,134,trained using three stacks;twice as large patch;1000 samples,1000

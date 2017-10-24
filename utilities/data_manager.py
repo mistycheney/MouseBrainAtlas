@@ -2689,7 +2689,7 @@ class DataManager(object):
             (n,224,224)-array: patches
         """
         fp = DataManager.get_dataset_patches_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return bp.unpack_ndarray_file(fp)
 
     @staticmethod
@@ -2703,7 +2703,7 @@ class DataManager(object):
     @staticmethod
     def load_dataset_features(dataset_id, structure=None):
         fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return bp.unpack_ndarray_file(fp)
 
     @staticmethod
@@ -2717,7 +2717,7 @@ class DataManager(object):
     @staticmethod
     def load_dataset_addresses(dataset_id, structure=None):
         fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp)
+        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return load_pickle(fp)
 
     @staticmethod

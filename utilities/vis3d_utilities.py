@@ -77,6 +77,8 @@ def poisson_reconstruct_meshlab(polydata=None, input_fn=None, output_fn=None):
 
 def polydata_to_mesh(polydata):
     """
+    Extract vertice and face data from a polydata object.
+
     Returns:
         (vertices, faces)
     """
@@ -96,13 +98,15 @@ def polydata_to_mesh(polydata):
     return vertices, faces
 
 
-def vertices_to_surface(vertices, num_simplify_iter=3, smooth=True):
+def vertices_to_surface(vertices, num_simplify_iter=3, smooth=True, neighborhood_size=30, sample_spacing=None):
 
     polydata = mesh_to_polydata(vertices, [])
 
     surf = vtk.vtkSurfaceReconstructionFilter()
-    surf.SetNeighborhoodSize(30)
-    surf.SetSampleSpacing(5)
+    surf.SetNeighborhoodSize(neighborhood_size)
+    if sample_spacing is not None:
+        surf.SetSampleSpacing(sample_spacing)
+        # sample_spacing=5
     surf.SetInputData(polydata)
     surf.Update()
 
@@ -169,6 +173,10 @@ def simplify_polydata(polydata, num_simplify_iter=0, smooth=False):
     return polydata
 
 def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
+    """
+    Args:
+        faces ()
+    """
 
     polydata = vtk.vtkPolyData()
 
@@ -216,7 +224,7 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200):
     """
     Convert a volume to a mesh.
-    
+
     Args:
         min_vertices (int): minimum number of vertices. Simplification will stop if the number of vertices drops below this value.
     """
@@ -280,7 +288,7 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
 
         n_pts = polydata.GetNumberOfPoints()
         sys.stderr.write('simplify %d @ %d: %.2f seconds\n' % (simplify_iter, n_pts, time.time() - t)) #
-        
+
         if polydata.GetNumberOfPoints() < min_vertices:
             break
 
@@ -396,7 +404,7 @@ def volume_to_imagedata(arr, origin=(0,0,0), auxdata=None):
     Args:
         arr (3d-array of uint8 or float32):
         origin (3-tuple): the origin coordinate of the given volume
-        
+
     Returns:
         (vtkImageData): Each point (in vtk parlance) gets ONE scalar value which is the value of an input volume voxel. Respects the (x,y,z) dimension ordering.
     """
@@ -411,14 +419,14 @@ def volume_to_imagedata(arr, origin=(0,0,0), auxdata=None):
     if auxdata is not None:
         auxdata = np.transpose(auxdata, [2,0,1])
         v3 = np.column_stack([v3, auxdata.flatten()])
-        
+
     if arr.dtype == np.uint8:
         t = vtk.VTK_UNSIGNED_CHAR
     elif arr.dtype == np.float32:
         t = vtk.VTK_FLOAT
     else:
         raise Exception('Data type must be uint8 or float32.')
-    
+
     imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(v3, deep=True, array_type=t)) # deep copy must be true
     return imagedata
 
@@ -455,7 +463,7 @@ def actor_sphere(position=(0,0,0), radius=.5, color=(1., 1., 1.), opacity=1.):
     sphereActor.SetMapper(sphereMapper)
     sphereActor.GetProperty().SetColor(color)
     sphereActor.GetProperty().SetOpacity(opacity)
-    
+
     return sphereActor
 
 
@@ -468,9 +476,9 @@ def add_axes(iren, text_color=(1,1,1)):
     transform.Translate(0.0, 0.0, 0.0);
     axes.SetUserTransform(transform)
 
-    axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
-    axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
-    axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]); 
+    axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]);
+    axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]);
+    axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(text_color[0],text_color[1],text_color[2]);
 
     widget = vtk.vtkOrientationMarkerWidget()
     widget.SetOutlineColor( 0.9300, 0.5700, 0.1300 );
@@ -600,7 +608,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         camera.SetViewUp(view_up[0], view_up[1], view_up[2])
         camera.SetPosition(position[0], position[1], position[2])
         camera.SetFocalPoint(focal[0], focal[1], focal[2])
-    
+
     elif init_angle == '15':
 
         # 30 degree
@@ -635,7 +643,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         camera.SetViewUp(0, -1, 0)
         camera.SetPosition(-2, 0, 0)
         camera.SetFocalPoint(-1, 0, 0)
-        
+
 #     elif init_angle == 'coronal_anteriorToPosterior':
 
 #         # coronal
@@ -656,6 +664,8 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         camera.SetViewUp(0, 0, 1)
         camera.SetPosition(0, -1, 0)
         camera.SetFocalPoint(0, 1, 0)
+    else:
+        raise Exception("init_angle %s is not recognized." % init_angle)
 
     ren1.SetActiveCamera(camera)
     ren1.ResetCamera()
@@ -835,14 +845,14 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         what (str): tb, score or probability. A caveat when what="probability" is that zero-valued voxels are not transparent, so later actors will block previous actors.
         c (3-tuple): color
         tb_colors (dict {int: 3-tuple}): color transfer function that maps intensity value to color tuple.
-        
+
     """
 
     imagedata = volume_to_imagedata(volume, origin=origin, auxdata=auxdata)
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
     volumeMapper.SetBlendModeToComposite()
-    
+
     # Setting this results in blank
     # funcRayCast = vtk.vtkVolumeRayCastCompositeFunction()
     # # funcRayCast.SetCompositeMethodToClassifyFirst()
@@ -895,7 +905,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
     # volumeGradientOpacity.AddPoint(2, 1.0)
 
     elif what == 'score':
-        
+
         volumeProperty.IndependentComponentsOff()
 
         compositeOpacity = vtk.vtkPiecewiseFunction()
@@ -904,7 +914,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         compositeOpacity.AddPoint(1.0, 1.0)
 
         color = vtk.vtkColorTransferFunction()
-        
+
         color.AddRGBPoint(0.0, 0,0,0)
 
         if tb_colors is not None:
@@ -919,10 +929,10 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
             color.AddRGBPoint(vr, .5*vr/200., .5*vr/200., .5*vr/200.)
         color.AddRGBPoint(200.0, .5,.5,.5)
         color.AddRGBPoint(255.0, 1,1,1)
-        
+
 #         color.AddRGBPoint(0.0, c[0], c[1], c[2])
 #         color.AddRGBPoint(1.0, c[0], c[1], c[2])
-        
+
         # volumeGradientOpacity = vtk.vtkPiecewiseFunction()
         # volumeGradientOpacity.AddPoint(0,  0.0)
         # volumeGradientOpacity.AddPoint(10,  1.0)
@@ -1233,14 +1243,14 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
         smooth (bool): Whether to smooth for thresholded mesh generation.
         force_symmetric (bool): If True, force the resulting volume and mesh to be symmetric wrt z.
         sigma (float): sigma of gaussian kernel used to smooth the probability values.
-        
+
     Returns:
         average_volume_prob (3D ndarray):
         common_mins ((3,)-ndarray): coordinate of the volume's origin
         average_polydata (Polydata): mesh of the 3D boundary thresholded at concensus_percentage
     """
 
-    if volume_list is None:    
+    if volume_list is None:
         volume_list = []
         origin_list = []
 
@@ -1250,7 +1260,7 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
             # sys.stderr.write('polydata_to_volume: %.2f seconds.\n' % (time.time() - t))
             volume_list.append(v)
             origin_list.append(np.array(orig, np.int))
-    
+
     bbox_list = [(xm, xm+v.shape[1], ym, ym+v.shape[0], zm, zm+v.shape[2]) for v,(xm,ym,zm) in zip(volume_list, origin_list)]
     common_volume_list, common_volume_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_tuples=zip(volume_list, bbox_list))
     common_volume_list = map(lambda v: (v > 0).astype(np.int), common_volume_list)
@@ -1270,25 +1280,25 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
 #         common_volume[y0:y0+ydim, x0:x0+xdim, z0:z0+zdim] = v
 
 #         common_volume_list.append((common_volume > 0).astype(np.int))
-        
+
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
-    
+
     if force_symmetric:
         average_volume_prob = symmetricalize_volume(average_volume_prob)
-        
+
     if sigma is not None:
         from skimage.filters import gaussian
-        average_volume_prob = gaussian(average_volume_prob, sigma) # Smooth the probability 
-    
+        average_volume_prob = gaussian(average_volume_prob, sigma) # Smooth the probability
+
     common_origin = np.array(common_volume_bbox)[[0,2,4]]
-    
+
     if consensus_percentage is not None:
         # Threshold prob. volumes to generate structure meshes
         average_volume_thresholded = average_volume_prob >= consensus_percentage
         average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_origin, num_simplify_iter=num_simplify_iter,
                                               smooth=smooth)
-        return average_volume_prob, common_origin, average_polydata    
+        return average_volume_prob, common_origin, average_polydata
     else:
         return average_volume_prob, common_origin
 
@@ -1296,7 +1306,7 @@ def symmetricalize_volume(prob_vol):
     """
     Replace the volume with the average of its left half and right half.
     """
-    
+
     zc = prob_vol.shape[2]/2
     prob_vol_symmetric = prob_vol.copy()
     left_half = prob_vol[..., :zc]
@@ -1350,19 +1360,19 @@ def R_align_two_vectors(a, b):
 def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None):
     """
     Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
-    
+
     Args:
         centroid_allLandmarks (dict {str: (n,3)-array})
         mean_centroid_allLandmarks (dict {str: (3,)-array})
-    
+
     Return (0,0,0) centered coordinates where (0,0,0) is a point on the midplane
     """
-    
+
     if mean_centroid_allLandmarks is None:
         mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
                                   for name, centroids in centroid_allLandmarks.iteritems()}
 
-    names = set([convert_to_original_name(name_s) for name_s in mean_centroid_allLandmarks.keys()])    
+    names = set([convert_to_original_name(name_s) for name_s in mean_centroid_allLandmarks.keys()])
 
     # Fit a midplane from the midpoints of symmetric landmark centroids
     midpoints = {}
@@ -1378,7 +1388,7 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
             midpoints[name] = .5 * mean_centroid_allLandmarks[lname] + .5 * mean_centroid_allLandmarks[rname]
         else:
             midpoints[name] = mean_centroid_allLandmarks[name]
-    
+
     # print midpoints
 
     midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
@@ -1406,5 +1416,5 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
         else:
             x, y, _ = points_midplane_oriented[name]
             canonical_locations[name] = np.r_[x, y, 0]
-            
+
     return canonical_locations, midplane_point, midplane_normal

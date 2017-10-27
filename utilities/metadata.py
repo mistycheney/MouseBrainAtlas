@@ -85,6 +85,9 @@ if hostname == 'yuncong-MacbookPro':
 
     LABELED_NEURONS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labeled_neurons')
 
+    ELASTIX_BIN = 'elastix'
+
+
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'

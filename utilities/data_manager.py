@@ -1538,7 +1538,8 @@ class DataManager(object):
         return grad_fp
 
     @staticmethod
-    def load_original_volume_all_known_structures(stack, downscale=32, detector_id=None, prep_id=None, structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
+    def load_original_volume_all_known_structures(stack, downscale=32, detector_id=None, prep_id=None,
+    structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
         """
         Args:
             return_structure_index_mapping (bool): if True, return both volumes and structure-label mapping. If False, return only volumes.
@@ -2131,7 +2132,7 @@ class DataManager(object):
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         img_fp = DataManager.get_image_filepath_v2(**locals())
-        if resol == 'lossless':
+        if resol == 'lossless' or resol == 'down8':
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)

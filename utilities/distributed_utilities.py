@@ -103,7 +103,7 @@ def transfer_data(from_fp, to_fp, from_hostname, to_hostname, is_dir, include_on
         execute_command("ssh %(from_hostname)s \"ssh %(to_hostname)s \'rm -rf \"%(to_fp)s\" && mkdir -p %(to_parent)s && scp -r \"%(from_fp)s\" %(to_hostname)s:\"%(to_fp)s\"\'\"" % \
                         dict(from_fp=from_fp, to_fp=to_fp, from_hostname=from_hostname, to_hostname=to_hostname, to_parent=to_parent))
 
-def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):    
+def transfer_data_synced(fp_relative, from_hostname, to_hostname, is_dir, from_root=None, to_root=None, include_only=None, exclude_only=None, includes=None, s3_bucket=None):
     if from_root is None:
         from_root = default_root[from_hostname]
     if to_root is None:
@@ -152,7 +152,7 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
-def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None):
+def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False):
     run_distributed5(**locals())
 
 # def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
@@ -214,11 +214,12 @@ def get_num_nodes():
     n_hosts = (check_output('qhost')).count('\n') - 3
     return n_hosts
 
-def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None):
+def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False):
     """
     Distributed executing a command on AWS.
 
     Args:
+        local_only: run on local computer instead of AWS cluster
         jobs_per_node:
         kwargs_list: either dict of lists {kA: [vA1, vA2, ...], kB: [vB1, vB2, ...]} or list of dicts [{kA:vA1, kB:vB1}, {kA:vA2, kB:vB2}, ...].
         argument_type: one of list, list2, single. If command takes one input item as argument, use "single". If command takes a list of input items as argument, use "list2". If command takes an argument called "kwargs_str", use "list".
@@ -226,67 +227,121 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
 
     execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
 
-    # Use a fixed node list rather than letting SGE automatically determine the node list.
-    # This allows for control over which input items go to which node.
-    if node_list is None:
-        node_list = get_node_list()
+    if local_only:
+        sys.stderr.write("Run locally.\n")
 
-    n_hosts = len(node_list)
-    sys.stderr.write('%d nodes available.\n' % (n_hosts))
-    if n_hosts == 0:
-        return
+        n_hosts = 1
 
-    if kwargs_list is None:
-        kwargs_list = {'dummy': [None]*n_hosts}
+        if kwargs_list is None:
+            kwargs_list = {'dummy': [None]*n_hosts}
 
-    if isinstance(kwargs_list, dict):
-        keys, vals = zip(*kwargs_list.items())
-        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-        kwargs_list_as_dict = kwargs_list
+        if isinstance(kwargs_list, dict):
+            keys, vals = zip(*kwargs_list.items())
+            kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+            kwargs_list_as_dict = kwargs_list
+        else:
+            kwargs_list_as_list = kwargs_list
+            keys = kwargs_list[0].keys()
+            vals = [t.values() for t in kwargs_list]
+            kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
+
+        assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
+
+        for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+
+            temp_script = '/tmp/runall.sh'
+            temp_f = open(temp_script, 'w')
+
+            for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+                if argument_type == 'list':
+                    line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+                elif argument_type == 'list2':
+                    line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+                elif argument_type == 'single':
+                    # It is important to wrap command_templates and kwargs_list_str in apostrphes.
+                    # That lets bash treat them as single strings.
+                    # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
+                    line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
+                    {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                    'command_template': shell_escape(command),
+                    'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
+                    }
+
+                temp_f.write(line + ' &\n')
+
+            temp_f.write('wait')
+            temp_f.close()
+            os.chmod(temp_script, 0o777)
+
+            # Explicitly specify the node to submit jobs.
+            # By doing so, we can control which files are available in the local scratch space of which node.
+            # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
+            call('%(script)s' % \
+             dict(script=temp_script),
+                 shell=True)
+
     else:
-        kwargs_list_as_list = kwargs_list
-        keys = kwargs_list[0].keys()
-        vals = [t.values() for t in kwargs_list]
-        kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
+        # Use a fixed node list rather than letting SGE automatically determine the node list.
+        # This allows for control over which input items go to which node.
+        if node_list is None:
+            node_list = get_node_list()
 
-    assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
+        n_hosts = len(node_list)
+        sys.stderr.write('%d nodes available.\n' % (n_hosts))
+        if n_hosts == 0:
+            return
 
-    for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+        if kwargs_list is None:
+            kwargs_list = {'dummy': [None]*n_hosts}
 
-        temp_script = '/tmp/runall.sh'
-        temp_f = open(temp_script, 'w')
+        if isinstance(kwargs_list, dict):
+            keys, vals = zip(*kwargs_list.items())
+            kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+            kwargs_list_as_dict = kwargs_list
+        else:
+            kwargs_list_as_list = kwargs_list
+            keys = kwargs_list[0].keys()
+            vals = [t.values() for t in kwargs_list]
+            kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
 
-        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-            if argument_type == 'list':
-                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
-            elif argument_type == 'list2':
-                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-            elif argument_type == 'single':
-                # It is important to wrap command_templates and kwargs_list_str in apostrphes.
-                # That lets bash treat them as single strings.
-                # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
-                line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
-                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-                'command_template': shell_escape(command),
-                'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
-                }
+        assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
 
-            temp_f.write(line + ' &\n')
+        for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
 
-        temp_f.write('wait')
-        temp_f.close()
-        os.chmod(temp_script, 0o777)
+            temp_script = '/tmp/runall.sh'
+            temp_f = open(temp_script, 'w')
 
-        # Explicitly specify the node to submit jobs.
-        # By doing so, we can control which files are available in the local scratch space of which node.
-        # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
-        call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
-         dict(node=node_list[node_i], script=temp_script,
-              stdout_log='/home/ubuntu/stdout_%d.log' % node_i, stderr_log='/home/ubuntu/stderr_%d.log' % node_i),
-             shell=True)
+            for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+                if argument_type == 'list':
+                    line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+                elif argument_type == 'list2':
+                    line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+                elif argument_type == 'single':
+                    # It is important to wrap command_templates and kwargs_list_str in apostrphes.
+                    # That lets bash treat them as single strings.
+                    # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
+                    line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
+                    {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                    'command_template': shell_escape(command),
+                    'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
+                    }
 
-    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
-        
+                temp_f.write(line + ' &\n')
+
+            temp_f.write('wait')
+            temp_f.close()
+            os.chmod(temp_script, 0o777)
+
+            # Explicitly specify the node to submit jobs.
+            # By doing so, we can control which files are available in the local scratch space of which node.
+            # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
+            call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
+             dict(node=node_list[node_i], script=temp_script,
+                  stdout_log='/home/ubuntu/stdout_%d.log' % node_i, stderr_log='/home/ubuntu/stderr_%d.log' % node_i),
+                 shell=True)
+
+        sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
+
 def wait_qsub_complete(timeout=None):
     """
     Wait for qsub to complete.

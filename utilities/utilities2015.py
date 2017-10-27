@@ -399,7 +399,7 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
         vol_bbox_tuples (list of (vol, bbox) tuples)
 
     Returns:
-        list of 3d arrays
+        list of 3d arrays or dict {structure name: 3d array}
     """
     if vol_bbox_tuples is not None:
         vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in vol_bbox_tuples]
@@ -409,6 +409,8 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
 
 def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None, vol_origin_dict=None):
     """
+    Must provide exactly one of the three choices of arguments.
+
     Args:
         vol_bbox_dict (dict {key: (vol, bbox)})
 

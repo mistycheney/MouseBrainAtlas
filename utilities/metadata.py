@@ -115,7 +115,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
 
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
-    CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
+    CLF_ROOTDIR =  os.path.join(DATA_ROOTDIR, 'CSHL_classifiers')
 
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 

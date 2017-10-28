@@ -383,7 +383,7 @@ class DataManager(object):
             return label_to_name, name_to_label
         elif filetype == 'anchor':
             with open(filepath, 'r') as f:
-                anchor_fn = f.readline()
+                anchor_fn = f.readline().strip()
             return anchor_fn
         elif filetype == 'transform_params':
             with open(filepath, 'r') as f:

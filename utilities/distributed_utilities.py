@@ -232,55 +232,8 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
 
         n_hosts = 1
 
-        if kwargs_list is None:
-            kwargs_list = {'dummy': [None]*n_hosts}
-
-        if isinstance(kwargs_list, dict):
-            keys, vals = zip(*kwargs_list.items())
-            kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-            kwargs_list_as_dict = kwargs_list
-        else:
-            kwargs_list_as_list = kwargs_list
-            keys = kwargs_list[0].keys()
-            vals = [t.values() for t in kwargs_list]
-            kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
-
-        assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
-
-        for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
-
-            temp_script = '/tmp/runall.sh'
-            temp_f = open(temp_script, 'w')
-
-            for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-                if argument_type == 'list':
-                    line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
-                elif argument_type == 'list2':
-                    line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-                elif argument_type == 'single':
-                    # It is important to wrap command_templates and kwargs_list_str in apostrphes.
-                    # That lets bash treat them as single strings.
-                    # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
-                    line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
-                    {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-                    'command_template': shell_escape(command),
-                    'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
-                    }
-
-                temp_f.write(line + ' &\n')
-
-            temp_f.write('wait')
-            temp_f.close()
-            os.chmod(temp_script, 0o777)
-
-            # Explicitly specify the node to submit jobs.
-            # By doing so, we can control which files are available in the local scratch space of which node.
-            # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
-            call('%(script)s' % \
-             dict(script=temp_script),
-                 shell=True)
-
     else:
+
         # Use a fixed node list rather than letting SGE automatically determine the node list.
         # This allows for control over which input items go to which node.
         if node_list is None:
@@ -291,56 +244,61 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         if n_hosts == 0:
             return
 
-        if kwargs_list is None:
-            kwargs_list = {'dummy': [None]*n_hosts}
+    if kwargs_list is None:
+        kwargs_list = {'dummy': [None]*n_hosts}
 
-        if isinstance(kwargs_list, dict):
-            keys, vals = zip(*kwargs_list.items())
-            kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-            kwargs_list_as_dict = kwargs_list
+    if isinstance(kwargs_list, dict):
+        keys, vals = zip(*kwargs_list.items())
+        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+        kwargs_list_as_dict = kwargs_list
+    else:
+        kwargs_list_as_list = kwargs_list
+        keys = kwargs_list[0].keys()
+        vals = [t.values() for t in kwargs_list]
+        kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
+
+    assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
+
+    for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+
+        temp_script = '/tmp/runall.sh'
+        temp_f = open(temp_script, 'w')
+
+        for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
+            if argument_type == 'list':
+                line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
+            elif argument_type == 'list2':
+                line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
+            elif argument_type == 'single':
+                # It is important to wrap command_templates and kwargs_list_str in apostrphes.
+                # That lets bash treat them as single strings.
+                # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
+                line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
+                {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
+                'command_template': shell_escape(command),
+                'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
+                }
+
+            temp_f.write(line + ' &\n')
+
+        temp_f.write('wait')
+        temp_f.close()
+        os.chmod(temp_script, 0o777)
+
+        # Explicitly specify the node to submit jobs.
+        # By doing so, we can control which files are available in the local scratch space of which node.
+        # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
+        if local_only:
+            call('%(script)s' % \
+         dict(script=temp_script),
+             shell=True)
         else:
-            kwargs_list_as_list = kwargs_list
-            keys = kwargs_list[0].keys()
-            vals = [t.values() for t in kwargs_list]
-            kwargs_list_as_dict = dict(zip(keys, zip(*vals)))
-
-        assert argument_type in ['single', 'list', 'list2'], 'argument_type must be one of single, list, list2.'
-
-        for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
-
-            temp_script = '/tmp/runall.sh'
-            temp_f = open(temp_script, 'w')
-
-            for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):
-                if argument_type == 'list':
-                    line = command % {'kwargs_str': json.dumps(kwargs_list_as_list[fj:lj+1])}
-                elif argument_type == 'list2':
-                    line = command % {key: json.dumps(vals[fj:lj+1]) for key, vals in kwargs_list_as_dict.iteritems()}
-                elif argument_type == 'single':
-                    # It is important to wrap command_templates and kwargs_list_str in apostrphes.
-                    # That lets bash treat them as single strings.
-                    # Reference: http://stackoverflow.com/questions/15783701/which-characters-need-to-be-escaped-in-bash-how-do-we-know-it
-                    line = "%(generic_launcher_path)s %(command_template)s %(kwargs_list_str)s" % \
-                    {'generic_launcher_path': os.path.join(os.environ['REPO_DIR'], 'utilities', 'sequential_dispatcher.py'),
-                    'command_template': shell_escape(command),
-                    'kwargs_list_str': shell_escape(json.dumps(kwargs_list_as_list[fj:lj+1]))
-                    }
-
-                temp_f.write(line + ' &\n')
-
-            temp_f.write('wait')
-            temp_f.close()
-            os.chmod(temp_script, 0o777)
-
-            # Explicitly specify the node to submit jobs.
-            # By doing so, we can control which files are available in the local scratch space of which node.
-            # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
             call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
              dict(node=node_list[node_i], script=temp_script,
                   stdout_log='/home/ubuntu/stdout_%d.log' % node_i, stderr_log='/home/ubuntu/stderr_%d.log' % node_i),
                  shell=True)
 
-        sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
+    sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')
 
 def wait_qsub_complete(timeout=None):
     """
@@ -372,67 +330,67 @@ def wait_qsub_complete(timeout=None):
         raise Exception('qsub does not return in %d seconds. Quit waiting, but SGE may still be computing..' % timeout)
 
 
-def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
-    """
-    There should be only one ssh connection to each node.
-    """
+# def run_distributed4(command, kwargs_list, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list'):
+#     """
+#     There should be only one ssh connection to each node.
+#     """
 
-    hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
-    print 'Using nodes:', ['gcn-20-%d.sdsc.edu'%i for i in hostids]
-    n_hosts = len(hostids)
+#     hostids = detect_responsive_nodes(exclude_nodes=exclude_nodes, use_nodes=use_nodes)
+#     print 'Using nodes:', ['gcn-20-%d.sdsc.edu'%i for i in hostids]
+#     n_hosts = len(hostids)
 
-    temp_script = '/tmp/runall.sh'
+#     temp_script = '/tmp/runall.sh'
 
-    if isinstance(kwargs_list, dict):
-        keys, vals = zip(*kwargs_list.items())
-        kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
-        kwargs_list_as_dict = kwargs_list
-    else:
-        kwargs_list_as_list = kwargs_list
-        keys = kwargs_list[0].keys()
-        vals = [t.values() for t in kwargs_list]
-        kwargs_list_as_dict = dict(zip(keys, vals))
+#     if isinstance(kwargs_list, dict):
+#         keys, vals = zip(*kwargs_list.items())
+#         kwargs_list_as_list = [dict(zip(keys, t)) for t in zip(*vals)]
+#         kwargs_list_as_dict = kwargs_list
+#     else:
+#         kwargs_list_as_list = kwargs_list
+#         keys = kwargs_list[0].keys()
+#         vals = [t.values() for t in kwargs_list]
+#         kwargs_list_as_dict = dict(zip(keys, vals))
 
-    with open(temp_script, 'w') as temp_f:
+#     with open(temp_script, 'w') as temp_f:
 
-        for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
+#         for i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
 
-            if argument_type == 'partition':
-                # For cases with partition of first section / last section
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
-                        }
-            elif argument_type == 'list':
-                # Specify kwargs_str
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
-                        }
-            elif argument_type == 'list2':
-                # Specify {key: list}
-                line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-                                            for key, vals in kwargs_list_as_dict.iteritems()}
-                        }
-            elif argument_type == 'single':
-                # the command takes only one element of the list
-                line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
-                        {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
-                        'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
-                        'command_template': command,
-                        'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
-                        }
-            else:
-                raise Exception('argument_type %s not recognized.' % argument_type)
+#             if argument_type == 'partition':
+#                 # For cases with partition of first section / last section
+#                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
+#                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+#                         'command': command % {'first_sec': kwargs_list_as_dict['sections'][fi], 'last_sec': kwargs_list_as_dict['sections'][li]}
+#                         }
+#             elif argument_type == 'list':
+#                 # Specify kwargs_str
+#                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
+#                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+#                         'command': command % {'kwargs_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')}
+#                         }
+#             elif argument_type == 'list2':
+#                 # Specify {key: list}
+#                 line = "ssh yuncong@%(hostname)s \"%(command)s\" &" % \
+#                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+#                         'command': command % {key: json.dumps(vals[fi:li+1]).replace('"','\\"').replace("'",'\\"')
+#                                             for key, vals in kwargs_list_as_dict.iteritems()}
+#                         }
+#             elif argument_type == 'single':
+#                 # the command takes only one element of the list
+#                 line = "ssh yuncong@%(hostname)s \"%(generic_launcher_path)s \'%(command_template)s\' \'%(kwargs_list_str)s\' \" &" % \
+#                         {'hostname': 'gcn-20-%d.sdsc.edu' % hostids[i%n_hosts],
+#                         'generic_launcher_path': os.environ['REPO_DIR'] + '/utilities/sequential_dispatcher.py',
+#                         'command_template': command,
+#                         'kwargs_list_str': json.dumps(kwargs_list_as_list[fi:li+1]).replace('"','\\"').replace("'",'\\"')
+#                         }
+#             else:
+#                 raise Exception('argument_type %s not recognized.' % argument_type)
 
-            temp_f.write(line + '\n')
+#             temp_f.write(line + '\n')
 
-        temp_f.write('wait\n')
-        temp_f.write('echo =================\n')
-        temp_f.write('echo all jobs are done!\n')
-        temp_f.write('echo =================\n')
+#         temp_f.write('wait\n')
+#         temp_f.write('echo =================\n')
+#         temp_f.write('echo all jobs are done!\n')
+#         temp_f.write('echo =================\n')
 
-    os.chmod(temp_script, 0o777)
-    call(temp_script, shell=True, stdout=stdout, stderr=open('/tmp/stderr.log', 'ab+'))
+#     os.chmod(temp_script, 0o777)
+#     call(temp_script, shell=True, stdout=stdout, stderr=open('/tmp/stderr.log', 'ab+'))

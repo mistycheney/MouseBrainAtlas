@@ -84,11 +84,14 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             contour_id=None,
                                             position=None,
                                             category='contour'):
+        closed = polygon_is_closed(path=path)
+        vertices = vertices_from_polygon(path=path, closed=closed)
+        if len(vertices) == 2:
+            raise Exception("Polygon has only two vertices. Skip add.")
+
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
-        if len(polygon.vertex_circles) == 2:
-            raise Exception("polygon has only two vertices.")
         polygon.signal_emitter.property_changed.connect(self.polygon_property_changed)
 
         # Compute the polygon's coordinate in the depth dimension.

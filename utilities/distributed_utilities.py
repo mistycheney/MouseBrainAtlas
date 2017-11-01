@@ -29,7 +29,7 @@ def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, includ
         local_root = ROOT_DIR
 
     if redownload or not os.path.exists(fp):
-        # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes match.
+        # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes of two files match.
         transfer_data_synced(relative_to_local(fp, local_root=local_root),
                             from_hostname='s3',
                             to_hostname=HOST_ID,

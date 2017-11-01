@@ -2747,6 +2747,10 @@ class DataManager(object):
     def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
         """
         Load multiple datasets, returns both features and addresses.
+        Assume the features are stored as patch_features_<name>.bp; addresses are stored as patch_addresses_<name>.bp.
+
+        Args:
+            labels_to_sample (list of str): e.g. VCA_surround_500_VCP. If this is not given, use all labels in the associated dataset directory.
 
         Returns:
             (merged_features, merged_addresses)

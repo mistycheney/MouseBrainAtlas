@@ -134,17 +134,31 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             print "Removing all unconfirmed polygons..."
 
+            t = time.time()
+
+            for i in range(len(self.data_feeder.sections)):
+                for p in self.drawings[i]:
+                    assert 'label' in p.properties, "ERROR! polygon has no label i=%d, sec=%d" % (i, self.data_feeder.sections[i])
+
+            # Find all unconfirmed polygons. These are to be removed.
             matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
             if p.properties['label'] == name_u and p.properties['side'] == side and \
             p.properties['type'] != 'confirmed']
             for i in range(len(self.data_feeder.sections))}
+            sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
+
+            # Remove all unconfirmed polygons from graphicscene.
+            t = time.time()
             for i in range(len(self.data_feeder.sections)):
                 for p in matched_unconfirmed_polygons_to_remove[i]:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
                         self.removeItem(p)
+            sys.stderr.write("Remove unconfirmed polygons from graphicscene: %.2f seconds\n" % (time.time()-t))
 
+            # Identify sections affected by new structure.
+            t = time.time()
             sections_used = []
             positions_rel_vol_resol = []
             for sec in self.data_feeder.sections:
@@ -153,14 +167,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if pos_rel_vol_resol >= 0 and pos_rel_vol_resol < volume.shape[2]:
                     positions_rel_vol_resol.append(pos_rel_vol_resol)
                     sections_used.append(sec)
+            sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
 
+            # Compute contours of new structure on these sections
+            t = time.time()
             if self.data_feeder.downsample == 1:
                 gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=20, positions=positions_rel_vol_resol)
             else:
                 gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
+            sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
+            t = time.time()
             m = dict(zip(positions_rel_vol_resol, sections_used))
             gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
+            sys.stderr.write("Compute contours of new structure on these sections 2: %.2f seconds\n" % (time.time()-t))
 
+            t = time.time()
             for sec, gscene_pts_rel_vol_resol in gscene_pts_rel_vol_resol_allsec.iteritems():
 
                 # if this section already has a confirmed contour, do not add a new one.
@@ -168,17 +189,23 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 p.properties['type'] == 'confirmed' for p in self.drawings[self.data_feeder.sections.index(sec)]]):
                     continue
 
-                gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + xmin
-                gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + ymin
-                gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
-                gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
-                # t = time.time()
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
-                                                    linecolor='r', vertex_radius=8, linewidth=5, section=sec,
-                                                    type='intersected',
-                                                    side=side,
-                                                    side_manually_assigned=False)
+                try:
+                    gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + xmin
+                    gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + ymin
+                    gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
+                    gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
+                    # t = time.time()
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
+                                                        linecolor='r', vertex_radius=8, linewidth=5, section=sec,
+                                                        type='intersected',
+                                                        side=side,
+                                                        side_manually_assigned=False)
+                except Exception as e:
+                    sys.stderr.write("Error adding polygon, sec %d: %s\n" % (sec, e))
+
                 # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
+            sys.stderr.write("Add polygons: %.2f seconds\n" % (time.time()-t))
+
         else:
 
             if self.data_feeder.orientation == 'sagittal':
@@ -211,14 +238,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
                         continue
 
-                    gscene_xs = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
-                    gscene_ys = gscene_pts[:,1] + ymin_ds
-                    gscene_pts = np.c_[gscene_xs, gscene_ys]
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
-                                                    linecolor='g', vertex_radius=1, linewidth=2, index=pos+xmin_ds,
-                                                    type='intersected',
-                                                    side=side,
-                                                    side_manually_assigned=False)
+                    try:
+                        gscene_xs = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
+                        gscene_ys = gscene_pts[:,1] + ymin_ds
+                        gscene_pts = np.c_[gscene_xs, gscene_ys]
+                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos+xmin_ds,
+                                                        type='intersected',
+                                                        side=side,
+                                                        side_manually_assigned=False)
+                    except Exception as e:
+                        sys.stderr.write("Error adding polygon, pos %d: %s\n" % (pos, e))
+
             elif self.data_feeder.orientation == 'horizontal':
                 gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='y', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
@@ -228,14 +259,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
                         continue
 
-                    gscene_xs = gscene_pts[:,1] + xmin_ds
-                    gscene_ys = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
-                    gscene_pts = np.c_[gscene_xs, gscene_ys]
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos+ymin_ds,
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
+                    try:
+                        gscene_xs = gscene_pts[:,1] + xmin_ds
+                        gscene_ys = self.data_feeder.z_dim - 1 - (gscene_pts[:,0] + zmin_ds)
+                        gscene_pts = np.c_[gscene_xs, gscene_ys]
+                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                            linecolor='g', vertex_radius=1, linewidth=2, index=pos+ymin_ds,
+                                                            type='intersected',
+                                                            side=side,
+                                                            side_manually_assigned=False)
+                    except Exception as e:
+                        sys.stderr.write("Error adding polygon, pos %d: %s\n" % (pos, e))
+
             elif self.data_feeder.orientation == 'sagittal':
                 gscene_pts_allpos = find_contour_points_3d(volume_data_resol, along_direction='z', sample_every=1)
                 for pos, gscene_pts in gscene_pts_allpos.iteritems():
@@ -245,14 +280,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     p.properties['type'] == 'confirmed' for p in self.drawings[pos]]):
                         continue
 
-                    gscene_xs = gscene_pts[:,0] + xmin_ds
-                    gscene_ys = gscene_pts[:,1] + ymin_ds
-                    gscene_pts = np.c_[gscene_xs, gscene_ys]
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2, index=pos+zmin_ds,
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
+                    try:
+                        gscene_xs = gscene_pts[:,0] + xmin_ds
+                        gscene_ys = gscene_pts[:,1] + ymin_ds
+                        gscene_pts = np.c_[gscene_xs, gscene_ys]
+                        self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts), label=name_u,
+                                                            linecolor='g', vertex_radius=1, linewidth=2, index=pos+zmin_ds,
+                                                            type='intersected',
+                                                            side=side,
+                                                            side_manually_assigned=False)
+                    except Exception as e:
+                        sys.stderr.write("Error adding polygon, pos %d: %s\n" % (pos, e))
 
 
     def update_image(self, i=None, sec=None):
@@ -1282,6 +1320,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     elif self.id == 'horizontal':
                         tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=0,tz=-shift_2d_vol_resol[1])
 
+
                 tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
                 centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
                 print 'tfed_structure_volume_bbox_rel', tfed_structure_volume_bbox_rel
@@ -1300,27 +1339,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if self.mode == 'shift3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
-                    else:
-                        # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
-                        edit_entry = {'username': self.gui.get_username(),
-                        'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                        'type': 'shift3d',
-                        'transform':tf,
-                        'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
-                        'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
-                        self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+                    # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    edit_entry = {'username': self.gui.get_username(),
+                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+                    'type': 'shift3d',
+                    'transform':tf,
+                    'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
+                    'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
                 elif self.mode == 'rotate3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
-                    else:
-                        # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
-                        edit_entry = {'username': self.gui.get_username(),
-                        'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                        'type': 'rotate3d',
-                        'transform':tf,
-                        'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
-                        'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
-                        self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    edit_entry = {'username': self.gui.get_username(),
+                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+                    'type': 'rotate3d',
+                    'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
+                    'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
+                    'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')

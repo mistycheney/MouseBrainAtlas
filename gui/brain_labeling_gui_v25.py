@@ -628,11 +628,23 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_warped_atlas_volume(self):
         """
         Load warped atlas volumes.
+        This populates the graphicsscenes with contours. Note that no volumes are reconstructed from them yet.
         """
 
         warped_atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
         return_label_mappings=False,
-        name_or_index_as_key='name')
+        name_or_index_as_key='name',
+        # structures=['VLL_R'])
+        structures=['SNC_R'])
+        # structures=['PBG_R'])
+        # structures=['6N_R'])
+        # structures=['3N_L', '3N_R', '4N_L', '4N_R'])
+
+        # warped_atlas_volumes = {'PBG_L': warped_atlas_volumes['PBG_L']}
+        # warped_atlas_volumes = {k: warped_atlas_volumes[k] for k in ['PBG_R']}
+        # warped_atlas_volumes = {k: warped_atlas_volumes[k] for k in ['3N_L', '3N_R', '4N_L', '4N_R']}
+        # warped_atlas_volumes = {k: warped_atlas_volumes[k] for k in ['SNC_R']}
+        # warped_atlas_volumes = {k: warped_atlas_volumes[k] for k in ['6N_R']}
 
         from registration_utilities import get_structure_contours_from_aligned_atlas
 
@@ -648,6 +660,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 unsided_name, side, _, _ = parse_label(sided_name)
 
+                # If already loaded as edited volume, skip.
                 if (unsided_name, side) in self.structure_volumes:
                     sys.stderr.write('Structure %s,%s already loaded as edited volume. Skipped.\n' % (unsided_name, side))
                     continue
@@ -919,17 +932,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # self.save()
 
             elif key == Qt.Key_A:
-                print "Reconstructing all structure volumes..."
-
-                # structures_curr_section = [(p.properties['label'], p.properties['side'])
-                #                             for p in self.gscenes['sagittal'].drawings[self.gscenes['sagittal'].active_i]]
-                # for curr_structure_label, curr_structure_side in structures_curr_section:
-                #     self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side, use_confirmed_only=False, recompute_from_contours=False)
+                print "Reconstructing selected structure volumes..."
 
                 curr_structure_label = self.gscenes['sagittal'].active_polygon.properties['label']
                 curr_structure_side = self.gscenes['sagittal'].active_polygon.properties['side']
                 self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side,
                 use_confirmed_only=False, recompute_from_contours=False, from_gscene_id='sagittal')
+
+            elif key == Qt.Key_P:
+                print "Reconstructing all structure volumes..."
+
+                structures_curr_section = [(p.properties['label'], p.properties['side'])
+                                            for p in self.gscenes['sagittal'].drawings[self.gscenes['sagittal'].active_i]]
+                for curr_structure_label, curr_structure_side in structures_curr_section:
+                    self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side, use_confirmed_only=False, recompute_from_contours=False)
 
             elif key == Qt.Key_U:
 

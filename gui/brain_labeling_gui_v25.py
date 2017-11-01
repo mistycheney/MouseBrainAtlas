@@ -636,6 +636,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         from registration_utilities import get_structure_contours_from_aligned_atlas
 
+        # warped_atlas_volumes = {'6N_R': warped_atlas_volumes}
+
         warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(warped_atlas_volumes, volume_origin=(0,0,0),
         sections=metadata_cache['valid_sections'][self.stack],
         downsample_factor=32, level=.5, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])

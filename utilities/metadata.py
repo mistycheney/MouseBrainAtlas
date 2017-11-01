@@ -95,7 +95,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
     # THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
     THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
-    RAW_DATA_DIR = DATA_ROOTDIR
+    RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
 
     ON_AWS = False
     S3_DATA_BUCKET = 'mousebrainatlas-data'
@@ -129,7 +129,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     DETECTOR_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'detector_settings.csv')
 
     MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
-    
+
     ELASTIX_BIN = 'elastix'
 
 

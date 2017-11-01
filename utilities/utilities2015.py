@@ -43,7 +43,8 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
     """
 
     import multiprocessing
-    nproc = multiprocessing.cpu_count()
+    # nproc = multiprocessing.cpu_count()
+    nproc = 1
 
     if along_direction == 'z':
         if positions is None:

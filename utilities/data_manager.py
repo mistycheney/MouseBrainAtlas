@@ -383,7 +383,7 @@ class DataManager(object):
             return label_to_name, name_to_label
         elif filetype == 'anchor':
             with open(filepath, 'r') as f:
-                anchor_fn = f.readline()
+                anchor_fn = f.readline().strip()
             return anchor_fn
         elif filetype == 'transform_params':
             with open(filepath, 'r') as f:
@@ -2747,6 +2747,10 @@ class DataManager(object):
     def load_datasets_bp(dataset_ids, labels_to_sample=None, clf_rootdir=CLF_ROOTDIR):
         """
         Load multiple datasets, returns both features and addresses.
+        Assume the features are stored as patch_features_<name>.bp; addresses are stored as patch_addresses_<name>.bp.
+
+        Args:
+            labels_to_sample (list of str): e.g. VCA_surround_500_VCP. If this is not given, use all labels in the associated dataset directory.
 
         Returns:
             (merged_features, merged_addresses)

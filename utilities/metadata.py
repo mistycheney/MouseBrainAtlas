@@ -360,17 +360,22 @@ labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # Back
 # section_thickness = 20 # in um
 SECTION_THICKNESS = 20 # in um
 # xy_pixel_distance_lossless = 0.46
-XY_PIXEL_DISTANCE_LOSSLESS = 0.46
+XY_PIXEL_DISTANCE_LOSSLESS = 0.46 # This is the spec for Nanozoomer
 XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail
+
+# This is the spec for Axioscan (our data)
+XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN = 0.325 # unit is micron
+XY_PIXEL_DISTANCE_TB_AXIOSCAN = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 32
 
 #######################################
 
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
+all_dk_ntb_stacks = ['ChatCryoJane201710']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
-all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks + all_dk_ntb_stacks
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks

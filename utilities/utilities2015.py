@@ -507,7 +507,10 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     return out_vol
 
 def rescale_intensity_v2(im, low, high):
-    from skimage.exposure import rescale_intensity
+    """
+    Linearly map `low` to 0 and `high` to 255.
+    """
+    from skimage.exposure import rescale_intensity, adjust_gamma
     if low > high:
         im_out = rescale_intensity(low-im.astype(np.int), (0, low-high), (0, 255)).astype(np.uint8)
     else:

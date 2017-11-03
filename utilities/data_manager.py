@@ -2256,7 +2256,10 @@ class DataManager(object):
         # random_fn = section_to_filename[i]
         # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
         # try:
-        img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
+        if stack == 'ChatCryoJane201710':
+            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
+        else:
+            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
             # break
         # except:
         #     pass

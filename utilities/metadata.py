@@ -91,10 +91,22 @@ if hostname == 'yuncong-MacbookPro':
 elif hostname == 'yuncong-Precision-WorkStation-T7500':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
-    ROOT_DIR = '/home/yuncong/'
-    DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
-    # THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
-    THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
+    
+    if 'ROOT_DIR' in os.environ:
+        ROOT_DIR = os.environ['ROOT_DIR']
+    else:
+        ROOT_DIR = '/home/yuncong/'
+    
+    if 'DATA_ROOTDIR' in os.environ:
+        DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
+    else:
+        DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+
+    if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
+        THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
+    else:
+        THUMBNAIL_DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'    
+    
     RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
 
     ON_AWS = False
@@ -104,6 +116,7 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     REPO_DIR = os.environ['REPO_DIR']
 
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
+    
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'

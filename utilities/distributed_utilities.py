@@ -14,6 +14,12 @@ default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemA
 
 
 def upload_to_s3(fp, local_root=None, is_dir=False):
+    """
+    Args:
+        fp (str): file path
+        local_root (str): default to ROOT_DIR
+    """
+    
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
         local_root = ROOT_DIR
@@ -24,6 +30,12 @@ def upload_to_s3(fp, local_root=None, is_dir=False):
                         from_root=local_root)
 
 def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, include_only=None):
+    """
+    Args:
+        fp (str): file path
+        local_root (str): default to ROOT_DIR
+    """
+    
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
         local_root = ROOT_DIR

@@ -126,6 +126,11 @@ def parse_elastix_parameter_file(filepath, tf_type=None):
         return L, shift, center
 
 def brightfieldize_image(img):
+    """
+    Infer if the image is brightfield or dark-background fluorescent.
+    If the latter, invert the intensities.
+    """
+    
     border = np.median(np.concatenate([img[:10, :].flatten(), img[-10:, :].flatten(), img[:, :10].flatten(), img[:, -10:].flatten()]))
     if border < 123:
         # dark background, fluorescent
@@ -140,23 +145,30 @@ def contrast_stretch_image(img):
 
     # Stretch contrast
     # img_flattened = img.flatten()
-    img_flattened = img[(img > 0) & (img < 255)] # ignore 0 and 255 which are likely artificial background
+    if img.max() > 255: # likely 16-bit
+        img_flattened = img[(img > 0) & (img < 65535)] # ignore 0 and 65535 which are likely artificial background
+    else:
+        img_flattened = img[(img > 0) & (img < 255)] # ignore 0 and 255 which are likely artificial background
 
     vmax_perc = VMAX_PERCENTILE
-    while vmax_perc > 80:
-        vmax = np.percentile(img_flattened, vmax_perc)
-        if vmax < 255:
-            break
-        else:
-            vmax_perc -= 1
+    
+    vmax = np.percentile(img_flattened, vmax_perc)
+#     while vmax_perc > 80:
+#         vmax = np.percentile(img_flattened, vmax_perc)
+#         if vmax < 255:
+#             break
+#         else:
+#             vmax_perc -= 1
 
     vmin_perc = VMIN_PERCENTILE
-    while vmin_perc < 20:
-        vmin = np.percentile(img_flattened, vmin_perc)
-        if vmin > 0:
-            break
-        else:
-            vmin_perc += 1
+    
+    vmin = np.percentile(img_flattened, vmin_perc)
+#     while vmin_perc < 20:
+#         vmin = np.percentile(img_flattened, vmin_perc)
+#         if vmin > 0:
+#             break
+#         else:
+#             vmin_perc += 1
 
     sys.stderr.write('%d(%d percentile), %d(%d percentile)\n' % (vmin, vmin_perc, vmax, vmax_perc) )
 

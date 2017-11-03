@@ -64,11 +64,16 @@ class ReadRGBComponentImagesThread(QThread):
 
 
 class ReadImagesThread(QThread):
-    def __init__(self, stack, sections, img_version):
+    def __init__(self, stack, sections, img_version, downsample=1):
+        """
+        This always loads images in raw resolution and then downsample them according to `downsample`.
+        """
+
         QThread.__init__(self)
         self.stack = stack
         self.sections = sections
         self.img_version = img_version
+        self.downsample = downsample
 
     def __del__(self):
         self.wait()
@@ -87,6 +92,17 @@ class ReadImagesThread(QThread):
                 sys.stderr.write('Image %s does not exist.\n' % fp)
                 continue
             qimage = QImage(fp)
+
+            if self.downsample != 1:
+                # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
+                # r = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN / XY_PIXEL_DISTANCE_LOSSLESS
+                # sys.stderr.write('Raw qimage bytes = %d\n' % qimage.byteCount())
+                raw_width, raw_height = (qimage.width(), qimage.height())
+                new_width, new_height = (raw_width / self.downsample, raw_height / self.downsample)
+                qimage = qimage.scaled(new_width, new_height)
+                sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (self.downsample, raw_width, raw_height, new_width, new_height))
+                # sys.stderr.write('New qimage bytes = %d\n' % qimage.byteCount())
+
             self.emit(SIGNAL('image_loaded(QImage, int)'), qimage, sec)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
@@ -215,15 +231,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
             self.gscenes['sagittal_tb'].set_active_i(150)
 
-        if self.gscenes['sagittal'].data_feeder.downsample == 1:
-            self.read_images_thread = ReadImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1), img_version=img_version)
-            self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
-            self.read_images_thread.start()
-            self.button_stop.clicked.connect(self.read_images_thread.terminate)
-        else:
-            self.gscenes['sagittal'].data_feeder.load_images()
-            self.gscenes['sagittal'].set_vertex_radius(3)
-            self.gscenes['sagittal'].set_line_width(3)
+        # if self.gscenes['sagittal'].data_feeder.downsample == 1:
+        self.read_images_thread = ReadImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1), img_version=img_version, downsample=self.gscenes['sagittal'].data_feeder.downsample)
+        self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
+        self.read_images_thread.start()
+        self.button_stop.clicked.connect(self.read_images_thread.terminate)
+        # elif self.gscenes['sagittal'].data_feeder.downsample in [8, 32]:
+        #     self.gscenes['sagittal'].data_feeder.load_images()
+        #     self.gscenes['sagittal'].set_vertex_radius(3)
+        #     self.gscenes['sagittal'].set_line_width(3)
 
         try:
             self.gscenes['sagittal'].set_active_section(first_sec)
@@ -1064,7 +1080,7 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--first_sec", type=int, help="first section")
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
     parser.add_argument("-v", "--img_version", type=str, help="image version", default='jpeg')
-    parser.add_argument("-d", "--downsample", type=int, help="downsample", default=1)
+    parser.add_argument("-d", "--downsample", type=float, help="downsample", default=1)
     args = parser.parse_args()
 
     from sys import argv, exit

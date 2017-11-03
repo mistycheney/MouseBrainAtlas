@@ -26,6 +26,7 @@ parser.add_argument("filenames", type=str, help="image filenames, json encoded, 
 parser.add_argument("init_snake_contours_fp", type=str, help="initial snake contour file path")
 parser.add_argument("--min_size", type=int, help="minimum submask size", default=MIN_SUBMASK_SIZE)
 parser.add_argument("--default_channel", type=int, help="default RGB channel to do snake on; ignored if input images are single-channel", default=0)
+parser.add_argument("--shrink", type=float, help="shrink strength or lambda1 in morphsnake paper, default 1", default=1.)
 parser.add_argument("--version", type=str, help="image version, default to None", default=None)
 args = parser.parse_args()
 
@@ -34,6 +35,7 @@ filenames = json.loads(args.filenames)
 min_size = args.min_size
 default_channel = args.default_channel
 version = args.version
+lambda1 = args.shrink
 
 init_snake_contours_fp = args.init_snake_contours_fp
 download_from_s3(init_snake_contours_fp)
@@ -49,7 +51,7 @@ def generate_contours(fn, init_cnt):
         img = contrast_stretch_image(img[..., default_channel])
     else:
         img = contrast_stretch_image(img)
-    submasks = snake(img, init_contours=[init_cnt], lambda1=1., min_size=min_size)
+    submasks = snake(img, init_contours=[init_cnt], lambda1=lambda1, min_size=min_size)
     submasks = dict(enumerate(submasks))
 
     assert len(submasks) > 0, "No submask is found."
@@ -74,7 +76,8 @@ def generate_contours(fn, init_cnt):
     
 t = time.time()
 
-pool = Pool(NUM_CORES/2)
+# pool = Pool(NUM_CORES/2)
+pool = Pool(NUM_CORES)
 pool.map(lambda fn: generate_contours(fn, init_snake_contour_vertices[fn]), filenames)
 pool.close()
 pool.join()

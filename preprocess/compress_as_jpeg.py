@@ -20,12 +20,16 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("input_fp", type=str, help="Input image name")
 parser.add_argument("output_fp", type=str, help="Output image name")
+parser.add_argument("--depth", type=int, help="Image depth", default=8) # imagemagick cannot generate 16-bit JPEG (?)
+parser.add_argument("--quality", type=int, help="JPEG quality", default=80)
 args = parser.parse_args()
 
 input_fp = args.input_fp
 output_fp = args.output_fp
+depth = args.depth
+quality = args.quality
 
 create_parent_dir_if_not_exists(output_fp)
 download_from_s3(input_fp)
-execute_command("convert \"%(input_fp)s\" -format jpg \"%(output_fp)s\"" % dict(input_fp=input_fp, output_fp=output_fp))
+execute_command("convert \"%(input_fp)s\" -depth %(depth)d -format jpg -quality %(quality)d \"%(output_fp)s\"" % dict(input_fp=input_fp, output_fp=output_fp, depth=depth, quality=quality))
 upload_to_s3(output_fp)

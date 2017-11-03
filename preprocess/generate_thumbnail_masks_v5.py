@@ -25,13 +25,15 @@ parser.add_argument("stack_name", type=str, help="stack name")
 parser.add_argument("filenames", type=str, help="image filenames, json encoded, no extensions")
 parser.add_argument("init_snake_contours_fp", type=str, help="initial snake contour file path")
 parser.add_argument("--min_size", type=int, help="minimum submask size", default=MIN_SUBMASK_SIZE)
-parser.add_argument("--default_channel", type=int, help="default RGB channel to do snake on", default=0)
+parser.add_argument("--default_channel", type=int, help="default RGB channel to do snake on; ignored if input images are single-channel", default=0)
+parser.add_argument("--version", type=str, help="image version, default to None", default=None)
 args = parser.parse_args()
 
 stack = args.stack_name
 filenames = json.loads(args.filenames)
 min_size = args.min_size
 default_channel = args.default_channel
+version = args.version
 
 init_snake_contours_fp = args.init_snake_contours_fp
 download_from_s3(init_snake_contours_fp)
@@ -41,9 +43,12 @@ init_snake_contour_vertices = load_pickle(init_snake_contours_fp) # {fn: vertice
 
 def generate_contours(fn, init_cnt):
     
-    img = DataManager.load_image_v2(stack=stack, fn=fn, resol='thumbnail', prep_id=1)
+    img = DataManager.load_image_v2(stack=stack, fn=fn, resol='thumbnail', prep_id=1, version=version)
     img = brightfieldize_image(img)
-    img = contrast_stretch_image(img[..., default_channel])
+    if img.ndim == 3:
+        img = contrast_stretch_image(img[..., default_channel])
+    else:
+        img = contrast_stretch_image(img)
     submasks = snake(img, init_contours=[init_cnt], lambda1=1., min_size=min_size)
     submasks = dict(enumerate(submasks))
 
@@ -68,6 +73,7 @@ def generate_contours(fn, init_cnt):
 
     
 t = time.time()
+
 pool = Pool(NUM_CORES/2)
 pool.map(lambda fn: generate_contours(fn, init_snake_contour_vertices[fn]), filenames)
 pool.close()

@@ -2167,7 +2167,7 @@ class DataManager(object):
         if ext is None:
             if version == 'mask':
                 ext = 'png'
-            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg' or version == 'grayDefaultJpeg':
+            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg' or version == 'grayDefaultJpeg' or version == 'NtbJpeg' or version == 'ChatJpeg':
                 ext = 'jpg'
             else:
                 ext = 'tif'

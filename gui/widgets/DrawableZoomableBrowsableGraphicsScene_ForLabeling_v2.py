@@ -62,6 +62,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.structure_onscreen_messages = {}
         self.default_name = None
 
+        self.histology_pixmap = QPixmap()
+
     def set_mode(self, mode):
         """
         Extend inherited method by:
@@ -297,10 +299,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
 
         if self.showing_which == 'histology':
-            image = self.data_feeder.retrieve_i(i=i)
-            histology_pixmap = QPixmap.fromImage(image)
-            self.pixmapItem.setPixmap(histology_pixmap)
+            qimage = self.data_feeder.retrieve_i(i=i)
+            # histology_pixmap = QPixmap.fromImage(qimage)
+            self.histology_pixmap.convertFromImage(qimage) # Keeping a global pixmap avoids creating a new pixmap every time which is tha case if using the static method QPixmap.fromImage(image)
+            self.pixmapItem.setPixmap(self.histology_pixmap)
             self.pixmapItem.setVisible(True)
+
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']

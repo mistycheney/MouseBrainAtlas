@@ -219,6 +219,8 @@ class ImageDataFeeder(object):
         self.image_cache[downsample][sec] = qimage
         self.compute_dimension()
 
+
+
     def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
 
         if labeled_filenames is not None:

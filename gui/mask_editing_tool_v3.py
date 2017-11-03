@@ -368,7 +368,11 @@ class MaskEditingGUI(QMainWindow):
             self.original_images[sec] = brightfieldize_image(img)
         if sec not in self.selected_channels:
             self.selected_channels[sec] = DEFAULT_MASK_CHANNEL
-        self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., self.selected_channels[sec]])
+
+        if self.original_images[sec].ndim == 3:
+            self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec][..., self.selected_channels[sec]])
+        elif self.original_images[sec].ndim == 2:
+            self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec])
         self.update_thresholded_image(sec=sec)
 
     def do_snake(self, sec):

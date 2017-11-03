@@ -123,7 +123,8 @@ class MaskEditingGUI(QMainWindow):
         self.auto_masks_feeder = ImageDataFeeder_v2(name='init_snake_contours', stack=self.stack, \
                                     sections=self.valid_sections, use_data_manager=True,
                                     downscale=32,
-                                    prep_id=1)
+                                    prep_id=1,
+                                    version='Ntb')
                                     # labeled_filenames={sec: os.path.join(RAW_DATA_DIR, self.stack, fn + ".png")
                                         # for sec, fn in self.valid_sections_to_filenames.iteritems()})
         self.auto_submasks_gscene.set_data_feeder(self.auto_masks_feeder)
@@ -145,7 +146,8 @@ class MaskEditingGUI(QMainWindow):
         self.user_submasks_feeder = ImageDataFeeder_v2(name='user_submasks', stack=self.stack, \
                                     sections=self.valid_sections, use_data_manager=True,
                                     downscale=32,
-                                    prep_id=1)
+                                    prep_id=1,
+                                    version='Ntb')
         self.user_submasks_gscene.set_data_feeder(self.user_submasks_feeder)
         self.user_submasks_gscene.submask_decision_updated.connect(self.user_submask_decision_updated)
         self.user_submasks_gscene.submask_updated.connect(self.user_submask_updated)
@@ -361,8 +363,8 @@ class MaskEditingGUI(QMainWindow):
 
     def update_contrast_stretched_image(self, sec):
         if sec not in self.original_images:
-            # img = imread(DataManager.get_image_filepath(stack=self.stack, section=sec, resol='thumbnail', version='original_png'))
-            img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif')
+            # img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif')
+            img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif', version='Ntb')
             self.original_images[sec] = brightfieldize_image(img)
         if sec not in self.selected_channels:
             self.selected_channels[sec] = DEFAULT_MASK_CHANNEL

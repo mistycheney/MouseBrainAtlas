@@ -17,7 +17,7 @@ gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 class ImageDataFeeder_v2(object):
 
-    def __init__(self, name, stack, prep_id=None, sections=None, use_data_manager=True, downscale=None, labeled_filenames=None):
+    def __init__(self, name, stack, prep_id=None, sections=None, use_data_manager=True, downscale=None, labeled_filenames=None, version=None):
         self.name = name
         self.stack = stack
 
@@ -35,6 +35,7 @@ class ImageDataFeeder_v2(object):
         self.image_cache = {} # {downscale: {sec: qimage}}
 
         self.prep_id = prep_id
+        self.version = version
 
         if downscale is not None:
             self.set_downsample_factor(downscale)
@@ -104,7 +105,7 @@ class ImageDataFeeder_v2(object):
             resol = 'thumbnail'
 
         self.image_cache[downsample] = \
-        {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol))
+        {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol, version=self.version))
         for sec in selected_sections}
 
         self.compute_dimension()

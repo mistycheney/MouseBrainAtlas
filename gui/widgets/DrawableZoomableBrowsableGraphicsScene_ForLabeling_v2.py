@@ -173,10 +173,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             # Compute contours of new structure on these sections
             t = time.time()
-            if self.data_feeder.downsample == 1:
-                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=20, positions=positions_rel_vol_resol)
-            else:
-                gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every=1, positions=positions_rel_vol_resol)
+            sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
+
+            gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume, along_direction='z', sample_every= sample_every, positions=positions_rel_vol_resol)
+
             sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
             t = time.time()
             m = dict(zip(positions_rel_vol_resol, sections_used))
@@ -790,12 +790,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         myMenu.addSeparator()
 
-        resolution_menu = QMenu("Change resolution", myMenu)
-        myMenu.addMenu(resolution_menu)
-        action_resolutions = {}
-        for d in self.data_feeder.supported_downsample_factors:
-            action = resolution_menu.addAction(str(d))
-            action_resolutions[action] = d
+        # resolution_menu = QMenu("Change resolution", myMenu)
+        # myMenu.addMenu(resolution_menu)
+        # action_resolutions = {}
+        # for d in self.data_feeder.supported_downsample_factors:
+        #     action = resolution_menu.addAction(str(d))
+        #     action_resolutions[action] = d
 
         # action_setUncertain = myMenu.addAction("Set uncertain segment")
         # action_deleteROIDup = myMenu.addAction("Delete vertices in ROI (duplicate)")
@@ -861,9 +861,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
 
-        elif selected_action in action_resolutions:
-            selected_downsample_factor = action_resolutions[selected_action]
-            self.set_downsample_factor(selected_downsample_factor)
+        # elif selected_action in action_resolutions:
+        #     selected_downsample_factor = action_resolutions[selected_action]
+        #     self.set_downsample_factor(selected_downsample_factor)
 
         elif selected_action == action_newPolygon:
             self.set_mode('add vertices consecutively')

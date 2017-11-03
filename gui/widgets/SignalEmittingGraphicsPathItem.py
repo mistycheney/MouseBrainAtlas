@@ -27,7 +27,8 @@ class SignalEmittingGraphicsPathItem(QGraphicsPathItem):
             isinstance(property_value, tuple):
                 if tuple(self.properties[property_name]) == tuple(property_value):
                     return
-                elif self.properties[property_name] == property_value:
+                elif len(self.properties[property_name]) == len(property_value) and \
+                all([property_value[i] == self.properties[property_name][i] for i in range(len(self.properties[property_name]))]):
                     return
 
         # The second condition uses tuple because a multi-value list may either be represented by tuple or list

@@ -31,7 +31,7 @@ class ImageDataFeeder_v2(object):
 
         self.n = len(self.sections)
 
-        self.supported_downsample_factors = [1, 32]
+        # self.supported_downsample_factors = [1, 32]
         self.image_cache = {} # {downscale: {sec: qimage}}
 
         self.prep_id = prep_id
@@ -104,9 +104,22 @@ class ImageDataFeeder_v2(object):
         elif downsample == 32:
             resol = 'thumbnail'
 
-        self.image_cache[downsample] = \
-        {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol, version=self.version))
-        for sec in selected_sections}
+        # self.image_cache[downsample] = \
+        # {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol, version=self.version))
+        # for sec in selected_sections}
+
+        self.image_cache[downsample] = {}
+        for sec in selected_sections:
+            # try:
+            self.image_cache[downsample][sec] = \
+            QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol, version=self.version))
+            # except Exception as e:
+            #     sys.stderr.write('Failed to convert file to qimage\n')
+            #     raise e
+
+        # self.image_cache[downsample] = \
+        # {sec: QImage(DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol=resol, version=self.version))
+        # }
 
         self.compute_dimension()
 
@@ -125,11 +138,11 @@ class ImageDataFeeder_v2(object):
                 self.z_dim = arbitrary_img.height()
 
     def set_downsample_factor(self, downsample):
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
-        else:
-            self.downsample = downsample
+        # if downsample not in self.supported_downsample_factors:
+        #     sys.stderr.write('Downsample factor %d is not supported.' % downsample)
+        #     return
+        # else:
+        self.downsample = downsample
 
         self.compute_dimension()
 
@@ -141,9 +154,9 @@ class ImageDataFeeder_v2(object):
         if downsample is None:
             downsample = self.downsample
 
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
+        # if downsample not in self.supported_downsample_factors:
+        #     sys.stderr.write('Downsample factor %d is not supported.' % downsample)
+        #     return
 
         if sec is None:
             sec = self.sections[i]
@@ -177,7 +190,8 @@ class ImageDataFeeder(object):
 
         self.n = len(self.sections)
 
-        self.supported_downsample_factors = [1, 32]
+        # self.supported_downsample_factors = [1, 32]
+        # self.supported_downsample_factors = [1.4, 1, 32]
         self.image_cache = {} # {downscale: {sec: qimage}}
 
         self.version = version
@@ -195,6 +209,11 @@ class ImageDataFeeder(object):
         self.compute_dimension()
 
     def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None):
+        """
+        Args:
+            qimage (QImage):
+            downsample (int): downscaling factor of the input image.
+        """
 
         if downsample is None:
             downsample = self.downsample
@@ -309,11 +328,11 @@ class ImageDataFeeder(object):
                 self.z_dim = arbitrary_img.height()
 
     def set_downsample_factor(self, downsample):
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
-        else:
-            self.downsample = downsample
+        # if downsample not in self.supported_downsample_factors:
+        #     sys.stderr.write('Downsample factor %.f is not supported.\n' % downsample)
+        #     return
+        # else:
+        self.downsample = downsample
 
         self.compute_dimension()
 
@@ -325,9 +344,9 @@ class ImageDataFeeder(object):
         if downsample is None:
             downsample = self.downsample
 
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.' % downsample)
-            return
+        # if downsample not in self.supported_downsample_factors:
+        #     sys.stderr.write('Downsample factor %.f is not supported.' % downsample)
+        #     return
 
         if sec is None:
             sec = self.sections[i]
@@ -347,16 +366,16 @@ class VolumeResectionDataFeeder(object):
 
         self.name = name
         self.volume_cache = {}
-        self.supported_downsample_factors = [4,8,32]
+        # self.supported_downsample_factors = [4,8,32]
 
         self.stack = stack
 
     def set_downsample_factor(self, downsample):
-        if downsample not in self.supported_downsample_factors:
-            sys.stderr.write('Downsample factor %d is not supported.\n' % downsample)
-            return
-        else:
-            self.downsample = downsample
+        # if downsample not in self.supported_downsample_factors:
+        #     sys.stderr.write('Downsample factor %d is not supported.\n' % downsample)
+        #     return
+        # else:
+        self.downsample = downsample
 
         if self.downsample in self.volume_cache:
             self.volume = self.volume_cache[self.downsample]

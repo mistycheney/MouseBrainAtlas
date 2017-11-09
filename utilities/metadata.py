@@ -65,6 +65,8 @@ if hostname == 'yuncong-MacbookPro':
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 
+    PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
+
     ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3'
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 

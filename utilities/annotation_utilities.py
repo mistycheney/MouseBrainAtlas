@@ -973,18 +973,29 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
     return contour_df
 
-def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
+def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1):
+    """
+    Convert contours defined wrt original reference frame in raw scale (downsample=1) to
+    contours defined wrt aligned cropped images in scale `out_downsample`.
+
+    Args:
+        out_downsample (float): Output the contours at this downsample level. Default is 1.
+    """
+
+    contour_df = contour_df.copy()
 
     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
-    xmin, xmax, ymin, ymax, first_sec, last_sec = DataManager.load_cropbox(stack)
+    xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
 
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-        fn = cnt['filename']
-        if fn not in filename_to_section:
-            continue
-        sec = filename_to_section[fn]
+        # fn = cnt['filename']
+        # if fn not in filename_to_section:
+        #     continue
+        # sec = filename_to_section[fn]
+        sec = cnt['section']
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
         contour_df.loc[cnt_id, 'section'] = sec
 
         Tinv = Ts[fn]
@@ -992,18 +1003,25 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack):
         n = len(cnt['vertices'])
 
         vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
+        vertices_on_aligned_cropped = vertices_on_aligned_cropped / out_downsample
         contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+        contour_df.set_value(cnt_id, 'downsample', out_downsample)
 
         if 'label_position' in cnt and cnt['label_position'] is not None:
             label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
+            label_position_on_aligned_cropped = label_position_on_aligned_cropped / out_downsample
             contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
 
     return contour_df
 
-def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
+def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1):
     """
+    Convert contours defined wrt aligned cropped frame in scale `in_downsample` to
+    contours defined wrt orignal unprocessed image frame in the raw scale (downscale=1).
+
     Args:
         contour_df (DataFrame): rows are polygon ids, columns are properties.
+        in_downsample (float): use input contours at this scale.
 
     Returns:
         DataFrame: a DataFrame containing converted polygons.
@@ -1011,12 +1029,12 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
 
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-    xmin, xmax, ymin, ymax, first_sec, last_sec = DataManager.load_cropbox(stack)
+    xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
-    # print contour_df
+    cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == in_downsample)]
 
-    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+    for cnt_id, cnt in cnts.iterrows():
         sec = cnt['section']
         fn = section_to_filename[sec]
         if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
@@ -1027,11 +1045,12 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack):
 
         n = len(cnt['vertices'])
 
-        vertices_on_aligned = np.array(cnt['vertices']) + (xmin*32, ymin*32)
+        vertices_on_aligned = np.array(cnt['vertices'])*in_downsample + (xmin*32, ymin*32)
         contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
+        contour_df.set_value(cnt_id, 'downsample', 1.)
 
         if 'label_position' in cnt and cnt['label_position'] is not None:
-            label_position_on_aligned = np.array(cnt['label_position']) + (xmin*32, ymin*32)
+            label_position_on_aligned = np.array(cnt['label_position'])*in_downsample + (xmin*32, ymin*32)
             contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
 
     return contour_df

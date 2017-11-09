@@ -515,7 +515,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     # def merge_contour_entries(self, new_entries_df):
     #     """
     #     Merge new entries into loaded entries.
-    #     new_entries: dict. {polygon_id: entry}
+    #     new_entries: dict. {polygon_id: entry}FileName
     #     Return: new dict.
     #     """
     #
@@ -584,7 +584,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Save sagittal
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T, stack=self.stack)
+        sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T,
+        stack=self.stack, in_downsample=self.gscenes['sagittal'].data_feeder.downsample)
         sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
         # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
         #                                                        classifier_setting_m=classifier_setting_m,
@@ -755,7 +756,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
-        sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack)
+        sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack,\
+                                        out_downsample=self.gscenes['sagittal'].data_feeder.downsample)
         sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal') & (sagittal_contours_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
 

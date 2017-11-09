@@ -214,7 +214,8 @@ class DataManager(object):
         download_from_s3(grid_indices_lookup_fp)
 
         if not os.path.exists(grid_indices_lookup_fp):
-            raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_annotation_to_grid_indices_lookup`")
+            raise Exception("Do not find structure to grid indices lookup file. Please generate it using `generate_annotation_to_grid_indices_lookup`\
+         in notebook `learning/identify_patch_class_from_labeling`")
         else:
             grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
             return grid_indices_lookup
@@ -472,7 +473,6 @@ class DataManager(object):
             use_inverse (bool): If True, load the transforms that when multiplied
             to a point on original space converts it to on aligned space.
             In preprocessing, set to False, which means simply parse the transform files as they are.
-            
             downsample_factor (float): the downsample factor of images that the output transform will be applied to.
         """
 
@@ -1066,6 +1066,20 @@ class DataManager(object):
         """
         return os.path.join(MESH_ROOTDIR, atlas_name, 'instance_sources', atlas_name + '_' + structure + '_sources.pkl')
 
+    @staticmethod
+    def get_prior_covariance_matrix_filepath(atlas_name, structure):
+        """
+        Path to the covariance matrix files.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, 'covariance_matrices', atlas_name + '_' + structure + '_convariance.bp')
+
+    @staticmethod
+    def load_prior_covariance_matrix(atlas_name, structure):
+        """
+        Load the covariance matrix defined in atlas for the given structure.
+        """
+        return bp.unpack_ndarray_file(DataManager.get_prior_covariance_matrix_filepath(**locals()))
+
 
     ###############
     # Volumes I/O #
@@ -1643,7 +1657,8 @@ class DataManager(object):
                 annotation: with respect to aligned uncropped thumbnail
                 score/thumbnail: with respect to aligned cropped thumbnail
                 shell: with respect to aligned uncropped thumbnail
-            relative_to_uncropped (bool): if True, all 6 numbers in the returned bbox is relative to the uncropped volume. If False, the first four numbers are relative to the cropped, the last two numbers are relative to the uncropped (a mistake from the past).
+            relative_to_uncropped (bool): if True, all 6 numbers in the returned bbox is relative to the uncropped volume.
+            If False, the first four numbers are relative to the cropped, the last two numbers are relative to the uncropped (a mistake from the past).
 
         Returns:
             volume_bbox (6-tuple): (xmin, xmax, ymin, ymax, zmin, zmax).
@@ -1954,7 +1969,7 @@ class DataManager(object):
     def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
         """
         Args:
-            version (str): default is cropped_gray.
+            input_img_version (str): default is gray.
         """
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -1974,12 +1989,12 @@ class DataManager(object):
     def load_dnn_features(stack, model_name, win, section=None, fn=None, input_img_version='gray', prep_id=2, suffix=None):
         """
         Args:
-            version (str): default is cropped_gray.
+            input_img_version (str): default is gray.
             win (int): the spacing/size scheme
         """
 
         features_fp = DataManager.get_dnn_features_filepath(**locals())
-        download_from_s3(features_fp)
+        download_from_s3(features_fp, local_root=DATA_ROOTDIR)
 
         try:
             return load_hdf(features_fp)

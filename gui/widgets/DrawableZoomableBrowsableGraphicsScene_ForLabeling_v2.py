@@ -626,6 +626,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 'class': polygon.properties['class']}
                     assert hasattr(self.data_feeder, 'sections')
                     contour_entry['section'] = self.data_feeder.sections[idx]
+                    contour_entry['filename'] = metadata_cache['sections_to_filenames'][self.gui.stack][contour_entry['section']]
                 else:
                     # structure boundaries
                     label_pos = polygon.properties['label_textItem'].scenePos()
@@ -647,6 +648,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     if hasattr(self.data_feeder, 'sections'):
                         contour_entry['section'] = self.data_feeder.sections[idx]
+                        contour_entry['filename'] = metadata_cache['sections_to_filenames'][self.gui.stack][contour_entry['section']]
                     else:
                         contour_entry['voxel_position'] = idx
 
@@ -1351,6 +1353,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
                     'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
                     self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+
                 elif self.mode == 'rotate3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []

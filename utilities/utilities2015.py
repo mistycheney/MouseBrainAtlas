@@ -29,6 +29,141 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+def plot_centroid_means_and_covars_3d(instance_centroids,
+                                        canonical_locations,
+                                        canonical_centroid=None,
+                                        canonical_normal=None,
+                                      cov_mat_allStructures=None,
+                                      radii_allStructures=None,
+                                      ellipsoid_matrix_allStructures=None):
+    """
+    Plot the means and covariance matrices in 3D.
+    All coordinates are relative to cropped MD589.
+
+    Args:
+        instance_centroids (dict {str: list of (3,)-arrays})
+        canonical_locations (dict {str: (3,)-arrays}): the average centroid for all instance centroid of every structure in canonical frame
+        canonical_centroid ((3,)-arrays): coordinate of the origin of canonical frame
+        canonical_normal ((3,)-arrays): normal vector of the mid-sagittal plane. The mid-sagittal plane is supppose to pass the `canonical_centroid`.
+        cov_mat_allStructures (dict {str: (3,3)-ndarray}): covariance_matrices
+        radii_allStructures (dict {str: (3,)-ndarray}): radius of each axis
+        ellipsoid_matrix_allStructures (dict {str: (3,3)-ndarray}): Of each matrix, each row is a eigenvector of the corresponding covariance matrix
+    """
+
+    # Load ellipsoid: three radius and axes.
+    if radii_allStructures is not None and ellipsoid_matrix_allStructures is not None:
+        pass
+    elif cov_mat_allStructures is not None:
+        radii_allStructures, ellipsoid_matrix_allStructures = compute_ellipsoid_from_covar(cov_mat_allStructures)
+    else:
+        _, radii_allStructures, ellipsoid_matrix_allStructures = compute_covar_from_instance_centroids(instance_centroids)
+
+    # Plot in 3D.
+
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.pyplot as plt
+    from metadata import name_unsided_to_color, convert_to_original_name
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    for name_s, centroids in instance_centroids.iteritems():
+    #     if name_s == '7N_L' or name_s == '7N_R':
+        centroids2 = np.array(centroids)
+        ax.scatter(centroids2[:,0], centroids2[:,1], centroids2[:,2],
+                   color=np.array(name_unsided_to_color[convert_to_original_name(name_s)])/255.,
+                   marker='o', s=100, alpha=.1)
+
+        c = canonical_locations[name_s]
+        ax.scatter(c[0], c[1], c[2],
+                   color=np.array(name_unsided_to_color[convert_to_original_name(name_s)])/255., marker='*', s=100)
+
+        # Plot uncerntainty ellipsoids
+        u = np.linspace(0.0, 2.0 * np.pi, 100)
+        v = np.linspace(0.0, np.pi, 100)
+        x = radii_allStructures[name_s][0] * np.outer(np.cos(u), np.sin(v))
+        y = radii_allStructures[name_s][1] * np.outer(np.sin(u), np.sin(v))
+        z = radii_allStructures[name_s][2] * np.outer(np.ones_like(u), np.cos(v))
+        for i in range(len(u)):
+            for j in range(len(v)):
+                [x[i,j],y[i,j],z[i,j]] = np.dot([x[i,j],y[i,j],z[i,j]], ellipsoid_matrix_allStructures[name_s]) + c
+
+    #     ax.plot_surface(x, y, z, color='b')
+        ax.plot_wireframe(x, y, z,  rstride=4, cstride=4, color='b', alpha=0.2)
+
+    if canonical_centroid is not None:
+        ax.scatter(canonical_centroid[0], canonical_centroid[1], canonical_centroid[2],
+               color=(0,0,0), marker='^', s=200)
+
+        # Plot mid-sagittal plane
+        if canonical_normal is not None:
+            canonical_midplane_xx, canonical_midplane_yy = np.meshgrid(range(0, 500, 100), range(0, 500, 100), indexing='xy')
+            canonical_midplane_z = -(canonical_normal[0]*(canonical_midplane_xx-canonical_centroid[0]) + \
+            canonical_normal[1]*(canonical_midplane_yy-canonical_centroid[1]) + \
+            canonical_normal[2]*(-canonical_centroid[2]))/canonical_normal[2]
+            ax.plot_surface(canonical_midplane_xx, canonical_midplane_yy, canonical_midplane_z, alpha=.1)
+    else:
+        sys.stderr.write("canonical_centroid not provided. Skip plotting cenonical centroid and mid-sagittal plane.\n")
+
+    # ax.set_xlabel('X Label')
+    # ax.set_ylabel('Y Label')
+    # ax.set_zlabel('Z Label')
+    # ax.set_axis_off()
+    ax.set_xlim3d([0, 400]);
+    ax.set_ylim3d([0, 400]);
+    ax.set_zlim3d([0, 400]);
+    # ax.view_init(azim = 90 + 20,elev = 0 - 20)
+    ax.view_init(azim = 90,elev = 0)
+    ax.set_aspect(1.0)
+    plt.legend()
+    plt.show()
+
+def compute_ellipsoid_from_covar(covar_mat):
+    """
+    Compute the ellipsoid (three radii and three axes) of each structure from covariance matrices.
+
+    Returns:
+        dict {str: (3,)-ndarray}: radius of each axis
+        dict {str: (3,3)-ndarray}: Of each matrix, each row is a eigenvector of the corresponding covariance matrix
+    """
+
+    radii_allStructures = {}
+    ellipsoid_matrix_allStructures = {}
+    for name_s, cov_mat in sorted(covar_mat.items()):
+        u, s, vt = np.linalg.svd(cov_mat)
+    #     print name_s, u[:,0], u[:,1], u[:,2],
+        radii_allStructures[name_s] = np.sqrt(s)
+        ellipsoid_matrix_allStructures[name_s] = vt
+    return radii_allStructures, ellipsoid_matrix_allStructures
+
+def compute_covar_from_instance_centroids(instance_centroids):
+    """
+    Compute the covariance matrices based on instance centroids.
+
+    Args:
+        instance_centroids: dict {str: list of (3,)-arrays}
+
+    Returns:
+        dict {str: (3,3)-ndarray}: covariance_matrices
+        dict {str: (3,)-ndarray}: radius of each axis
+        dict {str: (3,3)-ndarray}: Of each matrix, each row is a eigenvector of the corresponding covariance matrix
+    """
+
+    cov_mat_allStructures = {}
+    radii_allStructures = {}
+    ellipsoid_matrix_allStructures = {}
+    for name_s, centroids in sorted(instance_centroids.items()):
+        centroids2 = np.array(centroids)
+        cov_mat = np.cov(centroids2.T)
+        cov_mat_allStructures[name_s] = cov_mat
+        u, s, vt = np.linalg.svd(cov_mat)
+    #     print name_s, u[:,0], u[:,1], u[:,2],
+        radii_allStructures[name_s] = np.sqrt(s)
+        ellipsoid_matrix_allStructures[name_s] = vt
+
+    return cov_mat_allStructures, radii_allStructures, ellipsoid_matrix_allStructures
+
+
 def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
     """
     This function uses multiple processes.

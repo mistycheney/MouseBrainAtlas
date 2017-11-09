@@ -506,6 +506,25 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
 
     return out_vol
 
+
+def crop_large_image(fp, bbox):
+    """
+    Args:
+        fp (str): image file path
+        bbox (4-tuple of int): xmin,xmax,ymin,ymax
+    
+    Returns:
+        region_img (2d-array)
+    """
+    
+    xmin,xmax,ymin,ymax = bbox
+    h = ymax+1-ymin
+    w = xmax+1-xmin
+    
+    execute_command( """convert %(im_fp)s -crop %(w)dx%(h)d+%(x)d+%(y)d /tmp/tmp.tif""" % \
+               {'im_fp': fp, 'w':w, 'h':h, 'x':xmin, 'y':ymin})
+    return imread('/tmp/tmp.tif')
+
 def rescale_intensity_v2(im, low, high):
     """
     Linearly map `low` to 0 and `high` to 255.

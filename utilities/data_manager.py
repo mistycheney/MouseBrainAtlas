@@ -472,6 +472,8 @@ class DataManager(object):
             use_inverse (bool): If True, load the transforms that when multiplied
             to a point on original space converts it to on aligned space.
             In preprocessing, set to False, which means simply parse the transform files as they are.
+            
+            downsample_factor (float): the downsample factor of images that the output transform will be applied to.
         """
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)

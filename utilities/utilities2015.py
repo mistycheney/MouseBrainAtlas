@@ -656,7 +656,7 @@ def crop_large_image(fp, bbox):
     h = ymax+1-ymin
     w = xmax+1-xmin
     
-    execute_command( """convert %(im_fp)s -crop %(w)dx%(h)d+%(x)d+%(y)d /tmp/tmp.tif""" % \
+    execute_command( """convert \"%(im_fp)s\" -crop %(w)dx%(h)d+%(x)d+%(y)d /tmp/tmp.tif""" % \
                {'im_fp': fp, 'w':w, 'h':h, 'x':xmin, 'y':ymin})
     return imread('/tmp/tmp.tif')
 

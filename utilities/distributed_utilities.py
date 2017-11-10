@@ -22,7 +22,13 @@ def upload_to_s3(fp, local_root=None, is_dir=False):
     
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
-        local_root = ROOT_DIR
+        if '/media/yuncong/YuncongPublic' in fp:
+            local_root = '/media/yuncong/YuncongPublic'
+        elif '/media/yuncong/BstemAtlasData' in fp:
+            local_root = '/media/yuncong/BstemAtlasData'
+        else:
+            local_root = ROOT_DIR
+            
     transfer_data_synced(relative_to_local(fp, local_root=local_root),
                         from_hostname=HOST_ID,
                         to_hostname='s3',
@@ -38,7 +44,12 @@ def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, includ
     
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
-        local_root = ROOT_DIR
+        if '/media/yuncong/YuncongPublic' in fp:
+            local_root = '/media/yuncong/YuncongPublic'
+        elif '/media/yuncong/BstemAtlasData' in fp:
+            local_root = '/media/yuncong/BstemAtlasData'
+        else:
+            local_root = ROOT_DIR
 
     if redownload or not os.path.exists(fp):
         # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes of two files match.

@@ -19,10 +19,16 @@ def upload_to_s3(fp, local_root=None, is_dir=False):
         fp (str): file path
         local_root (str): default to ROOT_DIR
     """
-    
+
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
-        local_root = ROOT_DIR
+        if '/media/yuncong/YuncongPublic' in fp:
+            local_root = '/media/yuncong/YuncongPublic'
+        elif '/media/yuncong/BstemAtlasData' in fp:
+            local_root = '/media/yuncong/BstemAtlasData'
+        else:
+            local_root = ROOT_DIR
+
     transfer_data_synced(relative_to_local(fp, local_root=local_root),
                         from_hostname=HOST_ID,
                         to_hostname='s3',
@@ -35,10 +41,15 @@ def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, includ
         fp (str): file path
         local_root (str): default to ROOT_DIR
     """
-    
+
     # Not using keyword default value because ROOT_DIR might be dynamically assigned rather than set at module importing.
     if local_root is None:
-        local_root = ROOT_DIR
+        if '/media/yuncong/YuncongPublic' in fp:
+            local_root = '/media/yuncong/YuncongPublic'
+        elif '/media/yuncong/BstemAtlasData' in fp:
+            local_root = '/media/yuncong/BstemAtlasData'
+        else:
+            local_root = ROOT_DIR
 
     if redownload or not os.path.exists(fp):
         # TODO: even if the file exists, it might be incomplete. A more reliable way is to check if the sizes of two files match.
@@ -301,9 +312,11 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         # By doing so, we can control which files are available in the local scratch space of which node.
         # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
         if local_only:
+            stdout_f = open('/home/yuncong/stdout_%d.log' % node_i, "w")
+            stderr_f = open('/home/yuncong/stderr_%d.log' % node_i, "w")
             call('%(script)s' % \
          dict(script=temp_script),
-             shell=True)
+             shell=True, stdout=stdout_f, stderr=stderr_f)
         else:
             call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
              dict(node=node_list[node_i], script=temp_script,

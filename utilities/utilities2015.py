@@ -29,6 +29,49 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+def eulerAnglesToRotationMatrix(theta):
+    """
+    Calculates Rotation Matrix given euler angles.
+    """
+
+    R_x = np.array([[1,         0,                  0                   ],
+                    [0,         np.cos(theta[0]), -np.sin(theta[0]) ],
+                    [0,         np.sin(theta[0]), np.cos(theta[0])  ]
+                    ])
+    R_y = np.array([[np.cos(theta[1]),    0,      np.sin(theta[1])  ],
+                    [0,                     1,      0                   ],
+                    [-np.sin(theta[1]),   0,      np.cos(theta[1])  ]
+                    ])
+    R_z = np.array([[np.cos(theta[2]),    -np.sin(theta[2]),    0],
+                    [np.sin(theta[2]),    np.cos(theta[2]),     0],
+                    [0,                     0,                      1]
+                    ])
+    R = np.dot(R_z, np.dot( R_y, R_x ))
+    return R
+
+
+def rotationMatrixToEulerAngles(R) :
+    """
+    Calculates rotation matrix to euler angles
+    The result is the same as MATLAB except the order
+    of the euler angles ( x and z are swapped ).
+
+    Ref: https://www.learnopencv.com/rotation-matrix-to-euler-angles/
+    """
+    sy = np.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    singular = sy < 1e-6
+
+    if  not singular :
+        x = np.arctan2(R[2,1] , R[2,2])
+        y = np.arctan2(-R[2,0], sy)
+        z = np.arctan2(R[1,0], R[0,0])
+    else :
+        x = np.arctan2(-R[1,2], R[1,1])
+        y = np.arctan2(-R[2,0], sy)
+        z = 0
+
+    return np.array([x, y, z])
+
 def plot_centroid_means_and_covars_3d(instance_centroids,
                                         canonical_locations,
                                         canonical_centroid=None,
@@ -647,18 +690,18 @@ def crop_large_image(fp, bbox):
     Args:
         fp (str): image file path
         bbox (4-tuple of int): xmin,xmax,ymin,ymax
-    
+
     Returns:
         region_img (2d-array)
     """
-    
+
     xmin,xmax,ymin,ymax = bbox
     h = ymax+1-ymin
     w = xmax+1-xmin
-    
+
     execute_command( """convert %(im_fp)s -crop %(w)dx%(h)d+%(x)d+%(y)d /tmp/tmp.tif""" % \
                {'im_fp': fp, 'w':w, 'h':h, 'x':xmin, 'y':ymin})
-    return imread('/tmp/tmp.tif')
+    return imread('/tmp/tmp.tif', -1)
 
 def rescale_intensity_v2(im, low, high):
     """
@@ -1210,7 +1253,7 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
 def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
     """
     Args:
-        draw_contours (list of (n,2)-ndarray of (x,y) vertices)
+        maintain_shape (bool): pad patches to same size.
     """
 
     if maintain_shape:

@@ -348,8 +348,23 @@ class Aligner4(object):
     def set_label_weights(self, label_weights):
         self.label_weights = label_weights
 
+    def set_inverse_covar_mats_all_indices(self, inv_covar_mats):
+        """
+        Args:
+            inv_covar_mats (dict {ind_m: (3,3)-ndarray})
+        """
+        self.inv_covar_mats_all_indices = inv_covar_mats
+
     def set_regularization_weights(self, reg_weights):
-        self.reg_weights = reg_weights
+        """
+        Args:
+            reg_weights (float): If one scalar, this sets `self.reg_weight`; otherwise this sets `self.reg_weights`.
+        """
+
+        if isinstance(reg_weights, int) or isinstance(reg_weights, float):
+            self.reg_weight = reg_weights
+        else:
+            self.reg_weights = reg_weights
 
     def set_bspline_grid_size(self, interval):
         """
@@ -739,16 +754,22 @@ class Aligner4(object):
             ty = T[7]
             tz = T[11]
 
+            # if tf_type == 'rigid':
+            #     grad[0] = grad[0] - 2*self.reg_weights[0] * tx
+            #     # print grad[0], 2*self.reg_weights[0] * tx
+            #     grad[1] = grad[1] - 2*self.reg_weights[1] * ty
+            #     grad[2] = grad[2] - 2*self.reg_weights[2] * tz
+            # elif tf_type == 'affine':
+            #     grad[3] = grad[3] - 2*self.reg_weights[0] * tx
+            #     # print grad[3], 2*self.reg_weights[0] * tx
+            #     grad[7] = grad[7] - 2*self.reg_weights[1] * ty
+            #     grad[11] = grad[11] - 2*self.reg_weights[2] * tz
+
+            # ref: https://math.stackexchange.com/questions/222894/how-to-take-the-gradient-of-the-quadratic-form
             if tf_type == 'rigid':
-                grad[0] = grad[0] - 2*self.reg_weights[0] * tx
-                # print grad[0], 2*self.reg_weights[0] * tx
-                grad[1] = grad[1] - 2*self.reg_weights[1] * ty
-                grad[2] = grad[2] - 2*self.reg_weights[2] * tz
+                grad[:3] = grad[:3] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), grad[:3])
             elif tf_type == 'affine':
-                grad[3] = grad[3] - 2*self.reg_weights[0] * tx
-                # print grad[3], 2*self.reg_weights[0] * tx
-                grad[7] = grad[7] - 2*self.reg_weights[1] * ty
-                grad[11] = grad[11] - 2*self.reg_weights[2] * tz
+                grad[[3,7,11]] = grad[[3,7,11]] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), grad[[3,7,11]])
         elif tf_type == 'bspline':
             pass
 
@@ -877,7 +898,8 @@ class Aligner4(object):
             tx = T[3]
             ty = T[7]
             tz = T[11]
-            s_reg = self.reg_weights[0]*tx**2 + self.reg_weights[1]*ty**2 + self.reg_weights[2]*tz**2
+            # s_reg = self.reg_weights[0]*tx**2 + self.reg_weights[1]*ty**2 + self.reg_weights[2]*tz**2
+            s_reg = self.reg_weight * np.dot([tx,ty,tz], np.dot(self.inv_covar_mats_all_indices[ind_m], [tx,ty,tz]))
         else:
             s_reg = 0
 
@@ -1153,10 +1175,11 @@ class Aligner4(object):
                 affine_scaling_limits=None,
                 bspline_deformation_limit=None):
         """Optimize.
-        Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        # Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
+        Objective = texture score - reg_weights * [tx, ty, tz]^T * CovMat^{-1} * [tx, ty, tz]
 
         Args:
-            reg_weights: for (tx,ty,tz)
+            reg_weights: penalty for translation vector (tx,ty,tz). If just one scalar, this sets `self.reg_weight`; otherwise this sets `self.reg_weights`.
             affine_scaling_limits (2 tuple of float): min/max for the diagonal elements of affine matrix.
             bspline_deformation_limit (float): maximum deformation of any bspline control point in any direction.
 
@@ -1329,6 +1352,7 @@ class Aligner4(object):
         grad_historical += grad**2
         grad_adjusted = grad / np.sqrt(grad_historical + epsilon)
         # Note: It is wrong to do: grad_adjusted = grad /  (np.sqrt(grad_historical) + epsilon)
+        sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
         v_opt = lr * grad_adjusted # no minus sign because maximizing
 
         # AdaDelta Rule
@@ -1349,16 +1373,41 @@ class Aligner4(object):
 
         exp_w, Vt = matrix_exp_v(v_opt)
         # print 'Vt', Vt
-
         Tm = np.reshape(T, (3,4))
         t = Tm[:, 3]
         # print 't', t
         R = Tm[:, :3]
-
         R_new = np.dot(exp_w, R)
         # t_new = np.dot(exp_w, t) + Vt
         t_new = t + Vt
         # print 't_new', t_new
+
+        euler_angles_R_new = rotationMatrixToEulerAngles(R_new) # (around x, around y, around z)
+        sys.stderr.write("around x=%.2f; around y=%.2f; around z=%.2f\n" % \
+        (np.rad2deg(euler_angles_R_new[0]), np.rad2deg(euler_angles_R_new[1]), np.rad2deg(euler_angles_R_new[2])))
+
+        if euler_angles_R_new[2] > np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], np.pi/4.])
+            sys.stderr.write("Constrain around-z angle.\n")
+        elif euler_angles_R_new[2] < -np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], -np.pi/4.])
+            sys.stderr.write("Constrain around-z angle.\n")
+
+        if euler_angles_R_new[1] > np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], np.pi/4., euler_angles_R_new[2]])
+            sys.stderr.write("Constrain around-y angle.\n")
+        elif euler_angles_R_new[1] < -np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], -np.pi/4., euler_angles_R_new[2]])
+            sys.stderr.write("Constrain around-y angle.\n")
+
+        if euler_angles_R_new[0] > np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
+            sys.stderr.write("Constrain around-x angle.\n")
+        elif euler_angles_R_new[0] < -np.pi/4:
+            R_new = eulerAnglesToRotationMatrix([-np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
+            sys.stderr.write("Constrain around-x angle.\n")
+
+        # Constrain the amount of rotation around ANY axis.
 
         return np.column_stack([R_new, t_new]).flatten(), score, grad_historical, sq_updates_historical
 

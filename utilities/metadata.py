@@ -61,7 +61,8 @@ if hostname == 'yuncong-MacbookPro':
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
 
-    VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
+    # VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
+    VOLUME_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_volumes')
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
 

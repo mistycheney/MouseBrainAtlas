@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("stack_fixed", type=str, help="Fixed stack name")
 parser.add_argument("stack_moving", type=str, help="Moving stack name")
 parser.add_argument("warp_setting", type=int, help="Warp setting")
-parser.add_argument("--detector_id", type=int, help="detector_id", default=None)
+parser.add_argument("-d", "--detector_id", type=int, help="detector_id", default=None)
 parser.add_argument("-n", "--trial_num", type=int, help="number of trials", default=1)
 parser.add_argument("-s", "--structures", type=str, help="structures")
 parser.add_argument("--stack_fixed_type", type=str, help="Fixed stack type", default='score')
@@ -112,12 +112,18 @@ if np.isnan(reg_weight):
 else:
     reg_weights = np.ones((3,))*reg_weight
 
+print
+print 'surround', surround_weight
+# print 'regularization', reg_weights
+print 'regularization', reg_weight
+    
 #MAX_ITER_NUM = 10000
 HISTORY_LEN = 200
 #MAX_GRID_SEARCH_ITER_NUM = 30
 
 lr1 = 10
-lr2 = 0.1
+# lr2 = 0.1
+lr2 = 0.01
 
 ########################################################
 
@@ -141,8 +147,7 @@ for structure in structures:
 
         structure_to_label_moving = {s: l+1 for l, s in enumerate(sorted(volume_moving.keys()))}
         label_to_structure_moving = {l+1: s for l, s in enumerate(sorted(volume_moving.keys()))}
-        volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}
-
+        volume_moving = {structure_to_label_moving[s]: v for s, v in volume_moving.items()}       
         
         label_mapping_m2f = {}    
         for label_m, name_m in label_to_structure_moving.iteritems():
@@ -152,6 +157,16 @@ for structure in structures:
                 name_f = convert_to_original_name(name_m)
             if name_f in structure_to_label_fixed:
                 label_mapping_m2f[label_m] = structure_to_label_fixed[name_f]
+        
+        
+        if include_surround:
+            inv_covar_mats_all_indices = {structure_to_label_moving[s]:
+            np.linalg.inv(DataManager.load_prior_covariance_matrix(atlas_name=stack_moving, structure=convert_to_nonsurround_label(s)))
+            for s in [structure, convert_to_surround_name(structure, margin='200')]}
+        else:
+            inv_covar_mats_all_indices = {structure_to_label_moving[s] :
+                np.linalg.inv(DataManager.load_prior_covariance_matrix(atlas_name=stack_moving, structure=convert_to_nonsurround_label(s)))
+                for s in [structure]}
         
         # label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
         #                      for label_m, name_m in label_to_structure_moving.iteritems()}
@@ -197,7 +212,8 @@ for structure in structures:
         aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m', 
                              indices_m=[structure_to_label_moving[structure]])                            
 
-        aligner.set_regularization_weights(reg_weights)
+        aligner.set_regularization_weights(reg_weight)
+        aligner.set_inverse_covar_mats_all_indices(inv_covar_mats_all_indices)
         aligner.set_label_weights(label_weights_m)
 
         # grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=MAX_GRID_SEARCH_ITER_NUM, 

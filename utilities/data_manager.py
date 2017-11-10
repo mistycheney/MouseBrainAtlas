@@ -226,9 +226,31 @@ class DataManager(object):
                                 detector_id_f=None,
                                                        prep_id_m=None,
                                                        prep_id_f=None,
-                                warp_setting=None, trial_idx=None):
+                                warp_setting=None, trial_idx=None, timestamp=None):
+        """
+        
+        """
+        
         if by_human:
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id})
+            
+            if timestamp is not None:
+                if timestamp == 'latest':
+                    suffix = 'contours'
+                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
+                    import re
+                    timestamps = []
+                    for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                        if m is not None:
+                            ts = m.groups()[0]
+                            try:
+                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                            except:
+                                pass
+                    timestamp = sorted(timestamps)[-1][1]
+                    print "latest timestamp: ", timestamp
+            
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,

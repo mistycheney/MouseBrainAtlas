@@ -752,7 +752,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                               ):
     """
     Load the structure annotation.
-    Use the default grid spec.
+    Use the given windowing scheme.
     Find grid indices for each class label.
 
     Args:
@@ -1152,8 +1152,26 @@ def generate_dataset(num_samples_per_label, stacks, labels_to_sample, model_name
     return features, addresses
 
 
-def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=None, w=None, h=None):
-    # patch_size, stride, w, h = grid_parameters.tolist()
+def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=None, w=None, h=None, win_id=None, stack=None):
+    """
+    Provide either one of the following combination of arguments:
+    - `win_id` and `stack`
+    - `grid_spec`
+    - `patch_size`, `stride`, `w` and `h`
+
+    Args:
+        win_id (int):
+
+    Returns:
+        2d-array of int: the list of all grid locations.
+    """
+
+    if win_id is not None:
+        windowing_properties = windowing_settings[win_id]
+        patch_size = windowing_properties['patch_size']
+        half_size = patch_size/2
+        stride = windowing_properties['spacing']
+        w, h = metadata_cache['image_shape'][stack]
 
     if grid_spec is not None:
         patch_size, stride, w, h = grid_spec
@@ -1195,10 +1213,14 @@ def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all
     df = pandas.DataFrame(d)
     return df.T.to_dict().values()
 
-def addresses_to_locations(addresses):
+def addresses_to_locations(addresses, win_id):
     """
-    Take a list of (stack, section, gridpoint_index),
-    return x,y coordinates (lossless).
+    Args:
+        addresses: a list of (stack, section, gridpoint_index),
+        win_id (int):
+
+    Returns:
+        x,y coordinates (lossless).
     """
 
     augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]

@@ -208,7 +208,7 @@ class DataManager(object):
                                 detector_id_f=None,
                                                prep_id_m=None,
                                                prep_id_f=None,
-                                warp_setting=None, trial_idx=None):
+                                warp_setting=None, trial_idx=None, timestamp=None):
 
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
@@ -2175,7 +2175,8 @@ class DataManager(object):
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        return imread(img_fp)
+        # return imread(img_fp)
+        return cv2.imread(img_fp, -1)
 
     @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):

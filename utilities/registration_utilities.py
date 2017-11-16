@@ -220,7 +220,7 @@ class Aligner4(object):
             volume_m_ (dict): the moving probabilistic volume. dict of {numeric label: 3d array}
             labelIndexMap_m2f (dict): mapping between moving volume labels and fixed volume labels. dict of {moving label: fixed label}
             label_weights (dict): {numeric label: weight}
-            reg_weights (3-array): regularization weights for (tx,ty,tz) respectively.
+            reg_weights (3-array or float): regularization weights for (tx,ty,tz) respectively.
             zrange (2-tuple): If given, only use the portion of both volumes that is between zmin and zmax (inclusive).
             nz_thresh (float): a number above which the score value is used for registration.
         """
@@ -339,11 +339,14 @@ class Aligner4(object):
             self.label_weights = label_weights
 
         if reg_weights is None:
-            if not hasattr(self, 'reg_weights'):
-                sys.stderr.write('Regularization weights not set, default to 0.\n')
-                self.reg_weights = np.array([0,0,0])
+            # if not hasattr(self, 'reg_weights'):
+            sys.stderr.write('Regularization weights not set, default to 0.\n')
+            self.reg_weights = np.array([0,0,0])
+            self.reg_weight = 0
         else:
             self.reg_weights = reg_weights
+        
+        self.inv_covar_mats_all_indices = {ind_m: np.eye(3) for ind_m in self.all_indices_m}
 
     def set_label_weights(self, label_weights):
         self.label_weights = label_weights
@@ -351,7 +354,7 @@ class Aligner4(object):
     def set_inverse_covar_mats_all_indices(self, inv_covar_mats):
         """
         Args:
-            inv_covar_mats (dict {ind_m: (3,3)-ndarray})
+            inv_covar_mats (dict {ind_m: (3,3)-ndarray}): inverse of covariance matrices.
         """
         self.inv_covar_mats_all_indices = inv_covar_mats
 

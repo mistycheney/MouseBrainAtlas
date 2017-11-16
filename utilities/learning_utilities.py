@@ -437,43 +437,81 @@ def locate_patches_given_addresses_v2(addresses):
 
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
-
+    
+    
 def extract_patches_given_locations(patch_size, locs,
                                     img=None,
-                                    stack=None, sec=None, version=None, prep_id=2):
+                                    stack=None, sec=None, version=None, prep_id=2,
+                                   normalization_scheme=None):
     """
     Extract patches from one image at given locations.
     The image can be given, or the user can provide stack,sec,version,prep_id.
 
     Args:
         img: the image
-        locs ((n,2)-array): patch centers
+        locs ((n,2)-array): list of patch centers
         patch_size (int): size of a patch, assume square
+        normalization_scheme (str)
 
     Returns:
         list of (patch_size, patch_size)-arrays.
     """
 
+    from utilities2015 import rescale_intensity_v2 # Without this, rescale_intensity_v2 has wrong behavior. WHY?
+    
+    half_size = patch_size/2
+    
     if img is None:
         t = time.time()
-        img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
+        if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+            img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)[...,2]
+        else:
+            img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
 
-    half_size = patch_size/2
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+    
+    # if img is None:
+    #     t = time.time()
+    #     if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+    #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id)
+    #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))[..., 2]
+    #                   for x, y in locs]
+    #     else:
+    #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
+    #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))
+    #                    for x, y in locs]
+    #     sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
+
+    if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+        patches_normalized_uint8 = []
+        for p in patches:
+            # mu = p.mean()
+            # print mu
+            mu = 125.
+            sigma = 91.
+            p_normalized = (p - mu) / sigma            
+            p_normalized_uint8 = rescale_intensity_v2(p_normalized, -1, 9)
+            # p_normalized_uint8 = p_normalized
+            patches_normalized_uint8.append(p_normalized_uint8)
+        patches = patches_normalized_uint8        
+
     return patches
 
 def extract_patches_given_locations_multiple_sections(addresses,
+                                                      images=None,
                                                       version=None, prep_id=2,
                                                       win_id=None, patch_size=None,
-                                                      location_or_grid_index='location'):
+                                                      location_or_grid_index='location',
+                                                     normalization_scheme=None):
     """
     Extract patches from multiple images.
 
     Args:
         addresses (list of tuples):
-            if location_or_grid_index is 'location', then this is a list of (stack, section, location), patch_size is required.
+            if location_or_grid_index is 'location', then this is a list of (stack, section, location), `patch_size` or `win_id` is required.
             if location_or_grid_index is 'grid_index', then this is a list of (stack, section, framewise_index), win_id is required.
+        images (dict {(stack, section): image}): 
 
     Returns:
         list of (patch_size, patch_size)-arrays.
@@ -492,6 +530,9 @@ def extract_patches_given_locations_multiple_sections(addresses,
         stack, sec = stack_sec
         if location_or_grid_index == 'location':
             locs_thisSec, list_indices = map(list, zip(*locations_allSections))
+            if patch_size is None:
+                assert win_id is not None
+                patch_size = windowing_settings[win_id]['patch_size']
         else:
             ginds_thisSec, list_indices = map(list, zip(*locations_allSections))
             assert win_id is not None, "If using grid indices, must specify win_id."
@@ -500,8 +541,19 @@ def extract_patches_given_locations_multiple_sections(addresses,
                                                        stride=windowing_settings[win_id]['spacing'],
                                                       w=metadata_cache['image_shape'][stack][0],
                                                        h=metadata_cache['image_shape'][stack][1])[ginds_thisSec]
-        extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, version=version,
-                                                               patch_size=patch_size)
+        
+        if images is not None and stack_sec in images:
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
+                                                                img=images[stack_sec], 
+                                                                patch_size=patch_size, 
+                                                                normalization_scheme=normalization_scheme)
+        else:
+            sys.stderr.write("No images are provided. Load instead.\n")
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
+                                                                version=version,
+                                                                patch_size=patch_size, 
+                                                                normalization_scheme=normalization_scheme)
+            
         patches_all += extracted_patches
         list_indices_all += list_indices
 
@@ -743,6 +795,18 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     return DataFrame(patch_indices_allSections_allStructures)
 
 
+def win_id_to_gridspec(win_id, stack):
+    """
+    Derive a gridspec from windowing id.
+    """
+    windowing_properties = windowing_settings[win_id]
+    patch_size = windowing_properties['patch_size']
+    spacing = windowing_properties['spacing']
+    w, h = metadata_cache['image_shape'][stack]
+    half_size = patch_size/2
+    grid_spec = (patch_size, spacing, w, h)
+    return grid_spec
+
 def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                                    stack_m=None,
                                                    detector_id_m=None,
@@ -867,6 +931,7 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
     Args:
         grid_spec: If none, use the default grid spec.
         surround_margins: list of surround margin for which patches are extracted, in unit of microns. Default: [100,200,...1000]
+        
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
         Otherwise, return a list of grid indices.
@@ -1181,6 +1246,7 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
                      indexing='xy')
     sample_locations = np.c_[xs.flat, ys.flat]
     return sample_locations
+
 
 
 def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all_secs_all_names):

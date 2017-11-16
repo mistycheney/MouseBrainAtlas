@@ -816,7 +816,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                               ):
     """
     Load the structure annotation.
-    Use the default grid spec.
+    Use the given windowing scheme.
     Find grid indices for each class label.
 
     Args:
@@ -1279,10 +1279,14 @@ def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all
     df = pandas.DataFrame(d)
     return df.T.to_dict().values()
 
-def addresses_to_locations(addresses):
+def addresses_to_locations(addresses, win_id):
     """
-    Take a list of (stack, section, gridpoint_index),
-    return x,y coordinates (lossless).
+    Args:
+        addresses: a list of (stack, section, gridpoint_index),
+        win_id (int):
+
+    Returns:
+        x,y coordinates (lossless).
     """
 
     augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]

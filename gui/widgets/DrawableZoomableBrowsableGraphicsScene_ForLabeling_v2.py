@@ -333,8 +333,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # print 'array2qimage', time.time() - t
 
                 t = time.time()
-                blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedBlue', ext='jpg')
+                # blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedBlue', ext='jpg')
+                # qimage_blue = QImage(blue_fp)
+
+                blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='ChatJpeg', ext='jpg')
                 qimage_blue = QImage(blue_fp)
+                if self.data_feeder.downsample != 1:
+                    # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
+                    raw_width, raw_height = (qimage_blue.width(), qimage_blue.height())
+                    new_width, new_height = (raw_width / self.data_feeder.downsample, raw_height / self.data_feeder.downsample)
+                    qimage_blue = qimage_blue.scaled(new_width, new_height)
+                    sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (self.data_feeder.downsample, raw_width, raw_height, new_width, new_height))
+
                 # green_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedGreen', ext='jpg')
                 # qimage_green = QImage(green_fp)
                 # red_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedRed', ext='jpg')

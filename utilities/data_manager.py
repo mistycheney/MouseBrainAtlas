@@ -228,11 +228,11 @@ class DataManager(object):
                                                        prep_id_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None):
         """
-        
+
         """
-        
+
         if by_human:
-            
+
             if timestamp is not None:
                 if timestamp == 'latest':
                     suffix = 'contours'
@@ -249,7 +249,7 @@ class DataManager(object):
                                 pass
                     timestamp = sorted(timestamps)[-1][1]
                     print "latest timestamp: ", timestamp
-            
+
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
@@ -2350,6 +2350,7 @@ class DataManager(object):
         """
         z_begin default to int(np.floor(first_sec*voxel_z_size)).
         """
+        
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'

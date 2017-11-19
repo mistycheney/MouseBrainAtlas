@@ -345,7 +345,7 @@ class Aligner4(object):
             self.reg_weight = 0
         else:
             self.reg_weights = reg_weights
-        
+
         self.inv_covar_mats_all_indices = {ind_m: np.eye(3) for ind_m in self.all_indices_m}
 
     def set_label_weights(self, label_weights):
@@ -498,14 +498,13 @@ class Aligner4(object):
     #     sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
     def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None):
-        """Load gradients.
+        """Load gradients of fixed volumes.
 
         Need to pass gradient_filepath_map_f in from outside because Aligner class should be agnostic about structure names.
 
         Args:
             gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
-            graidents (dict of (3,dimx,dimy,dimz) arrays):
-
+            gradients (dict of (3,dimx,dimy,dimz) arrays):
         """
 
         if indices_f is None:
@@ -2615,6 +2614,9 @@ from skimage.morphology import closing, disk
 
 
 def fill_sparse_score_image(img):
+    """
+    Densify a sparse 2D image.
+    """
     dense_img = np.zeros_like(img)
     xmin, xmax, ymin, ymax = bbox_2d(img)
     roi = img[ymin:ymax+1, xmin:xmax+1]
@@ -2624,6 +2626,9 @@ def fill_sparse_score_image(img):
     return dense_img
 
 def fill_sparse_score_volume(vol):
+    """
+    Densify a sparse 3D volume, by densifying every 2D slice.
+    """
     dense_vol = np.zeros_like(vol)
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
     roi = vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]

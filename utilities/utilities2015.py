@@ -619,7 +619,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     Args:
         in_bbox ((6,) array): the bounding box that the input volume is defined on. If None, assume origin is at (0,0,0) of the input volume.
         in_origin ((3,) array): the input volume origin coordinate in the space. Used only if in_bbox is not specified. Default is (0,0,0), meaning the input volume is located at the origin of the underlying space.
-        out_bbox ((6,) array): the bounding box that the output volume is defined on.
+        out_bbox ((6,) array): the bounding box that the output volume is defined on. If not given, each dimension is from 0 to the max reach of any structure.
     """
 
     if in_bbox is None:
@@ -705,11 +705,11 @@ def crop_large_image(fp, bbox):
 def rescale_intensity_v2(im, low, high):
     """
     Linearly map `low` to 0 and `high` to 255.
-    
+
     Args:
         im (2d array of float): input image.
     """
-    
+
     from skimage.exposure import rescale_intensity, adjust_gamma
     if low > high:
         im_out = rescale_intensity(low-im.astype(np.float), (0, low-high), (0, 255)).astype(np.uint8)

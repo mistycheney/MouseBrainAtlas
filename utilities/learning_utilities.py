@@ -492,6 +492,7 @@ def extract_patches_given_locations(patch_size, locs,
             sigma = 91.
             p_normalized = (p - mu) / sigma            
             p_normalized_uint8 = rescale_intensity_v2(p_normalized, -1, 9)
+            # p_normalized_uint8 = rescale_intensity_v2(p_normalized, 9, -1)
             # p_normalized_uint8 = p_normalized
             patches_normalized_uint8.append(p_normalized_uint8)
         patches = patches_normalized_uint8        
@@ -816,7 +817,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                               ):
     """
     Load the structure annotation.
-    Use the given windowing scheme.
+    Use the default grid spec.
     Find grid indices for each class label.
 
     Args:
@@ -1279,14 +1280,10 @@ def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all
     df = pandas.DataFrame(d)
     return df.T.to_dict().values()
 
-def addresses_to_locations(addresses, win_id):
+def addresses_to_locations(addresses):
     """
-    Args:
-        addresses: a list of (stack, section, gridpoint_index),
-        win_id (int):
-
-    Returns:
-        x,y coordinates (lossless).
+    Take a list of (stack, section, gridpoint_index),
+    return x,y coordinates (lossless).
     """
 
     augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]

@@ -1446,6 +1446,7 @@ class Aligner4(object):
         # AdaGrad Rule
         grad_historical += grad**2
         grad_adjusted = grad / np.sqrt(grad_historical + 1e-10)
+        sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
         new_T = T + lr*grad_adjusted
 
         # Constrain the transform
@@ -2669,3 +2670,193 @@ def fill_sparse_volume(volume_sparse):
         volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1][vs_filled.astype(np.bool)] = ind
 
     return volume
+
+def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_name_dict):
+    """
+    Transform volume and then save transformed volume.
+    
+    Args:
+        G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
+    """
+    
+    stack_m = alignment_name_dict['stack_m']
+    stack_f = alignment_name_dict['stack_f']
+    warp_setting = alignment_name_dict['warp_setting']
+    vol_type_f = alignment_name_dict['vol_type_f']
+    vol_type_m = alignment_name_dict['vol_type_m']
+    
+    try:
+        t = time.time()
+
+        # vol_m, vol_m_bbox = DataManager.load_original_volume_v2(stack=stack_m, structure=structure, downscale=32,
+        #                                         volume_type=vol_type_m)
+
+        volume_m_warped_inbbox, volume_m_warped_bbox_rel2movingvol = \
+        transform_volume_v2(vol=volume, tf_params=G.flatten())
+
+        # Note: volume_m_warped_bbox_rel2movingvol is the same as volume_m_warped_bbox_rel2fixedvol.
+        volume_m_warped_bbox_rel2fixedvol = volume_m_warped_bbox_rel2movingvol
+
+        ######### Save volume ##########
+
+        volume_m_warped_fp = \
+        DataManager.get_transformed_volume_filepath(stack_m=stack_m,
+                                                    stack_f=stack_f,
+                                                    warp_setting=warp_setting,
+                                                    vol_type_f=vol_type_f,
+                                                    vol_type_m=vol_type_m,
+                                                    structure=structure)
+
+        create_parent_dir_if_not_exists(volume_m_warped_fp)
+        bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
+        upload_to_s3(volume_m_warped_fp)
+
+        ############### bbox #############
+        volume_m_warped_bbox_fp = \
+        DataManager.get_transformed_volume_bbox_filepath(stack_m=stack_m,
+                                                    stack_f=stack_f,
+                                                    warp_setting=warp_setting,
+                                                    vol_type_f=vol_type_f,
+                                                         vol_type_m=vol_type_m,
+                                                    structure=structure)
+
+        create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
+        np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + crop_origin_f[[0,0,1,1,2,2]])
+        upload_to_s3(volume_m_warped_bbox_fp)
+
+        sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
+
+    except Exception as e:
+        sys.stderr.write('Error transforming volume %s: %s.\n' % (structure, e))
+
+
+def save_alignment_results(best_param, centroid_m, centroid_f, 
+                           crop_origin_m, crop_origin_f,
+                           score_traj, parameter_traj, alignment_name_dict):
+    """
+    Save the following alignment results:
+    - `parameters`: eventual parameters
+    - `scoreHistory`: score trajectory
+    - `scoreEvolution`: a plot of score trajectory, exported as PNG
+    - `trajectory`: parameter trajectory 
+    
+    Args:
+        best_param ((12,) array): best parameters
+        score_traj ((Ti,) array): score trajectory
+        parameter_traj ((Ti, 12) array): parameter trajectory
+    """
+    
+    stack_m = alignment_name_dict['stack_m']
+    stack_f = alignment_name_dict['stack_f']
+    warp_setting = alignment_name_dict['warp_setting']
+    vol_type_f = alignment_name_dict['vol_type_f']
+    vol_type_m = alignment_name_dict['vol_type_m']
+    
+    # Save parameters
+    params_fp = \
+        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+                                                      stack_f=stack_f,
+                                                      warp_setting=warp_setting,
+                                                  vol_type_f=vol_type_f,
+                                                  vol_type_m=vol_type_m,
+                                                     what='parameters')
+    DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
+    upload_to_s3(params_fp)
+
+    # Save score history
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+                                                  stack_f=stack_f,
+                                                  warp_setting=warp_setting,
+                                                           vol_type_f=vol_type_f,
+                                                           vol_type_m=vol_type_m,
+                                                 what='scoreHistory')
+    bp.pack_ndarray_file(np.array(score_traj), history_fp)
+    upload_to_s3(history_fp)
+
+    # Save score plot
+    score_plot_fp = \
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+                                                  stack_f=stack_f,
+                                                  warp_setting=warp_setting,
+                                                           vol_type_f=vol_type_f,
+                                                           vol_type_m=vol_type_m,
+                                                 what='scoreEvolution')
+    fig = plt.figure();
+    plt.plot(score_traj);
+    plt.savefig(score_plot_fp, bbox_inches='tight')
+    plt.close(fig)
+    upload_to_s3(score_plot_fp)
+
+    # Save trajectory
+    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+                                                      stack_f=stack_f,
+                                                      warp_setting=warp_setting,
+                                                              vol_type_f=vol_type_f,
+                                                              vol_type_m=vol_type_m,
+                                                     what='trajectory')
+    bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
+    upload_to_s3(trajectory_fp)
+
+# def save_alignment_results(T_all_trials, score_traj_all_trials, parameter_traj_all_trials):
+#     """
+#     Save the following alignment results:
+#     - `parameters`: eventual parameters of the best trial
+#     - `scoreHistory`: score trajectory of the best trial
+#     - `scoreEvolution`: a plot of score trajectory of the best trial, exported as PNG
+#     - `trajectory`: trajectory of all 
+    
+#     Args:
+#         T_all_trials (list of N (12,) arrays): best parameters of each trial. N is number of trials.
+#         score_traj_all_trials (list of N (Ti,) arrays): score trajectory for all trials. Ti is number of iterations for the i'th trial.
+#         parameter_traj_all_trials (list of N (Ti, 12) arrays): parameter trajectory for all trials
+#     """
+
+#     best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+
+#     # Save parameters
+#     params_fp = \
+#         DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#                                                       stack_f=stack_fixed,
+#                                                       warp_setting=warp_setting,
+#                                                   vol_type_f='annotationAsScore',
+#                                                   vol_type_m='annotationAsScore',
+#                                                      what='parameters')
+#     DataManager.save_alignment_parameters(params_fp, T_all_trials[best_trial], 
+#                                           aligner.centroid_m, aligner.centroid_f,
+#                                           aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
+#                                           aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
+#     upload_to_s3(params_fp)
+
+#     # Save score history
+#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#                                                   stack_f=stack_fixed,
+#                                                   warp_setting=warp_setting,
+#                                                            vol_type_f='annotationAsScore',
+#                                                            vol_type_m='annotationAsScore',
+#                                                  what='scoreHistory')
+#     bp.pack_ndarray_file(np.array(score_traj_all_trials[best_trial]), history_fp)
+#     upload_to_s3(history_fp)
+
+#     # Save score plot
+#     score_plot_fp = \
+#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#                                                   stack_f=stack_fixed,
+#                                                   warp_setting=warp_setting,
+#                                                            vol_type_f='annotationAsScore',
+#                                                            vol_type_m='annotationAsScore',
+#                                                  what='scoreEvolution')
+#     fig = plt.figure();
+#     plt.plot(score_traj_all_trials[best_trial]);
+#     plt.savefig(score_plot_fp, bbox_inches='tight')
+#     plt.close(fig)
+#     upload_to_s3(score_plot_fp)
+
+#     # Save trajectory
+#     trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#                                                       stack_f=stack_fixed,
+#                                                       warp_setting=warp_setting,
+#                                                               vol_type_f='annotationAsScore',
+#                                                               vol_type_m='annotationAsScore',
+#                                                      what='trajectory')
+#     bp.pack_ndarray_file(np.array(parameter_traj_all_trials[best_trial]), trajectory_fp)
+#     upload_to_s3(trajectory_fp)

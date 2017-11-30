@@ -62,8 +62,8 @@ def affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=0,theta_xz=0,theta_yz=0,
     Returns:
         (12,)-ndarray:
     """
-    assert np.count_nonzero([theta_xy, theta_yz, theta_xz]) <= 1, \
-    "Current implementation is sound only if only one rotation is given."
+    # assert np.count_nonzero([theta_xy, theta_yz, theta_xz]) <= 1, \
+    # "Current implementation is sound only if only one rotation is given."
 
     cos_theta_xy = np.cos(theta_xy)
     sin_theta_xy = np.sin(theta_xy)
@@ -2679,17 +2679,17 @@ def fill_sparse_volume(volume_sparse):
 def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_name_dict):
     """
     Transform volume and then save transformed volume.
-    
+
     Args:
         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
     """
-    
+
     stack_m = alignment_name_dict['stack_m']
     stack_f = alignment_name_dict['stack_f']
     warp_setting = alignment_name_dict['warp_setting']
     vol_type_f = alignment_name_dict['vol_type_f']
     vol_type_m = alignment_name_dict['vol_type_m']
-    
+
     try:
         t = time.time()
 
@@ -2735,41 +2735,31 @@ def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_nam
         sys.stderr.write('Error transforming volume %s: %s.\n' % (structure, e))
 
 
-def save_alignment_results(best_param, centroid_m, centroid_f, 
-                           crop_origin_m, crop_origin_f,
-                           score_traj, parameter_traj, alignment_name_dict):
+def load_alignment_results(alignment_name_dict):
     """
-    Save the following alignment results:
-    - `parameters`: eventual parameters
-    - `scoreHistory`: score trajectory
-    - `scoreEvolution`: a plot of score trajectory, exported as PNG
-    - `trajectory`: parameter trajectory 
-    
     Args:
-        best_param ((12,) array): best parameters
-        score_traj ((Ti,) array): score trajectory
-        parameter_traj ((Ti, 12) array): parameter trajectory
+        alignment_name_dict (dict)
     """
-    
+
     stack_m = alignment_name_dict['stack_m']
     stack_f = alignment_name_dict['stack_f']
     warp_setting = alignment_name_dict['warp_setting']
     vol_type_f = alignment_name_dict['vol_type_f']
     vol_type_m = alignment_name_dict['vol_type_m']
-    
+
     # Save parameters
     params_fp = \
-        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
                                                       stack_f=stack_f,
                                                       warp_setting=warp_setting,
                                                   vol_type_f=vol_type_f,
                                                   vol_type_m=vol_type_m,
                                                      what='parameters')
+    download_from_s3(params_fp)
     DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
-    upload_to_s3(params_fp)
 
     # Save score history
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
                                                   stack_f=stack_f,
                                                   warp_setting=warp_setting,
                                                            vol_type_f=vol_type_f,
@@ -2780,7 +2770,7 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
 
     # Save score plot
     score_plot_fp = \
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
                                                   stack_f=stack_f,
                                                   warp_setting=warp_setting,
                                                            vol_type_f=vol_type_f,
@@ -2793,7 +2783,75 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
     upload_to_s3(score_plot_fp)
 
     # Save trajectory
-    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m, 
+    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
+                                                      stack_f=stack_f,
+                                                      warp_setting=warp_setting,
+                                                              vol_type_f=vol_type_f,
+                                                              vol_type_m=vol_type_m,
+                                                     what='trajectory')
+    bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
+    upload_to_s3(trajectory_fp)
+        
+        
+def save_alignment_results(best_param, centroid_m, centroid_f,
+                           crop_origin_m, crop_origin_f,
+                           score_traj, parameter_traj, alignment_name_dict):
+    """
+    Save the following alignment results:
+    - `parameters`: eventual parameters
+    - `scoreHistory`: score trajectory
+    - `scoreEvolution`: a plot of score trajectory, exported as PNG
+    - `trajectory`: parameter trajectory
+
+    Args:
+        best_param ((12,) array): best parameters
+        score_traj ((Ti,) array): score trajectory
+        parameter_traj ((Ti, 12) array): parameter trajectory
+    """
+
+    stack_m = alignment_name_dict['stack_m']
+    stack_f = alignment_name_dict['stack_f']
+    warp_setting = alignment_name_dict['warp_setting']
+    vol_type_f = alignment_name_dict['vol_type_f']
+    vol_type_m = alignment_name_dict['vol_type_m']
+
+    # Save parameters
+    params_fp = \
+        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
+                                                      stack_f=stack_f,
+                                                      warp_setting=warp_setting,
+                                                  vol_type_f=vol_type_f,
+                                                  vol_type_m=vol_type_m,
+                                                     what='parameters')
+    DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
+    upload_to_s3(params_fp)
+
+    # Save score history
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
+                                                  stack_f=stack_f,
+                                                  warp_setting=warp_setting,
+                                                           vol_type_f=vol_type_f,
+                                                           vol_type_m=vol_type_m,
+                                                 what='scoreHistory')
+    bp.pack_ndarray_file(np.array(score_traj), history_fp)
+    upload_to_s3(history_fp)
+
+    # Save score plot
+    score_plot_fp = \
+    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
+                                                  stack_f=stack_f,
+                                                  warp_setting=warp_setting,
+                                                           vol_type_f=vol_type_f,
+                                                           vol_type_m=vol_type_m,
+                                                 what='scoreEvolution')
+    fig = plt.figure();
+    plt.plot(score_traj);
+    plt.savefig(score_plot_fp, bbox_inches='tight')
+    plt.close(fig)
+    upload_to_s3(score_plot_fp)
+
+    # Save trajectory
+    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
                                                       stack_f=stack_f,
                                                       warp_setting=warp_setting,
                                                               vol_type_f=vol_type_f,
@@ -2808,8 +2866,8 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
 #     - `parameters`: eventual parameters of the best trial
 #     - `scoreHistory`: score trajectory of the best trial
 #     - `scoreEvolution`: a plot of score trajectory of the best trial, exported as PNG
-#     - `trajectory`: trajectory of all 
-    
+#     - `trajectory`: trajectory of all
+
 #     Args:
 #         T_all_trials (list of N (12,) arrays): best parameters of each trial. N is number of trials.
 #         score_traj_all_trials (list of N (Ti,) arrays): score trajectory for all trials. Ti is number of iterations for the i'th trial.
@@ -2820,20 +2878,20 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
 
 #     # Save parameters
 #     params_fp = \
-#         DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#         DataManager.get_alignment_result_filepath(stack_m=stack_moving,
 #                                                       stack_f=stack_fixed,
 #                                                       warp_setting=warp_setting,
 #                                                   vol_type_f='annotationAsScore',
 #                                                   vol_type_m='annotationAsScore',
 #                                                      what='parameters')
-#     DataManager.save_alignment_parameters(params_fp, T_all_trials[best_trial], 
+#     DataManager.save_alignment_parameters(params_fp, T_all_trials[best_trial],
 #                                           aligner.centroid_m, aligner.centroid_f,
-#                                           aligner.xdim_m, aligner.ydim_m, aligner.zdim_m, 
+#                                           aligner.xdim_m, aligner.ydim_m, aligner.zdim_m,
 #                                           aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
 #     upload_to_s3(params_fp)
 
 #     # Save score history
-#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
 #                                                   stack_f=stack_fixed,
 #                                                   warp_setting=warp_setting,
 #                                                            vol_type_f='annotationAsScore',
@@ -2844,7 +2902,7 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
 
 #     # Save score plot
 #     score_plot_fp = \
-#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
 #                                                   stack_f=stack_fixed,
 #                                                   warp_setting=warp_setting,
 #                                                            vol_type_f='annotationAsScore',
@@ -2857,7 +2915,7 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
 #     upload_to_s3(score_plot_fp)
 
 #     # Save trajectory
-#     trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving, 
+#     trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
 #                                                       stack_f=stack_fixed,
 #                                                       warp_setting=warp_setting,
 #                                                               vol_type_f='annotationAsScore',

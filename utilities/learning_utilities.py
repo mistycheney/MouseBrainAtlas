@@ -21,6 +21,124 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
+    
+from sklearn.externals import joblib
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC, SVC
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import GradientBoostingClassifier 
+
+sys.path.append('/home/yuncong/csd395/xgboost/python-package')
+try:
+    from xgboost.sklearn import XGBClassifier
+except:
+    sys.stderr.write('xgboost is not loaded.')
+
+def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
+    """
+    Args:
+        train_data ((n,d)-array):
+        train_labels ((n,)-array of 1/-1):
+        alg (str): 
+            - lr: logistic regression
+            - lin_svc: linear SVM
+            - lin_svc_calib: calibrated linear SVM
+            - xgb1: gradient boost trees, 3-layer x 200
+            - xgb2: gradient boost trees, 5-layer x 100
+            - gb1: sklearn gradient boosting classifier, 3-layer x 200
+            - gb2: sklearn gradient boosting classifier, 5-layer x 100
+    """
+    
+    if alg == 'lr':
+        clf = LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1, 
+                                 fit_intercept=True, intercept_scaling=1, class_weight=None, 
+                                 random_state=None, solver='liblinear', max_iter=100, multi_class='ovr', 
+                                 verbose=0, warm_start=False, n_jobs=1)
+
+    elif alg == 'lin_svc':
+        clf = SVC(C=1.0, kernel='linear', degree=3, gamma='auto', coef0=0.0, shrinking=True, 
+                  probability=True, tol=0.001, cache_size=1000, max_iter=-1,
+              decision_function_shape=None, random_state=None)
+
+
+    elif alg == 'lin_svc_calib':
+
+        sv_uncalibrated = LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=0.0001, 
+                                C=1.0, multi_class='ovr', 
+                                fit_intercept=True, intercept_scaling=1, max_iter=100)
+        clf = CalibratedClassifierCV(sv_uncalibrated)
+
+
+    elif alg == 'xgb1':
+        clf = XGBClassifier(max_depth=3, learning_rate=0.2, n_estimators=200, 
+                            silent=False, objective='binary:logistic', nthread=-1, gamma=0, 
+                            min_child_weight=20, max_delta_step=0, subsample=.8, 
+                            colsample_bytree=.8, colsample_bylevel=1, reg_alpha=0, reg_lambda=1, 
+                            scale_pos_weight=1, base_score=0.5, seed=0, missing=None)
+
+    elif alg == 'xgb2':
+        clf = XGBClassifier(max_depth=5, learning_rate=0.2, n_estimators=100, 
+                            silent=False, objective='binary:logistic')
+        # 40s, 10,000 pos and 10,000 neg samples
+
+    elif alg == 'gb1':
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=200, 
+                                         subsample=1., criterion='friedman_mse', 
+                                         min_samples_split=50, min_samples_leaf=20, 
+                                         min_weight_fraction_leaf=0.0, max_depth=3, 
+                                         min_impurity_split=1e-07, init=None, random_state=None, 
+                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+                                         warm_start=False, presort='auto')
+
+    elif alg == 'gb2':
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=100, 
+                                         subsample=1., criterion='friedman_mse', 
+                                         min_samples_split=50, min_samples_leaf=20, 
+                                         min_weight_fraction_leaf=0.0, max_depth=5, 
+                                         min_impurity_split=1e-07, init=None, random_state=None, 
+                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+                                         warm_start=False, presort='auto')
+
+    else:
+#         sys.stderr.write('Setting is not recognized.\n')
+        raise "Alg %s is not recognized." % alg
+            
+    
+    t = time.time()    
+    clf.fit(train_data, train_labels, sample_weight=sample_weights)
+    sys.stderr.write('Fitting classifier: %.2f seconds\n' % (time.time() - t))
+    
+    return clf
+
+def get_negative_labels(structure, neg_composition, margin_um, labels_found):
+    """
+    Args:
+        labels_found (list of str): get labels only from this list.
+    """
+    
+    if neg_composition == 'neg_has_only_surround_noclass':
+        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+    elif neg_composition == 'neg_has_all_surround':
+        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+        for surr_s in all_known_structures:
+            c = convert_to_surround_name(structure, margin=margin_um, suffix=surr_s)
+            if c in labels_found:
+                neg_classes.append(c)
+    elif neg_composition == 'neg_has_everything_else':
+        neg_classes = [structure + '_negative']
+    elif neg_composition == 'neg_has_surround_and_negative':
+        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+        for surr_s in all_known_structures:
+            c = convert_to_surround_name(structure, margin=margin_um, suffix=surr_s)
+            if c in labels_found:
+                neg_classes.append(c)
+        neg_classes += [structure + '_negative']
+    else:
+        raise Exception('neg_composition %s is not recognized.' % neg_composition)
+    
+    return neg_classes
+
 def plot_roc_curve(fp_allthresh, tp_allthresh, optimal_th, title=''):
     """
     Plot ROC curve.
@@ -79,6 +197,40 @@ def load_mxnet_model(model_dir_name, model_name, num_gpus=8, batch_size = 256, o
     model.bind(data_shapes=[('data', (batch_size,1,224,224))], for_training=False)
     model.set_params(arg_params=arg_params, aux_params=aux_params, allow_missing=True)
     return model, mean_img
+
+def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
+    """
+    This version supports more than 80,000 input data items.
+    """
+
+    features_list = []
+    for i in range(0, len(patches), 80000):
+        
+        patches_mean_subtracted = patches[i:i+80000] - mean_img
+        patches_mean_subtracted_input = patches_mean_subtracted[:, None, :, :] # n x 1 x 224 x 224
+
+        ni = len(patches[i:i+80000])
+        
+        if ni < batch_size:
+            n_pad = batch_size - ni
+            patches_mean_subtracted_input = np.concatenate([patches_mean_subtracted_input, np.zeros((n_pad,1) + mean_img.shape, mean_img.dtype)])
+
+        print patches_mean_subtracted_input.shape
+        data_iter = mx.io.NDArrayIter(
+                        patches_mean_subtracted_input,
+                        batch_size=batch_size,
+                        shuffle=False)
+        outputs = model.predict(data_iter, always_output_list=True)
+        features = outputs[0].asnumpy()
+
+        if ni < batch_size:
+            features = features[:ni]
+
+        # features = convert_image_patches_to_features(patches[i:i+80000], model=model, 
+        #                                          mean_img=mean_img, batch_size=batch_size)
+        
+        features_list.append(features)
+    return np.concatenate(features_list)
 
 def convert_image_patches_to_features(patches, model, mean_img, batch_size):
     """
@@ -463,10 +615,20 @@ def extract_patches_given_locations(patch_size, locs,
     
     if img is None:
         t = time.time()
-        if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
-            img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)[...,2]
+        if normalization_scheme in ['normalize_mu_region_sigma_wholeImage_(-1,9)', 'median_curve', 'stretch_min_max']:
+            if stack == 'ChatCryoJane201710':
+                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version='Ntb')
+            elif stack in all_nissl_stacks:
+                img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)))
+            else:
+                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)[...,2]
         else:
-            img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
+            if stack == 'ChatCryoJane201710':
+                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version='Ntb')
+            elif stack in all_nissl_stacks:
+                img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)))
+            else:
+                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
 
     patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
@@ -486,17 +648,28 @@ def extract_patches_given_locations(patch_size, locs,
     if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
         patches_normalized_uint8 = []
         for p in patches:
-            # mu = p.mean()
+            mu = p.mean()
+            sigma = p.std()
             # print mu
-            mu = 125.
-            sigma = 91.
-            p_normalized = (p - mu) / sigma            
-            p_normalized_uint8 = rescale_intensity_v2(p_normalized, -1, 9)
-            # p_normalized_uint8 = rescale_intensity_v2(p_normalized, 9, -1)
+            # mu = 125.
+            # sigma = 91.
+            p_normalized = (p - mu) / sigma
+            if stack in all_nissl_stacks:
+                p_normalized_uint8 = rescale_intensity_v2(p_normalized, -9, 1)
+            else:
+                p_normalized_uint8 = rescale_intensity_v2(p_normalized, 9, -1)
             # p_normalized_uint8 = p_normalized
             patches_normalized_uint8.append(p_normalized_uint8)
-        patches = patches_normalized_uint8        
-
+        patches = patches_normalized_uint8
+    elif normalization_scheme == 'median_curve':
+        ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
+        patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]
+    elif normalization_scheme == 'stretch_min_max':
+        if stack in all_nissl_stacks:
+            patches = [rescale_intensity_v2(p, p.min(), p.max()) for p in patches]
+        else:
+            patches = [rescale_intensity_v2(p, p.max(), p.min()) for p in patches]
+        
     return patches
 
 def extract_patches_given_locations_multiple_sections(addresses,
@@ -904,7 +1077,7 @@ def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, 
                 if num_samples_per_polygon is None:
                     location_list[label] += [(sec, i) for i in grid_indices]
                 else:
-                    random_sampled_indices = grid_indices[np.random.choice(range(n), min(n, num_samples_per_polygon), replace=False)]
+                    random_sconvert_image_patches_to_featuresampled_indices = grid_indices[np.random.choice(range(n), min(n, num_samples_per_polygon), replace=False)]
                     location_list[label] += [(sec, i) for i in random_sampled_indices]
 
     if num_samples_per_landmark is not None:
@@ -1280,10 +1453,14 @@ def addresses_to_structure_distances(addresses, structure_centers_all_stacks_all
     df = pandas.DataFrame(d)
     return df.T.to_dict().values()
 
-def addresses_to_locations(addresses):
+def addresses_to_locations(addresses, win_id):
     """
-    Take a list of (stack, section, gridpoint_index),
-    return x,y coordinates (lossless).
+    Args:
+        addresses (list of 3-tuple): a list of (stack, section, gridpoint_index)
+        win_id:
+    
+    Returns:
+        ((n,2)-array): x,y coordinates (lossless).
     """
 
     augmented_addresses = [addr + (i,) for i, addr in enumerate(addresses)]
@@ -1291,8 +1468,8 @@ def addresses_to_locations(addresses):
 
     locations = []
     for st, address_group in groupby(sorted_addresses, lambda (st,sec,gp_ind,list_ind): st):
-        grid_locations = grid_parameters_to_sample_locations(get_default_gridspec(st))
-        locations_this_group = [(list_inf, grid_locations[gp_ind]) for st,sec,gp_ind,list_ind in address_group]
+        grid_locations = grid_parameters_to_sample_locations(win_id=win_id, stack=st)
+        locations_this_group = [(list_ind, grid_locations[gp_ind]) for st,sec,gp_ind,list_ind in address_group]
         locations.append(locations_this_group)
 
     locations = list(chain(*locations))

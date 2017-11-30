@@ -48,7 +48,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_scoremap_downscale=32,
                             detector_id=None,
                     image_shape=None, return_mask=False, sec=None, fn=None,
-                    color=(1,0,0), show_above=.01, cmap_name='jet'):
+                    color=(1,0,0), show_above=.01, cmap_name='jet', colorlist=None):
     '''
     Generate scoremap layer.
     Output are rescaled from down32 score maps.
@@ -80,8 +80,12 @@ def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_score
         # Higher downsampling factor just shows artificial data, which is not better than rescaling down32.
         scoremap = np.minimum(rescale(scoremap, in_scoremap_downscale/float(downscale)), 1.)
         mask = scoremap > show_above
-        cmap = plt.get_cmap(cmap_name)
-        scoremap_viz = cmap(scoremap)[..., :3] # cmap() must take values between 0 and 1.
+        if colorlist is None:
+            cmap = plt.get_cmap(cmap_name)
+            scoremap_viz = cmap(scoremap)[..., :3] # cmap() must take values between 0 and 1.
+        else:
+            scoremap_viz = colorlist[((len(colorlist)-1)*scoremap).astype(np.int)][..., :3]
+            
     except Exception as e:
         raise Exception('Error loading scoremap of %s for image %s: %s\n' % (structure, fn, e))
 

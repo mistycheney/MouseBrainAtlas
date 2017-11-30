@@ -1817,6 +1817,7 @@ class DataManager(object):
                                                         downscale=downscale,
                                                         prep_id=prep_id,
                                                         detector_id=detector_id,
+                                                          structure=structure)
 
 
                 if name_or_index_as_key == 'name':
@@ -2401,7 +2402,11 @@ class DataManager(object):
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         # return imread(img_fp)
-        return cv2.imread(img_fp, -1)
+        img = cv2.imread(img_fp, -1)
+        if img.ndim == 3:
+            return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
+        else:
+            return img
 
     @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):

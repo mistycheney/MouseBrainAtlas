@@ -398,12 +398,86 @@ def vectormap_to_imagedata(arr, colors):
 
     return imagedata
 
+def alpha_blending_v2(volumes, opacities):
+    """
+    Volumes must be aligned.
+    Colors will be R,G,B,B,B...
+
+    Args:
+        volumes (list of 3d-arrays): single channel images.
+        opacities (list of 3d-arrays of [0,1])
+    """
+
+    z = np.zeros_like(volumes[0].astype(np.float32))
+    for i in range(len(volumes)-1):
+        if i == 0:
+            srcG = volumes[0].astype(np.float32)
+            srcRGB = np.array([srcG, z, z])
+            srcRGB = np.rollaxis(srcRGB, 0, 4)
+            srcA = opacities[0]
+
+            dstG = volumes[1].astype(np.float32)
+            dstRGB = np.array([z, dstG, z])
+            dstRGB = np.rollaxis(dstRGB, 0, 4)
+            dstA = opacities[1]
+        else:
+            srcA = outA
+            srcRGB = outRGB
+
+            dstA = opacities[i+1]
+            dstRGB = np.array([z, z, volumes[i+1].astype(np.float32)])
+            dstRGB = np.rollaxis(dstRGB, 0, 4)
+
+        outA = srcA + dstA * (1-srcA)
+        outRGB = (srcRGB * srcA[...,None] + dstRGB*dstA[...,None]*(1-srcA[...,None]))/outA[...,None]
+        outRGB[outA==0] = 0
+
+    return outRGB, outA
+
+def volume_to_imagedata_v2(rgb, origin=(0,0,0), alpha=None):
+    """
+    The result is used for the setting IndependentComponentsOff with 4 components.
+
+    Args:
+        rgb ((w,h,d,3)-array): RGB volume
+        alpha (3d-array): alpha channel
+    """
+
+    v1 = rgb[...,0]
+    v2 = rgb[...,1]
+    v3 = rgb[...,2]
+
+    imagedata = vtk.vtkImageData()
+    imagedata.SetDimensions([rgb.shape[1], rgb.shape[0], rgb.shape[2]])
+    imagedata.SetSpacing([1., 1., 1.])
+    imagedata.SetOrigin(origin[0], origin[1], origin[2])
+
+    v1 = np.transpose(v1, [2,0,1])
+    v1 = v1.flatten()
+    v2 = np.transpose(v2, [2,0,1])
+    v2 = v2.flatten()
+    v3 = np.transpose(v3, [2,0,1])
+    v3 = v3.flatten()
+    alpha = np.transpose(alpha, [2,0,1])
+    alpha = alpha.flatten()
+    v4 = np.column_stack([v1, v2, v3, alpha])
+
+    if rgb.dtype == np.uint8:
+        t = vtk.VTK_UNSIGNED_CHAR
+    elif rgb.dtype == np.float32:
+        t = vtk.VTK_FLOAT
+    else:
+        raise Exception('Data type must be uint8 or float32.')
+
+    imagedata.GetPointData().SetScalars(numpy_support.numpy_to_vtk(v4, deep=True, array_type=t)) # deep copy must be true
+    return imagedata
 
 def volume_to_imagedata(arr, origin=(0,0,0), auxdata=None):
     """
     Args:
         arr (3d-array of uint8 or float32):
         origin (3-tuple): the origin coordinate of the given volume
+        auxdata (3d-array): add one additional component to the data.
 
     Returns:
         (vtkImageData): Each point (in vtk parlance) gets ONE scalar value which is the value of an input volume voxel. Respects the (x,y,z) dimension ordering.
@@ -546,19 +620,30 @@ def save_mesh(polydata, fn, color=(255,255,255)):
         raise Exception('Mesh format must be ply or stl')
 
 # http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
-# class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
-#
-#     def __init__(self,parent=None, snapshot_fn=None):
-#         self.parent = parent
-#         self.snapshot_fn = snapshot_fn
-#
-#         self.AddObserver("KeyPressEvent",self.keyPressEvent)
-#
-#     def keyPressEvent(self,obj,event):
-#         key = self.parent.GetKeySym()
-#         if key == 's':
-#             take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
-#         return
+class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+
+    def __init__(self, parent=None, renWin=None, snapshot_fn=None, camera=None):
+        self.parent = parent
+        self.renWin = renWin
+        # self.snapshot_fn = snapshot_fn
+        self.camera = camera
+
+        self.AddObserver("KeyPressEvent",self.keyPressEvent)
+
+    def keyPressEvent(self,obj,event):
+        key = self.parent.GetKeySym()
+        if key == 'g':
+            print 'viewup: %f, %f, %f\n' % self.camera.GetViewUp()
+            print 'focal point: %f, %f, %f\n' % self.camera.GetFocalPoint()
+            print 'position: %f, %f, %f\n' % self.camera.GetPosition()
+        elif key == 'q':
+            iren = self.parent
+            renWin = self.renWin
+            close_window(iren)
+            del renWin, iren
+        # if key == 's':
+        #     take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
+        return
 
 def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
@@ -566,41 +651,49 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             animate=False, movie_fn=None,
               view_up=None, position=None, focal=None):
 
-    ren1 = vtk.vtkRenderer()
-    ren1.SetBackground(background_color)
+    ren = vtk.vtkRenderer()
+    ren.SetBackground(background_color)
 
     renWin = vtk.vtkRenderWindow()
     renWin.SetSize(1200,1080)
     # renWin.SetFullScreen(1)
-    renWin.AddRenderer(ren1)
+    renWin.AddRenderer(ren)
+
+    ##########################
+
+    # cullers = ren.GetCullers()
+    # cullers.InitTraversal()
+    # culler = cullers.GetNextItem()
+    # # culler.SetSortingStyleToBackToFront()
+    # culler.SetSortingStyleToFrontToBack()
 
     ##########################################
     # Enable depth peeling
     # http://www.vtk.org/Wiki/VTK/Examples/Cxx/Visualization/CorrectlyRenderTranslucentGeometry
 
-    # 1. Use a render window with alpha bits (as initial value is 0 (false)):
-    renWin.SetAlphaBitPlanes(True)
-
-    # 2. Force to not pick a framebuffer with a multisample buffer
-    # (as initial value is 8):
-    renWin.SetMultiSamples(0);
-
-    # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
-    ren1.SetUseDepthPeeling(True);
-
-    # 4. Set depth peeling parameters
-    # - Set the maximum number of rendering passes (initial value is 4):
-    maxNoOfPeels = 8
-    ren1.SetMaximumNumberOfPeels(maxNoOfPeels);
-    # - Set the occlusion ratio (initial value is 0.0, exact image):
-    occlusionRatio = 0.0
-    ren1.SetOcclusionRatio(occlusionRatio);
+    # # 1. Use a render window with alpha bits (as initial value is 0 (false)):
+    # renWin.SetAlphaBitPlanes(True)
+    #
+    # # 2. Force to not pick a framebuffer with a multisample buffer
+    # # (as initial value is 8):
+    # renWin.SetMultiSamples(0);
+    #
+    # # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
+    # ren.SetUseDepthPeeling(True);
+    #
+    # # 4. Set depth peeling parameters
+    # # - Set the maximum number of rendering passes (initial value is 4):
+    # maxNoOfPeels = 8
+    # ren.SetMaximumNumberOfPeels(maxNoOfPeels);
+    # # - Set the occlusion ratio (initial value is 0.0, exact image):
+    # occlusionRatio = 0.0
+    # ren.SetOcclusionRatio(occlusionRatio);
 
     ##########################################
 
     for actor in actors:
         if actor is not None:
-            ren1.AddActor(actor)
+            ren.AddActor(actor)
 
     camera = vtk.vtkCamera()
 
@@ -630,7 +723,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         camera.SetPosition(-20, -30, -10)
         camera.SetFocalPoint(1, 1, 1)
 
-    elif init_angle == 'sagittal':
+    elif init_angle == 'sagittal': # left to right
 
         # saggital
         camera.SetViewUp(0, -1, 0)
@@ -668,12 +761,12 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     else:
         raise Exception("init_angle %s is not recognized." % init_angle)
 
-    ren1.SetActiveCamera(camera)
-    ren1.ResetCamera()
+    ren.SetActiveCamera(camera)
+    ren.ResetCamera()
 
     iren = vtk.vtkRenderWindowInteractor()
     iren.SetRenderWindow(renWin)
-    # iren.SetInteractorStyle(MyInteractorStyle(parent=iren, snapshot_fn=None))
+    # iren.SetInteractorStyle(MyInteractorStyle(parent=iren, renWin=renWin, snapshot_fn=None, camera=camera)) # Have problem closing window if use this
 
     if axes:
         axes = add_axes(iren, text_color=axes_label_color)
@@ -726,6 +819,13 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     else:
         take_screenshot(renWin, snapshot_fn, magnification=snapshot_magnification)
 
+    close_window(iren)
+    del renWin, iren
+
+def close_window(iren):
+    render_window = iren.GetRenderWindow()
+    render_window.Finalize()
+    iren.TerminateApp()
 
 class vtkTimerCallback():
     def __init__(self):
@@ -840,19 +940,51 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
     return a
 
 
+def actor_volume_v2(rgb, alpha=None, origin=(0,0,0)):
+    """
+    Args:
+        volumes ((3,w,h,d)-array): RGB volume
+        auxdata (3d-array same shape as volume): alpha volume
+    """
+
+    imagedata = volume_to_imagedata_v2(rgb=rgb, origin=origin, alpha=alpha)
+
+    volumeMapper = vtk.vtkSmartVolumeMapper()
+    volumeMapper.SetBlendModeToComposite()
+    volumeMapper.SetInputData(imagedata)
+    volumeProperty = vtk.vtkVolumeProperty()
+
+    volumeProperty.IndependentComponentsOff()
+
+    compositeOpacity = vtk.vtkPiecewiseFunction()
+    compositeOpacity.AddPoint(0.0, 0.0)
+    compositeOpacity.AddPoint(1.0, 1.0)
+    volumeProperty.SetScalarOpacity(0, compositeOpacity)
+
+    volume = vtk.vtkVolume()
+    volume.SetMapper(volumeMapper)
+    volume.SetProperty(volumeProperty)
+
+    return volume
+
 def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
     """
     Args:
+        volume (3d-array)
         what (str): tb, score or probability. A caveat when what="probability" is that zero-valued voxels are not transparent, so later actors will block previous actors.
         c (3-tuple): color
-        tb_colors (dict {int: 3-tuple}): color transfer function that maps intensity value to color tuple.
-
+        tb_colors (dict {int: 3-tuple}): step points of color transfer function that maps intensity value to color tuple.
+        auxdata (3d-array same shape as volume)
     """
 
     imagedata = volume_to_imagedata(volume, origin=origin, auxdata=auxdata)
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
     volumeMapper.SetBlendModeToComposite()
+    # volumeMapper.SetBlendModeToAdditive()
+    # volumeMapper.SetBlendModeToMinimumIntensity()
+    # volumeMapper.SetBlendModeToMaximumIntensity()
+    # volumeMapper.SetBlendModeToAverageIntensity()
 
     # Setting this results in blank
     # funcRayCast = vtk.vtkVolumeRayCastCompositeFunction()
@@ -939,18 +1071,18 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         # volumeGradientOpacity.AddPoint(10,  1.0)
         # volumeGradientOpacity.AddPoint(2, 1.0)
 
-    elif what == 'probability':
-        compositeOpacity = vtk.vtkPiecewiseFunction()
-        compositeOpacity.AddPoint(0.0, 0.)
-        compositeOpacity.AddPoint(.9, 0.05)
-        compositeOpacity.AddPoint(1., 0.05)
-
-        r,g,b = c
-
-        color = vtk.vtkColorTransferFunction()
-        color.AddRGBPoint(0.0, r,g,b)
-        # color.AddRGBPoint(.95, .5,.5,.5)
-        color.AddRGBPoint(1., r,g,b)
+    # elif what == 'probability':
+    #     compositeOpacity = vtk.vtkPiecewiseFunction()
+    #     compositeOpacity.AddPoint(0.0, 0.)
+    #     compositeOpacity.AddPoint(.9, 0.05)
+    #     compositeOpacity.AddPoint(1., 0.05)
+    #
+    #     r,g,b = c
+    #
+    #     color = vtk.vtkColorTransferFunction()
+    #     color.AddRGBPoint(0.0, r,g,b)
+    #     # color.AddRGBPoint(.95, .5,.5,.5)
+    #     color.AddRGBPoint(1., r,g,b)
 
         # lookupTable = vtkLookupTable()
         # lookupTable.SetNumberOfTableValues(2);
@@ -1036,7 +1168,7 @@ def load_thumbnail_volume(stack, scoreVol_limit=None, convert_to_scoreSpace=Fals
     else:
         return tb_volume
 
-def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(0,0,0)):
+def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, wireframe_linewidth=None, opacity=1., origin=(0,0,0)):
     """
     Args:
         color (float array): rgb between 0 and 1.
@@ -1082,6 +1214,8 @@ def actor_mesh(polydata, color=(1.,1.,1.), wireframe=False, opacity=1., origin=(
 
     if wireframe:
         a.GetProperty().SetRepresentationToWireframe()
+        if wireframe_linewidth is not None:
+            a.GetProperty().SetLineWidth(wireframe_linewidth)
 
     a.GetProperty().SetColor(color)
     a.GetProperty().SetOpacity(opacity)

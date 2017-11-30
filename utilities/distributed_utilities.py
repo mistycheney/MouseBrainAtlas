@@ -312,15 +312,15 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         # By doing so, we can control which files are available in the local scratch space of which node.
         # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
         if local_only:
-            stdout_f = open('/home/yuncong/stdout_%d.log' % node_i, "w")
-            stderr_f = open('/home/yuncong/stderr_%d.log' % node_i, "w")
+            stdout_f = open('/tmp/stdout_%d.log' % node_i, "w")
+            stderr_f = open('/tmp/stderr_%d.log' % node_i, "w")
             call('%(script)s' % \
          dict(script=temp_script),
              shell=True, stdout=stdout_f, stderr=stderr_f)
         else:
             call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
              dict(node=node_list[node_i], script=temp_script,
-                  stdout_log='/home/ubuntu/stdout_%d.log' % node_i, stderr_log='/home/ubuntu/stderr_%d.log' % node_i),
+                  stdout_log='/tmp/stdout_%d.log' % node_i, stderr_log='/tmp/stderr_%d.log' % node_i),
                  shell=True)
 
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')

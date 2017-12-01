@@ -7,7 +7,10 @@ from pandas import read_hdf
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
-from vis3d_utilities import *
+try:
+    from vis3d_utilities import *
+except:
+    sys.stderr.write("No vtk")
 from distributed_utilities import *
 
 def get_random_masked_regions(region_shape, stack, num_regions=1, sec=None, fn=None):

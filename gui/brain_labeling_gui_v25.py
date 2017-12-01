@@ -64,7 +64,7 @@ class ReadRGBComponentImagesThread(QThread):
 
 
 class ReadImagesThread(QThread):
-    def __init__(self, stack, sections, img_version, downsample=1):
+    def __init__(self, stack, sections, img_version, downsample=1, prep_id=2):
         """
         This always loads images in raw resolution and then downsample them according to `downsample`.
         """
@@ -74,6 +74,7 @@ class ReadImagesThread(QThread):
         self.sections = sections
         self.img_version = img_version
         self.downsample = downsample
+        self.prep_id = prep_id
 
     def __del__(self):
         self.wait()
@@ -84,7 +85,8 @@ class ReadImagesThread(QThread):
                 # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='jpeg')
                 # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='grayJpeg')
                 # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
-                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version=self.img_version)
+                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version=self.img_version)
+                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol='lossless', version=self.img_version)
             except Exception as e:
                 sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
                 continue
@@ -108,7 +110,7 @@ class ReadImagesThread(QThread):
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
-    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, downsample=None, img_version=None):
+    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, downsample=None, img_version=None, prep_id=None):
         """
         Initialization of BrainLabelingGUI.
         """
@@ -232,7 +234,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['sagittal_tb'].set_active_i(150)
 
         # if self.gscenes['sagittal'].data_feeder.downsample == 1:
-        self.read_images_thread = ReadImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1), img_version=img_version, downsample=self.gscenes['sagittal'].data_feeder.downsample)
+        self.read_images_thread = ReadImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1),
+        img_version=img_version,
+        downsample=self.gscenes['sagittal'].data_feeder.downsample,
+        prep_id=prep_id)
         self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
         self.read_images_thread.start()
         self.button_stop.clicked.connect(self.read_images_thread.terminate)
@@ -1083,6 +1088,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
     parser.add_argument("-v", "--img_version", type=str, help="image version", default='jpeg')
     parser.add_argument("-d", "--downsample", type=float, help="downsample", default=1)
+    parser.add_argument("-p", "--prep", type=int, help="preprocessing id", default=2)
     args = parser.parse_args()
 
     from sys import argv, exit
@@ -1091,13 +1097,14 @@ if __name__ == "__main__":
     stack = args.stack_name
     downsample = args.downsample
     img_version = args.img_version
+    prep_id = args.prep
 
     default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
 
     first_sec = default_first_sec if args.first_sec is None else args.first_sec
     last_sec = default_last_sec if args.last_sec is None else args.last_sec
 
-    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, downsample=downsample, img_version=img_version)
+    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, downsample=downsample, img_version=img_version, prep_id=prep_id)
 
     m.showMaximized()
     m.raise_()

@@ -447,19 +447,58 @@ class DataManager(object):
 
     @staticmethod
     def get_cropbox_filename(stack, anchor_fn=None):
+        """
+        Get the filename to brainstem crop box. 
+        """
+        
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
         return fn
+    
+    @staticmethod
+    def get_cropbox_thalamus_filename(stack, anchor_fn=None):
+        """
+        Get the filename to thalamus crop box. 
+        """
+        
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
+        return fn
+
 
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False):
         """
+        Loads the crop box for brainstem.
+        
         Args:
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
         """
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+
+        if convert_section_to_z:
+            xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
+            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
+            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
+            cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
+        else:
+            cropbox = np.loadtxt(fp).astype(np.int)
+        return cropbox
+    
+    @staticmethod
+    def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
+        """
+        Loads the crop box for thalamus.
+        
+        Args:
+            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+        """
+
+        fp = DataManager.get_cropbox_thalamus_filename(stack=stack, anchor_fn=anchor_fn)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         if convert_section_to_z:

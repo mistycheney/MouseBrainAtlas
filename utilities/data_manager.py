@@ -367,6 +367,7 @@ class DataManager(object):
             return annotation_df
 
 
+
     @staticmethod
     def get_annotation_viz_dir(stack):
         return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack)
@@ -376,6 +377,106 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][sec]
         return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack, fn + '_annotation_viz.tif')
+
+
+    @staticmethod
+    def get_annotation_thalamus_filepath(stack, by_human, stack_m=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
+                                prep_id_m=None,
+                                prep_id_f=None,
+                                warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
+        """
+        Identical to get_annotation_filepath()
+        except that this uses ANNOTATION_THALAMUS_ROOTDIR in place of ANNOTATION_ROOTDIR.
+
+        Args:
+            timestamp (str): can be "latest".
+        """
+
+
+        if by_human:
+            # if suffix is None:
+            #     fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
+            # else:
+            if timestamp is not None:
+                if timestamp == 'latest':
+                    download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
+                    import re
+                    timestamps = []
+                    for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
+                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                        if m is not None:
+                            ts = m.groups()[0]
+                            try:
+                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                            except:
+                                pass
+                    timestamp = sorted(timestamps)[-1][1]
+                    print "latest timestamp: ", timestamp
+
+                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
+            else:
+                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
+        else:
+            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
+                                                              detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              prep_id_m=prep_id_m,
+                                                              prep_id_f=prep_id_f,
+                                                              warp_setting=warp_setting,
+                                                              trial_idx=trial_idx)
+            if suffix is not None:
+                if timestamp is not None:
+                    if timestamp == 'latest':
+                        download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
+                        import re
+                        timestamps = []
+                        for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
+                            m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                            if m is not None:
+                                ts = m.groups()[0]
+                                try:
+                                    timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                                except:
+                                    pass
+                        timestamp = sorted(timestamps)[-1][1]
+                        print "latest timestamp: ", timestamp
+
+                    fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
+                else:
+                    fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
+            else:
+                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
+        return fp
+
+
+    @staticmethod
+    def load_annotation_thalamus_v4(stack=None, by_human=True, stack_m=None,
+                                detector_id_m=None,
+                                detector_id_f=None,
+                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
+        """
+        Identical to `load_annotation_v4` except that this uses `get_annotation_thalamus_filepath` in place of `get_annotation_filepath`
+        """
+
+        if by_human:
+            fp = DataManager.get_annotation_thalamus_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp)
+            download_from_s3(fp)
+            contour_df = read_hdf(fp)
+            return contour_df
+
+        else:
+            fp = DataManager.get_annotation_thalamus_filepath(stack, by_human=False,
+                                                     stack_m=stack_m,
+                                                      detector_id_m=classifier_setting_m,
+                                                      detector_id_f=classifier_setting_f,
+                                                      warp_setting=warp_setting, trial_idx=trial_idx,
+                                                    suffix=suffix, timestamp=timestamp)
+            download_from_s3(fp)
+            annotation_df = load_hdf_v2(fp)
+            return annotation_df
+
 
 
     ########################################################

@@ -165,14 +165,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sys.stderr.write("Remove unconfirmed polygons from graphicscene: %.2f seconds\n" % (time.time()-t))
 
             # Identify sections affected by new structure.
+            # t = time.time()
+            # sections_used = []
+            # positions_rel_volResol = []
+            # for sec in self.data_feeder.sections:
+            #     pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
+            #     pos_rel_volResol = int(np.round(pos_gl_volResol - internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[2]))
+            #     if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
+            #         positions_rel_volResol.append(pos_rel_volResol)
+            #         sections_used.append(sec)
+            # sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
+
             t = time.time()
             sections_used = []
-            positions_rel_volResol = []
+            positions_wrt_internalStructureVolume_volResol = []
             for sec in self.data_feeder.sections:
-                pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
-                pos_rel_volResol = int(np.round(pos_gl_volResol - internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[2]))
-                if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
-                    positions_rel_volResol.append(pos_rel_volResol)
+                pos_wrt_WholebrainAlignedPadded_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
+                pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_WholebrainAlignedPadded_volResol - internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[2]))
+                if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
+                    positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
                     sections_used.append(sec)
             sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
 
@@ -180,16 +191,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             t = time.time()
             sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
 
-            gscene_pts_rel_vol_resol_allpos = find_contour_points_3d(volume_volResol, along_direction='z', sample_every= sample_every, positions=positions_rel_volResol)
+            gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol, along_direction='z', sample_every= sample_every,
+                                                                    positions=positions_wrt_internalStructureVolume_volResol)
 
             sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
             t = time.time()
-            m = dict(zip(positions_rel_volResol, sections_used))
-            gscene_pts_rel_vol_resol_allsec = {m[pos]: pts for pos, pts in gscene_pts_rel_vol_resol_allpos.iteritems()}
+            m = dict(zip(positions_wrt_internalStructureVolume_volResol, sections_used))
+            gscene_pts_wrt_internalStructureVolume_volResol_allsec = {m[pos_wrt_internalStructureVolume_volResol]: pts_wrt_internalStructureVolume_volResol \
+                                                for pos_wrt_internalStructureVolume_volResol, pts_wrt_internalStructureVolume_volResol \
+                                                in gscene_pts_wrt_internalStructureVolume_volResol_allpos.iteritems()}
             sys.stderr.write("Compute contours of new structure on these sections 2: %.2f seconds\n" % (time.time()-t))
 
             t = time.time()
-            for sec, gscene_pts_rel_vol_resol in gscene_pts_rel_vol_resol_allsec.iteritems():
+            for sec, gscene_pts_wrt_internalStructureVolume_volResol in gscene_pts_wrt_internalStructureVolume_volResol_allsec.iteritems():
+
+                print sec, gscene_pts_wrt_internalStructureVolume_volResol[0]
 
                 # if this section already has a confirmed contour, do not add a new one.
                 if any([p.properties['label'] == name_u and p.properties['side'] == side and \
@@ -197,16 +213,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     continue
 
                 try:
-                    gscene_xs_gl_vol_resol = gscene_pts_rel_vol_resol[:,0] + internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[0]
-                    gscene_ys_gl_vol_resol = gscene_pts_rel_vol_resol[:,1] + internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[1]
-                    gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
-                    gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
+                    # gscene_xs_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,0] + internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[0]
+                    # gscene_ys_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,1] + internal_structure_origin_wrt_WholebrainAlignedPadded_volResol[1]
+                    # gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
+                    # gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
+
+                    gscene_pts_wrt_internalStructureVolume_dataResol = gscene_pts_wrt_internalStructureVolume_volResol *  self.structure_volumes_downscale_factor / self.data_feeder.downsample
+                    gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[0]
+                    gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
+                    gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
+
                     # t = time.time()
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_gl_data_resol), label=name_u,
-                                                        linecolor='r', vertex_radius=8, linewidth=5, section=sec,
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
+                                                            label=name_u, linecolor='r', vertex_radius=8, linewidth=5, section=sec,
+                                                            type='intersected',
+                                                            side=side,
+                                                            side_manually_assigned=False)
                 except Exception as e:
                     sys.stderr.write("Error adding polygon, sec %d: %s\n" % (sec, e))
 

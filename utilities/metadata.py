@@ -68,7 +68,8 @@ if hostname == 'yuncong-MacbookPro':
 
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
 
-    ANNOTATION_ROOTDIR = '/home/yuncong/CSHL_labelings_v3'
+    ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
+    ANNOTATION_THALAMUS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_thalamus')
     CLF_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_classifiers')
 
     S3_DATA_BUCKET = 'mousebrainatlas-data'
@@ -134,12 +135,13 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
 
     ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
+    ANNOTATION_THALAMUS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_thalamus')
     CLF_ROOTDIR =  os.path.join(DATA_ROOTDIR, 'CSHL_classifiers')
 
     REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
-    
-    KDU_EXPAND_BIN = '/home/yuncong/KDU7A2_Demo_Apps_for_Centos7-x86-64_170827/kdu_expand'    
-    
+
+    KDU_EXPAND_BIN = '/home/yuncong/KDU7A2_Demo_Apps_for_Centos7-x86-64_170827/kdu_expand'
+
     CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
     DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
     REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
@@ -184,6 +186,7 @@ elif hostname.startswith('ip'):
 
     # SCOREMAP_VIZ_ROOTDIR = '/shared/CSHL_scoremap_viz_Sat16ClassFinetuned_v2'
     ANNOTATION_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
+    ANNOTATION_THALAMUS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_thalamus')
     ANNOTATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_annotation_viz')
     # SVM_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers/'
     # SVM_NTBLUE_ROOTDIR = '/shared/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue/'

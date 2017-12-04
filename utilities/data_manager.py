@@ -1039,7 +1039,7 @@ class DataManager(object):
     def load_intensity_volume_v2(stack, downscale=32, prep_id=2):
         fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
         return DataManager.load_data(fn, filetype='bp')
-    
+
     @staticmethod
     def load_intensity_volume_v2(stack, downscale=32, prep_id=2):
         """
@@ -1065,7 +1065,7 @@ class DataManager(object):
         basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale, prep_id=prep_id)
         vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
         return vol_fn
-    
+
     @staticmethod
     def get_intensity_volume_bbox_filepath_v2(stack, downscale=32, prep_id=2):
         basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
@@ -1075,7 +1075,7 @@ class DataManager(object):
     def get_intensity_volume_bbox_filepath(stack, downscale=32):
         basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
-    
+
     # @staticmethod
     # def get_intensity_volume_bbox_filepath(stack, downscale=32):
     #     basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
@@ -2789,7 +2789,7 @@ class DataManager(object):
             return np.mean([z1-z_begin, z2-1-z_begin])
         else:
             return z1-z_begin, z2-1-z_begin
-    
+
     # @staticmethod
 #     def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None):
 #         """

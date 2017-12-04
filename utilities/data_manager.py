@@ -451,20 +451,20 @@ class DataManager(object):
     @staticmethod
     def get_cropbox_filename(stack, anchor_fn=None):
         """
-        Get the filename to brainstem crop box. 
+        Get the filename to brainstem crop box.
         """
-        
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
         return fn
-    
+
     @staticmethod
     def get_cropbox_thalamus_filename(stack, anchor_fn=None):
         """
-        Get the filename to thalamus crop box. 
+        Get the filename to thalamus crop box.
         """
-        
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
@@ -475,9 +475,9 @@ class DataManager(object):
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False):
         """
         Loads the crop box for brainstem.
-        
+
         Args:
-            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
         """
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
@@ -491,12 +491,12 @@ class DataManager(object):
         else:
             cropbox = np.loadtxt(fp).astype(np.int)
         return cropbox
-    
+
     @staticmethod
     def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
         """
         Loads the crop box for thalamus.
-        
+
         Args:
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
         """
@@ -929,9 +929,14 @@ class DataManager(object):
 #                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(classifier_id)s.hdf') % \
 #                 {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'classifier_id': classifier_id}
 
+    # @staticmethod
+    # def load_intensity_volume(stack, downscale=32):
+    #     fn = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
+    #     return DataManager.load_data(fn, filetype='bp')
+
     @staticmethod
-    def load_intensity_volume(stack, downscale=32):
-        fn = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
+    def load_intensity_volume_v2(stack, downscale=32, prep_id=2):
+        fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
         return DataManager.load_data(fn, filetype='bp')
     
     @staticmethod
@@ -948,6 +953,12 @@ class DataManager(object):
     #     vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
     #     return vol_fn
 
+    # @staticmethod
+    # def get_intensity_volume_filepath(stack, downscale=32):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
+    #     vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
+    #     return vol_fn
+
     @staticmethod
     def get_intensity_volume_filepath_v2(stack, downscale=32, prep_id=2):
         basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale, prep_id=prep_id)
@@ -956,6 +967,11 @@ class DataManager(object):
     
     @staticmethod
     def get_intensity_volume_bbox_filepath_v2(stack, downscale=32, prep_id=2):
+        basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
+        return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
+
+    @staticmethod
+    def get_intensity_volume_bbox_filepath(stack, downscale=32):
         basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
     
@@ -2665,8 +2681,6 @@ class DataManager(object):
         if z_begin is None:
             z_begin = (first_sec - 1) * voxel_z_size
 
-        print voxel_z_size
-
         z1 = (sec-1) * voxel_z_size
         z2 = sec * voxel_z_size
 
@@ -2734,6 +2748,31 @@ class DataManager(object):
 
 #         return sec_floor
 
+    # @staticmethod
+    # def convert_z_to_section(stack, z, downsample, z_begin=None):
+    #     """
+    #     z_begin default to int(np.floor(first_sec*voxel_z_size)).
+    #     """
+    #
+    #     xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+    #     voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+    #     # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+    #
+    #     # first_sec, last_sec = section_range_lookup[stack]
+    #     first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+    #     # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+    #
+    #     if z_begin is None:
+    #         # z_begin = int(np.floor(first_sec*voxel_z_size))
+    #         z_begin = first_sec * voxel_z_size
+    #     # print 'z_begin', first_sec*voxel_z_size, z_begin
+    #
+    #     sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+    #     # print sec_float
+    #     # print sec_float == 98., np.floor(np.float(sec_float))
+    #     sec_floor = int(np.floor(sec_float))
+    #
+    #     return sec_floor
 
     @staticmethod
     def get_initial_snake_contours_filepath(stack):

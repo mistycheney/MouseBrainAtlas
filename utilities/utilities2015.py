@@ -211,13 +211,15 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
     """
     This function uses multiple processes.
 
+
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
         along_direction (str): 'x', 'y' or 'z'.
         positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
 
     Returns:
-        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
+        dict {int: (n,2)-ndarray}: contours. {voxel position: contour vertices (second dim, first dim)}.
+        For example, If `along_direction=y`, returns (z,x); if direction=x, returns (z,y).
     """
 
     import multiprocessing
@@ -620,6 +622,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
         in_bbox ((6,) array): the bounding box that the input volume is defined on. If None, assume origin is at (0,0,0) of the input volume.
         in_origin ((3,) array): the input volume origin coordinate in the space. Used only if in_bbox is not specified. Default is (0,0,0), meaning the input volume is located at the origin of the underlying space.
         out_bbox ((6,) array): the bounding box that the output volume is defined on. If not given, each dimension is from 0 to the max reach of any structure.
+
+    Returns:
+        3d-array: cropped/padded volume
     """
 
     if in_bbox is None:

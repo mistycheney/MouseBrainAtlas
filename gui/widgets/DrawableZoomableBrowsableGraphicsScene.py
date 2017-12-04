@@ -10,6 +10,7 @@ from SignalEmittingGraphicsPathItemWithVertexCircles import SignalEmittingGraphi
 
 sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from metadata import *
+from data_manager import DataManager
 
 class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithReadonlyPolygon):
     """
@@ -89,6 +90,9 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         if len(vertices) == 2:
             raise Exception("Polygon has only two vertices. Skip add.")
 
+        if index is not None:
+            assert isinstance(index, int), "add_polygon_with_circles_and_label(): Argument `index` must be integer."
+
         polygon = self.add_polygon_with_circles(path, linecolor=linecolor, linewidth=linewidth,
                                                 vertex_color=vertex_color, vertex_radius=vertex_radius,
                                                 section=section, index=index)
@@ -98,8 +102,9 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         if hasattr(self.data_feeder, 'sections'):
             if section is None:
                 section = self.data_feeder.sections[index]
-            z0, z1 = self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample)
-            position = (z0 + z1) / 2
+            position = DataManager.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True)
+            # z0, z1 = self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True)
+            # position = (z0 + z1) / 2
         else:
             position = index
         polygon.set_properties('position', position)
@@ -124,7 +129,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         if hasattr(self.data_feeder, 'sections'):
             polygon.set_properties('section', section)
-            d_voxel = np.mean(self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample))
+            d_voxel = DataManager.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True)
             d_um = d_voxel * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
             polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um

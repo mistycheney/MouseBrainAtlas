@@ -2682,6 +2682,7 @@ def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_nam
 
     Args:
         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
+        alignment_name_dict (dict): determines the file name to save the transformed volumes to.
     """
 
     stack_m = alignment_name_dict['stack_m']

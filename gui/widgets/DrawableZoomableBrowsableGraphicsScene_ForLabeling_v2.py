@@ -164,7 +164,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sections_used = []
             positions_rel_vol_resol = []
             for sec in self.data_feeder.sections:
-                pos_gl_vol_resol = np.mean(self.convert_section_to_z(sec=sec, downsample=volume_downsample_factor))
+                pos_gl_vol_resol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
                 pos_rel_vol_resol = int(np.round(pos_gl_vol_resol - zmin))
                 if pos_rel_vol_resol >= 0 and pos_rel_vol_resol < volume.shape[2]:
                     positions_rel_vol_resol.append(pos_rel_vol_resol)
@@ -406,17 +406,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
 
-    def set_conversion_func_section_to_z(self, func):
-        """
-        Set the conversion function that converts section index to voxel position.
-        """
-        self.convert_section_to_z = func
-
-    def set_conversion_func_z_to_section(self, func):
-        """
-        Set the conversion function that converts voxel position to section index.
-        """
-        self.convert_z_to_section = func
+    # def set_conversion_func_section_to_z(self, func):
+    #     """
+    #     Set the conversion function that converts section index to voxel position.
+    #     """
+    #     self.convert_section_to_z = func
+    #
+    # def set_conversion_func_z_to_section(self, func):
+    #     """
+    #     Set the conversion function that converts voxel position to section index.
+    #     """
+    #     self.convert_z_to_section = func
 
     def open_label_selection_dialog(self):
 
@@ -933,7 +933,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if hasattr(self.data_feeder, 'sections'):
             self.active_polygon.set_properties('section', self.active_section)
-            d_voxel = np.mean(self.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample))
+            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample, mid=True)
+            raise # This needs more check
             d_um = d_voxel * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
             self.active_polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um
@@ -999,7 +1000,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 
-    def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless):
+    def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, origin):
+        """
+        Update position of the two cross lines.
+        Input coordinates are wrt whole brain aligned and padded, in lossless resolution.
+
+        Args:
+            origin (3-tuple): origin of the image data wrt whole brain aligned and padded, in lossless resolution.
+        """
 
         print self.id, ': cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
 
@@ -1010,10 +1018,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.cross_y_lossless = cross_y_lossless
         self.cross_z_lossless = cross_z_lossless
 
-        downsample = self.data_feeder.downsample
-        cross_x_ds = cross_x_lossless / downsample
-        cross_y_ds = cross_y_lossless / downsample
-        cross_z_ds = cross_z_lossless / downsample
+        cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
+        cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
+        cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
+
+        print 'cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
+        print 'origin', origin
+        print 'cross_ds', cross_x_ds, cross_y_ds, cross_z_ds
 
         if self.data_feeder.orientation == 'sagittal':
 
@@ -1021,9 +1032,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.y_dim-1)
 
             if hasattr(self.data_feeder, 'sections'):
-                sec = self.convert_z_to_section(z=cross_z_ds, downsample=downsample)
-                print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', self.convert_section_to_z(sec=sec, downsample=downsample)
-
+                # sec = DataManager.convert_z_to_section(z=cross_z_ds, downsample=downsample)
+                # print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', DataManager.convert_section_to_z(sec=sec, downsample=downsample)
+                xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+                voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+                sec = int(np.ceil(cross_z_lossless / voxel_z_size))
+                # print 'cross_z_lossless', cross_z_lossless, 'sec', sec
                 self.set_active_section(sec, update_crossline=False)
             else:
                 self.set_active_i(cross_z_ds, update_crossline=False)
@@ -1046,13 +1060,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
 
         if update_crossline and hasattr(self, 'cross_x_lossless'):
+
+            origin_wrt_WholebrainAlignedPadded_tbResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol()
+
             print 'update_crossline', update_crossline
             if hasattr(self.data_feeder, 'sections'):
-                d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
-                cross_depth_lossless = .5 * d1 + .5 * d2
+                cross_depth_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True)
             else:
                 print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
-                cross_depth_lossless = self.active_i * self.data_feeder.downsample
+                if self.data_feeder.orientation == 'sagittal':
+                    cross_depth_lossless = (self.active_i + origin_wrt_WholebrainAlignedPadded_tbResol[2]) * self.data_feeder.downsample
+                elif self.data_feeder.orientation == 'coronal':
+                    cross_depth_lossless = (self.active_i + origin_wrt_WholebrainAlignedPadded_tbResol[0]) * self.data_feeder.downsample
+                elif self.data_feeder.orientation == 'horizontal':
+                    cross_depth_lossless = (self.active_i + origin_wrt_WholebrainAlignedPadded_tbResol[1]) * self.data_feeder.downsample
 
             if self.data_feeder.orientation == 'sagittal':
                 self.cross_z_lossless = cross_depth_lossless
@@ -1115,6 +1136,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     def show_next(self, cycle=False):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).show_next(cycle=cycle)
         assert all(['label' in p.properties for p in self.drawings[self.active_i]])
+
+
+    def get_origin_wrt_WholebrainAlignedPadded_tbResol(self):
+        """
+        Get the appropriate coordinate origin for this gscene.
+        The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
+        """
+        return self.gui.image_origin_wrt_WholebrainAlignedPadded_tbResol[self.id]
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1407,32 +1436,33 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.press_screen_y = gscene_y
 
             elif self.mode == 'crossline':
+                # user clicks, while in crossline mode (holding down space bar).
 
-                downsample = self.data_feeder.downsample
-
-                gscene_y_lossless = gscene_y * downsample
-                gscene_x_lossless = gscene_x * downsample
+                gscene_y_lossless = gscene_y * self.data_feeder.downsample
+                gscene_x_lossless = gscene_x * self.data_feeder.downsample
 
                 if hasattr(self.data_feeder, 'sections'):
-                    z0, z1 = self.convert_section_to_z(sec=self.active_section, downsample=1) # Note that the returned result is a pair of z limits.
-                    gscene_z_lossless = .5 * z0 + .5 * z1
+                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True)
+                    # print 'section', self.active_section, 'gscene_z_lossless', gscene_z_lossless
                 else:
-                    gscene_z_lossless = self.active_i * downsample
+                    gscene_z_lossless = self.active_i * self.data_feeder.downsample
+
+                origin_wrt_WholebrainAlignedPadded_tbResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol()
 
                 if self.data_feeder.orientation == 'sagittal':
-                    cross_x_lossless = gscene_x_lossless
-                    cross_y_lossless = gscene_y_lossless
-                    cross_z_lossless = gscene_z_lossless
+                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[0]
+                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[1]
+                    cross_z_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[2]
 
                 elif self.data_feeder.orientation == 'coronal':
-                    cross_z_lossless = self.data_feeder.z_dim * downsample - 1 - gscene_x_lossless
-                    cross_y_lossless = gscene_y_lossless
-                    cross_x_lossless = gscene_z_lossless
+                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[2]
+                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[1]
+                    cross_x_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[0]
 
                 elif self.data_feeder.orientation == 'horizontal':
-                    cross_x_lossless = gscene_x_lossless
-                    cross_z_lossless = self.data_feeder.z_dim * downsample - 1 - gscene_y_lossless
-                    cross_y_lossless = gscene_z_lossless
+                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[0]
+                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[2]
+                    cross_y_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_tbResol[1]
 
                 print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
                 self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)

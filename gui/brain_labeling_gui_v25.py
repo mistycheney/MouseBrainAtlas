@@ -139,12 +139,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.structure_volumes = defaultdict(dict)
         # self.structure_adjustments_3d = defaultdict(list)
-
         self.volume_cache = {}
-        for ds in [8, 32]:
-        # for ds in [32]:
+        # for ds in [8, 32]:
+        for ds in [32]:
             try:
-                self.volume_cache[ds] = DataManager.load_intensity_volume(self.stack, downscale=ds)
+                # self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=1)
+                self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=4)
+                print self.volume_cache[ds].shape
             except:
                 sys.stderr.write('Intensity volume of downsample %d does not exist.\n' % ds)
 
@@ -179,9 +180,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             gscene.set_structure_volumes(self.structure_volumes)
             # gscene.set_drawings(self.drawings)
 
-        from functools import partial
-        self.gscenes['sagittal'].set_conversion_func_section_to_z(partial(DataManager.convert_section_to_z, stack=self.stack))
-        self.gscenes['sagittal'].set_conversion_func_z_to_section(partial(DataManager.convert_z_to_section, stack=self.stack))
+        # from functools import partial
+        # self.gscenes['sagittal'].set_conversion_func_section_to_z(partial(DataManager.convert_section_to_z, stack=self.stack, z_begin=))
+        # self.gscenes['sagittal'].set_conversion_func_z_to_section(partial(DataManager.convert_z_to_section, stack=self.stack))
 
         ##################
         # self.slider_downsample.valueChanged.connect(self.downsample_factor_changed)
@@ -197,7 +198,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
+        # first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
+        if prep_id == 3:
+            first_sec0, last_sec0 = DataManager.load_cropbox_thalamus(self.stack)[4:]
+        else:
+            first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
@@ -214,6 +219,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder.set_orientation('coronal')
             coronal_volume_resection_feeder.set_downsample_factor(32)
             # coronal_volume_resection_feeder.set_downsample_factor(8)
+            print coronal_volume_resection_feeder.x_dim, coronal_volume_resection_feeder.y_dim, coronal_volume_resection_feeder.z_dim
             self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
             self.gscenes['coronal'].set_active_i(50)
 
@@ -268,6 +274,29 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.read_component_images_thread = ReadRGBComponentImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1))
         # self.connect(self.read_component_images_thread, SIGNAL("component_image_loaded(QImage, int)"), self.component_image_loaded)
         # self.read_component_images_thread.start()
+
+        #####################################
+        # Set global origins of each gscene #
+        #####################################
+
+        if prep_id == 3: # thalamus only
+            lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
+        else:
+            lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack)[:4]
+        thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4))
+
+        # Record the appropriate coordinate origin for this gscene.
+        # The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
+        self.image_origin_wrt_WholebrainAlignedPadded_tbResol = {}
+        self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'] = \
+        (lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[0] * 32,
+        lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[2] * 32,
+        0)
+        for gid in ['coronal', 'horizontal', 'sagittal_tb']:
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gid] = \
+            (thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[0] * 32,
+            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[2] * 32,
+            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[4] * 32)
 
     @pyqtSlot(object, int)
     def image_loaded(self, qimage, sec):
@@ -785,7 +814,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         for gscene_id, gscene in self.gscenes.iteritems():
             if gscene.mode == 'crossline':
                 try:
-                    gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless)
+                    gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,
+                    origin=self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gscene_id])
                 except Exception as e:
                     sys.stderr.write(str(e) + '\n')
 
@@ -1099,7 +1129,10 @@ if __name__ == "__main__":
     img_version = args.img_version
     prep_id = args.prep
 
-    default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
+    if prep_id == 3:
+        default_first_sec, default_last_sec = DataManager.load_cropbox_thalamus(stack)[4:]
+    else:
+        default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
 
     first_sec = default_first_sec if args.first_sec is None else args.first_sec
     last_sec = default_last_sec if args.last_sec is None else args.last_sec

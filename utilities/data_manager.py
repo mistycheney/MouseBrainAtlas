@@ -933,17 +933,36 @@ class DataManager(object):
     def load_intensity_volume(stack, downscale=32):
         fn = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
         return DataManager.load_data(fn, filetype='bp')
+    
+    @staticmethod
+    def load_intensity_volume_v2(stack, downscale=32, prep_id=2):
+        """
+        v2 adds argument `prep_id`.
+        """
+        fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
+        return DataManager.load_data(fn, filetype='bp')
+
+    # @staticmethod
+    # def get_intensity_volume_filepath(stack, downscale=32):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
+    #     vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
+    #     return vol_fn
 
     @staticmethod
-    def get_intensity_volume_filepath(stack, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
+    def get_intensity_volume_filepath_v2(stack, downscale=32, prep_id=2):
+        basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale, prep_id=prep_id)
         vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
         return vol_fn
-
+    
     @staticmethod
-    def get_intensity_volume_bbox_filepath(stack, downscale=32):
+    def get_intensity_volume_bbox_filepath_v2(stack, downscale=32, prep_id=2):
         basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
         return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
+    
+    # @staticmethod
+    # def get_intensity_volume_bbox_filepath(stack, downscale=32):
+    #     basename = DataManager.get_original_volume_basename(volume_type='intensity', **locals())
+    #     return os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '_bbox.txt')
 
     @staticmethod
     def get_intensity_volume_metaimage_filepath(stack, downscale=32):
@@ -2605,18 +2624,28 @@ class DataManager(object):
     #######################################################
 
     @staticmethod
-    def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None):
+    def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None, mid=False):
         """
-        Because the z-spacing is much larger than pixel size on x-y plane,
-        the theoretical voxels are square on x-y plane but elongated in z-direction.
+        Because the z-spacing is much larger than the pixel size on x-y plane,
+        the voxels are square on x-y plane and elongated in z-direction.
         In practice we need to represent volume using cubic voxels.
-        This function computes the z-coordinate for a given section number.
-        This depends on the downsample factor of the volume.
+        This function computes the z-coordinate for a given section number,
+        assuming the use of cubic voxels.
+
+        z = sec * section_thickness_in_unit_of_cubic_voxel_size - z_begin
+
+        Physical size of a cubic voxel depends on the downsample factor.
 
         Args:
-            first_sec (int): Default is the first brainstem section defined in ``cropbox".
-            z_begin (float): the origin z, counted from section index 1 (which is not necessarily `first_sec`).
-            Default is the z position of the `first_sec`.
+            z_begin (float): z-coordinate of an origin. The z-coordinate of a given section is relative to this value.
+            Default is the z position of the `first_sec`. This must be consistent with `downsample`.
+
+            first_sec (int): Section index of the origin, assuming the first section is at z=0.
+            Default is the first brainstem section defined in ``cropbox".
+            If `stack` is given, the default is the first section of the brainstem.
+            If `stack` is not given, default = 1.
+
+            mid (bool): If false, return the z-coordinates of the two sides of the section. If true, only return a single scalar = the average.
 
         Returns:
             z1, z2 (2-tuple of float): the z-levels of the beginning and end of the queried section, counted from `z_begin`.
@@ -2628,40 +2657,82 @@ class DataManager(object):
 
         if first_sec is None:
             # first_sec, _ = DataManager.load_cropbox(stack)[4:]
-            first_sec = metadata_cache['section_limits'][stack][0]
+            if stack is not None:
+                first_sec = metadata_cache['section_limits'][stack][0]
+            else:
+                first_sec = 1
 
         if z_begin is None:
-            z_begin = first_sec * voxel_z_size
+            z_begin = (first_sec - 1) * voxel_z_size
 
-        z1 = sec * voxel_z_size
-        z2 = (sec + 1) * voxel_z_size
-        return z1-z_begin, z2-1-z_begin
+        print voxel_z_size
 
-    @staticmethod
-    def convert_z_to_section(stack, z, downsample, z_begin=None):
-        """
-        z_begin default to int(np.floor(first_sec*voxel_z_size)).
-        """
+        z1 = (sec-1) * voxel_z_size
+        z2 = sec * voxel_z_size
 
-        xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-        voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-        # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+        if mid:
+            return np.mean([z1-z_begin, z2-1-z_begin])
+        else:
+            return z1-z_begin, z2-1-z_begin
+    
+    # @staticmethod
+#     def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None):
+#         """
+#         Because the z-spacing is much larger than pixel size on x-y plane,
+#         the theoretical voxels are square on x-y plane but elongated in z-direction.
+#         In practice we need to represent volume using cubic voxels.
+#         This function computes the z-coordinate for a given section number.
+#         This depends on the downsample factor of the volume.
 
-        # first_sec, last_sec = section_range_lookup[stack]
-        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-        # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+#         Args:
+#             first_sec (int): Default is the first brainstem section defined in ``cropbox".
+#             z_begin (float): the origin z, counted from section index 1 (which is not necessarily `first_sec`).
+#             Default is the z position of the `first_sec`.
 
-        if z_begin is None:
-            # z_begin = int(np.floor(first_sec*voxel_z_size))
-            z_begin = first_sec * voxel_z_size
-        # print 'z_begin', first_sec*voxel_z_size, z_begin
+#         Returns:
+#             z1, z2 (2-tuple of float): the z-levels of the beginning and end of the queried section, counted from `z_begin`.
+#         """
 
-        sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
-        # print sec_float
-        # print sec_float == 98., np.floor(np.float(sec_float))
-        sec_floor = int(np.floor(sec_float))
+#         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+#         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+#         # Voxel size in z direction in unit of x,y pixel.
 
-        return sec_floor
+#         if first_sec is None:
+#             # first_sec, _ = DataManager.load_cropbox(stack)[4:]
+#             first_sec = metadata_cache['section_limits'][stack][0]
+
+#         if z_begin is None:
+#             z_begin = first_sec * voxel_z_size
+
+#         z1 = sec * voxel_z_size
+#         z2 = (sec + 1) * voxel_z_size
+#         return z1-z_begin, z2-1-z_begin
+
+#     @staticmethod
+#     def convert_z_to_section(stack, z, downsample, z_begin=None):
+#         """
+#         z_begin default to int(np.floor(first_sec*voxel_z_size)).
+#         """
+
+#         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+#         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+#         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
+
+#         # first_sec, last_sec = section_range_lookup[stack]
+#         first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+#         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
+
+#         if z_begin is None:
+#             # z_begin = int(np.floor(first_sec*voxel_z_size))
+#             z_begin = first_sec * voxel_z_size
+#         # print 'z_begin', first_sec*voxel_z_size, z_begin
+
+#         sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+#         # print sec_float
+#         # print sec_float == 98., np.floor(np.float(sec_float))
+#         sec_floor = int(np.floor(sec_float))
+
+#         return sec_floor
 
 
     @staticmethod

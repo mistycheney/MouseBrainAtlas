@@ -211,13 +211,15 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
     """
     This function uses multiple processes.
 
+
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
         along_direction (str): 'x', 'y' or 'z'.
         positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
 
     Returns:
-        contours (dict {int: (n,2)-ndarray}): {voxel position: contour vertices (second dim, first dim)}.
+        dict {int: (n,2)-ndarray}: contours. {voxel position: contour vertices (second dim, first dim)}.
+        For example, If `along_direction=y`, returns (z,x); if direction=x, returns (z,y).
     """
 
     import multiprocessing

@@ -973,7 +973,7 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
     return contour_df
 
-def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1):
+def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1, prep_id=2):
     """
     Convert contours defined wrt original reference frame in raw scale (downsample=1) to
     contours defined wrt aligned cropped images in scale `out_downsample`.
@@ -985,7 +985,13 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_dow
     contour_df = contour_df.copy()
 
     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
-    xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+
+    if prep_id == 2:
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+    elif prep_id == 3:
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+    else:
+        raise
 
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
@@ -1014,7 +1020,7 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_dow
 
     return contour_df
 
-def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1):
+def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1, prep_id=2):
     """
     Convert contours defined wrt aligned cropped frame in scale `in_downsample` to
     contours defined wrt orignal unprocessed image frame in the raw scale (downscale=1).
@@ -1029,7 +1035,13 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_down
 
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-    xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+    if prep_id == 2:
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+    elif prep_id == 3:
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+    else:
+        raise
+
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
     cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == in_downsample)]
@@ -1054,4 +1066,3 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_down
             contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
 
     return contour_df
-

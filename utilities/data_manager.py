@@ -2662,8 +2662,6 @@ class DataManager(object):
         if z_begin is None:
             z_begin = (first_sec - 1) * voxel_z_size
 
-        print voxel_z_size
-
         z1 = (sec-1) * voxel_z_size
         z2 = sec * voxel_z_size
 

@@ -122,13 +122,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.stack = stack
         self.sagittal_downsample = downsample
+        self.prep_id = prep_id
 
         self.setupUi(self)
 
-        self.button_save.clicked.connect(self.save)
+        self.button_save.clicked.connect(self.save_contours)
         self.button_saveMarkers.clicked.connect(self.save_markers)
         self.button_saveStructures.clicked.connect(self.save_structures)
-        self.button_load.clicked.connect(self.load)
+        self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
@@ -199,10 +200,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.installEventFilter(self)
 
         # first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
-        if prep_id == 3:
+        if self.prep_id == 3:
             first_sec0, last_sec0 = DataManager.load_cropbox_thalamus(self.stack)[4:]
-        else:
+        elif self.prep_id == 2:
             first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
+        else:
+            raise
+
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
@@ -279,24 +283,27 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Set global origins of each gscene #
         #####################################
 
-        if prep_id == 3: # thalamus only
+        if self.prep_id == 3: # thalamus only
             lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
-        else:
+        elif self.prep_id == 2:
             lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack)[:4]
+        else:
+            raise
+
         thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4))
 
         # Record the appropriate coordinate origin for this gscene.
-        # The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
+        # The coordinate is wrt to origin of "whole brain aligned and padded volume", in thumbnail resolution (1/32 of raw).
         self.image_origin_wrt_WholebrainAlignedPadded_tbResol = {}
         self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'] = \
-        (lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[0] * 32,
-        lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[2] * 32,
-        0)
+        np.array((lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[0],
+        lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[2],
+        0))
         for gid in ['coronal', 'horizontal', 'sagittal_tb']:
             self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gid] = \
-            (thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[0] * 32,
-            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[2] * 32,
-            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[4] * 32)
+            np.array((thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[0],
+            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[2],
+            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[4]))
 
     @pyqtSlot(object, int)
     def image_loaded(self, qimage, sec):
@@ -564,7 +571,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
         sagittal_markers_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username, classes=['neuron'])
-        sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack)
+        sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack,
+        prep_id=self.prep_id)
         sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
         save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
         upload_to_s3(sagittal_markers_fp)
@@ -609,7 +617,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print '3D structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
-    def save(self):
+    def save_contours(self):
         """
         Save structure boundaries.
         """
@@ -619,7 +627,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Save sagittal
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T,
-        stack=self.stack, in_downsample=self.gscenes['sagittal'].data_feeder.downsample)
+        stack=self.stack, in_downsample=self.gscenes['sagittal'].data_feeder.downsample, prep_id=self.prep_id)
         sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
         # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
         #                                                        classifier_setting_m=classifier_setting_m,
@@ -666,7 +674,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # download_from_s3(markers_df_fp)
         markers_df = load_hdf_v2(markers_df_fp)
 
-        markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack)
+        markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack, prep_id=self.prep_id)
         markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'sagittal') & (markers_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
 
         # for i, marker_entry in markers_df_cropped_sagittal.iterrows():
@@ -782,8 +790,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             affected_gscenes=['sagittal', 'sagittal_tb', 'horizontal', 'coronal'])
             sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
 
-
-    def load(self):
+    @pyqtSlot()
+    def load_contours(self):
         """
         Load contours.
         """
@@ -791,7 +799,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack,\
-                                        out_downsample=self.gscenes['sagittal'].data_feeder.downsample)
+                                        out_downsample=self.gscenes['sagittal'].data_feeder.downsample,
+                                        prep_id=self.prep_id)
         sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal') & (sagittal_contours_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
         self.gscenes['sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
 
@@ -815,7 +824,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             if gscene.mode == 'crossline':
                 try:
                     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,
-                    origin=self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gscene_id])
+                    origin=self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gscene_id]*32.)
                 except Exception as e:
                     sys.stderr.write(str(e) + '\n')
 
@@ -888,17 +897,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             factor_dataResol_to_volResol = float(gscene.data_feeder.downsample) / self.volume_downsample_factor
 
             if from_gscene_id == 'sagittal' or from_gscene_id == 'sagittal_tb':
-                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
-                                                [(c.scenePos().x() * factor_dataResol_to_volResol,
-                                                c.scenePos().y() * factor_dataResol_to_volResol)
-                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
-                volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'z')
+                # keys are depth coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
+                # values are 2D contour vertex coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
+
+                contour_points_grouped_by_pos_wrt_WholebrainAlignedPadded_volResol = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                                                [((c.scenePos().x() * gscene.data_feeder.downsample + \
+                                                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][0] * 32.) / float(self.volume_downsample_factor),
+                                                (c.scenePos().y() * gscene.data_feeder.downsample + \
+                                                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][1] * 32.) / float(self.volume_downsample_factor))
+                                                for c in p.vertex_circles]
+                                                for p in matched_confirmed_polygons}
+
+                for p in matched_confirmed_polygons:
+                    print 'z =', p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor)
+                    for c in p.vertex_circles:
+                        print c.scenePos().x() * gscene.data_feeder.downsample, self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][0] * 32., self.volume_downsample_factor
+                        print c.scenePos().y() * gscene.data_feeder.downsample, self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][1] * 32., self.volume_downsample_factor
+
+                volume_volResol, bbox_wrt_WholebrainAlignedPadded_volResol = interpolate_contours_to_volume(contour_points_grouped_by_pos_wrt_WholebrainAlignedPadded_volResol, 'z')
 
             elif from_gscene_id == 'coronal':
                 contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
                                                 [(c.scenePos().y() * factor_dataResol_to_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_dataResol_to_volResol)
-                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+                                                for c in p.vertex_circles]
+                                                for p in matched_confirmed_polygons}
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
                 # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
@@ -907,14 +930,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
                                                 [(c.scenePos().x() * factor_dataResol_to_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_dataResol_to_volResol)
-                                                for c in p.vertex_circles] for p in matched_confirmed_polygons}
+                                                for c in p.vertex_circles]
+                                                for p in matched_confirmed_polygons}
                 volume, bbox = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = volume, bbox
                 # self.gscenes[gscene_id].structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
                 # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
 
-            self.structure_volumes[(name_u, side)]['volume_in_bbox'] = volume
-            self.structure_volumes[(name_u, side)]['bbox'] = bbox
+            self.structure_volumes[(name_u, side)]['volume_in_bbox'] = volume_volResol
+            self.structure_volumes[(name_u, side)]['bbox'] = bbox_wrt_WholebrainAlignedPadded_volResol
+            print 'Internal structures:', (name_u, side), self.structure_volumes[(name_u, side)]['bbox']
 
             # volumes_3view[gscene_id] = volume
             # bboxes_3view[gscene_id] = bbox
@@ -1131,8 +1156,10 @@ if __name__ == "__main__":
 
     if prep_id == 3:
         default_first_sec, default_last_sec = DataManager.load_cropbox_thalamus(stack)[4:]
-    else:
+    elif prep_id == 2:
         default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
+    else:
+        raise
 
     first_sec = default_first_sec if args.first_sec is None else args.first_sec
     last_sec = default_last_sec if args.last_sec is None else args.last_sec

@@ -5,6 +5,7 @@ This is identical to brain_labeling_gui_v25.py 12/4/2017 1:09am version.
 except the following replacements:
     1. ANNOTATION_ROOTDIR -> ANNOTATION_THALAMUS_ROOTDIR
     2. get_annotation_filepath -> get_annotation_thalamus_filepath
+    3. default command-line argument prep_id = 2 -> prep_id = 3
 """
 
 import sys
@@ -1150,7 +1151,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--last_sec", type=int, help="last section")
     parser.add_argument("-v", "--img_version", type=str, help="image version", default='jpeg')
     parser.add_argument("-d", "--downsample", type=float, help="downsample", default=1)
-    parser.add_argument("-p", "--prep", type=int, help="preprocessing id", default=2)
+    parser.add_argument("-p", "--prep", type=int, help="preprocessing id", default=3)
     args = parser.parse_args()
 
     from sys import argv, exit

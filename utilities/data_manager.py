@@ -1030,14 +1030,9 @@ class DataManager(object):
 #                 '%(fn)s_lossless_alignedTo_%(anchor_fn)s_cropped_%(structure)s_sparseScores_setting_%(classifier_id)s.hdf') % \
 #                 {'fn': fn, 'anchor_fn': anchor_fn, 'structure':structure, 'classifier_id': classifier_id}
 
-    # @staticmethod
-    # def load_intensity_volume(stack, downscale=32):
-    #     fn = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
-    #     return DataManager.load_data(fn, filetype='bp')
-
     @staticmethod
-    def load_intensity_volume_v2(stack, downscale=32, prep_id=2):
-        fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
+    def load_intensity_volume(stack, downscale=32):
+        fn = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
         return DataManager.load_data(fn, filetype='bp')
 
     @staticmethod
@@ -1048,17 +1043,11 @@ class DataManager(object):
         fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
         return DataManager.load_data(fn, filetype='bp')
 
-    # @staticmethod
-    # def get_intensity_volume_filepath(stack, downscale=32):
-    #     basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
-    #     vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
-    #     return vol_fn
-
-    # @staticmethod
-    # def get_intensity_volume_filepath(stack, downscale=32):
-    #     basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
-    #     vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
-    #     return vol_fn
+    @staticmethod
+    def get_intensity_volume_filepath(stack, downscale=32):
+        basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
+        vol_fn = os.path.join(VOLUME_ROOTDIR, stack, basename, basename + '.bp')
+        return vol_fn
 
     @staticmethod
     def get_intensity_volume_filepath_v2(stack, downscale=32, prep_id=2):

@@ -458,8 +458,16 @@ def volume_to_imagedata_v2(rgb, origin=(0,0,0), alpha=None):
     v2 = v2.flatten()
     v3 = np.transpose(v3, [2,0,1])
     v3 = v3.flatten()
-    alpha = np.transpose(alpha, [2,0,1])
-    alpha = alpha.flatten()
+    if alpha is None:
+        if rgb.dtype == np.uint8:
+            alpha = 255*np.ones_like(v3)
+        elif rgb.dtype == np.float32:
+            alpha = np.ones_like(v3)
+        else:
+            raise Exception('Data type must be uint8 or float32.')
+    else:
+        alpha = np.transpose(alpha, [2,0,1])
+        alpha = alpha.flatten()
     v4 = np.column_stack([v1, v2, v3, alpha])
 
     if rgb.dtype == np.uint8:
@@ -649,7 +657,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
             axes=True, background_color=(1,1,1), axes_label_color=(1,1,1),
             animate=False, movie_fn=None,
-              view_up=None, position=None, focal=None):
+              view_up=None, position=None, focal=None, depth_peeling=True):
 
     ren = vtk.vtkRenderer()
     ren.SetBackground(background_color)
@@ -668,26 +676,27 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     # culler.SetSortingStyleToFrontToBack()
 
     ##########################################
-    # Enable depth peeling
-    # http://www.vtk.org/Wiki/VTK/Examples/Cxx/Visualization/CorrectlyRenderTranslucentGeometry
+    if depth_peeling:
+        # Enable depth peeling
+        # http://www.vtk.org/Wiki/VTK/Examples/Cxx/Visualization/CorrectlyRenderTranslucentGeometry
 
-    # # 1. Use a render window with alpha bits (as initial value is 0 (false)):
-    # renWin.SetAlphaBitPlanes(True)
-    #
-    # # 2. Force to not pick a framebuffer with a multisample buffer
-    # # (as initial value is 8):
-    # renWin.SetMultiSamples(0);
-    #
-    # # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
-    # ren.SetUseDepthPeeling(True);
-    #
-    # # 4. Set depth peeling parameters
-    # # - Set the maximum number of rendering passes (initial value is 4):
-    # maxNoOfPeels = 8
-    # ren.SetMaximumNumberOfPeels(maxNoOfPeels);
-    # # - Set the occlusion ratio (initial value is 0.0, exact image):
-    # occlusionRatio = 0.0
-    # ren.SetOcclusionRatio(occlusionRatio);
+        # 1. Use a render window with alpha bits (as initial value is 0 (false)):
+        renWin.SetAlphaBitPlanes(True)
+
+        # 2. Force to not pick a framebuffer with a multisample buffer
+        # (as initial value is 8):
+        renWin.SetMultiSamples(0);
+
+        # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
+        ren.SetUseDepthPeeling(True);
+
+        # 4. Set depth peeling parameters
+        # - Set the maximum number of rendering passes (initial value is 4):
+        maxNoOfPeels = 8
+        ren.SetMaximumNumberOfPeels(maxNoOfPeels);
+        # - Set the occlusion ratio (initial value is 0.0, exact image):
+        occlusionRatio = 0.0
+        ren.SetOcclusionRatio(occlusionRatio);
 
     ##########################################
 
@@ -725,7 +734,6 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
 
     elif init_angle == 'sagittal': # left to right
 
-        # saggital
         camera.SetViewUp(0, -1, 0)
         camera.SetPosition(0, 0, -1)
         camera.SetFocalPoint(0, 0, 1)
@@ -943,8 +951,8 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
 def actor_volume_v2(rgb, alpha=None, origin=(0,0,0)):
     """
     Args:
-        volumes ((3,w,h,d)-array): RGB volume
-        auxdata (3d-array same shape as volume): alpha volume
+        volumes ((w,h,d,3)-array): RGB volume
+        alpha (3d-array same shape as volume): alpha volume
     """
 
     imagedata = volume_to_imagedata_v2(rgb=rgb, origin=origin, alpha=alpha)
@@ -981,6 +989,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
 
     volumeMapper = vtk.vtkSmartVolumeMapper()
     volumeMapper.SetBlendModeToComposite()
+
     # volumeMapper.SetBlendModeToAdditive()
     # volumeMapper.SetBlendModeToMinimumIntensity()
     # volumeMapper.SetBlendModeToMaximumIntensity()
@@ -988,7 +997,6 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
 
     # Setting this results in blank
     # funcRayCast = vtk.vtkVolumeRayCastCompositeFunction()
-    # # funcRayCast.SetCompositeMethodToClassifyFirst()
     # funcRayCast.SetCompositeMethodToInterpolateFirst()
     # volumeMapper = vtk.vtkVolumeRayCastMapper()
     # volumeMapper.SetVolumeRayCastFunction(funcRayCast)
@@ -1047,9 +1055,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         compositeOpacity.AddPoint(1.0, 1.0)
 
         color = vtk.vtkColorTransferFunction()
-
         color.AddRGBPoint(0.0, 0,0,0)
-
         if tb_colors is not None:
             for v, c in sorted(tb_colors.items()):
                 vl = v - .5
@@ -1071,18 +1077,18 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         # volumeGradientOpacity.AddPoint(10,  1.0)
         # volumeGradientOpacity.AddPoint(2, 1.0)
 
-    # elif what == 'probability':
-    #     compositeOpacity = vtk.vtkPiecewiseFunction()
-    #     compositeOpacity.AddPoint(0.0, 0.)
-    #     compositeOpacity.AddPoint(.9, 0.05)
-    #     compositeOpacity.AddPoint(1., 0.05)
-    #
-    #     r,g,b = c
-    #
-    #     color = vtk.vtkColorTransferFunction()
-    #     color.AddRGBPoint(0.0, r,g,b)
-    #     # color.AddRGBPoint(.95, .5,.5,.5)
-    #     color.AddRGBPoint(1., r,g,b)
+    elif what == 'probability':
+        compositeOpacity = vtk.vtkPiecewiseFunction()
+        compositeOpacity.AddPoint(0.0, 0.)
+        compositeOpacity.AddPoint(.9, 0.05)
+        compositeOpacity.AddPoint(1., 0.05)
+
+        r,g,b = c
+
+        color = vtk.vtkColorTransferFunction()
+        color.AddRGBPoint(0.0, r,g,b)
+        # color.AddRGBPoint(.95, .5,.5,.5)
+        color.AddRGBPoint(1., r,g,b)
 
         # lookupTable = vtkLookupTable()
         # lookupTable.SetNumberOfTableValues(2);

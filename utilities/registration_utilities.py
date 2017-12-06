@@ -2470,9 +2470,46 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
     else:
         return volume_m_aligned_to_f, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
+def transform_volume_v3(vol, bbox, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+    nzvoxels_m_temp = parallel_where_binary(vol > 0)
+    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+
+    nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp + (bbox[0], bbox[2], bbox[4]),
+                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
+
+    nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
+    nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
+
+    xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
+    ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
+    zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
+
+    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+    xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
+    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+    volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
+
+    del nzs_m_aligned_to_f
+
+    t = time.time()
+
+    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+        if not np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
+            dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+        else:
+            dense_volume = volume_m_aligned_to_f
+    else:
+        raise Exception('transform_volume: Volume must be either float or int.')
+
+    sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
+
+    return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
+
+
 def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
-
     One can specify initial shift and the transform separately.
     First, `centroid_m` and `centroid_f` are aligned.
     Then the tranform (R,t) parameterized by `tf_params` is applied.
@@ -2526,7 +2563,7 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
 
     sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
 
-    return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
+    return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
 
 
 def transform_volume(vol, global_params, centroid_m=(0,0,0), centroid_f=(0,0,0), xdim_f=None, ydim_f=None, zdim_f=None):
@@ -2792,8 +2829,8 @@ def load_alignment_results(alignment_name_dict):
                                                      what='trajectory')
     bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
     upload_to_s3(trajectory_fp)
-        
-        
+
+
 def save_alignment_results(best_param, centroid_m, centroid_f,
                            crop_origin_m, crop_origin_f,
                            score_traj, parameter_traj, alignment_name_dict):

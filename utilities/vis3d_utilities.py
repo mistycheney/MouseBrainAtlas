@@ -98,12 +98,17 @@ def polydata_to_mesh(polydata):
     return vertices, faces
 
 
-def vertices_to_surface(vertices, num_simplify_iter=3, smooth=True, neighborhood_size=30, sample_spacing=None):
+def vertices_to_surface(vertices, num_simplify_iter=3, smooth=True, neighborhood_size=None, sample_spacing=None):
+    """
+    Based on vertices, reconstruct the surface as polydata. Uses vtkSurfaceReconstructionFilter.
+    """
 
     polydata = mesh_to_polydata(vertices, [])
 
     surf = vtk.vtkSurfaceReconstructionFilter()
-    surf.SetNeighborhoodSize(neighborhood_size)
+    if neighborhood_size is not None:
+        surf.SetNeighborhoodSize(neighborhood_size)
+        # neighborhood_size = 30
     if sample_spacing is not None:
         surf.SetSampleSpacing(sample_spacing)
         # sample_spacing=5
@@ -175,7 +180,8 @@ def simplify_polydata(polydata, num_simplify_iter=0, smooth=False):
 def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
     """
     Args:
-        faces ()
+        vertices ((num_vertices, 3) arrays)
+        faces ((num_faces, 3) arrays)
     """
 
     polydata = vtk.vtkPolyData()
@@ -221,12 +227,14 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
     return polydata
 
-def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200):
+def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200, return_mesh=False):
     """
     Convert a volume to a mesh.
 
     Args:
+        level (float): the level to threshold the input volume
         min_vertices (int): minimum number of vertices. Simplification will stop if the number of vertices drops below this value.
+        return_mesh (bool): If True, return only (vertices, faces); otherwise, return polydata.
     """
 
     vol = volume > level
@@ -256,6 +264,9 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
     # sys.stderr.write('compute surface area: %.2f seconds\n' % (time.time() - t)) #
 
     t = time.time()
+
+    if return_mesh:
+        return vs, fs
 
     polydata = mesh_to_polydata(vs, fs)
 

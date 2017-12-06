@@ -655,7 +655,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
 
     Returns:
         If default, return (volume, bbox).
-        volume (3D binary ndarray):
+        volume (3d binary array):
         bbox (tuple): (xmin, xmax, ymin, ymax, zmin, zmax)
 
         If interpolation_direction == 'z', the points should be (x,y)
@@ -734,8 +734,8 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
 def get_interpolated_contours(contours_grouped_by_pos, len_interval):
     """
     Interpolate contours at integer levels.
-    Snap minimum z to minimum integer.
-    Snap maximum z to maximum integer.
+    Snap minimum z to the minimum integer .
+    Snap maximum z to the maximum integer.
 
     Args:
         contours_grouped_by_pos (dict of (n,2)-ndarrays):

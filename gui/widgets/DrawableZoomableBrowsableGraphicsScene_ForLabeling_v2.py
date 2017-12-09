@@ -1340,7 +1340,107 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #     print 2
         #     return True
 
-        if event.type() == QEvent.GraphicsSceneMouseRelease:
+        elif event.type() == QEvent.GraphicsSceneMousePress:
+
+            pos = event.scenePos()
+            gscene_x = pos.x()
+            gscene_y = pos.y()
+
+            if event.button() == Qt.RightButton:
+                obj.mousePressEvent(event)
+
+            if self.mode == 'idle':
+                # pass the event down
+                obj.mousePressEvent(event)
+
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
+                print self.press_screen_x, self.press_screen_y
+                self.pressed = True
+                return True
+
+            elif self.mode == 'rotate3d':
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
+
+            elif self.mode == 'shift3d':
+                self.press_screen_x = gscene_x
+                self.press_screen_y = gscene_y
+
+            elif self.mode == 'crossline':
+                # user clicks, while in crossline mode (holding down space bar).
+
+                gscene_y_lossless = gscene_y * self.data_feeder.downsample
+                gscene_x_lossless = gscene_x * self.data_feeder.downsample
+
+                if hasattr(self.data_feeder, 'sections'):
+                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True)
+                    # print 'section', self.active_section, 'gscene_z_lossless', gscene_z_lossless
+                else:
+                    gscene_z_lossless = self.active_i * self.data_feeder.downsample
+
+                origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
+
+                if self.data_feeder.orientation == 'sagittal':
+                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
+                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
+                    cross_z_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
+
+                elif self.data_feeder.orientation == 'coronal':
+                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
+                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
+                    cross_x_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
+
+                elif self.data_feeder.orientation == 'horizontal':
+                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
+                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
+                    cross_y_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
+
+                print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
+                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
+                return True
+
+            elif self.mode == 'add vertices once':
+                if event.button() == Qt.LeftButton:
+                    obj.mousePressEvent(event)
+                    if not self.active_polygon.closed:
+                        assert 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron'
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=MARKER_COLOR_CHAR)
+                    first_circ = self.active_polygon.vertex_circles[0]
+                    first_circ.signal_emitter.press.emit(first_circ)
+                    return False
+
+            elif self.mode == 'add vertices consecutively':
+
+                if event.button() == Qt.LeftButton:
+
+                    obj.mousePressEvent(event)
+
+                    if not self.active_polygon.closed:
+                        if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                            vertex_color = 'r'
+                        else:
+                            vertex_color = 'b'
+                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
+
+                    return True
+
+            elif self.mode == 'add vertices randomly':
+                if event.button() == Qt.LeftButton:
+                    obj.mousePressEvent(event)
+
+                    assert self.active_polygon.closed, 'Insertion is not allowed if polygon is not closed.'
+                    new_index = find_vertex_insert_position(self.active_polygon, gscene_x, gscene_y)
+                    if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
+                        vertex_color = MARKER_COLOR_CHAR
+                    else:
+                        vertex_color = 'b'
+                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index, color=vertex_color)
+
+                    return True
+
+
+        elif event.type() == QEvent.GraphicsSceneMouseRelease:
 
             pos = event.scenePos()
             gscene_x = pos.x()
@@ -1448,105 +1548,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')
-
-        if event.type() == QEvent.GraphicsSceneMousePress:
-
-            pos = event.scenePos()
-            gscene_x = pos.x()
-            gscene_y = pos.y()
-
-            if event.button() == Qt.RightButton:
-                obj.mousePressEvent(event)
-
-            if self.mode == 'idle':
-                # pass the event down
-                obj.mousePressEvent(event)
-
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
-                print self.press_screen_x, self.press_screen_y
-                self.pressed = True
-                return True
-
-            elif self.mode == 'rotate3d':
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
-
-            elif self.mode == 'shift3d':
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
-
-            elif self.mode == 'crossline':
-                # user clicks, while in crossline mode (holding down space bar).
-
-                gscene_y_lossless = gscene_y * self.data_feeder.downsample
-                gscene_x_lossless = gscene_x * self.data_feeder.downsample
-
-                if hasattr(self.data_feeder, 'sections'):
-                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True)
-                    # print 'section', self.active_section, 'gscene_z_lossless', gscene_z_lossless
-                else:
-                    gscene_z_lossless = self.active_i * self.data_feeder.downsample
-
-                origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
-
-                if self.data_feeder.orientation == 'sagittal':
-                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
-                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
-                    cross_z_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
-
-                elif self.data_feeder.orientation == 'coronal':
-                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
-                    cross_y_lossless = gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
-                    cross_x_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
-
-                elif self.data_feeder.orientation == 'horizontal':
-                    cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
-                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_y_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[2]
-                    cross_y_lossless = gscene_z_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[1]
-
-                print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
-                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
-                return True
-
-            elif self.mode == 'add vertices once':
-                if event.button() == Qt.LeftButton:
-                    obj.mousePressEvent(event)
-                    if not self.active_polygon.closed:
-                        assert 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron'
-                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=MARKER_COLOR_CHAR)
-                    first_circ = self.active_polygon.vertex_circles[0]
-                    first_circ.signal_emitter.press.emit(first_circ)
-                    return False
-
-            elif self.mode == 'add vertices consecutively':
-
-                if event.button() == Qt.LeftButton:
-
-                    obj.mousePressEvent(event)
-
-                    if not self.active_polygon.closed:
-                        if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
-                            vertex_color = 'r'
-                        else:
-                            vertex_color = 'b'
-                        self.active_polygon.add_vertex(gscene_x, gscene_y, color=vertex_color)
-
-                    return True
-
-            elif self.mode == 'add vertices randomly':
-                if event.button() == Qt.LeftButton:
-                    obj.mousePressEvent(event)
-
-                    assert self.active_polygon.closed, 'Insertion is not allowed if polygon is not closed.'
-                    new_index = find_vertex_insert_position(self.active_polygon, gscene_x, gscene_y)
-                    if 'class' in self.active_polygon.properties and self.active_polygon.properties['class'] == 'neuron':
-                        vertex_color = MARKER_COLOR_CHAR
-                    else:
-                        vertex_color = 'b'
-                    self.active_polygon.add_vertex(gscene_x, gscene_y, new_index, color=vertex_color)
-
-                    return True
 
             elif self.mode == 'delete vertices':
                 items_in_rubberband = self.analyze_rubberband_selection()

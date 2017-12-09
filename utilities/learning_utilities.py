@@ -615,7 +615,7 @@ def extract_patches_given_locations(patch_size, locs,
     
     if img is None:
         t = time.time()
-        if normalization_scheme in ['normalize_mu_region_sigma_wholeImage_(-1,9)', 'median_curve', 'stretch_min_max']:
+        if normalization_scheme in ['normalize_mu_region_sigma_wholeImage_(-1,9)', 'normalize_mu_region_sigma_wholeImage', 'median_curve', 'stretch_min_max'] or normalization_scheme.startswith('normalize_mu_region_sigma_wholeImage'):
             if stack == 'ChatCryoJane201710':
                 img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version='Ntb')
             elif stack in all_nissl_stacks:
@@ -645,14 +645,22 @@ def extract_patches_given_locations(patch_size, locs,
     #                    for x, y in locs]
     #     sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
 
-    if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+    if normalization_scheme == 'normalize_mu_region_sigma_wholeImage':
+        patches_normalized = []
+        for p in patches:
+            mu = p.mean()
+            sigma = p.std()
+            # print mu
+            p_normalized = (p - mu) / sigma
+            patches_normalized.append(p_normalized)
+        patches = patches_normalized
+    
+    elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
         patches_normalized_uint8 = []
         for p in patches:
             mu = p.mean()
             sigma = p.std()
             # print mu
-            # mu = 125.
-            # sigma = 91.
             p_normalized = (p - mu) / sigma
             if stack in all_nissl_stacks:
                 p_normalized_uint8 = rescale_intensity_v2(p_normalized, -9, 1)
@@ -661,6 +669,22 @@ def extract_patches_given_locations(patch_size, locs,
             # p_normalized_uint8 = p_normalized
             patches_normalized_uint8.append(p_normalized_uint8)
         patches = patches_normalized_uint8
+        
+    elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,5)':
+        patches_normalized_uint8 = []
+        for p in patches:
+            mu = p.mean()
+            sigma = p.std()
+            # print mu
+            p_normalized = (p - mu) / sigma
+            if stack in all_nissl_stacks:
+                p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
+            else:
+                p_normalized_uint8 = rescale_intensity_v2(p_normalized, 6, -1)
+            # p_normalized_uint8 = p_normalized
+            patches_normalized_uint8.append(p_normalized_uint8)
+        patches = patches_normalized_uint8
+        
     elif normalization_scheme == 'median_curve':
         ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
         patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]

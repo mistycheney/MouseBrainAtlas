@@ -16,7 +16,7 @@ Left click and drag to pan. Scroll mouse wheel to zoom.
 
 **Delete vertex**: Right click anywhere inside the polygon -> Select "Delete vertex" -> left click and drag a box and all vertices inside the box will be deleted. -> Keep making boxes to delete more vertices. Press ESC to finish.
 
-**Save**: Click "Save contours" in the bottom row.
+**Save**: Click "Save contours" in the bottom row. The annotations on the full resolution panel will be saved into `~/CSHL_labelings_thalamus/[stack]/[stack]_annotation_contours_[timestamp].hdf`. Annotations for the coronal and horizontal panels are also saved. One can read and inspect the annotation files as shown in [this notebook](https://github.com/mistycheney/MouseBrainAtlas/blob/master/annotation/check_annotation_file_v3_for_thalamus.ipynb).
 
 **Load**: Click "Load contours" in the bottom row -> Select the latest `[stack]_annotation_contours_[timestamp]` according to the modified time.
 

@@ -9,16 +9,18 @@ Left click and drag to pan. Scroll mouse wheels to zoom.
 - c: toggle whether contours are shown.
 - l: toggle whether label are shown.
 
-**Create new polygon**: Right click -> New polygon -> left click to place new vertices; press Enter to close a polygon.
-**Set side**: Right click anywhere inside the polygon -> Set side
-**Insert vertex**: Right click anywhere inside the polygon -> Insert vertex -> left click at anywhere between two existing vertices, and a new vertex will be placed there. Keep clicking to insert more vertices. Press ESC to finish.
+**Create new polygon**: Right click -> Select "New polygon" -> left click to place new vertices; press Enter to close a polygon.
 
+**Set side**: Right click anywhere inside the polygon -> Select "Set side".
+
+**Insert vertex**: Right click anywhere inside the polygon -> Select "Insert vertex" -> left click at anywhere between two existing vertices, and a new vertex will be placed there. -> Keep clicking to insert more vertices. Press ESC to finish.
+
+**Delete vertex**: Right click anywhere inside the polygon -> Select "Delete vertex" -> left click and drag a box and all vertices inside the box will be deleted. -> Keep making boxes to delete more vertices. Press ESC to finish.
 
 - q: switch to 3d shift mode.
 - w: switch to 3d rotate mode.
 - s: switch to show score map (need to have active polygon) / histology image
 - f: save structure modifications.
-
 
 = Obsolete =
 

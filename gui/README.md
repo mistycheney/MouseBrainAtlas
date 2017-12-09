@@ -1,6 +1,7 @@
 # Labeling GUI
 
 To launch the GUI for thalamus labeling, run:
+
 `~/Brain/gui/brain_labeling_gui_thalamus.py [stack_name] -f [first_section] -l [last_section]`
 
 The left panel shows the full resolution images. The panels at the right are virtual coronal, horizontal and sagittal whole-brain slices, from top to bottom respectively. 

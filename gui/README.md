@@ -19,5 +19,3 @@ Left click and drag to pan. Scroll mouse wheels to zoom.
 - q: switch to 3d shift mode.
 - w: switch to 3d rotate mode.
 - s: switch to show score map (need to have active polygon) / histology image
-- f: save structure modifications.
-

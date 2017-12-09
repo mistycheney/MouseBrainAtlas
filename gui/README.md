@@ -2,13 +2,6 @@
 
 Left click and drag to pan. Scroll mouse wheels to zoom.
 
-## Key bindings
-- 1/2: go backward/forward along the stack in the full resolution panel.
-- 3/4, 5/6, 7/8: go forward/backward in the coronal, horizontal, sagittal whole-brain overview panel, respectively.
-- v: toggle whether vertices are shown.
-- c: toggle whether contours are shown.
-- l: toggle whether label are shown.
-
 **Create new polygon**: Right click -> Select "New polygon" -> left click to place new vertices; press Enter to close a polygon.
 
 **Set side**: Right click anywhere inside the polygon -> Select "Set side".
@@ -17,7 +10,14 @@ Left click and drag to pan. Scroll mouse wheels to zoom.
 
 **Delete vertex**: Right click anywhere inside the polygon -> Select "Delete vertex" -> left click and drag a box and all vertices inside the box will be deleted. -> Keep making boxes to delete more vertices. Press ESC to finish.
 
+## Key bindings
+- 1/2: go backward/forward along the stack in the full resolution panel.
+- 3/4, 5/6, 7/8: go forward/backward in the coronal, horizontal, sagittal whole-brain overview panel, respectively.
+- v: toggle whether vertices are shown.
+- c: toggle whether contours are shown.
+- l: toggle whether label are shown.
 - q: switch to 3d shift mode.
 - w: switch to 3d rotate mode.
 - s: switch to show score map (need to have active polygon) / histology image
 - f: save structure modifications.
+

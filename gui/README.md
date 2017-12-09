@@ -16,6 +16,10 @@ Left click and drag to pan. Scroll mouse wheel to zoom.
 
 **Delete vertex**: Right click anywhere inside the polygon -> Select "Delete vertex" -> left click and drag a box and all vertices inside the box will be deleted. -> Keep making boxes to delete more vertices. Press ESC to finish.
 
+**Save**: Click "Save contours" in the bottom row.
+
+**Load**: Click "Load contours" in the bottom row -> Select the latest `[stack]_annotation_contours_[timestamp]` according to the modified time.
+
 ## Key bindings
 - 1/2: go backward/forward along the stack in the full resolution panel.
 - 3/4, 5/6, 7/8: go forward/backward in the coronal, horizontal, sagittal whole-brain overview panel, respectively.

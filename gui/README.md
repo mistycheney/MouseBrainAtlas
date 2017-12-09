@@ -6,7 +6,7 @@ To launch the GUI for thalamus labeling, run:
 
 The left panel shows the full resolution images. The panels at the right are virtual coronal, horizontal and sagittal whole-brain slices, from top to bottom respectively. 
 
-Left click and drag to pan. Scroll mouse wheels to zoom.
+Left click and drag to pan. Scroll mouse wheel to zoom.
 
 **Create new polygon**: Right click -> Select "New polygon" -> left click to place new vertices; press Enter to close a polygon.
 

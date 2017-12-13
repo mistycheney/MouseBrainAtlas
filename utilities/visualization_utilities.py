@@ -57,7 +57,7 @@ def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_score
         structure: structure name
         show_above: only show scoremap with score higher than this value.
         downscale: downscale factor of the output scoremap
-        scoremap: if given, the dense score map.
+        scoremap: the dense score map. If not given, load previously generated ones.
     '''
 
     if fn is None:
@@ -141,6 +141,7 @@ def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_s
         mask = mask[ymin/out_downscale:(ymax+1)/out_downscale, xmin/out_downscale:(xmax+1)/out_downscale]
 
     viz = img_as_ubyte(gray2rgb(bg))
+    print scoremap_viz.shape, mask.shape
     viz[mask] = (overlay_alpha * scoremap_viz[mask, :3] + (1-overlay_alpha) * viz[mask]).astype(np.uint8)
 
     # Put label name at left upper corner.

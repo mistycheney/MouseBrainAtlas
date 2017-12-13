@@ -13,6 +13,7 @@ except:
     sys.stderr.write("No vtk")
 from distributed_utilities import *
 
+use_image_cache = False
 image_cache = {}
 
 def get_random_masked_regions(region_shape, stack, num_regions=1, sec=None, fn=None):
@@ -2591,17 +2592,44 @@ class DataManager(object):
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         # return imread(img_fp)
-        args_tuple = tuple(locals().values())
-        if args_tuple in image_cache:
-            sys.stderr.write("Loaded image from image_cache.\n")
-            img = image_cache[args_tuple]
+        
+        global use_image_cache
+        if use_image_cache:
+            args_tuple = tuple(locals().values())
+            if args_tuple in image_cache:
+                sys.stderr.write("Loaded image from image_cache.\n")
+                img = image_cache[args_tuple]
+            else:
+                img = cv2.imread(img_fp, -1)
+                image_cache[args_tuple] = img
+                sys.stderr.write("Image %s is cached.\n" % os.path.basename(img_fp))
         else:
+            sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
-            image_cache[args_tuple] = img
+                
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:
             return img
+    
+    @staticmethod
+    def enable_image_cache():
+        global use_image_cache
+        use_image_cache = True
+        
+        DataManager.clear_image_cache()
+
+    @staticmethod
+    def disable_image_cache():
+        global use_image_cache
+        use_image_cache = False
+        
+        DataManager.clear_image_cache()
+        
+    @staticmethod
+    def clear_image_cache():
+        global image_cache
+        image_cache = {}
 
     @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):

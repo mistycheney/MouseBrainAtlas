@@ -594,7 +594,7 @@ def locate_patches_given_addresses_v2(addresses):
 def extract_patches_given_locations(patch_size, 
                                     locs,
                                     img=None,
-                                    stack=None, sec=None, version=None, prep_id=2,
+                                    stack=None, sec=None, fn=None, version=None, prep_id=2,
                                    normalization_scheme=None):
     """
     Extract patches from one image at given locations.
@@ -616,84 +616,142 @@ def extract_patches_given_locations(patch_size,
     
     if img is None:
         t = time.time()
-        if normalization_scheme in ['normalize_mu_region_sigma_wholeImage_(-1,9)', 'normalize_mu_region_sigma_wholeImage', 'median_curve', 'stretch_min_max'] or normalization_scheme.startswith('normalize_mu_region_sigma_wholeImage'):
-            if stack == 'ChatCryoJane201710':
-                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version='Ntb')
-            elif stack in all_nissl_stacks:
-                img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)))
-            else:
-                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)[...,2]
+        
+        if stack == 'ChatCryoJane201710':
+            img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='Ntb')
+        elif stack in all_nissl_stacks:
+            img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
         else:
-            if stack == 'ChatCryoJane201710':
-                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version='Ntb')
-            elif stack in all_nissl_stacks:
-                img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id)))
-            else:
-                img = DataManager.load_image_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
+            img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)[...,2]
+
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
-
-    patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-    
-    # if img is None:
-    #     t = time.time()
-    #     if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
-    #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id)
-    #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))[..., 2]
-    #                   for x, y in locs]
-    #     else:
-    #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
-    #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))
-    #                    for x, y in locs]
-    #     sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
-
-    if normalization_scheme == 'normalize_mu_region_sigma_wholeImage':
-        patches_normalized = []
-        for p in patches:
-            mu = p.mean()
-            sigma = p.std()
-            # print mu
-            p_normalized = (p - mu) / sigma
-            patches_normalized.append(p_normalized)
-        patches = patches_normalized
-    
-    elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
-        patches_normalized_uint8 = []
-        for p in patches:
-            mu = p.mean()
-            sigma = p.std()
-            # print mu
-            p_normalized = (p - mu) / sigma
-            if stack in all_nissl_stacks:
-                p_normalized_uint8 = rescale_intensity_v2(p_normalized, -9, 1)
-            else:
-                p_normalized_uint8 = rescale_intensity_v2(p_normalized, 9, -1)
-            # p_normalized_uint8 = p_normalized
-            patches_normalized_uint8.append(p_normalized_uint8)
-        patches = patches_normalized_uint8
         
-    elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,5)':
-        patches_normalized_uint8 = []
-        for p in patches:
-            mu = p.mean()
-            sigma = p.std()
-            # print mu
-            p_normalized = (p - mu) / sigma
-            if stack in all_nissl_stacks:
-                p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
-            else:
-                p_normalized_uint8 = rescale_intensity_v2(p_normalized, 6, -1)
-            # p_normalized_uint8 = p_normalized
-            patches_normalized_uint8.append(p_normalized_uint8)
-        patches = patches_normalized_uint8
-        
-    elif normalization_scheme == 'median_curve':
-        ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
-        patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]
-    elif normalization_scheme == 'stretch_min_max':
+    if normalization_scheme == 'stretch_min_max_global':
         if stack in all_nissl_stacks:
-            patches = [rescale_intensity_v2(p, p.min(), p.max()) for p in patches]
+            img = rescale_intensity_v2(img, img.min(), img.max())
         else:
-            patches = [rescale_intensity_v2(p, p.max(), p.min()) for p in patches]
+            img = rescale_intensity_v2(img, img.max(), img.min())
+        
+        if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
+            a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+            patches = [img_as_ubyte(resize(img[y-int(half_size*a):y+int(half_size*a), 
+                                                x-int(half_size*a):x+int(half_size*a)], 
+                                            (half_size*2, half_size*2)))
+                       for x, y in locs]
+
+        else:
+            patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+            
+    else:
+        
+        if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
+            a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+            patches = [resize(img[y-int(half_size*a):y+int(half_size*a), 
+                                                x-int(half_size*a):x+int(half_size*a)], 
+                                            (half_size*2, half_size*2), preserve_range=True)
+                       for x, y in locs]
+
+        else:
+            patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+
+        # if img is None:
+        #     t = time.time()
+        #     if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+        #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id)
+        #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))[..., 2]
+        #                   for x, y in locs]
+        #     else:
+        #         img_fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, version=version)
+        #         patches = [crop_large_image(img_fp, (x-half_size, x+half_size-1, y-half_size, y+half_size-1))
+        #                    for x, y in locs]
+        #     sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
+
+        # if normalization_scheme == 'normalize_mu_region_sigma_wholeImage':
+        #     patches_normalized = []
+        #     for p in patches:
+        #         mu = p.mean()
+        #         sigma = p.std()
+        #         # print mu
+        #         p_normalized = (p - mu) / sigma
+        #         patches_normalized.append(p_normalized)
+        #     patches = patches_normalized
+
+    #     elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(min,max)':
+    #         # This is identical to stretch_min_max
+    #         patches_normalized_uint8 = []
+    #         for p in patches:
+    #             mu = p.mean()
+    #             sigma = p.std()
+    #             p_normalized = (p - mu) / sigma
+    #             if stack in all_nissl_stacks:
+    #                 p_normalized_uint8 = rescale_intensity_v2(p_normalized, p_normalized.min(), p_normalized.max())
+    #             else:
+    #                 p_normalized_uint8 = rescale_intensity_v2(p_normalized, p_normalized.max(), p_normalized.min())
+    #             patches_normalized_uint8.append(p_normalized_uint8)
+    #         patches = patches_normalized_uint8
+
+        if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
+            patches_normalized_uint8 = []
+            for p in patches:
+                mu = p.mean()
+                sigma = p.std()
+                # print mu
+                p_normalized = (p - mu) / sigma
+                if stack in all_nissl_stacks:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, -9, 1)
+                else:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, 9, -1)
+                # p_normalized_uint8 = p_normalized
+                patches_normalized_uint8.append(p_normalized_uint8)
+            patches = patches_normalized_uint8
+
+        elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,5)':
+            patches_normalized_uint8 = []
+            for p in patches:
+                mu = p.mean()
+                sigma = p.std()
+                # print mu
+                p_normalized = (p - mu) / sigma
+                if stack in all_nissl_stacks:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
+                else:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, 6, -1)
+                # p_normalized_uint8 = p_normalized
+                patches_normalized_uint8.append(p_normalized_uint8)
+            patches = patches_normalized_uint8
+            
+        elif normalization_scheme == 'normalize_mu_sigma_global_(-1,5)':
+            mean_std_sample_locations = load_pickle('/tmp/%s_sample_locations_mean_std.pkl' % stack)
+            patches_normalized_uint8 = []
+            for p, (x, y) in zip(patches, locs):
+                mu, sigma = mean_std_sample_locations[(x,y)]
+                if mu == 0 and sigma == 0:
+                    mu = p.mean()
+                    sigma = p.std()
+                print p.mean(),  p.std(), mu, sigma
+                p_normalized = (p - mu) / sigma
+                if stack in all_nissl_stacks:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
+                else:
+                    p_normalized_uint8 = rescale_intensity_v2(p_normalized, 6, -1)
+                patches_normalized_uint8.append(p_normalized_uint8)
+            patches = patches_normalized_uint8
+
+
+        elif normalization_scheme == 'median_curve':
+            ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
+            patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]
+
+        elif normalization_scheme == 'stretch_min_max':
+            if stack in all_nissl_stacks:
+                patches = [rescale_intensity_v2(p, p.min(), p.max()) for p in patches]
+            else:
+                patches = [rescale_intensity_v2(p, p.max(), p.min()) for p in patches]
+
+        elif normalization_scheme == 'none':
+            pass
+        else:
+            raise Exception("Normalization scheme %s is not recognized.\n" % normalization_scheme)
         
     return patches
 
@@ -1636,3 +1694,209 @@ def visualize_filters(model, name, input_channel=0, title=''):
             labelleft='off') # labels along the bottom edge are off
         axes[i].axis('equal')
     plt.show()
+
+    
+def get_local_regions(stack, margin_um = 500):
+    """
+    Return the local region bounding boxes around a structure on every section.
+    
+    Returns:
+        dict {str: {int: 6-tuple}}
+    """
+    
+    contours_df = DataManager.load_annotation_v4(stack=stack, by_human=True, suffix='contours', timestamp='latest')
+    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'downsample', 'creator'])
+    contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack, out_downsample=1)
+    download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=2), is_dir=True)
+    contours_grouped = contours_df.groupby('section')
+    
+    # Get bounding boxes for every structure on every section.
+
+    w, h = metadata_cache['image_shape'][stack]
+
+    local_region_bboxes_allStructures_allSections = {structure: {} for structure in all_known_structures_sided}
+    for structure in all_known_structures_sided:
+        name, side = parse_label(structure)[:2]
+        if side is None:
+            side = 'S'
+        if stack == 'ChatCryoJane201710':
+            margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+        else:
+            margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
+        q = contours_df[(contours_df['name'] == name) & (contours_df['side'] == side)]
+        for cnt_id, cnt in q.iterrows():
+            vs = cnt['vertices']
+            xmin, ymin = vs.min(axis=0) 
+            xmax, ymax = vs.max(axis=0)
+            local_region_bboxes_allStructures_allSections[structure][cnt['section']] = (max(0, int(np.floor(xmin-margin_pixel))),
+                                                min(w-1, int(np.ceil(xmax+margin_pixel))),
+                                                max(0, int(np.floor(ymin-margin_pixel))),
+                                                min(h-1, int(np.ceil(ymax+margin_pixel))))
+            
+    return local_region_bboxes_allStructures_allSections
+
+
+
+from scipy.ndimage.interpolation import map_coordinates
+
+def resample_scoremap(sparse_scores, sample_locations, img_shape, downscale, out_dtype=np.float16,
+                     half_size = 112, spacing = 64):
+    """
+    Args:
+        sparse_scores:
+        sample_locations:
+        half_size (int):
+        spacing (int):
+        
+    Returns:
+        2d-array: scoremap
+    """
+
+    assert len(sparse_scores) == len(sample_locations)
+    
+    w, h = img_shape
+
+    downscaled_grid_y = np.arange(0, h, downscale)
+    downscaled_grid_x = np.arange(0, w, downscale)
+    downscaled_ny = len(downscaled_grid_y)
+    downscaled_nx = len(downscaled_grid_x)
+
+    f_grid = np.zeros(((h-half_size)/spacing+1, (w-half_size)/spacing+1))
+    a = (sample_locations - half_size)/spacing
+    f_grid[a[:,1], a[:,0]] = sparse_scores
+
+    yinterps = (downscaled_grid_y - half_size)/float(spacing)
+    xinterps = (downscaled_grid_x - half_size)/float(spacing)
+
+    points_y, points_x = np.broadcast_arrays(yinterps.reshape(-1,1), xinterps)
+    coord = np.c_[points_y.flat, points_x.flat]
+    f_interp = map_coordinates(f_grid, coord.T, order=1)
+    f_interp_2d = f_interp.reshape((downscaled_ny, downscaled_nx))
+    scoremap = f_interp_2d.astype(out_dtype)
+
+    return scoremap
+
+
+def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img=None,
+                 bg_img_local_region=None, return_scoremap=False, out_downscale=8,
+                 feature='cnn', model=None, mean_img=None, batch_size=None):
+    """
+    Generate the scoremap of an area around the given structure.
+    
+    Args:
+        clf: sklearn classifier
+        structure (str): structure name, sided
+        scheme (str): normalization scheme
+        bbox (4-tuple): xmin,xmax,ymin,ymax in raw resolution.
+        bg_img: background image
+        bg_img_local_region: the part of background image in bbox.
+        return_scoremap (bool): If True, return (viz, scoremap); otherwise, return viz.
+        feature (str): cnn or mean
+        
+    Returns:
+        2d-array of uint8: scoremap overlayed on image.
+        scoremap (2d-array of float): optional
+    """
+    
+    structures = [convert_to_original_name(structure)]
+
+    roi_xmin, roi_xmax, roi_ymin, roi_ymax = bbox
+    roi_w = roi_xmax + 1 - roi_xmin
+    roi_h = roi_ymax + 1 - roi_ymin
+    if fn is None:
+        fn = metadata_cache['sections_to_filenames'][stack][sec]
+        
+    ##########################################################################################
+        
+    t = time.time()
+    mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=2, fn=fn)
+    grid_spec = win_id_to_gridspec(win_id=5, stack=stack)
+    indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                                    bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
+    sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
+
+    sample_locations = grid_parameters_to_sample_locations(win_id_to_gridspec(win_id=5, stack=stack))
+    sample_locations_roi = sample_locations[indices_roi]
+
+    t = time.time()
+
+    test_patches = extract_patches_given_locations(
+                                                    stack=stack, sec=sec, fn=fn,
+                                                   locs=sample_locations_roi, 
+                                                   patch_size=grid_spec[0], 
+                                                   normalization_scheme=scheme)
+    sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
+#     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
+
+    if feature == 'mean':
+        features = np.array([[p.mean()] for p in test_patches])
+    elif feature == 'cnn':
+        features = convert_image_patches_to_features_v2(test_patches, model=model, 
+                                             mean_img=mean_img, 
+                                             batch_size=batch_size)
+    else:
+        raise
+
+    sparse_scores = clf.predict_proba(features)[:,1]
+
+    if bg_img_local_region is None:    
+        if bg_img is None:
+            if stack == 'ChatCryoJane201710':
+                bg_img = DataManager.load_image_v2(stack=stack, prep_id=2, version='NtbJpeg', fn=fn)
+            else:
+                bg_img = DataManager.load_image_v2(stack=stack, prep_id=2, version='grayJpeg', fn=fn)
+
+        bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
+
+    scoremap = resample_scoremap(sparse_scores, sample_locations_roi, 
+                                 img_shape=metadata_cache['image_shape'][stack], 
+                                 downscale=out_downscale)
+
+    scoremap_local_region = scoremap[(roi_ymin)/out_downscale:(roi_ymin+roi_h)/out_downscale, 
+                                     (roi_xmin)/out_downscale:(roi_xmin+roi_w)/out_downscale]
+    
+    scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region, 
+                                       in_downscale=1, stack=stack, fn=fn, 
+                                       structure=structure,
+                                       scoremap=scoremap_local_region,
+                                      in_scoremap_downscale=out_downscale,
+                                      out_downscale=out_downscale, 
+                                      cmap_name= 'jet')
+    if return_scoremap:
+        return scoremap_viz, scoremap_local_region
+    else:
+        return scoremap_viz
+    
+    
+def convert_image_patches_to_features_v3(patches, method):
+    
+    if method == 'intensity_mean':
+        # Form feature vector using mean intensities
+#         feats = np.array([[np.mean(img)] for img in imgs])
+
+        # Form feature vector using mean intensities
+        focal_size_um = 25
+        focal_size = area_size_um / XY
+        feats = np.array([[np.mean(img[img.shape[0]/2-focal_size:img.shape[0]/2+focal_size, 
+                                       img.shape[1]/2-focal_size:img.shape[0]/2+focal_size])] 
+                          for img in patches])
+    elif method == 'intensity_vector':
+        # Form feature vector using all pixel intensities
+        feats = patches.reshape((patches.size, 1))  
+    elif method == 'center_intensity':
+        # Feature vector is only the center pixel intensity
+        feats = np.array([[img[img.shape[0]/2, img.shape[1]/2]] for img in patches]) 
+    elif method == 'glcm':
+        # Feature vector is the GLCM
+        glcm_levels = 10
+        feats = np.array([get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), levels=glcm_levels) 
+                          for img in patches])
+    elif method == 'lbp':
+        # LBP
+        radius = 3
+        n_points = 8 * radius
+        lbps = [local_binary_pattern(img, P=n_points, R=radius, method='uniform') for img in patches]
+        feats = np.array([np.histogram(lbp, bins=int(lbp.max()+1), normed=True)[0] for lbp in lbps])
+    
+    return feats

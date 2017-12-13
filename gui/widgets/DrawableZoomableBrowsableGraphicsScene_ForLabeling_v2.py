@@ -588,6 +588,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         grouped = contours.groupby('section')
 
         for sec, group in grouped:
+
             # assert sec in metadata_cache['valid_sections'][self.gui.stack], "Section %d is labeled but the section is not valid." % sec
             if sec not in metadata_cache['valid_sections'][self.gui.stack]:
                 sys.stderr.write( "Section %d is labeled but the section is not valid.\n" % sec)

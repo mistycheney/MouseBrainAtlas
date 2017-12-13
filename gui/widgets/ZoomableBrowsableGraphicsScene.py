@@ -88,9 +88,16 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         self.active_section = None
         self.active_i = None
 
+        if hasattr(self.data_feeder, 'se'): # Only implemented for image reader, not volume resection reader.
+            self.connect(self.data_feeder.se, SIGNAL("image_loaded(int)"), self.image_loaded)
+
         # if hasattr(self, 'active_i') and self.active_i is not None:
         #     self.update_image()
         #     self.active_image_updated.emit()
+
+    @pyqtSlot(int)
+    def image_loaded(self, int):
+        self.active_image_updated.emit()
 
     def set_active_i(self, i, emit_changed_signal=True):
         """
@@ -118,6 +125,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             sys.stderr.write('Error setting index to %d\n' % i)
             self.pixmapItem.setVisible(False)
             raise e
+            # return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
 
         if emit_changed_signal:
             self.active_image_updated.emit()

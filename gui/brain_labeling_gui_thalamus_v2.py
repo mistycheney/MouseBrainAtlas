@@ -1,13 +1,5 @@
 #! /usr/bin/env python
 
-"""
-This is identical to brain_labeling_gui_v25.py 12/4/2017 1:09am version.
-except the following replacements:
-    1. ANNOTATION_ROOTDIR -> ANNOTATION_THALAMUS_ROOTDIR
-    2. get_annotation_filepath -> get_annotation_thalamus_filepath
-    3. default command-line argument prep_id = 2 -> prep_id = 3
-"""
-
 import sys
 import os
 from datetime import datetime
@@ -38,7 +30,7 @@ from widgets.custom_widgets import *
 from widgets.SignalEmittingItems import *
 from widgets.DrawableZoomableBrowsableGraphicsScene_ForLabeling_v2 import DrawableZoomableBrowsableGraphicsScene_ForLabeling
 
-from DataFeeder import ImageDataFeeder, VolumeResectionDataFeeder
+from DataFeeder import ImageDataFeeder_v2, VolumeResectionDataFeeder
 
 ######################################################################
 
@@ -70,50 +62,6 @@ class ReadRGBComponentImagesThread(QThread):
             qimage = QImage(fp)
             self.emit(SIGNAL('component_image_loaded(QImage, int)'), qimage, sec)
 
-
-class ReadImagesThread(QThread):
-    def __init__(self, stack, sections, img_version, downsample=1, prep_id=2):
-        """
-        This always loads images in raw resolution and then downsample them according to `downsample`.
-        """
-
-        QThread.__init__(self)
-        self.stack = stack
-        self.sections = sections
-        self.img_version = img_version
-        self.downsample = downsample
-        self.prep_id = prep_id
-
-    def __del__(self):
-        self.wait()
-
-    def run(self):
-        for sec in self.sections:
-            try:
-                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='jpeg')
-                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='grayJpeg')
-                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretched', ext='jpg')
-                # fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version=self.img_version)
-                fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol='lossless', version=self.img_version)
-            except Exception as e:
-                sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
-                continue
-            if not os.path.exists(fp):
-                sys.stderr.write('Image %s does not exist.\n' % fp)
-                continue
-            qimage = QImage(fp)
-
-            if self.downsample != 1:
-                # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
-                # r = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN / XY_PIXEL_DISTANCE_LOSSLESS
-                # sys.stderr.write('Raw qimage bytes = %d\n' % qimage.byteCount())
-                raw_width, raw_height = (qimage.width(), qimage.height())
-                new_width, new_height = (raw_width / self.downsample, raw_height / self.downsample)
-                qimage = qimage.scaled(new_width, new_height)
-                sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (self.downsample, raw_width, raw_height, new_width, new_height))
-                # sys.stderr.write('New qimage bytes = %d\n' % qimage.byteCount())
-
-            self.emit(SIGNAL('image_loaded(QImage, int)'), qimage, sec)
 
 class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
@@ -217,10 +165,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.sections = range(first_sec0, last_sec0 + 1)
 
-        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
+        image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,
+        prep_id=self.prep_id, use_data_manager=False,
+        downscale=self.sagittal_downsample,
+        version=img_version)
         image_feeder.set_orientation('sagittal')
-        image_feeder.set_downsample_factor(self.sagittal_downsample)
+
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
+
+        self.connect(self.gscenes['sagittal'], SIGNAL("image_loaded(int)"), self.image_loaded)
+
+        # self.button_stop.clicked.connect(self.read_images_thread.terminate)
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
 
@@ -251,23 +206,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
             self.gscenes['sagittal_tb'].set_active_i(150)
 
-        # if self.gscenes['sagittal'].data_feeder.downsample == 1:
-        self.read_images_thread = ReadImagesThread(stack=self.stack, sections=range(first_sec, last_sec+1),
-        img_version=img_version,
-        downsample=self.gscenes['sagittal'].data_feeder.downsample,
-        prep_id=prep_id)
-        self.connect(self.read_images_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
-        self.read_images_thread.start()
-        self.button_stop.clicked.connect(self.read_images_thread.terminate)
-        # elif self.gscenes['sagittal'].data_feeder.downsample in [8, 32]:
-        #     self.gscenes['sagittal'].data_feeder.load_images()
-        #     self.gscenes['sagittal'].set_vertex_radius(3)
-        #     self.gscenes['sagittal'].set_line_width(3)
-
         try:
             self.gscenes['sagittal'].set_active_section(first_sec)
         except Exception as e:
-            sys.stderr.write(e.message + '\n')
+            # sys.stderr.write(e.message + '\n')
+            pass
 
         ##############################
         # Internal structure volumes #
@@ -313,23 +256,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[2],
             thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[4]))
 
-    @pyqtSlot(object, int)
-    def image_loaded(self, qimage, sec):
+    @pyqtSlot(int)
+    def image_loaded(self, sec):
         """
-        Callback for when an image is loaded.
-
-        Args:
-            qimage (QImage): the image
-            sec (int): section
         """
+        gscene_id = self.sender().id
+        gscene = self.gscenes[gscene_id]
 
-        self.gscenes['sagittal'].data_feeder.set_image(sec=sec, qimage=qimage)
-        if self.gscenes['sagittal'].active_section == sec:
-            self.gscenes['sagittal'].update_image()
+        if gscene.active_section == sec:
+            gscene.update_image()
 
         self.statusBar().showMessage('Image %d loaded.\n' % sec)
         print 'Image', sec, 'received.'
-
 
     @pyqtSlot(object, int)
     def component_image_loaded(self, qimage_blue, sec):
@@ -647,31 +585,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
         # Save coronal
-        coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        # print coronal_contour_entries_curr_session
-        if len(coronal_contour_entries_curr_session) > 0:
-            # coronal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
-            #                                                        classifier_setting_m=classifier_setting_m,
-            #                                                       classifier_setting_f=classifier_setting_f,
-            #                                                       warp_setting=warp_setting, suffix='contours_coronal')
-            coronal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
-            save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
-            upload_to_s3(coronal_contours_df_fp)
-            self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
-            print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
+        # coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # # print coronal_contour_entries_curr_session
+        # if len(coronal_contour_entries_curr_session) > 0:
+        #     # coronal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+        #     #                                                        classifier_setting_m=classifier_setting_m,
+        #     #                                                       classifier_setting_f=classifier_setting_f,
+        #     #                                                       warp_setting=warp_setting, suffix='contours_coronal')
+        #     coronal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
+        #     save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
+        #     upload_to_s3(coronal_contours_df_fp)
+        #     self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
+        #     print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
         # Save horizontal
-        horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        if len(horizontal_contour_entries_curr_session) > 0:
-            # horizontal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
-            #                                                        classifier_setting_m=classifier_setting_m,
-            #                                                       classifier_setting_f=classifier_setting_f,
-            #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
-            horizontal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
-            save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
-            upload_to_s3(horizontal_contours_df_fp)
-            self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
-            print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
+        # horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # if len(horizontal_contour_entries_curr_session) > 0:
+        #     # horizontal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+        #     #                                                        classifier_setting_m=classifier_setting_m,
+        #     #                                                       classifier_setting_f=classifier_setting_f,
+        #     #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
+        #     horizontal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
+        #     save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
+        #     upload_to_s3(horizontal_contours_df_fp)
+        #     self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
+        #     print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
 
     @pyqtSlot()
     def load_markers(self):
@@ -829,6 +767,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
+            # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
+            #     continue
             if gscene.mode == 'crossline':
                 try:
                     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,

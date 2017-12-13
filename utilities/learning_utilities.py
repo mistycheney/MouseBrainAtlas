@@ -591,7 +591,8 @@ def locate_patches_given_addresses_v2(addresses):
     return patch_locations_all_inOriginalOrder
     
     
-def extract_patches_given_locations(patch_size, locs,
+def extract_patches_given_locations(patch_size, 
+                                    locs,
                                     img=None,
                                     stack=None, sec=None, version=None, prep_id=2,
                                    normalization_scheme=None):
@@ -600,7 +601,7 @@ def extract_patches_given_locations(patch_size, locs,
     The image can be given, or the user can provide stack,sec,version,prep_id.
 
     Args:
-        img: the image
+        img: the image. If not given, must provide stack, sec, version and prep_id (default=2).
         locs ((n,2)-array): list of patch centers
         patch_size (int): size of a patch, assume square
         normalization_scheme (str)

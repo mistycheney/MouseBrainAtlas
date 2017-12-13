@@ -13,6 +13,8 @@ except:
     sys.stderr.write("No vtk")
 from distributed_utilities import *
 
+image_cache = {}
+
 def get_random_masked_regions(region_shape, stack, num_regions=1, sec=None, fn=None):
     """
     Return a random region that is on mask.
@@ -2589,7 +2591,13 @@ class DataManager(object):
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         # return imread(img_fp)
-        img = cv2.imread(img_fp, -1)
+        args_tuple = tuple(locals().values())
+        if args_tuple in image_cache:
+            sys.stderr.write("Loaded image from image_cache.\n")
+            img = image_cache[args_tuple]
+        else:
+            img = cv2.imread(img_fp, -1)
+            image_cache[args_tuple] = img
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:

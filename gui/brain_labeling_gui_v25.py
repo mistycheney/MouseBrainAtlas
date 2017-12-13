@@ -30,7 +30,7 @@ from widgets.custom_widgets import *
 from widgets.SignalEmittingItems import *
 from widgets.DrawableZoomableBrowsableGraphicsScene_ForLabeling_v2 import DrawableZoomableBrowsableGraphicsScene_ForLabeling
 
-from DataFeeder import ImageDataFeeder, VolumeResectionDataFeeder
+from DataFeeder import ImageDataFeeder_v2, VolumeResectionDataFeeder
 
 ######################################################################
 
@@ -209,7 +209,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.sections = range(first_sec0, last_sec0 + 1)
 
-        image_feeder = ImageDataFeeder('image feeder', stack=self.stack, sections=self.sections, use_data_manager=False)
+        image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,
+        prep_id=self.prep_id, use_data_manager=False,
+        version=img_version)
         image_feeder.set_orientation('sagittal')
         image_feeder.set_downsample_factor(self.sagittal_downsample)
         self.gscenes['sagittal'].set_data_feeder(image_feeder)
@@ -259,7 +261,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         try:
             self.gscenes['sagittal'].set_active_section(first_sec)
         except Exception as e:
-            sys.stderr.write(e.message + '\n')
+            # sys.stderr.write(e.message + '\n')
+            pass
 
         ##############################
         # Internal structure volumes #
@@ -639,31 +642,31 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
         # Save coronal
-        coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        # print coronal_contour_entries_curr_session
-        if len(coronal_contour_entries_curr_session) > 0:
-            # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
-            #                                                        classifier_setting_m=classifier_setting_m,
-            #                                                       classifier_setting_f=classifier_setting_f,
-            #                                                       warp_setting=warp_setting, suffix='contours_coronal')
-            coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
-            save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
-            upload_to_s3(coronal_contours_df_fp)
-            self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
-            print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
+        # coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # # print coronal_contour_entries_curr_session
+        # if len(coronal_contour_entries_curr_session) > 0:
+        #     # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+        #     #                                                        classifier_setting_m=classifier_setting_m,
+        #     #                                                       classifier_setting_f=classifier_setting_f,
+        #     #                                                       warp_setting=warp_setting, suffix='contours_coronal')
+        #     coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_coronal', timestamp=timestamp)
+        #     save_hdf_v2(coronal_contour_entries_curr_session, coronal_contours_df_fp)
+        #     upload_to_s3(coronal_contours_df_fp)
+        #     self.statusBar().showMessage('Coronal boundaries saved to %s.' % coronal_contours_df_fp)
+        #     print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
         # Save horizontal
-        horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
-        if len(horizontal_contour_entries_curr_session) > 0:
-            # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
-            #                                                        classifier_setting_m=classifier_setting_m,
-            #                                                       classifier_setting_f=classifier_setting_f,
-            #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
-            horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
-            save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
-            upload_to_s3(horizontal_contours_df_fp)
-            self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
-            print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
+        # horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # if len(horizontal_contour_entries_curr_session) > 0:
+        #     # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
+        #     #                                                        classifier_setting_m=classifier_setting_m,
+        #     #                                                       classifier_setting_f=classifier_setting_f,
+        #     #                                                       warp_setting=warp_setting, suffix='contours_horizontal')
+        #     horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours_horizontal', timestamp=timestamp)
+        #     save_hdf_v2(horizontal_contour_entries_curr_session, horizontal_contours_df_fp)
+        #     upload_to_s3(horizontal_contours_df_fp)
+        #     self.statusBar().showMessage('Horizontal boundaries saved to %s.' % horizontal_contours_df_fp)
+        #     print 'Horizontal boundaries saved to %s.' % horizontal_contours_df_fp
 
     @pyqtSlot()
     def load_markers(self):
@@ -821,6 +824,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
 
         for gscene_id, gscene in self.gscenes.iteritems():
+            # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
+            #     continue
             if gscene.mode == 'crossline':
                 try:
                     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,

@@ -68,7 +68,18 @@ class ImageDataFeeder_v2(object):
             else:
                 raise Exception('Either filepath or numpy_image must be provided.')
 
+        if downsample != 1:
+            # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
+            # r = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN / XY_PIXEL_DISTANCE_LOSSLESS
+            # sys.stderr.write('Raw qimage bytes = %d\n' % qimage.byteCount())
+            raw_width, raw_height = (qimage.width(), qimage.height())
+            new_width, new_height = (raw_width / downsample, raw_height / downsample)
+            qimage = qimage.scaled(new_width, new_height)
+            sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (downsample, raw_width, raw_height, new_width, new_height))
+            # sys.stderr.write('New qimage bytes = %d\n' % qimage.byteCount())
+
         self.image_cache[downsample][sec] = qimage
+
         self.compute_dimension()
 
     def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
@@ -164,202 +175,215 @@ class ImageDataFeeder_v2(object):
         if downsample not in self.image_cache:
             self.image_cache[downsample] = {}
 
+        print "sec!!!!!!!!!!!!", sec
+
         if sec not in self.image_cache[downsample]:
-            raise Exception('Image is not loaded: %d' % sec)
+            # raise Exception('Image is not loaded: section %d' % sec)
+            sys.stderr.write('Image data for section %d is not loaded. Loading now.. \n' % sec)
+            if len(self.image_cache[downsample]) > 10:
+                loaded_sections = self.image_cache[downsample].keys()
+                a = np.argsort([np.abs(s - sec) for s in loaded_sections])[:-5]
+                sections_to_remove = [loaded_sections[i] for i in a]
+                for sec_to_remove in sections_to_remove:
+                    sys.stderr.write("Remove section %d from cache.\n" % sec_to_remove)
+                    del self.image_cache[downsample][sec_to_remove]
+            self.set_image(sec=sec,
+            fp=DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=self.prep_id, resol='lossless', version=self.version),
+            downsample=downsample)
 
         return self.image_cache[downsample][sec]
 
-class ImageDataFeeder(object):
-
-    def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True, downscale=None, labeled_filenames=None):
-        self.name = name
-        self.stack = stack
-
-        if use_data_manager:
-            # index in stack
-            assert sections is not None
-            self.sections = sections
-            self.min_section = min(self.sections)
-            self.max_section = max(self.sections)
-            # self.first_section, self.last_section = metadata_cache['section_limits'][stack]
-            # self.all_sections = range(self.first_section, self.last_section+1)
-        else:
-            # macro index
-            self.sections = sections
-            # self.all_sections = sections
-
-        self.n = len(self.sections)
-
-        # self.supported_downsample_factors = [1, 32]
-        # self.supported_downsample_factors = [1.4, 1, 32]
-        self.image_cache = {} # {downscale: {sec: qimage}}
-
-        self.version = version
-
-        if downscale is not None:
-            self.set_downsample_factor(downscale)
-
-        if labeled_filenames is not None:
-            self.set_images(labeled_filenames=labeled_filenames)
-        elif use_data_manager:
-            self.load_images()
-
-    def set_orientation(self, orientation):
-        self.orientation = orientation
-        self.compute_dimension()
-
-    def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None):
-        """
-        Args:
-            qimage (QImage):
-            downsample (int): downscaling factor of the input image.
-        """
-
-        if downsample is None:
-            downsample = self.downsample
-
-        if downsample not in self.image_cache:
-            self.image_cache[downsample] = {}
-
-        if sec is None:
-            sec = self.sections[i]
-
-        # self.sections.append(sec)
-        # self.all_sections.append(sec)
-
-        if qimage is None:
-            if fp is not None:
-                qimage = QImage(fp)
-            elif numpy_image is not None:
-                qimage = numpy_to_qimage(numpy_image)
-            else:
-                raise Exception('Either filepath or numpy_image must be provided.')
-
-        self.image_cache[downsample][sec] = qimage
-        self.compute_dimension()
-
-
-
-    def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
-
-        if labeled_filenames is not None:
-            assert isinstance(labeled_filenames, dict)
-            labels = labeled_filenames.keys()
-            filenames = labeled_filenames.values()
-
-        for lbl, fn in zip(labels, filenames):
-            if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
-                # print fn
-                img = cv2.imread(fn)
-                if img is None:
-                    continue
-
-                qimage = numpy_to_qimage(img)
-
-                # h, w = img.shape[:2]
-                # if img.ndim == 3:
-                #     qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
-                # else:
-                #     qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
-                #     qimage.setColorTable(gray_color_table)
-            else:
-                qimage = QImage(fn)
-            self.set_image(qimage=qimage, sec=lbl, downsample=downsample)
-
-
-    def load_images(self, downsample=None, selected_sections=None):
-        """
-        If use_data_manager, use this function to load images.
-        """
-
-        if downsample is None:
-            downsample = self.downsample
-
-        if selected_sections is None:
-            selected_sections = self.sections
-
-        if self.version == 'aligned_cropped':
-            if downsample == 1:
-                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
-                                                for sec in selected_sections}
-            elif downsample == 32:
-                # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
-                #                                 % dict(stack=self.stack, sec=sec))
-                #                                 for sec in selected_sections}
-                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='cropped', resol='thumbnail'))
-                                                for sec in selected_sections}
-            else:
-                raise Exception('Not implemented.')
-        elif self.version == 'aligned':
-            if downsample == 32:
-                self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='aligned_tif', resol='thumbnail'))
-                                                for sec in selected_sections}
-                # anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
-                # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/%(stack)s_%(sec)04d_thumbnail_aligned.tif' \
-                #                                 % dict(stack=self.stack, sec=sec))
-                #                                 for sec in selected_sections}
-            else:
-                raise Exception('Not implemented.')
-        elif self.version == 'original':
-            if downsample == 32:
-                self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_renamed/%(stack)s_%(sec)04d_thumbnail.tif' \
-                                                % dict(stack=self.stack, sec=sec))
-                                                for sec in selected_sections}
-            else:
-                raise Exception('Not implemented.')
-        else:
-            raise Exception('Not implemented.')
-
-        self.compute_dimension()
-
-
-    def compute_dimension(self):
-
-        if hasattr(self, 'downsample') and self.downsample in self.image_cache and hasattr(self, 'orientation'):
-            arbitrary_img = self.image_cache[self.downsample].values()[0]
-            if self.orientation == 'sagittal':
-                self.x_dim = arbitrary_img.width()
-                self.y_dim = arbitrary_img.height()
-            elif self.orientation == 'coronal':
-                self.z_dim = arbitrary_img.width()
-                self.y_dim = arbitrary_img.height()
-            elif self.orientation == 'horizontal':
-                self.x_dim = arbitrary_img.width()
-                self.z_dim = arbitrary_img.height()
-
-    def set_downsample_factor(self, downsample):
-        # if downsample not in self.supported_downsample_factors:
-        #     sys.stderr.write('Downsample factor %.f is not supported.\n' % downsample)
-        #     return
-        # else:
-        self.downsample = downsample
-
-        self.compute_dimension()
-
-    def retrieve_i(self, i=None, sec=None, downsample=None):
-        """
-        Retrieve the i'th image in self.sections.
-        """
-
-        if downsample is None:
-            downsample = self.downsample
-
-        # if downsample not in self.supported_downsample_factors:
-        #     sys.stderr.write('Downsample factor %.f is not supported.' % downsample)
-        #     return
-
-        if sec is None:
-            sec = self.sections[i]
-
-        if downsample not in self.image_cache:
-            self.image_cache[downsample] = {}
-
-        if sec not in self.image_cache[downsample]:
-            raise Exception('Image is not loaded: %d' % sec)
-
-        return self.image_cache[downsample][sec]
-
-
+# class ImageDataFeeder(object):
+#
+#     def __init__(self, name, stack, sections=None, version='aligned_cropped', use_data_manager=True, downscale=None, labeled_filenames=None):
+#         self.name = name
+#         self.stack = stack
+#
+#         if use_data_manager:
+#             # index in stack
+#             assert sections is not None
+#             self.sections = sections
+#             self.min_section = min(self.sections)
+#             self.max_section = max(self.sections)
+#             # self.first_section, self.last_section = metadata_cache['section_limits'][stack]
+#             # self.all_sections = range(self.first_section, self.last_section+1)
+#         else:
+#             # macro index
+#             self.sections = sections
+#             # self.all_sections = sections
+#
+#         self.n = len(self.sections)
+#
+#         # self.supported_downsample_factors = [1, 32]
+#         # self.supported_downsample_factors = [1.4, 1, 32]
+#         self.image_cache = {} # {downscale: {sec: qimage}}
+#
+#         self.version = version
+#
+#         if downscale is not None:
+#             self.set_downsample_factor(downscale)
+#
+#         if labeled_filenames is not None:
+#             self.set_images(labeled_filenames=labeled_filenames)
+#         elif use_data_manager:
+#             self.load_images()
+#
+#     def set_orientation(self, orientation):
+#         self.orientation = orientation
+#         self.compute_dimension()
+#
+#     def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None):
+#         """
+#         Args:
+#             qimage (QImage):
+#             downsample (int): downscaling factor of the input image.
+#         """
+#
+#         if downsample is None:
+#             downsample = self.downsample
+#
+#         if downsample not in self.image_cache:
+#             self.image_cache[downsample] = {}
+#
+#         if sec is None:
+#             sec = self.sections[i]
+#
+#         # self.sections.append(sec)
+#         # self.all_sections.append(sec)
+#
+#         if qimage is None:
+#             if fp is not None:
+#                 qimage = QImage(fp)
+#             elif numpy_image is not None:
+#                 qimage = numpy_to_qimage(numpy_image)
+#             else:
+#                 raise Exception('Either filepath or numpy_image must be provided.')
+#
+#         self.image_cache[downsample][sec] = qimage
+#         self.compute_dimension()
+#
+#
+#
+#     def set_images(self, labels=None, filenames=None, labeled_filenames=None, downsample=None, load_with_cv2=False):
+#
+#         if labeled_filenames is not None:
+#             assert isinstance(labeled_filenames, dict)
+#             labels = labeled_filenames.keys()
+#             filenames = labeled_filenames.values()
+#
+#         for lbl, fn in zip(labels, filenames):
+#             if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
+#                 # print fn
+#                 img = cv2.imread(fn)
+#                 if img is None:
+#                     continue
+#
+#                 qimage = numpy_to_qimage(img)
+#
+#                 # h, w = img.shape[:2]
+#                 # if img.ndim == 3:
+#                 #     qimage = QImage(img.flatten(), w, h, 3*w, QImage.Format_RGB888)
+#                 # else:
+#                 #     qimage = QImage(img.flatten(), w, h, w, QImage.Format_Indexed8)
+#                 #     qimage.setColorTable(gray_color_table)
+#             else:
+#                 qimage = QImage(fn)
+#             self.set_image(qimage=qimage, sec=lbl, downsample=downsample)
+#
+#
+#     def load_images(self, downsample=None, selected_sections=None):
+#         """
+#         If use_data_manager, use this function to load images.
+#         """
+#
+#         if downsample is None:
+#             downsample = self.downsample
+#
+#         if selected_sections is None:
+#             selected_sections = self.sections
+#
+#         if self.version == 'aligned_cropped':
+#             if downsample == 1:
+#                 self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='rgb-jpg', data_dir=data_dir))
+#                                                 for sec in selected_sections}
+#             elif downsample == 32:
+#                 # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned_cropped/%(stack)s_%(sec)04d_thumbnail_aligned_cropped.tif' \
+#                 #                                 % dict(stack=self.stack, sec=sec))
+#                 #                                 for sec in selected_sections}
+#                 self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='cropped', resol='thumbnail'))
+#                                                 for sec in selected_sections}
+#             else:
+#                 raise Exception('Not implemented.')
+#         elif self.version == 'aligned':
+#             if downsample == 32:
+#                 self.image_cache[downsample] = {sec: QImage(DataManager.get_image_filepath(stack=self.stack, section=sec, version='aligned_tif', resol='thumbnail'))
+#                                                 for sec in selected_sections}
+#                 # anchor_fn = DataManager.load_anchor_filename(stack=self.stack)
+#                 # self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_aligned/%(stack)s_%(sec)04d_thumbnail_aligned.tif' \
+#                 #                                 % dict(stack=self.stack, sec=sec))
+#                 #                                 for sec in selected_sections}
+#             else:
+#                 raise Exception('Not implemented.')
+#         elif self.version == 'original':
+#             if downsample == 32:
+#                 self.image_cache[downsample] = {sec: QImage('/home/yuncong/CSHL_data_processed/%(stack)s_thumbnail_renamed/%(stack)s_%(sec)04d_thumbnail.tif' \
+#                                                 % dict(stack=self.stack, sec=sec))
+#                                                 for sec in selected_sections}
+#             else:
+#                 raise Exception('Not implemented.')
+#         else:
+#             raise Exception('Not implemented.')
+#
+#         self.compute_dimension()
+#
+#
+#     def compute_dimension(self):
+#
+#         if hasattr(self, 'downsample') and self.downsample in self.image_cache and hasattr(self, 'orientation'):
+#             arbitrary_img = self.image_cache[self.downsample].values()[0]
+#             if self.orientation == 'sagittal':
+#                 self.x_dim = arbitrary_img.width()
+#                 self.y_dim = arbitrary_img.height()
+#             elif self.orientation == 'coronal':
+#                 self.z_dim = arbitrary_img.width()
+#                 self.y_dim = arbitrary_img.height()
+#             elif self.orientation == 'horizontal':
+#                 self.x_dim = arbitrary_img.width()
+#                 self.z_dim = arbitrary_img.height()
+#
+#     def set_downsample_factor(self, downsample):
+#         # if downsample not in self.supported_downsample_factors:
+#         #     sys.stderr.write('Downsample factor %.f is not supported.\n' % downsample)
+#         #     return
+#         # else:
+#         self.downsample = downsample
+#
+#         self.compute_dimension()
+#
+#     def retrieve_i(self, i=None, sec=None, downsample=None):
+#         """
+#         Retrieve the i'th image in self.sections.
+#         """
+#
+#         if downsample is None:
+#             downsample = self.downsample
+#
+#         # if downsample not in self.supported_downsample_factors:
+#         #     sys.stderr.write('Downsample factor %.f is not supported.' % downsample)
+#         #     return
+#
+#         if sec is None:
+#             sec = self.sections[i]
+#
+#         if downsample not in self.image_cache:
+#             self.image_cache[downsample] = {}
+#
+#         if sec not in self.image_cache[downsample]:
+#             raise Exception('Image is not loaded: %d' % sec)
+#
+#         return self.image_cache[downsample][sec]
+#
+#
 class VolumeResectionDataFeeder(object):
 
     def __init__(self, name, stack):

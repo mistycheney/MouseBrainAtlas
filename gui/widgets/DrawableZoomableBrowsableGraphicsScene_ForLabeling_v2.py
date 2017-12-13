@@ -715,13 +715,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
                 if p.properties['side_manually_assigned']:
-                    if p.side is None:
+                    if p.properties['side'] is None:
                         label = p.properties['label']
-                    elif p.side == 'S':
+                    elif p.properties['side'] == 'S':
                         label = p.properties['label']
-                    elif p.side == 'L':
+                    elif p.properties['side'] == 'L':
                         label = convert_to_left_name(p.properties['label'])
-                    elif p.side == 'R':
+                    elif p.properties['side'] == 'R':
                         label = convert_to_right_name(p.properties['label'])
                     else:
                         raise Exception('Side property must be None, L or R.')
@@ -1060,15 +1060,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.cross_y_lossless = cross_y_lossless
         self.cross_z_lossless = cross_z_lossless
 
-        cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
-        cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
-        cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
-
         print 'cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
         print 'origin', origin
-        print 'cross_ds', cross_x_ds, cross_y_ds, cross_z_ds
+        # print 'cross_ds', cross_x_ds, cross_y_ds, cross_z_ds
 
         if self.data_feeder.orientation == 'sagittal':
+
+            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
+            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
+            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
 
             self.hline.setLine(0, cross_y_ds, self.data_feeder.x_dim-1, cross_y_ds)
             self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.y_dim-1)
@@ -1076,15 +1076,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if hasattr(self.data_feeder, 'sections'):
                 # sec = DataManager.convert_z_to_section(z=cross_z_ds, downsample=downsample)
                 # print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', DataManager.convert_section_to_z(sec=sec, downsample=downsample)
-                xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
-                voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-                sec = int(np.ceil(cross_z_lossless / voxel_z_size))
-                # print 'cross_z_lossless', cross_z_lossless, 'sec', sec
+                section_thickness_in_lossless_z = SECTION_THICKNESS / XY_PIXEL_DISTANCE_LOSSLESS
+                sec = int(np.ceil(cross_z_lossless / section_thickness_in_lossless_z))
+                print 'crossline has been updated to cross_z_lossless =', cross_z_lossless, ', so set section to', sec
                 self.set_active_section(sec, update_crossline=False)
             else:
                 self.set_active_i(cross_z_ds, update_crossline=False)
 
         elif self.data_feeder.orientation == 'coronal':
+
+            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
+            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
+            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
 
             self.hline.setLine(0, cross_y_ds, self.data_feeder.z_dim-1, cross_y_ds)
             self.vline.setLine(self.data_feeder.z_dim-1-cross_z_ds, 0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.y_dim-1)
@@ -1092,6 +1095,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_active_i(cross_x_ds, update_crossline=False)
 
         elif self.data_feeder.orientation == 'horizontal':
+
+            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
+            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
+            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
 
             self.hline.setLine(0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.x_dim-1, self.data_feeder.z_dim-1-cross_z_ds)
             self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.z_dim-1)

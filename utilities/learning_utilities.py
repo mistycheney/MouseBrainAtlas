@@ -34,6 +34,78 @@ try:
     from xgboost.sklearn import XGBClassifier
 except:
     sys.stderr.write('xgboost is not loaded.')
+    
+def compute_classification_metrics(probs, labels):
+    """
+    Args:
+        probs ((n,)-array of prediction value between 0 and 1): prediction.
+        labels ((n,)-array of 0/1 or -1/1): ground-truth labels.
+        
+    Returns:
+        dict
+    """
+
+    precision_allthresh = {}
+    recall_allthresh = {}
+    f1score_allthresh = {}
+    tp_normalized_allthresh = {}
+    fp_normalized_allthresh = {}
+    acc_allthresh = {}
+    
+    n_pos = np.count_nonzero(labels == 1)
+    n_neg = np.count_nonzero(labels != 1)
+    n = len(labels)
+    
+    for th in np.arange(0., 1., 0.01):
+
+        cm = compute_confusion_matrix(np.c_[probs, 1-probs], [0 if l==1. else 1 for l in labels], soft=False,
+                                     normalize=False, binary=True, decision_thresh=th)
+        tp = cm[0,0]
+        fn = cm[0,1]
+        fp = cm[1,0]
+        tn = cm[1,1]
+        
+        acc = (tp + tn) / float(n)
+
+        tp_normalized = tp / n_pos
+#                 fn_normalized = fn / n_pos
+        fp_normalized = fp / n_neg
+#                 tn_normalized = tn / n_neg
+
+        precision = float(tp) / (tp + fp)
+        recall = float(tp) / (tp + fn)
+        f1score = 2*recall*precision/(recall+precision)
+
+        tp_normalized_allthresh[float(th)] = tp_normalized
+        fp_normalized_allthresh[float(th)] = fp_normalized
+        precision_allthresh[float(th)] = precision
+        recall_allthresh[float(th)] = recall
+        f1score_allthresh[float(th)] = f1score
+        acc_allthresh[float(th)] = acc
+        
+    fps = [fp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
+    tps = [tp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
+    auroc = np.sum([.5 * (tps[k] + tps[k-1]) * np.abs(fps[k] - fps[k-1]) for k in range(1, len(fps))])
+        
+    rs = [recall_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
+    ps = [precision_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
+    auprc = np.sum([.5 * (rs[k] + rs[k-1]) * np.abs(ps[k] - ps[k-1]) for k in range(1, len(ps))])
+    
+    optimal_th = np.arange(0, 1, 0.01)[np.nanargmax([f1score_allthresh[th] for th in np.arange(0, 1, 0.01)])]            
+    fopt = f1score_allthresh[optimal_th]
+    
+    return {'acc': acc_allthresh,
+        'tp': tp_normalized_allthresh,
+#             fn_normalized_all_clfs_all_structures_all_negcomprule[classifier_id][structure][neg_composition_rule] = fn_normalized_allthresh
+    'fp': fp_normalized_allthresh,
+#             tn_normalized_all_clfs_all_structures_all_negcomprule[classifier_id][structure][neg_composition_rule] = tn_normalized_allthresh
+    'precision': precision_allthresh,
+    'recall': recall_allthresh,
+    'f1score': f1score_allthresh,
+           'opt_thresh': optimal_th,
+           'fopt': fopt,
+           'auroc': auroc,
+           'auprc': auprc}
 
 def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
     """
@@ -156,6 +228,8 @@ def plot_roc_curve(fp_allthresh, tp_allthresh, optimal_th, title=''):
     plt.axis('equal');
     plt.ylabel('True positive rate');
     plt.xlabel('False positive rate');
+    plt.xlim([0,1]);
+    plt.ylim([0,1]);
     plt.title(title);
     plt.show();
 

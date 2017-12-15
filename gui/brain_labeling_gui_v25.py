@@ -633,17 +633,19 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_warped_atlas_volume(self):
         """
         Load warped atlas volumes.
-        This populates the graphicsscenes with contours. Note that no volumes are reconstructed from them yet.
+        This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
         """
 
         warped_atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
         return_label_mappings=False,
         name_or_index_as_key='name',
+        structures=['SNC_R']
         # structures=['VLL_R'])
-        structures=['SNC_R'])
+        # structures=['SNC_R']
         # structures=['PBG_R'])
         # structures=['6N_R'])
         # structures=['3N_L', '3N_R', '4N_L', '4N_R'])
+        )
 
         # warped_atlas_volumes = {'PBG_L': warped_atlas_volumes['PBG_L']}
         # warped_atlas_volumes = {k: warped_atlas_volumes[k] for k in ['PBG_R']}
@@ -657,7 +659,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(warped_atlas_volumes, volume_origin=(0,0,0),
         sections=metadata_cache['valid_sections'][self.stack],
-        downsample_factor=32, level=.5, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
+        downsample_factor=32, level=.1, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
 
         import uuid
 

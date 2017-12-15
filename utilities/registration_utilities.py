@@ -2897,6 +2897,111 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
                                                      what='trajectory')
     bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
     upload_to_s3(trajectory_fp)
+    
+    
+def fit_plane(X):
+    """
+    Fit a plane to a set of 3d points
+
+    Parameters
+    ----------
+    X : n x 3 array
+        points
+
+    Returns
+    ------
+    normal : (3,) vector
+        the normal vector of the plane
+    c : (3,) vector
+        a point on the plane
+    """
+
+    # http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+    # http://math.stackexchange.com/a/3871
+    X = np.array(X)
+    c = X.mean(axis=0)
+    Xc = X - c
+    U, _, VT = np.linalg.svd(Xc.T)
+    return U[:,-1], c
+
+def R_align_two_vectors(a, b):
+    """
+    Find the rotation matrix that align a onto b.
+    """
+    # http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/897677#897677
+
+    v = np.cross(a, b)
+    s = np.linalg.norm(v)
+    c = np.dot(a, b)
+    v_skew = np.array([[0, -v[2], v[1]],
+                      [v[2], 0, -v[0]],
+                      [-v[1], v[0], 0]])
+    R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/(s + 1e-5)**2
+    return R
+
+    
+def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None):
+    """
+    Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
+
+    Args:
+        centroid_allLandmarks (dict {str: (n,3)-array})
+        mean_centroid_allLandmarks (dict {str: (3,)-array})
+
+    Return (0,0,0) centered coordinates where (0,0,0) is a point on the midplane
+    """
+
+    if mean_centroid_allLandmarks is None:
+        mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
+                                  for name, centroids in centroid_allLandmarks.iteritems()}
+
+    names = set([convert_to_original_name(name_s) for name_s in mean_centroid_allLandmarks.keys()])
+
+    # Fit a midplane from the midpoints of symmetric landmark centroids
+    midpoints = {}
+    for name in names:
+        lname = convert_to_left_name(name)
+        rname = convert_to_right_name(name)
+
+#         names = labelMap_unsidedToSided[name]
+
+#         # maybe ignoring singular instances is better
+#         if len(names) == 2:
+        if lname in mean_centroid_allLandmarks and rname in mean_centroid_allLandmarks:
+            midpoints[name] = .5 * mean_centroid_allLandmarks[lname] + .5 * mean_centroid_allLandmarks[rname]
+        else:
+            midpoints[name] = mean_centroid_allLandmarks[name]
+
+    # print midpoints
+
+    midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
+
+    print midplane_normal,'@', midplane_point
+
+    R_to_canonical = R_align_two_vectors(midplane_normal , np.r_[0, 0, 1])
+
+    points_midplane_oriented = {name: np.dot(R_to_canonical, p - midplane_point)
+                                for name, p in mean_centroid_allLandmarks.iteritems()}
+
+    canonical_locations = {}
+
+    for name in names:
+
+        lname = convert_to_left_name(name)
+        rname = convert_to_right_name(name)
+
+        if lname in points_midplane_oriented and rname in points_midplane_oriented:
+
+            x, y, mz = .5 * points_midplane_oriented[lname] + .5 * points_midplane_oriented[rname]
+
+            canonical_locations[lname] = np.r_[x, y, points_midplane_oriented[lname][2]-mz]
+            canonical_locations[rname] = np.r_[x, y, points_midplane_oriented[rname][2]-mz]
+        else:
+            x, y, _ = points_midplane_oriented[name]
+            canonical_locations[name] = np.r_[x, y, 0]
+
+    return canonical_locations, midplane_point, midplane_normal
+    
 
 # def save_alignment_results(T_all_trials, score_traj_all_trials, parameter_traj_all_trials):
 #     """

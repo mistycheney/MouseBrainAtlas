@@ -73,24 +73,26 @@ def rotationMatrixToEulerAngles(R) :
     return np.array([x, y, z])
 
 def plot_centroid_means_and_covars_3d(instance_centroids,
-                                        canonical_locations,
+                                        nominal_locations,
                                         canonical_centroid=None,
                                         canonical_normal=None,
                                       cov_mat_allStructures=None,
                                       radii_allStructures=None,
-                                      ellipsoid_matrix_allStructures=None):
+                                      ellipsoid_matrix_allStructures=None,
+                                     colors=None):
     """
     Plot the means and covariance matrices in 3D.
     All coordinates are relative to cropped MD589.
 
     Args:
-        instance_centroids (dict {str: list of (3,)-arrays})
-        canonical_locations (dict {str: (3,)-arrays}): the average centroid for all instance centroid of every structure in canonical frame
-        canonical_centroid ((3,)-arrays): coordinate of the origin of canonical frame
+        instance_centroids (dict {str: list of (3,)-arrays}): centroid coordinate of each instance relative to the canonical centroid
+        nominal_locations (dict {str: (3,)-arrays}): the average centroid for all instance centroid of every structure relative to canonical centroid
+        canonical_centroid ((3,)-arrays): coordinate of the origin of canonical frame, defined relative to atlas
         canonical_normal ((3,)-arrays): normal vector of the mid-sagittal plane. The mid-sagittal plane is supppose to pass the `canonical_centroid`.
         cov_mat_allStructures (dict {str: (3,3)-ndarray}): covariance_matrices
         radii_allStructures (dict {str: (3,)-ndarray}): radius of each axis
         ellipsoid_matrix_allStructures (dict {str: (3,3)-ndarray}): Of each matrix, each row is a eigenvector of the corresponding covariance matrix
+        colors (dict {str: 3-tuple}): for example: {'7N': (1,0,0)}.
     """
 
     # Load ellipsoid: three radius and axes.
@@ -109,17 +111,30 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
-
+    
+    if colors is None:
+        colors = {name_s: (0,0,1) for name_s in instance_centroids}
+    
     for name_s, centroids in instance_centroids.iteritems():
     #     if name_s == '7N_L' or name_s == '7N_R':
-        centroids2 = np.array(centroids)
+        
+        if canonical_centroid is None:
+            centroids2 = np.array(centroids)
+        else:
+            centroids2 = np.array(centroids) + canonical_centroid
+        
         ax.scatter(centroids2[:,0], centroids2[:,1], centroids2[:,2],
                    color=np.array(name_unsided_to_color[convert_to_original_name(name_s)])/255.,
-                   marker='o', s=100, alpha=.1)
+                   marker='o', s=100, alpha=.1, c=colors[name_s])
 
-        c = canonical_locations[name_s]
+
+        if canonical_centroid is None:
+            c = nominal_locations[name_s]
+        else:
+            c = nominal_locations[name_s] + canonical_centroid
+            
         ax.scatter(c[0], c[1], c[2],
-                   color=np.array(name_unsided_to_color[convert_to_original_name(name_s)])/255., marker='*', s=100)
+                   color=colors[name_s], marker='*', s=100)
 
         # Plot uncerntainty ellipsoids
         u = np.linspace(0.0, 2.0 * np.pi, 100)

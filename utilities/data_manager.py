@@ -200,14 +200,14 @@ class DataManager(object):
     ###    Annotation    #####
     ##########################
 
-    @staticmethod
-    def get_structure_pose_corrections(stack, stack_m=None,
-                                detector_id_m=None,
-                                detector_id_f=None,
-                                warp_setting=None, trial_idx=None):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fp = os.path.join(ANNOTATION_ROOTDIR, stack, basename + '_' + 'structure3d_corrections' + '.pkl')
-        return fp
+    # @staticmethod
+    # def get_structure_pose_corrections(stack, stack_m=None,
+    #                             detector_id_m=None,
+    #                             detector_id_f=None,
+    #                             warp_setting=None, trial_idx=None):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fp = os.path.join(ANNOTATION_ROOTDIR, stack, basename + '_' + 'structure3d_corrections' + '.pkl')
+    #     return fp
 
     @staticmethod
     def get_annotated_structures(stack):
@@ -1494,100 +1494,100 @@ class DataManager(object):
             else:
                 return volumes
 
-#     @staticmethod
-#     def load_transformed_volume_all_known_structures(stack_m,
-#                                                      stack_f,
-#                                                     warp_setting,
-#                                                     detector_id_m=None,
-#                                                     detector_id_f=None,
-#                                                      prep_id_m=None,
-#                                                      prep_id_f=None,
-#                                                     vol_type_m='score',
-#                                                     vol_type_f='score',
-#                                                     downscale=32,
-#                                                     structures=None,
-#                                                     sided=True,
-#                                                     include_surround=False,
-#                                                      trial_idx=None,
-#                                                      return_label_mappings=False,
-#                                                      name_or_index_as_key='name'
-# ):
-#         """
-#         Load transformed volumes for all structures.
-#
-#         Args:
-#             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
-#
-#         Returns:
-#             if return_label_mappings is True, returns (volumes, structure_to_label, label_to_structure), volumes is dict.
-#             else, returns volumes.
-#         """
-#
-#         if structures is None:
-#             if sided:
-#                 if include_surround:
-#                     structures = all_known_structures_sided_with_surround
-#                 else:
-#                     structures = all_known_structures_sided
-#             else:
-#                 structures = all_known_structures
-#
-#         loaded = False
-#         sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
-#
-#         volumes = {}
-#         if not loaded:
-#             structure_to_label = {}
-#             label_to_structure = {}
-#             index = 1
-#         for structure in structures:
-#             try:
-#
-#                 if loaded:
-#                     index = structure_to_label[structure]
-#
-#                 if trial_idx is None or isinstance(trial_idx, int):
-#                     v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
-#                                                             stack_f=stack_f, vol_type_f=vol_type_f,
-#                                                             downscale=downscale,
-#                                                             prep_id_m=prep_id_m,
-#                                                             prep_id_f=prep_id_f,
-#                                                             detector_id_m=detector_id_m,
-#                                                             detector_id_f=detector_id_f,
-#                                                             warp_setting=warp_setting,
-#                                                             structure=structure,
-#                                                             trial_idx=trial_idx)
-#
-#                 else:
-#                     v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
-#                                                             stack_f=stack_f, vol_type_f=vol_type_f,
-#                                                             downscale=downscale,
-#                                                             prep_id_m=prep_id_m,
-#                                                             prep_id_f=prep_id_f,
-#                                                             detector_id_m=detector_id_m,
-#                                                             detector_id_f=detector_id_f,
-#                                                             warp_setting=warp_setting,
-#                                                             structure=structure,
-#                                                             trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
-#
-#                 if name_or_index_as_key == 'name':
-#                     volumes[structure] = v
-#                 else:
-#                     volumes[index] = v
-#
-#                 if not loaded:
-#                     structure_to_label[structure] = index
-#                     label_to_structure[index] = structure
-#                     index += 1
-#
-#             except Exception as e:
-#                 sys.stderr.write('%s\n' % e)
-#                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
-#
-#         if return_label_mappings:
-#             return volumes, structure_to_label, label_to_structure
-#         else:
-#             return volumes
+    @staticmethod
+    def load_transformed_volume_all_known_structures(stack_m,
+                                                     stack_f,
+                                                    warp_setting,
+                                                    detector_id_m=None,
+                                                    detector_id_f=None,
+                                                     prep_id_m=None,
+                                                     prep_id_f=None,
+                                                    vol_type_m='score',
+                                                    vol_type_f='score',
+                                                    downscale=32,
+                                                    structures=None,
+                                                    sided=True,
+                                                    include_surround=False,
+                                                     trial_idx=None,
+                                                     return_label_mappings=False,
+                                                     name_or_index_as_key='name'
+):
+        """
+        Load transformed volumes for all structures.
+
+        Args:
+            trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
+
+        Returns:
+            if return_label_mappings is True, returns (volumes, structure_to_label, label_to_structure), volumes is dict.
+            else, returns volumes.
+        """
+
+        if structures is None:
+            if sided:
+                if include_surround:
+                    structures = all_known_structures_sided_with_surround
+                else:
+                    structures = all_known_structures_sided
+            else:
+                structures = all_known_structures
+
+        loaded = False
+        sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+
+        volumes = {}
+        if not loaded:
+            structure_to_label = {}
+            label_to_structure = {}
+            index = 1
+        for structure in structures:
+            try:
+
+                if loaded:
+                    index = structure_to_label[structure]
+
+                if trial_idx is None or isinstance(trial_idx, int):
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+                                                            stack_f=stack_f, vol_type_f=vol_type_f,
+                                                            downscale=downscale,
+                                                            prep_id_m=prep_id_m,
+                                                            prep_id_f=prep_id_f,
+                                                            detector_id_m=detector_id_m,
+                                                            detector_id_f=detector_id_f,
+                                                            warp_setting=warp_setting,
+                                                            structure=structure,
+                                                            trial_idx=trial_idx)
+
+                else:
+                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+                                                            stack_f=stack_f, vol_type_f=vol_type_f,
+                                                            downscale=downscale,
+                                                            prep_id_m=prep_id_m,
+                                                            prep_id_f=prep_id_f,
+                                                            detector_id_m=detector_id_m,
+                                                            detector_id_f=detector_id_f,
+                                                            warp_setting=warp_setting,
+                                                            structure=structure,
+                                                            trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
+
+                if name_or_index_as_key == 'name':
+                    volumes[structure] = v
+                else:
+                    volumes[index] = v
+
+                if not loaded:
+                    structure_to_label[structure] = index
+                    label_to_structure[index] = structure
+                    index += 1
+
+            except Exception as e:
+                sys.stderr.write('%s\n' % e)
+                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+
+        if return_label_mappings:
+            return volumes, structure_to_label, label_to_structure
+        else:
+            return volumes
 
     @staticmethod
     def get_transformed_volume_filepath(stack_m, stack_f,
@@ -2592,7 +2592,7 @@ class DataManager(object):
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         # return imread(img_fp)
-        
+
         global use_image_cache
         if use_image_cache:
             args_tuple = tuple(locals().values())
@@ -2606,26 +2606,26 @@ class DataManager(object):
         else:
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
-                
+
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:
             return img
-    
+
     @staticmethod
     def enable_image_cache():
         global use_image_cache
         use_image_cache = True
-        
+
         DataManager.clear_image_cache()
 
     @staticmethod
     def disable_image_cache():
         global use_image_cache
         use_image_cache = False
-        
+
         DataManager.clear_image_cache()
-        
+
     @staticmethod
     def clear_image_cache():
         global image_cache

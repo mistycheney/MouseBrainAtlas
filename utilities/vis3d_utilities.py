@@ -525,6 +525,24 @@ def volume_to_imagedata(arr, origin=(0,0,0), auxdata=None):
 
 ############################### VTK Utils #####################################
 
+def take_screenshot_as_numpy(win, magnification=10):
+    windowToImageFilter = vtk.vtkWindowToImageFilter()
+
+    windowToImageFilter.SetInput(win);
+    windowToImageFilter.SetMagnification(magnification);
+    # output image will be `magnification` times the render window size
+    windowToImageFilter.SetInputBufferTypeToRGBA();
+    windowToImageFilter.ReadFrontBufferOff();
+    windowToImageFilter.Update();
+
+    # https://stackoverflow.com/questions/14553523/vtk-render-window-image-to-numpy-array
+    vtk_image = windowToImageFilter.GetOutput()
+    height, width, _ = vtk_image.GetDimensions()
+    vtk_array = vtk_image.GetPointData().GetScalars()
+    components = vtk_array.GetNumberOfComponents()
+    arr = numpy_support.vtk_to_numpy(vtk_array).reshape(height, width, components)
+    return arr
+
 def take_screenshot(win, file_path, magnification=10):
 
     windowToImageFilter = vtk.vtkWindowToImageFilter()
@@ -641,42 +659,83 @@ def save_mesh(polydata, fn, color=(255,255,255)):
 # http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
 class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 
-    def __init__(self, parent=None, renWin=None, snapshot_fn=None, camera=None):
-        self.parent = parent
+    def __init__(self, iren=None, renWin=None, snapshot_fn=None, camera=None):
+        self.iren = iren
         self.renWin = renWin
-        # self.snapshot_fn = snapshot_fn
+        self.snapshot_fn = snapshot_fn
         self.camera = camera
 
         self.AddObserver("KeyPressEvent",self.keyPressEvent)
 
     def keyPressEvent(self,obj,event):
-        key = self.parent.GetKeySym()
+        key = self.iren.GetKeySym()
         if key == 'g':
             print 'viewup: %f, %f, %f\n' % self.camera.GetViewUp()
             print 'focal point: %f, %f, %f\n' % self.camera.GetFocalPoint()
             print 'position: %f, %f, %f\n' % self.camera.GetPosition()
-        elif key == 'q':
-            iren = self.parent
-            renWin = self.renWin
-            close_window(iren)
-            del renWin, iren
-        # if key == 's':
-        #     take_screenshot(self.parent.GetRenderWindow(), snapshot_fn)
-        return
+        elif key == 'e':
+            print 'Quit.'
+            self.renWin.Finalize()
+            self.iren.TerminateApp()
+        elif key == 's':
+            take_screenshot(self.renWin, self.snapshot_fn, 1)
+        # return
+
+class vtkRecordVideoTimerCallback():
+    def __init__(self, win, iren, camera, movie_fp, framerate=10):
+        self.timer_count = 0
+        self.movie_fp = movie_fp
+        self.framerate = framerate
+        self.iren = iren
+        self.win = win
+        self.camera = camera
+
+        create_parent_dir_if_not_exists('/tmp/brain_video/')
+        execute_command('rm /tmp/brain_video/*')
+
+    def execute(self,obj,event):
+        # print self.timer_count
+        # for actor in self.actors:
+        #     actor.SetPosition(self.timer_count, self.timer_count,0)
+        self.camera.Azimuth(5.)
+        # arr = take_screenshot_as_numpy(self.win, magnification=1)
+
+        if self.movie_fp is not None:
+            take_screenshot(self.win, '/tmp/brain_video/%d.png' % self.timer_count, magnification=1)
+
+            if self.timer_count == 10:
+
+                cmd = '~/ffmpeg-3.4.1-64bit-static/ffmpeg -framerate %(framerate)d -pattern_type glob -i "/tmp/brain_video/*.png" -c:v libx264 -vf "scale=-1:1080,fps=25,format=yuv420p" %(output_fp)s' % \
+                {'framerate': self.framerate, 'output_fp': self.movie_fp}
+                execute_command(cmd)
+
+                self.win.Finalize()
+                self.iren.TerminateApp()
+                del self.iren, self.win
+                return
+
+        self.win.Render()
+        self.timer_count += 1
+
 
 def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
             axes=True, background_color=(1,1,1), axes_label_color=(1,1,1),
-            animate=False, movie_fn=None,
+            animate=False, movie_fp=None, framerate=10,
               view_up=None, position=None, focal=None, depth_peeling=True):
+      """
+      Press q to close render window.
+      s to take snapshot.
+      g to print current viewup/position/focal.
+      """
 
-    ren = vtk.vtkRenderer()
-    ren.SetBackground(background_color)
+    renderer = vtk.vtkRenderer()
+    renderer.SetBackground(background_color)
 
     renWin = vtk.vtkRenderWindow()
     renWin.SetSize(1200,1080)
     # renWin.SetFullScreen(1)
-    renWin.AddRenderer(ren)
+    renWin.AddRenderer(renderer)
 
     ##########################
 
@@ -699,21 +758,17 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         renWin.SetMultiSamples(0);
 
         # 3. Choose to use depth peeling (if supported) (initial value is 0 (false)):
-        ren.SetUseDepthPeeling(True);
+        renderer.SetUseDepthPeeling(True);
 
         # 4. Set depth peeling parameters
         # - Set the maximum number of rendering passes (initial value is 4):
         maxNoOfPeels = 8
-        ren.SetMaximumNumberOfPeels(maxNoOfPeels);
+        renderer.SetMaximumNumberOfPeels(maxNoOfPeels);
         # - Set the occlusion ratio (initial value is 0.0, exact image):
         occlusionRatio = 0.0
-        ren.SetOcclusionRatio(occlusionRatio);
+        renderer.SetOcclusionRatio(occlusionRatio);
 
     ##########################################
-
-    for actor in actors:
-        if actor is not None:
-            ren.AddActor(actor)
 
     camera = vtk.vtkCamera()
 
@@ -780,15 +835,18 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     else:
         raise Exception("init_angle %s is not recognized." % init_angle)
 
-    ren.SetActiveCamera(camera)
-    ren.ResetCamera()
+    renderer.SetActiveCamera(camera)
+    renderer.ResetCamera()
 
+    # This must be before  renWin.render(), otherwise the animation is stuck.
     iren = vtk.vtkRenderWindowInteractor()
     iren.SetRenderWindow(renWin)
-    # iren.SetInteractorStyle(MyInteractorStyle(parent=iren, renWin=renWin, snapshot_fn=None, camera=camera)) # Have problem closing window if use this
+    int_style = MyInteractorStyle(iren=iren, renWin=renWin, snapshot_fn='/tmp/tmp.png', camera=camera)
+    iren.SetInteractorStyle(int_style) # Have problem closing window if use this
 
-    if axes:
-        axes = add_axes(iren, text_color=axes_label_color)
+    for actor in actors:
+        if actor is not None:
+            renderer.AddActor(actor)
 
     renWin.Render()
 
@@ -799,62 +857,44 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         renWin.SetSize(window_size)
 
     ##################
-    # http://www.vtk.org/Wiki/VTK/Examples/Python/Animation
+
+    if axes:
+        axes = add_axes(iren, text_color=axes_label_color)
 
     if animate:
-
+        # http://www.vtk.org/Wiki/VTK/Examples/Python/Animation
         iren.Initialize()
-        # Sign up to receive TimerEvent
-        cb = vtkTimerCallback()
+
+        # Sign up to receive TimerEvent from interactor
+        cb = vtkRecordVideoTimerCallback(movie_fp=movie_fp, win=renWin, iren=iren, camera=camera, framerate=framerate)
         cb.actors = actors
-        cb.camera = camera
         iren.AddObserver('TimerEvent', cb.execute)
-        timerId = iren.CreateRepeatingTimer(100);
+        timerId = iren.CreateRepeatingTimer(1000); # This cannot be too fast because otherwise image export cannot catch up.
+
     ##################
 
     if interactive:
         # if not animate:
         #     iren.Initialize()
-
         iren.Start()
-
-        # if movie_fn is not None:
-        #
-        #     windowToImageFilter = vtk.vtkWindowToImageFilter()
-        #     windowToImageFilter.SetInput(renWin)
-        #     windowToImageFilter.SetInputBufferTypeToRGBA()
-        #     windowToImageFilter.ReadFrontBufferOff()
-        #     windowToImageFilter.Update()
-        #
-        #     movieWriter = vtk.vtkAVIWriter()
-        #     movieWriter.SetInputConnection(windowToImageFilter.GetOutputPort())
-        #     movieWriter.SetFileName(movie_fn)
-        #     movieWriter.Start()
-        #
-        #     imageFilter.Modified()
-        #     moviewriter.Write()
-        #
-        #     moviewriter.End()
     else:
         take_screenshot(renWin, snapshot_fn, magnification=snapshot_magnification)
 
-    close_window(iren)
-    del renWin, iren
+    del int_style.iren
+    del int_style.renWin
 
-def close_window(iren):
-    render_window = iren.GetRenderWindow()
-    render_window.Finalize()
-    iren.TerminateApp()
+    if animate:
+        if hasattr(cb, 'iren'):
+            del cb.iren
+        if hasattr(cb, 'win'):
+            del cb.win
+    # In order for window to successfully close, MUST MAKE SURE NO REFERENCE
+    # TO IREN AND WIN still remain.
 
-class vtkTimerCallback():
-    def __init__(self):
-        self.timer_count = 0
-
-    def execute(self,obj,event):
-        iren = obj
-        iren.GetRenderWindow().Render()
-        self.camera.Azimuth(5.)
-        self.timer_count += 1
+# def close_window(iren):
+#     render_window = iren.GetRenderWindow()
+#     render_window.Finalize()
+#     iren.TerminateApp()
 
 ################## Functions for generating actors #######################
 

@@ -723,6 +723,11 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             axes=True, background_color=(1,1,1), axes_label_color=(1,1,1),
             animate=False, movie_fp=None, framerate=10,
               view_up=None, position=None, focal=None, depth_peeling=True):
+      """
+      Press q to close render window.
+      s to take snapshot.
+      g to print current viewup/position/focal.
+      """
 
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(background_color)

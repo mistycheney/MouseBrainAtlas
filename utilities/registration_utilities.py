@@ -2508,7 +2508,7 @@ def transform_volume_v3(vol, bbox, tf_params, centroid_m=(0,0,0), centroid_f=(0,
     return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
 
 
-def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0), fill_sparse=True):
     """
     One can specify initial shift and the transform separately.
     First, `centroid_m` and `centroid_f` are aligned.
@@ -2529,11 +2529,15 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
         (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
     """
 
+    t = time.time()
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+    print 1, time.time() - t, 's'
 
+    t = time.time()
     nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp,
                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
+    print 2, time.time() - t, 's'
 
     nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
     nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
@@ -2551,15 +2555,21 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
 
     t = time.time()
 
-    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
-    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        if not np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
-            dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+    if fill_sparse:
+        if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+            print 'float'
+            dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+        elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+            print 'int'
+            if np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
+                print 'uint8'
+                dense_volume = volume_m_aligned_to_f
+            else:
+                dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
         else:
-            dense_volume = volume_m_aligned_to_f
+            raise Exception('transform_volume: Volume must be either float or int.')
     else:
-        raise Exception('transform_volume: Volume must be either float or int.')
+        dense_volume = volume_m_aligned_to_f
 
     sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
 
@@ -2693,7 +2703,8 @@ def fill_sparse_volume(volume_sparse):
     # resulting in subsequent erosion not recovering the boundary.
     padding = 10
     closing_element_radius = 5
-    from skimage.morphology import binary_closing, ball
+    # from skimage.morphology import binary_closing, ball
+    from scipy.ndimage.morphology import binary_fill_holes, binary_closing
 
     volume = np.zeros_like(volume_sparse, np.int8)
     for ind in np.unique(volume_sparse):
@@ -2706,8 +2717,11 @@ def fill_sparse_volume(volume_sparse):
         xmin,xmax,ymin,ymax,zmin,zmax = bbox_3d(vb)
         vs = vb[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1]
         vs_padded = np.pad(vs, ((padding,padding),(padding,padding),(padding,padding)),
-                        mode='constant', constant_values=0)
-        vs_padded_filled = binary_closing(vs_padded, ball(closing_element_radius))
+                            mode='constant', constant_values=0)
+        # t = time.time()
+        # vs_padded_filled = binary_closing(vs_padded, ball(closing_element_radius))
+        vs_padded_filled = binary_closing(vs_padded, structure=np.ones((closing_element_radius,closing_element_radius,closing_element_radius)))
+        # print time.time() -t, 's'
         vs_filled = vs_padded_filled[padding:-padding, padding:-padding, padding:-padding]
         volume[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1][vs_filled.astype(np.bool)] = ind
 
@@ -2897,8 +2911,8 @@ def save_alignment_results(best_param, centroid_m, centroid_f,
                                                      what='trajectory')
     bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
     upload_to_s3(trajectory_fp)
-    
-    
+
+
 def fit_plane(X):
     """
     Fit a plane to a set of 3d points
@@ -2939,7 +2953,7 @@ def R_align_two_vectors(a, b):
     R = np.eye(3) + v_skew + np.dot(v_skew, v_skew)*(1-c)/(s + 1e-5)**2
     return R
 
-    
+
 def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None):
     """
     Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
@@ -3001,7 +3015,7 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
             canonical_locations[name] = np.r_[x, y, 0]
 
     return canonical_locations, midplane_point, midplane_normal
-    
+
 
 # def save_alignment_results(T_all_trials, score_traj_all_trials, parameter_traj_all_trials):
 #     """

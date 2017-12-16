@@ -639,7 +639,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         warped_atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
         return_label_mappings=False,
         name_or_index_as_key='name',
-        structures=['SNC_R']
+        structures=['7N_L']
         # structures=['VLL_R'])
         # structures=['SNC_R']
         # structures=['PBG_R'])

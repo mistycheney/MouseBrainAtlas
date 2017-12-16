@@ -292,9 +292,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
                     pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[1]
 
-                    print 'pos_wrt_dataVolume_dataResol', pos_wrt_dataVolume_dataResol
-                    print 'gscene_pts_wrt_dataVolume_dataResol', gscene_pts_wrt_dataVolume_dataResol[0]
-
                     # if this position already has a confirmed contour, do not add a new one.
                     if any([p.properties['label'] == name_u and p.properties['side'] == side and \
                     p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
@@ -755,7 +752,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         if self.mode == 'remove marker':
             self.drawings[self.active_i].remove(polygon)
             self.removeItem(polygon)
+
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).polygon_pressed_callback(polygon)
+
+        # if self.mode == 'rotate2d' or self.mode == 'rotate3d':
+        #     tf = self.active_polygon.transform()
+        #     self.init_tf_2d = np.array([[tf.m11(), tf.m21(), tf.m31()],
+        #                 [tf.m12(), tf.m22(), tf.m32()],
+        #                 [tf.m13(), tf.m23(), tf.m33()]])
 
     # @pyqtSlot(object)
     # def polygon_closed(self, polygon):
@@ -1111,7 +1115,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if update_crossline and hasattr(self, 'cross_x_lossless'):
 
-            origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
+            origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
 
             print 'update_crossline', update_crossline
             if hasattr(self.data_feeder, 'sections'):
@@ -1187,7 +1191,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).show_next(cycle=cycle)
         assert all(['label' in p.properties for p in self.drawings[self.active_i]])
 
-    def get_origin_wrt_WholebrainAlignedPadded_tbResol(self):
+    def get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol(self):
         """
         Get the appropriate coordinate origin for this gscene.
         The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
@@ -1222,7 +1226,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.update_image()
                 return True
 
-
             elif key == Qt.Key_Y:
                 print 'y'
                 if self.showing_which != 'green_only':
@@ -1241,7 +1244,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.update_image()
                 return True
 
-
             elif key == Qt.Key_I:
                 self.show_information_box()
                 return True
@@ -1252,6 +1254,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif key == Qt.Key_Q:
                 self.set_mode('shift3d')
+                self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                 return True
 
             elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
@@ -1304,11 +1307,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif key == Qt.Key_B: # Clear default label name.
                 self.default_name = None
 
-            elif key == Qt.Key_Control:
+            elif key == Qt.Key_Control: # for moving a single 2d contour.
                 if not event.isAutoRepeat():
                     # for polygon in self.drawings[self.active_i]:
                     #     polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                     self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
+                    self.set_mode('shift2d')
+
+            elif key == Qt.Key_Shift:
+                if not event.isAutoRepeat(): # Ignore events that are auto repeats of the original SHIFT keypress
+                    # if mode is rotate3d, do not change it, because at mouserelease, we want to be in rotate3d state to execute the 3d structure transform.
+                    if self.mode == 'rotate3d':
+                        self.set_mode('rotate3d')
+                    else:
+                        self.set_mode('rotate2d')
 
         elif event.type() == QEvent.KeyRelease:
             key = event.key()
@@ -1318,6 +1330,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     # for polygon in self.drawings[self.active_i]:
                     #     polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
                     self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, False)
+                    self.set_mode('idle')
+
+            elif key == Qt.Key_Shift:
+                if not event.isAutoRepeat():
+                    self.set_mode('idle')
 
         elif event.type() == QEvent.Wheel:
             # eat wheel event from gview viewport. default behavior is to trigger down scroll
@@ -1348,11 +1365,74 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         #     print 2
         #     return True
 
+        elif event.type() == QEvent.GraphicsSceneMouseMove:
+
+            pos = event.scenePos()
+            curr_mouse_x_wrt_imageData_gsceneResol = pos.x()
+            curr_mouse_y_wrt_imageData_gsceneResol = pos.y()
+
+            if self.mode == 'rotate2d' or self.mode == 'rotate3d':
+                # This only moves the single contour on the current image.
+                # Those contours of the same structure but on other sections are not affected.
+
+                if self.mouse_under_press:
+
+                    active_polygon_vertices = vertices_from_polygon(polygon=self.active_polygon)
+                    polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = np.mean(active_polygon_vertices, axis=0)
+
+                    vec2 = np.array([curr_mouse_x_wrt_imageData_gsceneResol - polygon_cx_wrt_imageData_gsceneResol, curr_mouse_y_wrt_imageData_gsceneResol - polygon_cy_wrt_imageData_gsceneResol])
+                    vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - polygon_cx_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol - polygon_cy_wrt_imageData_gsceneResol])
+                    theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+
+                    # Note: Using 3d tranforms is not necessary. Can use 2-d versions.
+                    tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
+                    A = consolidate(tf,
+                    centroid_m=[polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol, 0],
+                    centroid_f=[polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol, 0])
+                    tf_mat_combined = A
+                    xform = QTransform(tf_mat_combined[0,0], tf_mat_combined[1,0], 0.,
+                                        tf_mat_combined[0,1], tf_mat_combined[1,1], 0.,
+                                        tf_mat_combined[0,3], tf_mat_combined[1,3], 1.)
+                    self.active_polygon.setTransform(xform, combine=False)
+
+            # if self.id == 'sagittal' or self.id == 'sagittal_tb':
+            #     active_structure_center_2d_wrt_WholebrainAlignedPadded_volResol = np.array((cx_wrt_WholebrainAlignedPadded_volResol, cy_wrt_WholebrainAlignedPadded_volResol))
+            #     active_structure_center_2d_wrt_WholebrainAlignedPadded_gsceneResol = active_structure_center_2d_wrt_WholebrainAlignedPadded_volResol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
+            #     # print 'active_structure_center_2d_wrt_WholebrainAlignedPadded_gsceneResol', active_structure_center_2d_wrt_WholebrainAlignedPadded_gsceneResol, 'self.data_feeder.downsample', self.data_feeder.downsample
+            #     active_structure_center_2d_wrt_imagedata_gsceneResol = active_structure_center_2d_wrt_WholebrainAlignedPadded_gsceneResol - self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[[0,1]] * 32. / self.data_feeder.downsample
+            # elif self.id == 'coronal':
+            #     active_structure_center_2d_wrt_imagedata_gsceneResol = \
+            #     np.array((self.data_feeder.z_dim - 1 - (cz_wrt_WholebrainAlignedPadded_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.data_feeder.downsample,
+            #             (cy_wrt_WholebrainAlignedPadded_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.data_feeder.downsample))
+            # elif self.id == 'horizontal':
+            #     active_structure_center_2d_wrt_imagedata_gsceneResol = \
+            #     np.array([(cx_wrt_WholebrainAlignedPadded_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.)  / self.data_feeder.downsample,
+            #             self.data_feeder.z_dim - 1 - (cz_wrt_WholebrainAlignedPadded_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.data_feeder.downsample])
+            #
+            # print theta_ccwise, np.rad2deg(theta_ccwise)
+            # if self.id == 'sagittal' or self.id == 'sagittal_tb':
+            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
+            # elif self.id == 'coronal':
+            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
+            # elif self.id == 'horizontal':
+            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
+
         elif event.type() == QEvent.GraphicsSceneMousePress:
+
+            # Notice that if self.active_polygon has not been set when enter this,
+            # it will be set only after all the actions specified here have been executed.
+            # So any action below that requires self.active_polygon must ensure
+            # self.active_polygon has already been set AND is pointing to the correct polygon.
 
             pos = event.scenePos()
             gscene_x = pos.x()
             gscene_y = pos.y()
+
+            # for compatibility purpose; Will clean up later...
+            self.press_x_wrt_imageData_gsceneResol = gscene_x
+            self.press_y_wrt_imageData_gsceneResol = gscene_y
+
+            self.mouse_under_press = True
 
             if event.button() == Qt.RightButton:
                 obj.mousePressEvent(event)
@@ -1360,20 +1440,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if self.mode == 'idle':
                 # pass the event down
                 obj.mousePressEvent(event)
-
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
-                print self.press_screen_x, self.press_screen_y
                 self.pressed = True
                 return True
 
-            elif self.mode == 'rotate3d':
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
-
-            elif self.mode == 'shift3d':
-                self.press_screen_x = gscene_x
-                self.press_screen_y = gscene_y
+            # elif self.mode == 'shift3d':
 
             elif self.mode == 'crossline':
                 # user clicks, while in crossline mode (holding down space bar).
@@ -1387,7 +1457,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     gscene_z_lossless = self.active_i * self.data_feeder.downsample
 
-                origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
+                origin_wrt_WholebrainAlignedPadded_losslessResol = self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol() * 32.
 
                 if self.data_feeder.orientation == 'sagittal':
                     cross_x_lossless = gscene_x_lossless + origin_wrt_WholebrainAlignedPadded_losslessResol[0]
@@ -1454,44 +1524,118 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             gscene_x = pos.x()
             gscene_y = pos.y()
 
+            self.mouse_under_press = False
+
+            if self.mode == 'shift2d':
+                scene_tf_mat = qtransform_to_matrix2d(self.active_polygon.sceneTransform())
+                # local_tf_mat = qtransform_to_matrix2d(self.active_polygon.transform())
+                print 'scene_tf_mat', scene_tf_mat
+                # print 'local_tf_mat', local_tf_mat
+                # pre_tf_vertices = vertices_from_polygon(polygon=self.active_polygon)
+                # scene_tf_mat = qtransform_to_matrix2d(self.active_polygon.sceneTransform())
+                # local_tf_mat = qtransform_to_matrix2d(self.active_polygon.transform())
+                # tf_mat = np.dot(local_tf_mat, scene_tf_mat)
+                # post_tf_vertices = np.dot(tf_mat[:2,:2], pre_tf_vertices.T).T + tf_mat[:2,2]
+                #
+                # polygon_to_delete = self.active_polygon
+                # self.add_polygon_with_circles_and_label(path=vertices_to_path(post_tf_vertices, closed=True),
+                #                                         label=polygon_to_delete.properties['label'], linecolor='r', vertex_radius=8, linewidth=5,
+                #                                         section=polygon_to_delete.properties['section'],
+                #                                         type=polygon_to_delete.properties['type'],
+                #                                         side=polygon_to_delete.properties['side'],
+                #                                         side_manually_assigned=polygon_to_delete.properties['side_manually_assigned'])
+                # self.delete_polygon(polygon=polygon_to_delete)
+
+            elif self.mode == 'rotate2d':
+                pre_tf_vertices = vertices_from_polygon(polygon=self.active_polygon)
+                # Note that local transforms are different from scene transform.
+                # scene transform includes both scene's global position and local transforms.
+
+                scene_tf_mat = qtransform_to_matrix2d(self.active_polygon.sceneTransform())
+                # local_tf_mat = qtransform_to_matrix2d(self.active_polygon.transform())
+                print 'scene_tf_mat', scene_tf_mat
+                # print 'local_tf_mat', local_tf_mat
+                # tf_mat = np.dot(scene_tf_mat, local_tf_mat)
+                tf_mat = scene_tf_mat
+                post_tf_vertices = np.dot(tf_mat[:2,:2], pre_tf_vertices.T).T + tf_mat[:2,2]
+
+                polygon_to_delete = self.active_polygon
+                self.add_polygon_with_circles_and_label(path=vertices_to_path(post_tf_vertices, closed=True),
+                                                        label=polygon_to_delete.properties['label'], linecolor='r', vertex_radius=8, linewidth=5,
+                                                        section=polygon_to_delete.properties['section'],
+                                                        type=polygon_to_delete.properties['type'],
+                                                        side=polygon_to_delete.properties['side'],
+                                                        side_manually_assigned=polygon_to_delete.properties['side_manually_assigned'])
+                self.delete_polygon(polygon=polygon_to_delete)
+
             # Transform the current structure volume.
             # Notify GUI to use the new volume to update contours on all gscenes.
-            if self.mode == 'rotate3d' or self.mode == 'shift3d':
+            elif self.mode == 'rotate3d' or self.mode == 'shift3d':
 
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
                 vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
-                bbox = self.structure_volumes[name_side_tuple]['bbox']
-                print 'vol', vol.shape, 'bbox', bbox
-                ys, xs, zs = np.where(vol)
-                cx_volResol = np.mean(xs)
-                cy_volResol = np.mean(ys)
-                cz_volResol = np.mean(zs)
+                bbox_wrt_WholebrainAlignedPadded_volResol = self.structure_volumes[name_side_tuple]['bbox'] #
+                print 'vol', vol.shape, 'bbox', bbox_wrt_WholebrainAlignedPadded_volResol
+
+                polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = \
+                np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0)
+
+                active_structure_center_2d_wrt_imagedata_gsceneResol = np.array([polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol])
+
+                ys_wrt_structureVol_volResol, xs_wrt_structureVol_volResol, zs_wrt_structureVol_volResol = np.where(vol)
+
+                if self.id == 'sagittal' or self.id == 'sagittal_tb':
+
+                    # Compute rotation center in 3d.
+                    # This is the point (x of polygon centroid, y of polygon centroid, z of structure centroid)
+
+                    cx_wrt_WholebrainAlignedPadded_volResol = \
+                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.structure_volumes_downscale_factor
+                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
+                    print 'cx_wrt_structureVol_volResol', cx_wrt_structureVol_volResol
+
+                    cy_wrt_WholebrainAlignedPadded_volResol = \
+                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.structure_volumes_downscale_factor
+                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
+
+                    cz_wrt_structureVol_volResol = np.mean(zs_wrt_structureVol_volResol)
+
+                elif self.id == 'coronal':
+
+                    cx_wrt_structureVol_volResol = np.mean(xs_wrt_structureVol_volResol)
+
+                    cy_wrt_WholebrainAlignedPadded_volResol = \
+                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.structure_volumes_downscale_factor
+                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
+
+                    cz_wrt_WholebrainAlignedPadded_volResol = \
+                    ((self.data_feeder.z_dim - 1 - polygon_cx_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.structure_volumes_downscale_factor
+                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
+
+                elif self.id == 'horizontal':
+                    cx_wrt_WholebrainAlignedPadded_volResol = \
+                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.structure_volumes_downscale_factor
+                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
+
+                    cy_wrt_structureVol_volResol = np.mean(ys_wrt_structureVol_volResol)
+
+                    cz_wrt_WholebrainAlignedPadded_volResol = \
+                    ((self.data_feeder.z_dim - 1 - polygon_cy_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
+                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.structure_volumes_downscale_factor
+                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
 
                 if self.mode == 'rotate3d':
 
-                    cx_vol_resol_gl, cy_vol_resol_gl, cz_vol_resol_gl = (bbox[0] + cx_volResol, bbox[2] + cy_volResol, bbox[4] + cz_volResol)
-                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        active_structure_center_2d_vol_resol = np.array((cx_vol_resol_gl, cy_vol_resol_gl))
-                        active_structure_center_2d_gscene_resol = active_structure_center_2d_vol_resol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
-                        # print 'active_structure_center_2d_gscene_resol', active_structure_center_2d_gscene_resol, 'self.data_feeder.downsample', self.data_feeder.downsample
-                    elif self.id == 'coronal':
-                        active_structure_center_2d_gscene_resol = np.array((self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
-                                                                            cy_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))
-                    elif self.id == 'horizontal':
-                        active_structure_center_2d_gscene_resol = np.array((cx_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample,
-                                                                            self.data_feeder.z_dim - 1 - cz_vol_resol_gl * self.structure_volumes_downscale_factor / self.data_feeder.downsample))
-
-                    vec2 = np.array((gscene_x - active_structure_center_2d_gscene_resol[0], gscene_y - active_structure_center_2d_gscene_resol[1]))
-                    vec1 = np.array((self.press_screen_x - active_structure_center_2d_gscene_resol[0], self.press_screen_y - active_structure_center_2d_gscene_resol[1]))
-                    # vec1n = np.sqrt(vec1[0]**2 + vec1[1]**2)
-                    # x2 = np.dot(vec2, vec1/vec1n)
-                    # y2 = (vec2 - x2*vec1/vec1n)[1]
-                    # theta_ccwise = np.arctan2(y2, x2)
+                    vec2 = np.array([gscene_x - active_structure_center_2d_wrt_imagedata_gsceneResol[0], gscene_y - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
+                    vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[0], self.press_y_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
                     theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
-                    print active_structure_center_2d_gscene_resol, vec2, vec1
-                    # x2, y2
                     print theta_ccwise, np.rad2deg(theta_ccwise)
                     if self.id == 'sagittal' or self.id == 'sagittal_tb':
                         tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
@@ -1502,56 +1646,73 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 elif self.mode == 'shift3d':
 
-                    # shift_2d is in gscene resolution, which differs for each gscene.
-                    shift_2d_gscene_resol = np.array((gscene_x - self.press_screen_x, gscene_y - self.press_screen_y))
-                    shift_2d_orig_resol = shift_2d_gscene_resol * self.data_feeder.downsample
-                    shift_2d_vol_resol = shift_2d_orig_resol / float(self.structure_volumes_downscale_factor)
-                    print 'shift_2d_vol_resol', shift_2d_vol_resol
+                    # shift_2d is in gscene resolution, which differs for different gscenes.
+                    shift_2d_gsceneResol = np.array((gscene_x - self.press_x_wrt_imageData_gsceneResol, gscene_y - self.press_y_wrt_imageData_gsceneResol))
+                    shift_2d_fullResol = shift_2d_gsceneResol * self.data_feeder.downsample
+                    shift_2d_volResol = shift_2d_fullResol / float(self.structure_volumes_downscale_factor)
+                    print 'shift_2d_volResol', shift_2d_volResol
                     if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=shift_2d_vol_resol[1],tz=0)
+                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=shift_2d_volResol[1],tz=0)
                     elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=shift_2d_vol_resol[1],tz=-shift_2d_vol_resol[0])
+                        tf = affine_components_to_vector(tx=0,ty=shift_2d_volResol[1],tz=-shift_2d_volResol[0])
                     elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=shift_2d_vol_resol[0],ty=0,tz=-shift_2d_vol_resol[1])
+                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
 
+                t = time.time()
 
-                tfed_structure_volume, tfed_structure_volume_bbox_rel = transform_volume_v2(vol.astype(np.int), tf,
-                centroid_m=(cx_volResol, cy_volResol, cz_volResol), centroid_f=(cx_volResol, cy_volResol, cz_volResol))
-                print 'tfed_structure_volume_bbox_rel', tfed_structure_volume_bbox_rel
-                tfed_structure_volume_bbox = (tfed_structure_volume_bbox_rel[0] + bbox[0],
-                                                tfed_structure_volume_bbox_rel[1] + bbox[0],
-                                                tfed_structure_volume_bbox_rel[2] + bbox[2],
-                                                tfed_structure_volume_bbox_rel[3] + bbox[2],
-                                                tfed_structure_volume_bbox_rel[4] + bbox[4],
-                                                tfed_structure_volume_bbox_rel[5] + bbox[4])
-                print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox', tfed_structure_volume_bbox
+                # print 'before', np.count_nonzero(vol.astype(np.bool))
+                # k = 3
+                # w = np.pad(vol, ((k,k),(k,k),(k,k)), mode='constant', constant_values=0)
+                # vol_surface = np.diff(w, axis=0)[k:-(k-1),k:-k,k:-k] | \
+                # np.diff(w, axis=1)[k:-k,k:-(k-1),k:-k] | \
+                # np.diff(w, axis=2)[k:-k,k:-k,k:-(k-1)]
+                # print 'after', np.count_nonzero(vol_surface)
 
-                self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
-                self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox
+                tfed_structure_volume, tfed_structure_volume_bbox_wrt_structureVol_volResol = transform_volume_v2(vol.astype(np.int), tf,
+                centroid_m=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
+                centroid_f=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
+                fill_sparse=True)
+
+                sys.stderr.write('transform volume: %.2f seconds.\n' % (time.time() - t))
+                print 'tfed_structure_volume_bbox_wrt_structureVol_volResol', tfed_structure_volume_bbox_wrt_structureVol_volResol
+                tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol = (tfed_structure_volume_bbox_wrt_structureVol_volResol[0] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
+                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[1] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
+                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[2] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
+                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[3] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
+                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[4] + bbox_wrt_WholebrainAlignedPadded_volResol[4],
+                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[5] + bbox_wrt_WholebrainAlignedPadded_volResol[4])
+                print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol', tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
+
+                self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume.astype(np.bool)
+                print 'AFTER', np.count_nonzero(tfed_structure_volume.astype(np.bool))
+
+                # bp.pack_ndarray_file(tfed_structure_volume, '/tmp/test.bp')
+
+                self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
 
                 # Append edits
                 if self.mode == 'shift3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
                     edit_entry = {'username': self.gui.get_username(),
                     'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
                     'type': 'shift3d',
                     'transform':tf,
-                    'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
-                    'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
+                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
                     self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
                 elif self.mode == 'rotate3d':
                     if 'edits' not in self.structure_volumes[name_side_tuple]:
                         self.structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_volResol, cy_volResol, cz_volResol), (cx_volResol, cy_volResol, cz_volResol)))
+                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
                     edit_entry = {'username': self.gui.get_username(),
                     'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
                     'type': 'rotate3d',
                     'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
-                    'centroid_m':(cx_volResol, cy_volResol, cz_volResol),
-                    'centroid_f':(cx_volResol, cy_volResol, cz_volResol)}
+                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
+                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
                     self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
@@ -1570,4 +1731,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # self.set_mode('idle')
                 # self.set_mode(Mode.IDLE)
 
+
+            self.press_x_wrt_imageData_gsceneResol = None
+            self.press_y_wrt_imageData_gsceneResol = None
+
         return False
+        # return super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).eventFilter(obj, event)

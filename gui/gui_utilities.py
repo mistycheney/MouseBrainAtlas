@@ -286,9 +286,39 @@ def path_goto(path, x, y):
         # print 'line to', x, y
     # return path
 
+def matrix_to_qtransform(tf_mat_combined, plane='xy'):
+    if plane == 'xy':
+        xform = QTransform(tf_mat_combined[0,0], tf_mat_combined[1,0], 0.,
+                        tf_mat_combined[0,1], tf_mat_combined[1,1], 0.,
+                        tf_mat_combined[0,3], tf_mat_combined[1,3], 1.)
+    else:
+        raise
+
+def qtransform_to_matrix2d(tf):
+    """
+    Args:
+        tf (QTransform):
+    Returns:
+        (3,3)-arrray: 2D transform matrix A, such that x' = np.dot(A,x)
+    """
+    return np.array([[tf.m11(), tf.m21(), tf.m31()],
+                [tf.m12(), tf.m22(), tf.m32()],
+                [tf.m13(), tf.m23(), tf.m33()]])
+
+def qtransform_to_matrix3d(tf, plane='xy'):
+    tf_mat = qtransform_to_matrix2d(tf)
+    if plane == 'xy':
+        return np.array([[tf_mat[0,0],tf_mat[0,1],0,tf_mat[0,2]],
+                        [tf_mat[1,0],tf_mat[1,1],0,tf_mat[1,2]],
+                        [0,0,1,0],
+                        [0,0,0,1]])
+    else:
+        raise
 
 def vertices_from_polygon(polygon=None, path=None, closed=None):
     """
+    Get vertices of a polygon.
+
     Args:
         path:
         polygon:

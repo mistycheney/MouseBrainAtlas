@@ -325,6 +325,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
     @pyqtSlot()
     def delete_polygon(self, section=None, polygon_ind=None, index=None, polygon=None):
+        """
+        Specify either section/index + polygon_ind or polygon object.
+        """
+
         if polygon is None:
             assert section is not None or index is not None
             index, section = self.get_requested_index_and_section(i=index, sec=section)

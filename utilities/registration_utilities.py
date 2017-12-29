@@ -1818,6 +1818,7 @@ first_sec=1):
         for name_s, vol in volumes.iteritems():
             if np.count_nonzero(vol[..., z]) == 0:
                 continue
+            sys.stderr.write('Probability mass detected on section %d...\n' % sec)
 
             cnts_rowcol = find_contours(vol[..., z], level=level)
 
@@ -2567,7 +2568,7 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0), 
             else:
                 dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
         else:
-            raise Exception('transform_volume: Volume must be either float or int.')
+            raise Exception('transform_volume: Volume must be either float or int, not %s.' % volume_m_aligned_to_f.dtype)
     else:
         dense_volume = volume_m_aligned_to_f
 

@@ -1533,6 +1533,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                 return True
 
+            elif key == Qt.Key_R:
+                self.set_mode('prob_rotate3d')
+                return True
+
             elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
                 first_circ = self.active_polygon.vertex_circles[0]
                 first_circ.signal_emitter.press.emit(first_circ)
@@ -1647,7 +1651,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             curr_mouse_x_wrt_imageData_gsceneResol = pos.x()
             curr_mouse_y_wrt_imageData_gsceneResol = pos.y()
 
-            if self.mode == 'rotate2d' or self.mode == 'rotate3d':
+            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d':
                 # This only moves the single contour on the current image.
                 # Those contours of the same structure but on other sections are not affected.
 
@@ -1994,7 +1998,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
                 self.set_mode('idle')
 
-            elif self.mode == 'prob_shift3d':
+            elif self.mode == 'prob_shift3d' or self.mode == 'prob_rotate3d':
 
                 name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 assert name_side_tuple in self.prob_structure_volumes, \
@@ -2064,18 +2068,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.prob_structure_volumes_downscale_factor
                     cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
 
+                else:
+                    raise
+
                 if self.mode == 'prob_rotate3d':
-                    pass
-                    # vec2 = np.array([gscene_x - active_structure_center_2d_wrt_imagedata_gsceneResol[0], gscene_y - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    # vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[0], self.press_y_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    # theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
-                    # print theta_ccwise, np.rad2deg(theta_ccwise)
-                    # if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                    #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
-                    # elif self.id == 'coronal':
-                    #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
-                    # elif self.id == 'horizontal':
-                    #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
+
+                    vec2 = np.array([gscene_x - active_structure_center_2d_wrt_imagedata_gsceneResol[0], gscene_y - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
+                    vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[0], self.press_y_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
+                    theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+                    print theta_ccwise, np.rad2deg(theta_ccwise)
+                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
+                    elif self.id == 'coronal':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
+                    elif self.id == 'horizontal':
+                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
 
                 elif self.mode == 'prob_shift3d':
 
@@ -2091,6 +2098,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     elif self.id == 'horizontal':
                         tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
                     print 'tf=', tf
+
+                else:
+                    raise
 
                 t = time.time()
 
@@ -2138,18 +2148,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
                     self.prob_structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
-                elif self.mode == 'rotate3d':
-                    pass
-                    # if 'edits' not in self.structure_volumes[name_side_tuple]:
-                    #     self.structure_volumes[name_side_tuple]['edits'] = []
-                    # # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
-                    # edit_entry = {'username': self.gui.get_username(),
-                    # 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                    # 'type': 'rotate3d',
-                    # 'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
-                    # 'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                    # 'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
-                    # self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+                elif self.mode == 'prob_rotate3d':
+                    if 'edits' not in self.structure_volumes[name_side_tuple]:
+                        self.structure_volumes[name_side_tuple]['edits'] = []
+                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
+                    edit_entry = {'username': self.gui.get_username(),
+                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+                    'type': 'rotate3d',
+                    'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
+                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
+                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
+                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
 
                 self.prob_structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
                 self.set_mode('idle')

@@ -669,7 +669,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 name_u, side = parse_label(name_s)[:2]
                 self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
                 print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
-                self.gscenes['sagittal'].update_drawings_from_prob_structure_volume(name_u, side)
+
+                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+                for gscene in self.gscenes.values():
+                    gscene.update_drawings_from_prob_structure_volume(name_u, side)
 
         else:
             pass

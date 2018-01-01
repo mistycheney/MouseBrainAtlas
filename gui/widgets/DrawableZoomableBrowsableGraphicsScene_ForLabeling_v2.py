@@ -346,7 +346,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         # sys.stderr.write("Error adding polygon, pos %d (wrt dataVolume, dataResol): %s\n" % (pos_wrt_dataVolume_dataResol, e))
 
 
-    def update_drawings_from_prob_structure_volume(self, name_u, side):
+    def update_drawings_from_prob_structure_volume(self, name_u, side, levels=[0.1, 0.25, 0.5, 0.75, 0.99]):
         """
         Update drawings based on `self.prob_structure_volumes`, which is a reference to the GUI's `prob_structure_volumes`.
 
@@ -452,7 +452,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             t = time.time()
             sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
 
-            for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
+            for level in levels:
             # for level in [0.5]:
 
                 gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol >= level, along_direction='z', sample_every= sample_every,
@@ -525,7 +525,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # volume_data_resol is the structure in bbox.
             if self.data_feeder.orientation == 'coronal':
 
-                for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
+                for level in levels:
 
                     gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='x', sample_every=1)
                     # Note that find_contour_points_3d returns (z, y) where z is counted from bottom up.
@@ -551,7 +551,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif self.data_feeder.orientation == 'horizontal':
 
-                for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
+                for level in levels:
                     gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='y', sample_every=1)
                     # Note that find_contour_points_3d returns (z, x) where z is counted from bottom up.
 
@@ -577,7 +577,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif self.data_feeder.orientation == 'sagittal':
                 # pos means z-voxel index for sagittal
 
-                for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
+                for level in levels:
 
                     gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='z', sample_every=1)
 
@@ -1519,22 +1519,30 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.show_information_box()
                 return True
 
-            elif key == Qt.Key_W:
-                self.set_mode('rotate3d')
-                return True
-
             elif key == Qt.Key_Q:
                 self.set_mode('shift3d')
                 self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                 return True
 
-            elif key == Qt.Key_E:
-                self.set_mode('prob_shift3d')
+            elif key == Qt.Key_W:
+                self.set_mode('rotate3d')
+                return True
+
+            elif key == Qt.Key_T:
+                modifiers = QApplication.keyboardModifiers()
+                if modifiers & Qt.AltModifier:
+                    self.set_mode('global_shift3d')
+                else:
+                    self.set_mode('prob_shift3d')
                 self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                 return True
 
             elif key == Qt.Key_R:
-                self.set_mode('prob_rotate3d')
+                modifiers = QApplication.keyboardModifiers()
+                if modifiers & Qt.AltModifier:
+                    self.set_mode('global_rotate3d')
+                else:
+                    self.set_mode('prob_rotate3d')
                 return True
 
             elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
@@ -1651,7 +1659,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             curr_mouse_x_wrt_imageData_gsceneResol = pos.x()
             curr_mouse_y_wrt_imageData_gsceneResol = pos.y()
 
-            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d':
+            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
                 # This only moves the single contour on the current image.
                 # Those contours of the same structure but on other sections are not affected.
 
@@ -1801,8 +1809,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif event.type() == QEvent.GraphicsSceneMouseRelease:
 
             pos = event.scenePos()
-            gscene_x = pos.x()
-            gscene_y = pos.y()
+            self.gscene_x = pos.x()
+            self.gscene_y = pos.y()
 
             self.mouse_under_press = False
 
@@ -1852,315 +1860,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # Notify GUI to use the new volume to update contours on all gscenes.
             elif self.mode == 'rotate3d' or self.mode == 'shift3d':
 
-                name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
-                assert name_side_tuple in self.structure_volumes, \
-                "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
-                vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
-                bbox_wrt_WholebrainAlignedPadded_volResol = self.structure_volumes[name_side_tuple]['bbox'] #
-                print 'vol', vol.shape, 'bbox', bbox_wrt_WholebrainAlignedPadded_volResol
+                # name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
+                self.set_mode('idle')
 
-                polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = \
-                np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0)
+            elif self.mode == 'global_shift3d' or self.mode == 'global_rotate3d':
 
-                active_structure_center_2d_wrt_imagedata_gsceneResol = np.array([polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol])
-
-                ys_wrt_structureVol_volResol, xs_wrt_structureVol_volResol, zs_wrt_structureVol_volResol = np.where(vol)
-
-                if self.id == 'sagittal' or self.id == 'sagittal_tb':
-
-                    # Compute rotation center in 3d.
-                    # This is the point (x of polygon centroid, y of polygon centroid, z of structure centroid)
-
-                    cx_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.structure_volumes_downscale_factor
-                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
-                    print 'cx_wrt_structureVol_volResol', cx_wrt_structureVol_volResol
-
-                    cy_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.structure_volumes_downscale_factor
-                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
-
-                    cz_wrt_structureVol_volResol = np.mean(zs_wrt_structureVol_volResol)
-
-                elif self.id == 'coronal':
-
-                    cx_wrt_structureVol_volResol = np.mean(xs_wrt_structureVol_volResol)
-
-                    cy_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.structure_volumes_downscale_factor
-                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
-
-                    cz_wrt_WholebrainAlignedPadded_volResol = \
-                    ((self.data_feeder.z_dim - 1 - polygon_cx_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.structure_volumes_downscale_factor
-                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
-
-                elif self.id == 'horizontal':
-                    cx_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.structure_volumes_downscale_factor
-                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
-
-                    cy_wrt_structureVol_volResol = np.mean(ys_wrt_structureVol_volResol)
-
-                    cz_wrt_WholebrainAlignedPadded_volResol = \
-                    ((self.data_feeder.z_dim - 1 - polygon_cy_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.structure_volumes_downscale_factor
-                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
-
-                if self.mode == 'rotate3d':
-
-                    vec2 = np.array([gscene_x - active_structure_center_2d_wrt_imagedata_gsceneResol[0], gscene_y - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[0], self.press_y_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
-                    print theta_ccwise, np.rad2deg(theta_ccwise)
-                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
-                    elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
-                    elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
-
-                elif self.mode == 'shift3d':
-
-                    # shift_2d is in gscene resolution, which differs for different gscenes.
-                    shift_2d_gsceneResol = np.array((gscene_x - self.press_x_wrt_imageData_gsceneResol, gscene_y - self.press_y_wrt_imageData_gsceneResol))
-                    shift_2d_fullResol = shift_2d_gsceneResol * self.data_feeder.downsample
-                    shift_2d_volResol = shift_2d_fullResol / float(self.structure_volumes_downscale_factor)
-                    print 'shift_2d_volResol', shift_2d_volResol
-                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=shift_2d_volResol[1],tz=0)
-                    elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=shift_2d_volResol[1],tz=-shift_2d_volResol[0])
-                    elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
-
-                t = time.time()
-
-                # print 'before', np.count_nonzero(vol.astype(np.bool))
-                # k = 3
-                # w = np.pad(vol, ((k,k),(k,k),(k,k)), mode='constant', constant_values=0)
-                # vol_surface = np.diff(w, axis=0)[k:-(k-1),k:-k,k:-k] | \
-                # np.diff(w, axis=1)[k:-k,k:-(k-1),k:-k] | \
-                # np.diff(w, axis=2)[k:-k,k:-k,k:-(k-1)]
-                # print 'after', np.count_nonzero(vol_surface)
-
-                tfed_structure_volume, tfed_structure_volume_bbox_wrt_structureVol_volResol = transform_volume_v2(vol.astype(np.int), tf,
-                centroid_m=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                centroid_f=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                fill_sparse=True)
-
-                sys.stderr.write('transform volume: %.2f seconds.\n' % (time.time() - t))
-                print 'tfed_structure_volume_bbox_wrt_structureVol_volResol', tfed_structure_volume_bbox_wrt_structureVol_volResol
-                tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol = (tfed_structure_volume_bbox_wrt_structureVol_volResol[0] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[1] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[2] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[3] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[4] + bbox_wrt_WholebrainAlignedPadded_volResol[4],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[5] + bbox_wrt_WholebrainAlignedPadded_volResol[4])
-                print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol', tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
-
-                self.structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume.astype(np.bool)
-                print 'AFTER', np.count_nonzero(tfed_structure_volume.astype(np.bool))
-
-                # bp.pack_ndarray_file(tfed_structure_volume, '/tmp/test.bp')
-
-                self.structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
-
-                # Append edits
-                if self.mode == 'shift3d':
-                    if 'edits' not in self.structure_volumes[name_side_tuple]:
-                        self.structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
-                    edit_entry = {'username': self.gui.get_username(),
-                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                    'type': 'shift3d',
-                    'transform':tf,
-                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
-                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
-
-                elif self.mode == 'rotate3d':
-                    if 'edits' not in self.structure_volumes[name_side_tuple]:
-                        self.structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
-                    edit_entry = {'username': self.gui.get_username(),
-                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                    'type': 'rotate3d',
-                    'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
-                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
-                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
-
-                self.structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, False)
+                for name, side in self.prob_structure_volumes.iterkeys():
+                    self.transform_structure(name=name, side=side, prob=True)
                 self.set_mode('idle')
 
             elif self.mode == 'prob_shift3d' or self.mode == 'prob_rotate3d':
 
-                name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
-                assert name_side_tuple in self.prob_structure_volumes, \
-                "`structure_volumes` does not contain %s. Need to load this probabilistic structure first." % str(name_side_tuple)
-                vol = self.prob_structure_volumes[name_side_tuple]['volume_in_bbox']
-                # bbox_wrt_WholebrainAlignedPadded_volResol = self.prob_structure_volumes[name_side_tuple]['bbox']
-
-                bbox_wrt_WholebrainAlignedPadded_volResol = np.array(self.prob_structure_volumes[name_side_tuple]['bbox'])
-                # print 'internal_structure_bbox_wrt_WholebrainAlignedPaddedXYCropped_volResol=', internal_structure_bbox_wrt_WholebrainAlignedPaddedXYCropped_volResol
-                # wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_tbResol = DataManager.load_cropbox(self.gui.stack, convert_section_to_z=True)[[0,2,4]]
-                # print 'wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_tbResol=', wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_tbResol
-                # wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_volResol = wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_tbResol * 32. / self.prob_structure_volumes_downscale_factor
-                # print 'wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_volResol=', wholeBrainAlignedPaddedXYCropped_origin_wrt_wholeBrainAlignedPadded_volResol
-                # bbox_wrt_WholebrainAlignedPadded_volResol = internal_structure_bbox_wrt_WholebrainAlignedPadded_volResol[[0,0,1,1,2,2]]
-
-                print 'vol', vol.shape, 'bbox', bbox_wrt_WholebrainAlignedPadded_volResol
-
-                polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = \
-                np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0)
-
-                active_structure_center_2d_wrt_imagedata_gsceneResol = np.array([polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol])
-
-                ys_wrt_structureVol_volResol, xs_wrt_structureVol_volResol, zs_wrt_structureVol_volResol = np.where(vol)
-
-                if self.id == 'sagittal' or self.id == 'sagittal_tb':
-
-                    # Compute rotation center in 3d.
-                    # This is the point (x of polygon centroid, y of polygon centroid, z of structure centroid)
-
-                    cx_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
-                    print 'cx_wrt_structureVol_volResol', cx_wrt_structureVol_volResol
-
-                    cy_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
-
-                    cz_wrt_structureVol_volResol = np.mean(zs_wrt_structureVol_volResol)
-
-                elif self.id == 'coronal':
-
-                    cx_wrt_structureVol_volResol = np.mean(xs_wrt_structureVol_volResol)
-
-                    cy_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[2]
-
-                    cz_wrt_WholebrainAlignedPadded_volResol = \
-                    ((self.data_feeder.z_dim - 1 - polygon_cx_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
-
-                elif self.id == 'horizontal':
-                    cx_wrt_WholebrainAlignedPadded_volResol = \
-                    (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[0]
-
-                    cy_wrt_structureVol_volResol = np.mean(ys_wrt_structureVol_volResol)
-
-                    cz_wrt_WholebrainAlignedPadded_volResol = \
-                    ((self.data_feeder.z_dim - 1 - polygon_cy_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-                    self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / self.prob_structure_volumes_downscale_factor
-                    cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - bbox_wrt_WholebrainAlignedPadded_volResol[4]
-
-                else:
-                    raise
-
-                if self.mode == 'prob_rotate3d':
-
-                    vec2 = np.array([gscene_x - active_structure_center_2d_wrt_imagedata_gsceneResol[0], gscene_y - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    vec1 = np.array([self.press_x_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[0], self.press_y_wrt_imageData_gsceneResol - active_structure_center_2d_wrt_imagedata_gsceneResol[1]])
-                    theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
-                    print theta_ccwise, np.rad2deg(theta_ccwise)
-                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
-                    elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
-                    elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
-
-                elif self.mode == 'prob_shift3d':
-
-                    # shift_2d is in gscene resolution, which differs for different gscenes.
-                    shift_2d_gsceneResol = np.array((gscene_x - self.press_x_wrt_imageData_gsceneResol, gscene_y - self.press_y_wrt_imageData_gsceneResol))
-                    shift_2d_fullResol = shift_2d_gsceneResol * self.data_feeder.downsample
-                    shift_2d_volResol = shift_2d_fullResol / float(self.prob_structure_volumes_downscale_factor)
-                    print 'shift_2d_volResol', shift_2d_volResol
-                    if self.id == 'sagittal' or self.id == 'sagittal_tb':
-                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=shift_2d_volResol[1],tz=0)
-                    elif self.id == 'coronal':
-                        tf = affine_components_to_vector(tx=0,ty=shift_2d_volResol[1],tz=-shift_2d_volResol[0])
-                    elif self.id == 'horizontal':
-                        tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
-                    print 'tf=', tf
-
-                else:
-                    raise
-
-                t = time.time()
-
-                # print 'before', np.count_nonzero(vol.astype(np.bool))
-                # k = 3
-                # w = np.pad(vol, ((k,k),(k,k),(k,k)), mode='constant', constant_values=0)
-                # vol_surface = np.diff(w, axis=0)[k:-(k-1),k:-k,k:-k] | \
-                # np.diff(w, axis=1)[k:-k,k:-(k-1),k:-k] | \
-                # np.diff(w, axis=2)[k:-k,k:-k,k:-(k-1)]
-                # print 'after', np.count_nonzero(vol_surface)
-
-                tfed_structure_volume, tfed_structure_volume_bbox_wrt_structureVol_volResol = transform_volume_v2(vol, tf,
-                centroid_m=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                centroid_f=(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                fill_sparse=True)
-
-                sys.stderr.write('transform volume: %.2f seconds.\n' % (time.time() - t))
-                print 'tfed_structure_volume_bbox_wrt_structureVol_volResol', tfed_structure_volume_bbox_wrt_structureVol_volResol
-                tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol = \
-                                                (tfed_structure_volume_bbox_wrt_structureVol_volResol[0] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[1] + bbox_wrt_WholebrainAlignedPadded_volResol[0],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[2] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[3] + bbox_wrt_WholebrainAlignedPadded_volResol[2],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[4] + bbox_wrt_WholebrainAlignedPadded_volResol[4],
-                                                tfed_structure_volume_bbox_wrt_structureVol_volResol[5] + bbox_wrt_WholebrainAlignedPadded_volResol[4])
-                print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol', tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
-
-                self.prob_structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
-                print 'AFTER', np.count_nonzero(tfed_structure_volume.astype(np.bool))
-
-                # bp.pack_ndarray_file(tfed_structure_volume, '/tmp/test.bp')
-
-                self.prob_structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
-
-                # Append edits
-                if self.mode == 'prob_shift3d':
-                    if 'edits' not in self.prob_structure_volumes[name_side_tuple]:
-                        self.prob_structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
-                    edit_entry = {'username': self.gui.get_username(),
-                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                    'type': 'shift3d',
-                    'transform':tf,
-                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
-                    self.prob_structure_volumes[name_side_tuple]['edits'].append(edit_entry)
-
-                elif self.mode == 'prob_rotate3d':
-                    if 'edits' not in self.structure_volumes[name_side_tuple]:
-                        self.structure_volumes[name_side_tuple]['edits'] = []
-                    # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
-                    edit_entry = {'username': self.gui.get_username(),
-                    'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-                    'type': 'rotate3d',
-                    'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
-                    'centroid_m':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol),
-                    'centroid_f':(cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)}
-                    self.structure_volumes[name_side_tuple]['edits'].append(edit_entry)
-
-                self.prob_structure_volume_updated.emit(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'], prob=True)
                 self.set_mode('idle')
 
             elif self.mode == 'delete vertices':
@@ -2176,9 +1888,232 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # self.set_mode('idle')
                 # self.set_mode(Mode.IDLE)
 
-
             self.press_x_wrt_imageData_gsceneResol = None
             self.press_y_wrt_imageData_gsceneResol = None
 
         return False
         # return super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).eventFilter(obj, event)
+
+    def compute_rotation_center_in_2d(self):
+        return np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0)
+
+    def compute_rotation_center_in_3d(self, plane, vol, vol_origin_wrt_WholebrainAlignedPadded_volResol, vol_downscale_factor, rotation_center_2d=None):
+        """
+        Compute 3d coordinates of rotation center.
+        For sagittal, this is the point (x of polygon centroid, y of polygon centroid, z of structure centroid)
+        """
+
+        if rotation_center_2d is None:
+            rotation_center_2d = self.compute_rotation_center_in_2d()
+
+        polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = rotation_center_2d
+        ys_wrt_structureVol_volResol, xs_wrt_structureVol_volResol, zs_wrt_structureVol_volResol = np.where(vol)
+
+        if plane == 'sagittal':
+
+            cx_wrt_WholebrainAlignedPadded_volResol = \
+            (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / vol_downscale_factor
+            cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[0]
+            print 'cx_wrt_structureVol_volResol', cx_wrt_structureVol_volResol
+
+            cy_wrt_WholebrainAlignedPadded_volResol = \
+            (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / vol_downscale_factor
+            cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[1]
+
+            cz_wrt_structureVol_volResol = np.mean(zs_wrt_structureVol_volResol)
+
+        elif plane == 'coronal':
+
+            cx_wrt_structureVol_volResol = np.mean(xs_wrt_structureVol_volResol)
+
+            cy_wrt_WholebrainAlignedPadded_volResol = \
+            (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[1] * 32.) / vol_downscale_factor
+            cy_wrt_structureVol_volResol = cy_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[1]
+
+            cz_wrt_WholebrainAlignedPadded_volResol = \
+            ((self.data_feeder.z_dim - 1 - polygon_cx_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / vol_downscale_factor
+            cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[2]
+
+        elif plane == 'horizontal':
+            cx_wrt_WholebrainAlignedPadded_volResol = \
+            (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[0] * 32.) / vol_downscale_factor
+            cx_wrt_structureVol_volResol = cx_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[0]
+
+            cy_wrt_structureVol_volResol = np.mean(ys_wrt_structureVol_volResol)
+
+            cz_wrt_WholebrainAlignedPadded_volResol = \
+            ((self.data_feeder.z_dim - 1 - polygon_cy_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
+            self.get_imageData_origin_wrt_WholebrainAlignedPadded_tbResol()[2] * 32.) / vol_downscale_factor
+            cz_wrt_structureVol_volResol = cz_wrt_WholebrainAlignedPadded_volResol - vol_origin_wrt_WholebrainAlignedPadded_volResol[2]
+
+        else:
+            raise
+
+        active_structure_center_3d_wrt_structureVol_volResol = np.array([cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol])
+        return active_structure_center_3d_wrt_structureVol_volResol
+
+    def compute_translate_transform_vector(self, curr_gscene_coords, start_gscene_coords, plane, vol_downscale_factor):
+        """
+        Args:
+            curr_gscene_coords (2-tuple of float): 2D gscene coordinate of current point
+            start_gscene_coords (2-tuple of float): 2D gscene coordinate of starting point
+            plane (str): sagittal, coronal or horizontal
+
+        Returns:
+            12-tuple of float: flattened 3x4 transform matrix, in internal structure volume resolution.
+        """
+        # shift_2d_gsceneResol = np.array((gscene_x - self.press_x_wrt_imageData_gsceneResol, gscene_y - self.press_y_wrt_imageData_gsceneResol))
+        shift_2d_gsceneResol = np.array(curr_gscene_coords) - np.array(start_gscene_coords)
+        shift_2d_fullResol = shift_2d_gsceneResol * self.data_feeder.downsample
+        shift_2d_volResol = shift_2d_fullResol / float(vol_downscale_factor)
+        print 'shift_2d_volResol', shift_2d_volResol
+        if plane == 'sagittal':
+            tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=shift_2d_volResol[1],tz=0)
+        elif plane == 'coronal':
+            tf = affine_components_to_vector(tx=0,ty=shift_2d_volResol[1],tz=-shift_2d_volResol[0])
+        elif plane == 'horizontal':
+            tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
+        else:
+            raise
+        return tf
+
+
+    def compute_rotate_transform_vector(self, curr_gscene_coords, start_gscene_coords, center_gscene_coords, plane):
+        """
+        Args:
+            curr_gscene_coords (2-tuple of float): 2D gscene coordinate of current point
+            start_gscene_coords (2-tuple of float): 2D gscene coordinate of starting point
+            center_gscene_coords (2-tuple of float): 2D gscene coordinate of the rotation center
+            plane (str): sagittal, coronal or horizontal
+
+        Returns:
+            12-tuple of float: flattened 3x4 transform matrix, in internal structure volume resolution.
+        """
+
+        vec2 = np.array(curr_gscene_coords) - np.array(center_gscene_coords)
+        vec1 = np.array(start_gscene_coords) - np.array(center_gscene_coords)
+        theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+        # print theta_ccwise, np.rad2deg(theta_ccwise)
+        if plane == 'sagittal':
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
+        elif plane == 'coronal':
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
+        elif plane == 'horizontal':
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
+        else:
+            raise
+        return tf
+
+    def transform_structure(self, name, side, prob=False):
+        """
+        Args:
+            name (str): Structure name, without sides.
+            side (str): L, R, S
+            prob (bool): If true, transform probalistic structures. Otherwise, transform regular structures.
+        """
+
+        name_side_tuple = (name, side)
+
+        if prob:
+            structure_volumes = self.prob_structure_volumes
+            structure_volume_downscale_factor = self.prob_structure_volumes_downscale_factor
+        else:
+            structure_volumes = self.structure_volumes
+            structure_volume_downscale_factor = self.structure_volumes_downscale_factor
+
+        assert name_side_tuple in structure_volumes, \
+        "`structure_volumes` does not contain %s. Need to load this structure first." % str(name_side_tuple)
+        vol = structure_volumes[name_side_tuple]['volume_in_bbox']
+        # bbox_wrt_WholebrainAlignedPadded_volResol = np.array(structure_volumes[name_side_tuple]['bbox'])
+        vol_origin_wrt_WholebrainAlignedPadded_volResol = np.array(structure_volumes[name_side_tuple]['bbox'])[[0,2,4]]
+
+        print 'vol', vol.shape, 'vol_origin_wrt_WholebrainAlignedPadded_volResol', vol_origin_wrt_WholebrainAlignedPadded_volResol
+
+        if self.id == 'sagittal' or self.id == 'sagittal_tb':
+            plane = 'sagittal'
+        elif self.id == 'coronal':
+            plane = 'coronal'
+        elif self.id == 'horizontal':
+            plane = 'horizontal'
+        else:
+            raise
+
+        if self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d' or self.mode == 'rotate3d':
+
+            active_structure_center_2d_wrt_imagedata_gsceneResol = self.compute_rotation_center_in_2d()
+
+            tf = self.compute_rotate_transform_vector(curr_gscene_coords=(self.gscene_x, self.gscene_y),
+            start_gscene_coords=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol),
+            center_gscene_coords=active_structure_center_2d_wrt_imagedata_gsceneResol,
+            plane=plane)
+
+            center_wrt_structureVol_volResol = self.compute_rotation_center_in_3d(plane=plane, vol=vol,
+                    vol_origin_wrt_WholebrainAlignedPadded_volResol=vol_origin_wrt_WholebrainAlignedPadded_volResol,
+                    vol_downscale_factor=structure_volume_downscale_factor,
+                    rotation_center_2d=active_structure_center_2d_wrt_imagedata_gsceneResol)
+
+        elif self.mode == 'prob_shift3d' or self.mode == 'global_shift3d' or self.mode == 'shift3d':
+
+            tf = self.compute_translate_transform_vector(curr_gscene_coords=(self.gscene_x, self.gscene_y),
+            start_gscene_coords=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol),
+            plane=plane,
+            vol_downscale_factor=structure_volume_downscale_factor)
+
+            center_wrt_structureVol_volResol = np.zeros((3,)) # This does not matter since translation does not depend on a center.
+
+        else:
+            raise
+
+        tfed_structure_volume, tfed_structure_volume_bbox_wrt_structureVol_volResol = transform_volume_v2(vol, tf,
+        centroid_m=center_wrt_structureVol_volResol,
+        centroid_f=center_wrt_structureVol_volResol,
+        fill_sparse=True)
+
+
+        t = time.time()
+        structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
+        sys.stderr.write('transform volume: %.2f seconds.\n' % (time.time() - t))
+        # print 'tfed_structure_volume_bbox_wrt_structureVol_volResol', tfed_structure_volume_bbox_wrt_structureVol_volResol
+
+        tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol = \
+        np.array(tfed_structure_volume_bbox_wrt_structureVol_volResol) + vol_origin_wrt_WholebrainAlignedPadded_volResol[[0,0,1,1,2,2]]
+        # print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol', tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
+        # print 'AFTER', np.count_nonzero(tfed_structure_volume.astype(np.bool))
+        structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox_wrt_WholebrainAlignedPadded_volResol
+
+        # Append edits
+        if self.mode == 'shift3d' or self.mode == 'prob_shift3d' or self.mode == 'global_shift3d':
+            if 'edits' not in structure_volumes[name_side_tuple]:
+                structure_volumes[name_side_tuple]['edits'] = []
+            # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
+            edit_entry = {'username': self.gui.get_username(),
+            'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+            'type': 'shift3d',
+            'transform':tf,
+            'centroid_m':center_wrt_structureVol_volResol,
+            'centroid_f':center_wrt_structureVol_volResol}
+            structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+
+        elif self.mode == 'rotate3d' or self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
+            if 'edits' not in structure_volumes[name_side_tuple]:
+                structure_volumes[name_side_tuple]['edits'] = []
+            # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
+            edit_entry = {'username': self.gui.get_username(),
+            'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
+            'type': 'rotate3d',
+            'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
+            'centroid_m':center_wrt_structureVol_volResol,
+            'centroid_f':center_wrt_structureVol_volResol}
+            structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+        else:
+            raise
+
+        if prob:
+            self.prob_structure_volume_updated.emit(name, side)
+        else:
+            self.structure_volume_updated.emit(name, side, False, False)

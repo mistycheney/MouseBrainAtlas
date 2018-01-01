@@ -582,6 +582,45 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
 
+
+    @pyqtSlot()
+    def save_prob_structures(self):
+        """
+        Save probabilistic structure volumes.
+        """
+
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        import uuid
+
+        entries = {}
+        for (name, side), v in self.prob_structure_volumes.iteritems():
+            entry = {}
+            # entry['volume_in_bbox'] = v['volume_in_bbox']
+            entry['volume_in_bbox'] = bp.pack_ndarray_str(v['volume_in_bbox'])
+            entry['bbox'] = v['bbox']
+            entry['name'] = name
+            entry['side'] = side
+            if 'edits' not in v or v['edits'] is None or len(v['edits']) == 0:
+                entry['edits'] = []
+            else:
+                entry['edits'] = v['edits']
+            #     entry['edits'] =  [{'type': 'creation', 'username':self.username, 'timestamp':timestamp}]
+            # else:
+
+            if hasattr(v, 'structure_id') and v.properties['structure_id'] is not None:
+                structure_id = v.properties['structure_id']
+            else:
+                structure_id = str(uuid.uuid4().fields[-1])
+
+            entries[structure_id] = entry
+
+        structure_df = DataFrame(entries).T
+        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp=timestamp)
+        save_hdf_v2(structure_df, structure_df_fp)
+        upload_to_s3(structure_df_fp)
+        print 'Probabilistic structures saved to %s.' % structure_df_fp
+
+
     @pyqtSlot()
     def save_contours(self):
         """
@@ -654,7 +693,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if not warped:
             unwarped_atlas_volumes, unwarped_atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
-            structures=['7N_L'])
+            structures=['7N_L', '5N_L', 'SNR_L'])
 
             xdim = unwarped_atlas_bbox_wrt_MD589[1] - unwarped_atlas_bbox_wrt_MD589[0]
             ydim = unwarped_atlas_bbox_wrt_MD589[3] - unwarped_atlas_bbox_wrt_MD589[2]
@@ -665,6 +704,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
             self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
 
+            from skimage.transform import rescale
+            unwarped_atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in unwarped_atlas_volumes.iteritems()}
+            unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
+
             for name_s, v in unwarped_atlas_volumes.iteritems():
                 name_u, side = parse_label(name_s)[:2]
                 self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
@@ -672,7 +715,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
                 for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_prob_structure_volume(name_u, side)
+                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
         else:
             pass
@@ -974,7 +1017,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         for gscene_id in affected_gscenes:
         # for gscene_id in ['sagittal']:
-            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side)
+            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5])
 
         print '3D prob structure updated.'
         self.statusBar().showMessage('3D prob structure updated.')

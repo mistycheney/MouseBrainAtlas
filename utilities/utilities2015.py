@@ -29,6 +29,8 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+######################################################################
+
 def eulerAnglesToRotationMatrix(theta):
     """
     Calculates Rotation Matrix given euler angles.

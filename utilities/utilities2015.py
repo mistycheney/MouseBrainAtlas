@@ -29,6 +29,8 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+######################################################################
+
 def eulerAnglesToRotationMatrix(theta):
     """
     Calculates Rotation Matrix given euler angles.
@@ -111,28 +113,27 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
-    
+
     if colors is None:
         colors = {name_s: (0,0,1) for name_s in instance_centroids}
-    
+
     for name_s, centroids in instance_centroids.iteritems():
     #     if name_s == '7N_L' or name_s == '7N_R':
-        
+
         if canonical_centroid is None:
             centroids2 = np.array(centroids)
         else:
             centroids2 = np.array(centroids) + canonical_centroid
-        
+
         ax.scatter(centroids2[:,0], centroids2[:,1], centroids2[:,2],
-                   color=np.array(name_unsided_to_color[convert_to_original_name(name_s)])/255.,
-                   marker='o', s=100, alpha=.1, c=colors[name_s])
+                   marker='o', s=100, alpha=.1, color=colors[name_s])
 
 
         if canonical_centroid is None:
             c = nominal_locations[name_s]
         else:
             c = nominal_locations[name_s] + canonical_centroid
-            
+
         ax.scatter(c[0], c[1], c[2],
                    color=colors[name_s], marker='*', s=100)
 
@@ -606,22 +607,24 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
 def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None, vol_origin_dict=None):
     """
     Must provide exactly one of the three choices of arguments.
+    `bbox` or `origin` can be provided as float, but will be casted as integer before cropping and padding.
 
     Args:
-        vol_bbox_dict (dict {key: (vol, bbox)})
+        vol_bbox_dict (dict {key: 3d-array of float32, 6-tuple of float}): represents {name_s: (vol, bbox)}
+        vol_origin_dict (dict {key: 3d-array of float32, 3-tuple of float}): represents {name_s: (vol, origin)}
 
     Returns:
-        (list or dict of 3d arrays, (6,)-ndarray): (volumes in overall coordinate system, the common overall bounding box)
+        (list or dict of 3d arrays, (6,)-ndarray of int): (volumes in overall coordinate system, the common overall bounding box)
     """
 
     if vol_origin_dict is not None:
         vol_bbox_dict = {k: (v, (o[0], o[0]+v.shape[1]-1, o[1], o[1]+v.shape[0]-1, o[2], o[2]+v.shape[2]-1)) for k,(v,o) in vol_origin_dict.iteritems()}
 
     if vol_bbox_dict is not None:
-        volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())
+        volume_bbox = np.round(get_overall_bbox(vol_bbox_tuples=vol_bbox_dict.values())).astype(np.int)
         volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_dict=vol_bbox_dict)
     else:
-        volume_bbox = get_overall_bbox(vol_bbox_tuples=vol_bbox_tuples)
+        volume_bbox = np.round(get_overall_bbox(vol_bbox_tuples=vol_bbox_tuples)).astype(np.int)
         volumes = crop_and_pad_volumes(out_bbox=volume_bbox, vol_bbox_tuples=vol_bbox_tuples)
     return volumes, np.array(volume_bbox)
 

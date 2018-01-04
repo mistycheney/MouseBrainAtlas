@@ -26,6 +26,7 @@ parser.add_argument("-l", "--low", type=int, help="Low intensity limit for linea
 parser.add_argument("-H", "--high", type=int, help="High intensity limit for linear contrast stretch")
 parser.add_argument("-o", "--output_version", type=str, help="Output image version", default='gray')
 # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+parser.add_argument("-p", "--prep_id", type=int, help="prep id", default=2)
 parser.add_argument('--not_use_section_specific', dest='use_sec_specific', action='store_false', help="Not use section-specific intensity mapping")
 parser.set_defaults(use_section_specific=True)
 args = parser.parse_args()
@@ -36,12 +37,13 @@ stack = args.stack
 filenames = json.loads(args.filenames)
 use_section_specific_mapping = args.use_sec_specific
 output_version = args.output_version
+prep_id = args.prep_id
 
 for fn in filenames:
     
     # try:
     t = time.time()
-    img_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, resol='lossless')
+    img_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=prep_id, resol='lossless')
     download_from_s3(img_fp, local_root=DATA_ROOTDIR)
     
     sys.stderr.write('Download: %.2f seconds\n' % (time.time() - t))
@@ -81,7 +83,7 @@ for fn in filenames:
             # print img_blue_intensity_normalized.min(), img_blue_intensity_normalized.max()
             sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
 
-            output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version=output_version, resol='lossless')
+            output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=prep_id, version=output_version, resol='lossless')
 
         else:
             sys.stderr.write("Linear limits arguments detected, so use linear mapping.\n")
@@ -93,7 +95,7 @@ for fn in filenames:
             img_blue_intensity_normalized = rescale_intensity_v2(img_blue, low_limit, high_limit)
             sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
 
-            output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version=output_version, resol='lossless')
+            output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=prep_id, version=output_version, resol='lossless')
 
         t = time.time()
         create_parent_dir_if_not_exists(output_fp)
@@ -115,7 +117,7 @@ for fn in filenames:
         img_gray = img_as_ubyte(rgb2gray(img))
         sys.stderr.write('Convert: %.2f seconds\n' % (time.time() - t))
 
-        output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=2, version=output_version, resol='lossless')
+        output_fp = DataManager.get_image_filepath_v2(stack=stack, fn=fn, prep_id=prep_id, version=output_version, resol='lossless')
         create_parent_dir_if_not_exists(output_fp)
 
         t = time.time()
@@ -126,6 +128,9 @@ for fn in filenames:
         upload_to_s3(output_fp, local_root=DATA_ROOTDIR)
         sys.stderr.write('Upload: %.2f seconds\n' % (time.time() - t))
 
+        
+    print output_fp
+        
         # else:
         #     sys.stderr.write("Filename %s is not F or N.\n" % fn)
 

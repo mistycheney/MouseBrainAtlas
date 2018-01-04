@@ -2637,6 +2637,9 @@ class DataManager(object):
         else:
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
+           
+        if img is None:
+            raise Exception("Image loading failed.")
 
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.

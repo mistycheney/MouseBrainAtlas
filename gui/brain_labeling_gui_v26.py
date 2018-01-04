@@ -89,6 +89,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_save.clicked.connect(self.save_contours)
         self.button_saveMarkers.clicked.connect(self.save_markers)
         self.button_saveStructures.clicked.connect(self.save_structures)
+        self.button_saveProbStructures.clicked.connect(self.save_prob_structures)
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
@@ -551,7 +552,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Save 3D structure volumes.
         """
 
-        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        # timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
         import uuid
 
         entries = {}
@@ -577,7 +578,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entries[structure_id] = entry
 
         structure_df = DataFrame(entries).T
-        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp=timestamp)
+        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now')
         save_hdf_v2(structure_df, structure_df_fp)
         upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
@@ -589,7 +590,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Save probabilistic structure volumes.
         """
 
-        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        # timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
         import uuid
 
         entries = {}
@@ -615,7 +616,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entries[structure_id] = entry
 
         structure_df = DataFrame(entries).T
-        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp=timestamp)
+        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now')
         save_hdf_v2(structure_df, structure_df_fp)
         upload_to_s3(structure_df_fp)
         print 'Probabilistic structures saved to %s.' % structure_df_fp

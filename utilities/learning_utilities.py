@@ -21,26 +21,26 @@ from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
 
-    
+
 from sklearn.externals import joblib
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC, SVC
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import GradientBoostingClassifier 
+from sklearn.ensemble import GradientBoostingClassifier
 
 sys.path.append('/home/yuncong/csd395/xgboost/python-package')
 try:
     from xgboost.sklearn import XGBClassifier
 except:
     sys.stderr.write('xgboost is not loaded.')
-    
+
 def compute_classification_metrics(probs, labels):
     """
     Args:
         probs ((n,)-array of prediction value between 0 and 1): prediction.
         labels ((n,)-array of 0/1 or -1/1): ground-truth labels.
-        
+
     Returns:
         dict
     """
@@ -51,11 +51,11 @@ def compute_classification_metrics(probs, labels):
     tp_normalized_allthresh = {}
     fp_normalized_allthresh = {}
     acc_allthresh = {}
-    
+
     n_pos = np.count_nonzero(labels == 1)
     n_neg = np.count_nonzero(labels != 1)
     n = len(labels)
-    
+
     for th in np.arange(0., 1., 0.01):
 
         cm = compute_confusion_matrix(np.c_[probs, 1-probs], [0 if l==1. else 1 for l in labels], soft=False,
@@ -64,7 +64,7 @@ def compute_classification_metrics(probs, labels):
         fn = cm[0,1]
         fp = cm[1,0]
         tn = cm[1,1]
-        
+
         acc = (tp + tn) / float(n)
 
         tp_normalized = tp / n_pos
@@ -82,18 +82,18 @@ def compute_classification_metrics(probs, labels):
         recall_allthresh[float(th)] = recall
         f1score_allthresh[float(th)] = f1score
         acc_allthresh[float(th)] = acc
-        
+
     fps = [fp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     tps = [tp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     auroc = np.sum([.5 * (tps[k] + tps[k-1]) * np.abs(fps[k] - fps[k-1]) for k in range(1, len(fps))])
-        
+
     rs = [recall_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     ps = [precision_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     auprc = np.sum([.5 * (rs[k] + rs[k-1]) * np.abs(ps[k] - ps[k-1]) for k in range(1, len(ps))])
-    
-    optimal_th = np.arange(0, 1, 0.01)[np.nanargmax([f1score_allthresh[th] for th in np.arange(0, 1, 0.01)])]            
+
+    optimal_th = np.arange(0, 1, 0.01)[np.nanargmax([f1score_allthresh[th] for th in np.arange(0, 1, 0.01)])]
     fopt = f1score_allthresh[optimal_th]
-    
+
     return {'acc': acc_allthresh,
         'tp': tp_normalized_allthresh,
 #             fn_normalized_all_clfs_all_structures_all_negcomprule[classifier_id][structure][neg_composition_rule] = fn_normalized_allthresh
@@ -112,7 +112,7 @@ def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
     Args:
         train_data ((n,d)-array):
         train_labels ((n,)-array of 1/-1):
-        alg (str): 
+        alg (str):
             - lr: logistic regression
             - lin_svc: linear SVM
             - lin_svc_calib: calibrated linear SVM
@@ -121,66 +121,66 @@ def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
             - gb1: sklearn gradient boosting classifier, 3-layer x 200
             - gb2: sklearn gradient boosting classifier, 5-layer x 100
     """
-    
+
     if alg == 'lr':
-        clf = LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1, 
-                                 fit_intercept=True, intercept_scaling=1, class_weight=None, 
-                                 random_state=None, solver='liblinear', max_iter=100, multi_class='ovr', 
+        clf = LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1,
+                                 fit_intercept=True, intercept_scaling=1, class_weight=None,
+                                 random_state=None, solver='liblinear', max_iter=100, multi_class='ovr',
                                  verbose=0, warm_start=False, n_jobs=1)
 
     elif alg == 'lin_svc':
-        clf = SVC(C=1.0, kernel='linear', degree=3, gamma='auto', coef0=0.0, shrinking=True, 
+        clf = SVC(C=1.0, kernel='linear', degree=3, gamma='auto', coef0=0.0, shrinking=True,
                   probability=True, tol=0.001, cache_size=1000, max_iter=-1,
               decision_function_shape=None, random_state=None)
 
 
     elif alg == 'lin_svc_calib':
 
-        sv_uncalibrated = LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=0.0001, 
-                                C=1.0, multi_class='ovr', 
+        sv_uncalibrated = LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=0.0001,
+                                C=1.0, multi_class='ovr',
                                 fit_intercept=True, intercept_scaling=1, max_iter=100)
         clf = CalibratedClassifierCV(sv_uncalibrated)
 
 
     elif alg == 'xgb1':
-        clf = XGBClassifier(max_depth=3, learning_rate=0.2, n_estimators=200, 
-                            silent=False, objective='binary:logistic', nthread=-1, gamma=0, 
-                            min_child_weight=20, max_delta_step=0, subsample=.8, 
-                            colsample_bytree=.8, colsample_bylevel=1, reg_alpha=0, reg_lambda=1, 
+        clf = XGBClassifier(max_depth=3, learning_rate=0.2, n_estimators=200,
+                            silent=False, objective='binary:logistic', nthread=-1, gamma=0,
+                            min_child_weight=20, max_delta_step=0, subsample=.8,
+                            colsample_bytree=.8, colsample_bylevel=1, reg_alpha=0, reg_lambda=1,
                             scale_pos_weight=1, base_score=0.5, seed=0, missing=None)
 
     elif alg == 'xgb2':
-        clf = XGBClassifier(max_depth=5, learning_rate=0.2, n_estimators=100, 
+        clf = XGBClassifier(max_depth=5, learning_rate=0.2, n_estimators=100,
                             silent=False, objective='binary:logistic')
         # 40s, 10,000 pos and 10,000 neg samples
 
     elif alg == 'gb1':
-        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=200, 
-                                         subsample=1., criterion='friedman_mse', 
-                                         min_samples_split=50, min_samples_leaf=20, 
-                                         min_weight_fraction_leaf=0.0, max_depth=3, 
-                                         min_impurity_split=1e-07, init=None, random_state=None, 
-                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=200,
+                                         subsample=1., criterion='friedman_mse',
+                                         min_samples_split=50, min_samples_leaf=20,
+                                         min_weight_fraction_leaf=0.0, max_depth=3,
+                                         min_impurity_split=1e-07, init=None, random_state=None,
+                                         max_features=None, verbose=1, max_leaf_nodes=None,
                                          warm_start=False, presort='auto')
 
     elif alg == 'gb2':
-        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=100, 
-                                         subsample=1., criterion='friedman_mse', 
-                                         min_samples_split=50, min_samples_leaf=20, 
-                                         min_weight_fraction_leaf=0.0, max_depth=5, 
-                                         min_impurity_split=1e-07, init=None, random_state=None, 
-                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=100,
+                                         subsample=1., criterion='friedman_mse',
+                                         min_samples_split=50, min_samples_leaf=20,
+                                         min_weight_fraction_leaf=0.0, max_depth=5,
+                                         min_impurity_split=1e-07, init=None, random_state=None,
+                                         max_features=None, verbose=1, max_leaf_nodes=None,
                                          warm_start=False, presort='auto')
 
     else:
 #         sys.stderr.write('Setting is not recognized.\n')
         raise "Alg %s is not recognized." % alg
-            
-    
-    t = time.time()    
+
+
+    t = time.time()
     clf.fit(train_data, train_labels, sample_weight=sample_weights)
     sys.stderr.write('Fitting classifier: %.2f seconds\n' % (time.time() - t))
-    
+
     return clf
 
 def get_negative_labels(structure, neg_composition, margin_um, labels_found):
@@ -188,7 +188,7 @@ def get_negative_labels(structure, neg_composition, margin_um, labels_found):
     Args:
         labels_found (list of str): get labels only from this list.
     """
-    
+
     if neg_composition == 'neg_has_only_surround_noclass':
         neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
     elif neg_composition == 'neg_has_all_surround':
@@ -208,7 +208,7 @@ def get_negative_labels(structure, neg_composition, margin_um, labels_found):
         neg_classes += [structure + '_negative']
     else:
         raise Exception('neg_composition %s is not recognized.' % neg_composition)
-    
+
     return neg_classes
 
 def plot_roc_curve(fp_allthresh, tp_allthresh, optimal_th, title=''):
@@ -279,12 +279,12 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
 
     features_list = []
     for i in range(0, len(patches), 80000):
-        
+
         patches_mean_subtracted = patches[i:i+80000] - mean_img
         patches_mean_subtracted_input = patches_mean_subtracted[:, None, :, :] # n x 1 x 224 x 224
 
         ni = len(patches[i:i+80000])
-        
+
         if ni < batch_size:
             n_pad = batch_size - ni
             patches_mean_subtracted_input = np.concatenate([patches_mean_subtracted_input, np.zeros((n_pad,1) + mean_img.shape, mean_img.dtype)])
@@ -300,9 +300,9 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
         if ni < batch_size:
             features = features[:ni]
 
-        # features = convert_image_patches_to_features(patches[i:i+80000], model=model, 
+        # features = convert_image_patches_to_features(patches[i:i+80000], model=model,
         #                                          mean_img=mean_img, batch_size=batch_size)
-        
+
         features_list.append(features)
     return np.concatenate(features_list)
 
@@ -663,9 +663,9 @@ def locate_patches_given_addresses_v2(addresses):
 
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
-    
-    
-def extract_patches_given_locations(patch_size, 
+
+
+def extract_patches_given_locations(patch_size,
                                     locs,
                                     img=None,
                                     stack=None, sec=None, fn=None, version=None, prep_id=2,
@@ -685,12 +685,12 @@ def extract_patches_given_locations(patch_size,
     """
 
     from utilities2015 import rescale_intensity_v2 # Without this, rescale_intensity_v2 has wrong behavior. WHY?
-    
+
     half_size = patch_size/2
-    
+
     if img is None:
         t = time.time()
-        
+
         if stack == 'ChatCryoJane201710':
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='Ntb')
         elif stack in all_nissl_stacks:
@@ -699,29 +699,29 @@ def extract_patches_given_locations(patch_size,
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)[...,2]
 
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
-        
+
     if normalization_scheme == 'stretch_min_max_global':
         if stack in all_nissl_stacks:
             img = rescale_intensity_v2(img, img.min(), img.max())
         else:
             img = rescale_intensity_v2(img, img.max(), img.min())
-        
+
         if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
             a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-            patches = [img_as_ubyte(resize(img[y-int(half_size*a):y+int(half_size*a), 
-                                                x-int(half_size*a):x+int(half_size*a)], 
+            patches = [img_as_ubyte(resize(img[y-int(half_size*a):y+int(half_size*a),
+                                                x-int(half_size*a):x+int(half_size*a)],
                                             (half_size*2, half_size*2)))
                        for x, y in locs]
 
         else:
             patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-            
+
     else:
-        
+
         if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
             a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-            patches = [resize(img[y-int(half_size*a):y+int(half_size*a), 
-                                                x-int(half_size*a):x+int(half_size*a)], 
+            patches = [resize(img[y-int(half_size*a):y+int(half_size*a),
+                                                x-int(half_size*a):x+int(half_size*a)],
                                             (half_size*2, half_size*2), preserve_range=True)
                        for x, y in locs]
 
@@ -793,7 +793,7 @@ def extract_patches_given_locations(patch_size,
                 # p_normalized_uint8 = p_normalized
                 patches_normalized_uint8.append(p_normalized_uint8)
             patches = patches_normalized_uint8
-            
+
         elif normalization_scheme == 'normalize_mu_sigma_global_(-1,5)':
             mean_std_sample_locations = load_pickle('/tmp/%s_sample_locations_mean_std.pkl' % stack)
             patches_normalized_uint8 = []
@@ -826,7 +826,7 @@ def extract_patches_given_locations(patch_size,
             pass
         else:
             raise Exception("Normalization scheme %s is not recognized.\n" % normalization_scheme)
-        
+
     return patches
 
 def extract_patches_given_locations_multiple_sections(addresses,
@@ -842,7 +842,7 @@ def extract_patches_given_locations_multiple_sections(addresses,
         addresses (list of tuples):
             if location_or_grid_index is 'location', then this is a list of (stack, section, location), `patch_size` or `win_id` is required.
             if location_or_grid_index is 'grid_index', then this is a list of (stack, section, framewise_index), win_id is required.
-        images (dict {(stack, section): image}): 
+        images (dict {(stack, section): image}):
 
     Returns:
         list of (patch_size, patch_size)-arrays.
@@ -872,19 +872,19 @@ def extract_patches_given_locations_multiple_sections(addresses,
                                                        stride=windowing_settings[win_id]['spacing'],
                                                       w=metadata_cache['image_shape'][stack][0],
                                                        h=metadata_cache['image_shape'][stack][1])[ginds_thisSec]
-        
+
         if images is not None and stack_sec in images:
-            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
-                                                                img=images[stack_sec], 
-                                                                patch_size=patch_size, 
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec,
+                                                                img=images[stack_sec],
+                                                                patch_size=patch_size,
                                                                 normalization_scheme=normalization_scheme)
         else:
             sys.stderr.write("No images are provided. Load instead.\n")
-            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec,
                                                                 version=version,
-                                                                patch_size=patch_size, 
+                                                                patch_size=patch_size,
                                                                 normalization_scheme=normalization_scheme)
-            
+
         patches_all += extracted_patches
         list_indices_all += list_indices
 
@@ -1326,7 +1326,7 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
     Args:
         grid_spec: If none, use the default grid spec.
         surround_margins: list of surround margin for which patches are extracted, in unit of microns. Default: [100,200,...1000]
-        
+
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
         Otherwise, return a list of grid indices.
@@ -1691,7 +1691,7 @@ def addresses_to_locations(addresses, win_id):
     Args:
         addresses (list of 3-tuple): a list of (stack, section, gridpoint_index)
         win_id:
-    
+
     Returns:
         ((n,2)-array): x,y coordinates (lossless).
     """
@@ -1962,13 +1962,13 @@ def resample_scoremap(sparse_scores, sample_locations, img_shape, downscale, out
         sample_locations:
         half_size (int):
         spacing (int):
-        
+
     Returns:
         2d-array: scoremap
     """
 
     assert len(sparse_scores) == len(sample_locations)
-    
+
     w, h = img_shape
 
     downscaled_grid_y = np.arange(0, h, downscale)
@@ -1997,7 +1997,7 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
                  feature='cnn', model=None, mean_img=None, batch_size=None):
     """
     Generate the scoremap of an area around the given structure.
-    
+
     Args:
         clf: sklearn classifier
         structure (str): structure name, sided
@@ -2007,12 +2007,12 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
         bg_img_local_region: the part of background image in bbox.
         return_scoremap (bool): If True, return (viz, scoremap); otherwise, return viz.
         feature (str): cnn or mean
-        
+
     Returns:
         2d-array of uint8: scoremap overlayed on image.
         scoremap (2d-array of float): optional
     """
-    
+
     structures = [convert_to_original_name(structure)]
 
     roi_xmin, roi_xmax, roi_ymin, roi_ymax = bbox
@@ -2020,15 +2020,15 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
     roi_h = roi_ymax + 1 - roi_ymin
     if fn is None:
         fn = metadata_cache['sections_to_filenames'][stack][sec]
-        
+
     ##########################################################################################
-        
+
     t = time.time()
     mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=2, fn=fn)
     grid_spec = win_id_to_gridspec(win_id=5, stack=stack)
-    indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+    indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                     bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
-    sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
+    sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
 
     sample_locations = grid_parameters_to_sample_locations(win_id_to_gridspec(win_id=5, stack=stack))
     sample_locations_roi = sample_locations[indices_roi]
@@ -2037,8 +2037,8 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
 
     test_patches = extract_patches_given_locations(
                                                     stack=stack, sec=sec, fn=fn,
-                                                   locs=sample_locations_roi, 
-                                                   patch_size=grid_spec[0], 
+                                                   locs=sample_locations_roi,
+                                                   patch_size=grid_spec[0],
                                                    normalization_scheme=scheme)
     sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
 #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
@@ -2046,15 +2046,15 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
     if feature == 'mean':
         features = np.array([[p.mean()] for p in test_patches])
     elif feature == 'cnn':
-        features = convert_image_patches_to_features_v2(test_patches, model=model, 
-                                             mean_img=mean_img, 
+        features = convert_image_patches_to_features_v2(test_patches, model=model,
+                                             mean_img=mean_img,
                                              batch_size=batch_size)
     else:
         raise
 
     sparse_scores = clf.predict_proba(features)[:,1]
 
-    if bg_img_local_region is None:    
+    if bg_img_local_region is None:
         if bg_img is None:
             if stack == 'ChatCryoJane201710':
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=2, version='NtbJpeg', fn=fn)
@@ -2063,28 +2063,28 @@ def draw_scoremap(clf, structure, scheme, bbox, stack, sec=None, fn=None, bg_img
 
         bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
 
-    scoremap = resample_scoremap(sparse_scores, sample_locations_roi, 
-                                 img_shape=metadata_cache['image_shape'][stack], 
+    scoremap = resample_scoremap(sparse_scores, sample_locations_roi,
+                                 img_shape=metadata_cache['image_shape'][stack],
                                  downscale=out_downscale)
 
-    scoremap_local_region = scoremap[(roi_ymin)/out_downscale:(roi_ymin+roi_h)/out_downscale, 
+    scoremap_local_region = scoremap[(roi_ymin)/out_downscale:(roi_ymin+roi_h)/out_downscale,
                                      (roi_xmin)/out_downscale:(roi_xmin+roi_w)/out_downscale]
-    
-    scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region, 
-                                       in_downscale=1, stack=stack, fn=fn, 
+
+    scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region,
+                                       in_downscale=1, stack=stack, fn=fn,
                                        structure=structure,
                                        scoremap=scoremap_local_region,
                                       in_scoremap_downscale=out_downscale,
-                                      out_downscale=out_downscale, 
+                                      out_downscale=out_downscale,
                                       cmap_name= 'jet')
     if return_scoremap:
         return scoremap_viz, scoremap_local_region
     else:
         return scoremap_viz
-    
-    
+
+
 def convert_image_patches_to_features_v3(patches, method):
-    
+
     if method == 'intensity_mean':
         # Form feature vector using mean intensities
 #         feats = np.array([[np.mean(img)] for img in imgs])
@@ -2092,19 +2092,19 @@ def convert_image_patches_to_features_v3(patches, method):
         # Form feature vector using mean intensities
         focal_size_um = 25
         focal_size = area_size_um / XY
-        feats = np.array([[np.mean(img[img.shape[0]/2-focal_size:img.shape[0]/2+focal_size, 
-                                       img.shape[1]/2-focal_size:img.shape[0]/2+focal_size])] 
+        feats = np.array([[np.mean(img[img.shape[0]/2-focal_size:img.shape[0]/2+focal_size,
+                                       img.shape[1]/2-focal_size:img.shape[0]/2+focal_size])]
                           for img in patches])
     elif method == 'intensity_vector':
         # Form feature vector using all pixel intensities
-        feats = patches.reshape((patches.size, 1))  
+        feats = patches.reshape((patches.size, 1))
     elif method == 'center_intensity':
         # Feature vector is only the center pixel intensity
-        feats = np.array([[img[img.shape[0]/2, img.shape[1]/2]] for img in patches]) 
+        feats = np.array([[img[img.shape[0]/2, img.shape[1]/2]] for img in patches])
     elif method == 'glcm':
         # Feature vector is the GLCM
         glcm_levels = 10
-        feats = np.array([get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), levels=glcm_levels) 
+        feats = np.array([get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), levels=glcm_levels)
                           for img in patches])
     elif method == 'lbp':
         # LBP
@@ -2112,5 +2112,5 @@ def convert_image_patches_to_features_v3(patches, method):
         n_points = 8 * radius
         lbps = [local_binary_pattern(img, P=n_points, R=radius, method='uniform') for img in patches]
         feats = np.array([np.histogram(lbp, bins=int(lbp.max()+1), normed=True)[0] for lbp in lbps])
-    
+
     return feats

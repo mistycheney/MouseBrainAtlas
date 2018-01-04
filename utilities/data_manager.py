@@ -3,6 +3,7 @@ import os
 import subprocess
 
 from pandas import read_hdf
+from datetime import datetime
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
@@ -220,12 +221,12 @@ class DataManager(object):
         return annotated_structures
 
     @staticmethod
-    def load_annotation_to_grid_indices_lookup(stack, win_id, by_human, stack_m=None,
-                                detector_id_m=None,
-                                detector_id_f=None,
+    def load_annotation_to_grid_indices_lookup(stack, win_id, by_human, stack_m='atlasV5',
+                                                detector_id_m=None,
+                                                detector_id_f=None,
                                                prep_id_m=None,
-                                               prep_id_f=None,
-                                warp_setting=None, trial_idx=None, timestamp=None):
+                                               prep_id_f=2,
+                                                warp_setting=17, trial_idx=None, timestamp=None):
 
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
@@ -238,37 +239,34 @@ class DataManager(object):
             return grid_indices_lookup
 
     @staticmethod
-    def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m=None,
-                                detector_id_m=None,
-                                detector_id_f=None,
-                                                       prep_id_m=None,
-                                                       prep_id_f=None,
-                                warp_setting=None, trial_idx=None, timestamp=None):
-        """
+    def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
+                                                       detector_id_m=None, detector_id_f=None,
+                                                       prep_id_m=None, prep_id_f=2,
+                                                       warp_setting=17, trial_idx=None, timestamp=None):
 
-        """
+        if timestamp is not None:
+            if timestamp == 'latest':
+                download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True,
+                                 include_only="*win%(win_id)d*grid_indices_lookup*" % {'win_id':win_id}, redownload=True)
+                import re
+                timestamps = []
+                for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                    m = re.match('%(stack)s_annotation(.*?)win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                    if m is not None:
+                        ts = m.groups()[1]
+                        from datetime import datetime
+                        timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                timestamp = sorted(timestamps)[-1][1]
+                print "latest timestamp: ", timestamp
+            elif timestamp == 'now':
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
 
         if by_human:
 
-            if timestamp is not None:
-                if timestamp == 'latest':
-                    suffix = 'contours'
-                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
-                    import re
-                    timestamps = []
-                    for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
-                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
-                        if m is not None:
-                            ts = m.groups()[0]
-                            try:
-                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
-                            except:
-                                pass
-                    timestamp = sorted(timestamps)[-1][1]
-                    print "latest timestamp: ", timestamp
-
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
         else:
+            
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,
                                                               detector_id_f=detector_id_f,
@@ -276,7 +274,7 @@ class DataManager(object):
                                                               prep_id_f=prep_id_f,
                                                               warp_setting=warp_setting,
                                                               trial_idx=trial_idx)
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_win%(win)d_grid_indices_lookup.hdf' % {'basename': basename, 'win':win_id})
+            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(basename)s_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'basename': basename, 'win':win_id, 'timestamp':timestamp})
         return fp
 
     @staticmethod
@@ -285,10 +283,16 @@ class DataManager(object):
                                 detector_id_f=None,
                                 prep_id_m=None,
                                 prep_id_f=None,
-                                warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
+                                warp_setting=None, trial_idx=None, suffix=None, timestamp=None,
+                               return_timestamp=False):
         """
         Args:
             timestamp (str): can be "latest".
+            return_timestamp (bool)
+        Returns:
+            fp
+            timestamp (str): actual timestamp
+            
         """
 
 
@@ -345,29 +349,56 @@ class DataManager(object):
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
             else:
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
-        return fp
+        
+        if return_timestamp:
+            return fp, timestamp
+        else:
+            return fp
 
     @staticmethod
     def load_annotation_v4(stack=None, by_human=True, stack_m=None,
                                 detector_id_m=None,
                                 detector_id_f=None,
-                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
+                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None,
+                          return_timestamp=False):
         if by_human:
-            fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp)
+            if return_timestamp:
+                fp, timestamp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
+                                                    return_timestamp=True)
+            else:
+                fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
+                                                    return_timestamp=False)
             download_from_s3(fp)
             contour_df = read_hdf(fp)
-            return contour_df
+            if return_timestamp:
+                return contour_df, timestamp
+            else:
+                return contour_df
 
         else:
-            fp = DataManager.get_annotation_filepath(stack, by_human=False,
+            if return_timestamp:
+                fp, timestamp = DataManager.get_annotation_filepath(stack, by_human=False,
                                                      stack_m=stack_m,
-                                                      detector_id_m=classifier_setting_m,
-                                                      detector_id_f=classifier_setting_f,
+                                                      detector_id_m=detector_id_m,
+                                                      detector_id_f=detector_id_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix=suffix, timestamp=timestamp)
+                                                    suffix=suffix, timestamp=timestamp,
+                                                                   return_timestamp=True)
+            else:
+                fp = DataManager.get_annotation_filepath(stack, by_human=False,
+                                     stack_m=stack_m,
+                                      detector_id_m=detector_id_m,
+                                      detector_id_f=detector_id_f,
+                                      warp_setting=warp_setting, trial_idx=trial_idx,
+                                    suffix=suffix, timestamp=timestamp,
+                                                   return_timestamp=False)
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
-            return annotation_df
+                    
+            if return_timestamp:
+                return annotation_df, timestamp
+            else:
+                return annotation_df
 
 
 
@@ -2815,90 +2846,29 @@ class DataManager(object):
         else:
             return z1-z_begin, z2-1-z_begin
 
-    # @staticmethod
-#     def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None):
-#         """
-#         Because the z-spacing is much larger than pixel size on x-y plane,
-#         the theoretical voxels are square on x-y plane but elongated in z-direction.
-#         In practice we need to represent volume using cubic voxels.
-#         This function computes the z-coordinate for a given section number.
-#         This depends on the downsample factor of the volume.
-
-#         Args:
-#             first_sec (int): Default is the first brainstem section defined in ``cropbox".
-#             z_begin (float): the origin z, counted from section index 1 (which is not necessarily `first_sec`).
-#             Default is the z position of the `first_sec`.
-
-#         Returns:
-#             z1, z2 (2-tuple of float): the z-levels of the beginning and end of the queried section, counted from `z_begin`.
-#         """
-
-#         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-#         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-#         # Voxel size in z direction in unit of x,y pixel.
-
-#         if first_sec is None:
-#             # first_sec, _ = DataManager.load_cropbox(stack)[4:]
-#             first_sec = metadata_cache['section_limits'][stack][0]
-
-#         if z_begin is None:
-#             z_begin = first_sec * voxel_z_size
-
-#         z1 = sec * voxel_z_size
-#         z2 = (sec + 1) * voxel_z_size
-#         return z1-z_begin, z2-1-z_begin
-
-#     @staticmethod
-#     def convert_z_to_section(stack, z, downsample, z_begin=None):
-#         """
-#         z_begin default to int(np.floor(first_sec*voxel_z_size)).
-#         """
-
-#         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-#         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-#         # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
-
-#         # first_sec, last_sec = section_range_lookup[stack]
-#         first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-#         # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-
-#         if z_begin is None:
-#             # z_begin = int(np.floor(first_sec*voxel_z_size))
-#             z_begin = first_sec * voxel_z_size
-#         # print 'z_begin', first_sec*voxel_z_size, z_begin
-
-#         sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
-#         # print sec_float
-#         # print sec_float == 98., np.floor(np.float(sec_float))
-#         sec_floor = int(np.floor(sec_float))
-
-#         return sec_floor
-
-    # @staticmethod
-    # def convert_z_to_section(stack, z, downsample, z_begin=None):
-    #     """
-    #     z_begin default to int(np.floor(first_sec*voxel_z_size)).
-    #     """
-    #
-    #     xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-    #     voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-    #     # print 'voxel size:', xy_pixel_distance, xy_pixel_distance, voxel_z_size, 'um'
-    #
-    #     # first_sec, last_sec = section_range_lookup[stack]
-    #     first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-    #     # z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-    #
-    #     if z_begin is None:
-    #         # z_begin = int(np.floor(first_sec*voxel_z_size))
-    #         z_begin = first_sec * voxel_z_size
-    #     # print 'z_begin', first_sec*voxel_z_size, z_begin
-    #
-    #     sec_float = np.float32((z + z_begin) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
-    #     # print sec_float
-    #     # print sec_float == 98., np.floor(np.float(sec_float))
-    #     sec_floor = int(np.floor(sec_float))
-    #
-    #     return sec_floor
+    @staticmethod
+    def convert_z_to_section(z, downsample, z_first_sec=None, sec_z0=None, stack=None):
+        """
+        Convert z coordinate to section index.
+        
+        Args:
+            z_first_sec (int): z level of section index 1. Provide either this or `sec_z0`.
+            sec_z0 (int): section index at z=0. Provide either this or `z_first_sec`.
+        """
+    
+        xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+        voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+    
+        if z_first_sec is not None:
+            sec_float = np.float32((z - z_first_sec) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+        elif sec_z0 is not None:
+            sec_float = np.float32(z / voxel_z_size) + sec_z0
+        else:
+            sec_float = np.float32(z / voxel_z_size)
+        
+        sec_floor = int(np.floor(sec_float))
+    
+        return sec_floor
 
     @staticmethod
     def get_initial_snake_contours_filepath(stack):

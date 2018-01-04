@@ -1765,15 +1765,16 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
 from data_manager import *
 
-def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5, sample_every=1,
-first_sec=1):
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5,
+                                              sample_every=1, first_sec=1):
     """
     Re-section atlas volumes and obtain structure contours on each section.
 
     Args:
         volumes (dict of 3D ndarrays of float): {structure: volume}. volume is a 3d array of probability values.
-        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
         volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+        sections (list of int):
+        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
         first_sec (int): the first section that the beginning of the input volume is at. Default is 1.
         level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
 
@@ -1785,8 +1786,8 @@ first_sec=1):
     from collections import defaultdict
 
     # estimate mapping between z and section
-    xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
-    voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
+    # xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
+    # voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
 
     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
 

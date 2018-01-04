@@ -1138,81 +1138,144 @@ def win_id_to_gridspec(win_id, stack):
     grid_spec = (patch_size, spacing, w, h)
     return grid_spec
 
+
 def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
-                                                   stack_m=None,
-                                                   detector_id_m=None,
-                                                    detector_id_f=None,
-                                                    warp_setting=None, trial_idx=None,
+                                               stack_m='atlasV5',
+                                               detector_id_m=None,
+                                                detector_id_f=None,
+                                                warp_setting=17, trial_idx=None,
                                               surround_margins=None, suffix='contours', timestamp='latest', prep_id=2,
-                                              ):
+                                                positive_level = 0.8, negative_level = 0.2,
+                                              return_timestamp=False):
     """
     Load the structure annotation.
     Use the default grid spec.
     Find grid indices for each class label.
 
     Args:
+        by_human (bool): whether the annotation is created by human or is obtained from fitted anatomical model.
         win_id (int): the spatial sample scheme
 
     Returns:
         DataFrame: Columns are class labels and rows are section indices.
+        timestamp (str)
     """
 
-    windowing_properties = windowing_settings[win_id]
-    patch_size = windowing_properties['patch_size']
-    spacing = windowing_properties['spacing']
-    w, h = metadata_cache['image_shape'][stack]
-    half_size = patch_size/2
-    grid_spec = (patch_size, spacing, w, h)
-
-    contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
-                                                      stack_m=stack_m,
-                                                           detector_id_m=detector_id_m,
-                                                          detector_id_f=detector_id_f,
-                                                          warp_setting=warp_setting,
-                                                          trial_idx=trial_idx, suffix=suffix, timestamp=timestamp)
-    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
-    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+    # windowing_properties = windowing_settings[win_id]
+    # patch_size = windowing_properties['patch_size']
+    # spacing = windowing_properties['spacing']
+    # w, h = metadata_cache['image_shape'][stack]
+    # half_size = patch_size/2
+    # grid_spec = (patch_size, spacing, w, h)
+    grid_spec = win_id_to_gridspec(win_id, stack=stack)
 
     if by_human:
+    
+        if return_timestamp:
+            contours_df, timestamp = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+                                                          stack_m=stack_m,
+                                                               detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting,
+                                                              trial_idx=trial_idx, suffix='contours', timestamp=timestamp,
+                                                    return_timestamp=True)
+        else:
+            contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+                                                          stack_m=stack_m,
+                                                               detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting,
+                                                              trial_idx=trial_idx, suffix='contours', timestamp=timestamp,
+                                                    return_timestamp=False)
+        
+        contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+
         contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+        
+        download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=prep_id), is_dir=True)
 
-    download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=prep_id), is_dir=True)
+        contours_grouped = contours_df.groupby('section')
 
-    contours_grouped = contours_df.groupby('section')
+        patch_indices_allSections_allStructures = {}
+        for sec, cnt_group in contours_grouped:
+            sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+            if is_invalid(sec=sec, stack=stack):
+                continue
+            polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in cnt_group.iterrows()]
+            mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
+            patch_indices_allSections_allStructures[sec] = \
+            locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                              surround_margins=surround_margins)
+        
+    else:
+#         structures_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+#                                                           stack_m=stack_m,
+#                                                                detector_id_m=detector_id_m,
+#                                                               detector_id_f=detector_id_f,
+#                                                               warp_setting=warp_setting,
+#                                                               trial_idx=trial_idx, suffix='structures', timestamp=timestamp)
+        
+        warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_m, 
+                                                                              stack_f=stack,
+                                                                                detector_id_f=detector_id_f,
+                                                                              prep_id_f=prep_id,
+                                                                                warp_setting=warp_setting, 
+                                                                              sided=True)
+        structure_contours_pos_level = \
+        get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                  sections=metadata_cache['valid_sections'][stack], 
+                                                  downsample_factor=32, level=positive_level, 
+                                                  sample_every=1, 
+                                                  first_sec=metadata_cache['section_limits'][stack][0])
+        
+        structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+                                        for sec, x in structure_contours_pos_level.iteritems()}
+        
 
-    patch_indices_allSections_allStructures = {}
-    for sec, cnt_group in contours_grouped:
-        sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
-        if is_invalid(sec=sec, stack=stack):
-            continue
-        polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in cnt_group.iterrows()]
-        mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
-        patch_indices_allSections_allStructures[sec] = \
-        locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
-                          surround_margins=surround_margins)
+        structure_contours_neg_level = \
+        get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                  sections=metadata_cache['valid_sections'][stack],
+                                                  downsample_factor=32, level=negative_level, 
+                                                  sample_every=1, 
+                                                  first_sec=metadata_cache['section_limits'][stack][0])
 
-    return DataFrame(patch_indices_allSections_allStructures).T
+        structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+                                        for sec, x in structure_contours_neg_level.iteritems()}
+        
+        patch_indices_allSections_allStructures = {}
 
-#     def locate_patches_worker(sec):
-#         sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
-#         mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec)
-#         contours = contours_df.loc[sec]
-#         return locate_patches_v2(stack=stack, mask_tb=mask_tb, polygons=contours.to_dict(),
-#                                       surround_margins=surround_margins)
-#     pool = Pool(NUM_CORES)
-#     patch_indices_allSections_allStructures = dict(zip(contours_df.index, pool.map(locate_patches_worker, contours_df.index)))
-#     pool.close()
-#     pool.join()
+        sections = set(structure_contours_pos_level.keys()) | set(structure_contours_neg_level.keys())
 
-    # patch_indices_allSections_allStructures = {}
-    # for sec, contours in contours_df.iterrows():
-    #     sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
-    #     mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec)
-    #     patch_indices_allSections_allStructures[sec] = \
-    #     locate_patches_v2(stack=stack, mask_tb=mask_tb, polygons=contours.dropna().to_dict(),
-    #                       surround_margins=surround_margins)
+        for sec in sections:
+            sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+            if is_invalid(sec=sec, stack=stack):
+                continue
 
-    # return DataFrame(patch_indices_allSections_allStructures).T
+            mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
+
+            a = {}
+
+            if sec in structure_contours_pos_level:
+                a.update(
+                locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                                  polygons=structure_contours_pos_level[sec].items(), \
+                                  surround_margins=surround_margins, categories=['positive']))
+
+            if sec in structure_contours_neg_level:
+                a.update(
+                locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                                  polygons=structure_contours_neg_level[sec].items(), \
+                                  surround_margins=surround_margins, categories=['surround']))
+
+            if len(a) > 0:
+                patch_indices_allSections_allStructures[sec] = a
+                
+                
+    if return_timestamp:
+        return DataFrame(patch_indices_allSections_allStructures).T, timestamp
+    else:
+        return DataFrame(patch_indices_allSections_allStructures).T
 
 
 def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, num_samples_per_landmark=None):
@@ -1249,7 +1312,8 @@ def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, 
         return location_list
 
 def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, image_shape=None,
-                      mask_tb=None, polygons=None, bbox=None, bbox_lossless=None, surround_margins=None):
+                      mask_tb=None, polygons=None, bbox=None, bbox_lossless=None, surround_margins=None,
+                     categories=['positive', 'negative', 'bg', 'surround']):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
@@ -1367,42 +1431,54 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                                               path.contains_points(sample_locations_lr) &\
                                               path.contains_points(sample_locations_ul) &\
                                               path.contains_points(sample_locations_ur))[0]
-
-            indices_allLandmarks[label] = indices_inside[label]
+            
+            if 'positive' in categories:
+                indices_allLandmarks[label] = indices_inside[label]
 
         indices_allInside = np.concatenate(indices_inside.values())
 
         for label, poly in polygon_list:
 
+
             for margin_um in surround_margins_um:
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
-                try:
+                from shapely.geometry.multipolygon import MultiPolygon
+                if isinstance(surround, Polygon):
                     path = Path(list(surround.exterior.coords))
-                except Exception as e:
-                    print poly
-                    sys.stderr.write("Error encountered while processing %s (margin %d um): %s\n" % (label, margin_um, str(e)))
-                    continue
+                elif isinstance(surround, MultiPolygon):
+                    sys.stderr.write("Multiple polygons for %s (margin %d um): %s. Use the longest.\n" % (label, margin_um, [len(surr.exterior.coords) for surr in surround]))
+                    surround = surround[np.argmax([len(surr.exterior.coords) for surr in surround])]
+                    path = Path(list(surround.exterior.coords))
+                else:
+                    raise
+                    
                 indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
                                         path.contains_points(sample_locations_lr) &\
                                         path.contains_points(sample_locations_ul) &\
                                         path.contains_points(sample_locations_ur))[0]
 
                 # surround classes do not include patches of any no-surround class
-                indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+                if 'surround' in categories:
+                    indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
 
                 for l, inds in indices_inside.iteritems():
                     if l == label: continue
                     indices = np.intersect1d(indices_sur, inds)
                     if len(indices) > 0:
-                        indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
+                        if 'surround' in categories:
+                            indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
 
-            # All foreground patches except the particular label's inside patches
-            indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
+            if 'negative' in categories:
+                # All foreground patches except the particular label's inside patches
+                indices_allLandmarks[label+'_negative'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_inside[label]])
 
-        indices_allLandmarks['bg'] = indices_bg
-        indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
+        if 'background' in categories:
+            indices_allLandmarks['bg'] = indices_bg
+        
+        if 'noclass' in categories:
+            indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
 
         return indices_allLandmarks
 
@@ -1770,43 +1846,107 @@ def visualize_filters(model, name, input_channel=0, title=''):
     plt.show()
 
     
-def get_local_regions(stack, margin_um = 500):
+def get_local_regions(stack, by_human, margin_um=500, level=None, structures=None, detector_id_f=15):
     """
-    Return the local region bounding boxes around a structure on every section.
+    Find the local region bounding boxes around a structure on every section.
+    Bounding boxes are wrt cropped images in lossless resolution.
+    
+    Args:
+        by_human (bool):
+        level (int): used if `by_human` is False.
+        structures (list of str): list of sided structures.
     
     Returns:
-        dict {str: {int: 6-tuple}}
+        dict {str: {int: 6-tuple}}: {sided structure name: {section: bounding box}}.
     """
     
-    contours_df = DataManager.load_annotation_v4(stack=stack, by_human=True, suffix='contours', timestamp='latest')
-    contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
-    contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'downsample', 'creator'])
-    contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack, out_downsample=1)
-    download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=2), is_dir=True)
-    contours_grouped = contours_df.groupby('section')
-    
-    # Get bounding boxes for every structure on every section.
-
     w, h = metadata_cache['image_shape'][stack]
+    
+    if stack == 'ChatCryoJane201710':
+        margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+    else:
+        margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
 
-    local_region_bboxes_allStructures_allSections = {structure: {} for structure in all_known_structures_sided}
-    for structure in all_known_structures_sided:
-        name, side = parse_label(structure)[:2]
-        if side is None:
-            side = 'S'
-        if stack == 'ChatCryoJane201710':
-            margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-        else:
-            margin_pixel = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
-        q = contours_df[(contours_df['name'] == name) & (contours_df['side'] == side)]
-        for cnt_id, cnt in q.iterrows():
-            vs = cnt['vertices']
-            xmin, ymin = vs.min(axis=0) 
-            xmax, ymax = vs.max(axis=0)
-            local_region_bboxes_allStructures_allSections[structure][cnt['section']] = (max(0, int(np.floor(xmin-margin_pixel))),
-                                                min(w-1, int(np.ceil(xmax+margin_pixel))),
-                                                max(0, int(np.floor(ymin-margin_pixel))),
-                                                min(h-1, int(np.ceil(ymax+margin_pixel))))
+    if structures is None:
+        structures = all_known_structures_sided
+        
+    if by_human:
+    
+        contours_df = DataManager.load_annotation_v4(stack=stack, by_human=True, suffix='contours', timestamp='latest')
+        contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'downsample', 'creator'])
+        contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack, out_downsample=1)
+        download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=2), is_dir=True)
+        contours_grouped = contours_df.groupby('section')
+
+        # Get bounding boxes for every structure on every section.
+
+        local_region_bboxes_allStructures_allSections = {structure: {} for structure in all_known_structures_sided}
+        for structure in structures:
+            name, side = parse_label(structure)[:2]
+            if side is None:
+                side = 'S'
+
+            q = contours_df[(contours_df['name'] == name) & (contours_df['side'] == side)]
+            for cnt_id, cnt in q.iterrows():
+                vs = cnt['vertices']
+                xmin, ymin = vs.min(axis=0) 
+                xmax, ymax = vs.max(axis=0)
+                local_region_bboxes_allStructures_allSections[structure][cnt['section']] = \
+                (max(0, int(np.floor(xmin-margin_pixel))),
+                min(w-1, int(np.ceil(xmax+margin_pixel))),
+                max(0, int(np.floor(ymin-margin_pixel))),
+                min(h-1, int(np.ceil(ymax+margin_pixel))))
+    else:
+        
+        warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', 
+                                                                              stack_f=stack,
+                                                                                detector_id_f=detector_id_f,
+                                                                              prep_id_f=2,
+                                                                                warp_setting=17, 
+                                                                              sided=True,
+                                                                                 structures=structures)
+        # Origin of `warped_volumes` is at cropped domain.
+        
+        local_region_bboxes_allStructures_allSections = {structure: {} for structure in warped_volumes.keys()}
+
+        for name_s, vol_alignedTo_f in warped_volumes.iteritems():
+            vol_alignedTo_f_binary = vol_alignedTo_f >= level
+            vol_xmin_wrt_fixedvol_volResol, vol_xmax_wrt_fixedvol_volResol, \
+            vol_ymin_wrt_fixedvol_volResol, vol_ymax_wrt_fixedvol_volResol, \
+            vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol = bbox_3d(vol_alignedTo_f_binary)
+            
+            for sec in range(metadata_cache['section_limits'][stack][0], metadata_cache['section_limits'][stack][1]+1):
+                
+                z_wrtFixedVol = int(DataManager.convert_section_to_z(sec, downsample=32, first_sec=metadata_cache['section_limits'][stack][0], mid=True))
+                
+                if z_wrtFixedVol > vol_zmin_wrt_fixedvol_volResol and z_wrtFixedVol < vol_zmax_wrt_fixedvol_volResol:
+                
+                    xmin_2d_wrt_fixedVol_volResol, \
+                    xmax_2d_wrt_fixedVol_volResol, \
+                    ymin_2d_wrt_fixedVol_volResol, \
+                    ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
+
+                    local_region_bboxes_allStructures_allSections[name_s][sec] = \
+                    (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
+                     min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
+                     max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)),
+                     min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
+            
+#             for z_wrtFixedVol in range(vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol + 1):
+#                 sec = DataManager.convert_z_to_section(z=z_wrtFixedVol, downsample=32, 
+#                                                        sec_z0=metadata_cache['section_limits'][stack][0])
+                
+#                 xmin_2d_wrt_fixedVol_volResol, \
+#                 xmax_2d_wrt_fixedVol_volResol, \
+#                 ymin_2d_wrt_fixedVol_volResol, \
+#                 ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
+                
+#                 local_region_bboxes_allStructures_allSections[name_s][sec] = \
+#                 (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
+#                  min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
+#                  max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
+#                  min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
             
     return local_region_bboxes_allStructures_allSections
 

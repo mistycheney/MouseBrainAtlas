@@ -266,7 +266,7 @@ class DataManager(object):
 
             fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
         else:
-            
+
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,
                                                               detector_id_f=detector_id_f,
@@ -292,7 +292,7 @@ class DataManager(object):
         Returns:
             fp
             timestamp (str): actual timestamp
-            
+
         """
 
 
@@ -349,7 +349,7 @@ class DataManager(object):
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
             else:
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
-        
+
         if return_timestamp:
             return fp, timestamp
         else:
@@ -394,7 +394,7 @@ class DataManager(object):
                                                    return_timestamp=False)
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
-                    
+
             if return_timestamp:
                 return annotation_df, timestamp
             else:
@@ -1075,6 +1075,7 @@ class DataManager(object):
         v2 adds argument `prep_id`.
         """
         fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
+        download_from_s3(fn)
         return DataManager.load_data(fn, filetype='bp')
 
     @staticmethod
@@ -2637,7 +2638,7 @@ class DataManager(object):
         else:
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
-           
+
         if img is None:
             raise Exception("Image loading failed.")
 
@@ -2853,24 +2854,24 @@ class DataManager(object):
     def convert_z_to_section(z, downsample, z_first_sec=None, sec_z0=None, stack=None):
         """
         Convert z coordinate to section index.
-        
+
         Args:
             z_first_sec (int): z level of section index 1. Provide either this or `sec_z0`.
             sec_z0 (int): section index at z=0. Provide either this or `z_first_sec`.
         """
-    
+
         xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
         voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
-    
+
         if z_first_sec is not None:
             sec_float = np.float32((z - z_first_sec) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
         elif sec_z0 is not None:
             sec_float = np.float32(z / voxel_z_size) + sec_z0
         else:
             sec_float = np.float32(z / voxel_z_size)
-        
+
         sec_floor = int(np.floor(sec_float))
-    
+
         return sec_floor
 
     @staticmethod

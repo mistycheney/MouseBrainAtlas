@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1545</width>
+    <width>1715</width>
     <height>1113</height>
    </rect>
   </property>
@@ -79,6 +79,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_saveProbStructures">
+        <property name="text">
+         <string>Save Prob Structures</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_save">
         <property name="text">
          <string>Save Contours</string>
@@ -136,7 +143,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1545</width>
+     <width>1715</width>
      <height>25</height>
     </rect>
    </property>

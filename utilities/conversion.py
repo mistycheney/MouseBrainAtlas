@@ -6,10 +6,12 @@ from data_manager import *
 
 def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_bbox=True):
     """
+    Assume section 1 is at z=0.
+    
     Args:
         images (dict of 2D images): key is section index. First section has index 0.
         voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
-        firse_sec (int): the beginning section of the bounding box. Default is the the smallest key of `images`.
+        firse_sec (int): the beginning section of the bounding box.  Default is the the smallest key of `images`.
         last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
     """
 
@@ -32,8 +34,8 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
 
     voxel_z_size = voxel_size[2]
 
-    z_end = int(np.ceil((last_sec+1)*voxel_z_size))
-    z_begin = int(np.floor(first_sec*voxel_z_size))
+    z_end = int(np.ceil(last_sec*voxel_z_size))
+    z_begin = int(np.floor((first_sec-1)*voxel_z_size))
     zdim = z_end + 1 - z_begin
 
     # print 'Volume shape:', xdim, ydim, zdim

@@ -341,7 +341,8 @@ windowing_settings = {1: {"patch_size": 224, "spacing": 56},
                      3: {'patch_size':224, 'spacing':32, 'comment':'smaller spacing'},
                      4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
                      5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'},
-                     6: {'patch_size': 448, 'spacing':64, 'comment': 'twice as large patch'}}
+                     6: {'patch_size': 448, 'spacing':64, 'comment': 'twice as large patch'},
+                     7: {'patch_size_um':103.04, 'spacing_um':30, 'comment':'smaller spacing'},}
 
 ############ Class Labels #############
 
@@ -400,6 +401,29 @@ all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
+
+planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD589':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD590':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD591':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD592':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD593':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD594':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD595':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD598':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD599':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD602':XY_PIXEL_DISTANCE_LOSSLESS, 
+                     'MD603':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD635':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD653':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD652':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD642':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD657':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD658':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD661':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'MD662':XY_PIXEL_DISTANCE_LOSSLESS,
+                     'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+                    }
 
 #######################################
 

@@ -45,7 +45,7 @@ def patch_boxes_overlay_on(bg, downscale_factor, locs, patch_size, colors=None, 
 
     return viz
 
-def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_scoremap_downscale=32,
+def generate_scoremap_layer(stack, downscale, structure=None, scoremap=None, in_scoremap_downscale=32,
                             detector_id=None,
                     image_shape=None, return_mask=False, sec=None, fn=None,
                     color=(1,0,0), show_above=.01, cmap_name='jet', colorlist=None):
@@ -54,9 +54,9 @@ def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_score
     Output are rescaled from down32 score maps.
 
     Args:
-        structure: structure name
-        show_above: only show scoremap with score higher than this value.
         downscale: downscale factor of the output scoremap
+        structure: structure name. Needed if `scoremap` is not provided.
+        show_above: only show scoremap with score higher than this value.
         scoremap: the dense score map. If not given, load previously generated ones.
     '''
 
@@ -96,7 +96,14 @@ def generate_scoremap_layer(stack, structure, downscale, scoremap=None, in_score
     else:
         return viz
 
-def scoremap_overlay_on(bg, stack, structure, out_downscale, scoremap=None, in_scoremap_downscale=32, detector_id=None, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
+def scoremap_overlay_on(bg, stack, out_downscale, structure=None, scoremap=None, in_scoremap_downscale=32, detector_id=None, label_text=None, sec=None, fn=None, in_downscale=None, overlay_alpha=.3, image_version=None, show_above=.01, cmap_name='jet', overlay_bbox=None):
+    """
+    Draw scoremap on top of another image.
+    
+    Args:
+        bg (2d-array of uint8): background image on top of which scoremap is drawn.
+        structure (str): structure name. Needed if `scoremap` is not given.
+    """
 
     if fn is None:
         assert sec is not None

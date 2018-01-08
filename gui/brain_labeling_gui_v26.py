@@ -262,7 +262,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         else:
             raise
 
-        thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4))
+        fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4)
+        download_from_s3(fp)
+        thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(fp)
 
         # Record the appropriate coordinate origin for this gscene.
         # The coordinate is wrt to origin of "whole brain aligned and padded volume", in thumbnail resolution (1/32 of raw).
@@ -692,88 +694,103 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_atlas_volume(self, warped=True):
 
         if not warped:
-            unwarped_atlas_volumes, unwarped_atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
+            atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
             structures=['7N_L', '5N_L', 'SNR_L'])
 
-            xdim = unwarped_atlas_bbox_wrt_MD589[1] - unwarped_atlas_bbox_wrt_MD589[0]
-            ydim = unwarped_atlas_bbox_wrt_MD589[3] - unwarped_atlas_bbox_wrt_MD589[2]
-            zdim = unwarped_atlas_bbox_wrt_MD589[5] - unwarped_atlas_bbox_wrt_MD589[4]
+            xdim = atlas_bbox_wrt_MD589[1] - atlas_bbox_wrt_MD589[0]
+            ydim = atlas_bbox_wrt_MD589[3] - atlas_bbox_wrt_MD589[2]
+            zdim = atlas_bbox_wrt_MD589[5] - atlas_bbox_wrt_MD589[4]
 
             # unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol = np.array([0,0,0])
             # unwarped_atlas_origin_wrt_wholeBrainAlignedPadded_volResol = unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol + self.image_origin_wrt_WholebrainAlignedPadded_tbResol * 32. / self.prob_volume_downsample_factor
-            unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
-
-            from skimage.transform import rescale
-            unwarped_atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in unwarped_atlas_volumes.iteritems()}
-            unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
-
-            for name_s, v in unwarped_atlas_volumes.iteritems():
-                name_u, side = parse_label(name_s)[:2]
-                self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': unwarped_atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
-                print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
-
-                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
-                for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+            atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
+                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
 
         else:
-            pass
-            # warped_atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
-            # return_label_mappings=False,
-            # name_or_index_as_key='name',
-            # structures=['7N_L', '5N_L', 'SNR_L']
-            # )
 
-        # from registration_utilities import get_structure_contours_from_aligned_atlas
-        #
-        # level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
-        #
-        # # for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
-        # for level in [ 0.5]:
-        #
-        #     warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(unwarped_atlas_volumes, volume_origin=(0,0,0),
-        #     sections=metadata_cache['valid_sections'][self.stack],
-        #     downsample_factor=32, level=level, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
-        #
-        #     import uuid
-        #
-        #     contour_entries = {}
-        #     for sec, contours_by_sided_name in warped_atlas_contours_by_section.iteritems():
-        #         for sided_name, contour in contours_by_sided_name.iteritems():
-        #
-        #             unsided_name, side, _, _ = parse_label(sided_name)
-        #
-        #             # If already loaded as edited volume, skip.
-        #             if (unsided_name, side) in self.structure_volumes:
-        #                 sys.stderr.write('Structure %s,%s already loaded as edited volume. Skipped.\n' % (unsided_name, side))
-        #                 continue
-        #
-        #             if len(contour) < 3:
-        #                 sys.stderr.write("On sec %d, %s has only %d vertices. Skip.\n" % (sec, sided_name, len(contour)))
-        #                 continue
-        #
-        #             polygon_id = str(uuid.uuid4().fields[-1])
-        #             contour_entry = {'name': unsided_name,
-        #                         'label_position': np.mean(contour, axis=0),
-        #                        'side': side,
-        #                        'creator': 'hector',
-        #                        'time_created': datetime.now().strftime("%m%d%Y%H%M%S"),
-        #                         'edits': [],
-        #                         'vertices': contour,
-        #                         'downsample': 32,
-        #                         'type': 'intersected',
-        #                         'orientation': 'sagittal',
-        #                         'parent_structure': [],
-        #                         'side_manually_assigned': True,
-        #                         'id': polygon_id,
-        #                         'class': 'contour',
-        #                         'section': sec}
-        #             contour_entries[polygon_id] = contour_entry
-        #
-        #     warped_atlas_contours_df = pd.DataFrame(contour_entries).T
-        #     self.gscenes['sagittal'].load_drawings(warped_atlas_contours_df, append=True, linecolor=level_to_color[level], vertex_color=level_to_color[level])
+            atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
+            return_label_mappings=False,
+            name_or_index_as_key='name',
+            structures=['7N_L', '5N_L', 'SNR_L']
+            )
+
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
+
+            atlas_ydim_wrt_wholeBrainAlignedPadded_tbResol, \
+            atlas_xdim_wrt_wholeBrainAlignedPadded_tbResol, \
+            atlas_zdim_wrt_wholeBrainAlignedPadded_tbResol = atlas_volumes.values()[0].shape
+
+            atlas_bbox_wrt_wholeBrainAlignedPadded_tbResol = np.array([atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[0],
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[0] + atlas_xdim_wrt_wholeBrainAlignedPadded_tbResol - 1,
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[1],
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[1] + atlas_ydim_wrt_wholeBrainAlignedPadded_tbResol - 1,
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[2],
+            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[2] + atlas_zdim_wrt_wholeBrainAlignedPadded_tbResol - 1])
+
+            atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_tbResol * 32. / self.prob_volume_downsample_factor
+
+        from skimage.transform import rescale
+        atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
+        atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
+
+        for name_s, v in atlas_volumes.iteritems():
+            name_u, side = parse_label(name_s)[:2]
+            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
+            print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
+
+            # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+            for gscene in self.gscenes.values():
+                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+
+            # from registration_utilities import get_structure_contours_from_aligned_atlas
+            #
+            # level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
+            #
+            # # for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
+            # for level in [ 0.5]:
+            #
+            #     warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(unwarped_atlas_volumes, volume_origin=(0,0,0),
+            #     sections=metadata_cache['valid_sections'][self.stack],
+            #     downsample_factor=32, level=level, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
+            #
+            #     import uuid
+            #
+            #     contour_entries = {}
+            #     for sec, contours_by_sided_name in warped_atlas_contours_by_section.iteritems():
+            #         for sided_name, contour in contours_by_sided_name.iteritems():
+            #
+            #             unsided_name, side, _, _ = parse_label(sided_name)
+            #
+            #             # If already loaded as edited volume, skip.
+            #             if (unsided_name, side) in self.structure_volumes:
+            #                 sys.stderr.write('Structure %s,%s already loaded as edited volume. Skipped.\n' % (unsided_name, side))
+            #                 continue
+            #
+            #             if len(contour) < 3:
+            #                 sys.stderr.write("On sec %d, %s has only %d vertices. Skip.\n" % (sec, sided_name, len(contour)))
+            #                 continue
+            #
+            #             polygon_id = str(uuid.uuid4().fields[-1])
+            #             contour_entry = {'name': unsided_name,
+            #                         'label_position': np.mean(contour, axis=0),
+            #                        'side': side,
+            #                        'creator': 'hector',
+            #                        'time_created': datetime.now().strftime("%m%d%Y%H%M%S"),
+            #                         'edits': [],
+            #                         'vertices': contour,
+            #                         'downsample': 32,
+            #                         'type': 'intersected',
+            #                         'orientation': 'sagittal',
+            #                         'parent_structure': [],
+            #                         'side_manually_assigned': True,
+            #                         'id': polygon_id,
+            #                         'class': 'contour',
+            #                         'section': sec}
+            #             contour_entries[polygon_id] = contour_entry
+            #
+            #     warped_atlas_contours_df = pd.DataFrame(contour_entries).T
+            #     self.gscenes['sagittal'].load_drawings(warped_atlas_contours_df, append=True, linecolor=level_to_color[level], vertex_color=level_to_color[level])
 
     @pyqtSlot()
     def load_unwarped_atlas_volume(self):

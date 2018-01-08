@@ -4,6 +4,7 @@ import subprocess
 
 from pandas import read_hdf
 from datetime import datetime
+import re
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
@@ -246,21 +247,29 @@ class DataManager(object):
 
         if timestamp is not None:
             if timestamp == 'latest':
-                download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True,
+                if by_human:
+                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True,
                                  include_only="*win%(win_id)d*grid_indices_lookup*" % {'win_id':win_id}, redownload=True)
-                import re
+                else:
+                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True,
+                                 include_only="*win%(win_id)d*warp*grid_indices_lookup*" % {'win_id':win_id}, redownload=True)
                 timestamps = []
                 for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
-                    m = re.match('%(stack)s_annotation(.*?)win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                    if by_human:
+                        m = re.match('%(stack)s_annotation_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                    else:
+                        m = re.match('%(stack)s_annotation_(.*?)_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                    # print fn, m
                     if m is not None:
-                        ts = m.groups()[1]
-                        from datetime import datetime
+                        if by_human:
+                            ts = m.groups()[0]
+                        else:
+                            ts = m.groups()[1]
                         timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
                 timestamp = sorted(timestamps)[-1][1]
                 print "latest timestamp: ", timestamp
             elif timestamp == 'now':
-                import datetime
-                timestamp = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+                timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
         if by_human:
 
@@ -303,18 +312,18 @@ class DataManager(object):
             if timestamp is not None:
                 if timestamp == 'latest':
                     download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
-                    import re
                     timestamps = []
                     for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
-                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                        m = re.match('%(stack)s_annotation_%(suffix)s_([0-9]*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
+                        # print fn, m
                         if m is not None:
                             ts = m.groups()[0]
-                            try:
-                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
-                            except:
-                                pass
+                            timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                    assert len(timestamps) > 0
                     timestamp = sorted(timestamps)[-1][1]
                     print "latest timestamp: ", timestamp
+                elif timestamp == 'now':
+                    timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
             else:
@@ -331,18 +340,17 @@ class DataManager(object):
                 if timestamp is not None:
                     if timestamp == 'latest':
                         download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
-                        import re
                         timestamps = []
                         for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
                             m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
                             if m is not None:
                                 ts = m.groups()[0]
-                                try:
-                                    timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
-                                except:
-                                    pass
+                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                        assert len(timestamps) > 0
                         timestamp = sorted(timestamps)[-1][1]
                         print "latest timestamp: ", timestamp
+                    elif timestamp == 'now':
+                        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
                     fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
                 else:
@@ -436,7 +444,6 @@ class DataManager(object):
             if timestamp is not None:
                 if timestamp == 'latest':
                     download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
-                    import re
                     timestamps = []
                     for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
                         m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
@@ -464,7 +471,6 @@ class DataManager(object):
                 if timestamp is not None:
                     if timestamp == 'latest':
                         download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
-                        import re
                         timestamps = []
                         for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
                             m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
@@ -716,15 +722,19 @@ class DataManager(object):
     #     downscale=downscale, type_m=volume_type)
 
     @staticmethod
-    def get_original_volume_basename(stack, prep_id=None, detector_id=None, downscale=32, structure=None, volume_type='score', **kwargs):
+    def get_original_volume_basename(stack, prep_id=None, detector_id=None, downscale=32, out_resolution_um=None, structure=None, volume_type='score', **kwargs):
 
         components = []
         if prep_id is not None:
             components.append('prep%(prep)d' % {'prep':prep_id})
         if detector_id is not None:
             components.append('detector%(detector_id)d' % {'detector_id':detector_id})
-        if downscale is not None:
+        
+        if out_resolution_um is not None:
+            components.append('%(outres).1fum' % {'out_resolution_um':out_resolution_um})
+        elif downscale is not None:
             components.append('down%(downscale)d' % {'downscale':downscale})
+        
         tmp_str = '_'.join(components)
         basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
             {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
@@ -1819,10 +1829,30 @@ class DataManager(object):
                              '%(basename)s_%(struct)s.bp') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
         return vol_fp
+    
+    @staticmethod
+    def get_score_volume_filepath_v2(stack, structure, out_resolution_um, volume_type='score', prep_id=None, detector_id=None):
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, out_resolution_um=out_resolution_um)
+        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volumes',
+                             '%(basename)s_%(struct)s.bp') % \
+        {'stack':stack, 'basename':basename, 'struct':structure}
+        return vol_fp
 
     @staticmethod
     def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
+        fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volumes',
+                             '%(basename)s_%(struct)s_bbox.txt') % \
+        {'stack':stack, 'basename':basename, 'struct':structure}
+        return fp
+    
+    @staticmethod
+    def get_score_volume_bbox_filepath_v2(stack, structure, out_resolution_um, detector_id, prep_id=2, volume_type='score', **kwargs):
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, out_resolution_um=out_resolution_um)
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -1839,10 +1869,26 @@ class DataManager(object):
                              '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
         return grad_fp
+    
+    @staticmethod
+    def get_volume_gradient_filepath_template_v2(stack, structure, out_resolution_um=10., 
+                                                 prep_id=None, detector_id=None, volume_type='score', **kwargs):
+        basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, out_resolution_um=out_resolution_um, volume_type=volume_type, **kwargs)
+        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volume_gradients',
+                             '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
+        {'stack':stack, 'basename':basename, 'struct':structure}
+        return grad_fp
 
     @staticmethod
     def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', prep_id=None, detector_id=None, downscale=32):
         grad_fp = DataManager.get_volume_gradient_filepath_template(**locals())  % {'suffix': suffix}
+        return grad_fp
+    
+    @staticmethod
+    def get_volume_gradient_filepath_v2(stack, structure, suffix, out_resolution_um=10., volume_type='score', prep_id=None, detector_id=None, ):
+        grad_fp = DataManager.get_volume_gradient_filepath_template_v2(**locals())  % {'suffix': suffix}
         return grad_fp
 
 #     @staticmethod
@@ -2205,25 +2251,54 @@ class DataManager(object):
                                        'prep%(prep)s', '%(fn)s_prep%(prep)d_down%(smdown)d_%(struct)s_detector%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'smdown':downscale, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
 
         return scoremap_viz_fp
-
+    
     @staticmethod
-    def get_downscaled_scoremap_filepath(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None):
+    def get_scoremap_viz_filepath_v2(stack, out_resolution_um, detector_id, prep_id=2, 
+                                     section=None, fn=None, structure=None):
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
 
-        scoremap_bp_filepath = os.path.join(SCOREMAP_ROOTDIR, 'down%(smdown)d',
+        scoremap_viz_fp = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(outres).1fum',
+                                       '%(struct)s', '%(stack)s', 'detector%(detector_id)d',
+                                       'prep%(prep)s', '%(fn)s_prep%(prep)d_%(outres).1fum_%(struct)s_detector%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'outres':out_resolution_um, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
+
+        return scoremap_viz_fp
+
+    @staticmethod
+    def get_downscaled_scoremap_filepath(stack, structure, detector_id, 
+                                         out_resolution_um=None, downscale=None, 
+                                         prep_id=2, section=None, fn=None):
+        """
+        Args:
+            out_resolution_um (float): 
+        """
+
+        if section is not None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if is_invalid(fn):
+                raise Exception('Section is invalid: %s.' % fn)
+
+        if downscale is not None:
+            scoremap_bp_filepath = os.path.join(SCOREMAP_ROOTDIR, 'down%(smdown)d',
                                             '%(stack)s',
                                             '%(stack)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d',
                                            '%(fn)s_prep%(prep)d_down%(smdown)d_detector%(detector_id)d_%(structure)s_scoremap.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'smdown':downscale, 'detector_id': detector_id, 'structure':structure}
+        elif out_resolution_um is not None:
+            scoremap_bp_filepath = os.path.join(SCOREMAP_ROOTDIR, '%(outres).1fum', '%(stack)s',
+                                                '%(stack)s_prep%(prep)d_%(outres).1fum_detector%(detector_id)d',
+                                                '%(fn)s_prep%(prep)d_%(outres).1fum_detector%(detector_id)d',
+                                                '%(fn)s_prep%(prep)d_%(outres).1fum_detector%(detector_id)d_%(structure)s_scoremap.bp') % {'stack':stack, 'prep':prep_id, 'fn': fn, 'outres':out_resolution_um, 'detector_id': detector_id, 'structure':structure}
 
         return scoremap_bp_filepath
 
     @staticmethod
-    def load_downscaled_scoremap(stack, structure, detector_id, downscale, prep_id=2, section=None, fn=None):
+    def load_downscaled_scoremap(stack, structure, detector_id, 
+                                 out_resolution_um=None, downscale=None, 
+                                 prep_id=2, section=None, fn=None):
         """
         Return scoremap as bp file.
         """
@@ -3308,7 +3383,6 @@ class DataManager(object):
         for dataset_id in dataset_ids:
 
             if labels_to_sample is None:
-                import re
                 labels_to_sample = []
                 for dataset_id in dataset_ids:
                     dataset_dir = DataManager.get_dataset_dir(dataset_id=dataset_id)

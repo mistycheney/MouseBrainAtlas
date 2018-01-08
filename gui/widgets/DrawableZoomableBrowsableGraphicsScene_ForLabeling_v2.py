@@ -350,6 +350,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         """
         Update drawings based on `self.prob_structure_volumes`, which is a reference to the GUI's `prob_structure_volumes`.
 
+        Polygons created by this function has type "derived_from_atlas".
+
         Args:
             name_u (str): structure name, unsided
             side (str): L, R or S
@@ -491,7 +493,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
                                                                 label=name_u, linecolor=level_to_color[level], vertex_radius=8,
                                                                 linewidth=5, section=sec,
-                                                                type='intersected',
+                                                                type='derived_from_atlas',
+                                                                level=level,
                                                                 side=side,
                                                                 side_manually_assigned=False)
                     except Exception as e:
@@ -545,7 +548,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='intersected',
+                                                            type='derived_from_atlas',
+                                                            level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
 
@@ -570,7 +574,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='intersected',
+                                                            type='derived_from_atlas',
+                                                            level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
 
@@ -597,7 +602,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='intersected',
+                                                            type='derived_from_atlas',
+                                                            level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
                     # except Exception as e:
@@ -912,7 +918,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             for polygon in polygons:
                 if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
                     # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
-                    sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    if 'label' in polygon.properties:
+                        sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
+                    else:
+                        sys.stderr.write("Polygon has no class: %d. Skip." % (self.data_feeder.sections[idx]))
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:

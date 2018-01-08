@@ -84,7 +84,17 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             edits=[], side=None, side_manually_assigned=None,
                                             contour_id=None,
                                             position=None,
-                                            category='contour'):
+                                            category='contour', **kwargs):
+        """
+        Additional keyword arguments are used to set polygon properties.
+
+        Args:
+            type (str): One of the following,
+                    - derived_from_atlas
+                    - confirmed (hand-drawn or confirming interpolated polygons)
+                    - interpolated
+        """
+
         closed = polygon_is_closed(path=path)
         vertices = vertices_from_polygon(path=path, closed=closed)
         if len(vertices) == 2:
@@ -138,6 +148,9 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             d_um = index * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
             polygon.set_properties('position_um', d_um)
             # print 'index', index, 'position_um', d_um
+
+        for key, value in kwargs.iteritems():
+            polygon.set_properties(key, value)
 
         return polygon
 

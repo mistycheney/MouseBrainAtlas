@@ -255,6 +255,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Set global origins of each gscene #
         #####################################
 
+        # WholebrainAlignedPadded is defined as the domain after alignment, uncropped in xy, but cropped at z.
+
         if self.prep_id == 3: # thalamus only
             lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
         elif self.prep_id == 2:
@@ -696,7 +698,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if not warped:
             atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
-            structures=['7N_L', '5N_L', 'SNR_L'])
+            structures=['7N_L', '5N_L', 'SNR_L']
+            )
 
             xdim = atlas_bbox_wrt_MD589[1] - atlas_bbox_wrt_MD589[0]
             ydim = atlas_bbox_wrt_MD589[3] - atlas_bbox_wrt_MD589[2]
@@ -708,8 +711,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
 
         else:
+            if stack in ['MD661', 'MD662']:
+                detector_id_f = 1
+            elif stack in ['MD653', 'MD652', 'MD642', 'MD657', 'MD658']:
+                detector_id_f = 13
+            else:
+                detector_id_f = 15
 
-            atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack, warp_setting=17, prep_id_f=2, detector_id_f=15,
+            atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack,
+            warp_setting=17, prep_id_f=2, detector_id_f=detector_id_f,
             return_label_mappings=False,
             name_or_index_as_key='name',
             structures=['7N_L', '5N_L', 'SNR_L']

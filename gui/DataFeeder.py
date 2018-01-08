@@ -322,8 +322,8 @@ class ImageDataFeeder_v2(object):
             sys.stderr.write('Image data for section %d is not loaded. Loading now.. \n' % sec)
 
             loaded_sections = set(self.image_cache[downsample].keys())
-            # active_set = set(range(max(min(self.sections), sec-5), min(max(self.sections), sec+6)))
-            active_set = set(range(max(min(self.sections), sec-1), min(max(self.sections), sec+2)))
+            active_set = set(range(max(min(self.sections), sec-5), min(max(self.sections), sec+6)))
+            # active_set = set(range(max(min(self.sections), sec-1), min(max(self.sections), sec+2)))
             print active_set, loaded_sections
 
             if len(self.image_cache[downsample]) > 10:

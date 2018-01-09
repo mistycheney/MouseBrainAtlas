@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1715</width>
+    <width>1882</width>
     <height>1113</height>
    </rect>
   </property>
@@ -107,6 +107,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_loadProbStructures">
+        <property name="text">
+         <string>Load Prob Stru.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_loadWarpedAtlas">
         <property name="text">
          <string>Load Warped Atlas</string>
@@ -143,7 +150,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1715</width>
+     <width>1882</width>
      <height>25</height>
     </rect>
    </property>

@@ -414,7 +414,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
                                                         if p.properties['label'] == name_u and \
                                                         p.properties['side'] == side and \
-                                                        p.properties['type'] != 'confirmed']
+                                                        p.properties['type'] == 'intersected' or p.properties['type' == 'interpolated']]
                                                     for i in range(len(self.data_feeder.sections))}
             sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
@@ -519,7 +519,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             for pos_ds in range(pos_start_ds, pos_end_ds+1):
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
                 if p.properties['label'] == name_u and p.properties['side'] == side and \
-                p.properties['type'] != 'confirmed']
+                p.properties['type'] == 'intersected' or p.properties['type'] == 'interpolated']
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[pos_ds].remove(p)
                     if pos_ds == self.active_i:
@@ -902,7 +902,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         contour_id=contour_id,
                                                         category=contour_class)
 
-    def convert_drawings_to_entries(self, timestamp, username, classes=['contour']):
+    def convert_drawings_to_entries(self, timestamp, username, classes=['contour'], types=['confirmed', 'intersected']):
         """
         Args:
             classes (list of str): list of classes to gather. Default is contour.
@@ -922,6 +922,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
                     else:
                         sys.stderr.write("Polygon has no class: %d. Skip." % (self.data_feeder.sections[idx]))
+                    continue
+
+                if polygon.properties['type'] not in types:
                     continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
@@ -979,6 +982,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if hasattr(self.data_feeder, 'sections'):
                         contour_entry['section'] = self.data_feeder.sections[idx]
                         contour_entry['filename'] = metadata_cache['sections_to_filenames'][self.gui.stack][contour_entry['section']]
+                        if is_invalid(contour_entry['filename']):
+                            continue
                     else:
                         contour_entry['voxel_position'] = idx
 
@@ -1322,8 +1327,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sys.stderr.write('No edit history.\n')
 
         contour_info_text += "Type: %(type)s\n" % {'type': self.active_polygon.properties['type']}
+        if 'level' in self.active_polygon.properties:
+            contour_info_text += 'Prob level: %.2f\n' % self.active_polygon.properties['level']
+
         contour_info_text += "Class: %(class)s\n" % {'class': self.active_polygon.properties['class']}
-        contour_info_text += "Level: %(position_um).2f microns (from origin of whole brain aligned and padded volume)\n" % {'position_um': self.active_polygon.properties['position_um']}
+        contour_info_text += "Position: %(position_um).2f microns (from origin of whole brain aligned and padded volume)\n" % {'position_um': self.active_polygon.properties['position_um']}
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 

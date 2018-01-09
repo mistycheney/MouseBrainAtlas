@@ -93,6 +93,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
+        self.button_loadProbStructures.clicked.connect(self.load_prob_structures)
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
         self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
         self.button_inferSide.clicked.connect(self.infer_side)
@@ -354,7 +355,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def select_display_structures(self):
-        loaded_structure_abbrs = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+        loaded_structure_abbrs = set([convert_to_unsided_label(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
 
         structure_tree_dict = json.load(open('structure_tree.json'))
         # structure_tree_dict = {name: d for name, d in structure_tree_dict_all.iteritems() if d['abbr'] in loaded_structure_names}
@@ -753,55 +754,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             for gscene in self.gscenes.values():
                 gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
-            # from registration_utilities import get_structure_contours_from_aligned_atlas
-            #
-            # level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
-            #
-            # # for level in [0.1, 0.25, 0.5, 0.75, 0.99]:
-            # for level in [ 0.5]:
-            #
-            #     warped_atlas_contours_by_section = get_structure_contours_from_aligned_atlas(unwarped_atlas_volumes, volume_origin=(0,0,0),
-            #     sections=metadata_cache['valid_sections'][self.stack],
-            #     downsample_factor=32, level=level, sample_every=1, first_sec=metadata_cache['section_limits'][self.stack][0])
-            #
-            #     import uuid
-            #
-            #     contour_entries = {}
-            #     for sec, contours_by_sided_name in warped_atlas_contours_by_section.iteritems():
-            #         for sided_name, contour in contours_by_sided_name.iteritems():
-            #
-            #             unsided_name, side, _, _ = parse_label(sided_name)
-            #
-            #             # If already loaded as edited volume, skip.
-            #             if (unsided_name, side) in self.structure_volumes:
-            #                 sys.stderr.write('Structure %s,%s already loaded as edited volume. Skipped.\n' % (unsided_name, side))
-            #                 continue
-            #
-            #             if len(contour) < 3:
-            #                 sys.stderr.write("On sec %d, %s has only %d vertices. Skip.\n" % (sec, sided_name, len(contour)))
-            #                 continue
-            #
-            #             polygon_id = str(uuid.uuid4().fields[-1])
-            #             contour_entry = {'name': unsided_name,
-            #                         'label_position': np.mean(contour, axis=0),
-            #                        'side': side,
-            #                        'creator': 'hector',
-            #                        'time_created': datetime.now().strftime("%m%d%Y%H%M%S"),
-            #                         'edits': [],
-            #                         'vertices': contour,
-            #                         'downsample': 32,
-            #                         'type': 'intersected',
-            #                         'orientation': 'sagittal',
-            #                         'parent_structure': [],
-            #                         'side_manually_assigned': True,
-            #                         'id': polygon_id,
-            #                         'class': 'contour',
-            #                         'section': sec}
-            #             contour_entries[polygon_id] = contour_entry
-            #
-            #     warped_atlas_contours_df = pd.DataFrame(contour_entries).T
-            #     self.gscenes['sagittal'].load_drawings(warped_atlas_contours_df, append=True, linecolor=level_to_color[level], vertex_color=level_to_color[level])
-
     @pyqtSlot()
     def load_unwarped_atlas_volume(self):
         """
@@ -820,6 +772,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
         """
         self.load_atlas_volume(warped=True)
+
+    @pyqtSlot()
+    def load_prob_structures(self):
+
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        # print structures_df_fp
+        structure_df = load_hdf_v2(structures_df_fp)
+
+        for sid, struct_entry in structure_df.iterrows():
+            name_u = struct_entry['name']
+            side = struct_entry['side']
+            print name_u, side
+            self.prob_structure_volumes[(name_u, side)] = {'bbox': struct_entry['bbox'],
+            'volume_in_bbox': bp.unpack_ndarray_str(struct_entry['volume_in_bbox']), 'edits': struct_entry['edits']}
+
+        # from skimage.transform import rescale
+        # atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
+        # atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
+
+        # for name_s, v in atlas_volumes.iteritems():
+        #     name_u, side = parse_label(name_s)[:2]
+            # self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
+        # print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
+
+        # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+            for gscene in self.gscenes.values():
+                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
     @pyqtSlot()
     def load_structures(self):

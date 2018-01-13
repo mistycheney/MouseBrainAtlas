@@ -449,6 +449,8 @@ class Aligner4(object):
                 self.centroid_m = np.zeros((3,))
             else:
                 raise Exception('centroid_m not recognized.')
+        else:
+            self.centroid_m = centroid_m
 
         if isinstance(centroid_f, basestring):
             if centroid_f == 'centroid_m':
@@ -461,6 +463,8 @@ class Aligner4(object):
                 self.centroid_f = np.zeros((3,))
             else:
                 raise Exception('centroid_f not recognized.')
+        else:
+            self.centroid_f = centroid_f
 
         sys.stderr.write("centroid_m: %s, centroid_f: %s\n" % (self.centroid_m, self.centroid_f))
 
@@ -1230,6 +1234,7 @@ class Aligner4(object):
         score_best = -np.inf
         scores = []
         self.Ts = [T]
+        best_gradient_descent_params = T
 
         for iteration in range(max_iter_num):
 
@@ -2473,6 +2478,27 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
         return volume_m_aligned_to_f, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
 def transform_volume_v3(vol, bbox, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+    """
+    One can specify initial shift and the transform separately.
+    First, `centroid_m` and `centroid_f` are aligned.
+    Then the tranform (R,t) parameterized by `tf_params` is applied.
+    The relationship between coordinates in the fixed and moving volumes is:
+    coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
+
+    One can also incorporate the initial shift into tf_params. In that case, do not specify `centroid_m` and `centroid_f`.
+    coord_f = np.dot(T, coord_m)
+
+    Args:
+        vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
+        bbox (6-tuple): bounding box of the input volume.
+        tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
+        centroid_m (3-tuple): transform center in the volume to transform
+        centroid_f (3-tuple): transform center in the result volume.
+
+    Returns:
+        (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
+    """
+
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
@@ -2534,12 +2560,12 @@ def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0), 
     t = time.time()
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-    print 1, time.time() - t, 's'
+    sys.stderr.write('parallel_where_binary: %.2f seconds.\n' % (time.time() - t))
 
     t = time.time()
     nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp,
                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
-    print 2, time.time() - t, 's'
+    sys.stderr.write('transform_points_affine: %.2f seconds.\n' % (time.time() - t))
 
     nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
     nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
@@ -2729,190 +2755,256 @@ def fill_sparse_volume(volume_sparse):
 
     return volume
 
-def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_name_dict):
+def alignment_parameters_to_transform_matrix(transform_parameters):
     """
-    Transform volume and then save transformed volume.
-
-    Args:
-        G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
-        alignment_name_dict (dict): determines the file name to save the transformed volumes to.
+    Returns:
+        (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
     """
+    cf = np.array(transform_parameters['centroid_f'])
+    cm = np.array(transform_parameters['centroid_m'])  
+    of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
+    om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
+    params = np.array(transform_parameters['parameters'])
+    T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
+    return T
 
-    stack_m = alignment_name_dict['stack_m']
-    stack_f = alignment_name_dict['stack_f']
-    warp_setting = alignment_name_dict['warp_setting']
-    vol_type_f = alignment_name_dict['vol_type_f']
-    vol_type_m = alignment_name_dict['vol_type_m']
-
-    try:
-        t = time.time()
-
-        # vol_m, vol_m_bbox = DataManager.load_original_volume_v2(stack=stack_m, structure=structure, downscale=32,
-        #                                         volume_type=vol_type_m)
-
-        volume_m_warped_inbbox, volume_m_warped_bbox_rel2movingvol = \
-        transform_volume_v2(vol=volume, tf_params=G.flatten())
-
-        # Note: volume_m_warped_bbox_rel2movingvol is the same as volume_m_warped_bbox_rel2fixedvol.
-        volume_m_warped_bbox_rel2fixedvol = volume_m_warped_bbox_rel2movingvol
-
-        ######### Save volume ##########
-
-        volume_m_warped_fp = \
-        DataManager.get_transformed_volume_filepath(stack_m=stack_m,
-                                                    stack_f=stack_f,
-                                                    warp_setting=warp_setting,
-                                                    vol_type_f=vol_type_f,
-                                                    vol_type_m=vol_type_m,
-                                                    structure=structure)
-
-        create_parent_dir_if_not_exists(volume_m_warped_fp)
-        bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
-        upload_to_s3(volume_m_warped_fp)
-
-        ############### bbox #############
-        volume_m_warped_bbox_fp = \
-        DataManager.get_transformed_volume_bbox_filepath(stack_m=stack_m,
-                                                    stack_f=stack_f,
-                                                    warp_setting=warp_setting,
-                                                    vol_type_f=vol_type_f,
-                                                         vol_type_m=vol_type_m,
-                                                    structure=structure)
-
-        create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
-        np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + crop_origin_f[[0,0,1,1,2,2]])
-        upload_to_s3(volume_m_warped_bbox_fp)
-
-        sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
-
-    except Exception as e:
-        sys.stderr.write('Error transforming volume %s: %s.\n' % (structure, e))
-
-
-def load_alignment_results(alignment_name_dict):
+def transform_volume_by_alignment_parameters(volume, bbox, transform_parameters):
     """
     Args:
-        alignment_name_dict (dict)
+        vol: the volume to transform
+        bbox: wrt wholebrain
+        transform_parameters (dict): the dict that describes the transform
+        
+    Returns:
+        (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
     """
+    
+    T = alignment_parameters_to_transform_matrix(transform_parameters)
+    volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
+    transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
+    return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+    
 
-    stack_m = alignment_name_dict['stack_m']
-    stack_f = alignment_name_dict['stack_f']
-    warp_setting = alignment_name_dict['warp_setting']
-    vol_type_f = alignment_name_dict['vol_type_f']
-    vol_type_m = alignment_name_dict['vol_type_m']
-
-    # Save parameters
-    params_fp = \
-        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                      stack_f=stack_f,
-                                                      warp_setting=warp_setting,
-                                                  vol_type_f=vol_type_f,
-                                                  vol_type_m=vol_type_m,
-                                                     what='parameters')
-    download_from_s3(params_fp)
-    DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
-
-    # Save score history
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                  stack_f=stack_f,
-                                                  warp_setting=warp_setting,
-                                                           vol_type_f=vol_type_f,
-                                                           vol_type_m=vol_type_m,
-                                                 what='scoreHistory')
-    bp.pack_ndarray_file(np.array(score_traj), history_fp)
-    upload_to_s3(history_fp)
-
-    # Save score plot
-    score_plot_fp = \
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                  stack_f=stack_f,
-                                                  warp_setting=warp_setting,
-                                                           vol_type_f=vol_type_f,
-                                                           vol_type_m=vol_type_m,
-                                                 what='scoreEvolution')
-    fig = plt.figure();
-    plt.plot(score_traj);
-    plt.savefig(score_plot_fp, bbox_inches='tight')
-    plt.close(fig)
-    upload_to_s3(score_plot_fp)
-
-    # Save trajectory
-    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                      stack_f=stack_f,
-                                                      warp_setting=warp_setting,
-                                                              vol_type_f=vol_type_f,
-                                                              vol_type_m=vol_type_m,
-                                                     what='trajectory')
-    bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
-    upload_to_s3(trajectory_fp)
-
-
-def save_alignment_results(best_param, centroid_m, centroid_f,
-                           crop_origin_m, crop_origin_f,
-                           score_traj, parameter_traj, alignment_name_dict):
+def transform_points_by_transform_parameters(pts, transform_parameters):
     """
-    Save the following alignment results:
-    - `parameters`: eventual parameters
-    - `scoreHistory`: score trajectory
-    - `scoreEvolution`: a plot of score trajectory, exported as PNG
-    - `trajectory`: parameter trajectory
-
     Args:
-        best_param ((12,) array): best parameters
-        score_traj ((Ti,) array): score trajectory
-        parameter_traj ((Ti, 12) array): parameter trajectory
+        pts ((n,3)-array): wrt wholebrain
     """
+    
+    T = alignment_parameters_to_transform_matrix(transform_parameters)
+    R = T[:3,:3]
+    t = T[:3,3]
+    return np.dot(R, np.array(pts).T).T + t
+    
+def compose_alignment_parameters(list_of_transform_parameters):
+    """
+    Args:
+        list_of_transform_parameters: the transforms are applied in the order from left to right.
+        
+    Returns:
+        (4,4)-array: transform matrix that maps wholebrain domain of moving brain to wholebrain domain of fixed brain.
+    """
+    
+    T0 = np.eye(4)
+    
+    for transform_parameters in list_of_transform_parameters:
+    
+        cf = np.array(transform_parameters['centroid_f'])
+        cm = np.array(transform_parameters['centroid_m'])  
+        of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
+        om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
+        params = np.array(transform_parameters['parameters'])
+        T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)
+        T0 = np.dot(T, T0)
+    
+    return T0
+    
+    
+# def transform_and_save_volume_v3(volume, bbox_wrt_movingWholebrain, structure, G, volume_f_origin_wrt_fixedWholebrain, alignment_spec, resolution=None):
+#     """
+#     Transform volume and then save transformed volume.
 
-    stack_m = alignment_name_dict['stack_m']
-    stack_f = alignment_name_dict['stack_f']
-    warp_setting = alignment_name_dict['warp_setting']
-    vol_type_f = alignment_name_dict['vol_type_f']
-    vol_type_m = alignment_name_dict['vol_type_m']
+#     Args:
+#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
+#         alignment_spec (dict): determines the file name to save the transformed volumes to.
+#         resolution (str):
+#         volume_f_origin_wrt_fixedWholebrain ((3,)-array)
+#     """
+#     t = time.time()
 
-    # Save parameters
-    params_fp = \
-        DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                      stack_f=stack_f,
-                                                      warp_setting=warp_setting,
-                                                  vol_type_f=vol_type_f,
-                                                  vol_type_m=vol_type_m,
-                                                     what='parameters')
-    DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
-    upload_to_s3(params_fp)
+#     volume_m_warped_inbbox, volume_m_warped_bbox_rel2fixedvol = \
+#     transform_volume_v3(vol=volume, bbox=bbox_wrt_movingWholebrain, tf_params=G.flatten())
+    
+#     if resolution is None:
+#         resolution = alignment_spec['stack_m']['resolution']
+    
+#     # "fixedvol" is the domain defined by the fixed volume (which was input to the aligner).
 
-    # Save score history
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                  stack_f=stack_f,
-                                                  warp_setting=warp_setting,
-                                                           vol_type_f=vol_type_f,
-                                                           vol_type_m=vol_type_m,
-                                                 what='scoreHistory')
-    bp.pack_ndarray_file(np.array(score_traj), history_fp)
-    upload_to_s3(history_fp)
+#     ######### Save volume ##########
+#     volume_m_warped_fp = \
+#     DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure, 
+#                                                    resolution=resolution)
+#     create_parent_dir_if_not_exists(volume_m_warped_fp)
+#     bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
+#     upload_to_s3(volume_m_warped_fp)
 
-    # Save score plot
-    score_plot_fp = \
-    history_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                  stack_f=stack_f,
-                                                  warp_setting=warp_setting,
-                                                           vol_type_f=vol_type_f,
-                                                           vol_type_m=vol_type_m,
-                                                 what='scoreEvolution')
-    fig = plt.figure();
-    plt.plot(score_traj);
-    plt.savefig(score_plot_fp, bbox_inches='tight')
-    plt.close(fig)
-    upload_to_s3(score_plot_fp)
+#     ############### Save bbox #############
+#     volume_m_warped_bbox_fp = \
+#     DataManager.get_transformed_volume_bbox_filepath_v2(alignment_spec=alignment_spec, structure=structure,
+#                                                        resolution=resolution, wrt='fixedWholebrain')
+#     create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
+#     np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + volume_f_origin_wrt_fixedWholebrain[[0,0,1,1,2,2]], fmt='%d')
+#     upload_to_s3(volume_m_warped_bbox_fp)
 
-    # Save trajectory
-    trajectory_fp = DataManager.get_alignment_result_filepath_v2(stack_m=stack_m,
-                                                      stack_f=stack_f,
-                                                      warp_setting=warp_setting,
-                                                              vol_type_f=vol_type_f,
-                                                              vol_type_m=vol_type_m,
-                                                     what='trajectory')
-    bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
-    upload_to_s3(trajectory_fp)
+#     sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
+
+
+
+# def transform_and_save_volume_v2(volume, structure, G, volume_f_origin_wrt_fixedWholebrain, alignment_spec, resolution=None):
+#     """
+#     Transform volume and then save transformed volume.
+
+#     Args:
+#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
+#         alignment_spec (dict): determines the file name to save the transformed volumes to.
+#         resolution (str):
+#         volume_f_origin_wrt_fixedWholebrain ((3,)-array)
+#     """
+#     t = time.time()
+
+#     volume_m_warped_inbbox, volume_m_warped_bbox_rel2fixedvol = \
+#     transform_volume_v2(vol=volume, tf_params=G.flatten())
+    
+#     if resolution is None:
+#         resolution = alignment_spec['stack_m']['resolution']
+    
+#     # "fixedvol" is the domain defined by the fixed volume (which was input to the aligner).
+
+#     ######### Save volume ##########
+#     volume_m_warped_fp = \
+#     DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure, 
+#                                                    resolution=resolution)
+#     create_parent_dir_if_not_exists(volume_m_warped_fp)
+#     bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
+#     upload_to_s3(volume_m_warped_fp)
+
+#     ############### Save bbox #############
+#     volume_m_warped_bbox_fp = \
+#     DataManager.get_transformed_volume_bbox_filepath_v2(alignment_spec=alignment_spec, structure=structure,
+#                                                        resolution=resolution, wrt='fixedWholebrain')
+#     create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
+#     np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + volume_f_origin_wrt_fixedWholebrain[[0,0,1,1,2,2]], fmt='%d')
+#     upload_to_s3(volume_m_warped_bbox_fp)
+
+#     sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
+
+
+# def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_name_dict):
+#     """
+#     Transform volume and then save transformed volume.
+
+#     Args:
+#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
+#         alignment_name_dict (dict): determines the file name to save the transformed volumes to.
+#     """
+
+#     stack_m = alignment_name_dict['stack_m']
+#     stack_f = alignment_name_dict['stack_f']
+#     warp_setting = alignment_name_dict['warp_setting']
+#     vol_type_f = alignment_name_dict['vol_type_f']
+#     vol_type_m = alignment_name_dict['vol_type_m']
+
+#     try:
+#         t = time.time()
+
+#         # vol_m, vol_m_bbox = DataManager.load_original_volume_v2(stack=stack_m, structure=structure, downscale=32,
+#         #                                         volume_type=vol_type_m)
+
+#         volume_m_warped_inbbox, volume_m_warped_bbox_rel2movingvol = \
+#         transform_volume_v2(vol=volume, tf_params=G.flatten())
+
+#         # Note: volume_m_warped_bbox_rel2movingvol is the same as volume_m_warped_bbox_rel2fixedvol.
+#         volume_m_warped_bbox_rel2fixedvol = volume_m_warped_bbox_rel2movingvol
+
+#         ######### Save volume ##########
+
+#         volume_m_warped_fp = \
+#         DataManager.get_transformed_volume_filepath(stack_m=stack_m,
+#                                                     stack_f=stack_f,
+#                                                     warp_setting=warp_setting,
+#                                                     vol_type_f=vol_type_f,
+#                                                     vol_type_m=vol_type_m,
+#                                                     structure=structure)
+
+#         create_parent_dir_if_not_exists(volume_m_warped_fp)
+#         bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
+#         upload_to_s3(volume_m_warped_fp)
+
+#         ############### bbox #############
+#         volume_m_warped_bbox_fp = \
+#         DataManager.get_transformed_volume_bbox_filepath(stack_m=stack_m,
+#                                                     stack_f=stack_f,
+#                                                     warp_setting=warp_setting,
+#                                                     vol_type_f=vol_type_f,
+#                                                          vol_type_m=vol_type_m,
+#                                                     structure=structure)
+
+#         create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
+#         np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + crop_origin_f[[0,0,1,1,2,2]])
+#         upload_to_s3(volume_m_warped_bbox_fp)
+
+#         sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
+
+#     except Exception as e:
+#         sys.stderr.write('Error transforming volume %s: %s.\n' % (structure, e))
+
+# def save_alignment_results(best_param, centroid_m, centroid_f,
+#                            crop_origin_m, crop_origin_f,
+#                            score_traj, parameter_traj, alignment_spec):
+#     """
+#     Save the following alignment results:
+#     - `parameters`: eventual parameters
+#     - `scoreHistory`: score trajectory
+#     - `scoreEvolution`: a plot of score trajectory, exported as PNG
+#     - `trajectory`: parameter trajectory
+
+#     Args:
+#         best_param ((12,) array): best parameters
+#         score_traj ((Ti,) array): score trajectory
+#         parameter_traj ((Ti, 12) array): parameter trajectory
+#     """
+
+#     # stack_m = alignment_name_dict['stack_m']
+#     # stack_f = alignment_name_dict['stack_f']
+#     # warp_setting = alignment_name_dict['warp_setting']
+#     # vol_type_f = alignment_name_dict['vol_type_f']
+#     # vol_type_m = alignment_name_dict['vol_type_m']
+#     # detector_id_f = alignment_name_dict['detector_id_f']
+#     # prep_id_f = alignment_name_dict['prep_id_f']
+
+#     # Save parameters
+#     params_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
+#     DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
+#     upload_to_s3(params_fp)
+
+#     # Save score history
+#     history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreHistory')
+#     bp.pack_ndarray_file(np.array(score_traj), history_fp)
+#     upload_to_s3(history_fp)
+
+#     # Save score plot
+#     score_plot_fp = \
+#     history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreEvolution')
+#     fig = plt.figure();
+#     plt.plot(score_traj);
+#     plt.savefig(score_plot_fp, bbox_inches='tight')
+#     plt.close(fig)
+#     upload_to_s3(score_plot_fp)
+
+#     # Save trajectory
+#     trajectory_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='trajectory')
+#     bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
+#     upload_to_s3(trajectory_fp)
 
 
 def fit_plane(X):

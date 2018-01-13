@@ -1001,6 +1001,8 @@ def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_dow
         #     continue
         # sec = filename_to_section[fn]
         sec = cnt['section']
+        if sec not in metadata_cache['valid_sections'][stack]:
+            continue
         fn = metadata_cache['sections_to_filenames'][stack][sec]
         contour_df.loc[cnt_id, 'section'] = sec
 

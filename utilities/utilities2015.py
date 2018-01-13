@@ -555,7 +555,7 @@ def consolidate(params, centroid_m, centroid_f):
         centroid_f ((3,)-array):
 
     Returns:
-        ((3,4)-array)
+        ((4,4)-array)
     """
     G = params.reshape((3,4))
     R = G[:3,:3]
@@ -646,10 +646,11 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     """
 
     if in_bbox is None:
+        assert in_origin is not None
         in_xmin, in_ymin, in_zmin = in_origin
-        in_xmax = in_vol.shape[1] - 1
-        in_ymax = in_vol.shape[0] - 1
-        in_zmax = in_vol.shape[2] - 1
+        in_xmax = in_xmin + in_vol.shape[1] - 1
+        in_ymax = in_ymin + in_vol.shape[0] - 1
+        in_zmax = in_zmin + in_vol.shape[2] - 1
     else:
         in_bbox = np.array(in_bbox).astype(np.int)
         in_xmin, in_xmax, in_ymin, in_ymax, in_zmin, in_zmax = in_bbox
@@ -671,8 +672,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     out_xdim = out_xmax - out_xmin + 1
     out_ydim = out_ymax - out_ymin + 1
     out_zdim = out_zmax - out_zmin + 1
-        # print 'out', out_xdim, out_ydim, out_zdim
-
+    
+    # print out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax
+    
     if out_xmin > in_xmax or out_xmax < in_xmin or out_ymin > in_ymax or out_ymax < in_ymin or out_zmin > in_zmax or out_zmax < in_zmin:
         return np.zeros((out_ydim, out_xdim, out_zdim), np.int)
 
@@ -685,7 +687,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     if out_zmax > in_zmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0,0),(0, out_zmax-in_zmax)], mode='constant', constant_values=0)
         # print 'pad z'
-
+        
     out_vol = np.zeros((out_ydim, out_xdim, out_zdim), in_vol.dtype)
     ymin = max(in_ymin, out_ymin)
     xmin = max(in_xmin, out_xmin)
@@ -820,6 +822,9 @@ def save_pickle(obj, fp):
 
 def save_json(obj, fp):
     with open(fp, 'w') as f:
+        # numpy array is not JSON serializable; have to convert them to list.
+        if isinstance(obj, dict):
+            obj = {k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in obj.iteritems()}
         json.dump(obj, f)
 
 def load_json(fp):

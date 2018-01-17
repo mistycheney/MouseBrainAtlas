@@ -1900,7 +1900,7 @@ def get_local_regions(stack, by_human, margin_um=500, level=None, structures=Non
 
             q = contours_df[(contours_df['name'] == name) & (contours_df['side'] == side)]
             for cnt_id, cnt in q.iterrows():
-                vs = cnt['vertices']
+                vs = np.array(cnt['vertices'])
                 xmin, ymin = vs.min(axis=0) 
                 xmax, ymax = vs.max(axis=0)
                 local_region_bboxes_allStructures_allSections[structure][cnt['section']] = \

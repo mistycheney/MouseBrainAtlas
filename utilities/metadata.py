@@ -138,7 +138,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     ANNOTATION_THALAMUS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_thalamus')
     CLF_ROOTDIR =  os.path.join(DATA_ROOTDIR, 'CSHL_classifiers')
 
-    REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
+    REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
+    REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
 
     KDU_EXPAND_BIN = '/home/yuncong/KDU7A2_Demo_Apps_for_Centos7-x86-64_170827/kdu_expand'
 
@@ -342,7 +343,7 @@ windowing_settings = {1: {"patch_size": 224, "spacing": 56},
                      4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
                      5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'},
                      6: {'patch_size': 448, 'spacing':64, 'comment': 'twice as large patch'},
-                     7: {'patch_size_um':103.04, 'spacing_um':30, 'comment':'smaller spacing'},}
+                     7: {'patch_size_um':103.04, 'spacing_um':30, 'comment':'specify size/spacing in terms of microns rather than pixels'},}
 
 ############ Class Labels #############
 

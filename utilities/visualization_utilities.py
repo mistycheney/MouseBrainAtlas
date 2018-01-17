@@ -193,19 +193,20 @@ def export_scoremapPlusAnnotationVizs(bg, stack, names, downscale_factor, sectio
 #                                                         export_filepath_fmt=export_filepath_fmt)
 
 
-def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, volume_origin, stack_fixed, volume_downsample=32,
+def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, stack_fixed, volume_downsample=32,
                                             fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=32,
                             users=None, level_colors=None, levels=None, show_text=True,
                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
     """
     Args:
-        warped_volumes_sets (dict {set_name: {structure: 3d probability array}} dict})
+        warped_volumes_sets ({set_name: {structure: (3d probability array, (3,)-array origin wrt wholebrain)}})
         levels (list of float): probability levels at which the contours are drawn.
         level_colors (dict {set_name: dict {float: (3,)-ndarray of float}}): 256-based contour color for each level for each set
-        volume_origin ((3,)-ndarray of float): the origin of the given volumes.
     """
 
+    wholebrainXYcropped_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_fixed, domain='wholebrainXYcropped')
+    
     if level_colors is None:
         level_colors = {set_name: {0.1: (0,255,255),
                     0.25: (0,255,0),
@@ -217,8 +218,6 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
         levels = level_colors.values()[0].keys()
 
     t = time.time()
-
-    xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
 
     if bg == 'original':
 
@@ -244,18 +243,19 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
 
     assert orientation == 'sagittal', 'Currently only support drawing on sagittal sections'
 
-    z = int(np.mean(DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample)))
+    z_wrt_wholebrain = DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample, mid=True, z_begin=0)
 
     # Find moving volume annotation contours.
     # for set_name, warped_volumes in warped_volumes_sets.iteritems():
     #     for name_s, vol in warped_volumes.iteritems():
     for set_name in warped_volumes_sets.keys(): # This avoids loading entire warped_volumes (maybe?)
-        for name_s, vol in warped_volumes_sets[set_name].iteritems():
+        for name_s, (vol, vol_origin_wrt_wholebrain) in warped_volumes_sets[set_name].iteritems():
             # structure does not include level z, skip
             bbox = bbox_3d(vol)
-            zmin = bbox[4]
-            zmax = bbox[5]
-            if z < zmin or z > zmax:
+            zmin_wrt_wholebrain = bbox[4] + vol_origin_wrt_wholebrain[2]
+            zmax_wrt_wholebrain = bbox[5] + vol_origin_wrt_wholebrain[2]
+            print zmin_wrt_wholebrain, zmax_wrt_wholebrain, z_wrt_wholebrain
+            if z_wrt_wholebrain < zmin_wrt_wholebrain or z_wrt_wholebrain > zmax_wrt_wholebrain:
                 continue
 
             print set_name, name_s
@@ -263,17 +263,16 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
             label_pos = None
 
             for level in levels:
-                cnts = find_contours(vol[..., z], level=level) # rows, cols
-                for cnt in cnts:
-                    # r,c to x,y
-                    cnt_on_cropped_volRes = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-                    cnt_on_cropped_imgRes = cnt_on_cropped_volRes * volume_downsample / out_downsample
-                    cv2.polylines(viz, [cnt_on_cropped_imgRes.astype(np.int)],
+                cnts_rc_wrt_vol = find_contours(vol[..., int(np.round(z_wrt_wholebrain - vol_origin_wrt_wholebrain[2]))], level=level)
+                for cnt_rc_wrt_vol in cnts_rc_wrt_vol:
+                    cnt_wrt_cropped_volRes = cnt_rc_wrt_vol[:,::-1] + (vol_origin_wrt_wholebrain[0], vol_origin_wrt_wholebrain[1]) - wholebrainXYcropped_origin_wrt_wholebrain[:2]
+                    cnt_wrt_cropped_imgRes = cnt_wrt_cropped_volRes * volume_downsample / out_downsample
+                    cv2.polylines(viz, [cnt_wrt_cropped_imgRes.astype(np.int)],
                                   True, level_colors[set_name][level], contour_width)
 
                     if show_text:
                         if label_pos is None:
-                            label_pos = np.mean(cnt_on_cropped_imgRes, axis=0)
+                            label_pos = np.mean(cnt_wrt_cropped_imgRes, axis=0)
 
             # Show text
             if label_pos is not None:

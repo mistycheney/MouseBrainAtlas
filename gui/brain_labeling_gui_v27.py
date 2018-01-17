@@ -256,32 +256,32 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Set global origins of each gscene #
         #####################################
 
-        # WholebrainAlignedPadded is defined as the domain after alignment, uncropped in xy, UNcropped at z.
+        # wholebrain is defined as the domain after alignment, uncropped in xy, UNcropped at z.
 
         if self.prep_id == 3: # thalamus only
-            lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
+            lossless_image_cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
         elif self.prep_id == 2:
-            lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack)[:4]
+            lossless_image_cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack)[:4]
         else:
             raise
 
         fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4)
         download_from_s3(fp)
-        thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(fp)
-        print 'thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol=', thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol
+        thumbnail_image_cropbox_wrt_wholebrain_tbResol = np.loadtxt(fp)
+        print 'thumbnail_image_cropbox_wrt_wholebrain_tbResol=', thumbnail_image_cropbox_wrt_wholebrain_tbResol
 
         # Record the appropriate coordinate origin for this gscene.
         # The coordinate is wrt to origin of "whole brain aligned and padded volume", in thumbnail resolution (1/32 of raw).
-        self.image_origin_wrt_WholebrainAlignedPadded_tbResol = {}
-        self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'] = \
-        np.array((lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[0],
-        lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol[2],
+        self.image_origin_wrt_wholebrain_tbResol = {}
+        self.image_origin_wrt_wholebrain_tbResol['sagittal'] = \
+        np.array((lossless_image_cropboxXY_wrt_wholebrain_tbResol[0],
+        lossless_image_cropboxXY_wrt_wholebrain_tbResol[2],
         0))
         for gid in ['coronal', 'horizontal', 'sagittal_tb']:
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gid] = \
-            np.array((thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[0],
-            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[2],
-            thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol[4]))
+            self.image_origin_wrt_wholebrain_tbResol[gid] = \
+            np.array((thumbnail_image_cropbox_wrt_wholebrain_tbResol[0],
+            thumbnail_image_cropbox_wrt_wholebrain_tbResol[2],
+            thumbnail_image_cropbox_wrt_wholebrain_tbResol[4]))
 
     @pyqtSlot(int)
     def image_loaded(self, sec):
@@ -701,7 +701,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
             # structures=['7N_L', '5N_L', 'SNR_L']
-            structures=['IC']
+            # structures=['IC']
             )
 
             xdim = atlas_bbox_wrt_MD589[1] - atlas_bbox_wrt_MD589[0]
@@ -709,9 +709,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             zdim = atlas_bbox_wrt_MD589[5] - atlas_bbox_wrt_MD589[4]
 
             # unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol = np.array([0,0,0])
-            # unwarped_atlas_origin_wrt_wholeBrainAlignedPadded_volResol = unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol + self.image_origin_wrt_WholebrainAlignedPadded_tbResol * 32. / self.prob_volume_downsample_factor
-            atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
-                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
+            # unwarped_atlas_origin_wrt_wholebrain_volResol = unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol + self.image_origin_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
+            atlas_bbox_wrt_wholebrain_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
+                    self.image_origin_wrt_wholebrain_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -726,31 +726,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             return_label_mappings=False,
             name_or_index_as_key='name',
             # structures=['7N_L', '5N_L', 'SNR_L']
-            structures=['IC']
+            # ['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R', 'Pn_L', 'Pn_R', 'Tz_L', 'Tz_R', 'VLL_L', 'VLL_R', 'RMC_L', 'RMC_R', 'SNC_L', 'SNC_R', 'SNR_L', 'SNR_R', '3N_L', '3N_R', '4N_L', '4N_R', 'Sp5I_L', 'Sp5I_R', 'Sp5O_L', 'Sp5O_R', 'Sp5C_L', 'Sp5C_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'VCA_L', 'VCA_R', 'VCP_L', 'VCP_R', 'DC_L', 'DC_R', 'AP', '12N', 'RtTg', 'SC', 'IC']
+            structures=['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R'],
+            # structures=['IC']
             )
 
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
+            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
 
-            atlas_ydim_wrt_wholeBrainAlignedPadded_tbResol, \
-            atlas_xdim_wrt_wholeBrainAlignedPadded_tbResol, \
-            atlas_zdim_wrt_wholeBrainAlignedPadded_tbResol = atlas_volumes.values()[0].shape
+            atlas_ydim_wrt_wholebrain_tbResol, \
+            atlas_xdim_wrt_wholebrain_tbResol, \
+            atlas_zdim_wrt_wholebrain_tbResol = atlas_volumes.values()[0].shape
 
-            atlas_bbox_wrt_wholeBrainAlignedPadded_tbResol = np.array([atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[0],
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[0] + atlas_xdim_wrt_wholeBrainAlignedPadded_tbResol - 1,
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[1],
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[1] + atlas_ydim_wrt_wholeBrainAlignedPadded_tbResol - 1,
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[2],
-            atlas_origin_wrt_wholeBrainAlignedPadded_tbResol[2] + atlas_zdim_wrt_wholeBrainAlignedPadded_tbResol - 1])
+            atlas_bbox_wrt_wholebrain_tbResol = np.array([atlas_origin_wrt_wholebrain_tbResol[0],
+            atlas_origin_wrt_wholebrain_tbResol[0] + atlas_xdim_wrt_wholebrain_tbResol - 1,
+            atlas_origin_wrt_wholebrain_tbResol[1],
+            atlas_origin_wrt_wholebrain_tbResol[1] + atlas_ydim_wrt_wholebrain_tbResol - 1,
+            atlas_origin_wrt_wholebrain_tbResol[2],
+            atlas_origin_wrt_wholebrain_tbResol[2] + atlas_zdim_wrt_wholebrain_tbResol - 1])
 
-            atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_tbResol * 32. / self.prob_volume_downsample_factor
+            atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
 
         from skimage.transform import rescale
         atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
-        atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
+        atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
 
         for name_s, v in atlas_volumes.iteritems():
             name_u, side = parse_label(name_s)[:2]
-            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
+            print v.dtype
+            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
             print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
 
             # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
@@ -793,11 +796,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # from skimage.transform import rescale
         # atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
-        # atlas_bbox_wrt_wholeBrainAlignedPadded_volResol = atlas_bbox_wrt_wholeBrainAlignedPadded_volResol * self.sagittal_downsample
+        # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
 
         # for name_s, v in atlas_volumes.iteritems():
         #     name_u, side = parse_label(name_s)[:2]
-            # self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholeBrainAlignedPadded_volResol}
+            # self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
         # print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
 
         # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
@@ -830,12 +833,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             bbox_wrt_brainstem_volRes = structure_entry['bbox']
 
             bbox_wrt_wholebrain_volRes = bbox_wrt_brainstem_volRes + \
-            np.array([self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor,
-            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor])
+            np.array([self.image_origin_wrt_wholebrain_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_wholebrain_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_wholebrain_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_wholebrain_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_wholebrain_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_wholebrain_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor])
 
             self.structure_volumes[name_side_tuple] = {'volume_in_bbox': bp.unpack_ndarray_str(structure_entry['volume_in_bbox']).astype(np.bool),
                                         'bbox': bbox_wrt_wholebrain_volRes,
@@ -891,7 +894,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             if gscene.mode == 'crossline':
                 try:
                     gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,
-                    origin=self.image_origin_wrt_WholebrainAlignedPadded_tbResol[gscene_id]*32.)
+                    origin=self.image_origin_wrt_wholebrain_tbResol[gscene_id]*32.)
                 except Exception as e:
                     sys.stderr.write(str(e) + '\n')
 
@@ -967,21 +970,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # keys are depth coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
                 # values are 2D contour vertex coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
 
-                contour_points_grouped_by_pos_wrt_WholebrainAlignedPadded_volResol = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                contour_points_grouped_by_pos_wrt_wholebrain_volResol = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
                                                 [((c.scenePos().x() * gscene.data_feeder.downsample + \
-                                                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][0] * 32.) / float(self.volume_downsample_factor),
+                                                    self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][0] * 32.) / float(self.volume_downsample_factor),
                                                 (c.scenePos().y() * gscene.data_feeder.downsample + \
-                                                    self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][1] * 32.) / float(self.volume_downsample_factor))
+                                                    self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][1] * 32.) / float(self.volume_downsample_factor))
                                                 for c in p.vertex_circles]
                                                 for p in matched_confirmed_polygons}
 
                 for p in matched_confirmed_polygons:
                     print 'z =', p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor)
                     for c in p.vertex_circles:
-                        print c.scenePos().x() * gscene.data_feeder.downsample, self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][0] * 32., self.volume_downsample_factor
-                        print c.scenePos().y() * gscene.data_feeder.downsample, self.image_origin_wrt_WholebrainAlignedPadded_tbResol[from_gscene_id][1] * 32., self.volume_downsample_factor
+                        print c.scenePos().x() * gscene.data_feeder.downsample, self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][0] * 32., self.volume_downsample_factor
+                        print c.scenePos().y() * gscene.data_feeder.downsample, self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][1] * 32., self.volume_downsample_factor
 
-                volume_volResol, bbox_wrt_WholebrainAlignedPadded_volResol = interpolate_contours_to_volume(contour_points_grouped_by_pos_wrt_WholebrainAlignedPadded_volResol, 'z')
+                volume_volResol, bbox_wrt_wholebrain_volResol = interpolate_contours_to_volume(contour_points_grouped_by_pos_wrt_wholebrain_volResol, 'z')
 
             elif from_gscene_id == 'coronal':
                 contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
@@ -1005,7 +1008,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'y')
 
             self.structure_volumes[(name_u, side)]['volume_in_bbox'] = volume_volResol
-            self.structure_volumes[(name_u, side)]['bbox'] = bbox_wrt_WholebrainAlignedPadded_volResol
+            self.structure_volumes[(name_u, side)]['bbox'] = bbox_wrt_wholebrain_volResol
             print 'Internal structures:', (name_u, side), self.structure_volumes[(name_u, side)]['bbox']
 
             # volumes_3view[gscene_id] = volume

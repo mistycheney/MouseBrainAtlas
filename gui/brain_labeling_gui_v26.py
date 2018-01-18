@@ -256,7 +256,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Set global origins of each gscene #
         #####################################
 
-        # WholebrainAlignedPadded is defined as the domain after alignment, uncropped in xy, but cropped at z.
+        # WholebrainAlignedPadded is defined as the domain after alignment, uncropped in xy, UNcropped at z.
 
         if self.prep_id == 3: # thalamus only
             lossless_image_cropboxXY_wrt_WholebrainAlignedPadded_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
@@ -268,6 +268,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4)
         download_from_s3(fp)
         thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol = np.loadtxt(fp)
+        print 'thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol=', thumbnail_image_cropbox_wrt_WholebrainAlignedPadded_tbResol
 
         # Record the appropriate coordinate origin for this gscene.
         # The coordinate is wrt to origin of "whole brain aligned and padded volume", in thumbnail resolution (1/32 of raw).
@@ -699,7 +700,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if not warped:
             atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
-            structures=['7N_L', '5N_L', 'SNR_L']
+            # structures=['7N_L', '5N_L', 'SNR_L']
+            structures=['IC']
             )
 
             xdim = atlas_bbox_wrt_MD589[1] - atlas_bbox_wrt_MD589[0]
@@ -723,7 +725,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             warp_setting=17, prep_id_f=2, detector_id_f=detector_id_f,
             return_label_mappings=False,
             name_or_index_as_key='name',
-            structures=['7N_L', '5N_L', 'SNR_L']
+            # structures=['7N_L', '5N_L', 'SNR_L']
+            structures=['IC']
             )
 
             atlas_origin_wrt_wholeBrainAlignedPadded_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
@@ -785,7 +788,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             side = struct_entry['side']
             print name_u, side
             self.prob_structure_volumes[(name_u, side)] = {'bbox': struct_entry['bbox'],
-            'volume_in_bbox': bp.unpack_ndarray_str(struct_entry['volume_in_bbox']), 'edits': struct_entry['edits']}
+            'volume_in_bbox': bp.unpack_ndarray_str(struct_entry['volume_in_bbox']),
+            'edits': struct_entry['edits']}
 
         # from skimage.transform import rescale
         # atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
@@ -804,32 +808,43 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_structures(self):
         """
         Load a 3D structure annotation file.
+        The structure file stores a table: rows are structure IDs, columns are 3D structure properties.
         """
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-        # print structures_df_fp
         structure_df = load_hdf_v2(structures_df_fp)
 
         self.structure_df_loaded = structure_df
-
         for structure_id, structure_entry in structure_df.iterrows():
 
             if structure_entry['side'] is None:
-                t = (structure_entry['name'], 'S')
+                name_side_tuple = (structure_entry['name'], 'S')
             else:
-                t = (structure_entry['name'], structure_entry['side'])
+                name_side_tuple = (structure_entry['name'], structure_entry['side'])
 
             if 'edits' in structure_entry:
                 edits = structure_entry['edits']
             else:
                 edits = []
 
-            self.structure_volumes[t] = {'volume_in_bbox': bp.unpack_ndarray_str(structure_entry['volume_in_bbox']).astype(np.bool),
-                                        'bbox': structure_entry['bbox'],
+            bbox_wrt_brainstem_volRes = structure_entry['bbox']
+
+            bbox_wrt_wholebrain_volRes = bbox_wrt_brainstem_volRes + \
+            np.array([self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor,
+            self.image_origin_wrt_WholebrainAlignedPadded_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor])
+
+            self.structure_volumes[name_side_tuple] = {'volume_in_bbox': bp.unpack_ndarray_str(structure_entry['volume_in_bbox']).astype(np.bool),
+                                        'bbox': bbox_wrt_wholebrain_volRes,
                                         'edits': edits,
                                         'structure_id': structure_id}
 
-            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(t))
+            print name_side_tuple, self.structure_volumes[name_side_tuple]['bbox']
+
+            sys.stderr.write("Updating gscene contours for structure %s...\n" % str(name_side_tuple))
             # for gscene_id in self.gscenes:
             #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
 
@@ -843,6 +858,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_contours(self):
         """
         Load contours.
+        The contour file stores a table: rows are contour IDs, columns are polygon properties.
         """
 
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))

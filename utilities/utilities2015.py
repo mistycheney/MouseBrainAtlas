@@ -1214,40 +1214,36 @@ def pad_patches_to_same_size(vizs, pad_value=0, keep_center=False, common_shape=
 #
 #     return patches_padded
 
-def display_volume_sections_checkerboard(vol_f, vol_m, every=5, ncols=5, direction='z', start_level=None, **kwargs):
+def display_volume_sections_checkerboard(vol_f, vol_mTof, every=5, ncols=5, direction='z', start_level=None,
+                                         grid_size = 60, **kwargs):
     """
     Args:
         direction (str): x,y or z
     """
 
-    assert vol_f.shape == vol_m.shape
+    assert vol_f.shape == vol_mTof.shape
 
-    if direction == 'z':
-        zmin, zmax = bbox_3d(vol)[4:]
-        if start_level is None:
-            zs = range(zmin+1, zmax, every)
-        else:
-            zs = range(start_level, zmax, every)
-        vizs = [vol[:, :, z] for z in zs]
-        titles = ['z=%d' % z  for z in zs]
-    elif direction == 'x':
-        xmin, xmax = bbox_3d(vol)[:2]
-        if start_level is None:
-            xs = range(xmin+1, xmax, every)
-        else:
-            xs = range(start_level, xmax, every)
-        vizs = [vol[:, x, :] for x in xs]
-        titles = ['x=%d' % x for x in xs]
-    elif direction == 'y':
-        ymin, ymax = bbox_3d(vol)[2:4]
-        if start_level is None:
-            ys = range(ymin+1, ymax, every)
-        else:
-            ys = range(start_level, ymax, every)
-        vizs = [vol[y, :, :] for y in ys]
-        titles = ['y=%d' % y for y in ys]
+    vol_mTof_colored = np.zeros(vol_mTof.shape + (3,))
+    vol_mTof_colored[..., 0] = vol_mTof # use red 
+    vol_f_colored = np.zeros(vol_f.shape + (3,))
+    vol_f_colored[..., 1] = vol_f # use green
 
-    display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
+    vol_checkerboard_colored = vol_mTof_colored.copy()
+    if direction == 'x':
+        for zi, z in enumerate(range(0, vol_mTof.shape[2], grid_size)):
+            for yi, y in enumerate(range(0, vol_mTof.shape[0], grid_size)):
+                if (zi + yi) % 2 == 1:
+                    vol_checkerboard_colored[y:y+grid_size, :, z:z+grid_size] = vol_f_colored[y:y+grid_size, :, z:z+grid_size].copy()
+    elif direction == 'z':
+        for xi, x in enumerate(range(0, vol_mTof.shape[1], grid_size)):
+            for yi, y in enumerate(range(0, vol_mTof.shape[0], grid_size)):
+                if (xi + yi) % 2 == 1:
+                    vol_checkerboard_colored[y:y+grid_size, x:x+grid_size, :] = vol_f_colored[y:y+grid_size, x:x+grid_size, :].copy()    
+
+    ############################
+
+    display_volume_sections(vol_checkerboard_colored, every=every, 
+                            direction=direction, start_level=start_level, ncols=ncols, **kwargs)
 
 
 def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):

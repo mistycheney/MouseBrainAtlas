@@ -1156,8 +1156,9 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                                 detector_id_f=None,
                                                 warp_setting=17, trial_idx=None,
                                               surround_margins=None, suffix='contours', timestamp='latest', prep_id=2,
-                                                positive_level = 0.8, negative_level = 0.2,
-                                              return_timestamp=False):
+                                                positive_level=0.8, negative_level=0.2,
+                                              return_timestamp=False,
+                                              structures=None):
     """
     Load the structure annotation.
     Use the default grid spec.
@@ -1166,6 +1167,9 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
     Args:
         by_human (bool): whether the annotation is created by human or is obtained from fitted anatomical model.
         win_id (int): the spatial sample scheme
+        positive_level (float or dict {str:float}): If float, this is the level used for all structures. If dict, this is {structure unsided: level}.
+        negative_level (float or dict {str:float}): If float, this is the level used for all structures. If dict, this is {structure unsided: level}.
+        structures (list): Default is all sided structures. This works only for by_human=False; if by_human=True all structures are loaded. Note that in the output table, the columns "X_surround_200_Y", X and Y both have to be in this list.
 
     Returns:
         DataFrame: Columns are class labels and rows are section indices.
@@ -1232,25 +1236,63 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                                                                                 detector_id_f=detector_id_f,
                                                                               prep_id_f=prep_id,
                                                                                 warp_setting=warp_setting, 
-                                                                              sided=True)
-        structure_contours_pos_level = \
-        get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
-                                                  sections=metadata_cache['valid_sections'][stack], 
-                                                  downsample_factor=32, level=positive_level, 
-                                                  sample_every=1, 
-                                                  first_sec=metadata_cache['section_limits'][stack][0])
+                                                                              sided=True,
+                                                                                 structures=structures)
         
+        
+        if isinstance(positive_level, float):
+            structure_contours_pos_level = \
+            get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                      sections=metadata_cache['valid_sections'][stack], 
+                                                      downsample_factor=32, level=positive_level, 
+                                                      sample_every=1, 
+                                                      first_sec=metadata_cache['section_limits'][stack][0])
+        elif isinstance(positive_level, dict):
+            structure_contours_pos_level = defaultdict(dict)
+            for name_s, v in warped_volumes.iteritems():
+                cnts_all_secs = \
+                get_structure_contours_from_aligned_atlas({name_s: v}, 
+                                          volume_origin=(0,0,0), 
+                                          sections=metadata_cache['valid_sections'][stack], 
+                                          downsample_factor=32,
+                                          level=positive_level[convert_to_unsided_label(name_s)], 
+                                          sample_every=1, 
+                                          first_sec=metadata_cache['section_limits'][stack][0])
+                for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                    structure_contours_pos_level[sec][name_s] = cnts_allStructures[name_s]
+            structure_contours_pos_level.default_factory = None
+        else:
+            raise
+                        
+        if isinstance(negative_level, float):
+            structure_contours_neg_level = \
+            get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                      sections=metadata_cache['valid_sections'][stack],
+                                                      downsample_factor=32, level=negative_level, 
+                                                      sample_every=1, 
+                                                      first_sec=metadata_cache['section_limits'][stack][0])
+        elif isinstance(negative_level, dict):
+            structure_contours_neg_level = defaultdict(dict)
+            for name_s, v in warped_volumes.iteritems():
+                cnts_all_secs = \
+                get_structure_contours_from_aligned_atlas({name_s: v}, 
+                                          volume_origin=(0,0,0), 
+                                          sections=metadata_cache['valid_sections'][stack], 
+                                          downsample_factor=32,
+                                          level=negative_level[convert_to_unsided_label(name_s)], 
+                                          sample_every=1, 
+                                          first_sec=metadata_cache['section_limits'][stack][0])
+                for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                    structure_contours_neg_level[sec][name_s] = cnts_allStructures[name_s]
+            structure_contours_neg_level.default_factory = None
+            
+        else:
+            raise
+            
+        # Convert keys to unsided structure names.                
         structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
                                         for sec, x in structure_contours_pos_level.iteritems()}
         
-
-        structure_contours_neg_level = \
-        get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
-                                                  sections=metadata_cache['valid_sections'][stack],
-                                                  downsample_factor=32, level=negative_level, 
-                                                  sample_every=1, 
-                                                  first_sec=metadata_cache['section_limits'][stack][0])
-
         structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
                                         for sec, x in structure_contours_neg_level.iteritems()}
         
@@ -1321,6 +1363,9 @@ def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, 
     else:
         location_list.default_factory = None
         return location_list
+
+    
+from shapely.geometry.multipolygon import MultiPolygon
 
 def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, image_shape=None,
                       mask_tb=None, polygons=None, bbox=None, bbox_lossless=None, surround_margins=None,
@@ -1443,19 +1488,22 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                                               path.contains_points(sample_locations_ul) &\
                                               path.contains_points(sample_locations_ur))[0]
             
+            if len(indices_inside[label]) == 0:
+                continue
+            
             if 'positive' in categories:
                 indices_allLandmarks[label] = indices_inside[label]
 
         indices_allInside = np.concatenate(indices_inside.values())
 
         for label, poly in polygon_list:
-
-
             for margin_um in surround_margins_um:
+                
+                # t = time.time()
+                
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
-                from shapely.geometry.multipolygon import MultiPolygon
                 if isinstance(surround, Polygon):
                     path = Path(list(surround.exterior.coords))
                 elif isinstance(surround, MultiPolygon):
@@ -1464,22 +1512,24 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
                     path = Path(list(surround.exterior.coords))
                 else:
                     raise
-                    
+            
                 indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
                                         path.contains_points(sample_locations_lr) &\
                                         path.contains_points(sample_locations_ul) &\
                                         path.contains_points(sample_locations_ur))[0]
 
-                # surround classes do not include patches of any no-surround class
+                # surround classes do not include patches of any non-surround class
                 if 'surround' in categories:
                     indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
 
-                for l, inds in indices_inside.iteritems():
+                for l, inds_in in indices_inside.iteritems():
                     if l == label: continue
-                    indices = np.intersect1d(indices_sur, inds)
+                    indices = np.intersect1d(indices_sur, inds_in)
                     if len(indices) > 0:
                         if 'surround' in categories:
                             indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
+                            
+                # sys.stderr.write("all: %.2f s\n" % (time.time() - t))
 
             if 'negative' in categories:
                 # All foreground patches except the particular label's inside patches

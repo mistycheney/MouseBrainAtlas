@@ -31,6 +31,9 @@ from skimage.measure import find_contours, regionprops
 
 ######################################################################
 
+def get_centroid_3d(v):
+    return np.mean(np.where(v), axis=1)[[1,0,2]]
+
 def eulerAnglesToRotationMatrix(theta):
     """
     Calculates Rotation Matrix given euler angles.

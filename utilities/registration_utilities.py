@@ -630,6 +630,7 @@ class Aligner4(object):
             T ((nparam,)-array): flattened array of transform parameters.
             tf_type (str): rigid, affine or bspline.
             ind_m (int): index of a structure.
+            num_samples (int): if given, score is computed based on only the set of sampled voxels; if not given, use all non-zero voxels.
         """
 
         # t = time.time()
@@ -976,7 +977,7 @@ class Aligner4(object):
         pool.join()
         return scores
 
-    def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, dtheta_xys=None, indices_m=None):
+    def compute_scores_neighborhood_grid(self, params, dxs, dys, dzs, dtheta_xys=None, indices_m=None, parallel=True):
         """
         Args:
             params ((12,)-array): the parameter vector around which the neighborhood is taken.
@@ -984,19 +985,21 @@ class Aligner4(object):
 
         from itertools import product
 
-        # scores = np.reshape([self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m)
-        #                     for dx, dy, dz in product(dxs, dys, dzs)],
-        #                     (dxs.size, dys.size, dzs.size))
-
-        #parallel
-        pool = Pool(processes=12)
-        if dtheta_xys is None:
-            scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m),
-                        product(dxs, dys, dzs))
+        if parallel:        
+            #parallel
+            pool = Pool(processes=12)
+            if dtheta_xys is None:
+                scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m),
+                            product(dxs, dys, dzs))
+            else:
+                scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m), product(dxs, dys, dzs, dtheta_xys))
+            pool.close()
+            pool.join()
         else:
-            scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m), product(dxs, dys, dzs, dtheta_xys))
-        pool.close()
-        pool.join()
+            raise
+            # scores = np.reshape([self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m)
+            #                 for dx, dy, dz in product(dxs, dys, dzs)],
+            #                 (dxs.size, dys.size, dzs.size))
 
         # scores = np.reshape(Parallel(n_jobs=12)(delayed(compute_score)(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz))
         #                                         for dx, dy, dz in product(dxs, dys, dzs)),
@@ -1105,7 +1108,7 @@ class Aligner4(object):
 
             scores = self.compute_scores_neighborhood_grid(np.array([1,0,0,0,0,1,0,0,0,0,1,0]),
                                                    dxs=tx_grid, dys=ty_grid, dzs=tz_grid, dtheta_xys=theta_xy_grid,
-                                                   indices_m=indices_m)
+                                                   indices_m=indices_m, parallel=parallel)
             i_best = np.argmax(scores)
             score_best = scores[i_best]
             i_tx, i_ty, i_tz, i_thetaxy = np.unravel_index(i_best, (len(tx_grid), len(ty_grid), len(tz_grid), len(theta_xy_grid)))
@@ -1128,7 +1131,7 @@ class Aligner4(object):
             #                 for tx, ty, tz, theta_xy in samples]
 
             sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
-
+            
             sys.stderr.write('tx_best: %.2f (voxel), ty_best: %.2f, tz_best: %.2f, theta_xy_best: %.2f (deg), score=%f\n' % \
             (tx_best, ty_best, tz_best, np.rad2deg(theta_xy_best), score_best))
 
@@ -1154,7 +1157,7 @@ class Aligner4(object):
     def do_grid_search(self, grid_search_iteration_number=10, grid_search_sample_number=1000,
                       std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                        grid_search_eta=3., stop_radius_voxel=10,
-                      indices_m=None):
+                      indices_m=None, parallel=True):
 
         if indices_m is None:
             indices_m = self.all_indices_m
@@ -1163,7 +1166,8 @@ class Aligner4(object):
                                                     init_n=grid_search_sample_number,
                                                     std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
                                                                                          eta=grid_search_eta, stop_radius_voxel=stop_radius_voxel,
-                                                    return_best_score=True)
+                                                    return_best_score=True,
+                                                                                        parallel=parallel)
         # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
         T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
         return T, grid_search_score
@@ -1481,6 +1485,495 @@ class Aligner4(object):
             sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max()))
         return new_T, score, grad_historical, sq_updates_historical
 
+    
+def generate_aligner_parameters(alignment_spec, structures_m=all_known_structures_sided):
+    """
+    Args:
+        alignment_spec (dict):
+        
+    Returns:
+        - 'volume_moving': dict {ind_m: 3d array},
+        - 'volume_fixed': dict {ind_m: 3d array},
+        - 'structure_to_label_moving': dict {str: int},
+        - 'label_to_structure_moving': dict {int: str},
+        - 'structure_to_label_fixed': dict {str: int}, 
+        - 'label_to_structure_fixed': dict {int: str},
+        - 'label_weights_m': dict {int: float},
+        - 'label_mapping_m2f': dict {int: int},
+    """
+    
+    stack_m_spec = alignment_spec['stack_m']
+    stack_m = stack_m_spec['name']
+    vol_type_m = stack_m_spec['vol_type']
+    structure_m = stack_m_spec['structure']
+    detector_id_m = stack_m_spec['detector_id']
+    prep_id_m = stack_m_spec['prep_id']
+    
+    stack_f_spec = alignment_spec['stack_f']
+    stack_f = stack_f_spec['name']
+    vol_type_f = stack_f_spec['vol_type']
+    structure_f = stack_f_spec['structure']
+    detector_id_f = stack_f_spec['detector_id']
+    prep_id_f = stack_f_spec['prep_id']
+    
+    warp_setting = alignment_spec['warp_setting']
+    
+    registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
+    warp_properties = registration_settings.loc[warp_setting]
+    print warp_properties
+
+    ################################################################
+    
+    upstream_warp_setting = warp_properties['upstream_warp_id']
+    if upstream_warp_setting == 'None':
+        upstream_warp_setting = None
+    transform_type = warp_properties['transform_type']
+#     terminate_thresh = warp_properties['terminate_thresh']
+    grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
+#     grid_search_sample_number = warp_properties['grid_search_sample_number']
+#     std_tx_um = warp_properties['std_tx_um']
+#     std_ty_um = warp_properties['std_ty_um']
+#     std_tz_um = warp_properties['std_tz_um']
+#     std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+#     std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+#     std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
+#     std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
+#     print std_tx, std_ty, std_tz, std_theta_xy
+
+    surround_weight = warp_properties['surround_weight']
+    if isinstance(surround_weight, float) or isinstance(surround_weight, int):
+        surround_weight = float(surround_weight)
+        include_surround = surround_weight != 0 and not np.isnan(surround_weight)
+    elif isinstance(surround_weight, str):
+        surround_weight = str(surround_weight)
+        # Setting surround_weight as inverse is very important. Using -1 often gives false peaks.
+        include_surround = True
+
+    print 'surround', surround_weight, include_surround
+
+#     MAX_ITER_NUM = 1000
+#     HISTORY_LEN = 20
+#     lr1 = 10
+#     lr2 = 0.1
+    
+    positive_weight = 'size'
+    # positive_weight = 'inverse'
+    
+    ############################################################################
+    
+    if include_surround:
+        structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200') for s in structures_m])
+    
+    if upstream_warp_setting is None:
+        volume_moving, volume_moving_bbox_wrt_atlasSpace, structure_to_label_moving, label_to_structure_moving = \
+        DataManager.load_original_volume_all_known_structures_v2(stack=stack_m, sided=True, 
+                                                              volume_type=vol_type_m, 
+                                                              include_surround=include_surround,
+                                                                return_label_mappings=True, 
+                                                                 name_or_index_as_key='index',
+                                                                 common_shape=True,
+                                                                structures=structures_m,
+                                                                 in_bbox_wrt='atlasSpace',
+                                                                    out_bbox_wrt='atlasSpace'
+                                                                )
+    else:
+        
+        initial_alignment_spec = alignment_spec['initial_alignment_spec']
+        print initial_alignment_spec
+        
+        volume_moving, volume_moving_bbox_wrt_fixedWholebrain, structure_to_label_moving, label_to_structure_moving = \
+        DataManager.load_transformed_volume_all_known_structures_v3(alignment_spec=initial_alignment_spec, 
+                                                                    resolution='down32',
+                                                            structures=structures_m, 
+                                                            sided=True, 
+                                                            return_label_mappings=True, 
+                                                            name_or_index_as_key='index', 
+                                                            common_shape=True,
+                                                           return_origin_instead_of_bbox=False
+#                                                                     in_bbox_wrt='wholebrain',
+#                                                                     out_bbox_wrt='wholebrain'
+                                                                )
+        
+    if len(volume_moving) == 0:
+        sys.stderr.write("No moving volumes.\n")
+    else:
+        sys.stderr.write("Loaded moving volumes: %s.\n" % sorted(structure_to_label_moving.keys()))
+    
+    #############################################################################
+        
+    volume_fixed, volume_fixed_bbox_wrt_wholebrain, structure_to_label_fixed, label_to_structure_fixed = \
+    DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False, 
+                                                          volume_type=vol_type_f,
+                                                         include_surround=include_surround,
+                                                         return_label_mappings=True, 
+                                                             name_or_index_as_key='index',
+                                                         common_shape=True,
+                                                            structures=set([convert_to_unsided_label(s) 
+                                                                            for s in structures_m]),
+                                                            prep_id=prep_id_f,
+                                                             detector_id=detector_id_f,
+                                                            in_bbox_wrt='wholebrainXYcropped',
+                                                            out_bbox_wrt='wholebrain')
+    
+    if len(volume_fixed) == 0:
+        sys.stderr.write("No fixed volumes.\n")
+    else:
+        sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
+            
+    ############################################################################
+    
+    structure_subset_m = all_known_structures_sided
+
+    if include_surround:
+        structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
+    
+    label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)] 
+                     for label_m, name_m in label_to_structure_moving.iteritems()
+                     if name_m in structure_subset_m and convert_to_original_name(name_m) in structure_to_label_fixed}
+    
+    
+    if positive_weight == 'inverse' or surround_weight == 'inverse':
+        t = time.time()
+        cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+    #     pool = Pool(NUM_CORES)
+    #     volume_moving_structure_sizes = dict(zip(volume_moving.keys(), 
+    #                                              pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff), 
+    #                                                       volume_moving.keys())))
+    #     pool.close()
+    #     pool.join()
+        volume_moving_structure_sizes = dict(zip(volume_moving.keys(), 
+                                                 map(lambda l: np.count_nonzero(volume_moving[l] > cutoff), 
+                                                          volume_moving.keys())))
+        sys.stderr.write("Computing structure sizes: %.2f s\n" % (time.time() - t))
+
+    
+    label_weights_m = {}
+
+    for label_m in label_mapping_m2f.iterkeys():
+        name_m = label_to_structure_moving[label_m]
+        if not is_surround_label(name_m):
+            if positive_weight == 'size':
+                label_weights_m[label_m] = 1.
+            elif positive_weight == 'inverse':                
+                p = np.percentile(volume_moving_structure_sizes.values(), 50)
+                label_weights_m[label_m] =  np.minimum(p / volume_moving_structure_sizes[label_m], 1.)
+            else:
+                sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
+
+    for label_m in label_mapping_m2f.iterkeys():
+        name_m = label_to_structure_moving[label_m]
+        if is_surround_label(name_m):
+            label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
+            if surround_weight == 'inverse':
+                # Note that this is positive for Stacy's data; for regular data, surround is negative
+                label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+#                 label_weights_m[label_m] = label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+            elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
+                label_weights_m[label_m] = surround_weight
+            else:
+                sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+                
+    ######################################################
+    
+    alinger_parameters = \
+    {'label_weights_m': label_weights_m,
+     'label_mapping_m2f': label_mapping_m2f,
+     'volume_moving': volume_moving,
+     'volume_fixed': volume_fixed,
+     'structure_to_label_moving': structure_to_label_moving,
+     'label_to_structure_moving': label_to_structure_moving,
+     'structure_to_label_fixed': structure_to_label_fixed, 
+     'label_to_structure_fixed': label_to_structure_fixed,
+     'transform_type': transform_type,
+     'grad_computation_sample_number': grad_computation_sample_number,
+     'volume_moving_origin_wrt_wholebrain': volume_moving_bbox_wrt_atlasSpace[[0,2,4]] if upstream_warp_setting is None else volume_moving_bbox_wrt_fixedWholebrain[[0,2,4]],
+     'volume_fixed_origin_wrt_wholebrain': volume_fixed_bbox_wrt_wholebrain[[0,2,4]]
+    }
+                
+    return alinger_parameters
+
+def compute_gradient(volumes, smooth_first=False):
+    """
+    Args:
+        volumes (dict {int: 3d-array})
+        smooth_first (bool): If true, smooth each volume before computing gradients. 
+        This is useful if volume is binary and gradients are only nonzero at structure borders.
+        
+    Note:
+        # 3.3 second - re-computing is much faster than loading
+        # .astype(np.float32) is important;
+        # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
+        # 2s (float32) vs. 20s (float16)
+    """
+    gradients = {}
+    for ind, v in volumes.iteritems():
+        if smooth_first:
+            gy_gx_gz = np.gradient(gaussian(v, 3).astype(np.float32), 3, 3, 3)
+        else:
+            gy_gx_gz = np.gradient(v.astype(np.float32), 3, 3, 3)
+        gradients[ind] = np.array([gy_gx_gz[1], gy_gx_gz[0], gy_gx_gz[2]])
+    return gradients
+
+
+def transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
+    """
+    `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
+    
+    Returns:
+        (3,4)-array:
+    """
+    
+    T = alignment_parameters_to_transform_matrix(global_transform_parameters)
+    R = T[:3,:3]
+    t = T[:3,3]
+    
+    lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+    lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
+                
+    init_T = np.column_stack([R, np.dot(R, lom + centroid_m) + t - lof - centroid_f])
+    return init_T
+
+
+def global_registration(global_alignment_spec, structures_m):
+    global_aligner_parameters = generate_aligner_parameters(alignment_spec=global_alignment_spec, structures_m=structures_m)
+    
+    volume_fixed = global_aligner_parameters['volume_fixed']
+    volume_moving = global_aligner_parameters['volume_moving']
+    
+    aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=global_aligner_parameters['label_mapping_m2f'])
+    
+    aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
+    aligner.set_label_weights(label_weights=global_aligner_parameters['label_weights_m'])
+    
+    # If no any structures overlap after centroid alignment, we need to do grid search to obtain a better initial transform.
+    grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=1, 
+                                       grid_search_sample_number=5,
+                    parallel=True, 
+                    std_tx=50, std_ty=50, std_tz=30)
+    
+    gradients_f = compute_gradient(volume_fixed, smooth_first=True)
+    aligner.load_gradient(gradients=gradients_f)
+    
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=global_aligner_parameters['transform_type'], 
+                                         max_iter_num=1000,
+                                         history_len=20, 
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.1,
+                                         grad_computation_sample_number=global_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=10, lr2=.1,
+                                        init_T=grid_search_T, 
+    #                                      affine_scaling_limits=(.9, 1.2)
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+            
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # best_trial = 1
+    T = T_all_trials[best_trial]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+    
+    
+    transform_parameters = {
+    'parameters': T_all_trials[best_trial],
+    'centroid_m': aligner.centroid_m,
+    'centroid_f': aligner.centroid_f,
+    'domain_m_origin_wrt_wholebrain': global_aligner_parameters['volume_moving_origin_wrt_wholebrain'],
+    'domain_f_origin_wrt_wholebrain': global_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+}
+    
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=global_alignment_spec)
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=global_alignment_spec)
+            
+    for name_s in all_known_structures_sided_with_surround:
+
+        volume, bbox_wrt_wholebrain = \
+            DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', sided=True, 
+                                                                  volume_type='score', 
+                                                                  include_surround=True,
+                                                                    return_label_mappings=False, 
+                                                                     name_or_index_as_key='name',
+                                                                     common_shape=False,
+                                                                    in_bbox_wrt='atlasSpace',
+                                                                    out_bbox_wrt='atlasSpace',
+                                                                    structures=[name_s]
+                                                                    )[name_s]
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(volume, bbox_wrt_wholebrain, transform_parameters=transform_parameters)
+    #     print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=global_alignment_spec, 
+                                            resolution=None, 
+                                            structure=name_s)
+    
+    
+def local_registration(local_alignment_spec, global_alignment_spec):
+    
+    structure_m = local_alignment_spec['stack_m']['structure']
+    
+    local_aligner_parameters = generate_aligner_parameters(alignment_spec=local_alignment_spec,
+                                                           structures_m=[structure_m])
+    
+    
+    global_transform_parameters = DataManager.load_alignment_parameters_v3(global_alignment_spec)
+    
+    volume_fixed = local_aligner_parameters['volume_fixed']
+    volume_moving = local_aligner_parameters['volume_moving']
+    
+    init_shift_wrt_movingvol = get_centroid_3d(volume_moving[local_aligner_parameters['structure_to_label_moving'][structure_m]])
+    init_shift_wrt_fixedvol = transform_points_by_transform_parameters(pts=[init_shift_wrt_movingvol + global_transform_parameters['domain_m_origin_wrt_wholebrain']],
+    transform_parameters=global_transform_parameters)[0] - global_transform_parameters['domain_f_origin_wrt_wholebrain']
+
+    print init_shift_wrt_movingvol, init_shift_wrt_fixedvol
+
+    aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=local_aligner_parameters['label_mapping_m2f'])
+    aligner.set_centroid(centroid_m=init_shift_wrt_movingvol, 
+                         centroid_f=init_shift_wrt_fixedvol)
+    # aligner.set_centroid(centroid_m=np.zeros((3,)), 
+    #                      centroid_f=np.zeros((3,)))
+    aligner.set_label_weights(label_weights=local_aligner_parameters['label_weights_m'])
+    
+    gradients_f = compute_gradient(volume_fixed, smooth_first=True)
+    aligner.load_gradient(gradients=gradients_f)
+    
+
+    init_T = transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters,
+                                       centroid_m=init_shift_wrt_movingvol, 
+                                        centroid_f=init_shift_wrt_fixedvol)
+    print 'init_T', init_T
+    
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=local_aligner_parameters['transform_type'], 
+                                         max_iter_num=1000,
+                                         history_len=20, 
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.01,
+                                         grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=1, lr2=.01,
+                                         init_T=init_T.flatten()
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+    
+    
+    
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # best_trial = 1
+    T = T_all_trials[best_trial]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+    
+    
+    transform_parameters = {
+        'parameters': T_all_trials[best_trial],
+        'centroid_m': aligner.centroid_m,
+        'centroid_f': aligner.centroid_f,
+        'domain_m_origin_wrt_wholebrain': local_aligner_parameters['volume_moving_origin_wrt_wholebrain'],
+        'domain_f_origin_wrt_wholebrain': local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+    }
+    
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=local_alignment_spec)
+
+    volume_moving_tuples = \
+            DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', sided=True, 
+                                                                  volume_type='score', 
+                                                                  include_surround=True,
+                                                                    return_label_mappings=False, 
+                                                                     name_or_index_as_key='name',
+                                                                     common_shape=False,
+                                                                    in_bbox_wrt='atlasSpace',
+                                                                    out_bbox_wrt='atlasSpace',
+                                                                    structures=[structure_m, convert_to_surround_name(structure_m, margin='200')])
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=local_alignment_spec)
+
+    for name_s, (vol, bbox_wrt_wholebrain) in volume_moving_tuples.iteritems():
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(vol, bbox_wrt_wholebrain, transform_parameters=transform_parameters)
+        print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=local_alignment_spec, 
+                                            resolution=None, 
+                                            structure=name_s)
+    
+    
 
 from scipy.optimize import approx_fprime
 
@@ -1784,7 +2277,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
 
     Returns:
-        dict: {section: {name_s: (n,2)-ndarray}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
+        dict {int: {str: (n,2)-ndarray}}: dict of {section: {name_s: contour vertices}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
 
     from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS

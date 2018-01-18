@@ -254,7 +254,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
             bbox = bbox_3d(vol)
             zmin_wrt_wholebrain = bbox[4] + vol_origin_wrt_wholebrain[2]
             zmax_wrt_wholebrain = bbox[5] + vol_origin_wrt_wholebrain[2]
-            print zmin_wrt_wholebrain, zmax_wrt_wholebrain, z_wrt_wholebrain
+            # print zmin_wrt_wholebrain, zmax_wrt_wholebrain, z_wrt_wholebrain
             if z_wrt_wholebrain < zmin_wrt_wholebrain or z_wrt_wholebrain > zmax_wrt_wholebrain:
                 continue
 

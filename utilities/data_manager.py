@@ -622,7 +622,7 @@ class DataManager(object):
     @staticmethod
     def get_domain_origin(stack, domain):
         """
-        Loads the origin of a domain for a given stack.
+        Loads the 3D origin of a domain for a given stack.
         If specimen, the origin is wrt to wholebrain, in 1/32 raw pixel resolution.
         If atlas, the origin is wrt to atlas space, in 1/32 raw pixel resolution.
         
@@ -651,6 +651,8 @@ class DataManager(object):
                 return np.array([0, 0, crop_zmin_rel2uncropped])
             elif domain == 'brainstem':
                 return np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, crop_zmin_rel2uncropped])
+            elif domain == 'brainstemXYFullNoMargin':
+                return np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack='MD589', prep_id=4, downscale=32)).astype(np.int)[[0,2,4]]
             else:
                 raise "Domain %s is not recognized.\n" % domain
         
@@ -1266,6 +1268,22 @@ class DataManager(object):
         download_from_s3(fn)
         return DataManager.load_data(fn, filetype='bp')
 
+    @staticmethod
+    def load_intensity_volume_v3(stack, prep_id=2, downscale=32):
+        """
+        Returns:
+            (3d volume of uint8, bbox_wrt_wholebrain)
+        """
+        
+        fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, prep_id=prep_id, downscale=downscale)
+        download_from_s3(fn)
+        vol = DataManager.load_data(fn, filetype='bp')
+        
+        bbox_fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=stack, prep_id=prep_id, downscale=downscale)
+        bbox_wrt_wholebrain = np.loadtxt(bbox_fp, dtype=np.int)
+        
+        return (vol, bbox_wrt_wholebrain)
+    
     @staticmethod
     def get_intensity_volume_filepath(stack, downscale=32):
         basename = DataManager.get_original_volume_basename(stack=stack, volume_type='intensity', downscale=downscale)
@@ -2686,7 +2704,9 @@ class DataManager(object):
 
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
         download_from_s3(bbox_fp)
-        volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox') # bbox of the loaded volume wrt "wholebrainXYcropped".
+        volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox') 
+        # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
+        # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
 
         if relative_to_uncropped:
             if volume_type == 'score' or volume_type == 'thumbnail':
@@ -2694,6 +2714,9 @@ class DataManager(object):
                 brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
                 volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
                 return volume_bbox_wrt_wholebrain
+            else:
+                continue
+                # raise
         
         return volume_bbox_wrt_wholebrainXYcropped
 

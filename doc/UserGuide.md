@@ -4,9 +4,11 @@
 
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 
-# Preprocessing a new stack
+# Preprocessing a new stack 
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
+
+Step 0: <TODO> describe how to transform the data coming from the scanner to the usable format below.
 
 Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. Each section should have two versions:
 

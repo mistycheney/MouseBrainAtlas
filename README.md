@@ -11,8 +11,6 @@
 - *preprocess*: code for preprocessing
 - *reconstruct*: code for reconstructing volumes
 - *registration*: code for 3D registration
-- *snake*: experiments about active contour methods
-- *spm*: experiments about represent textures using SPM (Spatial Pyramid Matching)
 - *utilities*: utilities code
 - *visualization*: notebook for testing visualization code
 - *web_service*: code for the web service that accept request for preprocessing and other tasks from GUI.
@@ -21,25 +19,12 @@
 - *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
 
 ### Side Projects
-- *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
+- *spm*: experiments about represent textures using SPM (Spatial Pyramid Matching)
+- *snake*: experiments about active contour methods
 
-# Possible Improvement #
-- Use a unbiased way to construct/update reference model, rather than align all brains to one particular brain.
 
-# Initial Training #
-`learning/train_classifiers_v3.py`.
 
-**Requires:**
-- `$ANNOTATION_ROOTDIR/[stack]/[stack]_annotation_grid_indices.h5` for all annotated stacks.
 
-# Pipeline for Unannotated Specimens #
-
-## Preprocess ##
-`preprocess/preprocess_pipeline_aws.ipynb`
-
-## Feature Generation ##
-`learning/extract_test_features_cnn.ipynb`
-This uses MXNet.
 
 Extract the first
 

@@ -1,5 +1,5 @@
 # User Guides
- Explanations for how to install and run the code, intended for the non-programmer, are in [UserGuides]
+ Explanations for how to install and run the code, intended for the non-programmer, are in the [User Guide](doc/UserGuide.md).
  
 # Code arhitecture
 

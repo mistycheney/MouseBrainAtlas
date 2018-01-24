@@ -1,6 +1,6 @@
 # Software installation
 
-pip install activeatlas
+`$ pip install activeatlas`
 
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 

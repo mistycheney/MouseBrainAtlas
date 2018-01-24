@@ -11,35 +11,26 @@
 - *preprocess*: code for preprocessing
 - *reconstruct*: code for reconstructing volumes
 - *registration*: code for 3D registration
-- *snake*: experiments about active contour methods
-- *spm*: experiments about represent textures using SPM (Spatial Pyramid Matching)
 - *utilities*: utilities code
 - *visualization*: notebook for testing visualization code
 - *web_service*: code for the web service that accept request for preprocessing and other tasks from GUI.
+- *intensity*: codes for running intensity-based registration methods (via third-party program `elastix`).
 
 ### Utilities
+- *utilities*: utility modules
 - *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
+- *aws*: setup scripts for `cfncluster`.
 
 ### Side Projects
-- *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
+- *spm*: experiments about represent textures using SPM (Spatial Pyramid Matching)
+- *snake*: experiments about active contour methods
+- *adaboost_m2*
+- *cells*: classification using cell-based texture descriptors.
+- *dictionary*:	experiments for dictionary learning methods.
+- *new_region*:
 
-# Possible Improvement #
-- Use a unbiased way to construct/update reference model, rather than align all brains to one particular brain.
 
-# Initial Training #
-`learning/train_classifiers_v3.py`.
-
-**Requires:**
-- `$ANNOTATION_ROOTDIR/[stack]/[stack]_annotation_grid_indices.h5` for all annotated stacks.
-
-# Pipeline for Unannotated Specimens #
-
-## Preprocess ##
-`preprocess/preprocess_pipeline_aws.ipynb`
-
-## Feature Generation ##
-`learning/extract_test_features_cnn.ipynb`
-This uses MXNet.
+### OBSOLETE ###
 
 Extract the first
 
@@ -74,16 +65,3 @@ A lot of outputs involved, so it is better to use local /scratch.
 - Visualize score maps (optional).
 Specify a resolution. Load corresponding score maps. Generated visualizations are JPEG images at `$SCOREMAP_VIZ_ROOTDIR`. Heatmap is `plt.cm.hot`.
 Script `visualize_scoremaps_v3.py`.
-
-## Registration ##
-- Global alignment.
-
-
-# Memory Usage #
-- Global registration: 32GB RAM is not enough.
-Ideally, each score volume has ~500^3 = 125M voxels x (moving vol 2Bytes, moving grad 4Bytes, fixed vol 2Bytes, fixed grad 4Bytes) = 1.5GB. Then x 14 selected structures = 21GB.
-10G free out of 64G.
-Can only do one global registration on a node due to high RAM requirement.
-- Transform: simultaneous `NUM_CORES` processes each stack, one for each structure.
-- Visualize registration: simultaneous `NUM_CORES` processes each stack, one for each structure.
-- Local registration:

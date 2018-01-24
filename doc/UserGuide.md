@@ -39,7 +39,32 @@ Step 3: Launch the mask editing GUI.
 
 # Processing a new stack given a trained atlas
 
+`learning/pipeline_aws.ipynb`
+
+Step 1: Convert image to scoremap.
+
+`$ ./images_to_scoremaps.py <stack>`
+
+Step 2: Reconstruct score volume and compute spatial gradient.
+
+`$ ./reconstruct_score_volume.py <stack>`
+
+Step 3: Register to atlas.
+
+`$ ./register.py <transform_spec>`
+
+Step 4: Visualize atlas registration in the labeling GUI.
+
+`$ ./brain_labeling_gui_v27.py <stack>`
+
+
+# Create or revise annotations using the labeling GUI
+
+Step 1:
 
 
 # Training the atlas
 TBD
+
+
+

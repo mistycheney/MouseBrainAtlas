@@ -14,17 +14,23 @@
 - *utilities*: utilities code
 - *visualization*: notebook for testing visualization code
 - *web_service*: code for the web service that accept request for preprocessing and other tasks from GUI.
+- *intensity*: codes for running intensity-based registration methods (via `elastix`).
 
 ### Utilities
+- *utilities*: utility modules
 - *3d*: code for rendering and displaying 3D models. Implementation uses VTK.
+- *aws*: setup scripts for `cfncluster`.
 
 ### Side Projects
 - *spm*: experiments about represent textures using SPM (Spatial Pyramid Matching)
 - *snake*: experiments about active contour methods
+- *adaboost_m2*
+- *cells*: classification using cell-based texture descriptors.
+- *dictionary*:	experiments for dictionary learning methods.
+- *new_region*:
 
 
-
-
+### OBSOLETE ###
 
 Extract the first
 

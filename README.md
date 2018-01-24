@@ -14,7 +14,7 @@
 - *utilities*: utilities code
 - *visualization*: notebook for testing visualization code
 - *web_service*: code for the web service that accept request for preprocessing and other tasks from GUI.
-- *intensity*: codes for running intensity-based registration methods (via `elastix`).
+- *intensity*: codes for running intensity-based registration methods (via third-party program `elastix`).
 
 ### Utilities
 - *utilities*: utility modules

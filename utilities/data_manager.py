@@ -2714,8 +2714,8 @@ class DataManager(object):
                 brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
                 volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
                 return volume_bbox_wrt_wholebrain
-            else:
-                continue
+            # else:
+            #     continue
                 # raise
         
         return volume_bbox_wrt_wholebrainXYcropped

@@ -103,6 +103,7 @@ def scoremap_overlay_on(bg, stack, out_downscale, structure=None, scoremap=None,
     Args:
         bg (2d-array of uint8): background image on top of which scoremap is drawn.
         structure (str): structure name. Needed if `scoremap` is not given.
+        in_downscale (int): downscale factor of input background image.
     """
 
     if fn is None:
@@ -110,6 +111,8 @@ def scoremap_overlay_on(bg, stack, out_downscale, structure=None, scoremap=None,
         fn = metadata_cache['sections_to_filenames'][stack][sec]
         if is_invalid(fn): return
 
+    t = time.time()
+        
     if isinstance(bg, str) and bg == 'original':
         if image_version is None:
             classifier_properties = classifier_settings.loc[classifier_id]
@@ -128,19 +131,25 @@ def scoremap_overlay_on(bg, stack, out_downscale, structure=None, scoremap=None,
             bg = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, resol='down'+str(out_downscale), prep_id=2, version=image_version)
     else:
         assert in_downscale is not None, "For user-given background image, its resolution `in_downscale` must be given."
-        bg = rescale(bg, float(in_downscale)/out_downscale)
+        if in_downscale != out_downscale:
+            bg = rescale(bg, float(in_downscale)/out_downscale)
+    
+    sys.stderr.write('Load and rescale background image: %.2f seconds\n' % (time.time() - t))
 
-            # t = time.time()
+    t = time.time()
     scoremap_viz_mask = generate_scoremap_layer(stack=stack, scoremap=scoremap, in_scoremap_downscale=in_scoremap_downscale,
                                   sec=sec, fn=fn, structure=structure, downscale=out_downscale,
                         image_shape=bg.shape[:2], return_mask=True, detector_id=detector_id, show_above=show_above,
                              cmap_name=cmap_name)
-    # sys.stderr.write('scoremap_overlay: %.2f seconds.\n' % (time.time() - t))
+    sys.stderr.write('Generate scoremap overlay: %.2f seconds.\n' % (time.time() - t))
+    
     scoremap_viz, mask = scoremap_viz_mask
 
     if scoremap_viz.shape != bg.shape:
+        t = time.time()
         scoremap_viz = resize(scoremap_viz, bg.shape + (3,), preserve_range=True)
         mask = resize(mask, bg.shape).astype(np.bool)
+        sys.stderr.write('Scoremap size does not match background image size. Need to resize: %.2f seconds.\n' % (time.time() - t))
 
     if overlay_bbox is not None:
         xmin, xmax, ymin, ymax = overlay_bbox

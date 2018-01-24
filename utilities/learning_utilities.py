@@ -2064,7 +2064,9 @@ def resample_scoremap(sparse_scores, sample_locations, gridspec,
     return scoremap
 
 
-def draw_scoremap(clf, scheme, stack, win_id, prep_id=2, 
+from skimage.transform import rescale
+
+def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2, 
                   bbox=None,
                   sec=None, fn=None, bg_img=None,
                   bg_img_local_region=None, return_scoremap=False, 
@@ -2075,7 +2077,7 @@ def draw_scoremap(clf, scheme, stack, win_id, prep_id=2,
     Generate the scoremap for a given region.
     
     Args:
-        clf: sklearn classifier
+        clfs: sklearn classifiers
         scheme (str): normalization scheme
         win_id (int): windowing id, determines patch size and spacing.
         prep_id (int): the prep_id the `bbox` corresponds to. Default to 2.
@@ -2131,6 +2133,7 @@ def draw_scoremap(clf, scheme, stack, win_id, prep_id=2,
     sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
 #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
 
+    t = time.time()
     if feature == 'mean':
         features = np.array([[p.mean()] for p in test_patches])
     elif feature == 'cnn':
@@ -2139,43 +2142,64 @@ def draw_scoremap(clf, scheme, stack, win_id, prep_id=2,
                                              batch_size=batch_size)
     else:
         raise
+    sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
 
-    sparse_scores = clf.predict_proba(features)[:,1]
+    scoremap_viz_all_clfs = {}
+    scoremap_local_region_all_clfs = {}
 
+    t = time.time()
     if bg_img_local_region is None:    
         if bg_img is None:
             if stack == 'ChatCryoJane201710':
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbJpeg', fn=fn)
             else:
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn)
-
         bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
+    sys.stderr.write('Load background image: %.2f seconds\n' % (time.time() - t))
     
     if in_resolution_um is None:
         in_resolution_um = planar_resolution[stack]
     else:
         assert in_resolution_um == planar_resolution[stack]
     out_downscale = out_resolution_um / in_resolution_um
-            
-    scoremap = resample_scoremap(sparse_scores, sample_locations_roi, 
-                                 gridspec=grid_spec,
-                                 downscale=out_downscale)
+        
+    t = time.time()
+    bg_img_local_region_at_out_downscale = rescale(bg_img_local_region, 1./out_downscale)
+    sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
     
-    scoremap_local_region = scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)), 
-                                     int(np.round(roi_xmin/out_downscale)):int(np.round((roi_xmin+roi_w)/out_downscale))]
-    
-    scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region, 
-                                       stack=stack,
-                                       out_downscale=out_downscale, 
-                                       in_downscale=1,  
-                                       fn=fn, 
-                                       scoremap=scoremap_local_region,
-                                      in_scoremap_downscale=out_downscale,
-                                      cmap_name= 'jet')
+    for name, clf in clfs.iteritems():
+        
+        t = time.time()
+        sparse_scores = clf.predict_proba(features)[:,1]
+        sys.stderr.write('Predict scores %s: %.2f seconds\n' % (name, time.time() - t))
+
+        t = time.time()
+        scoremap = resample_scoremap(sparse_scores, sample_locations_roi, 
+                                     gridspec=grid_spec,
+                                     downscale=out_downscale)
+        sys.stderr.write('Rescample scoremap %s: %.2f seconds\n' % (name, time.time() - t))
+
+        scoremap_local_region = scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)), 
+                                         int(np.round(roi_xmin/out_downscale)):int(np.round((roi_xmin+roi_w)/out_downscale))]
+        
+        t = time.time()
+        scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region_at_out_downscale, 
+                                           stack=stack,
+                                           out_downscale=out_downscale, 
+                                           in_downscale=out_downscale,  
+                                           fn=fn, 
+                                           scoremap=scoremap_local_region,
+                                          in_scoremap_downscale=out_downscale,
+                                          cmap_name= 'jet')
+        sys.stderr.write('Genearte scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
+        
+        scoremap_viz_all_clfs[name] = scoremap_viz
+        scoremap_local_region_all_clfs[name] = scoremap_local_region
+        
     if return_scoremap:
-        return scoremap_viz, scoremap_local_region
+        return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
     else:
-        return scoremap_viz
+        return scoremap_viz_all_clfs
     
     
 def convert_image_patches_to_features_v3(patches, method):

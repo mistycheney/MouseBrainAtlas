@@ -65,16 +65,3 @@ A lot of outputs involved, so it is better to use local /scratch.
 - Visualize score maps (optional).
 Specify a resolution. Load corresponding score maps. Generated visualizations are JPEG images at `$SCOREMAP_VIZ_ROOTDIR`. Heatmap is `plt.cm.hot`.
 Script `visualize_scoremaps_v3.py`.
-
-## Registration ##
-- Global alignment.
-
-
-# Memory Usage #
-- Global registration: 32GB RAM is not enough.
-Ideally, each score volume has ~500^3 = 125M voxels x (moving vol 2Bytes, moving grad 4Bytes, fixed vol 2Bytes, fixed grad 4Bytes) = 1.5GB. Then x 14 selected structures = 21GB.
-10G free out of 64G.
-Can only do one global registration on a node due to high RAM requirement.
-- Transform: simultaneous `NUM_CORES` processes each stack, one for each structure.
-- Visualize registration: simultaneous `NUM_CORES` processes each stack, one for each structure.
-- Local registration:

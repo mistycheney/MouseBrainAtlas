@@ -1,7 +1,9 @@
 # User Guides
  Explanations for how to install and run the code, intended for the non-programmer, are in the [User Guide](doc/UserGuide.md).
  
-# Code arhitecture
+# Code Structure
+
+### Main Pipeline
 
 - *annotation*: code related to processing human annotations
 - *gui*: code for two GUIs 

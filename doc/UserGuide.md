@@ -8,12 +8,12 @@ This will download the scripts and the package containing the reference anatomic
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
-Step 0: <TODO> describe how to transform the data coming from the scanner to the usable format below.
-
 Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. Each section should have two versions:
 
 * the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
 * a thumbnail `<imageName>_thumbnail.tif`.
+
+To convert czi files from Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
 
 Step 2: Launch the preprocessing GUI.
 

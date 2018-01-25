@@ -13,7 +13,7 @@ Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. Each section should hav
 * the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
 * a thumbnail `<imageName>_thumbnail.tif`.
 
-To convert czi files from Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
+To convert the native czi format for Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
 
 Step 2: Launch the preprocessing GUI.
 

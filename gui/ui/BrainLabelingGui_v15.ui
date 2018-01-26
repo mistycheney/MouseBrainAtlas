@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1882</width>
+    <width>2011</width>
     <height>1113</height>
    </rect>
   </property>
@@ -42,13 +42,6 @@
       </item>
       <item>
        <widget class="QLineEdit" name="lineEdit_username"/>
-      </item>
-      <item>
-       <widget class="QPushButton" name="button_stop">
-        <property name="text">
-         <string>Stop Loading</string>
-        </property>
-       </widget>
       </item>
       <item>
        <widget class="QPushButton" name="button_displayStructures">
@@ -121,6 +114,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_loadWarpedStructure">
+        <property name="text">
+         <string>Load Warped Structure</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_loadUnwarpedAtlas">
         <property name="text">
          <string>Load Unwarped Atlas</string>
@@ -150,7 +150,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1882</width>
+     <width>2011</width>
      <height>25</height>
     </rect>
    </property>

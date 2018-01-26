@@ -202,9 +202,11 @@ def export_scoremapPlusAnnotationVizs(bg, stack, names, downscale_factor, sectio
 #                                                         export_filepath_fmt=export_filepath_fmt)
 
 
-def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, stack_fixed, volume_downsample=32,
+def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, stack_fixed, 
+                                                       volume_downsample=None, 
+                                                       volume_resolution=None,
                                             fn=None, sec=None, orientation='sagittal',
-                            structures=None, out_downsample=32,
+                            structures=None, out_downsample=None, out_resolution=None,
                             users=None, level_colors=None, levels=None, show_text=True,
                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
     """
@@ -226,25 +228,32 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
     if levels is None:
         levels = level_colors.values()[0].keys()
 
+    volume_resolution_um = convert_resolution_string_to_voxel_size(resolution=volume_resolution, stack=stack_fixed)
+        
     t = time.time()
 
     if bg == 'original':
 
-        if out_downsample == 32:
-            resol_str = 'thumbnail'
-        elif out_downsample == 1:
-            resol_str = 'lossless'
+        # if out_downsample == 32:
+        #     resol_str = 'thumbnail'
+        # elif out_downsample == 1:
+        #     resol_str = 'lossless'
+        # else:
+        #     resol_str = 'down'+str(out_downsample)
+
+        out_resolution_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack_fixed)
+        if stack_fixed == 'ChatCryoJane201710':
+            out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
         else:
-            resol_str = 'down'+str(out_downsample)
+            out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS
 
         try:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=out_resolution, prep_id=2, version=bg_img_version)
         except Exception as e:
             sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
-    #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
-            bg = bg[::out_downsample, ::out_downsample]
-
+            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol='lossless', prep_id=2, version=bg_img_version)
+            bg = rescale_by_resampling(bg, out_downsample)
+                
     if bg.ndim == 2:
         bg = gray2rgb(bg)
 
@@ -252,7 +261,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
 
     assert orientation == 'sagittal', 'Currently only support drawing on sagittal sections'
 
-    z_wrt_wholebrain = DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample, mid=True, z_begin=0)
+    z_wrt_wholebrain = DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, resolution=volume_resolution, mid=True, z_begin=0)
 
     # Find moving volume annotation contours.
     # for set_name, warped_volumes in warped_volumes_sets.iteritems():
@@ -275,7 +284,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
                 cnts_rc_wrt_vol = find_contours(vol[..., int(np.round(z_wrt_wholebrain - vol_origin_wrt_wholebrain[2]))], level=level)
                 for cnt_rc_wrt_vol in cnts_rc_wrt_vol:
                     cnt_wrt_cropped_volRes = cnt_rc_wrt_vol[:,::-1] + (vol_origin_wrt_wholebrain[0], vol_origin_wrt_wholebrain[1]) - wholebrainXYcropped_origin_wrt_wholebrain[:2]
-                    cnt_wrt_cropped_imgRes = cnt_wrt_cropped_volRes * volume_downsample / out_downsample
+                    cnt_wrt_cropped_imgRes = cnt_wrt_cropped_volRes * volume_resolution_um / out_resolution_um
                     cv2.polylines(viz, [cnt_wrt_cropped_imgRes.astype(np.int)],
                                   True, level_colors[set_name][level], contour_width)
 
@@ -292,82 +301,82 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
 
 
 
-def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, stack_fixed, volume_downsample=32,
-                                            fn=None, sec=None, orientation='sagittal',
-                            structures=None, out_downsample=32,
-                            users=None, level_colors=None, levels=None, show_text=True,
-                             contours=None, contour_width=1, bg_img_version='grayJpeg'):
-    """
-    Args:
-        levels (list of float): probability levels at which the contours are drawn.
-        level_colors (dict {float: (3,)-ndarray of float}): contour color for each level
-        volume_origin ((3,)-ndarray of float): the origin of the given volumes.
-    """
+# def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, stack_fixed, volume_downsample=32,
+#                                             fn=None, sec=None, orientation='sagittal',
+#                             structures=None, out_downsample=32,
+#                             users=None, level_colors=None, levels=None, show_text=True,
+#                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
+#     """
+#     Args:
+#         levels (list of float): probability levels at which the contours are drawn.
+#         level_colors (dict {float: (3,)-ndarray of float}): contour color for each level
+#         volume_origin ((3,)-ndarray of float): the origin of the given volumes.
+#     """
 
-    if level_colors is None:
-        level_colors = {0.1: (0,255,255),
-                    0.25: (0,255,0),
-                    0.5: (255,0,0),
-                    0.75: (255,255,0),
-                    0.99: (255,0,255)}
+#     if level_colors is None:
+#         level_colors = {0.1: (0,255,255),
+#                     0.25: (0,255,0),
+#                     0.5: (255,0,0),
+#                     0.75: (255,255,0),
+#                     0.99: (255,0,255)}
 
-    if levels is None:
-        levels = level_colors.keys()
+#     if levels is None:
+#         levels = level_colors.keys()
 
-    t = time.time()
+#     t = time.time()
 
-    xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
+#     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
 
-    if bg == 'original':
+#     if bg == 'original':
 
-        if out_downsample == 32:
-            resol_str = 'thumbnail'
-        elif out_downsample == 1:
-            resol_str = 'lossless'
-        else:
-            resol_str = 'down'+str(out_downsample)
+#         if out_downsample == 32:
+#             resol_str = 'thumbnail'
+#         elif out_downsample == 1:
+#             resol_str = 'lossless'
+#         else:
+#             resol_str = 'down'+str(out_downsample)
 
-        try:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
-        except Exception as e:
-            sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
-    #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
-            bg = bg[::out_downsample, ::out_downsample]
+#         try:
+#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
+#         except Exception as e:
+#             sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
+#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
+#     #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
+#             bg = bg[::out_downsample, ::out_downsample]
 
-    if bg.ndim == 2:
-        bg = gray2rgb(bg)
+#     if bg.ndim == 2:
+#         bg = gray2rgb(bg)
 
-    viz = bg.copy()
+#     viz = bg.copy()
 
-    assert orientation == 'sagittal'
+#     assert orientation == 'sagittal'
 
-    z = int(np.mean(DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample)))
+#     z = int(np.mean(DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample)))
 
-    # Find moving volume annotation contours.
-    for name_s, vol in warped_volumes.iteritems():
+#     # Find moving volume annotation contours.
+#     for name_s, vol in warped_volumes.iteritems():
 
-        label_pos = None
+#         label_pos = None
 
-        for level in levels:
-            cnts = find_contours(vol[..., z], level=level) # rows, cols
-            for cnt in cnts:
-                # r,c to x,y
-                cnt_on_cropped_volRes = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-                cnt_on_cropped_imgRes = cnt_on_cropped_volRes * volume_downsample / out_downsample
-                cv2.polylines(viz, [cnt_on_cropped_imgRes.astype(np.int)],
-                              True, level_colors[level], contour_width)
+#         for level in levels:
+#             cnts = find_contours(vol[..., z], level=level) # rows, cols
+#             for cnt in cnts:
+#                 # r,c to x,y
+#                 cnt_on_cropped_volRes = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+#                 cnt_on_cropped_imgRes = cnt_on_cropped_volRes * volume_downsample / out_downsample
+#                 cv2.polylines(viz, [cnt_on_cropped_imgRes.astype(np.int)],
+#                               True, level_colors[level], contour_width)
 
-                if show_text:
-                    if label_pos is None:
-                        label_pos = np.mean(cnt_on_cropped_imgRes, axis=0)
+#                 if show_text:
+#                     if label_pos is None:
+#                         label_pos = np.mean(cnt_on_cropped_imgRes, axis=0)
 
-        # Show text
-        if label_pos is not None:
-            cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
-                    cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 3)
+#         # Show text
+#         if label_pos is not None:
+#             cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
+#                     cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 3)
 
-    return viz
+#     return viz
 
 
 def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientation='sagittal',

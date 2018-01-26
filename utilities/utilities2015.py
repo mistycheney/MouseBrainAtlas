@@ -9,6 +9,7 @@ from subprocess import check_output, call
 import json
 import cPickle as pickle
 from datetime import datetime
+import time
 
 from multiprocess import Pool
 from skimage.io import imread, imsave
@@ -30,6 +31,63 @@ from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_
 from skimage.measure import find_contours, regionprops
 
 ######################################################################
+
+
+def rescale_by_resampling(v, scaling):
+    if v.ndim == 3:
+        if v.shape[-1] == 3: # RGB image
+            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
+              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int), indexing='ij')]
+        else: # 3-d volume
+            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
+              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int),
+              np.round(np.arange(0, v.shape[2], scaling)).astype(np.int), indexing='ij')]
+    elif v.ndim == 2:
+        return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
+              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int), indexing='ij')]
+    else:
+        raise
+
+
+def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
+    """
+    Args:
+        T ((12,)-array): affine transform matrix from fixed vol coords to moving vol coords.
+        scaling (float): the scaling factor.
+    Returns:
+        vol_m_warped_to_f
+    """
+    
+    if dtype is None:
+        dtype = vol_m.dtype
+    
+    ydim_m, xdim_m, zdim_m = vol_m.shape
+    xdim_f, ydim_f, zdim_f = (int(np.round(xdim_m * scaling)), 
+                              int(np.round(ydim_m * scaling)), 
+                            int(np.round(zdim_m * scaling)))
+    
+    xyzs_f = np.array(np.meshgrid(range(xdim_f), range(ydim_f), range(zdim_f), indexing='xy'))
+    xyzs_f = np.rollaxis(xyzs_f, axis=0, start=4)
+    xyzs_f = xyzs_f.reshape((-1,3))
+    
+    xyzs_m = np.round(xyzs_f/scaling).astype(np.int)
+    
+    if return_mapping_only:
+        return xyzs_m, xyzs_f
+        
+    vol_m_warped_to_f = np.zeros((ydim_f, xdim_f, zdim_f), dtype=dtype)
+    
+    valid_mask = (xyzs_m[:,2] >= 0) & (xyzs_m[:,2] < vol_m.shape[2]) \
+                & (xyzs_m[:,0] >= 0) & (xyzs_m[:,0] < vol_m.shape[1]) \
+                & (xyzs_m[:,1] >= 0) & (xyzs_m[:,1] < vol_m.shape[0])
+    
+    vol_m_warped_to_f[xyzs_f[valid_mask, 1], xyzs_f[valid_mask, 0], xyzs_f[valid_mask, 2]] = \
+    vol_m[xyzs_m[valid_mask, 1], xyzs_m[valid_mask, 0], xyzs_m[valid_mask, 2]]
+
+    return vol_m_warped_to_f
+
+
+###################################################################
 
 def get_centroid_3d(v):
     return np.mean(np.where(v), axis=1)[[1,0,2]]

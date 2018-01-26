@@ -620,7 +620,7 @@ class DataManager(object):
         return fn
     
     @staticmethod
-    def get_domain_origin(stack, domain):
+    def get_domain_origin(stack, domain, resolution='down32'):
         """
         Loads the 3D origin of a domain for a given stack.
         If specimen, the origin is wrt to wholebrain, in 1/32 raw pixel resolution.
@@ -642,7 +642,7 @@ class DataManager(object):
 
             s1, s2 = metadata_cache['section_limits'][stack]
             crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
-
+            
             if domain == 'wholebrain':
                 return np.zeros((3,))
             elif domain == 'wholebrainXYcropped':
@@ -766,7 +766,11 @@ class DataManager(object):
     #     downscale=downscale, type_m=volume_type)
 
     @staticmethod
-    def get_original_volume_basename(stack, prep_id=None, detector_id=None, downscale=32, out_resolution_um=None, structure=None, volume_type='score', **kwargs):
+    def get_original_volume_basename(stack, prep_id=None, detector_id=None, resolution=None, structure=None, volume_type='score', **kwargs):
+        """
+        Args:
+            resolution (str): down32 or 10.0um
+        """
 
         components = []
         if prep_id is not None:
@@ -774,10 +778,8 @@ class DataManager(object):
         if detector_id is not None:
             components.append('detector%(detector_id)d' % {'detector_id':detector_id})
         
-        if out_resolution_um is not None:
-            components.append('%(outres).1fum' % {'out_resolution_um':out_resolution_um})
-        elif downscale is not None:
-            components.append('down%(downscale)d' % {'downscale':downscale})
+        if resolution is not None:
+            components.append('%(outres)s' % {'outres':resolution})
         
         tmp_str = '_'.join(components)
         basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
@@ -788,6 +790,16 @@ class DataManager(object):
 
     @staticmethod
     def get_original_volume_basename_v2(stack_spec):
+        """
+        Args:
+            stack_spec (dict):
+                - prep_id
+                - detector_id
+                - vol_type
+                - structure
+                - name
+                - resolution
+        """
         
         prep_id = stack_spec['prep_id']
         detector_id = stack_spec['detector_id']
@@ -2215,8 +2227,8 @@ class DataManager(object):
         return vol_fp
     
     @staticmethod
-    def get_score_volume_filepath_v2(stack, structure, out_resolution_um, volume_type='score', prep_id=None, detector_id=None):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, out_resolution_um=out_resolution_um)
+    def get_score_volume_filepath_v2(stack, structure, resolution, volume_type='score', prep_id=None, detector_id=None):
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
         vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -2224,6 +2236,17 @@ class DataManager(object):
         {'stack':stack, 'basename':basename, 'struct':structure}
         return vol_fp
 
+    @staticmethod
+    def get_score_volume_filepath_v3(stack_spec, structure):
+        basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volumes',
+                             '%(basename)s_%(struct)s.bp') % \
+        {'stack':stack_spec['name'], 'basename':basename, 'struct':structure}
+        return vol_fp
+
+    
     @staticmethod
     def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
         basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
@@ -2235,8 +2258,8 @@ class DataManager(object):
         return fp
     
     @staticmethod
-    def get_score_volume_bbox_filepath_v2(stack, structure, out_resolution_um, detector_id, prep_id=2, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, out_resolution_um=out_resolution_um)
+    def get_score_volume_bbox_filepath_v2(stack, structure, resolution, detector_id, prep_id=2, volume_type='score', **kwargs):
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -2245,22 +2268,21 @@ class DataManager(object):
         return fp
     
     @staticmethod
-    def get_score_volume_bbox_filepath_v3(stack_spec, structure, resolution, wrt):
-        basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec, resolution=resolution)
+    def get_score_volume_bbox_filepath_v3(stack_spec, structure, wrt='wholebrain'):
         
-        if wrt == 'wholebrain':
-            fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s_bbox.txt') % \
-            {'stack':stack, 'basename':basename, 'struct':structure}
+        if stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
-            fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s_bbox_wrt_' + wrt + '.txt') % \
-            {'stack':stack, 'basename':basename, 'struct':structure}            
-            
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
+        fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                          '%(basename)s',
+                          'score_volumes',
+                         '%(basename)s_%(struct)s_bbox_wrt_' + wrt + '.txt') % \
+        {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}            
+
         return fp
 
     @staticmethod
@@ -2283,6 +2305,23 @@ class DataManager(object):
                              '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
         {'stack':stack, 'basename':basename, 'struct':structure}
         return grad_fp
+    
+    @staticmethod
+    def get_volume_gradient_filepath_template_v3(stack_spec, structure, **kwargs):
+        
+        if stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        else:
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
+        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volume_gradients',
+                             '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
+        {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+        return grad_fp
 
     @staticmethod
     def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', prep_id=None, detector_id=None, downscale=32):
@@ -2294,6 +2333,12 @@ class DataManager(object):
         grad_fp = DataManager.get_volume_gradient_filepath_template_v2(**locals())  % {'suffix': suffix}
         return grad_fp
 
+    @staticmethod
+    def get_volume_gradient_filepath_v3(stack_spec, structure, suffix):
+        grad_fp = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=stack_spec, structure=structure)  % {'suffix': suffix}
+        return grad_fp
+
+    
 #     @staticmethod
 #     def load_original_volume_all_known_structures(stack, downscale=32, detector_id=None, prep_id=None,
 #     structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
@@ -2442,7 +2487,7 @@ class DataManager(object):
                                                     include_surround=False,
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
-                                                     common_shape=True,
+                                                     common_shape=True
                                                     ):
         """
         Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
@@ -2530,6 +2575,8 @@ class DataManager(object):
 
     @staticmethod
     def load_original_volume_all_known_structures_v3(stack_spec,
+                                                     in_bbox_wrt,
+                                                     out_bbox_wrt='wholebrain',
                                                     structures=None,
                                                     sided=True,
                                                     include_surround=False,
@@ -2541,6 +2588,7 @@ class DataManager(object):
 
         Args:
             common_shape (bool): If true, volumes are padded to the same shape.
+            in_bbox_wrt (str): the bbox origin for the bbox files currently stored.
 
         Returns:
             If `common_shape` is True:
@@ -2575,9 +2623,10 @@ class DataManager(object):
                 if loaded:
                     index = structure_to_label[structure]
 
-                v, b = DataManager.load_original_volume_v2(stack_spec,
-                                                        structure=structure)
-
+                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt)
+                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt)
+                b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
+                
                 if name_or_index_as_key == 'name':
                     volumes[structure] = (v,b)
                 else:
@@ -2607,13 +2656,23 @@ class DataManager(object):
                 return volumes
             
     @staticmethod
-    def get_original_volume_filepath_v2(stack_spec, resolution, structure):
-                   
-        vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
-        vol_basename_with_structure_suffix = vol_basename + '_' + resolution + ('_' + structure) if structure is not None else ''
+    def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
+        
+        if stack_spec['resolution'] is None:
+            assert resolution is not None
+            stack_spec['resolution'] = resolution
+           
+        if stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        else:
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+            
+        vol_basename_with_structure_suffix = vol_basename + ('_' + structure) if structure is not None else ''    
+
         if stack_spec['vol_type'] == 'score':
-            return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], 
-                            vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
+            return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
         else:
             raise
             
@@ -2634,21 +2693,20 @@ class DataManager(object):
         return fp
 
     @staticmethod
-    def load_original_volume_v2(stack_spec, structure, resolution):
+    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain'):
         """
         Args:
     
         Returns:
             (3d-array, (6,)-tuple): (volume, bounding box wrt wholebrain)
         """
-        
-        kwargs = locals()
-        
-        vol_fp = DataManager.get_original_volume_filepath_v2(**kwargs)
+                
+        vol_fp = DataManager.get_original_volume_filepath_v2(stack_spec=stack_spec, structure=structure, resolution=resolution)
         download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
             
-        bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(wrt='wholebrain', **kwargs)
+        bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(stack_spec=stack_spec, structure=structure, 
+                                                                   resolution=resolution, wrt=bbox_wrt)
         download_from_s3(bbox_fp)
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
     
@@ -2721,12 +2779,12 @@ class DataManager(object):
         return volume_bbox_wrt_wholebrainXYcropped
 
     @staticmethod
-    def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, **kwargs):
+    def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
         volume_type = stack_spec['vol_type']
         if volume_type == 'annotation':
             raise
         elif volume_type == 'score':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(**locals())
+            bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
         elif volume_type == 'annotationAsScore':
             raise
         elif volume_type == 'shell':
@@ -3422,7 +3480,7 @@ class DataManager(object):
     #######################################################
 
     @staticmethod
-    def convert_section_to_z(sec, downsample, stack=None, first_sec=None, z_begin=None, mid=False):
+    def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, first_sec=None, z_begin=None, mid=False):
         """
         Because the z-spacing is much larger than the pixel size on x-y plane,
         the voxels are square on x-y plane and elongated in z-direction.
@@ -3451,8 +3509,11 @@ class DataManager(object):
             z1, z2 (2-tuple of float): the z-levels of the beginning and end of the queried section, counted from `z_begin`.
         """
 
-        xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-        voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+        if downsample is not None:
+            voxel_size_um = convert_resolution_string_to_voxel_size(resolution='down%d'%downsample, stack=stack)
+        else:
+            voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+        section_thickness_in_voxel = SECTION_THICKNESS / voxel_size_um
         # Voxel size in z direction in unit of x,y pixel.
 
         if first_sec is None:
@@ -3463,10 +3524,10 @@ class DataManager(object):
                 first_sec = 1
 
         if z_begin is None:
-            z_begin = (first_sec - 1) * voxel_z_size
+            z_begin = (first_sec - 1) * section_thickness_in_voxel
 
-        z1 = (sec-1) * voxel_z_size
-        z2 = sec * voxel_z_size
+        z1 = (sec-1) * section_thickness_in_voxel
+        z2 = sec * section_thickness_in_voxel
 
         if mid:
             return np.mean([z1-z_begin, z2-1-z_begin])
@@ -3474,7 +3535,7 @@ class DataManager(object):
             return z1-z_begin, z2-1-z_begin
 
     @staticmethod
-    def convert_z_to_section(z, downsample, z_first_sec=None, sec_z0=None, stack=None):
+    def convert_z_to_section(z, downsample=None, resolution=None, z_first_sec=None, sec_z0=None, stack=None):
         """
         Convert z coordinate to section index.
 
@@ -3483,15 +3544,20 @@ class DataManager(object):
             sec_z0 (int): section index at z=0. Provide either this or `z_first_sec`.
         """
 
-        xy_pixel_distance = XY_PIXEL_DISTANCE_LOSSLESS * downsample
-        voxel_z_size = SECTION_THICKNESS / xy_pixel_distance
+        if downsample is not None:
+            voxel_size_um = convert_resolution_string_to_voxel_size(resolution='down%d'%downsample, stack=stack)
+        else:
+            voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+        
+        # voxel_size_um = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+        section_thickness_in_voxel = SECTION_THICKNESS / voxel_size_um
 
         if z_first_sec is not None:
-            sec_float = np.float32((z - z_first_sec) / voxel_z_size) # if use np.float, will result in np.floor(98.0)=97
+            sec_float = np.float32((z - z_first_sec) / section_thickness_in_voxel) # if use np.float, will result in np.floor(98.0)=97
         elif sec_z0 is not None:
-            sec_float = np.float32(z / voxel_z_size) + sec_z0
+            sec_float = np.float32(z / section_thickness_in_voxel) + sec_z0
         else:
-            sec_float = np.float32(z / voxel_z_size)
+            sec_float = np.float32(z / section_thickness_in_voxel)
 
         sec_floor = int(np.floor(sec_float))
 

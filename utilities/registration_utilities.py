@@ -501,7 +501,7 @@ class Aligner4(object):
     #
     #     sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
-    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None):
+    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None, rescale=None):
         """Load gradients of fixed volumes.
 
         Need to pass gradient_filepath_map_f in from outside because Aligner class should be agnostic about structure names.
@@ -532,16 +532,26 @@ class Aligner4(object):
                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
-
+      
                 if hasattr(self, 'zl'):
-                    grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
-                    grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
-                    grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
+                    if rescale is None:
+                        grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
+                        grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
+                        grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
+                    else:
+                        grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1], rescale)
+                        grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1], rescale)
+                        grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1], rescale)
                 else:
-                    grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
-                    grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
-                    grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
-
+                    if rescale is None:
+                        grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+                        grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+                        grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+                    else:
+                        grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}), rescale)
+                        grad_f[ind_f][1] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}), rescale)
+                        grad_f[ind_f][2] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}), rescale)
+                        
                 sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
 
             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
@@ -559,6 +569,7 @@ class Aligner4(object):
         if n_sample is not None:
 
             num_nz = len(nzvoxels_centered_m[ind_m])
+            assert num_nz > 0, "No valid pixel for ind_m = %d even before transform." % ind_m
             valid_moving_voxel_indicator = np.zeros((num_nz,), np.bool)
 
             # t = time.time()
@@ -774,9 +785,10 @@ class Aligner4(object):
 
             # ref: https://math.stackexchange.com/questions/222894/how-to-take-the-gradient-of-the-quadratic-form
             if tf_type == 'rigid':
-                grad[:3] = grad[:3] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), grad[:3])
+                print grad[:3], - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
+                grad[:3] = grad[:3] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
             elif tf_type == 'affine':
-                grad[[3,7,11]] = grad[[3,7,11]] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), grad[[3,7,11]])
+                grad[[3,7,11]] = grad[[3,7,11]] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
         elif tf_type == 'bspline':
             pass
 
@@ -835,7 +847,7 @@ class Aligner4(object):
                 score += self.label_weights[ind_m] * score_one
 
             except Exception as e:
-                raise e
+                # raise e
                 sys.stderr.write('Error computing score/gradient for %d: %s\n' % (ind_m, e))
 
         # # parallel
@@ -1061,7 +1073,7 @@ class Aligner4(object):
     def grid_search(self, grid_search_iteration_number, indices_m=None, init_n=1000, parallel=True,
                     std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(60),
                     return_best_score=True,
-                    eta=3., stop_radius_voxel=10):
+                    eta=3., stop_radius_voxel=10, init_T=None):
         """Grid search.
 
          Args:
@@ -1074,6 +1086,9 @@ class Aligner4(object):
         params_best_upToNow = (0, 0, 0, 0)
         score_best_upToNow = -np.inf
 
+        if init_T is None:
+            init_T = np.array([1,0,0,0,0,1,0,0,0,0,1,0])
+        
         if indices_m is None:
             indices_m = self.all_indices_m
 
@@ -1104,9 +1119,9 @@ class Aligner4(object):
 
             #############
 
-            t = time.time()
-
-            scores = self.compute_scores_neighborhood_grid(np.array([1,0,0,0,0,1,0,0,0,0,1,0]),
+            t = time.time()                
+            
+            scores = self.compute_scores_neighborhood_grid(init_T,
                                                    dxs=tx_grid, dys=ty_grid, dzs=tz_grid, dtheta_xys=theta_xy_grid,
                                                    indices_m=indices_m, parallel=parallel)
             i_best = np.argmax(scores)
@@ -1157,7 +1172,7 @@ class Aligner4(object):
     def do_grid_search(self, grid_search_iteration_number=10, grid_search_sample_number=1000,
                       std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                        grid_search_eta=3., stop_radius_voxel=10,
-                      indices_m=None, parallel=True):
+                      indices_m=None, parallel=True, init_T=None):
 
         if indices_m is None:
             indices_m = self.all_indices_m
@@ -1167,9 +1182,10 @@ class Aligner4(object):
                                                     std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
                                                                                          eta=grid_search_eta, stop_radius_voxel=stop_radius_voxel,
                                                     return_best_score=True,
-                                                                                        parallel=parallel)
+                                                                                        parallel=parallel, init_T=init_T)
         # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
-        T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
+        # T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
+        T = np.dot(np.vstack([init_T, (0,0,0,1)]), np.vstack([affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best).reshape((3,4)), (0,0,0,1)]))[:3].flatten()
         return T, grid_search_score
 
     def optimize(self, tf_type, init_T=None, label_weights=None, \
@@ -1363,7 +1379,9 @@ class Aligner4(object):
         grad_historical += grad**2
         grad_adjusted = grad / np.sqrt(grad_historical + epsilon)
         # Note: It is wrong to do: grad_adjusted = grad /  (np.sqrt(grad_historical) + epsilon)
-        sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
+        # sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
+        sys.stderr.write('Norm of gradient (translation) = %f\n' % np.linalg.norm(grad_adjusted[:3]))
+        sys.stderr.write('Norm of gradient (rotation) = %f\n' % np.linalg.norm(grad_adjusted[3:]))
         v_opt = lr * grad_adjusted # no minus sign because maximizing
 
         # AdaDelta Rule
@@ -1486,6 +1504,8 @@ class Aligner4(object):
         return new_T, score, grad_historical, sq_updates_historical
 
     
+from scipy.ndimage.interpolation import zoom
+    
 def generate_aligner_parameters(alignment_spec, structures_m=all_known_structures_sided):
     """
     Args:
@@ -1508,6 +1528,7 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
     structure_m = stack_m_spec['structure']
     detector_id_m = stack_m_spec['detector_id']
     prep_id_m = stack_m_spec['prep_id']
+    resolution_m = stack_m_spec['resolution']
     
     stack_f_spec = alignment_spec['stack_f']
     stack_f = stack_f_spec['name']
@@ -1515,6 +1536,7 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
     structure_f = stack_f_spec['structure']
     detector_id_f = stack_f_spec['detector_id']
     prep_id_f = stack_f_spec['prep_id']
+    resolution_f = stack_f_spec['resolution']
     
     warp_setting = alignment_spec['warp_setting']
     
@@ -1566,16 +1588,16 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
     
     if upstream_warp_setting is None:
         volume_moving, volume_moving_bbox_wrt_atlasSpace, structure_to_label_moving, label_to_structure_moving = \
-        DataManager.load_original_volume_all_known_structures_v2(stack=stack_m, sided=True, 
-                                                              volume_type=vol_type_m, 
-                                                              include_surround=include_surround,
-                                                                return_label_mappings=True, 
-                                                                 name_or_index_as_key='index',
-                                                                 common_shape=True,
-                                                                structures=structures_m,
-                                                                 in_bbox_wrt='atlasSpace',
-                                                                    out_bbox_wrt='atlasSpace'
-                                                                )
+        DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_m_spec, 
+                                                                 sided=True, 
+                                                      include_surround=include_surround,
+                                                        return_label_mappings=True, 
+                                                         name_or_index_as_key='index',
+                                                         common_shape=True,
+                                                        structures=structures_m,
+                                                         in_bbox_wrt='atlasSpace',
+                                                            # out_bbox_wrt='atlasSpace'
+                                                        )
     else:
         
         initial_alignment_spec = alignment_spec['initial_alignment_spec']
@@ -1583,13 +1605,13 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
         
         volume_moving, volume_moving_bbox_wrt_fixedWholebrain, structure_to_label_moving, label_to_structure_moving = \
         DataManager.load_transformed_volume_all_known_structures_v3(alignment_spec=initial_alignment_spec, 
-                                                                    resolution='down32',
+                                                                    resolution=resolution_m,
                                                             structures=structures_m, 
                                                             sided=True, 
                                                             return_label_mappings=True, 
                                                             name_or_index_as_key='index', 
                                                             common_shape=True,
-                                                           return_origin_instead_of_bbox=False
+                                                           return_origin_instead_of_bbox=False,
 #                                                                     in_bbox_wrt='wholebrain',
 #                                                                     out_bbox_wrt='wholebrain'
                                                                 )
@@ -1600,20 +1622,30 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
         sys.stderr.write("Loaded moving volumes: %s.\n" % sorted(structure_to_label_moving.keys()))
     
     #############################################################################
-        
+
     volume_fixed, volume_fixed_bbox_wrt_wholebrain, structure_to_label_fixed, label_to_structure_fixed = \
-    DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False, 
-                                                          volume_type=vol_type_f,
-                                                         include_surround=include_surround,
-                                                         return_label_mappings=True, 
-                                                             name_or_index_as_key='index',
-                                                         common_shape=True,
-                                                            structures=set([convert_to_unsided_label(s) 
-                                                                            for s in structures_m]),
-                                                            prep_id=prep_id_f,
-                                                             detector_id=detector_id_f,
-                                                            in_bbox_wrt='wholebrainXYcropped',
-                                                            out_bbox_wrt='wholebrain')
+    DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
+                                in_bbox_wrt='brainstem' if stack_f_spec['name'] == 'ChatCryoJane201710' else 'wholebrainXYcropped',
+                                                     # out_bbox_wrt='wholebrain',
+                                                             structures=set([convert_to_unsided_label(s) 
+                                                                             for s in structures_m]),
+                                                    # sided=False,
+                                                    include_surround=include_surround,
+                                                     return_label_mappings=True,
+                                                     name_or_index_as_key='index',
+                                                     common_shape=True)
+    # DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False, 
+    #                                                       volume_type=vol_type_f,
+    #                                                      include_surround=include_surround,
+    #                                                      return_label_mappings=True, 
+    #                                                          name_or_index_as_key='index',
+    #                                                      common_shape=True,
+    #                                                         structures=set([convert_to_unsided_label(s) 
+    #                                                                         for s in structures_m]),
+    #                                                         prep_id=prep_id_f,
+    #                                                          detector_id=detector_id_f,
+    #                                                         in_bbox_wrt='wholebrainXYcropped',
+    #                                                         out_bbox_wrt='wholebrain')
     
     if len(volume_fixed) == 0:
         sys.stderr.write("No fixed volumes.\n")
@@ -1621,6 +1653,44 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
         sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
             
     ############################################################################
+    
+    # Make two volumes the same resolution.
+    
+    voxel_size_m = convert_resolution_string_to_voxel_size(resolution=resolution_m, stack=stack_m_spec['name'])
+    print "voxel size for moving = %.2f um" % voxel_size_m
+    voxel_size_f = convert_resolution_string_to_voxel_size(resolution=resolution_f, stack=stack_m_spec['name'])
+    print "voxel size for fixed = %.2f um" % voxel_size_f
+    ratio_m_to_f = voxel_size_m/voxel_size_f
+    if ratio_m_to_f < 1:
+        print 'Moving volume voxel size (%.2f um) is smaller than fixed volume (%.2f um); downsample moving volume to %.2f um.' % (voxel_size_m, voxel_size_f, voxel_size_f)
+        # float16 is not supported by zoom()
+        volume_moving = {k: rescale_by_resampling(v, ratio_m_to_f) for k, v in volume_moving.iteritems()}
+        # for k, v in volume_moving.iteritems():
+        #     print k
+        #     t = time.time()
+        #     # volume_moving[k] = zoom(v.astype(np.float32), ratio_m_to_f).astype(np.float16)
+        #     volume_moving[k] = rescale_volume_by_resampling(volume_moving[k], ratio_m_to_f)
+        #     print time.time() - t
+        if upstream_warp_setting is None:
+            volume_moving_bbox_wrt_atlasSpace = volume_moving_bbox_wrt_atlasSpace * ratio_m_to_f
+        else:
+            volume_moving_bbox_wrt_wholebrain = volume_moving_bbox_wrt_wholebrain * ratio_m_to_f
+        unified_resolution = voxel_size_f
+    elif ratio_m_to_f > 1:
+        print 'Fixed volume voxel size (%.2f um) is larger than moving volume (%.2f um); downsample fixed volume to %.2f um.' % (voxel_size_f, voxel_size_m, voxel_size_m)
+        volume_fixed = {k: rescale_by_resampling(v, 1./ratio_m_to_f) for k, v in volume_fixed.iteritems()}
+        # for k, v in volume_fixed.iteritems():
+        #     print k
+        #     t = time.time()
+        #     # volume_fixed[k] = zoom(v.astype(np.float32), 1./ratio_m_to_f).astype(np.float16)
+        #     volume_fixed[k] = rescale_volume_by_resampling(volume_fixed[k], 1./ratio_m_to_f)
+        #     print time.time() - t
+        volume_fixed_bbox_wrt_wholebrain = volume_fixed_bbox_wrt_wholebrain / ratio_m_to_f
+        unified_resolution = voxel_size_m
+    else:
+        unified_resolution = voxel_size_m
+            
+    #############################################################################
     
     structure_subset_m = all_known_structures_sided
 
@@ -1687,7 +1757,8 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
      'transform_type': transform_type,
      'grad_computation_sample_number': grad_computation_sample_number,
      'volume_moving_origin_wrt_wholebrain': volume_moving_bbox_wrt_atlasSpace[[0,2,4]] if upstream_warp_setting is None else volume_moving_bbox_wrt_fixedWholebrain[[0,2,4]],
-     'volume_fixed_origin_wrt_wholebrain': volume_fixed_bbox_wrt_wholebrain[[0,2,4]]
+     'volume_fixed_origin_wrt_wholebrain': volume_fixed_bbox_wrt_wholebrain[[0,2,4]],
+     'resolution_um': unified_resolution
     }
                 
     return alinger_parameters
@@ -2280,7 +2351,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
         dict {int: {str: (n,2)-ndarray}}: dict of {section: {name_s: contour vertices}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
     """
 
-    from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
+    # from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
     from collections import defaultdict
 
     # estimate mapping between z and section

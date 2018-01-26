@@ -233,6 +233,47 @@ elif hostname.startswith('ip'):
 else:
     print 'Setting environment for Brainstem workstation'
 
+    
+#################### Resolution conversions ############
+
+
+def convert_resolution_string_to_voxel_size(resolution, stack=None):
+    """
+    Args:
+        resolution (str):
+    Returns: 
+        voxel/pixel size in microns.
+    """
+    if resolution == 'down32':
+        assert stack is not None
+        if stack == 'ChatCryoJane201710':
+            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
+        else:
+            return XY_PIXEL_DISTANCE_TB
+    elif resolution == 'thumbnail':
+        assert stack is not None
+        if stack == 'ChatCryoJane201710':
+            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
+        else:
+            return XY_PIXEL_DISTANCE_TB
+    elif resolution == 'lossless':
+        assert stack is not None
+        if stack == 'ChatCryoJane201710':
+            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+        else:
+            return XY_PIXEL_DISTANCE_LOSSLESS
+    elif resolution == 'down8':
+        assert stack is not None
+        if stack == 'ChatCryoJane201710':
+            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 8.
+        else:
+            return XY_PIXEL_DISTANCE_LOSSLESS * 8.
+    elif resolution == '10.0um':
+        return 10.
+    else:
+        print resolution
+        raise
+    
 #################### Name conversions ##################
 
 def parse_label(label):

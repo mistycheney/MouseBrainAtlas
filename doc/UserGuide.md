@@ -4,7 +4,7 @@
 
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 
-# Preprocessing a new stack
+# Preprocessing a new stack 
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
@@ -12,6 +12,8 @@ Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. Each section should hav
 
 * the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
 * a thumbnail `<imageName>_thumbnail.tif`.
+
+To convert the native czi format for Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
 
 Step 2: Launch the preprocessing GUI.
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'BrainLabelingGui_v15.ui'
+# Form implementation generated from reading ui file 'ui/BrainLabelingGui_v15.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -25,7 +25,7 @@ except AttributeError:
 class Ui_BrainLabelingGui(object):
     def setupUi(self, BrainLabelingGui):
         BrainLabelingGui.setObjectName(_fromUtf8("BrainLabelingGui"))
-        BrainLabelingGui.resize(1882, 1113)
+        BrainLabelingGui.resize(2011, 1113)
         self.centralwidget = QtGui.QWidget(BrainLabelingGui)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
         self.verticalLayout = QtGui.QVBoxLayout(self.centralwidget)
@@ -53,9 +53,6 @@ class Ui_BrainLabelingGui(object):
         self.lineEdit_username = QtGui.QLineEdit(self.centralwidget)
         self.lineEdit_username.setObjectName(_fromUtf8("lineEdit_username"))
         self.horizontalLayout.addWidget(self.lineEdit_username)
-        self.button_stop = QtGui.QPushButton(self.centralwidget)
-        self.button_stop.setObjectName(_fromUtf8("button_stop"))
-        self.horizontalLayout.addWidget(self.button_stop)
         self.button_displayStructures = QtGui.QPushButton(self.centralwidget)
         self.button_displayStructures.setObjectName(_fromUtf8("button_displayStructures"))
         self.horizontalLayout.addWidget(self.button_displayStructures)
@@ -86,6 +83,9 @@ class Ui_BrainLabelingGui(object):
         self.button_loadWarpedAtlas = QtGui.QPushButton(self.centralwidget)
         self.button_loadWarpedAtlas.setObjectName(_fromUtf8("button_loadWarpedAtlas"))
         self.horizontalLayout.addWidget(self.button_loadWarpedAtlas)
+        self.button_loadWarpedStructure = QtGui.QPushButton(self.centralwidget)
+        self.button_loadWarpedStructure.setObjectName(_fromUtf8("button_loadWarpedStructure"))
+        self.horizontalLayout.addWidget(self.button_loadWarpedStructure)
         self.button_loadUnwarpedAtlas = QtGui.QPushButton(self.centralwidget)
         self.button_loadUnwarpedAtlas.setObjectName(_fromUtf8("button_loadUnwarpedAtlas"))
         self.horizontalLayout.addWidget(self.button_loadUnwarpedAtlas)
@@ -98,7 +98,7 @@ class Ui_BrainLabelingGui(object):
         self.verticalLayout.addLayout(self.horizontalLayout)
         BrainLabelingGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(BrainLabelingGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1882, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 2011, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         BrainLabelingGui.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(BrainLabelingGui)
@@ -114,7 +114,6 @@ class Ui_BrainLabelingGui(object):
     def retranslateUi(self, BrainLabelingGui):
         BrainLabelingGui.setWindowTitle(_translate("BrainLabelingGui", "MainWindow", None))
         self.label_7.setText(_translate("BrainLabelingGui", "Username:", None))
-        self.button_stop.setText(_translate("BrainLabelingGui", "Stop Loading", None))
         self.button_displayStructures.setText(_translate("BrainLabelingGui", "Display Structures", None))
         self.button_inferSide.setText(_translate("BrainLabelingGui", "Infer Side", None))
         self.button_displayOptions.setText(_translate("BrainLabelingGui", "Display Options", None))
@@ -125,6 +124,7 @@ class Ui_BrainLabelingGui(object):
         self.button_loadStructures.setText(_translate("BrainLabelingGui", "Load Structures", None))
         self.button_loadProbStructures.setText(_translate("BrainLabelingGui", "Load Prob Stru.", None))
         self.button_loadWarpedAtlas.setText(_translate("BrainLabelingGui", "Load Warped Atlas", None))
+        self.button_loadWarpedStructure.setText(_translate("BrainLabelingGui", "Load Warped Structure", None))
         self.button_loadUnwarpedAtlas.setText(_translate("BrainLabelingGui", "Load Unwarped Atlas", None))
         self.button_load.setText(_translate("BrainLabelingGui", "Load Contours", None))
         self.button_loadMarkers.setText(_translate("BrainLabelingGui", "Load Markers", None))

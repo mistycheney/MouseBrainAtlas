@@ -4,7 +4,7 @@ To launch the GUI for thalamus labeling, run:
 
 `~/Brain/gui/brain_labeling_gui_thalamus.py [stack_name] -f [first_section] -l [last_section]`
 
-The left panel shows the full resolution images. The panels at the right are virtual coronal, horizontal and sagittal whole-brain slices, from top to bottom respectively. 
+The left panel shows the full resolution images. The panels at the right are virtual coronal, horizontal and sagittal whole-brain slices, from top to bottom respectively.
 
 Left click and drag to pan. Scroll mouse wheel to zoom.
 
@@ -26,6 +26,10 @@ Left click and drag to pan. Scroll mouse wheel to zoom.
 - v: toggle whether vertices are shown.
 - c: toggle whether contours are shown.
 - l: toggle whether label are shown.
-- q: switch to 3d shift mode.
-- w: switch to 3d rotate mode.
+- hold ctrl: 2d shift
+- hold alt: 2d rotate
+- t: switch to prob 3d shift mode. Then move polygon.
+- r: switch to prob 3d rotate mode. Then rotate the polygon. Rotation center is assumed to be the centroid of the 2d contour in current section.
+- alt + t: switch to global 3d shift mode.
+- alt + r: switch to global 3d rotation mode.
 - s: switch to show score map (need to have active polygon) / histology image

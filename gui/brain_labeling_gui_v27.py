@@ -95,6 +95,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_loadStructures.clicked.connect(self.load_structures)
         self.button_loadProbStructures.clicked.connect(self.load_prob_structures)
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
+        self.button_loadWarpedStructure.clicked.connect(self.load_warped_structure)
         self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
@@ -683,6 +684,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
 
         markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose marker annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if markers_df_fp == '':
+            return
         # download_from_s3(markers_df_fp)
         markers_df = load_hdf_v2(markers_df_fp)
 
@@ -695,11 +698,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
 
-    def load_atlas_volume(self, warped=True):
+    def load_atlas_volume(self, warped=True, structures=all_known_structures_sided):
 
         if not warped:
             atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
             name_or_index_as_key='name',
+            structures=structures
             # structures=['7N_L', '5N_L', 'SNR_L']
             # structures=['IC']
             )
@@ -725,9 +729,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             warp_setting=17, prep_id_f=2, detector_id_f=detector_id_f,
             return_label_mappings=False,
             name_or_index_as_key='name',
+            structures=structures
             # structures=['7N_L', '5N_L', 'SNR_L']
             # ['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R', 'Pn_L', 'Pn_R', 'Tz_L', 'Tz_R', 'VLL_L', 'VLL_R', 'RMC_L', 'RMC_R', 'SNC_L', 'SNC_R', 'SNR_L', 'SNR_R', '3N_L', '3N_R', '4N_L', '4N_R', 'Sp5I_L', 'Sp5I_R', 'Sp5O_L', 'Sp5O_R', 'Sp5C_L', 'Sp5C_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'VCA_L', 'VCA_R', 'VCP_L', 'VCP_R', 'DC_L', 'DC_R', 'AP', '12N', 'RtTg', 'SC', 'IC']
-            structures=['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R'],
+            # structures=['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R'],
             # structures=['IC']
             )
 
@@ -780,9 +785,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.load_atlas_volume(warped=True)
 
     @pyqtSlot()
+    def load_warped_structure(self):
+        """
+        Load particular structures from warped atlas.
+        """
+        possible_structures_to_load = all_known_structures_sided
+        selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
+   "list of structures", possible_structures_to_load, 0, False)
+        if ok and selected_structure:
+            self.load_atlas_volume(warped=True, structures=[str(selected_structure)])
+
+    @pyqtSlot()
     def load_prob_structures(self):
+        """
+        Load prob. 3-d structures from file.
+        """
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if structures_df_fp == '':
+            return
+
         # print structures_df_fp
         structure_df = load_hdf_v2(structures_df_fp)
 
@@ -815,6 +837,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if structures_df_fp == '':
+            return
         structure_df = load_hdf_v2(structures_df_fp)
 
         self.structure_df_loaded = structure_df
@@ -865,6 +889,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
 
         sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if sagittal_contours_df_fp == '':
+            return
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped(sagittal_contours_df, stack=self.stack,\
                                         out_downsample=self.gscenes['sagittal'].data_feeder.downsample,

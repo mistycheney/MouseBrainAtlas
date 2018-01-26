@@ -840,19 +840,19 @@ class DataManager(object):
                                    **kwargs):
 
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-                                                  downscale=downscale, volume_type=vol_type_m, structure=structure_m)
-
+                                                  resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
+        
         if stack_f is None:
             assert warp_setting is None
             vol_name = basename_m
         else:
             basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-                                                  downscale=downscale, volume_type=vol_type_f, structure=structure_f)
+                                                  resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
             vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
 
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-
+            
         return vol_name
     
     @staticmethod
@@ -3114,48 +3114,120 @@ class DataManager(object):
 
 #         return feature_fn
 
+
     @staticmethod
-    def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
+    def get_dnn_features_filepath_v2(stack, sec, fn, prep_id, win_id, 
+                              normalization_scheme,
+                                             model, what='features'):
         """
         Args:
-            input_img_version (str): default is gray.
+            what (str): "features" or "locations"
         """
+        
         if fn is None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
 
-        if suffix is None:
-            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
-                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
-                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
-        else:
-            feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
-                                       stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
-                                       fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features_' + suffix + '.bp')
-
+        prep_str = 'prep%(prep)d' % {'prep':prep_id}
+        win_str = 'win%(win)d' % {'win':win_id}
+            
+        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model, stack,
+                    stack + '_' + prep_str + '_' + normalization_scheme + '_' + win_str,
+            fn + '_' + prep_str + '_' + normalization_scheme + '_' + win_str + '_' + model + '_' + what + '.bp')
+        
         return feature_fp
-
+    
     @staticmethod
-    def load_dnn_features(stack, model_name, win, section=None, fn=None, input_img_version='gray', prep_id=2, suffix=None):
+    def load_dnn_features_v2(stack, sec, fn, prep_id, win_id, 
+                              normalization_scheme,
+                                             model):
         """
         Args:
-            input_img_version (str): default is gray.
             win (int): the spacing/size scheme
+            
+        Returns:
+            (features, patch center locations wrt prep=2 images)
+            
+        Note: `mean_img` is assumed to be the default provided by mxnet.
         """
-
-        features_fp = DataManager.get_dnn_features_filepath(**locals())
+        
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+                              normalization_scheme=normalization_scheme,
+                                             model=model, what='features')
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
+        features = bp.unpack_ndarray_file(features_fp)
+        
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+                              normalization_scheme=normalization_scheme,
+                                             model=model, what='locations')
+        download_from_s3(locations)
+        locations = np.loadtxt(locations_fp).astype(np.int)
+        
+        return features, locations
 
-        try:
-            return load_hdf(features_fp)
-        except:
-            pass
 
-        try:
-            return load_hdf_v2(features_fp)
-        except:
-            pass
+    @staticmethod
+    def save_dnn_features_v2(features, locations, stack, sec, fn,
+                             win_id, normalization_scheme, model):
+        """
+        Args:
+            features ((n,1024) array of float):
+            locations ((n,2) array of int): list of (x,y) coordinates relative to prep=2 image. This matches the features list.
+        """
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+                              normalization_scheme=normalization_scheme,
+                                             model=model, what='features')
+        create_parent_dir_if_not_exists(features_fp)
+        bp.pack_ndarray_file(features, features_fp)
+        upload_to_s3(features_fp)
+        
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+                              normalization_scheme=normalization_scheme,
+                                             model=model, what='locations')
+        np.savetxt(locations_fp, locations, fmt='%d')
+        upload_to_s3(locations_fp)        
+        
+#     @staticmethod
+#     def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
+#         """
+#         Args:
+#             input_img_version (str): default is gray.
+#         """
+#         if fn is None:
+#             fn = metadata_cache['sections_to_filenames'][stack][section]
 
-        return bp.unpack_ndarray_file(features_fp)
+#         if suffix is None:
+#             feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features.bp')
+#         else:
+#             feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
+#                                        stack+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win},
+#                                        fn+'_prep%(prep)d'%{'prep':prep_id}+'_'+input_img_version+'_win%(win)d'%{'win':win}+'_'+model_name+'_features_' + suffix + '.bp')
+
+#         return feature_fp
+
+#     @staticmethod
+#     def load_dnn_features(stack, model_name, win, section=None, fn=None, input_img_version='gray', prep_id=2, suffix=None):
+#         """
+#         Args:
+#             input_img_version (str): default is gray.
+#             win (int): the spacing/size scheme
+#         """
+
+#         features_fp = DataManager.get_dnn_features_filepath(**locals())
+#         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
+
+#         try:
+#             return load_hdf(features_fp)
+#         except:
+#             pass
+
+#         try:
+#             return load_hdf_v2(features_fp)
+#         except:
+#             pass
+
+#         return bp.unpack_ndarray_file(features_fp)
 
 #     @staticmethod
 #     def load_dnn_features(stack, model_name, section=None, fn=None, anchor_fn=None, input_img_version='cropped_gray'):
@@ -3178,6 +3250,9 @@ class DataManager(object):
 #             pass
 
 #         return bp.unpack_ndarray_file(features_fp)
+    
+        
+
 
     ##################
     ##### Image ######

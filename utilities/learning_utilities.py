@@ -1367,7 +1367,7 @@ def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, 
     
 from shapely.geometry.multipolygon import MultiPolygon
 
-def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, image_shape=None,
+def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, stride=None, image_shape=None,
                       mask_tb=None, polygons=None, bbox=None, bbox_lossless=None, surround_margins=None,
                      categories=['positive', 'negative', 'bg', 'surround']):
     """
@@ -1392,7 +1392,10 @@ def locate_patches_v2(grid_spec=None, stack=None, patch_size=None, stride=None, 
     surround_margins_um = surround_margins
 
     if grid_spec is None:
-        grid_spec = get_default_gridspec(stack)
+        if win_id is not None:
+            grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack)
+        else:
+            grid_spec = get_default_gridspec(stack)
 
     if image_shape is not None:
         image_width, image_height = image_shape
@@ -2115,35 +2118,61 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
                                     bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
     sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
-
-    sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
-
-    t = time.time()
-
-    test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
-                                                   locs=sample_locations_roi, 
-                                                   patch_size=grid_spec[0], 
-                                                   normalization_scheme=scheme)
     
-    # Resize the patches to 224 x 224 as required by CNN.
-    if test_patches[0].shape != (224,224):
-        sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
-        test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+    try:
+        t = time.time()
         
-    sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
-#     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
+        assert feature == 'cnn'
+        
+        features = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                    win_id=win_id, 
+                              normalization_scheme=scheme,
+                                             model=model)
+        features = features[indices_roi]
+        
+        sys.stderr.write('Load pre-computed features: %.2f seconds\n' % (time.time() - t))
+        
+    except:
+        
+        sys.stderr.write('No pre-computed features found... computing from scratch.\n')
+        
+        t = time.time()
+        
+        sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
+    
+        test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
+                                                       locs=sample_locations_roi, 
+                                                       patch_size=grid_spec[0], 
+                                                       normalization_scheme=scheme)
 
-    t = time.time()
-    if feature == 'mean':
-        features = np.array([[p.mean()] for p in test_patches])
-    elif feature == 'cnn':
-        features = convert_image_patches_to_features_v2(test_patches, model=model, 
-                                             mean_img=mean_img, 
-                                             batch_size=batch_size)
-    else:
-        raise
-    sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
+        # Resize the patches to 224 x 224 as required by CNN.
+        if test_patches[0].shape != (224,224):
+            sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
+            test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
 
+        sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
+    #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
+
+        t = time.time()
+        if feature == 'mean':
+            features = np.array([[p.mean()] for p in test_patches])
+        elif feature == 'cnn':
+            features = convert_image_patches_to_features_v2(test_patches, model=model, 
+                                                 mean_img=mean_img, 
+                                                 batch_size=batch_size)
+        else:
+            raise
+        sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
+        
+        t = time.time()
+        DataManager.save_dnn_features_v2(features=features, locations=sample_locations_roi, 
+                                         stack=stack, sec=sec, fn=fn,
+                                         win_id=win_id, 
+                              normalization_scheme=scheme,
+                                             model=model)
+        sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
+
+        
     scoremap_viz_all_clfs = {}
     scoremap_local_region_all_clfs = {}
 

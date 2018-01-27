@@ -996,7 +996,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # keys are depth coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
                 # values are 2D contour vertex coordinates, wrt the origin of "whole brain aligned and padded volume", in internal structure resolution.
 
-                contour_points_grouped_by_pos_wrt_wholebrain_volResol = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                contour_points_grouped_by_pos_wrt_wholebrain_volResol = {p.properties['position_um'] / (convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.volume_downsample_factor): \
                                                 [((c.scenePos().x() * gscene.data_feeder.downsample + \
                                                     self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][0] * 32.) / float(self.volume_downsample_factor),
                                                 (c.scenePos().y() * gscene.data_feeder.downsample + \
@@ -1005,7 +1005,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                                 for p in matched_confirmed_polygons}
 
                 for p in matched_confirmed_polygons:
-                    print 'z =', p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor)
+                    print 'z =', p.properties['position_um'] / (convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.volume_downsample_factor)
                     for c in p.vertex_circles:
                         print c.scenePos().x() * gscene.data_feeder.downsample, self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][0] * 32., self.volume_downsample_factor
                         print c.scenePos().y() * gscene.data_feeder.downsample, self.image_origin_wrt_wholebrain_tbResol[from_gscene_id][1] * 32., self.volume_downsample_factor
@@ -1013,7 +1013,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 volume_volResol, bbox_wrt_wholebrain_volResol = interpolate_contours_to_volume(contour_points_grouped_by_pos_wrt_wholebrain_volResol, 'z')
 
             elif from_gscene_id == 'coronal':
-                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                contour_points_grouped_by_pos = {p.properties['position_um'] / (convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.volume_downsample_factor): \
                                                 [(c.scenePos().y() * factor_dataResol_to_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().x()) * factor_dataResol_to_volResol)
                                                 for c in p.vertex_circles]
@@ -1023,7 +1023,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # self.structure_volumes[(name_u, side)] = interpolate_contours_to_volume(contour_points_grouped_by_pos, 'x')
 
             elif from_gscene_id == 'horizontal':
-                contour_points_grouped_by_pos = {p.properties['position_um'] / (XY_PIXEL_DISTANCE_LOSSLESS * self.volume_downsample_factor): \
+                contour_points_grouped_by_pos = {p.properties['position_um'] / (convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.volume_downsample_factor): \
                                                 [(c.scenePos().x() * factor_dataResol_to_volResol,
                                                 (gscene.data_feeder.z_dim - 1 - c.scenePos().y()) * factor_dataResol_to_volResol)
                                                 for c in p.vertex_circles]
@@ -1178,7 +1178,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     current_structure_peakwidth = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
                     param_suffix=name, what='peak_radius')
                     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
-                    len_lossless_res = pw_max_um / XY_PIXEL_DISTANCE_LOSSLESS
+                    len_lossless_res = pw_max_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
 
                     vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
                     bbox = self.structure_volumes[name_side_tuple]['bbox']

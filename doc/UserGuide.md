@@ -64,7 +64,7 @@ Step 4: Visualize atlas registration in the labeling GUI.
 
 Download warped atlas maps into `VOLUME_DIR/<atlasName>/<atlasName>_<warp>_<fixedMapName>`.
 
-Click "Load warped structures". Select structure. The structure contour (p=0.5) will be displayed over the images. You can move or rotate with respect to structure center. For complete instructions on how to interact with GUI, see [User Interface README](gui/README.md).
+Click "Load warped structures". Select structure. The structure contour (p=0.5) will be displayed over the images. You can move or rotate with respect to structure center. Each structure is manipulated as one integral 3-D entity. For complete instructions on how to interact with GUI, see [User Interface README](gui/README.md).
 
 Click "Save prob. structures". All structures currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_probStructures_<timestamp>.hdf`. 
 
@@ -87,7 +87,9 @@ Each row of the structure annotation file is indexed by a random `structure_id`.
 
 ## Create annotations using the labeling GUI
 
-Edit contours.
+If you want to edit previously saved contours, click "Load contours".
+
+Create or edit contours.
 
 Click "Save contours". All contours currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_contours_<timestamp>.hdf`.
 

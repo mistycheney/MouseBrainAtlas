@@ -60,13 +60,53 @@ Step 4: Visualize atlas registration in the labeling GUI.
 `$ ./brain_labeling_gui_v27.py <stack>`
 
 
-# Create or revise annotations using the labeling GUI
+## Revise annotations using the labeling GUI
 
-Step 1:
+Download warped atlas maps into `VOLUME_DIR/<atlasName>/<atlasName>_<warp>_<fixedMapName>`.
+
+Click "Load warped structures". Select structure. The structure contour (p=0.5) will be displayed over the images. You can move or rotate with respect to structure center. For complete instructions on how to interact with GUI, see [User Interface README](gui/README.md).
+
+Click "Save prob. structures". All structures currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_probStructures_<timestamp>.hdf`. 
+
+Each row of the structure annotation file is indexed by a random `structure_id`. The columns are 
+
+* `volume_in_bbox`: bloscpack-encoded string of 3-D volume
+* `bbox`: (xmin,xmax,ymin,ymax,zmin,zmax), wrt "wholebrain"
+* `name`: structure name, unsided
+* `side`: L or R or S
+* `edits`. list. Each entry is a dict. 
+	* `username`
+	* `timestamp`
+	* `type`: shift3d or rotate3d
+	* `transform`: flattened 3x4 matrix
+	* `centroid_m`
+	* `centroid_f`
 
 
-# Training the atlas
-TBD
+# Training the atlas: 
 
+## Create annotations using the labeling GUI
 
+Edit contours.
+
+Click "Save contours". All contours currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_contours_<timestamp>.hdf`.
+
+Each row of the contour annotation file is indexed by a random `contour_id`. The columns are 
+
+* `class`: "contour" or "neuron"
+* `creator`: username of the creator
+* `downsample`: the downsample factor the vertices are defined on
+* `edits`: the list of edits made on this contour
+* `id`: a random uuid for this contour
+* `label_position`: the position of the structure name text item relative to the whole image
+* `name`: unsided name of this structure
+* `orientation`: sagittal, coronal or horizontal
+* `parent_structure`: currently not used
+* `section`: the section number
+* `side`: L or R
+* `side_manually_assigned`: True if the side is confirmed by human; False if the side is automatically inferred.
+* `time_created`: the time that the contour is created
+* `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
+* `vertices`: vertices of a polygon. (n,2)-ndarray.
+* `filename`: the file name of the section.
 

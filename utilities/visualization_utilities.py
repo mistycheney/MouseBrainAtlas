@@ -207,7 +207,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
                                                        volume_resolution=None,
                                             fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=None, out_resolution=None,
-                            users=None, level_colors=None, levels=None, show_text=True,
+                            users=None, level_colors=None, levels=None, show_text=True, label_color=(0,0,0),
                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
     """
     Args:
@@ -295,7 +295,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
             # Show text
             if label_pos is not None:
                 cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
-                        cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 3)
+                        cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
 
     return viz
 

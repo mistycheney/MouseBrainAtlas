@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 
-from pandas import read_hdf
+from pandas import read_hdf, DataFrame
 from datetime import datetime
 import re
 
@@ -235,8 +235,11 @@ class DataManager(object):
                                                 detector_id_f=None,
                                                prep_id_m=None,
                                                prep_id_f=2,
-                                                warp_setting=17, trial_idx=None, timestamp=None):
+                                                warp_setting=17, trial_idx=None, timestamp=None,
+                                              return_locations=False):
 
+        from learning_utilities import grid_parameters_to_sample_locations
+        
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
 
@@ -245,13 +248,26 @@ class DataManager(object):
          in notebook `learning/identify_patch_class_from_labeling`")
         else:
             grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
-            return grid_indices_lookup
+            
+            locations_lookup = defaultdict(lambda: defaultdict(list))
+            
+            if not return_locations:
+                return grid_indices_lookup
+            else:
+                grids_to_locations = grid_parameters_to_sample_locations(win_id=win_id, stack=stack)
+                
+                for sec, indices_this_sec in grid_indices_lookup.iterrows():
+                    for label, indices in indices_this_sec.dropna(how='all').iteritems():
+                        locations_lookup[label][sec] = [grids_to_locations[i] for i in indices]
+            
+            return DataFrame(locations_lookup)
+                                
 
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
                                                        detector_id_m=None, detector_id_f=None,
                                                        prep_id_m=None, prep_id_f=2,
-                                                       warp_setting=17, trial_idx=None, timestamp=None):
+                                                       warp_setting=17, trial_idx=None, timestamp=None, **kwargs):
 
         if timestamp is not None:
             if timestamp == 'latest':
@@ -2058,7 +2074,10 @@ class DataManager(object):
                                         trial_idx=None):
         """
         Args:
+            alignment_spec (dict): specifies the multi-map.
             wrt (str): specify which domain is the bounding box relative to.
+            resolution (str): specifies the resolution of the multi-map.
+            structure (str): specifies one map of the multi-map.
         """
 
         if resolution is None:
@@ -2066,7 +2085,7 @@ class DataManager(object):
 
         warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec, trial_idx=trial_idx)
         vol_basename = warp_basename + '_' + resolution
-        vol_basename_with_structure_suffix = vol_basename + ('_' + structure) if structure is not None else ''
+        vol_basename_with_structure_suffix = vol_basename + ('_' + structure if structure is not None else '')
 
         return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
                             vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '_bbox_wrt_' + wrt + '.txt')
@@ -3120,13 +3139,17 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_dnn_features_filepath_v2(stack, sec, fn, prep_id, win_id, 
+    def get_dnn_features_filepath_v2(stack, prep_id, win_id, 
                               normalization_scheme,
-                                             model, what='features'):
+                                             model_name, what='features',
+                                    sec=None, fn=None, timestamp=None):
         """
         Args:
             what (str): "features" or "locations"
         """
+        
+        if timestamp == 'now':
+            timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
         
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -3134,16 +3157,16 @@ class DataManager(object):
         prep_str = 'prep%(prep)d' % {'prep':prep_id}
         win_str = 'win%(win)d' % {'win':win_id}
             
-        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model, stack,
+        feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
                     stack + '_' + prep_str + '_' + normalization_scheme + '_' + win_str,
-            fn + '_' + prep_str + '_' + normalization_scheme + '_' + win_str + '_' + model + '_' + what + '.bp')
+            fn + '_' + prep_str + '_' + normalization_scheme + '_' + win_str + '_' + model_name + '_' + what + ('_%s'%timestamp if timestamp is not None else '') + '.bp')
         
         return feature_fp
     
     @staticmethod
-    def load_dnn_features_v2(stack, sec, fn, prep_id, win_id, 
+    def load_dnn_features_v2(stack, prep_id, win_id, 
                               normalization_scheme,
-                                             model):
+                             model_name, sec=None, fn=None):
         """
         Args:
             win (int): the spacing/size scheme
@@ -3156,37 +3179,38 @@ class DataManager(object):
         
         features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
                               normalization_scheme=normalization_scheme,
-                                             model=model, what='features')
+                                             model_name=model_name, what='features')
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
         features = bp.unpack_ndarray_file(features_fp)
         
         locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
                               normalization_scheme=normalization_scheme,
-                                             model=model, what='locations')
-        download_from_s3(locations)
+                                             model_name=model_name, what='locations')
+        download_from_s3(locations_fp)
         locations = np.loadtxt(locations_fp).astype(np.int)
         
         return features, locations
 
 
     @staticmethod
-    def save_dnn_features_v2(features, locations, stack, sec, fn,
-                             win_id, normalization_scheme, model):
+    def save_dnn_features_v2(features, locations, stack, 
+                             win_id, normalization_scheme, model_name, sec=None, fn=None, timestamp=None):
         """
         Args:
             features ((n,1024) array of float):
             locations ((n,2) array of int): list of (x,y) coordinates relative to prep=2 image. This matches the features list.
         """
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+                
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
                               normalization_scheme=normalization_scheme,
-                                             model=model, what='features')
+                                             model_name=model_name, what='features', timestamp=timestamp)
         create_parent_dir_if_not_exists(features_fp)
         bp.pack_ndarray_file(features, features_fp)
         upload_to_s3(features_fp)
         
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
                               normalization_scheme=normalization_scheme,
-                                             model=model, what='locations')
+                                             model_name=model_name, what='locations', timestamp=timestamp)
         np.savetxt(locations_fp, locations, fmt='%d')
         upload_to_s3(locations_fp)        
         

@@ -1243,6 +1243,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
         if isinstance(positive_level, float):
             structure_contours_pos_level = \
             get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                      stack=stack,
                                                       sections=metadata_cache['valid_sections'][stack], 
                                                       downsample_factor=32, level=positive_level, 
                                                       sample_every=1, 
@@ -1253,6 +1254,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                 cnts_all_secs = \
                 get_structure_contours_from_aligned_atlas({name_s: v}, 
                                           volume_origin=(0,0,0), 
+                                                          stack=stack,
                                           sections=metadata_cache['valid_sections'][stack], 
                                           downsample_factor=32,
                                           level=positive_level[convert_to_unsided_label(name_s)], 
@@ -1267,6 +1269,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
         if isinstance(negative_level, float):
             structure_contours_neg_level = \
             get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                                                      stack=stack,
                                                       sections=metadata_cache['valid_sections'][stack],
                                                       downsample_factor=32, level=negative_level, 
                                                       sample_every=1, 
@@ -1277,6 +1280,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                 cnts_all_secs = \
                 get_structure_contours_from_aligned_atlas({name_s: v}, 
                                           volume_origin=(0,0,0), 
+                                                          stack=stack,
                                           sections=metadata_cache['valid_sections'][stack], 
                                           downsample_factor=32,
                                           level=negative_level[convert_to_unsided_label(name_s)], 
@@ -1369,7 +1373,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 
 def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, stride=None, image_shape=None,
                       mask_tb=None, polygons=None, bbox=None, bbox_lossless=None, surround_margins=None,
-                     categories=['positive', 'negative', 'bg', 'surround']):
+                     categories=['positive', 'negative', 'bg', 'surround'], return_locations=False):
     """
     Return addresses of patches that are either in polygons or on mask.
     - If mask is given, the valid patches are those whose centers are True. bbox and polygons are ANDed with mask.
@@ -1382,6 +1386,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
     Args:
         grid_spec: If none, use the default grid spec.
         surround_margins: list of surround margin for which patches are extracted, in unit of microns. Default: [100,200,...1000]
+        return_locations (bool): If True, return patch center locations (list of x-y coordinates); if False, return indices into the default grid locations given by grid_parameters_to_sample_locations(). Default is False.
         
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
@@ -1420,7 +1425,10 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
     indices_bg = np.setdiff1d(range(sample_locations.shape[0]), indices_fg) # patches in the background
 
     if polygons is None and bbox is None and bbox_lossless is None:
-        return indices_fg
+        if return_locations:
+            return sample_locations[list(indices_fg)]
+        else:
+            return indices_fg
 
     if polygons is not None:
         if isinstance(polygons, dict):
@@ -1467,7 +1475,10 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
                                             sample_locations[:,0] < xmax, sample_locations[:,1] < ymax], axis=1))[0]
         indices_roi = np.setdiff1d(indices_roi, indices_bg)
 
-        return indices_roi
+        if return_locations:
+            return sample_locations[list(indices_roi)]
+        else:
+            return indices_roi
 
     else:
         # Return grid indices in each polygon of the input dict
@@ -1544,9 +1555,11 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
         if 'noclass' in categories:
             indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
 
-        return indices_allLandmarks
-
-
+        if return_locations:
+            return {name: sample_locations[list(indices)] for name, indices in indices_allLandmarks.iteritems()}
+        else:
+            return indices_allLandmarks
+            
 
 def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample, grid_indices_lookup_fps):
     """
@@ -1702,13 +1715,11 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
         2d-array of int: the list of all grid locations.
     """
 
+    from metadata import planar_resolution
+    
     if win_id is not None:
-        windowing_properties = windowing_settings[win_id]
-        patch_size = windowing_properties['patch_size']
-        half_size = patch_size/2
-        stride = windowing_properties['spacing']
-        w, h = metadata_cache['image_shape'][stack]
-
+        grid_spec = win_id_to_gridspec(win_id, stack=stack)
+        
     if grid_spec is not None:
         patch_size, stride, w, h = grid_spec
 
@@ -2069,12 +2080,218 @@ def resample_scoremap(sparse_scores, sample_locations, gridspec,
 
 from skimage.transform import rescale
 
+def group_by_stack_and_section(addresses, return_full_address=False):
+    """
+    Returns:
+        (grouped_addresses, grouped_rank). `grouped_rank` is {(stack, section): list of ranks}. If `return_full_address` is False, grouped_addresses is {(stack, section): list of (x,y)},. If return_full_address is True, grouped_addresses is {(stack, section): list of full addresses}.
+    """
+    
+    res = {}
+    ranks = {}
+    for stack_sec, rank_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (r, addr): (addr[0], addr[1])), 
+                                                       key=lambda (r, addr): (addr[0], addr[1])):
+        if return_full_address:
+            res[stack_sec], ranks[stack_sec] = map(list, zip(*[(addr, r) for r, addr in rank_and_address_grouper]))
+        else:
+            res[stack_sec], ranks[stack_sec] = map(list, zip(*[(addr[2], r) for r, addr in rank_and_address_grouper]))
+    return res, ranks
+
+def convert_dict_to_list(data_dict, rank_dict):
+    res = []
+    for k in data_dict.iterkeys():
+        v = data_dict[k]
+        r = rank_dict[k]
+        if isinstance(v, dict):
+            convert_dict_to_list(v, r)
+        else:
+            res.append(zip(r, v))
+    return map(itemgetter(1), sorted(chain(*res), key=itemgetter(0)))
+
+def read_cnn_features(addresses, scheme, win_id, prep_id=2, 
+                      model=None, mean_img=None, model_name=None, batch_size=None):
+    """
+    Args:
+        addresses (list of tuples): each tuple is (stack, section, (patch center x, patch center y))
+    """
+    
+    addresses_grouped, rank_grouped = group_by_stack_and_section(addresses, return_full_address=False)
+    
+    features = defaultdict(list)
+    for (stack, section), locations in addresses_grouped.iteritems():
+        print (stack, section)
+        features_pool, locations_pool = DataManager.load_dnn_features_v2(stack=stack, sec=section,
+                                                                         prep_id=2, win_id=win_id, 
+                                                                         normalization_scheme=scheme,
+                                                                         model_name=model_name)
+        location_to_pool_index = {tuple(loc): idx for idx, loc in enumerate(locations_pool)}
+
+        locations_to_compute = []
+        ranks_locations_to_compute = []
+        for i, loc in enumerate(locations):
+            if loc in location_to_pool_index:
+                features[(stack, section)].append(features_pool[location_to_pool_index[loc]])
+            else:
+                sys.stderr.write("Feature for (%s,%d,(%d,%d)) is not in pool. Re-compute.\n" % (stack, section, loc[0], loc[1]))
+                # raise
+                features[(stack, section)].append(np.nan * np.ones((1024,)))
+                locations_to_compute.append(loc)
+                ranks_locations_to_compute.append(i)
+        
+        if len(locations_to_compute) > 0:
+
+            t = time.time()
+
+            patch_size_px = win_id_to_gridspec(win_id=win_id, stack=stack)[0]
+            
+            test_patches = extract_patches_given_locations(stack=stack, sec=section,
+                                                           locs=locations_to_compute, 
+                                                           patch_size=patch_size_px, 
+                                                           normalization_scheme=scheme)
+
+            # Resize the patches to 224 x 224 as required by CNN.
+            if test_patches[0].shape != (224,224):
+                sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
+                test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+
+            sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
+        #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
+
+            t = time.time()
+            features_newly_computed = convert_image_patches_to_features_v2(test_patches, model=model, 
+                                                 mean_img=mean_img, 
+                                                 batch_size=batch_size)
+            sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
+
+            for r, f in izip(ranks_locations_to_compute, features_newly_computed):
+                features[(stack, section)][r] = f
+                
+    features_list = convert_dict_to_list(features, rank_grouped)
+    return features_list
+
+def compute_and_save_features(scheme, win_id, addresses=None, stack=None, prep_id=2, 
+                              locations_roi=None,
+                  bbox=None,
+                  sec=None, fn=None,
+                  feature='cnn', 
+                  model=None, mean_img=None, model_name=None,
+                  batch_size=None, attach_timestamp=False):
+    """
+    Generate the scoremap for a given region.
+    
+    Args:
+        scheme (str): normalization scheme
+        addresses (list of (stack, section, location)-tuples): 
+        win_id (int): windowing id, determines patch size and spacing.
+        prep_id (int): the prep_id the `bbox` is relative to. Default to 2.
+        bbox (4-tuple): (xmin, xmax, ymin, ymax) in raw resolution. If not given, use the whole image.
+        feature (str): cnn or mean
+        model_name (str): model name. For forming filename of saved features.
+        
+    Returns:
+        (2d-array of uint8): scoremap overlayed on image.
+        (2d-array of float): scoremap array, optional
+    """
+    
+    if locations_roi is None:
+    
+        if bbox is None:
+            roi_xmin = 0
+            roi_ymin = 0
+            roi_w, roi_h = metadata_cache['image_shape'][stack]
+        else:
+            roi_xmin, roi_xmax, roi_ymin, roi_ymax = bbox
+            roi_w = roi_xmax + 1 - roi_xmin
+            roi_h = roi_ymax + 1 - roi_ymin
+
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+
+        ##########################################################################################
+
+        t = time.time()
+        mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=prep_id, fn=fn)
+        grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack)
+        locations_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                                        bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h),
+                                       return_locations=True)
+        sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
+    
+    features_roi = np.zeros((len(locations_roi), 1024))
+    
+    try:
+        # t = time.time()
+
+        assert feature == 'cnn'
+
+        features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                    prep_id=2,
+                                                    win_id=win_id, 
+                              normalization_scheme=scheme,
+                                             model_name=model_name)
+
+        # location_to_index = {tuple(loc): idx for idx, loc in enumerate(locations)}
+
+        locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
+        sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
+
+    except Exception as e:    
+        
+        sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
+        features = []
+        locations = []
+        locations_to_compute = locations_roi
+        
+    if len(locations_to_compute) > 0:
+        
+        t = time.time()
+
+        test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
+                                                       locs=locations_to_compute, 
+                                                       patch_size=grid_spec[0], 
+                                                       normalization_scheme=scheme)
+
+        # Resize the patches to 224 x 224 as required by CNN.
+        if test_patches[0].shape != (224,224):
+            sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
+            test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+
+        sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
+    #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
+
+        t = time.time()
+        if feature == 'mean':
+            features_newly_computed = np.array([[p.mean()] for p in test_patches])
+        elif feature == 'cnn':
+            features_newly_computed = convert_image_patches_to_features_v2(test_patches, model=model, 
+                                                 mean_img=mean_img, 
+                                                 batch_size=batch_size)
+        else:
+            raise
+        sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
+
+        if len(features) == 0:
+            features = features_newly_computed
+            locations = locations_to_compute
+        else:
+            features = features + features_newly_computed
+            locations = locations + locations_to_compute
+
+        t = time.time()
+        DataManager.save_dnn_features_v2(features=features, locations=locations_roi, 
+                                         stack=stack, sec=sec, fn=fn,
+                                         win_id=win_id, normalization_scheme=scheme,
+                                         model_name=model_name, timestamp='now' if attach_timestamp else None)
+        sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
+
+
 def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2, 
                   bbox=None,
                   sec=None, fn=None, bg_img=None,
                   bg_img_local_region=None, return_scoremap=False, 
                   out_resolution_um=None, in_resolution_um=None,
-                  feature='cnn', model=None, mean_img=None, batch_size=None
+                  feature='cnn', 
+                  model=None, mean_img=None, model_name=None,
+                  batch_size=None
                  ):
     """
     Generate the scoremap for a given region.
@@ -2090,6 +2307,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         return_scoremap (bool): If True, return (viz, scoremap); otherwise, return viz.
         out_resolution_um (float): resolution of output scoremap in microns
         feature (str): cnn or mean
+        model_name (str): model name. For forming filename of saved features.
         
     Returns:
         (2d-array of uint8): scoremap overlayed on image.
@@ -2119,27 +2337,31 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                                     bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
     sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
     
+    sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
+    
     try:
         t = time.time()
         
         assert feature == 'cnn'
         
-        features = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+        features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                    prep_id=2,
                                                     win_id=win_id, 
                               normalization_scheme=scheme,
-                                             model=model)
+                                             model_name=model_name)
+        
+        location_to_index = {tuple(loc): idx for idx, loc in enumerate(locations)}
+        indices_roi = [location_to_index[tuple(loc)] for loc in sample_locations_roi]
         features = features[indices_roi]
         
         sys.stderr.write('Load pre-computed features: %.2f seconds\n' % (time.time() - t))
         
-    except:
+    except Exception as e:
         
-        sys.stderr.write('No pre-computed features found... computing from scratch.\n')
+        sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
         
         t = time.time()
-        
-        sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
-    
+            
         test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
                                                        locs=sample_locations_roi, 
                                                        patch_size=grid_spec[0], 
@@ -2167,9 +2389,8 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         t = time.time()
         DataManager.save_dnn_features_v2(features=features, locations=sample_locations_roi, 
                                          stack=stack, sec=sec, fn=fn,
-                                         win_id=win_id, 
-                              normalization_scheme=scheme,
-                                             model=model)
+                                         win_id=win_id, normalization_scheme=scheme,
+                                         model_name=model_name)
         sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
 
         

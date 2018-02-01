@@ -14,10 +14,15 @@ def matrix_exp(w):
 
 def matrix_exp_v(v):
     """
-    Return the exponenial map for translation + rotation 6-vector v.
+    Compute the exponenial map for v = [t w]^T where v is the 6-vector of coordinates in the Lie algebra se(3), 
+    comprising of two separate 3-vectors: w, the vector that determine rotation, and t, which determines translation.
     
     Args:
         v ((6,)-ndarray): the vector composed of translation parameters and rotation parameters.
+        
+    Returns:
+        (exp_w_skew, Vt). The manifold element is a 4-by-4 matrix (exp_w_skew & Vt \\ 0 1).
+        
     """
     t = v[:3] # translation components
     w = v[3:] # rotation components

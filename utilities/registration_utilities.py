@@ -1000,11 +1000,11 @@ class Aligner4(object):
         if parallel:        
             #parallel
             pool = Pool(processes=12)
-            if dtheta_xys is None:
-                scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + (0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz), indices_m=indices_m),
+            # if dtheta_xys is None:
+            scores = pool.map(lambda (dx, dy, dz): self.compute_score(params + np.array([0.,0.,0., dx, 0.,0.,0., dy, 0.,0.,0., dz]), indices_m=indices_m),
                             product(dxs, dys, dzs))
-            else:
-                scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m), product(dxs, dys, dzs, dtheta_xys))
+            # else:
+            #     scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m), product(dxs, dys, dzs, dtheta_xys))
             pool.close()
             pool.join()
         else:
@@ -1083,20 +1083,25 @@ class Aligner4(object):
              params_best_upToNow ((12,) float array): found parameters
         """
 
-        params_best_upToNow = (0, 0, 0, 0)
+        # dx_best, dy_best, dz_best, dthetaxy_best = (0, 0, 0, 0)
         score_best_upToNow = -np.inf
-
+        
+        # dx_best, dy_best, dz_best, dthetaxy_best = ds_best_upToNow
+        # d_best_mat = np.vstack([affine_components_to_vector(dx_best, dy_best, dz_best, dthetaxy_best).reshape((3,4)), (0,0,0,1)])
+                    
         if init_T is None:
             init_T = np.array([1,0,0,0,0,1,0,0,0,0,1,0])
-        
+            
+        T_best_upToNow = init_T
+
         if indices_m is None:
             indices_m = self.all_indices_m
-
+            
         for iteration in range(grid_search_iteration_number):
 
             # self.logger.info('grid search iteration %d', iteration)
-
-            init_tx, init_ty, init_tz, init_theta_xy = params_best_upToNow
+                        
+            # init_tx, init_ty, init_tz, init_theta_xy = affine_components_to_vector(dx_best, dy_best, dz_best, dthetaxy_best)
 
             # n = int(init_n*np.exp(-iteration/eta))
             n = init_n
@@ -1109,11 +1114,11 @@ class Aligner4(object):
             sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg), n:%d\n' % \
             (sigma_tx, sigma_ty, sigma_tz, np.rad2deg(sigma_theta_xy), n))
 
-            tx_grid = init_tx + sigma_tx * np.linspace(-1,1,n)
-            ty_grid = init_ty + sigma_ty * np.linspace(-1,1,n)
-            tz_grid = init_tz + sigma_tz * np.linspace(-1,1,n)
+            dx_grid = sigma_tx * np.linspace(-1,1,n)
+            dy_grid = sigma_ty * np.linspace(-1,1,n)
+            dz_grid = sigma_tz * np.linspace(-1,1,n)
             # theta_xy_grid = init_theta_xy + sigma_theta_xy * np.linspace(-1,1,n)
-            theta_xy_grid = [0]
+            dthetaxy_grid = [0]
 
             # samples = np.c_[tx_grid, ty_grid, tz_grid, theta_xy_grid]
 
@@ -1121,53 +1126,46 @@ class Aligner4(object):
 
             t = time.time()                
             
-            scores = self.compute_scores_neighborhood_grid(init_T,
-                                                   dxs=tx_grid, dys=ty_grid, dzs=tz_grid, dtheta_xys=theta_xy_grid,
+            scores = self.compute_scores_neighborhood_grid(T_best_upToNow,
+                                                   dxs=dx_grid, dys=dy_grid, dzs=dz_grid, dtheta_xys=dthetaxy_grid,
                                                    indices_m=indices_m, parallel=parallel)
             i_best = np.argmax(scores)
             score_best = scores[i_best]
-            i_tx, i_ty, i_tz, i_thetaxy = np.unravel_index(i_best, (len(tx_grid), len(ty_grid), len(tz_grid), len(theta_xy_grid)))
-            tx_best = tx_grid[i_tx]
-            ty_best = ty_grid[i_ty]
-            tz_best = tz_grid[i_tz]
-            theta_xy_best = theta_xy_grid[i_thetaxy]
-
-            # # empirical speedup 7x
-            # # parallel
-            # if parallel:
-            #     pool = Pool(processes=8)
-            #     scores = pool.map(lambda (tx, ty, tz, theta_xy): self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy),
-            #                                             indices_m=indices_m, tf_type='affine'), samples)
-            #     pool.close()
-            #     pool.join()
-            # else:
-            # # serial
-            #     scores = [self.compute_score(affine_components_to_vector(tx,ty,tz,theta_xy), indices_m=indices_m, tf_type='affine')
-            #                 for tx, ty, tz, theta_xy in samples]
-
-            sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
+            i_tx, i_ty, i_tz, i_thetaxy = np.unravel_index(i_best, (len(dx_grid), len(dy_grid), len(dz_grid), len(dthetaxy_grid)))
+            dx_best = dx_grid[i_tx]
+            dy_best = dy_grid[i_ty]
+            dz_best = dz_grid[i_tz]
+            dthetaxy_best = dthetaxy_grid[i_thetaxy]
             
-            sys.stderr.write('tx_best: %.2f (voxel), ty_best: %.2f, tz_best: %.2f, theta_xy_best: %.2f (deg), score=%f\n' % \
-            (tx_best, ty_best, tz_best, np.rad2deg(theta_xy_best), score_best))
-
+            sys.stderr.write('grid search: %f seconds\n' % (time.time() - t)) # ~23s
+ 
             if score_best > score_best_upToNow:
                 # self.logger.info('%f %f', score_best_upToNow, score_best)
                 sys.stderr.write('New best: %f %f\n' % (score_best_upToNow, score_best))
 
                 score_best_upToNow = score_best
-                params_best_upToNow = tx_best, ty_best, tz_best, theta_xy_best
+                # ds_best_upToNow = dx_best, dy_best, dz_best, dthetaxy_best                          
+                d_best_mat = np.vstack([affine_components_to_vector(dx_best, dy_best, dz_best, dthetaxy_best).reshape((3,4)), (0,0,0,1)])
+                T_best_upToNow_mat = np.vstack([np.reshape(T_best_upToNow, (3,4)), [0,0,0,1]])
+                T_best_upToNow = np.dot(d_best_mat, T_best_upToNow_mat)[:3].flatten()
+                    
+                # sys.stderr.write('dx_best: %.2f (voxel), dy_best: %.2f, dz_best: %.2f, dthetaxy_best: %.2f (deg), score=%f\n' % (dx_best, dy_best, dz_best, np.rad2deg(dthetaxy_best), score_best))
 
-            if sigma_tx < stop_radius_voxel:
+                sys.stderr.write('T_best_upToNow: %s\n' % str(np.reshape(T_best_upToNow, (3,4))))
+
+            if sigma_tx < stop_radius_voxel and sigma_ty < stop_radius_voxel and sigma_tz < stop_radius_voxel:
                 # if sigma is reduced to smaller than 10 voxels, abort
                 break
 
+            sys.stderr.write('\n')
+                
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
-        sys.stderr.write('params_best_upToNow: %f %f %f %f\n' % (tx_best, ty_best, tz_best, theta_xy_best))
+        # sys.stderr.write('deviations_best_upToNow: %f %f %f %f\n' % (dx_best, dy_best, dz_best, dthetaxy_best))
 
         if return_best_score:
-            return params_best_upToNow, score_best_upToNow
+            return T_best_upToNow, score_best_upToNow
         else:
-            return params_best_upToNow
+            return T_best_upToNow
 
     def do_grid_search(self, grid_search_iteration_number=10, grid_search_sample_number=1000,
                       std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
@@ -1177,7 +1175,7 @@ class Aligner4(object):
         if indices_m is None:
             indices_m = self.all_indices_m
 
-        (tx_best, ty_best, tz_best, theta_xy_best), grid_search_score = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
+        T, grid_search_score = self.grid_search(grid_search_iteration_number, indices_m=indices_m,
                                                     init_n=grid_search_sample_number,
                                                     std_tx=std_tx, std_ty=std_ty, std_tz=std_tz, std_theta_xy=std_theta_xy,
                                                                                          eta=grid_search_eta, stop_radius_voxel=stop_radius_voxel,
@@ -1185,7 +1183,9 @@ class Aligner4(object):
                                                                                         parallel=parallel, init_T=init_T)
         # T = np.r_[1,0,0, tx_best, 0,1,0, ty_best, 0,0,1, tz_best]
         # T = affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best)
-        T = np.dot(np.vstack([init_T, (0,0,0,1)]), np.vstack([affine_components_to_vector(tx_best, ty_best, tz_best, theta_xy_best).reshape((3,4)), (0,0,0,1)]))[:3].flatten()
+        # d_mat = np.vstack([affine_components_to_vector(dx_best, dy_best, dz_best, dthetaxy_best).reshape((3,4)), (0,0,0,1)])
+        # init_T_mat = np.vstack([init_T.reshape((3,4)), (0,0,0,1)])
+        # T = np.dot(d_mat, init_T_mat)[:3].flatten()
         return T, grid_search_score
 
     def optimize(self, tf_type, init_T=None, label_weights=None, \
@@ -1347,7 +1347,7 @@ class Aligner4(object):
     def step_lie(self, T, lr, grad_historical, sq_updates_historical, verbose=False, num_samples=1000, indices_m=None,
                 epsilon=1e-8):
         """
-        One optimization step over Lie group SE(3).
+        One optimization step over the manifold SE(3).
 
         Args:
             T ((12,) vector): flattened vector of 3x4 transform matrix
@@ -1357,7 +1357,6 @@ class Aligner4(object):
 
         Returns:
             (tuple): tuple containing:
-
                 new_T ((12,) vector): the new parameters
                 score (float): current score
                 grad_historical ((12,) vector): new accumulated gradient magnitude, used for Adagrad
@@ -1371,6 +1370,7 @@ class Aligner4(object):
         score, grad = self.compute_score_and_gradient(T, tf_type='rigid', num_samples=num_samples, indices_m=indices_m)
         # sys.stderr.write("compute_score_and_gradient: %.2f s\n" % (time.time() - t))
         # grad is (6,)-array
+        # Here grad is dObjective/d\epsilon. epsilon is the small adjustment in the linearization of manifold at current estimate.
 
         # print 'score:', score
         # print 'grad:', grad
@@ -1382,7 +1382,6 @@ class Aligner4(object):
         # sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
         sys.stderr.write('Norm of gradient (translation) = %f\n' % np.linalg.norm(grad_adjusted[:3]))
         sys.stderr.write('Norm of gradient (rotation) = %f\n' % np.linalg.norm(grad_adjusted[3:]))
-        v_opt = lr * grad_adjusted # no minus sign because maximizing
 
         # AdaDelta Rule
         # Does not work, very unstable!
@@ -1397,9 +1396,24 @@ class Aligner4(object):
         # print 'grad_historical = %s' % grad_historical
         # print 'sq_updates_historical = %s' % sq_updates_historical
 
+        ########### New ############
+        
+#         epsilon_opt = lr * grad_adjusted # no minus sign because we are maximizing objective instead of minimizing.
+#         # epsilon_opt is the optimal small adjustment in the linearization of manifold from the current estimate.
+        
+#         exp_w_skew, Vt = matrix_exp_v(epsilon_opt) # 3x3, 3x1
+#         exp_epsilon_opt = np.vstack([np.c_[exp_w_skew, Vt], [0,0,0,1]]) # 4x4
+#         T4x4 = np.vstack([np.reshape(T, (3,4)), [0,0,0,1]]) # 4x4
+#         newT4x4 = np.dot(exp_epsilon_opt, T4x4)
+#         R_new = newT4x4[:3, :3]
+#         t_new = newT4x4[:3, 3]
+        
+        ############ Old ############
+        v_opt = lr * grad_adjusted # no minus sign because we are maximizing objective instead of minimizing.
+        
         theta = np.sqrt(np.sum(v_opt[3:]**2))
         assert theta < np.pi
-
+        
         exp_w, Vt = matrix_exp_v(v_opt)
         # print 'Vt', Vt
         Tm = np.reshape(T, (3,4))
@@ -1407,9 +1421,10 @@ class Aligner4(object):
         # print 't', t
         R = Tm[:, :3]
         R_new = np.dot(exp_w, R)
-        # t_new = np.dot(exp_w, t) + Vt
-        t_new = t + Vt
+        t_new = np.dot(exp_w, t) + Vt
+        # t_new = t + Vt
         # print 't_new', t_new
+        ###########################
 
         euler_angles_R_new = rotationMatrixToEulerAngles(R_new) # (around x, around y, around z)
         sys.stderr.write("around x=%.2f; around y=%.2f; around z=%.2f\n" % \
@@ -1944,7 +1959,15 @@ def local_registration(local_alignment_spec, global_alignment_spec):
     #                      centroid_f=np.zeros((3,)))
     aligner.set_label_weights(label_weights=local_aligner_parameters['label_weights_m'])
     
-    gradients_f = compute_gradient(volume_fixed, smooth_first=True)
+    # gradients_f = compute_gradient(volume_fixed, smooth_first=True)
+    
+    gradients_f = {}
+    for ind_f, struct_f in local_aligner_parameters['label_to_structure_fixed'].iteritems():
+        tmpl = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=local_alignment_spec['stack_f'], structure=struct_f)
+        gradients_f[ind_f] = np.asarray([bp.unpack_ndarray_file(tmpl % {'suffix': 'gx'}),
+                             bp.unpack_ndarray_file(tmpl % {'suffix': 'gy'}),
+                             bp.unpack_ndarray_file(tmpl % {'suffix': 'gz'})])
+
     aligner.load_gradient(gradients=gradients_f)
     
 
@@ -1971,7 +1994,7 @@ def local_registration(local_alignment_spec, global_alignment_spec):
                                          history_len=20, 
                                          terminate_thresh_rot=.001,
                                          terminate_thresh_trans=.01,
-                                         grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
+                                    grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
                                          lr1=1, lr2=.01,
                                          init_T=init_T.flatten()
                                         )
@@ -2022,26 +2045,19 @@ def local_registration(local_alignment_spec, global_alignment_spec):
                        parameter_traj=traj_all_trials[best_trial],
                       alignment_spec=local_alignment_spec)
 
-    volume_moving_tuples = \
-            DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', sided=True, 
-                                                                  volume_type='score', 
-                                                                  include_surround=True,
-                                                                    return_label_mappings=False, 
-                                                                     name_or_index_as_key='name',
-                                                                     common_shape=False,
-                                                                    in_bbox_wrt='atlasSpace',
-                                                                    out_bbox_wrt='atlasSpace',
-                                                                    structures=[structure_m, convert_to_surround_name(structure_m, margin='200')])
-
     transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=local_alignment_spec)
 
-    for name_s, (vol, bbox_wrt_wholebrain) in volume_moving_tuples.iteritems():
-        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(vol, bbox_wrt_wholebrain, transform_parameters=transform_parameters)
+    for name_s in [structure_m]:
+
+        volume, bbox_wrt_atlasSpace = \
+            DataManager.load_original_volume_v2(local_alignment_spec['stack_m'], structure=name_s, bbox_wrt='atlasSpace')
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(volume, bbox_wrt_atlasSpace, transform_parameters=transform_parameters)
         print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
         DataManager.save_transformed_volume(volume=transformed_vol, 
                                             bbox=transformed_vol_box_wrt_fixedWholebrain, 
                                             alignment_spec=local_alignment_spec, 
-                                            resolution=None, 
+                                            resolution='%.1fum' % local_aligner_parameters['resolution_um'], 
                                             structure=name_s)
     
     
@@ -2334,7 +2350,7 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
 from data_manager import *
 
-def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, downsample_factor=32, level=.5,
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sections, downsample_factor=32, level=.5,
                                               sample_every=1, first_sec=1):
     """
     Re-section atlas volumes and obtain structure contours on each section.
@@ -2384,7 +2400,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, sections, 
     for sec in sections:
         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
         # z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
-        z = int(np.mean(DataManager.convert_section_to_z(sec=sec, downsample=downsample_factor, first_sec=first_sec))) - zmin_vol_f
+        z = int(DataManager.convert_section_to_z(sec=sec, downsample=downsample_factor, first_sec=first_sec, mid=True, stack=stack)) - zmin_vol_f
         for name_s, vol in volumes.iteritems():
             if np.count_nonzero(vol[..., z]) == 0:
                 continue

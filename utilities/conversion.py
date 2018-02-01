@@ -9,7 +9,7 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
     Assume section 1 is at z=0.
     
     Args:
-        images (dict of 2D images): key is section index. First section has index 0.
+        images (dict of 2D images): key is section index. First section has index 1.
         voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
         firse_sec (int): the beginning section of the bounding box.  Default is the the smallest key of `images`.
         last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
@@ -43,13 +43,13 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
     volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
 
     for i in range(len(images.keys())-1):
-        z1 = sections[i] * voxel_z_size
-        z2 = sections[i+1] * voxel_z_size
+        z1 = int(np.floor((sections[i]-1) * voxel_z_size))
+        z2 = int(np.ceil(sections[i+1] * voxel_z_size))
         if isinstance(images, dict):
             im = images[sections[i]]
         elif callable(images):
             im = images(sections[i])
-        volume[:, :, int(z1)-z_begin:int(z2)+1-z_begin] = im[..., None]
+        volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
 
     volume_bbox = (0,xdim-1,0,ydim-1,z_begin,z_end)
 

@@ -109,6 +109,6 @@ Each row of the contour annotation file is indexed by a random `contour_id`. The
 * `side_manually_assigned`: True if the side is confirmed by human; False if the side is automatically inferred.
 * `time_created`: the time that the contour is created
 * `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
-* `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution.
+* `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution (~0.45 microns).
 * `filename`: the file name of the section.
 

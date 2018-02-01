@@ -70,8 +70,8 @@ Click "Save prob. structures". All structures currently loaded are saved into th
 
 Each row of the structure annotation file is indexed by a random `structure_id`. The columns are 
 
-* `volume_in_bbox`: bloscpack-encoded string of 3-D volume
-* `bbox`: (xmin,xmax,ymin,ymax,zmin,zmax), wrt "wholebrain"
+* `volume_in_bbox`: bloscpack-encoded string of 3-D volume, isotropic voxel size ~ 0.45 micron * 32 = 14.4 micron.
+* `bbox`: (xmin,xmax,ymin,ymax,zmin,zmax), wrt "wholebrain", same voxel size as above.
 * `name`: structure name, unsided
 * `side`: L or R or S
 * `edits`. list. Each entry is a dict. 

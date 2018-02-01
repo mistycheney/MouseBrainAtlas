@@ -1,8 +1,10 @@
 # Labeling GUI
 
-To launch the GUI for thalamus labeling, run:
+To launch the labeling GUI, run:
 
-`~/Brain/gui/brain_labeling_gui_thalamus.py [stack_name] -f [first_section] -l [last_section]`
+`~/Brain/gui/brain_labeling_gui_v27.py [stack_name] -v jpeg -p [prep_id]`
+
+`prep_id` is 2 for brainstem crop and 3 for thalamus crop.
 
 The left panel shows the full resolution images. The panels at the right are virtual coronal, horizontal and sagittal whole-brain slices, from top to bottom respectively.
 

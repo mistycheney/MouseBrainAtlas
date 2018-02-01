@@ -192,7 +192,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sections_used = []
             positions_wrt_internalStructureVolume_volResol = []
             for sec in self.data_feeder.sections:
-                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True, stack=self.gui.stack)
+                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True, stack=self.gui.stack, z_begin=0)
                 pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
                 if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
                     positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
@@ -443,7 +443,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sections_used = []
             positions_wrt_internalStructureVolume_volResol = []
             for sec in self.data_feeder.sections:
-                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True, stack=self.gui.stack)
+                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True,
+                stack=self.gui.stack, z_begin=0)
                 pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
                 if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
                     positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
@@ -453,13 +454,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # Compute contours of new structure on these sections
             t = time.time()
             sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
+            print self.id, 'sample_every =', sample_every
 
             for level in levels:
             # for level in [0.5]:
 
                 gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol >= level, along_direction='z', sample_every= sample_every,
                                                                         positions=positions_wrt_internalStructureVolume_volResol)
-
                 sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
                 t = time.time()
                 m = dict(zip(positions_wrt_internalStructureVolume_volResol, sections_used))
@@ -471,7 +472,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 t = time.time()
                 for sec, gscene_pts_wrt_internalStructureVolume_volResol in gscene_pts_wrt_internalStructureVolume_volResol_allsec.iteritems():
 
-                    print sec, gscene_pts_wrt_internalStructureVolume_volResol[0]
+                    print sec, len(gscene_pts_wrt_internalStructureVolume_volResol), 'vertices starting at', gscene_pts_wrt_internalStructureVolume_volResol[0]
 
                     # if this section already has a confirmed contour, do not add a new one.
                     if any([p.properties['label'] == name_u and p.properties['side'] == side and \
@@ -1320,13 +1321,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if hasattr(self.data_feeder, 'sections'):
             self.active_polygon.set_properties('section', self.active_section)
-            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample, mid=True, stack=self.gui.stack)
-            d_um = d_voxel * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample, mid=True,
+            stack=self.gui.stack, z_begin=0)
+            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
             self.active_polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um
         else:
             self.active_polygon.set_properties('voxel_position', self.active_i)
-            d_um = self.active_i * XY_PIXEL_DISTANCE_LOSSLESS * self.data_feeder.downsample
+            d_um = self.active_i * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
             self.active_polygon.set_properties('position_um', d_um)
             # print 'index', index, 'position_um', d_um
 
@@ -1424,7 +1426,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             if hasattr(self.data_feeder, 'sections'):
                 # sec = DataManager.convert_z_to_section(z=cross_z_ds, downsample=downsample)
                 # print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', DataManager.convert_section_to_z(sec=sec, downsample=downsample)
-                section_thickness_in_lossless_z = SECTION_THICKNESS / XY_PIXEL_DISTANCE_LOSSLESS
+                section_thickness_in_lossless_z = SECTION_THICKNESS / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
                 sec = int(np.ceil(cross_z_lossless / section_thickness_in_lossless_z))
                 print 'crossline has been updated to cross_z_lossless =', cross_z_lossless, ', so set section to', sec
                 self.set_active_section(sec, update_crossline=False)
@@ -1462,7 +1464,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             print 'update_crossline', update_crossline
             if hasattr(self.data_feeder, 'sections'):
-                cross_depth_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True, stack=self.gui.stack)
+                cross_depth_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True,
+                stack=self.gui.stack, z_begin=0)
             else:
                 print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
                 if self.data_feeder.orientation == 'sagittal':
@@ -1812,7 +1815,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 gscene_x_lossless = gscene_x * self.data_feeder.downsample
 
                 if hasattr(self.data_feeder, 'sections'):
-                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True, stack=self.gui.stack)
+                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True,
+                    stack=self.gui.stack, z_begin=0)
                     # print 'section', self.active_section, 'gscene_z_lossless', gscene_z_lossless
                 else:
                     gscene_z_lossless = self.active_i * self.data_feeder.downsample

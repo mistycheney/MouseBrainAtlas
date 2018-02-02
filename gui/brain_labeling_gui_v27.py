@@ -27,6 +27,7 @@ from data_manager import DataManager
 from metadata import *
 from annotation_utilities import *
 from gui_utilities import *
+from registration_utilities import transform_volume_v3
 
 from ui.ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
 
@@ -97,6 +98,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
         self.button_loadWarpedStructure.clicked.connect(self.load_warped_structure)
         self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
+        self.button_loadUnwarpedStructure.clicked.connect(self.load_unwarped_structure)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
@@ -105,6 +107,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.structure_volumes = defaultdict(dict)
         # self.structure_adjustments_3d = defaultdict(list)
         self.prob_structure_volumes = defaultdict(dict)
+        for name_s in all_known_structures_sided:
+            name_u, side = parse_label(name_s, singular_as_s=True)[:2]
+            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': None, 'origin': None, 'edits': []}
 
         self.volume_cache = {}
         # for ds in [8, 32]:
@@ -145,7 +150,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             gscene.active_image_updated.connect(self.active_image_updated)
             gscene.structure_volume_updated.connect(self.update_structure_volume)
             gscene.prob_structure_volume_updated.connect(self.update_prob_structure_volume)
-            gscene.set_structure_volumes(self.structure_volumes)
+            gscene.global_transform_updated.connect(self.handle_global_transform_update)
+            # gscene.set_structure_volumes(self.structure_volumes)
             gscene.set_prob_structure_volumes(self.prob_structure_volumes)
             # gscene.set_drawings(self.drawings)
 
@@ -230,10 +236,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Set the downsample factor for the structure volumes.
         # Try to match the highest resolution among all gviews, but upper limit is 1/8.
-        self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.itervalues()]))
-        for gscene in self.gscenes.values():
-            gscene.set_structure_volumes_downscale_factor(self.volume_downsample_factor)
 
+        # self.volume_downsample_factor = max(8, np.min([gscene.data_feeder.downsample for gscene in self.gscenes.itervalues()]))
+        # for gscene in self.gscenes.values():
+            # gscene.set_structure_volumes_downscale_factor(self.volume_downsample_factor)
 
         #####################################
         # Internal structure volumes (prob) #
@@ -241,9 +247,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         # Set the downsample factor for the structure volumes.
         # Try to match the highest resolution among all gviews, but upper limit is 1/8.
-        self.prob_volume_downsample_factor = 32
+
+        self.prob_volume_resolution_um = 16.
         for gscene in self.gscenes.values():
-            gscene.set_prob_structure_volumes_downscale_factor(self.prob_volume_downsample_factor)
+            gscene.set_prob_structure_volumes_resolution(um=self.prob_volume_resolution_um)
+
+        # self.prob_volume_downsample_factor = 32
+        # for gscene in self.gscenes.values():
+        #     gscene.set_prob_structure_volumes_downscale_factor(self.prob_volume_downsample_factor)
 
         #####################
         # Load R/G/B images #
@@ -284,10 +295,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             thumbnail_image_cropbox_wrt_wholebrain_tbResol[2],
             thumbnail_image_cropbox_wrt_wholebrain_tbResol[4]))
 
+    @pyqtSlot(object)
+    def handle_global_transform_update(self, tf):
+        """
+        Args:
+            tf (12-vector)
+        """
+        print "Global transform updated."
+        print tf.reshape((3,4))
+        self.global_transform_from_wholebrain_to_wholebrain_volResol = tf
+
     @pyqtSlot(int)
     def image_loaded(self, sec):
-        """
-        """
         gscene_id = self.sender().id
         gscene = self.gscenes[gscene_id]
 
@@ -547,7 +566,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_markers_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username, classes=['neuron'])
         sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack,
         prep_id=self.prep_id)
-        sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
+        if self.prep_id == 3: # thalamus only
+            sagittal_markers_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
+        else:
+            sagittal_markers_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='neurons', timestamp=timestamp)
         save_hdf_v2(sagittal_markers_original, sagittal_markers_fp)
         upload_to_s3(sagittal_markers_fp)
         print 'Sagittal markers saved to %s.' % sagittal_markers_fp
@@ -585,7 +607,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entries[structure_id] = entry
 
         structure_df = DataFrame(entries).T
-        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now')
+        if self.prep_id == 3:
+            structure_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now')
+        else:
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now')
         save_hdf_v2(structure_df, structure_df_fp)
         upload_to_s3(structure_df_fp)
         print '3D structures saved to %s.' % structure_df_fp
@@ -623,7 +648,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entries[structure_id] = entry
 
         structure_df = DataFrame(entries).T
-        structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now')
+        if self.prep_id == 3:
+            structure_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now')
+        else:
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now')
         save_hdf_v2(structure_df, structure_df_fp)
         upload_to_s3(structure_df_fp)
         print 'Probabilistic structures saved to %s.' % structure_df_fp
@@ -641,7 +669,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_contour_entries_curr_session).T,
         stack=self.stack, in_downsample=self.gscenes['sagittal'].data_feeder.downsample, prep_id=self.prep_id)
-        sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
+        if self.prep_id == 3: # thalamus only
+            sagittal_contours_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
+        else:
+            sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
         # sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
         #                                                        classifier_setting_m=classifier_setting_m,
         #                                                       classifier_setting_f=classifier_setting_f,
@@ -682,8 +713,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def load_markers(self):
         """
         """
+        if self.prep_id == 3:
+            markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose marker annotation file", os.path.join(ANNOTATION_THALAMUS_ROOTDIR, self.stack)))
+        else:
+            markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose marker annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
 
-        markers_df_fp = str(QFileDialog.getOpenFileName(self, "Choose marker annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
         if markers_df_fp == '':
             return
         # download_from_s3(markers_df_fp)
@@ -698,24 +732,81 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
 
+    def get_global_transform(self, name_u, side):
+        global_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
+        struct_info = self.prob_structure_volumes[(name_u, side)]
+        for edit in struct_info['edits']:
+            if edit['type'].startswith('global'): #  global_rotate3d or global_shift3d
+
+                # if edit['type'] == 'global_shift3d':
+                edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
+
+                # elif edit['type'] == 'global_rotate3d':
+                    # centroid_m_wrt_wholebrain_volRes = np.array(edit['centroid_m'])
+                    # centroid_f_wrt_wholebrain_volRes = np.array(edit['centroid_f'])
+                    # edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'],
+                    #                     centroid_m=centroid_m_wrt_wholebrain_volRes,
+                    #                     centroid_f=centroid_f_wrt_wholebrain_volRes)
+                #     edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
+                # else:
+                #     raise
+
+                global_tf_from_wholebrain_to_wholebrain_volResol = \
+                np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, global_tf_from_wholebrain_to_wholebrain_volResol)
+                print (name_u, side), edit['type'], struct_info['origin']
+                print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))
+        return global_tf_from_wholebrain_to_wholebrain_volResol[:3]
+
+
     def load_atlas_volume(self, warped=True, structures=all_known_structures_sided):
 
+        atlas_spec = dict(name='atlasV5',
+                       vol_type='score',
+                       detector_id=None,
+                       prep_id=None,
+                       structure=None,
+                       resolution='10.0um')
+
         if not warped:
-            atlas_volumes, atlas_bbox_wrt_MD589 = DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', return_label_mappings=False,
+            atlas_volumes = DataManager.load_original_volume_all_known_structures_v3(stack_spec=atlas_spec,
+            in_bbox_wrt='atlasSpace',
+            return_label_mappings=False,
             name_or_index_as_key='name',
-            structures=structures
+            structures=structures,
+            common_shape=False,
+            return_origin_instead_of_bbox=True
             # structures=['7N_L', '5N_L', 'SNR_L']
             # structures=['IC']
             )
 
-            xdim = atlas_bbox_wrt_MD589[1] - atlas_bbox_wrt_MD589[0]
-            ydim = atlas_bbox_wrt_MD589[3] - atlas_bbox_wrt_MD589[2]
-            zdim = atlas_bbox_wrt_MD589[5] - atlas_bbox_wrt_MD589[4]
+            for name_s, (v_10um, origin_wrt_fixedWholebrain_10um) in atlas_volumes.iteritems():
+                # from skimage.transform import rescale
+                #### FIX this !!! CHAT brain can be problematic !!!
+                # atlas_volumes = {name_s: (rescale(v_10um, self.sagittal_downsample), b_wrt_fixedWholebrain_10um[[0,2,4]] * self.sagittal_downsample)
+                #                         for name_s, (v_10um, b_wrt_fixedWholebrain_10um) in atlas_volumes.iteritems()}
+                # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
+                name_u, side = parse_label(name_s, singular_as_s=True)[:2]
 
-            # unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol = np.array([0,0,0])
-            # unwarped_atlas_origin_wrt_wholebrain_volResol = unwarped_atlas_origin_wrt_wholeBrainAlignedXYCropped_volResol + self.image_origin_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
-            atlas_bbox_wrt_wholebrain_volResol = np.array([0, xdim-1, 0, ydim-1, 0, zdim-1]) + \
-                    self.image_origin_wrt_wholebrain_tbResol['sagittal'][[0,0,1,1,2,2]] * 32. / self.prob_volume_downsample_factor
+                volume_volResol = rescale_by_resampling(v_10um, 10./self.prob_volume_resolution_um)
+                origin_wrt_fixedWholebrain_volResol = origin_wrt_fixedWholebrain_10um * 10./self.prob_volume_resolution_um
+
+                # if hasattr(self, 'global_transform_from_wholebrain_to_wholebrain_volResol'):
+
+                global_transform_from_wholebrain_to_wholebrain_volResol = self.get_global_transform(name_u, side)
+
+                volume_volResol, origin_wrt_fixedWholebrain_volResol = \
+                transform_volume_v3(vol=volume_volResol,
+                origin=origin_wrt_fixedWholebrain_volResol,
+                tf_params=global_transform_from_wholebrain_to_wholebrain_volResol,
+                return_origin_instead_of_bbox=True)
+
+                self.prob_structure_volumes[(name_u, side)]['volume_in_bbox'] = volume_volResol
+                self.prob_structure_volumes[(name_u, side)]['origin'] = origin_wrt_fixedWholebrain_volResol
+                print 'Load', (name_u, side), "volume", volume_volResol.shape, "; origin (wrt fixedwholebrain) =", origin_wrt_fixedWholebrain_volResol
+
+                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+                for gscene in self.gscenes.values():
+                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -736,7 +827,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # structures=['IC']
             )
 
-            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
+            if self.prep_id == 3: # thalamus
+                atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
+            else:
+                atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
 
             atlas_ydim_wrt_wholebrain_tbResol, \
             atlas_xdim_wrt_wholebrain_tbResol, \
@@ -751,19 +845,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
 
-        from skimage.transform import rescale
-        atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
-        atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
+            from skimage.transform import rescale
+            atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
+            atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
 
-        for name_s, v in atlas_volumes.iteritems():
-            name_u, side = parse_label(name_s)[:2]
-            print v.dtype
-            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
-            print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
+            for name_s, v in atlas_volumes.iteritems():
+                name_u, side = parse_label(name_s, singular_as_s=True)[:2]
+                self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
+                print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
 
-            # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
-            for gscene in self.gscenes.values():
-                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+                for gscene in self.gscenes.values():
+                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
     @pyqtSlot()
     def load_unwarped_atlas_volume(self):
@@ -774,7 +867,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
         """
 
-        self.load_atlas_volume(warped=False)
+        self.load_atlas_volume(warped=False, structures=['IC', '7N_L', 'SNR_L', 'Sp5C_L', '7N_R', 'SNR_R', 'Sp5C_R'])
+
+    @pyqtSlot()
+    def load_unwarped_structure(self):
+        """
+        Load particular structures from warped atlas.
+        """
+        possible_structures_to_load = all_known_structures_sided
+        selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
+   "list of structures", possible_structures_to_load, 0, False)
+        if ok and selected_structure:
+            self.load_atlas_volume(warped=False, structures=[str(selected_structure)])
 
     @pyqtSlot()
     def load_warped_atlas_volume(self):
@@ -801,7 +905,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Load prob. 3-d structures from file.
         """
 
-        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if self.prep_id == 3:
+            structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_THALAMUS_ROOTDIR, self.stack)))
+        else:
+            structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+
         if structures_df_fp == '':
             return
 
@@ -836,7 +944,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         The structure file stores a table: rows are structure IDs, columns are 3D structure properties.
         """
 
-        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if self.prep_id == 3:
+            structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_THALAMUS_ROOTDIR, self.stack)))
+        else:
+            structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+
         if structures_df_fp == '':
             return
         structure_df = load_hdf_v2(structures_df_fp)
@@ -888,7 +1000,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         The contour file stores a table: rows are contour IDs, columns are polygon properties.
         """
 
-        sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+        if self.prep_id == 3:
+            sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_THALAMUS_ROOTDIR, self.stack)))
+        else:
+            sagittal_contours_df_fp = str(QFileDialog.getOpenFileName(self, "Choose sagittal contour annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
+
         if sagittal_contours_df_fp == '':
             return
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
@@ -1117,7 +1233,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     new_structure_df.loc[struct_id]['bbox'] = structure_entry['bbox']
                     new_structure_df.loc[struct_id]['edits'] = structure_entry['edits']
 
-                new_structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m='atlasV3',
+                if self.prep_id == 3: # thalamus
+                    new_structure_df_fp = DataManager.get_annotation_thalamus_filepath(stack=self.stack, by_human=False, stack_m='atlasV3',
+                                                                       classifier_setting_m=37,
+                                                                      classifier_setting_f=37,
+                                                                      warp_setting=8, suffix='structures', timestamp=timestamp)
+                else:
+                    new_structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m='atlasV3',
                                                                        classifier_setting_m=37,
                                                                       classifier_setting_f=37,
                                                                       warp_setting=8, suffix='structures', timestamp=timestamp)

@@ -239,7 +239,7 @@ class DataManager(object):
                                               return_locations=False):
 
         from learning_utilities import grid_parameters_to_sample_locations
-        
+
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
 
@@ -248,20 +248,20 @@ class DataManager(object):
          in notebook `learning/identify_patch_class_from_labeling`")
         else:
             grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
-            
+
             locations_lookup = defaultdict(lambda: defaultdict(list))
-            
+
             if not return_locations:
                 return grid_indices_lookup
             else:
                 grids_to_locations = grid_parameters_to_sample_locations(win_id=win_id, stack=stack)
-                
+
                 for sec, indices_this_sec in grid_indices_lookup.iterrows():
                     for label, indices in indices_this_sec.dropna(how='all').iteritems():
                         locations_lookup[label][sec] = [grids_to_locations[i] for i in indices]
-            
+
             return DataFrame(locations_lookup)
-                                
+
 
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
@@ -861,7 +861,7 @@ class DataManager(object):
 
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-        
+
         if stack_f is None:
             assert warp_setting is None
             vol_name = basename_m
@@ -872,7 +872,7 @@ class DataManager(object):
 
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-            
+
         return vol_name
 
     @staticmethod
@@ -2605,7 +2605,8 @@ class DataManager(object):
                                                     include_surround=False,
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
-                                                     common_shape=True):
+                                                     common_shape=True,
+                                                     return_origin_instead_of_bbox=True):
         """
         Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
 
@@ -2660,7 +2661,6 @@ class DataManager(object):
                     label_to_structure[index] = structure
                     index += 1
 
-
             except Exception as e:
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
@@ -2673,10 +2673,20 @@ class DataManager(object):
             else:
                 return volumes_normalized, common_bbox
         else:
+            # if return_label_mappings:
+            #     return volumes, structure_to_label, label_to_structure
+            # else:
+            #     return volumes
             if return_label_mappings:
-                return volumes, structure_to_label, label_to_structure
+                if return_origin_instead_of_bbox:
+                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
+                else:
+                    raise
             else:
-                return volumes
+                if return_origin_instead_of_bbox:
+                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}
+                else:
+                    raise
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
@@ -3139,7 +3149,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_dnn_features_filepath_v2(stack, prep_id, win_id, 
+    def get_dnn_features_filepath_v2(stack, prep_id, win_id,
                               normalization_scheme,
                                              model_name, what='features',
                                     sec=None, fn=None, timestamp=None):
@@ -3147,73 +3157,73 @@ class DataManager(object):
         Args:
             what (str): "features" or "locations"
         """
-        
+
         if timestamp == 'now':
             timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
-        
+
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         prep_str = 'prep%(prep)d' % {'prep':prep_id}
         win_str = 'win%(win)d' % {'win':win_id}
-            
+
         feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
                     stack + '_' + prep_str + '_' + normalization_scheme + '_' + win_str,
             fn + '_' + prep_str + '_' + normalization_scheme + '_' + win_str + '_' + model_name + '_' + what + ('_%s'%timestamp if timestamp is not None else '') + '.bp')
-        
+
         return feature_fp
-    
+
     @staticmethod
-    def load_dnn_features_v2(stack, prep_id, win_id, 
+    def load_dnn_features_v2(stack, prep_id, win_id,
                               normalization_scheme,
                              model_name, sec=None, fn=None):
         """
         Args:
             win (int): the spacing/size scheme
-            
+
         Returns:
             (features, patch center locations wrt prep=2 images)
-            
+
         Note: `mean_img` is assumed to be the default provided by mxnet.
         """
-        
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features')
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
         features = bp.unpack_ndarray_file(features_fp)
-        
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations')
         download_from_s3(locations_fp)
         locations = np.loadtxt(locations_fp).astype(np.int)
-        
+
         return features, locations
 
 
     @staticmethod
-    def save_dnn_features_v2(features, locations, stack, 
+    def save_dnn_features_v2(features, locations, stack,
                              win_id, normalization_scheme, model_name, sec=None, fn=None, timestamp=None):
         """
         Args:
             features ((n,1024) array of float):
             locations ((n,2) array of int): list of (x,y) coordinates relative to prep=2 image. This matches the features list.
         """
-                
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
+
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features', timestamp=timestamp)
         create_parent_dir_if_not_exists(features_fp)
         bp.pack_ndarray_file(features, features_fp)
         upload_to_s3(features_fp)
-        
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
+
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations', timestamp=timestamp)
         np.savetxt(locations_fp, locations, fmt='%d')
-        upload_to_s3(locations_fp)        
-        
+        upload_to_s3(locations_fp)
+
 #     @staticmethod
 #     def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
 #         """
@@ -3278,8 +3288,8 @@ class DataManager(object):
 #             pass
 
 #         return bp.unpack_ndarray_file(features_fp)
-    
-        
+
+
 
 
     ##################

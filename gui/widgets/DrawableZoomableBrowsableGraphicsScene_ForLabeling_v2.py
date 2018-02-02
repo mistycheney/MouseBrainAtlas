@@ -87,6 +87,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.hline.setVisible(False)
             self.vline.setVisible(False)
 
+        elif mode == 'global_rotate3d' or mode == 'global_shift3d':
+            self.gview.setDragMode(QGraphicsView.NoDrag)
+
     # def set_structure_volumes(self, structure_volumes):
     #     """
     #     Args:
@@ -376,26 +379,27 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif wrt == 'sagittal':
             p_wrt_wholebrain_um = p_um + self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
         elif wrt == 'coronal':
-            z_wrt_wholebrain_um = self.data_feeder.z_dim - 1 - p_um[..., 0] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
+            z_wrt_wholebrain_um = self.data_feeder.z_dim * planar_resolution[self.gui.stack] * self.data_feeder.downsample - p_um[..., 0] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
             y_wrt_wholebrain_um = p_um[..., 1] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][1] * 32. * planar_resolution[self.gui.stack]
             x_wrt_wholebrain_um = p_um[..., 2] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][0] * 32. * planar_resolution[self.gui.stack]
             p_wrt_wholebrain_um = np.column_stack([x_wrt_wholebrain_um, y_wrt_wholebrain_um, z_wrt_wholebrain_um])
         elif wrt == 'horizontal':
             x_wrt_wholebrain_um = p_um[..., 0] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][0] * 32. * planar_resolution[self.gui.stack]
-            z_wrt_wholebrain_um = self.data_feeder.z_dim - 1 - p_um[..., 1] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
+            z_wrt_wholebrain_um = self.data_feeder.z_dim * planar_resolution[self.gui.stack] * self.data_feeder.downsample - p_um[..., 1] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
             y_wrt_wholebrain_um = p_um[..., 2] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][1] * 32. * planar_resolution[self.gui.stack]
             p_wrt_wholebrain_um = np.column_stack([x_wrt_wholebrain_um, y_wrt_wholebrain_um, z_wrt_wholebrain_um])
 
         # if is2d:
         #     return p_wrt_wholebrain_um[..., :2]
         # else:
-        return p_wrt_wholebrain_um
+        return np.squeeze(p_wrt_wholebrain_um)
 
     def convert_from_wholebrain_um(self, p_wrt_wholebrain_um, wrt, resolution):
         """
         """
 
         p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
+        # print p_wrt_wholebrain_um
 
         # p_wrt_wholebrain_um = np.atleast_2d(p_wrt_wholebrain_um)
         assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3
@@ -412,14 +416,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             p_wrt_outdomain_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
         elif wrt == 'coronal':
             p_wrt_imageorigin_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
-            x_wrt_outdomain_um = self.data_feeder.z_dim - 1 - p_wrt_imageorigin_um[..., 2]
+            x_wrt_outdomain_um = self.data_feeder.z_dim * planar_resolution[self.gui.stack] * self.data_feeder.downsample - p_wrt_imageorigin_um[..., 2]
             y_wrt_outdomain_um = p_wrt_imageorigin_um[..., 1]
             z_wrt_outdomain_um = p_wrt_imageorigin_um[..., 0]
             p_wrt_outdomain_um = np.column_stack([x_wrt_outdomain_um, y_wrt_outdomain_um, z_wrt_outdomain_um])
         elif wrt == 'horizontal':
             p_wrt_imageorigin_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
             x_wrt_outdomain_um = p_wrt_imageorigin_um[..., 0]
-            y_wrt_outdomain_um = self.data_feeder.z_dim - 1 - p_wrt_imageorigin_um[..., 2]
+            y_wrt_outdomain_um = self.data_feeder.z_dim * planar_resolution[self.gui.stack] * self.data_feeder.downsample - p_wrt_imageorigin_um[..., 2]
             z_wrt_outdomain_um = p_wrt_imageorigin_um[..., 1]
             p_wrt_outdomain_um = np.column_stack([x_wrt_outdomain_um, y_wrt_outdomain_um, z_wrt_outdomain_um])
 
@@ -435,7 +439,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # if is2d:
         #     return p_wrt_outdomain_outResol[..., :2]
         # else:
-        return p_wrt_outdomain_outResol
+        return np.squeeze(p_wrt_outdomain_outResol)
 
     def convert_coordinate_system_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution):
         """
@@ -1622,12 +1626,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).show_next(cycle=cycle)
         assert all(['label' in p.properties for p in self.drawings[self.active_i]])
 
-    def get_imageData_origin_wrt_wholebrain_tbResol(self):
-        """
-        Get the appropriate coordinate origin for this gscene.
-        The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
-        """
-        return self.gui.image_origin_wrt_wholebrain_tbResol[self.id]
+    # def get_imageData_origin_wrt_wholebrain_tbResol(self):
+    #     """
+    #     Get the appropriate coordinate origin for this gscene.
+    #     The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
+    #     """
+    #     return self.gui.image_origin_wrt_wholebrain_tbResol[self.id]
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1823,7 +1827,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             curr_mouse_x_wrt_imageData_gsceneResol = pos.x()
             curr_mouse_y_wrt_imageData_gsceneResol = pos.y()
 
-            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
+            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d':
                 # This only moves the single contour on the current image.
                 # Those contours of the same structure but on other sections are not affected.
 
@@ -1846,6 +1850,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                         tf_mat_combined[0,1], tf_mat_combined[1,1], 0.,
                                         tf_mat_combined[0,3], tf_mat_combined[1,3], 1.)
                     self.active_polygon.setTransform(xform, combine=False)
+
 
             # if self.id == 'sagittal' or self.id == 'sagittal_tb':
             #     active_structure_center_2d_wrt_wholebrain_volResol = np.array((cx_wrt_wholebrain_volResol, cy_wrt_wholebrain_volResol))
@@ -1910,7 +1915,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     gscene_z_lossless = self.active_i * self.data_feeder.downsample
 
-                origin_wrt_wholebrain_losslessResol = self.get_imageData_origin_wrt_wholebrain_tbResol() * 32.
+                origin_wrt_wholebrain_losslessResol = self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32.
 
                 if self.data_feeder.orientation == 'sagittal':
                     cross_x_lossless = gscene_x_lossless + origin_wrt_wholebrain_losslessResol[0]
@@ -2191,13 +2196,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
             print np.rad2deg(theta_ccwise)
             tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise,c=center)
+            print tf.reshape((3,4))
         elif i == 1: # around y axis
             print 'around y axis'
             vec2 = finish[[0,2]] - center[[0,2]]
             vec1 = start[[0,2]] - center[[0,2]]
             theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
             print np.rad2deg(theta_ccwise)
-            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise,c=center)
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=theta_ccwise,c=center)
+            print tf.reshape((3,4))
         elif i == 2: # around z axis
             print 'around z axis'
             vec2 = finish[[0,1]] - center[[0,1]]
@@ -2205,6 +2212,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
             print np.rad2deg(theta_ccwise)
             tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise,c=center)
+            print tf.reshape((3,4))
         else:
             raise
 
@@ -2254,6 +2262,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
 
             if self.mode == 'global_rotate3d':
+
+                print 'press', press_position_wrt_wholebrain_volResol, 'release', release_position_wrt_wholebrain_volResol, 'center', self.global_rotation_center_wrt_wholebrain_volResol
 
                 tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
                 finish=release_position_wrt_wholebrain_volResol,

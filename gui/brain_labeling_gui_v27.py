@@ -624,8 +624,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
 
         print '\nSaved the following contours:'
-        for contour in sagittal_contour_entries_curr_session.iteritems():
-            print contour['name'], contour['side'], contour['section'], len(contour['vertices'])
+        for cid, contour in sagittal_contour_entries_curr_session.iteritems():
+            print contour['name'], contour['side'], 'section =', contour['section'], 'number of vertices =', len(contour['vertices'])
         print '\n'
 
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original_v2(DataFrame(sagittal_contour_entries_curr_session).T,
@@ -764,7 +764,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
                 for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -892,7 +892,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             }
 
             for gscene in self.gscenes.itervalues():
-                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
 
     # @pyqtSlot()
     # def load_structures(self):
@@ -1087,7 +1087,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         for gscene_id in affected_gscenes:
         # for gscene_id in ['sagittal_tb']:
-            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5])
+            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
+            remove_types=['derived_from_atlas', 'intersected'],
+            add_type='intersected')
 
         print '3D structure updated.'
         self.statusBar().showMessage('3D structure updated.')
@@ -1108,7 +1110,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         for gscene_id in affected_gscenes:
         # for gscene_id in ['sagittal']:
-            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5])
+            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
 
         print '3D prob structure updated.'
         self.statusBar().showMessage('3D prob structure updated.')

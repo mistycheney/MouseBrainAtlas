@@ -444,7 +444,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
         return p_wrt_outdomain_outResol
 
-    def update_drawings_from_prob_structure_volume(self, name_u, side, levels=[0.1, 0.25, 0.5, 0.75, 0.99]):
+    def update_drawings_from_prob_structure_volume(self, name_u, side, levels=[0.1, 0.25, 0.5, 0.75, 0.99], remove_types=None, add_type=None):
         """
         Update drawings based on `self.prob_structure_volumes`, which is a reference to the GUI's `prob_structure_volumes`.
         Polygons created by this function has type "derived_from_atlas".
@@ -466,9 +466,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         structure_volume_volResol = self.prob_structure_volumes[(name_u, side)]['volume_in_bbox']
         structure_origin_wrt_wholebrain_volResol = np.array(self.prob_structure_volumes[(name_u, side)]['origin'])
 
-        # data_origin_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(structure_origin_wrt_wholebrain_volResol, in_wrt='wholebrain', in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
-        # structure_origin_wrt_dataVolume_volResol = structure_origin_wrt_wholebrain_volResol - data_origin_wrt_wholebrain_volResol
-        # structure_origin_wrt_dataVolume_dataResol = structure_origin_wrt_dataVolume_volResol * self.prob_structure_volumes_resolution_um / convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
         structure_origin_wrt_dataVolume_dataResol = self.convert_coordinate_system_and_resolution(structure_origin_wrt_wholebrain_volResol, in_wrt='wholebrain', in_resolution='volume', out_wrt='sagittal', out_resolution='image')
 
         if hasattr(self.data_feeder, 'sections'):
@@ -482,7 +479,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
                                                         if p.properties['label'] == name_u and \
                                                         p.properties['side'] == side and \
-                                                        p.properties['type'] == 'derived_from_atlas']
+                                                        p.properties['type'] in remove_types]
                                                     for i in range(len(self.data_feeder.sections))}
             # sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
             # t = time.time()
@@ -492,18 +489,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     if i == self.active_i:
                         self.removeItem(p)
             sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
-
-            # Identify sections affected by new structure.
-            # t = time.time()
-            # sections_used = []
-            # positions_rel_volResol = []
-            # for sec in self.data_feeder.sections:
-            #     pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
-            #     pos_rel_volResol = int(np.round(pos_gl_volResol - structure_origin_wrt_wholebrain_volResol[2]))
-            #     if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
-            #         positions_rel_volResol.append(pos_rel_volResol)
-            #         sections_used.append(sec)
-            # sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
 
             t = time.time()
             sections_used = []
@@ -559,7 +544,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
                                                                 label=name_u, linecolor=level_to_color[level], vertex_radius=8,
                                                                 linewidth=5, section=sec,
-                                                                type='derived_from_atlas',
+                                                                type=add_type,
                                                                 level=level,
                                                                 side=side,
                                                                 side_manually_assigned=False)
@@ -590,7 +575,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             for pos_ds in range(pos_start_ds, pos_end_ds+1):
                 matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
                 if p.properties['label'] == name_u and p.properties['side'] == side and \
-                p.properties['type'] == 'derived_from_atlas']
+                p.properties['type'] in remove_types]
                 for p in matched_unconfirmed_polygons_to_remove:
                     self.drawings[pos_ds].remove(p)
                     if pos_ds == self.active_i:
@@ -619,7 +604,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='derived_from_atlas',
+                                                            type=add_type,
                                                             level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
@@ -645,7 +630,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='derived_from_atlas',
+                                                            type=add_type,
                                                             level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
@@ -673,7 +658,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                             label=name_u,
                                                             linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
                                                             index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                            type='derived_from_atlas',
+                                                            type=add_type,
                                                             level=level,
                                                             side=side,
                                                             side_manually_assigned=False)
@@ -1190,8 +1175,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         if hasattr(self, 'active_polygon') and self.active_polygon.properties['type'] == 'confirmed':
             action_confirmPolygon.setVisible(False)
 
-        action_reconstruct = myMenu.addAction("Update 3D structure")
-        action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using also unconfirmed contours)")
+        action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
+        action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using all contours)")
         action_showInfo = myMenu.addAction("Show contour information")
         action_showReferences = myMenu.addAction("Show reference resources")
 

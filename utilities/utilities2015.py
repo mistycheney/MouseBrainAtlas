@@ -33,8 +33,13 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
-######################################################################
+#####################################################################
 
+def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
+    from datetime import datetime
+    return datetime.now().strftime(fmt)
+
+######################################################################
 
 def rescale_by_resampling(v, scaling):
     if v.ndim == 3:

@@ -256,7 +256,7 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
             return XY_PIXEL_DISTANCE_TB_AXIOSCAN
         else:
             return XY_PIXEL_DISTANCE_TB
-    elif resolution == 'lossless' or resolution == 'down1':
+    elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
         if stack == 'ChatCryoJane201710':
             return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN

@@ -112,7 +112,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         if hasattr(self.data_feeder, 'sections'):
             if section is None:
                 section = self.data_feeder.sections[index]
-            position = DataManager.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True, stack=self.gui.stack)
+            position = DataManager.convert_section_to_z(sec=section, resolution=self.data_feeder.resolution, mid=True, stack=self.gui.stack)
             # z0, z1 = self.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True)
             # position = (z0 + z1) / 2
         else:
@@ -139,13 +139,13 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         if hasattr(self.data_feeder, 'sections'):
             polygon.set_properties('section', section)
-            d_voxel = DataManager.convert_section_to_z(sec=section, downsample=self.data_feeder.downsample, mid=True, stack=self.gui.stack)
-            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            d_voxel = DataManager.convert_section_to_z(sec=section, resolution=self.data_feeder.resolution, mid=True, stack=self.gui.stack)
+            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
             polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um
         else:
             polygon.set_properties('voxel_position', index)
-            d_um = index * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            d_um = index * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
             polygon.set_properties('position_um', d_um)
             # print 'index', index, 'position_um', d_um
 

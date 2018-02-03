@@ -606,9 +606,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         structure_df = DataFrame(entries).T
         if self.prep_id == 3: # thalamus
-            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now', annotation_rootdir=ANNOTATION_THALAMUS_ROOTDIR)
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now', annotation_rootdir=ANNOTATION_THALAMUS_ROOTDIR)
         else:
-            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='probStructures', timestamp='now')
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structures', timestamp='now')
         save_hdf_v2(structure_df, structure_df_fp)
         upload_to_s3(structure_df_fp)
         print 'Probabilistic structures saved to %s.' % structure_df_fp

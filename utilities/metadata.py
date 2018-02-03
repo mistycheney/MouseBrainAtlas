@@ -256,7 +256,7 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
             return XY_PIXEL_DISTANCE_TB_AXIOSCAN
         else:
             return XY_PIXEL_DISTANCE_TB
-    elif resolution == 'lossless' or resolution == 'down1':
+    elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
         if stack == 'ChatCryoJane201710':
             return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
@@ -268,18 +268,18 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
             return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 8.
         else:
             return XY_PIXEL_DISTANCE_LOSSLESS * 8.
-    elif resolution == '10.0um':
-        return 10.
+    elif resolution.endswith('um'):
+        return float(resolution[:-2])
     else:
         print resolution
         raise Exception("Unknown resolution string %s" % resolution)
 
 #################### Name conversions ##################
 
-def parse_label(label):
+def parse_label(label, singular_as_s=False):
     """
     Args:
-        a class label
+        singular_as_s (bool): If true, singular structures have side = 'S', otherwise side = None.
 
     Returns:
         (structure name, side, surround margin, surround structure name)
@@ -292,6 +292,9 @@ def parse_label(label):
     g = m.groups()
     structure_name = g[0]
     side = g[2]
+    if side is None:
+        if singular_as_s:
+            side = 'S'
     surround_margin = g[4]
     surround_structure_name = g[6]
     return structure_name, side, surround_margin, surround_structure_name

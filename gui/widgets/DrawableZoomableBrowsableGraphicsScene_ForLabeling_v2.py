@@ -39,9 +39,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     Used for annotation GUI.
     """
 
-    crossline_updated = pyqtSignal(int, int, int, str)
+    crossline_updated = pyqtSignal(object, str)
     structure_volume_updated = pyqtSignal(str, str, bool, bool)
     prob_structure_volume_updated = pyqtSignal(str, str)
+    global_transform_updated = pyqtSignal(object)
 
     def __init__(self, id, gui=None, gview=None, parent=None):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).__init__(id=id, gview=gview, parent=parent)
@@ -86,266 +87,362 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.hline.setVisible(False)
             self.vline.setVisible(False)
 
-    def set_structure_volumes(self, structure_volumes):
-        """
-        Args:
-            structure_volumes (dict): {structure name: (volume, bbox)}.
-            The volume dimension is the bounding box of the structure. Thumbnail resolution.
-            Bbox coordinates are relative to the cropped volume.
-        """
+        elif mode == 'global_rotate3d' or mode == 'global_shift3d':
+            self.gview.setDragMode(QGraphicsView.NoDrag)
 
-        self.structure_volumes = structure_volumes
+    # def set_structure_volumes(self, structure_volumes):
+    #     """
+    #     Args:
+    #         structure_volumes (dict): {structure name: (volume, bbox)}.
+    #         The volume dimension is the bounding box of the structure. Thumbnail resolution.
+    #         Bbox coordinates are relative to the cropped volume.
+    #     """
+    #
+    #     self.structure_volumes = structure_volumes
 
     def set_prob_structure_volumes(self, structure_volumes):
         """
         Args:
         """
-
         self.prob_structure_volumes = structure_volumes
 
-    def set_structure_volumes_downscale_factor(self, downscale):
-        sys.stderr.write('Set structure volumes downscale to %d\n' % downscale)
-        self.structure_volumes_downscale_factor = downscale
+    def set_prob_structure_volumes_resolution(self, um):
+        sys.stderr.write('Set probalistic structure volumes resolution to %.1f um\n' % um)
+        self.prob_structure_volumes_resolution_um = um
 
-    def set_prob_structure_volumes_downscale_factor(self, downscale):
-        sys.stderr.write('Set probalistci structure volumes downscale to %d\n' % downscale)
-        self.prob_structure_volumes_downscale_factor = downscale
+    # def update_drawings_from_structure_volume(self, name_u, side):
+    #     """
+    #     Update drawings based on `self.structure_volumes`, which is a reference to the GUI's `structure_volumes`.
+    #
+    #     Args:
+    #         name_u (str): structure name, unsided
+    #         side (str): L, R or S
+    #     """
+    #
+    #     print "%s: Updating drawings based on structure volume of %s, %s" % (self.id, name_u, side)
+    #
+    #     volume_volResol = self.structure_volumes[(name_u, side)]['volume_in_bbox']
+    #     structure_bbox_wrt_wholebrain_volResol = np.array(self.structure_volumes[(name_u, side)]['bbox'])
+    #     structure_origin_wrt_wholebrain_volResol = structure_bbox_wrt_wholebrain_volResol[[0,2,4]]
+    #
+    #     data_origin_wrt_wholebrain_dataResol = self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. / self.data_feeder.downsample
+    #     data_origin_wrt_wholebrain_volResol = data_origin_wrt_wholebrain_dataResol * self.data_feeder.downsample / float(self.structure_volumes_downscale_factor)
+    #     internal_structure_origin_wrt_dataVolume_volResol = structure_origin_wrt_wholebrain_volResol - data_origin_wrt_wholebrain_volResol
+    #     structure_origin_wrt_dataVolume_dataResol = internal_structure_origin_wrt_dataVolume_volResol * float(self.structure_volumes_downscale_factor) / self.data_feeder.downsample
+    #
+    #     print 'structure_origin_wrt_dataVolume_dataResol', structure_origin_wrt_dataVolume_dataResol
+    #
+    #     print 'volume (internal vol resol)', volume_volResol.shape, structure_bbox_wrt_wholebrain_volResol
+    #
+    #     volume_downsample_factor = self.structure_volumes_downscale_factor
+    #     bbox_wrt_wholebrain_losslessResol = np.array(structure_bbox_wrt_wholebrain_volResol) * volume_downsample_factor
+    #
+    #     data_vol_downsample_ratio = float(self.data_feeder.downsample) / volume_downsample_factor
+    #     print 'Downsample from image data to internal volume representation =', data_vol_downsample_ratio
+    #
+    #     if data_vol_downsample_ratio > 1:
+    #         volume_dataResol = volume_volResol[::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio)]
+    #         bbox_wrt_wholebrain_dataResol = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
+    #         # xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
+    #         print 'volume (data resol)', volume_dataResol.shape, bbox_wrt_wholebrain_dataResol
+    #
+    #     if hasattr(self.data_feeder, 'sections'):
+    #
+    #         assert self.data_feeder.orientation == 'sagittal', "Current implementation only considers sagittal sections."
+    #
+    #         print "Removing all unconfirmed polygons..."
+    #
+    #         t = time.time()
+    #
+    #         for i in range(len(self.data_feeder.sections)):
+    #             for p in self.drawings[i]:
+    #                 assert 'label' in p.properties, "ERROR! polygon has no label i=%d, sec=%d" % (i, self.data_feeder.sections[i])
+    #
+    #         # Find all unconfirmed polygons. These are to be removed.
+    #         matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
+    #                                                     if p.properties['label'] == name_u and \
+    #                                                     p.properties['side'] == side and \
+    #                                                     p.properties['type'] == 'intersected' or p.properties['type'] == 'interpolated']
+    #                                                 for i in range(len(self.data_feeder.sections))}
+    #         sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
+    #
+    #         # Remove all unconfirmed polygons from graphicscene.
+    #         t = time.time()
+    #         for i in range(len(self.data_feeder.sections)):
+    #             for p in matched_unconfirmed_polygons_to_remove[i]:
+    #                 self.drawings[i].remove(p)
+    #                 if i == self.active_i:
+    #                     self.removeItem(p)
+    #         sys.stderr.write("Remove unconfirmed polygons from graphicscene: %.2f seconds\n" % (time.time()-t))
+    #
+    #         # Identify sections affected by new structure.
+    #         # t = time.time()
+    #         # sections_used = []
+    #         # positions_rel_volResol = []
+    #         # for sec in self.data_feeder.sections:
+    #         #     pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
+    #         #     pos_rel_volResol = int(np.round(pos_gl_volResol - structure_origin_wrt_wholebrain_volResol[2]))
+    #         #     if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
+    #         #         positions_rel_volResol.append(pos_rel_volResol)
+    #         #         sections_used.append(sec)
+    #         # sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
+    #
+    #         t = time.time()
+    #         sections_used = []
+    #         positions_wrt_internalStructureVolume_volResol = []
+    #         for sec in self.data_feeder.sections:
+    #             pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True, stack=self.gui.stack, z_begin=0)
+    #             pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - structure_origin_wrt_wholebrain_volResol[2]))
+    #             if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
+    #                 positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
+    #                 sections_used.append(sec)
+    #         sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
+    #
+    #         # Compute contours of new structure on these sections
+    #         t = time.time()
+    #         sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
+    #         print self.id, 'sample_every =', sample_every
+    #
+    #         gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol, along_direction='z', sample_every=sample_every,
+    #                                                                 positions=positions_wrt_internalStructureVolume_volResol)
+    #
+    #         sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
+    #         t = time.time()
+    #         m = dict(zip(positions_wrt_internalStructureVolume_volResol, sections_used))
+    #         gscene_pts_wrt_internalStructureVolume_volResol_allsec = {m[pos_wrt_internalStructureVolume_volResol]: pts_wrt_internalStructureVolume_volResol \
+    #                                             for pos_wrt_internalStructureVolume_volResol, pts_wrt_internalStructureVolume_volResol \
+    #                                             in gscene_pts_wrt_internalStructureVolume_volResol_allpos.iteritems()}
+    #         sys.stderr.write("Compute contours of new structure on these sections 2: %.2f seconds\n" % (time.time()-t))
+    #
+    #         t = time.time()
+    #         for sec, gscene_pts_wrt_internalStructureVolume_volResol in gscene_pts_wrt_internalStructureVolume_volResol_allsec.iteritems():
+    #
+    #             print sec, gscene_pts_wrt_internalStructureVolume_volResol[0]
+    #
+    #             # if this section already has a confirmed contour, do not add a new one.
+    #             if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+    #             p.properties['type'] == 'confirmed' for p in self.drawings[self.data_feeder.sections.index(sec)]]):
+    #                 continue
+    #
+    #             try:
+    #                 # gscene_xs_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,0] + structure_origin_wrt_wholebrain_volResol[0]
+    #                 # gscene_ys_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,1] + structure_origin_wrt_wholebrain_volResol[1]
+    #                 # gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
+    #                 # gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
+    #
+    #                 gscene_pts_wrt_internalStructureVolume_dataResol = gscene_pts_wrt_internalStructureVolume_volResol *  self.structure_volumes_downscale_factor / self.data_feeder.downsample
+    #                 gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[0]
+    #                 gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
+    #                 gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
+    #
+    #                 # t = time.time()
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
+    #                                                         label=name_u, linecolor='r', vertex_radius=8, linewidth=5, section=sec,
+    #                                                         type='intersected',
+    #                                                         side=side,
+    #                                                         side_manually_assigned=False)
+    #             except Exception as e:
+    #                 sys.stderr.write("Error adding polygon, sec %d: %s\n" % (sec, e))
+    #
+    #             # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
+    #         sys.stderr.write("Add polygons: %.2f seconds\n" % (time.time()-t))
+    #
+    #     else:
+    #
+    #         if self.data_feeder.orientation == 'sagittal':
+    #             pos_start_ds = 0
+    #             pos_end_ds = self.data_feeder.z_dim - 1
+    #         elif self.data_feeder.orientation == 'coronal':
+    #             pos_start_ds = 0
+    #             pos_end_ds = self.data_feeder.x_dim - 1
+    #         elif self.data_feeder.orientation == 'horizontal':
+    #             pos_start_ds = 0
+    #             pos_end_ds = self.data_feeder.y_dim - 1
+    #
+    #         print "Removing all unconfirmed polygons..."
+    #         for pos_ds in range(pos_start_ds, pos_end_ds+1):
+    #             matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
+    #             if p.properties['label'] == name_u and p.properties['side'] == side and \
+    #             p.properties['type'] == 'intersected' or p.properties['type'] == 'interpolated']
+    #             for p in matched_unconfirmed_polygons_to_remove:
+    #                 self.drawings[pos_ds].remove(p)
+    #                 if pos_ds == self.active_i:
+    #                     self.removeItem(p)
+    #
+    #         # volume_data_resol is the structure in bbox.
+    #         if self.data_feeder.orientation == 'coronal':
+    #             gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='x', sample_every=1)
+    #             # Note that find_contour_points_3d returns (z, y) where z is counted from bottom up.
+    #
+    #             for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
+    #                 gscene_xs_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[2])
+    #                 gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
+    #                 gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
+    #                 pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[0]
+    #
+    #                 # if this position already has a confirmed contour, do not add a new one.
+    #                 if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+    #                 p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
+    #                     continue
+    #
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
+    #                                                     label=name_u,
+    #                                                     linecolor='g', vertex_radius=1, linewidth=2,
+    #                                                     index=int(np.round(pos_wrt_dataVolume_dataResol)),
+    #                                                     type='intersected',
+    #                                                     side=side,
+    #                                                     side_manually_assigned=False)
+    #
+    #         elif self.data_feeder.orientation == 'horizontal':
+    #
+    #             gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='y', sample_every=1)
+    #             # Note that find_contour_points_3d returns (z, x) where z is counted from bottom up.
+    #
+    #             for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
+    #                 gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[0]
+    #                 gscene_ys_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[2])
+    #                 gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
+    #                 pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[1]
+    #
+    #                 # if this position already has a confirmed contour, do not add a new one.
+    #                 if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+    #                 p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
+    #                     continue
+    #
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
+    #                                                     label=name_u,
+    #                                                     linecolor='g', vertex_radius=1, linewidth=2,
+    #                                                     index=int(np.round(pos_wrt_dataVolume_dataResol)),
+    #                                                     type='intersected',
+    #                                                     side=side,
+    #                                                     side_manually_assigned=False)
+    #
+    #         elif self.data_feeder.orientation == 'sagittal':
+    #             # pos means z-voxel index for sagittal
+    #
+    #             gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='z', sample_every=1)
+    #
+    #             for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
+    #
+    #                 gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[0]
+    #                 gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
+    #                 gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
+    #                 pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[2]
+    #
+    #                 # if this position already has a confirmed contour, do not add a new one.
+    #                 if any([p.properties['label'] == name_u and p.properties['side'] == side and \
+    #                 p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
+    #                     continue
+    #
+    #                 self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
+    #                                                     label=name_u,
+    #                                                     linecolor='g', vertex_radius=1, linewidth=2,
+    #                                                     index=int(np.round(pos_wrt_dataVolume_dataResol)),
+    #                                                     type='intersected',
+    #                                                     side=side,
+    #                                                     side_manually_assigned=False)
+    #                 # except Exception as e:
+    #                 #     raise e
+    #                     # sys.stderr.write("Error adding polygon, pos %d (wrt dataVolume, dataResol): %s\n" % (pos_wrt_dataVolume_dataResol, e))
 
-    def update_drawings_from_structure_volume(self, name_u, side):
-        """
-        Update drawings based on `self.structure_volumes`, which is a reference to the GUI's `structure_volumes`.
+    def convert_to_wholebrain_um(self, p, wrt, resolution):
 
-        Args:
-            name_u (str): structure name, unsided
-            side (str): L, R or S
-        """
+        p = np.array(p)
+        assert np.atleast_2d(p).shape[1] == 3
 
-        print "%s: Updating drawings based on structure volume of %s, %s" % (self.id, name_u, side)
-
-        volume_volResol = self.structure_volumes[(name_u, side)]['volume_in_bbox']
-        internal_structure_bbox_wrt_wholebrain_volResol = np.array(self.structure_volumes[(name_u, side)]['bbox'])
-        internal_structure_origin_wrt_wholebrain_volResol = internal_structure_bbox_wrt_wholebrain_volResol[[0,2,4]]
-
-        data_origin_wrt_wholebrain_dataResol = self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. / self.data_feeder.downsample
-        data_origin_wrt_wholebrain_volResol = data_origin_wrt_wholebrain_dataResol * self.data_feeder.downsample / float(self.structure_volumes_downscale_factor)
-        internal_structure_origin_wrt_dataVolume_volResol = internal_structure_origin_wrt_wholebrain_volResol - data_origin_wrt_wholebrain_volResol
-        internal_structure_origin_wrt_dataVolume_dataResol = internal_structure_origin_wrt_dataVolume_volResol * float(self.structure_volumes_downscale_factor) / self.data_feeder.downsample
-
-        print 'internal_structure_origin_wrt_dataVolume_dataResol', internal_structure_origin_wrt_dataVolume_dataResol
-
-        print 'volume (internal vol resol)', volume_volResol.shape, internal_structure_bbox_wrt_wholebrain_volResol
-
-        volume_downsample_factor = self.structure_volumes_downscale_factor
-        bbox_wrt_wholebrain_losslessResol = np.array(internal_structure_bbox_wrt_wholebrain_volResol) * volume_downsample_factor
-
-        data_vol_downsample_ratio = float(self.data_feeder.downsample) / volume_downsample_factor
-        print 'Downsample from image data to internal volume representation =', data_vol_downsample_ratio
-
-        if data_vol_downsample_ratio > 1:
-            volume_dataResol = volume_volResol[::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio)]
-            bbox_wrt_wholebrain_dataResol = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
-            # xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
-            print 'volume (data resol)', volume_dataResol.shape, bbox_wrt_wholebrain_dataResol
-
-        if hasattr(self.data_feeder, 'sections'):
-
-            assert self.data_feeder.orientation == 'sagittal', "Current implementation only considers sagittal sections."
-
-            print "Removing all unconfirmed polygons..."
-
-            t = time.time()
-
-            for i in range(len(self.data_feeder.sections)):
-                for p in self.drawings[i]:
-                    assert 'label' in p.properties, "ERROR! polygon has no label i=%d, sec=%d" % (i, self.data_feeder.sections[i])
-
-            # Find all unconfirmed polygons. These are to be removed.
-            matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
-                                                        if p.properties['label'] == name_u and \
-                                                        p.properties['side'] == side and \
-                                                        p.properties['type'] == 'intersected' or p.properties['type'] == 'interpolated']
-                                                    for i in range(len(self.data_feeder.sections))}
-            sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
-
-            # Remove all unconfirmed polygons from graphicscene.
-            t = time.time()
-            for i in range(len(self.data_feeder.sections)):
-                for p in matched_unconfirmed_polygons_to_remove[i]:
-                    self.drawings[i].remove(p)
-                    if i == self.active_i:
-                        self.removeItem(p)
-            sys.stderr.write("Remove unconfirmed polygons from graphicscene: %.2f seconds\n" % (time.time()-t))
-
-            # Identify sections affected by new structure.
-            # t = time.time()
-            # sections_used = []
-            # positions_rel_volResol = []
-            # for sec in self.data_feeder.sections:
-            #     pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
-            #     pos_rel_volResol = int(np.round(pos_gl_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
-            #     if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
-            #         positions_rel_volResol.append(pos_rel_volResol)
-            #         sections_used.append(sec)
-            # sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
-
-            t = time.time()
-            sections_used = []
-            positions_wrt_internalStructureVolume_volResol = []
-            for sec in self.data_feeder.sections:
-                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True, stack=self.gui.stack, z_begin=0)
-                pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
-                if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
-                    positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
-                    sections_used.append(sec)
-            sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
-
-            # Compute contours of new structure on these sections
-            t = time.time()
-            sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
-            print self.id, 'sample_every =', sample_every
-
-            gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol, along_direction='z', sample_every=sample_every,
-                                                                    positions=positions_wrt_internalStructureVolume_volResol)
-
-            sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
-            t = time.time()
-            m = dict(zip(positions_wrt_internalStructureVolume_volResol, sections_used))
-            gscene_pts_wrt_internalStructureVolume_volResol_allsec = {m[pos_wrt_internalStructureVolume_volResol]: pts_wrt_internalStructureVolume_volResol \
-                                                for pos_wrt_internalStructureVolume_volResol, pts_wrt_internalStructureVolume_volResol \
-                                                in gscene_pts_wrt_internalStructureVolume_volResol_allpos.iteritems()}
-            sys.stderr.write("Compute contours of new structure on these sections 2: %.2f seconds\n" % (time.time()-t))
-
-            t = time.time()
-            for sec, gscene_pts_wrt_internalStructureVolume_volResol in gscene_pts_wrt_internalStructureVolume_volResol_allsec.iteritems():
-
-                print sec, gscene_pts_wrt_internalStructureVolume_volResol[0]
-
-                # if this section already has a confirmed contour, do not add a new one.
-                if any([p.properties['label'] == name_u and p.properties['side'] == side and \
-                p.properties['type'] == 'confirmed' for p in self.drawings[self.data_feeder.sections.index(sec)]]):
-                    continue
-
-                try:
-                    # gscene_xs_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,0] + internal_structure_origin_wrt_wholebrain_volResol[0]
-                    # gscene_ys_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,1] + internal_structure_origin_wrt_wholebrain_volResol[1]
-                    # gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
-                    # gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
-
-                    gscene_pts_wrt_internalStructureVolume_dataResol = gscene_pts_wrt_internalStructureVolume_volResol *  self.structure_volumes_downscale_factor / self.data_feeder.downsample
-                    gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                    gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
-                    gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-
-                    # t = time.time()
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
-                                                            label=name_u, linecolor='r', vertex_radius=8, linewidth=5, section=sec,
-                                                            type='intersected',
-                                                            side=side,
-                                                            side_manually_assigned=False)
-                except Exception as e:
-                    sys.stderr.write("Error adding polygon, sec %d: %s\n" % (sec, e))
-
-                # sys.stderr.write("Add polygon and vertices: %.2f seconds.\n" % (time.time()-t))
-            sys.stderr.write("Add polygons: %.2f seconds\n" % (time.time()-t))
-
+        if resolution == 'image':
+            p_um = p * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+        elif resolution == 'image_image_index':
+            uv_um = p[..., :2] * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+            i_um = np.array([SECTION_THICKNESS * self.data_feeder.sections[int(idx)] for idx in p[..., 2]])
+            p_um = np.column_stack([uv_um, i_um])
+        elif resolution == 'volume':
+            p_um = p * self.prob_structure_volumes_resolution_um
+        elif resolution == 'raw':
+            p_um = p * planar_resolution[self.gui.stack]
+        elif resolution == 'down32':
+            p_um = p * (planar_resolution[self.gui.stack] * 32.)
         else:
+            raise
 
-            if self.data_feeder.orientation == 'sagittal':
-                pos_start_ds = 0
-                pos_end_ds = self.data_feeder.z_dim - 1
-            elif self.data_feeder.orientation == 'coronal':
-                pos_start_ds = 0
-                pos_end_ds = self.data_feeder.x_dim - 1
-            elif self.data_feeder.orientation == 'horizontal':
-                pos_start_ds = 0
-                pos_end_ds = self.data_feeder.y_dim - 1
+        if wrt == 'wholebrain':
+            p_wrt_wholebrain_um = p_um
+        elif wrt == 'sagittal':
+            p_wrt_wholebrain_um = p_um + self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
+        elif wrt == 'coronal':
+            z_wrt_wholebrain_um = self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution) - p_um[..., 0] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
+            y_wrt_wholebrain_um = p_um[..., 1] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][1] * 32. * planar_resolution[self.gui.stack]
+            x_wrt_wholebrain_um = p_um[..., 2] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][0] * 32. * planar_resolution[self.gui.stack]
+            p_wrt_wholebrain_um = np.column_stack([x_wrt_wholebrain_um, y_wrt_wholebrain_um, z_wrt_wholebrain_um])
+        elif wrt == 'horizontal':
+            x_wrt_wholebrain_um = p_um[..., 0] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][0] * 32. * planar_resolution[self.gui.stack]
+            z_wrt_wholebrain_um = self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution) - p_um[..., 1] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][2] * 32. * planar_resolution[self.gui.stack]
+            y_wrt_wholebrain_um = p_um[..., 2] + self.gui.image_origin_wrt_wholebrain_tbResol[self.id][1] * 32. * planar_resolution[self.gui.stack]
+            p_wrt_wholebrain_um = np.column_stack([x_wrt_wholebrain_um, y_wrt_wholebrain_um, z_wrt_wholebrain_um])
+        else:
+            raise
 
-            print "Removing all unconfirmed polygons..."
-            for pos_ds in range(pos_start_ds, pos_end_ds+1):
-                matched_unconfirmed_polygons_to_remove = [p for p in self.drawings[pos_ds] \
-                if p.properties['label'] == name_u and p.properties['side'] == side and \
-                p.properties['type'] == 'intersected' or p.properties['type'] == 'interpolated']
-                for p in matched_unconfirmed_polygons_to_remove:
-                    self.drawings[pos_ds].remove(p)
-                    if pos_ds == self.active_i:
-                        self.removeItem(p)
+        return np.squeeze(p_wrt_wholebrain_um)
 
-            # volume_data_resol is the structure in bbox.
-            if self.data_feeder.orientation == 'coronal':
-                gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='x', sample_every=1)
-                # Note that find_contour_points_3d returns (z, y) where z is counted from bottom up.
+    def convert_from_wholebrain_um(self, p_wrt_wholebrain_um, wrt, resolution):
 
-                for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
-                    gscene_xs_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[2])
-                    gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
-                    gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                    pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[0]
+        p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
+        assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3
 
-                    # if this position already has a confirmed contour, do not add a new one.
-                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
-                    p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
-                        continue
+        if wrt == 'wholebrain':
+            p_wrt_outdomain_um = p_wrt_wholebrain_um
+        elif wrt == 'sagittal':
+            p_wrt_outdomain_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
+        elif wrt == 'coronal':
+            p_wrt_imageorigin_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
+            x_wrt_outdomain_um = self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) - p_wrt_imageorigin_um[..., 2]
+            y_wrt_outdomain_um = p_wrt_imageorigin_um[..., 1]
+            z_wrt_outdomain_um = p_wrt_imageorigin_um[..., 0]
+            p_wrt_outdomain_um = np.column_stack([x_wrt_outdomain_um, y_wrt_outdomain_um, z_wrt_outdomain_um])
+        elif wrt == 'horizontal':
+            p_wrt_imageorigin_um = p_wrt_wholebrain_um - self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. * planar_resolution[self.gui.stack]
+            x_wrt_outdomain_um = p_wrt_imageorigin_um[..., 0]
+            y_wrt_outdomain_um = self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) - p_wrt_imageorigin_um[..., 2]
+            z_wrt_outdomain_um = p_wrt_imageorigin_um[..., 1]
+            p_wrt_outdomain_um = np.column_stack([x_wrt_outdomain_um, y_wrt_outdomain_um, z_wrt_outdomain_um])
+        else:
+            raise
 
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
-                                                        label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2,
-                                                        index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
+        if resolution == 'image':
+            p_wrt_outdomain_outResol = p_wrt_outdomain_um / convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
+        elif resolution == 'volume':
+            p_wrt_outdomain_outResol = p_wrt_outdomain_um / self.prob_structure_volumes_resolution_um
+        elif resolution == 'raw':
+            p_wrt_outdomain_outResol = p_wrt_outdomain_um / planar_resolution[self.gui.stack]
+        elif resolution == 'down32':
+            p_wrt_outdomain_outResol = p_wrt_outdomain_um / (planar_resolution[self.gui.stack] * 32.)
+        else:
+            raise
 
-            elif self.data_feeder.orientation == 'horizontal':
+        return np.squeeze(p_wrt_outdomain_outResol)
 
-                gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='y', sample_every=1)
-                # Note that find_contour_points_3d returns (z, x) where z is counted from bottom up.
+    def convert_coordinate_system_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution):
+        """
+        `wrt` can be any of:
+        - wholebrain
+        - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
 
-                for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
-                    gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                    gscene_ys_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[2])
-                    gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                    pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[1]
+        `resolution` can be any of:
+        - raw
+        - down32
+        - vol
+        - image: gscene resolution, determined by data_feeder.resolution
+        - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
+        """
 
-                    # if this position already has a confirmed contour, do not add a new one.
-                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
-                    p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
-                        continue
-
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
-                                                        label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2,
-                                                        index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
-
-            elif self.data_feeder.orientation == 'sagittal':
-                # pos means z-voxel index for sagittal
-
-                gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol, along_direction='z', sample_every=1)
-
-                for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
-
-                    gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                    gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
-                    gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                    pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[2]
-
-                    # if this position already has a confirmed contour, do not add a new one.
-                    if any([p.properties['label'] == name_u and p.properties['side'] == side and \
-                    p.properties['type'] == 'confirmed' for p in self.drawings[pos_wrt_dataVolume_dataResol]]):
-                        continue
-
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(gscene_pts_wrt_dataVolume_dataResol),
-                                                        label=name_u,
-                                                        linecolor='g', vertex_radius=1, linewidth=2,
-                                                        index=int(np.round(pos_wrt_dataVolume_dataResol)),
-                                                        type='intersected',
-                                                        side=side,
-                                                        side_manually_assigned=False)
-                    # except Exception as e:
-                    #     raise e
-                        # sys.stderr.write("Error adding polygon, pos %d (wrt dataVolume, dataResol): %s\n" % (pos_wrt_dataVolume_dataResol, e))
-
+        p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution)
+        p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution)
+        # print 'p', p
+        # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
+        # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
+        return p_wrt_outdomain_outResol
 
     def update_drawings_from_prob_structure_volume(self, name_u, side, levels=[0.1, 0.25, 0.5, 0.75, 0.99]):
         """
@@ -363,69 +460,38 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         print "%s: Updating drawings based on prob. structure volume of %s, %s" % (self.id, name_u, side)
 
-        volume_volResol = self.prob_structure_volumes[(name_u, side)]['volume_in_bbox']
-        internal_structure_bbox_wrt_wholebrain_volResol = np.array(self.prob_structure_volumes[(name_u, side)]['bbox'])
-        # internal_structure_bbox_wrt_wholebrainXYCropped_volResol = np.array(self.prob_structure_volumes[(name_u, side)]['bbox'])
-        # print 'internal_structure_bbox_wrt_wholebrainXYCropped_volResol=', internal_structure_bbox_wrt_wholebrainXYCropped_volResol
-        # wholebrainXYCropped_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(self.gui.stack, convert_section_to_z=True)[[0,2,4]]
-        # print 'wholebrainXYCropped_origin_wrt_wholebrain_tbResol=', wholebrainXYCropped_origin_wrt_wholebrain_tbResol
-        # wholebrainXYCropped_origin_wrt_wholebrain_volResol = wholebrainXYCropped_origin_wrt_wholebrain_tbResol * 32. / self.prob_structure_volumes_downscale_factor
-        # print 'wholebrainXYCropped_origin_wrt_wholebrain_volResol=', wholebrainXYCropped_origin_wrt_wholebrain_volResol
-        # internal_structure_bbox_wrt_wholebrain_volResol = internal_structure_bbox_wrt_wholebrainXYCropped_volResol + wholebrainXYCropped_origin_wrt_wholebrain_volResol[[0,0,1,1,2,2]]
-        # print 'internal_structure_bbox_wrt_wholebrain_volResol=', internal_structure_bbox_wrt_wholebrain_volResol
-        # # internal_structure_bbox_wrt_wholebrain_volResol = np.array(self.prob_structure_volumes[(name_u, side)]['bbox'])
-        internal_structure_origin_wrt_wholebrain_volResol = internal_structure_bbox_wrt_wholebrain_volResol[[0,2,4]]
+        if self.prob_structure_volumes[(name_u, side)]['volume_in_bbox'] is None:
+            return
 
-        data_origin_wrt_wholebrain_dataResol = self.gui.image_origin_wrt_wholebrain_tbResol[self.id] * 32. / self.data_feeder.downsample
-        data_origin_wrt_wholebrain_volResol = data_origin_wrt_wholebrain_dataResol * self.data_feeder.downsample / float(self.prob_structure_volumes_downscale_factor)
-        internal_structure_origin_wrt_dataVolume_volResol = internal_structure_origin_wrt_wholebrain_volResol - data_origin_wrt_wholebrain_volResol
-        internal_structure_origin_wrt_dataVolume_dataResol = internal_structure_origin_wrt_dataVolume_volResol * float(self.prob_structure_volumes_downscale_factor) / self.data_feeder.downsample
+        structure_volume_volResol = self.prob_structure_volumes[(name_u, side)]['volume_in_bbox']
+        structure_origin_wrt_wholebrain_volResol = np.array(self.prob_structure_volumes[(name_u, side)]['origin'])
 
-        print 'internal_structure_origin_wrt_dataVolume_dataResol', internal_structure_origin_wrt_dataVolume_dataResol
-        print 'volume (internal vol resol)', volume_volResol.shape, internal_structure_bbox_wrt_wholebrain_volResol
-
-        print 'self.prob_structure_volumes_downscale_factor=', self.prob_structure_volumes_downscale_factor
-
-        volume_downsample_factor = self.prob_structure_volumes_downscale_factor
-        bbox_wrt_wholebrain_losslessResol = np.array(internal_structure_bbox_wrt_wholebrain_volResol) * volume_downsample_factor
-
-        data_vol_downsample_ratio = float(self.data_feeder.downsample) / volume_downsample_factor
-        print 'Downsample from image data to internal volume representation =', data_vol_downsample_ratio
-
-        if data_vol_downsample_ratio >= 1:
-            volume_dataResol = volume_volResol[::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio), ::int(data_vol_downsample_ratio)]
-            bbox_wrt_wholebrain_dataResol = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
-            # xmin_ds, xmax_ds, ymin_ds, ymax_ds, zmin_ds, zmax_ds = np.array(bbox_wrt_wholebrain_losslessResol) / self.data_feeder.downsample
-            print 'volume (data resol)', volume_dataResol.shape, bbox_wrt_wholebrain_dataResol
+        # data_origin_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(structure_origin_wrt_wholebrain_volResol, in_wrt='wholebrain', in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+        # structure_origin_wrt_dataVolume_volResol = structure_origin_wrt_wholebrain_volResol - data_origin_wrt_wholebrain_volResol
+        # structure_origin_wrt_dataVolume_dataResol = structure_origin_wrt_dataVolume_volResol * self.prob_structure_volumes_resolution_um / convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
+        structure_origin_wrt_dataVolume_dataResol = self.convert_coordinate_system_and_resolution(structure_origin_wrt_wholebrain_volResol, in_wrt='wholebrain', in_resolution='volume', out_wrt='sagittal', out_resolution='image')
 
         if hasattr(self.data_feeder, 'sections'):
-
             assert self.data_feeder.orientation == 'sagittal', "Current implementation only considers sagittal sections."
 
-            print "Removing all unconfirmed polygons..."
-
             t = time.time()
-
-            for i in range(len(self.data_feeder.sections)):
-                for p in self.drawings[i]:
-                    assert 'label' in p.properties, "ERROR! polygon has no label i=%d, sec=%d" % (i, self.data_feeder.sections[i])
-
+            # for i in range(len(self.data_feeder.sections)):
+            #     for p in self.drawings[i]:
+            #         assert 'label' in p.properties, "ERROR! polygon has no label i=%d, sec=%d" % (i, self.data_feeder.sections[i])
             # Find all unconfirmed polygons. These are to be removed.
             matched_unconfirmed_polygons_to_remove = {i: [p for p in self.drawings[i] \
                                                         if p.properties['label'] == name_u and \
                                                         p.properties['side'] == side and \
                                                         p.properties['type'] == 'derived_from_atlas']
                                                     for i in range(len(self.data_feeder.sections))}
-            sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
-
-            # Remove all unconfirmed polygons from graphicscene.
-            t = time.time()
+            # sys.stderr.write("Find unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
+            # t = time.time()
             for i in range(len(self.data_feeder.sections)):
                 for p in matched_unconfirmed_polygons_to_remove[i]:
                     self.drawings[i].remove(p)
                     if i == self.active_i:
                         self.removeItem(p)
-            sys.stderr.write("Remove unconfirmed polygons from graphicscene: %.2f seconds\n" % (time.time()-t))
+            sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
             # Identify sections affected by new structure.
             # t = time.time()
@@ -433,7 +499,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # positions_rel_volResol = []
             # for sec in self.data_feeder.sections:
             #     pos_gl_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True)
-            #     pos_rel_volResol = int(np.round(pos_gl_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
+            #     pos_rel_volResol = int(np.round(pos_gl_volResol - structure_origin_wrt_wholebrain_volResol[2]))
             #     if pos_rel_volResol >= 0 and pos_rel_volResol < volume_volResol.shape[2]:
             #         positions_rel_volResol.append(pos_rel_volResol)
             #         sections_used.append(sec)
@@ -443,25 +509,28 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sections_used = []
             positions_wrt_internalStructureVolume_volResol = []
             for sec in self.data_feeder.sections:
-                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, downsample=volume_downsample_factor, mid=True,
-                stack=self.gui.stack, z_begin=0)
-                pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - internal_structure_origin_wrt_wholebrain_volResol[2]))
-                if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < volume_volResol.shape[2]:
+                pos_wrt_wholebrain_volResol = DataManager.convert_section_to_z(sec=sec, resolution='%.1fum' % self.prob_structure_volumes_resolution_um,
+                mid=True, stack=self.gui.stack)
+                pos_wrt_internalStructureVolume_volResol = int(np.round(pos_wrt_wholebrain_volResol - structure_origin_wrt_wholebrain_volResol[2]))
+                if pos_wrt_internalStructureVolume_volResol >= 0 and pos_wrt_internalStructureVolume_volResol < structure_volume_volResol.shape[2]:
                     positions_wrt_internalStructureVolume_volResol.append(pos_wrt_internalStructureVolume_volResol)
                     sections_used.append(sec)
             sys.stderr.write("Identify sections affected by new structure: %.2f seconds\n" % (time.time()-t))
 
             # Compute contours of new structure on these sections
             t = time.time()
-            sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
+            # sample_every = max(1, int(np.floor(20./self.data_feeder.downsample)))
+            sample_every = 5
             print self.id, 'sample_every =', sample_every
 
             for level in levels:
             # for level in [0.5]:
 
-                gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(volume_volResol >= level, along_direction='z', sample_every= sample_every,
+                t = time.time()
+                gscene_pts_wrt_internalStructureVolume_volResol_allpos = find_contour_points_3d(structure_volume_volResol >= level, along_direction='z', sample_every= sample_every,
                                                                         positions=positions_wrt_internalStructureVolume_volResol)
                 sys.stderr.write("Compute contours of new structure on these sections: %.2f seconds\n" % (time.time()-t))
+
                 t = time.time()
                 m = dict(zip(positions_wrt_internalStructureVolume_volResol, sections_used))
                 gscene_pts_wrt_internalStructureVolume_volResol_allsec = {m[pos_wrt_internalStructureVolume_volResol]: pts_wrt_internalStructureVolume_volResol \
@@ -481,14 +550,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                         continue
 
                     try:
-                        # gscene_xs_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,0] + internal_structure_origin_wrt_wholebrain_volResol[0]
-                        # gscene_ys_gl_vol_resol = gscene_pts_wrt_internalStructureVolume_volResol[:,1] + internal_structure_origin_wrt_wholebrain_volResol[1]
-                        # gscene_pts_gl_vol_resol = np.c_[gscene_xs_gl_vol_resol, gscene_ys_gl_vol_resol]
-                        # gscene_pts_gl_data_resol = gscene_pts_gl_vol_resol / data_vol_downsample_ratio
-
-                        gscene_pts_wrt_internalStructureVolume_dataResol = gscene_pts_wrt_internalStructureVolume_volResol *  self.prob_structure_volumes_downscale_factor / self.data_feeder.downsample
-                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
+                        gscene_pts_wrt_internalStructureVolume_dataResol = gscene_pts_wrt_internalStructureVolume_volResol *  self.prob_structure_volumes_resolution_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[0]
+                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
                         gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
 
                         # t = time.time()
@@ -506,6 +570,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             sys.stderr.write("Add polygons: %.2f seconds\n" % (time.time()-t))
 
         else:
+
+            scaling = self.prob_structure_volumes_resolution_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+            structure_volume_dataResol = rescale_by_resampling(structure_volume_volResol, scaling)
+            # structure_origin_wrt_wholebrain_dataResol = structure_origin_wrt_dataVolume_dataResol + data_origin_wrt_wholebrain_dataResol
+            # print 'structure (data resol)', structure_volume_dataResol.shape, 'origin wrt wholebrain =', structure_origin_wrt_wholebrain_dataResol
 
             if self.data_feeder.orientation == 'sagittal':
                 pos_start_ds = 0
@@ -532,14 +601,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 for level in levels:
 
-                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='x', sample_every=1)
+                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(structure_volume_dataResol >= level, along_direction='x', sample_every=1)
                     # Note that find_contour_points_3d returns (z, y) where z is counted from bottom up.
 
                     for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
-                        gscene_xs_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[2])
-                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
+                        gscene_xs_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[2])
+                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
                         gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[0]
+                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[0]
 
                         # if this position already has a confirmed contour, do not add a new one.
                         if any([p.properties['label'] == name_u and p.properties['side'] == side and \
@@ -558,14 +627,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif self.data_feeder.orientation == 'horizontal':
 
                 for level in levels:
-                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='y', sample_every=1)
+                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(structure_volume_dataResol >= level, along_direction='y', sample_every=1)
                     # Note that find_contour_points_3d returns (z, x) where z is counted from bottom up.
 
                     for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
-                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                        gscene_ys_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[2])
+                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[0]
+                        gscene_ys_wrt_dataVolume_dataResol = self.data_feeder.z_dim - 1 - (gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[2])
                         gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[1]
+                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[1]
 
                         # if this position already has a confirmed contour, do not add a new one.
                         if any([p.properties['label'] == name_u and p.properties['side'] == side and \
@@ -586,14 +655,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 for level in levels:
 
-                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(volume_dataResol >= level, along_direction='z', sample_every=1)
+                    gscene_pts_wrt_internalStructureVolume_allpos_dataResol = find_contour_points_3d(structure_volume_dataResol >= level, along_direction='z', sample_every=1)
 
                     for pos_wrt_internalStructureVolume_dataResol, gscene_pts_wrt_internalStructureVolume_dataResol in gscene_pts_wrt_internalStructureVolume_allpos_dataResol.iteritems():
 
-                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + internal_structure_origin_wrt_dataVolume_dataResol[0]
-                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + internal_structure_origin_wrt_dataVolume_dataResol[1]
+                        gscene_xs_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,0] + structure_origin_wrt_dataVolume_dataResol[0]
+                        gscene_ys_wrt_dataVolume_dataResol = gscene_pts_wrt_internalStructureVolume_dataResol[:,1] + structure_origin_wrt_dataVolume_dataResol[1]
                         gscene_pts_wrt_dataVolume_dataResol = np.c_[gscene_xs_wrt_dataVolume_dataResol, gscene_ys_wrt_dataVolume_dataResol]
-                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + internal_structure_origin_wrt_dataVolume_dataResol[2]
+                        pos_wrt_dataVolume_dataResol = pos_wrt_internalStructureVolume_dataResol + structure_origin_wrt_dataVolume_dataResol[2]
 
                         # if this position already has a confirmed contour, do not add a new one.
                         if any([p.properties['label'] == name_u and p.properties['side'] == side and \
@@ -722,19 +791,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                 p.set_properties('side', 'R')
                                 p.set_properties('side_manually_assigned', False)
                                 # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
-
-
-    # def set_conversion_func_section_to_z(self, func):
-    #     """
-    #     Set the conversion function that converts section index to voxel position.
-    #     """
-    #     self.convert_section_to_z = func
-    #
-    # def set_conversion_func_z_to_section(self, func):
-    #     """
-    #     Set the conversion function that converts voxel position to section index.
-    #     """
-    #     self.convert_z_to_section = func
 
     def open_label_selection_dialog(self):
 
@@ -904,13 +960,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         contour_id=contour_id,
                                                         category=contour_class)
 
-    def convert_drawings_to_entries(self, timestamp, username, classes=['contour'], types=['confirmed', 'intersected']):
+    def convert_drawings_to_entries(self, timestamp, username, classes=None, types=None):
         """
         Args:
             classes (list of str): list of classes to gather. Default is contour.
 
         Returns:
-            dict: {polygon_id: contour information entry}
+            dict: {polygon_id: contour entry}
         """
 
         import uuid
@@ -918,16 +974,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         contour_entries = {}
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
-                if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
-                    # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
-                    if 'label' in polygon.properties:
-                        sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
-                    else:
-                        sys.stderr.write("Polygon has no class: %d. Skip." % (self.data_feeder.sections[idx]))
-                    continue
+                if classes is not None:
+                    if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
+                        # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
+                        if 'label' in polygon.properties:
+                            sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
+                        else:
+                            sys.stderr.write("Polygon has no class: %d. Skip." % (self.data_feeder.sections[idx]))
+                        continue
 
-                if polygon.properties['type'] not in types:
-                    continue
+                if types is not None:
+                    if polygon.properties['type'] not in types:
+                        sys.stderr.write("Type %s of polygon %d, %s is not in list of desired types. Skip." % (polygon.properties['type'], self.data_feeder.sections[idx], polygon.properties['label']))
+                        continue
 
                 if hasattr(polygon, 'contour_id') and polygon.contour_id is not None:
                     polygon_id = polygon.contour_id
@@ -952,7 +1011,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                'time_created': polygon.properties['edits'][0]['timestamp'],
                                 'edits': polygon.properties['edits'],
                                 'vertices': vertices,
-                                'downsample': self.data_feeder.downsample,
+                                # 'downsample': self.data_feeder.downsample,
+                                'resolution': self.data_feeder.resolution,
                                 'type': None,
                                 'orientation': self.data_feeder.orientation,
                                 'parent_structure': [],
@@ -972,7 +1032,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                'time_created': polygon.properties['edits'][0]['timestamp'],
                                 'edits': polygon.properties['edits'] + [{'username':username, 'timestamp':timestamp}],
                                 'vertices': vertices,
-                                'downsample': self.data_feeder.downsample,
+                                'resolution': self.data_feeder.resolution,
+                                # 'downsample': self.data_feeder.downsample,
                             #    'flags': 0 if polygon.properties['type'] == 'confirmed' else 1,
                                 'type': polygon.properties['type'],
                                 'orientation': self.data_feeder.orientation,
@@ -1272,8 +1333,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         vol = structure_volumes[name_side_tuple]['volume_in_bbox']
 
-        # print vol
-
         yc_wrt_structureVolInBbox_volResol, \
         xc_wrt_structureVolInBbox_volResol, \
         zc_wrt_structureVolInBbox_volResol = np.mean(np.where(vol), axis=1)
@@ -1283,7 +1342,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         yc_wrt_structureVolInBbox_volResol, \
         zc_wrt_structureVolInBbox_volResol))
 
-        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['bbox'])[[0,2,4]]
+        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['origin'])
 
         print prob, vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
         structure_centroid3d_wrt_wholebrain_volResol = structure_centroid3d_wrt_structureVolInBbox_volResol + vol_origin_wrt_wholebrain_volResol
@@ -1295,9 +1354,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         print "manual=", manual_structure_centroid3d_wrt_wholebrain_volResol
         prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name, side, prob=True)
         print "prob=", prob_structure_centroid3d_wrt_wholebrain_volResol
-        print  'before', self.prob_structure_volumes[(name, side)]['bbox']
-        self.prob_structure_volumes[(name, side)]['bbox'] = self.prob_structure_volumes[(name, side)]['bbox'] - prob_structure_centroid3d_wrt_wholebrain_volResol[[0,0,1,1,2,2]] + manual_structure_centroid3d_wrt_wholebrain_volResol[[0,0,1,1,2,2]]
-        print  'after', self.prob_structure_volumes[(name, side)]['bbox']
+        print  'before', self.prob_structure_volumes[(name, side)]['origin']
+        self.prob_structure_volumes[(name, side)]['origin'] = self.prob_structure_volumes[(name, side)]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
+        print  'after', self.prob_structure_volumes[(name, side)]['origin']
         self.update_drawings_from_prob_structure_volume(name_u=name, side=side, levels=[0.1, 0.25, 0.5, 0.75, 0.99])
 
 
@@ -1321,14 +1380,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if hasattr(self.data_feeder, 'sections'):
             self.active_polygon.set_properties('section', self.active_section)
-            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, downsample=self.data_feeder.downsample, mid=True,
-            stack=self.gui.stack, z_begin=0)
-            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True,
+            stack=self.gui.stack)
+            # d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack,  resolution=self.data_feeder.resolution)
             self.active_polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um
         else:
             self.active_polygon.set_properties('voxel_position', self.active_i)
-            d_um = self.active_i * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            # d_um = self.active_i * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
+            d_um = self.active_i * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
             self.active_polygon.set_properties('position_um', d_um)
             # print 'index', index, 'position_um', d_um
 
@@ -1392,127 +1453,56 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 
-    def update_cross(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, origin):
+    def get_uv_dimension(self, plane):
         """
-        Update position of the two cross lines.
-        Input coordinates are wrt whole brain aligned and padded, in lossless resolution.
+        in image resolution.
+        """
+        if self.data_feeder.orientation == 'sagittal':
+            return self.data_feeder.x_dim - 1, self.data_feeder.y_dim - 1
+        elif self.data_feeder.orientation == 'coronal':
+            return self.data_feeder.z_dim - 1, self.data_feeder.y_dim - 1
+        elif self.data_feeder.orientation == 'horizontal':
+            return self.data_feeder.x_dim - 1, self.data_feeder.z_dim - 1
+
+    def update_cross(self, cross):
+        """
+        Update positions of the two cross lines in this scene.
 
         Args:
-            origin (3-tuple): origin of the image data wrt whole brain aligned and padded, in lossless resolution.
+            cross (3-vector): intersection of the cross wrt wholebrain in raw resolution.
         """
 
-        print self.id, ': cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
-
+        print self.id, ': update cross to', cross
         # self.hline.setVisible(True)
         # self.vline.setVisible(True)
 
-        self.cross_x_lossless = cross_x_lossless
-        self.cross_y_lossless = cross_y_lossless
-        self.cross_z_lossless = cross_z_lossless
+        u, v, d = self.convert_coordinate_system_and_resolution(cross, in_wrt='wholebrain', in_resolution='raw',
+        out_wrt=self.data_feeder.orientation, out_resolution='image')
+        udim, vdim = self.get_uv_dimension(plane=self.data_feeder.orientation)
+        self.vline.setLine(u, 0, u, vdim)
+        self.hline.setLine(0, v, udim, v)
 
-        print 'cross_lossless', cross_x_lossless, cross_y_lossless, cross_z_lossless
-        print 'origin', origin
-        # print 'cross_ds', cross_x_ds, cross_y_ds, cross_z_ds
+        if hasattr(self.data_feeder, 'sections'):
 
-        if self.data_feeder.orientation == 'sagittal':
+            sec = DataManager.convert_z_to_section(z=d, resolution=self.data_feeder.resolution, stack=self.gui.stack,
+            z_first_sec=0)
+            self.set_active_section(sec)
 
-            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
-            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
-            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
+            z = DataManager.convert_section_to_z(sec=sec, resolution=self.data_feeder.resolution, stack=self.gui.stack, mid=True)
+            print d, sec, z
+        else:
+            self.set_active_i(int(np.ceil(d)))
 
-            self.hline.setLine(0, cross_y_ds, self.data_feeder.x_dim-1, cross_y_ds)
-            self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.y_dim-1)
-
-            if hasattr(self.data_feeder, 'sections'):
-                # sec = DataManager.convert_z_to_section(z=cross_z_ds, downsample=downsample)
-                # print 'cross_z', cross_z_ds, 'sec', sec, 'reverse z', DataManager.convert_section_to_z(sec=sec, downsample=downsample)
-                section_thickness_in_lossless_z = SECTION_THICKNESS / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
-                sec = int(np.ceil(cross_z_lossless / section_thickness_in_lossless_z))
-                print 'crossline has been updated to cross_z_lossless =', cross_z_lossless, ', so set section to', sec
-                self.set_active_section(sec, update_crossline=False)
-            else:
-                self.set_active_i(cross_z_ds, update_crossline=False)
-
-        elif self.data_feeder.orientation == 'coronal':
-
-            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
-            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
-            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
-
-            self.hline.setLine(0, cross_y_ds, self.data_feeder.z_dim-1, cross_y_ds)
-            self.vline.setLine(self.data_feeder.z_dim-1-cross_z_ds, 0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.y_dim-1)
-
-            self.set_active_i(cross_x_ds, update_crossline=False)
-
-        elif self.data_feeder.orientation == 'horizontal':
-
-            cross_x_ds = (cross_x_lossless - int(origin[0])) / self.data_feeder.downsample
-            cross_y_ds = (cross_y_lossless - int(origin[1])) / self.data_feeder.downsample
-            cross_z_ds = (cross_z_lossless - int(origin[2])) / self.data_feeder.downsample
-
-            self.hline.setLine(0, self.data_feeder.z_dim-1-cross_z_ds, self.data_feeder.x_dim-1, self.data_feeder.z_dim-1-cross_z_ds)
-            self.vline.setLine(cross_x_ds, 0, cross_x_ds, self.data_feeder.z_dim-1)
-
-            self.set_active_i(cross_y_ds, update_crossline=False)
-
-    def set_active_i(self, index, emit_changed_signal=True, update_crossline=True):
-        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
-
-        if update_crossline and hasattr(self, 'cross_x_lossless'):
-
-            origin_wrt_wholebrain_losslessResol = self.get_imageData_origin_wrt_wholebrain_tbResol() * 32.
-
-            print 'update_crossline', update_crossline
-            if hasattr(self.data_feeder, 'sections'):
-                cross_depth_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True,
-                stack=self.gui.stack, z_begin=0)
-            else:
-                print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
-                if self.data_feeder.orientation == 'sagittal':
-                    cross_depth_lossless = self.active_i * self.data_feeder.downsample + origin_wrt_wholebrain_losslessResol[2]
-                elif self.data_feeder.orientation == 'coronal':
-                    cross_depth_lossless = self.active_i * self.data_feeder.downsample + origin_wrt_wholebrain_losslessResol[0]
-                elif self.data_feeder.orientation == 'horizontal':
-                    cross_depth_lossless = self.active_i * self.data_feeder.downsample + origin_wrt_wholebrain_losslessResol[1]
-
-            if self.data_feeder.orientation == 'sagittal':
-                self.cross_z_lossless = cross_depth_lossless
-            elif self.data_feeder.orientation == 'coronal':
-                self.cross_x_lossless = cross_depth_lossless
-            elif self.data_feeder.orientation == 'horizontal':
-                self.cross_y_lossless = cross_depth_lossless
-
-            print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
-            self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
-
-
-    def set_active_section(self, section, emit_changed_signal=True, update_crossline=True):
-        super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_section(sec=section, emit_changed_signal=emit_changed_signal)
-
-        # if update_crossline and hasattr(self, 'cross_x_lossless'):
-        #     if hasattr(self.data_feeder, 'sections'):
-        #         d1, d2 = self.convert_section_to_z(sec=self.active_section, downsample=1)
-        #         cross_depth_lossless = .5 * d1 + .5 * d2
-        #     else:
-        #         print 'active_i =', self.active_i, 'downsample =', self.data_feeder.downsample
-        #         cross_depth_lossless = self.active_i * self.data_feeder.downsample
-        #
-        #     if self.data_feeder.orientation == 'sagittal':
-        #         self.cross_z_lossless = cross_depth_lossless
-        #     elif self.data_feeder.orientation == 'coronal':
-        #         self.cross_x_lossless = cross_depth_lossless
-        #     elif self.data_feeder.orientation == 'horizontal':
-        #         self.cross_y_lossless = cross_depth_lossless
-        #
-        #     print self.id, ': emit', self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless
-        #     self.crossline_updated.emit(self.cross_x_lossless, self.cross_y_lossless, self.cross_z_lossless, self.id)
-
+    # def set_active_i(self, index, emit_changed_signal=True, update_crossline=False):
+    #     super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
+    #
+    # def set_active_section(self, section, emit_changed_signal=True, update_crossline=True):
+    #     super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_section(sec=section, emit_changed_signal=emit_changed_signal)
 
     def set_uncertainty_line(self, structure, e1, e2):
         if structure in self.uncertainty_lines:
             self.removeItem(self.uncertainty_lines[structure])
-        self.uncertainty_lines[structure] = \
-        self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(0, 0, 255, int(.3*255))), 20))
+        self.uncertainty_lines[structure] = self.addLine(e1[0], e1[1], e2[0], e2[1], QPen(QBrush(QColor(0, 0, 255, int(.3*255))), 20))
 
     def hide_uncertainty_line(self, structure):
         if structure in self.uncertainty_lines:
@@ -1536,13 +1526,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     def show_next(self, cycle=False):
         super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).show_next(cycle=cycle)
         assert all(['label' in p.properties for p in self.drawings[self.active_i]])
-
-    def get_imageData_origin_wrt_wholebrain_tbResol(self):
-        """
-        Get the appropriate coordinate origin for this gscene.
-        The coordinate is wrt to whole brain aligned and padded, in thumbnail resolution (1/32 of raw).
-        """
-        return self.gui.image_origin_wrt_wholebrain_tbResol[self.id]
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1609,7 +1592,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.set_mode('global_shift3d')
                 else:
                     self.set_mode('prob_shift3d')
-                self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
+                    self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                 return True
 
             elif key == Qt.Key_R:
@@ -1618,6 +1601,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.set_mode('global_rotate3d')
                 else:
                     self.set_mode('prob_rotate3d')
+                return True
+
+            elif key == Qt.Key_J:
+                self.set_mode('place_global_rotation_center')
                 return True
 
             elif (key == Qt.Key_Enter or key == Qt.Key_Return) and self.mode == 'add vertices consecutively': # Close polygon
@@ -1734,7 +1721,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             curr_mouse_x_wrt_imageData_gsceneResol = pos.x()
             curr_mouse_y_wrt_imageData_gsceneResol = pos.y()
 
-            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
+            if self.mode == 'rotate2d' or self.mode == 'rotate3d' or self.mode == 'prob_rotate3d':
                 # This only moves the single contour on the current image.
                 # Those contours of the same structure but on other sections are not affected.
 
@@ -1757,28 +1744,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                         tf_mat_combined[0,1], tf_mat_combined[1,1], 0.,
                                         tf_mat_combined[0,3], tf_mat_combined[1,3], 1.)
                     self.active_polygon.setTransform(xform, combine=False)
-
-            # if self.id == 'sagittal' or self.id == 'sagittal_tb':
-            #     active_structure_center_2d_wrt_wholebrain_volResol = np.array((cx_wrt_wholebrain_volResol, cy_wrt_wholebrain_volResol))
-            #     active_structure_center_2d_wrt_wholebrain_gsceneResol = active_structure_center_2d_wrt_wholebrain_volResol * self.structure_volumes_downscale_factor / self.data_feeder.downsample
-            #     # print 'active_structure_center_2d_wrt_wholebrain_gsceneResol', active_structure_center_2d_wrt_wholebrain_gsceneResol, 'self.data_feeder.downsample', self.data_feeder.downsample
-            #     active_structure_center_2d_wrt_imagedata_gsceneResol = active_structure_center_2d_wrt_wholebrain_gsceneResol - self.get_imageData_origin_wrt_wholebrain_tbResol()[[0,1]] * 32. / self.data_feeder.downsample
-            # elif self.id == 'coronal':
-            #     active_structure_center_2d_wrt_imagedata_gsceneResol = \
-            #     np.array((self.data_feeder.z_dim - 1 - (cz_wrt_wholebrain_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_wholebrain_tbResol()[2] * 32.) / self.data_feeder.downsample,
-            #             (cy_wrt_wholebrain_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_wholebrain_tbResol()[1] * 32.) / self.data_feeder.downsample))
-            # elif self.id == 'horizontal':
-            #     active_structure_center_2d_wrt_imagedata_gsceneResol = \
-            #     np.array([(cx_wrt_wholebrain_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_wholebrain_tbResol()[0] * 32.)  / self.data_feeder.downsample,
-            #             self.data_feeder.z_dim - 1 - (cz_wrt_wholebrain_volResol * self.structure_volumes_downscale_factor - self.get_imageData_origin_wrt_wholebrain_tbResol()[2] * 32.) / self.data_feeder.downsample])
-            #
-            # print theta_ccwise, np.rad2deg(theta_ccwise)
-            # if self.id == 'sagittal' or self.id == 'sagittal_tb':
-            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
-            # elif self.id == 'coronal':
-            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
-            # elif self.id == 'horizontal':
-            #     tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
 
         elif event.type() == QEvent.GraphicsSceneMousePress:
 
@@ -1806,40 +1771,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.pressed = True
                 return True
 
-            # elif self.mode == 'shift3d':
-
             elif self.mode == 'crossline':
-                # user clicks, while in crossline mode (holding down space bar).
-
-                gscene_y_lossless = gscene_y * self.data_feeder.downsample
-                gscene_x_lossless = gscene_x * self.data_feeder.downsample
-
+                # User clicks, while in crossline mode (holding down space bar).
                 if hasattr(self.data_feeder, 'sections'):
-                    gscene_z_lossless = DataManager.convert_section_to_z(sec=self.active_section, downsample=1, mid=True,
-                    stack=self.gui.stack, z_begin=0)
-                    # print 'section', self.active_section, 'gscene_z_lossless', gscene_z_lossless
+                    d = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True, stack=self.gui.stack)
+                    print "(gscene_x, gscene_y, d) =", (gscene_x, gscene_y, d)
+                    cross_wrt_wholebrain_rawResol = self.convert_coordinate_system_and_resolution((gscene_x, gscene_y, d),
+                    in_wrt=self.data_feeder.orientation, in_resolution='image',
+                    out_wrt='wholebrain', out_resolution='raw')
+                    print cross_wrt_wholebrain_rawResol
                 else:
-                    gscene_z_lossless = self.active_i * self.data_feeder.downsample
+                    cross_wrt_wholebrain_rawResol = self.convert_coordinate_system_and_resolution((gscene_x, gscene_y, self.active_i),
+                    in_wrt=self.data_feeder.orientation, in_resolution='image',
+                    out_wrt='wholebrain', out_resolution='raw')
 
-                origin_wrt_wholebrain_losslessResol = self.get_imageData_origin_wrt_wholebrain_tbResol() * 32.
-
-                if self.data_feeder.orientation == 'sagittal':
-                    cross_x_lossless = gscene_x_lossless + origin_wrt_wholebrain_losslessResol[0]
-                    cross_y_lossless = gscene_y_lossless + origin_wrt_wholebrain_losslessResol[1]
-                    cross_z_lossless = gscene_z_lossless + origin_wrt_wholebrain_losslessResol[2]
-
-                elif self.data_feeder.orientation == 'coronal':
-                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_x_lossless + origin_wrt_wholebrain_losslessResol[2]
-                    cross_y_lossless = gscene_y_lossless + origin_wrt_wholebrain_losslessResol[1]
-                    cross_x_lossless = gscene_z_lossless + origin_wrt_wholebrain_losslessResol[0]
-
-                elif self.data_feeder.orientation == 'horizontal':
-                    cross_x_lossless = gscene_x_lossless + origin_wrt_wholebrain_losslessResol[0]
-                    cross_z_lossless = self.data_feeder.z_dim * self.data_feeder.downsample - 1 - gscene_y_lossless + origin_wrt_wholebrain_losslessResol[2]
-                    cross_y_lossless = gscene_z_lossless + origin_wrt_wholebrain_losslessResol[1]
-
-                print self.id, ': emit', cross_x_lossless, cross_y_lossless, cross_z_lossless
-                self.crossline_updated.emit(cross_x_lossless, cross_y_lossless, cross_z_lossless, self.id)
+                print self.id, ': emit', cross_wrt_wholebrain_rawResol
+                self.crossline_updated.emit(cross_wrt_wholebrain_rawResol, self.id)
                 return True
 
             elif self.mode == 'add vertices once':
@@ -1881,6 +1828,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     return True
 
+            elif self.mode == 'place_global_rotation_center':
+                obj.mousePressEvent(event)
+
+                self.global_rotation_center_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(p=(gscene_x, gscene_y, 0),
+                in_wrt=self.data_feeder.orientation, in_resolution='image',
+                out_wrt='wholebrain', out_resolution='volume')
+                print "Set global_rotation_center_wrt_wholebrain_volResol =",  self.global_rotation_center_wrt_wholebrain_volResol
+                self.set_mode('idle')
+                return True
 
         elif event.type() == QEvent.GraphicsSceneMouseRelease:
 
@@ -1937,18 +1893,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif self.mode == 'rotate3d' or self.mode == 'shift3d':
 
                 # name_side_tuple = (self.active_polygon.properties['label'], self.active_polygon.properties['side'])
-                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
-                self.set_mode('idle')
+                # self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
+                # self.set_mode('idle')
+                pass
 
             elif self.mode == 'global_shift3d' or self.mode == 'global_rotate3d':
 
                 for name, side in self.prob_structure_volumes.iterkeys():
-                    self.transform_structure(name=name, side=side, prob=True)
+                    self.transform_structure(name=name, side=side)
                 self.set_mode('idle')
+
+                # self.global_transform_updated.emit(self.get_global_transform())
 
             elif self.mode == 'prob_shift3d' or self.mode == 'prob_rotate3d':
 
-                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'], prob=True)
+                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
                 self.set_mode('idle')
 
             elif self.mode == 'delete vertices':
@@ -1970,145 +1929,69 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         return False
         # return super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).eventFilter(obj, event)
 
-    def compute_rotation_center_in_2d(self):
-        return np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0)
-
-    def compute_rotation_center_in_3d(self, plane, vol, vol_origin_wrt_wholebrain_volResol, vol_downscale_factor, rotation_center_2d=None):
+    def compute_rotate_transform_vector(self, start, finish, center):
         """
-        Compute 3d coordinates of rotation center.
-        For sagittal, this is the point (x of polygon centroid, y of polygon centroid, z of structure centroid)
-        """
+        Compute the 3x4 transform matrix representing the rotation around
+        an axis piercing through image plane at `axis`.
 
-        if rotation_center_2d is None:
-            rotation_center_2d = self.compute_rotation_center_in_2d()
-
-        polygon_cx_wrt_imageData_gsceneResol, polygon_cy_wrt_imageData_gsceneResol = rotation_center_2d
-        ys_wrt_structureVol_volResol, xs_wrt_structureVol_volResol, zs_wrt_structureVol_volResol = np.where(vol)
-
-        if plane == 'sagittal':
-
-            cx_wrt_wholebrain_volResol = \
-            (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[0] * 32.) / vol_downscale_factor
-            cx_wrt_structureVol_volResol = cx_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[0]
-            print 'cx_wrt_structureVol_volResol', cx_wrt_structureVol_volResol
-
-            cy_wrt_wholebrain_volResol = \
-            (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[1] * 32.) / vol_downscale_factor
-            cy_wrt_structureVol_volResol = cy_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[1]
-
-            cz_wrt_structureVol_volResol = np.mean(zs_wrt_structureVol_volResol)
-
-        elif plane == 'coronal':
-
-            cx_wrt_structureVol_volResol = np.mean(xs_wrt_structureVol_volResol)
-
-            cy_wrt_wholebrain_volResol = \
-            (polygon_cy_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[1] * 32.) / vol_downscale_factor
-            cy_wrt_structureVol_volResol = cy_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[1]
-
-            cz_wrt_wholebrain_volResol = \
-            ((self.data_feeder.z_dim - 1 - polygon_cx_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[2] * 32.) / vol_downscale_factor
-            cz_wrt_structureVol_volResol = cz_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[2]
-
-        elif plane == 'horizontal':
-            cx_wrt_wholebrain_volResol = \
-            (polygon_cx_wrt_imageData_gsceneResol * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[0] * 32.) / vol_downscale_factor
-            cx_wrt_structureVol_volResol = cx_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[0]
-
-            cy_wrt_structureVol_volResol = np.mean(ys_wrt_structureVol_volResol)
-
-            cz_wrt_wholebrain_volResol = \
-            ((self.data_feeder.z_dim - 1 - polygon_cy_wrt_imageData_gsceneResol) * self.data_feeder.downsample +
-            self.get_imageData_origin_wrt_wholebrain_tbResol()[2] * 32.) / vol_downscale_factor
-            cz_wrt_structureVol_volResol = cz_wrt_wholebrain_volResol - vol_origin_wrt_wholebrain_volResol[2]
-
-        else:
-            raise
-
-        active_structure_center_3d_wrt_structureVol_volResol = np.array([cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol])
-        return active_structure_center_3d_wrt_structureVol_volResol
-
-    def compute_translate_transform_vector(self, curr_gscene_coords, start_gscene_coords, plane, vol_downscale_factor):
-        """
         Args:
-            curr_gscene_coords (2-tuple of float): 2D gscene coordinate of current point
-            start_gscene_coords (2-tuple of float): 2D gscene coordinate of starting point
-            plane (str): sagittal, coronal or horizontal
+            finish (3-tuple of float): 3-D coordinate of finish point
+            start (3-tuple of float): 3-D coordinate of start point
+            center (3-tuple of float): 3-D coordinate of the rotation center
 
         Returns:
-            12-tuple of float: flattened 3x4 transform matrix, in internal structure volume resolution.
+            12-tuple of float: flattened 3x4 transform matrix. Frame and resolution are identical to input.
         """
-        # shift_2d_gsceneResol = np.array((gscene_x - self.press_x_wrt_imageData_gsceneResol, gscene_y - self.press_y_wrt_imageData_gsceneResol))
-        shift_2d_gsceneResol = np.array(curr_gscene_coords) - np.array(start_gscene_coords)
-        shift_2d_fullResol = shift_2d_gsceneResol * self.data_feeder.downsample
-        shift_2d_volResol = shift_2d_fullResol / float(vol_downscale_factor)
-        print 'shift_2d_volResol', shift_2d_volResol
-        if plane == 'sagittal':
-            tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=shift_2d_volResol[1],tz=0)
-        elif plane == 'coronal':
-            tf = affine_components_to_vector(tx=0,ty=shift_2d_volResol[1],tz=-shift_2d_volResol[0])
-        elif plane == 'horizontal':
-            tf = affine_components_to_vector(tx=shift_2d_volResol[0],ty=0,tz=-shift_2d_volResol[1])
+
+        i = np.where(start - finish == 0)[0]
+        if i == 0: # around x axis
+            print 'around x axis'
+            vec2 = finish[[1,2]] - center[[1,2]]
+            vec1 = start[[1,2]] - center[[1,2]]
+            theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+            print np.rad2deg(theta_ccwise)
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise,c=center)
+            print tf.reshape((3,4))
+        elif i == 1: # around y axis
+            print 'around y axis'
+            vec2 = finish[[0,2]] - center[[0,2]]
+            vec1 = start[[0,2]] - center[[0,2]]
+            theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+            print np.rad2deg(theta_ccwise)
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=theta_ccwise,c=center)
+            print tf.reshape((3,4))
+        elif i == 2: # around z axis
+            print 'around z axis'
+            vec2 = finish[[0,1]] - center[[0,1]]
+            vec1 = start[[0,1]] - center[[0,1]]
+            theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
+            print np.rad2deg(theta_ccwise)
+            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise,c=center)
+            print tf.reshape((3,4))
         else:
             raise
+
         return tf
 
-
-    def compute_rotate_transform_vector(self, curr_gscene_coords, start_gscene_coords, center_gscene_coords, plane):
+    def transform_structure(self, name, side):
         """
-        Args:
-            curr_gscene_coords (2-tuple of float): 2D gscene coordinate of current point
-            start_gscene_coords (2-tuple of float): 2D gscene coordinate of starting point
-            center_gscene_coords (2-tuple of float): 2D gscene coordinate of the rotation center
-            plane (str): sagittal, coronal or horizontal
+        Compute transform based on recorded mouse movements.
+        Transform the given structure and save back into repository.
+        Then send signal to update display.
 
-        Returns:
-            12-tuple of float: flattened 3x4 transform matrix, in internal structure volume resolution.
-        """
-
-        vec2 = np.array(curr_gscene_coords) - np.array(center_gscene_coords)
-        vec1 = np.array(start_gscene_coords) - np.array(center_gscene_coords)
-        theta_ccwise = np.arctan2(vec2[1], vec2[0]) - np.arctan2(vec1[1], vec1[0])
-        # print theta_ccwise, np.rad2deg(theta_ccwise)
-        if plane == 'sagittal':
-            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xy=theta_ccwise)
-        elif plane == 'coronal':
-            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_yz=theta_ccwise)
-        elif plane == 'horizontal':
-            tf = affine_components_to_vector(tx=0,ty=0,tz=0,theta_xz=-theta_ccwise)
-        else:
-            raise
-        return tf
-
-    def transform_structure(self, name, side, prob=False):
-        """
         Args:
             name (str): Structure name, without sides.
-            side (str): L, R, S
-            prob (bool): If true, transform probalistic structures. Otherwise, transform regular structures.
+            side (str): L, R or S
         """
 
         name_side_tuple = (name, side)
 
-        if prob:
-            structure_volumes = self.prob_structure_volumes
-            structure_volume_downscale_factor = self.prob_structure_volumes_downscale_factor
-        else:
-            structure_volumes = self.structure_volumes
-            structure_volume_downscale_factor = self.structure_volumes_downscale_factor
+        structure_volumes = self.prob_structure_volumes
+        structure_volume_resolution_um = self.prob_structure_volumes_resolution_um
 
         assert name_side_tuple in structure_volumes, \
         "`structure_volumes` does not contain %s. Need to load this structure first." % str(name_side_tuple)
-        vol = structure_volumes[name_side_tuple]['volume_in_bbox']
-        # bbox_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['bbox'])
-        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['bbox'])[[0,2,4]]
 
-        print 'vol', vol.shape, 'vol_origin_wrt_wholebrain_volResol', vol_origin_wrt_wholebrain_volResol
 
         if self.id == 'sagittal' or self.id == 'sagittal_tb':
             plane = 'sagittal'
@@ -2119,77 +2002,85 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         else:
             raise
 
-        if self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d' or self.mode == 'rotate3d':
+        press_position_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(p=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, 0),
+        in_wrt=plane, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
 
-            active_structure_center_2d_wrt_imagedata_gsceneResol = self.compute_rotation_center_in_2d()
+        release_position_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(p=(self.gscene_x, self.gscene_y, 0),
+        in_wrt=plane, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
 
-            tf = self.compute_rotate_transform_vector(curr_gscene_coords=(self.gscene_x, self.gscene_y),
-            start_gscene_coords=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol),
-            center_gscene_coords=active_structure_center_2d_wrt_imagedata_gsceneResol,
-            plane=plane)
+        if structure_volumes[name_side_tuple]['volume_in_bbox'] is not None: # the volume is loaded
 
-            center_wrt_structureVol_volResol = self.compute_rotation_center_in_3d(plane=plane, vol=vol,
-                    vol_origin_wrt_wholebrain_volResol=vol_origin_wrt_wholebrain_volResol,
-                    vol_downscale_factor=structure_volume_downscale_factor,
-                    rotation_center_2d=active_structure_center_2d_wrt_imagedata_gsceneResol)
+            vol = structure_volumes[name_side_tuple]['volume_in_bbox']
+            vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['origin'])
+            print 'vol', vol.shape, 'vol_origin_wrt_wholebrain_volResol', vol_origin_wrt_wholebrain_volResol
 
-        elif self.mode == 'prob_shift3d' or self.mode == 'global_shift3d' or self.mode == 'shift3d':
+        if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
 
-            tf = self.compute_translate_transform_vector(curr_gscene_coords=(self.gscene_x, self.gscene_y),
-            start_gscene_coords=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol),
-            plane=plane,
-            vol_downscale_factor=structure_volume_downscale_factor)
+            if self.mode == 'global_rotate3d':
 
-            center_wrt_structureVol_volResol = np.zeros((3,)) # This does not matter since translation does not depend on a center.
+                print 'press', press_position_wrt_wholebrain_volResol, 'release', release_position_wrt_wholebrain_volResol, 'center', self.global_rotation_center_wrt_wholebrain_volResol
+
+                tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
+                finish=release_position_wrt_wholebrain_volResol,
+                center=self.global_rotation_center_wrt_wholebrain_volResol)
+
+            else:
+
+                rotation_center_wrt_wholebrain_volResol = self.convert_coordinate_system_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
+                in_wrt=plane, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+
+                tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
+                finish=release_position_wrt_wholebrain_volResol,
+                center=rotation_center_wrt_wholebrain_volResol
+                )
+
+        elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
+
+            shift = release_position_wrt_wholebrain_volResol - press_position_wrt_wholebrain_volResol
+            print release_position_wrt_wholebrain_volResol, press_position_wrt_wholebrain_volResol, shift
+            tf = affine_components_to_vector(tx=shift[0], ty=shift[1], tz=shift[2])
 
         else:
             raise
 
-        tfed_structure_volume, tfed_structure_volume_bbox_wrt_structureVol_volResol = transform_volume_v2(vol, tf,
-        centroid_m=center_wrt_structureVol_volResol,
-        centroid_f=center_wrt_structureVol_volResol,
-        fill_sparse=True)
+        if structure_volumes[name_side_tuple]['volume_in_bbox'] is not None: # the volume is loaded
 
+            if self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d' or self.mode == 'rotate3d':
+                tfed_structure_volume, tfed_structure_volume_origin_wrt_wholebrain_volResol = transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
+                tf_params=tf,
+                return_origin_instead_of_bbox=True)
+            elif self.mode == 'prob_shift3d' or self.mode == 'global_shift3d' or self.mode == 'shift3d':
+                tfed_structure_volume, tfed_structure_volume_origin_wrt_wholebrain_volResol = transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
+                tf_params=tf,
+                return_origin_instead_of_bbox=True)
 
-        t = time.time()
-        structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
-        sys.stderr.write('transform volume: %.2f seconds.\n' % (time.time() - t))
-        # print 'tfed_structure_volume_bbox_wrt_structureVol_volResol', tfed_structure_volume_bbox_wrt_structureVol_volResol
+            structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
+            structure_volumes[name_side_tuple]['origin'] = tfed_structure_volume_origin_wrt_wholebrain_volResol
 
-        tfed_structure_volume_bbox_wrt_wholebrain_volResol = \
-        np.array(tfed_structure_volume_bbox_wrt_structureVol_volResol) + vol_origin_wrt_wholebrain_volResol[[0,0,1,1,2,2]]
-        # print 'tfed_structure_volume.shape', tfed_structure_volume.shape, 'tfed_structure_volume_bbox_wrt_wholebrain_volResol', tfed_structure_volume_bbox_wrt_wholebrain_volResol
-        # print 'AFTER', np.count_nonzero(tfed_structure_volume.astype(np.bool))
-        structure_volumes[name_side_tuple]['bbox'] = tfed_structure_volume_bbox_wrt_wholebrain_volResol
+        ###################### Append edits ###############################
 
-        # Append edits
         if self.mode == 'shift3d' or self.mode == 'prob_shift3d' or self.mode == 'global_shift3d':
-            if 'edits' not in structure_volumes[name_side_tuple]:
-                structure_volumes[name_side_tuple]['edits'] = []
-            # self.structure_volumes[name_side_tuple]['edits'].append(('shift3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
+
             edit_entry = {'username': self.gui.get_username(),
             'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-            'type': 'shift3d',
-            'transform':tf,
-            'centroid_m':center_wrt_structureVol_volResol,
-            'centroid_f':center_wrt_structureVol_volResol}
+            'type': self.mode,
+            'transform':tf}
             structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+
+            print name_side_tuple, 'edit added', self.mode
 
         elif self.mode == 'rotate3d' or self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
-            if 'edits' not in structure_volumes[name_side_tuple]:
-                structure_volumes[name_side_tuple]['edits'] = []
-            # self.structure_volumes[name_side_tuple]['edits'].append(('rotate3d', tf, (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol), (cx_wrt_structureVol_volResol, cy_wrt_structureVol_volResol, cz_wrt_structureVol_volResol)))
+
             edit_entry = {'username': self.gui.get_username(),
             'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
-            'type': 'rotate3d',
-            'transform':tf,  # Note that this transform is centered at centroid_m which is equal to centroid_f.
-            'centroid_m':center_wrt_structureVol_volResol,
-            'centroid_f':center_wrt_structureVol_volResol}
+            'type': self.mode,
+            'transform':tf
+            }
             structure_volumes[name_side_tuple]['edits'].append(edit_entry)
+
+            print name_side_tuple, 'edit added', self.mode
+
         else:
             raise
 
-        if prob:
-            self.prob_structure_volume_updated.emit(name, side)
-        else:
-            self.structure_volume_updated.emit(name, side, False, False)
+        self.prob_structure_volume_updated.emit(name, side)

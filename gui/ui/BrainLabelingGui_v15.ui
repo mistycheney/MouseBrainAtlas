@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2011</width>
+    <width>2080</width>
     <height>1113</height>
    </rect>
   </property>
@@ -128,6 +128,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_loadUnwarpedStructure">
+        <property name="text">
+         <string>Load Unwarped Structure</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_load">
         <property name="text">
          <string>Load Contours</string>
@@ -150,7 +157,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2011</width>
+     <width>2080</width>
      <height>25</height>
     </rect>
    </property>

@@ -973,63 +973,105 @@ def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
     return contour_df
 
-def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1, prep_id=2):
+def convert_annotation_v3_original_to_aligned_cropped_v2(contour_df, stack, out_resolution, prep_id=2):
     """
-    Convert contours defined wrt original reference frame in raw scale (downsample=1) to
-    contours defined wrt aligned cropped images in scale `out_downsample`.
+    Convert contours defined wrt original reference frame in raw resolution to
+    contours defined wrt aligned cropped images in the given `out_resolution`.
 
     Args:
-        out_downsample (float): Output the contours at this downsample level. Default is 1.
+        out_resolution (float): the output contours are of this resolution.
     """
 
     contour_df = contour_df.copy()
 
-    filename_to_section, _ = DataManager.load_sorted_filenames(stack)
-
     if prep_id == 2:
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack)
     elif prep_id == 3:
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox_thalamus(stack)
     else:
         raise
 
-    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
+    Ts_rawResol = DataManager.load_transforms(stack=stack, resolution='raw', use_inverse=True)
 
-    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-        # fn = cnt['filename']
-        # if fn not in filename_to_section:
-        #     continue
-        # sec = filename_to_section[fn]
+    for cnt_id, cnt in contour_df.iterrows():
         sec = cnt['section']
         if sec not in metadata_cache['valid_sections'][stack]:
             continue
         fn = metadata_cache['sections_to_filenames'][stack][sec]
         contour_df.loc[cnt_id, 'section'] = sec
 
-        Tinv = Ts[fn]
+        Tinv_rawResol = Ts_rawResol[fn]
 
-        n = len(cnt['vertices'])
-
-        vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
-        vertices_on_aligned_cropped = vertices_on_aligned_cropped / out_downsample
-        contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
-        contour_df.set_value(cnt_id, 'downsample', out_downsample)
+        vertices_wrt_alignedCropped_rawResol = np.dot(Tinv_rawResol, np.c_[cnt['vertices'], np.ones((len(cnt['vertices']),))].T).T[:, :2] - (xmin_down32 * 32., ymin_down32 * 32.)
+        vertices_wrt_alignedCropped_outResol = vertices_wrt_alignedCropped_rawResol * convert_resolution_string_to_voxel_size(stack=stack, resolution='raw') / convert_resolution_string_to_voxel_size(stack=stack, resolution=out_resolution)
+        contour_df.set_value(cnt_id, 'vertices', vertices_wrt_alignedCropped_outResol)
+        contour_df.set_value(cnt_id, 'resolution', out_resolution)
 
         if 'label_position' in cnt and cnt['label_position'] is not None:
-            label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
-            label_position_on_aligned_cropped = label_position_on_aligned_cropped / out_downsample
-            contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+            label_position_wrt_alignedCropped_rawResol = np.dot(Tinv_rawResol, np.r_[cnt['label_position'], 1])[:2] - (xmin_down32 * 32., ymin_down32 * 32.)
+            label_position_wrt_alignedCropped_outResol = label_position_wrt_alignedCropped_rawResol * convert_resolution_string_to_voxel_size(stack=stack, resolution='raw') / convert_resolution_string_to_voxel_size(stack=stack, resolution=out_resolution)
+            contour_df.set_value(cnt_id, 'label_position', label_position_wrt_alignedCropped_outResol)
 
     return contour_df
 
-def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1, prep_id=2):
+
+# def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1, prep_id=2):
+#     """
+#     Convert contours defined wrt original reference frame in raw scale (downsample=1) to
+#     contours defined wrt aligned cropped images in scale `out_downsample`.
+#
+#     Args:
+#         out_downsample (float): Output the contours at this downsample level. Default is 1.
+#     """
+#
+#     contour_df = contour_df.copy()
+#
+#     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
+#
+#     if prep_id == 2:
+#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+#     elif prep_id == 3:
+#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+#     else:
+#         raise
+#
+#     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
+#
+#     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
+#         # fn = cnt['filename']
+#         # if fn not in filename_to_section:
+#         #     continue
+#         # sec = filename_to_section[fn]
+#         sec = cnt['section']
+#         if sec not in metadata_cache['valid_sections'][stack]:
+#             continue
+#         fn = metadata_cache['sections_to_filenames'][stack][sec]
+#         contour_df.loc[cnt_id, 'section'] = sec
+#
+#         Tinv = Ts[fn]
+#
+#         n = len(cnt['vertices'])
+#
+#         vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
+#         vertices_on_aligned_cropped = vertices_on_aligned_cropped / out_downsample
+#         contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+#         contour_df.set_value(cnt_id, 'downsample', out_downsample)
+#
+#         if 'label_position' in cnt and cnt['label_position'] is not None:
+#             label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
+#             label_position_on_aligned_cropped = label_position_on_aligned_cropped / out_downsample
+#             contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+#
+#     return contour_df
+
+def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, resolution=1, prep_id=2):
     """
-    Convert contours defined wrt aligned cropped frame in scale `in_downsample` to
-    contours defined wrt orignal unprocessed image frame in the raw scale (downscale=1).
+    Convert contours defined wrt aligned cropped frame in resolution to
+    contours defined wrt orignal unprocessed image frame in the raw resolution.
 
     Args:
         contour_df (DataFrame): rows are polygon ids, columns are properties.
-        in_downsample (float): use input contours at this scale.
+        resolution (str): resolution of the input contour.
 
     Returns:
         DataFrame: a DataFrame containing converted polygons.
@@ -1038,33 +1080,82 @@ def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_down
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
     if prep_id == 2:
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack)
     elif prep_id == 3:
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox_thalamus(stack)
     else:
         raise
 
-    Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
+    Ts_rawResol = DataManager.load_transforms(stack=stack, resolution='raw', use_inverse=True)
 
-    cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == in_downsample)]
+    # cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['resolution'] == resolution)]
 
-    for cnt_id, cnt in cnts.iterrows():
+    for cnt_id, cnt in contour_df.iterrows():
         sec = cnt['section']
         fn = section_to_filename[sec]
         if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
             continue
         contour_df.loc[cnt_id, 'filename'] = fn
 
-        T = np.linalg.inv(Ts[fn])
+        T_rawResol = np.linalg.inv(Ts_rawResol[fn])
 
-        n = len(cnt['vertices'])
-
-        vertices_on_aligned = np.array(cnt['vertices'])*in_downsample + (xmin*32, ymin*32)
-        contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
-        contour_df.set_value(cnt_id, 'downsample', 1.)
+        vertices_wrt_alignedUncropped_rawResol = np.array(cnt['vertices']) * \
+        convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack) / \
+        convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) + (xmin_down32 * 32., ymin_down32 * 32.)
+        contour_df.set_value(cnt_id, 'vertices', np.dot(T_rawResol, np.c_[vertices_wrt_alignedUncropped_rawResol, np.ones((len(vertices_wrt_alignedUncropped_rawResol),))].T).T[:, :2])
+        contour_df.set_value(cnt_id, 'resolution', 'raw')
 
         if 'label_position' in cnt and cnt['label_position'] is not None:
-            label_position_on_aligned = np.array(cnt['label_position'])*in_downsample + (xmin*32, ymin*32)
-            contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
+            label_position_wrt_alignedUncropped_rawResol = np.array(cnt['label_position']) * \
+            convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack) / \
+            convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) + (xmin_down32 * 32., ymin_down32 * 32.)
+            contour_df.set_value(cnt_id, 'label_position', np.dot(T_rawResol, np.r_[label_position_wrt_alignedUncropped_rawResol, 1])[:2])
 
     return contour_df
+
+# def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1, prep_id=2):
+#     """
+#     Convert contours defined wrt aligned cropped frame in resolution `in_downsample` to
+#     contours defined wrt orignal unprocessed image frame in the raw resolution.
+#
+#     Args:
+#         contour_df (DataFrame): rows are polygon ids, columns are properties.
+#         in_downsample (float): use input contours at this scale.
+#
+#     Returns:
+#         DataFrame: a DataFrame containing converted polygons.
+#     """
+#
+#     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+#
+#     if prep_id == 2:
+#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
+#     elif prep_id == 3:
+#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
+#     else:
+#         raise
+#
+#     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
+#
+#     cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == in_downsample)]
+#
+#     for cnt_id, cnt in cnts.iterrows():
+#         sec = cnt['section']
+#         fn = section_to_filename[sec]
+#         if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
+#             continue
+#         contour_df.loc[cnt_id, 'filename'] = fn
+#
+#         T = np.linalg.inv(Ts[fn])
+#
+#         n = len(cnt['vertices'])
+#
+#         vertices_on_aligned = np.array(cnt['vertices'])*in_downsample + (xmin*32, ymin*32)
+#         contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
+#         contour_df.set_value(cnt_id, 'downsample', 1.)
+#
+#         if 'label_position' in cnt and cnt['label_position'] is not None:
+#             label_position_on_aligned = np.array(cnt['label_position'])*in_downsample + (xmin*32, ymin*32)
+#             contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
+#
+#     return contour_df

@@ -239,7 +239,7 @@ class DataManager(object):
                                               return_locations=False):
 
         from learning_utilities import grid_parameters_to_sample_locations
-        
+
         grid_indices_lookup_fp = DataManager.get_annotation_to_grid_indices_lookup_filepath(**locals())
         download_from_s3(grid_indices_lookup_fp)
 
@@ -248,20 +248,20 @@ class DataManager(object):
          in notebook `learning/identify_patch_class_from_labeling`")
         else:
             grid_indices_lookup = load_hdf_v2(grid_indices_lookup_fp)
-            
+
             locations_lookup = defaultdict(lambda: defaultdict(list))
-            
+
             if not return_locations:
                 return grid_indices_lookup
             else:
                 grids_to_locations = grid_parameters_to_sample_locations(win_id=win_id, stack=stack)
-                
+
                 for sec, indices_this_sec in grid_indices_lookup.iterrows():
                     for label, indices in indices_this_sec.dropna(how='all').iteritems():
                         locations_lookup[label][sec] = [grids_to_locations[i] for i in indices]
-            
+
             return DataFrame(locations_lookup)
-                                
+
 
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
@@ -317,7 +317,8 @@ class DataManager(object):
                                 prep_id_m=None,
                                 prep_id_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None,
-                               return_timestamp=False):
+                               return_timestamp=False,
+                               annotation_rootdir=ANNOTATION_ROOTDIR):
         """
         Args:
             timestamp (str): can be "latest".
@@ -335,9 +336,9 @@ class DataManager(object):
             # else:
             if timestamp is not None:
                 if timestamp == 'latest':
-                    download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
+                    download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
                     timestamps = []
-                    for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                    for fn in os.listdir(os.path.join(annotation_rootdir, stack)):
                         m = re.match('%(stack)s_annotation_%(suffix)s_([0-9]*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
                         # print fn, m
                         if m is not None:
@@ -349,9 +350,9 @@ class DataManager(object):
                 elif timestamp == 'now':
                     timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
-                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
+                fp = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
             else:
-                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
+                fp = os.path.join(annotation_rootdir, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
         else:
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
                                                               detector_id_m=detector_id_m,
@@ -363,9 +364,9 @@ class DataManager(object):
             if suffix is not None:
                 if timestamp is not None:
                     if timestamp == 'latest':
-                        download_from_s3(os.path.join(ANNOTATION_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
+                        download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
                         timestamps = []
-                        for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                        for fn in os.listdir(os.path.join(annotation_rootdir, stack)):
                             m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
                             if m is not None:
                                 ts = m.groups()[0]
@@ -376,11 +377,11 @@ class DataManager(object):
                     elif timestamp == 'now':
                         timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
-                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
+                    fp = os.path.join(annotation_rootdir, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
                 else:
-                    fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
+                    fp = os.path.join(annotation_rootdir, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
             else:
-                fp = os.path.join(ANNOTATION_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
+                fp = os.path.join(annotation_rootdir, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
 
         if return_timestamp:
             return fp, timestamp
@@ -392,14 +393,15 @@ class DataManager(object):
                                 detector_id_m=None,
                                 detector_id_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None,
-                          return_timestamp=False):
+                          return_timestamp=False,
+                          annotation_rootdir=ANNOTATION_ROOTDIR):
         if by_human:
             if return_timestamp:
                 fp, timestamp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
-                                                    return_timestamp=True)
+                                                    return_timestamp=True, annotation_rootdir=annotation_rootdir)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
-                                                    return_timestamp=False)
+                                                    return_timestamp=False, annotation_rootdir=annotation_rootdir)
             download_from_s3(fp)
             contour_df = read_hdf(fp)
             if return_timestamp:
@@ -415,7 +417,8 @@ class DataManager(object):
                                                       detector_id_f=detector_id_f,
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
                                                     suffix=suffix, timestamp=timestamp,
-                                                                   return_timestamp=True)
+                                                                   return_timestamp=True,
+                                                                   annotation_rootdir=annotation_rootdir)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                      stack_m=stack_m,
@@ -423,7 +426,8 @@ class DataManager(object):
                                       detector_id_f=detector_id_f,
                                       warp_setting=warp_setting, trial_idx=trial_idx,
                                     suffix=suffix, timestamp=timestamp,
-                                                   return_timestamp=False)
+                                                   return_timestamp=False,
+                                                   annotation_rootdir=annotation_rootdir)
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
 
@@ -443,104 +447,6 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][sec]
         return os.path.join(ANNOTATION_VIZ_ROOTDIR, stack, fn + '_annotation_viz.tif')
-
-
-    @staticmethod
-    def get_annotation_thalamus_filepath(stack, by_human, stack_m=None,
-                                detector_id_m=None,
-                                detector_id_f=None,
-                                prep_id_m=None,
-                                prep_id_f=None,
-                                warp_setting=None, trial_idx=None, suffix=None, timestamp=None):
-        """
-        Identical to get_annotation_filepath()
-        except that this uses ANNOTATION_THALAMUS_ROOTDIR in place of ANNOTATION_ROOTDIR.
-
-        Args:
-            timestamp (str): can be "latest".
-        """
-
-
-        if by_human:
-            # if suffix is None:
-            #     fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_v3.h5' % {'stack':stack})
-            # else:
-            if timestamp is not None:
-                if timestamp == 'latest':
-                    download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
-                    timestamps = []
-                    for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
-                        m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
-                        if m is not None:
-                            ts = m.groups()[0]
-                            try:
-                                timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
-                            except:
-                                pass
-                    timestamp = sorted(timestamps)[-1][1]
-                    print "latest timestamp: ", timestamp
-
-                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s.hdf' % {'stack':stack, 'suffix':suffix, 'timestamp': timestamp})
-            else:
-                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s.hdf' % {'stack':stack, 'suffix':suffix})
-        else:
-            basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
-                                                              detector_id_m=detector_id_m,
-                                                              detector_id_f=detector_id_f,
-                                                              prep_id_m=prep_id_m,
-                                                              prep_id_f=prep_id_f,
-                                                              warp_setting=warp_setting,
-                                                              trial_idx=trial_idx)
-            if suffix is not None:
-                if timestamp is not None:
-                    if timestamp == 'latest':
-                        download_from_s3(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
-                        timestamps = []
-                        for fn in os.listdir(os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack)):
-                            m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
-                            if m is not None:
-                                ts = m.groups()[0]
-                                try:
-                                    timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
-                                except:
-                                    pass
-                        timestamp = sorted(timestamps)[-1][1]
-                        print "latest timestamp: ", timestamp
-
-                    fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s_%(timestamp)s.hdf' % {'basename': basename, 'suffix': suffix, 'timestamp': timestamp})
-                else:
-                    fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s_%(suffix)s.hdf' % {'basename': basename, 'suffix': suffix})
-            else:
-                fp = os.path.join(ANNOTATION_THALAMUS_ROOTDIR, stack, 'annotation_%(basename)s.hdf' % {'basename': basename})
-        return fp
-
-
-    @staticmethod
-    def load_annotation_thalamus_v4(stack=None, by_human=True, stack_m=None,
-                                detector_id_m=None,
-                                detector_id_f=None,
-                                warp_setting=None, trial_idx=None, timestamp=None, suffix=None):
-        """
-        Identical to `load_annotation_v4` except that this uses `get_annotation_thalamus_filepath` in place of `get_annotation_filepath`
-        """
-
-        if by_human:
-            fp = DataManager.get_annotation_thalamus_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp)
-            download_from_s3(fp)
-            contour_df = read_hdf(fp)
-            return contour_df
-
-        else:
-            fp = DataManager.get_annotation_thalamus_filepath(stack, by_human=False,
-                                                     stack_m=stack_m,
-                                                      detector_id_m=classifier_setting_m,
-                                                      detector_id_f=classifier_setting_f,
-                                                      warp_setting=warp_setting, trial_idx=trial_idx,
-                                                    suffix=suffix, timestamp=timestamp)
-            download_from_s3(fp)
-            annotation_df = load_hdf_v2(fp)
-            return annotation_df
-
 
 
     ########################################################
@@ -743,34 +649,39 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_transforms(stack, downsample_factor, use_inverse=True, anchor_fn=None):
+    def load_transforms(stack, downsample_factor=None, resolution=None, use_inverse=True, anchor_fn=None):
         """
         Args:
-            use_inverse (bool): If True, load the transforms that when multiplied
-            to a point on original space converts it to on aligned space.
-            In preprocessing, set to False, which means simply parse the transform files as they are.
+            use_inverse (bool): If True, load the 2-d rigid transforms that when multiplied
+                                to a point on original space converts it to on aligned space.
+                                In preprocessing, set to False, which means simply parse the transform files as they are.
             downsample_factor (float): the downsample factor of images that the output transform will be applied to.
+            resolution (str): resolution of the image that the output transform will be applied to.
         """
+
+        if resolution is None:
+            assert downsample_factor is not None
+            resolution = 'down%d' % downsample_factor
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        Ts = DataManager.load_data(fp, filetype='pickle')
+        Ts_down32 = DataManager.load_data(fp, filetype='pickle')
 
         if use_inverse:
-            Ts_inv_downsampled = {}
-            for fn, T0 in Ts.iteritems():
-                T = T0.copy()
-                T[:2, 2] = T[:2, 2] * 32 / downsample_factor
-                Tinv = np.linalg.inv(T)
-                Ts_inv_downsampled[fn] = Tinv
-            return Ts_inv_downsampled
+            Ts_inv_rescaled = {}
+            for fn, T_down32 in Ts_down32.iteritems():
+                T_rescaled = T_down32.copy()
+                T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
+                T_rescaled_inv = np.linalg.inv(T_rescaled)
+                Ts_inv_rescaled[fn] = T_rescaled_inv
+            return Ts_inv_rescaled
         else:
-            Ts_downsampled = {}
-            for fn, T0 in Ts.iteritems():
-                T = T0.copy()
-                T[:2, 2] = T[:2, 2] * 32 / downsample_factor
-                Ts_downsampled[fn] = T
-            return Ts_downsampled
+            Ts_rescaled = {}
+            for fn, T_down32 in Ts_down32.iteritems():
+                T_rescaled = T_down32.copy()
+                T_rescaled[:2, 2] = T_rescaled[:2, 2] * 32 * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
+                Ts_rescaled[fn] = T_rescaled
+            return Ts_rescaled
 
     ################
     # Registration #
@@ -861,7 +772,7 @@ class DataManager(object):
 
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-        
+
         if stack_f is None:
             assert warp_setting is None
             vol_name = basename_m
@@ -872,7 +783,7 @@ class DataManager(object):
 
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-            
+
         return vol_name
 
     @staticmethod
@@ -2605,7 +2516,8 @@ class DataManager(object):
                                                     include_surround=False,
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
-                                                     common_shape=True):
+                                                     common_shape=True,
+                                                     return_origin_instead_of_bbox=True):
         """
         Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
 
@@ -2660,7 +2572,6 @@ class DataManager(object):
                     label_to_structure[index] = structure
                     index += 1
 
-
             except Exception as e:
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
@@ -2673,10 +2584,20 @@ class DataManager(object):
             else:
                 return volumes_normalized, common_bbox
         else:
+            # if return_label_mappings:
+            #     return volumes, structure_to_label, label_to_structure
+            # else:
+            #     return volumes
             if return_label_mappings:
-                return volumes, structure_to_label, label_to_structure
+                if return_origin_instead_of_bbox:
+                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
+                else:
+                    raise
             else:
-                return volumes
+                if return_origin_instead_of_bbox:
+                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}
+                else:
+                    raise
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
@@ -3139,7 +3060,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_dnn_features_filepath_v2(stack, prep_id, win_id, 
+    def get_dnn_features_filepath_v2(stack, prep_id, win_id,
                               normalization_scheme,
                                              model_name, what='features',
                                     sec=None, fn=None, timestamp=None):
@@ -3147,73 +3068,73 @@ class DataManager(object):
         Args:
             what (str): "features" or "locations"
         """
-        
+
         if timestamp == 'now':
             timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
-        
+
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         prep_str = 'prep%(prep)d' % {'prep':prep_id}
         win_str = 'win%(win)d' % {'win':win_id}
-            
+
         feature_fp = os.path.join(PATCH_FEATURES_ROOTDIR, model_name, stack,
                     stack + '_' + prep_str + '_' + normalization_scheme + '_' + win_str,
             fn + '_' + prep_str + '_' + normalization_scheme + '_' + win_str + '_' + model_name + '_' + what + ('_%s'%timestamp if timestamp is not None else '') + '.bp')
-        
+
         return feature_fp
-    
+
     @staticmethod
-    def load_dnn_features_v2(stack, prep_id, win_id, 
+    def load_dnn_features_v2(stack, prep_id, win_id,
                               normalization_scheme,
                              model_name, sec=None, fn=None):
         """
         Args:
             win (int): the spacing/size scheme
-            
+
         Returns:
             (features, patch center locations wrt prep=2 images)
-            
+
         Note: `mean_img` is assumed to be the default provided by mxnet.
         """
-        
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features')
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
         features = bp.unpack_ndarray_file(features_fp)
-        
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id, 
+
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations')
         download_from_s3(locations_fp)
         locations = np.loadtxt(locations_fp).astype(np.int)
-        
+
         return features, locations
 
 
     @staticmethod
-    def save_dnn_features_v2(features, locations, stack, 
+    def save_dnn_features_v2(features, locations, stack,
                              win_id, normalization_scheme, model_name, sec=None, fn=None, timestamp=None):
         """
         Args:
             features ((n,1024) array of float):
             locations ((n,2) array of int): list of (x,y) coordinates relative to prep=2 image. This matches the features list.
         """
-                
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
+
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features', timestamp=timestamp)
         create_parent_dir_if_not_exists(features_fp)
         bp.pack_ndarray_file(features, features_fp)
         upload_to_s3(features_fp)
-        
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id, 
+
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations', timestamp=timestamp)
         np.savetxt(locations_fp, locations, fmt='%d')
-        upload_to_s3(locations_fp)        
-        
+        upload_to_s3(locations_fp)
+
 #     @staticmethod
 #     def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
 #         """
@@ -3278,8 +3199,8 @@ class DataManager(object):
 #             pass
 
 #         return bp.unpack_ndarray_file(features_fp)
-    
-        
+
+
 
 
     ##################
@@ -3583,7 +3504,8 @@ class DataManager(object):
     #######################################################
 
     @staticmethod
-    def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, first_sec=None, z_begin=None, mid=False):
+    # def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, first_sec=None, mid=False):
+    def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, mid=False):
         """
         Because the z-spacing is much larger than the pixel size on x-y plane,
         the voxels are square on x-y plane and elongated in z-direction.
@@ -3596,16 +3518,13 @@ class DataManager(object):
         Physical size of a cubic voxel depends on the downsample factor.
 
         Args:
-            downsample: this determines the voxel size.
-
+            downsample/resolution: this determines the voxel size.
             z_begin (float): z-coordinate of an origin. The z-coordinate of a given section is relative to this value.
                 Default is the z position of the `first_sec`. This must be consistent with `downsample`.
-
-            first_sec (int): Section index of the origin, assuming the first section is at z=0.
+            first_sec (int): Index of the section that defines z=0.
                 Default is the first brainstem section defined in ``cropbox".
                 If `stack` is given, the default is the first section of the brainstem.
                 If `stack` is not given, default = 1.
-
             mid (bool): If false, return the z-coordinates of the two sides of the section. If true, only return a single scalar = the average.
 
         Returns:
@@ -3613,24 +3532,24 @@ class DataManager(object):
         """
 
         if downsample is not None:
-            voxel_size_um = convert_resolution_string_to_voxel_size(resolution='down%d'%downsample, stack=stack)
-        else:
-            voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
-        section_thickness_in_voxel = SECTION_THICKNESS / voxel_size_um
-        # Voxel size in z direction in unit of x,y pixel.
+            resolution = 'down%d' % downsample
 
-        if first_sec is None:
-            # first_sec, _ = DataManager.load_cropbox(stack)[4:]
-            if stack is not None:
-                first_sec = metadata_cache['section_limits'][stack][0]
-            else:
-                first_sec = 1
+        voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+        section_thickness_in_voxel = SECTION_THICKNESS / voxel_size_um # Voxel size in z direction in unit of x,y pixel.
+        # if first_sec is None:
+        #     # first_sec, _ = DataManager.load_cropbox(stack)[4:]
+        #     if stack is not None:
+        #         first_sec = metadata_cache['section_limits'][stack][0]
+        #     else:
+        #         first_sec = 1
+        #
+        # if z_begin is None:
+        #     z_begin = (first_sec - 1) * section_thickness_in_voxel
 
-        if z_begin is None:
-            z_begin = (first_sec - 1) * section_thickness_in_voxel
-
+        z_begin = 0
         z1 = (sec-1) * section_thickness_in_voxel
         z2 = sec * section_thickness_in_voxel
+        # print "z1, z2 =", z1, z2
 
         if mid:
             return np.mean([z1-z_begin, z2-1-z_begin])
@@ -3643,16 +3562,15 @@ class DataManager(object):
         Convert z coordinate to section index.
 
         Args:
+            resolution (str): planar resolution
             z_first_sec (int): z level of section index 1. Provide either this or `sec_z0`.
             sec_z0 (int): section index at z=0. Provide either this or `z_first_sec`.
         """
 
         if downsample is not None:
-            voxel_size_um = convert_resolution_string_to_voxel_size(resolution='down%d'%downsample, stack=stack)
-        else:
-            voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+            resolution = 'down%d' % downsample
 
-        # voxel_size_um = XY_PIXEL_DISTANCE_LOSSLESS * downsample
+        voxel_size_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
         section_thickness_in_voxel = SECTION_THICKNESS / voxel_size_um
 
         if z_first_sec is not None:
@@ -3662,9 +3580,9 @@ class DataManager(object):
         else:
             sec_float = np.float32(z / section_thickness_in_voxel)
 
-        sec_floor = int(np.floor(sec_float))
-
-        return sec_floor
+        # print "sec_float =", sec_float
+        sec = int(np.ceil(sec_float))
+        return sec
 
     @staticmethod
     def get_initial_snake_contours_filepath(stack):

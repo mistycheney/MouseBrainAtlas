@@ -33,61 +33,66 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
-######################################################################
+#####################################################################
 
+def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
+    from datetime import datetime
+    return datetime.now().strftime(fmt)
+
+######################################################################
 
 def rescale_by_resampling(v, scaling):
     if v.ndim == 3:
         if v.shape[-1] == 3: # RGB image
-            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
-              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int), indexing='ij')]
+            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.round(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
         else: # 3-d volume
-            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
-              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int),
-              np.round(np.arange(0, v.shape[2], scaling)).astype(np.int), indexing='ij')]
+            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
     elif v.ndim == 2:
-        return v[np.meshgrid(np.round(np.arange(0, v.shape[0], scaling)).astype(np.int), 
-              np.round(np.arange(0, v.shape[1], scaling)).astype(np.int), indexing='ij')]
+        return v[np.meshgrid(np.round(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.round(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
     else:
         raise
 
 
-def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
-    """
-    Args:
-        T ((12,)-array): affine transform matrix from fixed vol coords to moving vol coords.
-        scaling (float): the scaling factor.
-    Returns:
-        vol_m_warped_to_f
-    """
-    
-    if dtype is None:
-        dtype = vol_m.dtype
-    
-    ydim_m, xdim_m, zdim_m = vol_m.shape
-    xdim_f, ydim_f, zdim_f = (int(np.round(xdim_m * scaling)), 
-                              int(np.round(ydim_m * scaling)), 
-                            int(np.round(zdim_m * scaling)))
-    
-    xyzs_f = np.array(np.meshgrid(range(xdim_f), range(ydim_f), range(zdim_f), indexing='xy'))
-    xyzs_f = np.rollaxis(xyzs_f, axis=0, start=4)
-    xyzs_f = xyzs_f.reshape((-1,3))
-    
-    xyzs_m = np.round(xyzs_f/scaling).astype(np.int)
-    
-    if return_mapping_only:
-        return xyzs_m, xyzs_f
-        
-    vol_m_warped_to_f = np.zeros((ydim_f, xdim_f, zdim_f), dtype=dtype)
-    
-    valid_mask = (xyzs_m[:,2] >= 0) & (xyzs_m[:,2] < vol_m.shape[2]) \
-                & (xyzs_m[:,0] >= 0) & (xyzs_m[:,0] < vol_m.shape[1]) \
-                & (xyzs_m[:,1] >= 0) & (xyzs_m[:,1] < vol_m.shape[0])
-    
-    vol_m_warped_to_f[xyzs_f[valid_mask, 1], xyzs_f[valid_mask, 0], xyzs_f[valid_mask, 2]] = \
-    vol_m[xyzs_m[valid_mask, 1], xyzs_m[valid_mask, 0], xyzs_m[valid_mask, 2]]
-
-    return vol_m_warped_to_f
+# def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
+#     """
+#     Args:
+#         T ((12,)-array): affine transform matrix from fixed vol coords to moving vol coords.
+#         scaling (float): the scaling factor.
+#     Returns:
+#         vol_m_warped_to_f
+#     """
+#
+#     if dtype is None:
+#         dtype = vol_m.dtype
+#
+#     ydim_m, xdim_m, zdim_m = vol_m.shape
+#     xdim_f, ydim_f, zdim_f = (int(np.round(xdim_m * scaling)),
+#                               int(np.round(ydim_m * scaling)),
+#                             int(np.round(zdim_m * scaling)))
+#
+#     xyzs_f = np.array(np.meshgrid(range(xdim_f), range(ydim_f), range(zdim_f), indexing='xy'))
+#     xyzs_f = np.rollaxis(xyzs_f, axis=0, start=4)
+#     xyzs_f = xyzs_f.reshape((-1,3))
+#
+#     xyzs_m = np.round(xyzs_f/scaling).astype(np.int)
+#
+#     if return_mapping_only:
+#         return xyzs_m, xyzs_f
+#
+#     vol_m_warped_to_f = np.zeros((ydim_f, xdim_f, zdim_f), dtype=dtype)
+#
+#     valid_mask = (xyzs_m[:,2] >= 0) & (xyzs_m[:,2] < vol_m.shape[2]) \
+#                 & (xyzs_m[:,0] >= 0) & (xyzs_m[:,0] < vol_m.shape[1]) \
+#                 & (xyzs_m[:,1] >= 0) & (xyzs_m[:,1] < vol_m.shape[0])
+#
+#     vol_m_warped_to_f[xyzs_f[valid_mask, 1], xyzs_f[valid_mask, 0], xyzs_f[valid_mask, 2]] = \
+#     vol_m[xyzs_m[valid_mask, 1], xyzs_m[valid_mask, 0], xyzs_m[valid_mask, 2]]
+#
+#     return vol_m_warped_to_f
 
 
 ###################################################################
@@ -326,7 +331,7 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
 
         cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
         if len(cnts) == 0 or 1 not in cnts:
-            sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
+            # sys.stderr.write('No contour of reconstructed volume is found at position %d.\n' % p)
             return
         else:
             if len(cnts[1]) > 1:
@@ -609,7 +614,7 @@ def return_gridline_points(xs, ys, z, w, h):
     return grid_points
 
 
-def consolidate(params, centroid_m, centroid_f):
+def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
     Convert the set (parameter, centroid m, centroid f) to a single matrix.
 
@@ -644,6 +649,15 @@ def dice(hm, hf):
     """
     return 2 * np.count_nonzero(hm & hf) / float(np.count_nonzero(hm) + np.count_nonzero(hf))
 
+########################################################################################
+
+def crop_volume_to_minimal(vol, origin):
+    """
+    Return only the nonzero part.
+    """
+    xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
+    return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
+
 def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     if bboxes is None:
         bboxes = np.array([b for v, b in vol_bbox_tuples])
@@ -652,7 +666,7 @@ def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     bbox = xmin, xmax, ymin, ymax, zmin, zmax
     return bbox
 
-def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None):
+def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None, vol_bbox=None):
     """
     Args:
         out_bbox ((6,)-array): the output bounding box, must use the same reference system as the vol_bbox input.
@@ -662,10 +676,22 @@ def crop_and_pad_volumes(out_bbox=None, vol_bbox_dict=None, vol_bbox_tuples=None
     Returns:
         list of 3d arrays or dict {structure name: 3d array}
     """
-    if vol_bbox_tuples is not None:
-        vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in vol_bbox_tuples]
-    elif vol_bbox_dict is not None:
-        vols = {l: crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
+
+    if vol_bbox is not None:
+        if isinstance(vol_bbox, dict):
+            vols = {l: crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for l, (v, b) in volumes.iteritems()}
+        elif isinstance(vol_bbox, list):
+            vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in volumes]
+        else:
+            raise
+    else:
+        if vol_bbox_tuples is not None:
+            vols = [crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for (v, b) in vol_bbox_tuples]
+        elif vol_bbox_dict is not None:
+            vols = {l: crop_and_pad_volume(v, in_bbox=b, out_bbox=out_bbox) for l, (v, b) in vol_bbox_dict.iteritems()}
+        else:
+            raise
+
     return vols
 
 def convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=None, vol_bbox_tuples=None, vol_origin_dict=None):
@@ -736,9 +762,9 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     out_xdim = out_xmax - out_xmin + 1
     out_ydim = out_ymax - out_ymin + 1
     out_zdim = out_zmax - out_zmin + 1
-    
+
     # print out_xmin, out_xmax, out_ymin, out_ymax, out_zmin, out_zmax
-    
+
     if out_xmin > in_xmax or out_xmax < in_xmin or out_ymin > in_ymax or out_ymax < in_ymin or out_zmin > in_zmax or out_zmax < in_zmin:
         return np.zeros((out_ydim, out_xdim, out_zdim), np.int)
 
@@ -751,7 +777,7 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     if out_zmax > in_zmax:
         in_vol = np.pad(in_vol, pad_width=[(0,0),(0,0),(0, out_zmax-in_zmax)], mode='constant', constant_values=0)
         # print 'pad z'
-        
+
     out_vol = np.zeros((out_ydim, out_xdim, out_zdim), in_vol.dtype)
     ymin = max(in_ymin, out_ymin)
     xmin = max(in_xmin, out_xmin)
@@ -772,6 +798,8 @@ def crop_and_pad_volume(in_vol, in_bbox=None, in_origin=(0,0,0), out_bbox=None):
     assert out_vol.shape[2] == out_zdim
 
     return out_vol
+
+########################################################################################
 
 def crop_large_image(fp, bbox):
     """
@@ -1285,7 +1313,7 @@ def display_volume_sections_checkerboard(vol_f, vol_mTof, every=5, ncols=5, dire
     assert vol_f.shape == vol_mTof.shape
 
     vol_mTof_colored = np.zeros(vol_mTof.shape + (3,))
-    vol_mTof_colored[..., 0] = vol_mTof # use red 
+    vol_mTof_colored[..., 0] = vol_mTof # use red
     vol_f_colored = np.zeros(vol_f.shape + (3,))
     vol_f_colored[..., 1] = vol_f # use green
 
@@ -1299,11 +1327,11 @@ def display_volume_sections_checkerboard(vol_f, vol_mTof, every=5, ncols=5, dire
         for xi, x in enumerate(range(0, vol_mTof.shape[1], grid_size)):
             for yi, y in enumerate(range(0, vol_mTof.shape[0], grid_size)):
                 if (xi + yi) % 2 == 1:
-                    vol_checkerboard_colored[y:y+grid_size, x:x+grid_size, :] = vol_f_colored[y:y+grid_size, x:x+grid_size, :].copy()    
+                    vol_checkerboard_colored[y:y+grid_size, x:x+grid_size, :] = vol_f_colored[y:y+grid_size, x:x+grid_size, :].copy()
 
     ############################
 
-    display_volume_sections(vol_checkerboard_colored, every=every, 
+    display_volume_sections(vol_checkerboard_colored, every=every,
                             direction=direction, start_level=start_level, ncols=ncols, **kwargs)
 
 

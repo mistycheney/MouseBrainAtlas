@@ -55,7 +55,7 @@ Step 3: Register to atlas.
 
 `$ ./register.py <transform_spec>`
 
-## Visualize and Revise annotations using the labeling GUI
+## Visualize and revise annotations using the labeling GUI
 
 Download warped atlas maps into `VOLUME_DIR/<atlasName>/<atlasName>_<warp>_<fixedMapName>`.
 

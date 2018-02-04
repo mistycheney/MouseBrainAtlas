@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2080</width>
+    <width>2280</width>
     <height>1113</height>
    </rect>
   </property>
@@ -20,14 +20,14 @@
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
-      <widget class="QGraphicsView" name="sagittal_gview"/>
+      <widget class="QGraphicsView" name="main_sagittal_gview"/>
       <widget class="QSplitter" name="splitter">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
-       <widget class="QGraphicsView" name="coronal_gview"/>
-       <widget class="QGraphicsView" name="horizontal_gview"/>
-       <widget class="QGraphicsView" name="sagittal_tb_gview"/>
+       <widget class="QGraphicsView" name="tb_coronal_gview"/>
+       <widget class="QGraphicsView" name="tb_horizontal_gview"/>
+       <widget class="QGraphicsView" name="tb_sagittal_gview"/>
       </widget>
      </widget>
     </item>
@@ -157,7 +157,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2080</width>
+     <width>2280</width>
      <height>25</height>
     </rect>
    </property>

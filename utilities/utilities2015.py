@@ -33,6 +33,7 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+
 #####################################################################
 
 def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
@@ -294,13 +295,10 @@ def compute_covar_from_instance_centroids(instance_centroids):
 
 def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
     """
-    This function uses multiple processes.
-
-
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
         along_direction (str): 'x', 'y' or 'z'.
-        positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
+        positions (None or list of int): if None, find contours at all positions of input volume, from 0 to the depth of volume.
 
     Returns:
         dict {int: (n,2)-ndarray}: contours. {voxel position: contour vertices (second dim, first dim)}.

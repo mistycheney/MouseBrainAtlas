@@ -53,8 +53,8 @@ class ReadRGBComponentImagesThread(QThread):
         self.wait()
 
     def run(self):
-        for sec in self.gscenes['sagittal'].active_section:
-            if sec in self.gscenes['sagittal'].per_channel_pixmap_cached:
+        for sec in self.gscenes['main_sagittal'].active_section:
+            if sec in self.gscenes['main_sagittal'].per_channel_pixmap_cached:
                 continue
             try:
                 fp = DataManager.get_image_filepath_v2(stack=self.stack, section=sec, prep_id=2, resol='lossless', version='contrastStretchedBlue')
@@ -97,8 +97,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_saveProbStructures.clicked.connect(self.save_prob_structures)
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
-        # self.button_loadStructures.clicked.connect(self.load_structures)
-        self.button_loadProbStructures.clicked.connect(self.load_prob_structures)
+        self.button_loadStructures.clicked.connect(self.load_structures)
+        # self.button_loadProbStructures.clicked.connect(self.load_structures)
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
         self.button_loadWarpedStructure.clicked.connect(self.load_warped_structure)
         self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
@@ -108,22 +108,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
-        # self.structure_volumes = defaultdict(dict)
-        # self.structure_adjustments_3d = defaultdict(list)
-        self.prob_structure_volumes = defaultdict(dict)
+        self.structure_volumes = {'handdrawn': {}, 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
         for name_s in all_known_structures_sided:
             name_u, side = parse_label(name_s, singular_as_s=True)[:2]
-            self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': None, 'origin': None, 'edits': []}
+            self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume_in_bbox': None, 'origin': None, 'edits': []}
 
-        self.prob_volume_resolution_um = 16.
+        self.structure_volume_resolution_um = 16.
 
         self.volume_cache = {}
         # for resol in ['10.0um']:
         for resol in ['down32']:
             # try:
             # self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=1)
-            vol_down32 = DataManager.load_intensity_volume_v2(self.stack, downscale=32, prep_id=4)
-            self.volume_cache[resol] = rescale_by_resampling(vol_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
+            # vol_down32 = DataManager.load_intensity_volume_v2(self.stack, downscale=32, prep_id=4)
+            intensity_volume_down32, intensity_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
+            self.volume_cache[resol] = rescale_by_resampling(intensity_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
             print 'Intensity volume', self.volume_cache[resol].shape
             # except:
             #     sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
@@ -131,37 +130,37 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.splitter.setSizes([500, 500, 500])
         self.splitter_2.setSizes([1000, 500])
 
-        self.sagittal_tb_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal_tb', gui=self, gview=self.sagittal_tb_gview)
-        self.sagittal_tb_gview.setScene(self.sagittal_tb_gscene)
+        self.tb_sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='tb_sagittal', gui=self, gview=self.tb_sagittal_gview)
+        self.tb_sagittal_gview.setScene(self.tb_sagittal_gscene)
 
-        self.coronal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='coronal', gui=self, gview=self.coronal_gview)
-        self.coronal_gview.setScene(self.coronal_gscene)
+        self.tb_coronal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='tb_coronal', gui=self, gview=self.tb_coronal_gview)
+        self.tb_coronal_gview.setScene(self.tb_coronal_gscene)
 
-        self.horizontal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='horizontal', gui=self, gview=self.horizontal_gview)
-        self.horizontal_gview.setScene(self.horizontal_gscene)
+        self.tb_horizontal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='tb_horizontal', gui=self, gview=self.tb_horizontal_gview)
+        self.tb_horizontal_gview.setScene(self.tb_horizontal_gscene)
 
-        self.sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='sagittal', gui=self, gview=self.sagittal_gview)
-        self.sagittal_gview.setScene(self.sagittal_gscene)
+        self.main_sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='main_sagittal', gui=self, gview=self.main_sagittal_gview)
+        self.main_sagittal_gview.setScene(self.main_sagittal_gscene)
 
-        self.sagittal_gscene.set_default_line_width(5)
-        self.sagittal_gscene.set_default_line_color('b')
-        self.sagittal_gscene.set_default_vertex_radius(10)
-        self.sagittal_gscene.set_default_vertex_color('r')
+        self.main_sagittal_gscene.set_default_line_width(5)
+        self.main_sagittal_gscene.set_default_line_color('b')
+        self.main_sagittal_gscene.set_default_vertex_radius(10)
+        self.main_sagittal_gscene.set_default_vertex_color('r')
 
-        self.gscenes = {'coronal': self.coronal_gscene, 'sagittal': self.sagittal_gscene, 'horizontal': self.horizontal_gscene,
-        'sagittal_tb': self.sagittal_tb_gscene}
+        self.gscenes = {'tb_coronal': self.tb_coronal_gscene, 'main_sagittal': self.main_sagittal_gscene, 'tb_horizontal': self.tb_horizontal_gscene,
+        'tb_sagittal': self.tb_sagittal_gscene}
 
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
             gscene.crossline_updated.connect(self.crossline_updated)
             gscene.active_image_updated.connect(self.active_image_updated)
-            gscene.structure_volume_updated.connect(self.update_structure_volume)
-            gscene.prob_structure_volume_updated.connect(self.update_prob_structure_volume)
+            gscene.structure_volume_updated.connect(self.handle_structure_update)
+            # gscene.prob_structure_volume_updated.connect(self.update_prob_structure_volume)
             gscene.global_transform_updated.connect(self.handle_global_transform_update)
             # gscene.set_structure_volumes(self.structure_volumes)
-            gscene.set_prob_structure_volumes(self.prob_structure_volumes)
+            gscene.set_structure_volumes(self.structure_volumes)
             # gscene.set_drawings(self.drawings)
-            gscene.set_prob_structure_volumes_resolution(um=self.prob_volume_resolution_um)
+            gscene.set_structure_volumes_resolution(um=self.structure_volume_resolution_um)
 
         ###################
         self.contextMenu_set = True
@@ -174,13 +173,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        if self.prep_id == 3:
-            first_sec0, last_sec0 = DataManager.load_cropbox_thalamus(self.stack)[4:]
-        elif self.prep_id == 2:
-            first_sec0, last_sec0 = DataManager.load_cropbox(self.stack)[4:]
-        else:
-            raise
-
+        first_sec0, last_sec0 = DataManager.load_cropbox(self.stack, prep_id=self.prep_id)[4:]
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,
@@ -189,9 +182,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         version=img_version)
         image_feeder.set_orientation('sagittal')
 
-        self.gscenes['sagittal'].set_data_feeder(image_feeder)
-
-        self.connect(self.gscenes['sagittal'], SIGNAL("image_loaded(int)"), self.image_loaded)
+        self.gscenes['main_sagittal'].set_data_feeder(image_feeder)
+        self.connect(self.gscenes['main_sagittal'], SIGNAL("image_loaded(int)"), self.image_loaded)
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
 
@@ -201,57 +193,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             coronal_volume_resection_feeder.set_orientation('coronal')
             coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['coronal'].set_data_feeder(coronal_volume_resection_feeder)
-            self.gscenes['coronal'].set_active_i(50)
+            self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
+            self.gscenes['tb_coronal'].set_active_i(50)
 
             horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
             horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             horizontal_volume_resection_feeder.set_orientation('horizontal')
             horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
-            self.gscenes['horizontal'].set_active_i(150)
+            self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+            self.gscenes['tb_horizontal'].set_active_i(150)
 
             sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
             sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
             sagittal_volume_resection_feeder.set_orientation('sagittal')
             sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['sagittal_tb'].set_data_feeder(sagittal_volume_resection_feeder)
-            self.gscenes['sagittal_tb'].set_active_i(150)
+            self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
+            self.gscenes['tb_sagittal'].set_active_i(150)
 
-        try:
-            self.gscenes['sagittal'].set_active_section(first_sec)
-        except Exception as e:
-            # sys.stderr.write(e.message + '\n')
-            pass
+        # try:
+        self.gscenes['main_sagittal'].set_active_section(first_sec)
+        # except Exception as e:
+        #     pass
 
-        self.compute_image_origin_wrt_wholebrain_tbResol()
+        cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, prep_id=self.prep_id)[:4]
+        self.gscenes['main_sagittal'].set_image_origin_wrt_wholebrain_um(np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
 
-    def compute_image_origin_wrt_wholebrain_tbResol(self):
-        """
-        Find the image origin according to frame identifier and stack name.
-        Sets `self.image_origin_wrt_wholebrain_tbResol` which is dict {gscene_id: 3-tuple}.
-        """
-
-        self.image_origin_wrt_wholebrain_tbResol = {}
-
-        if self.prep_id == 3: # thalamus crop
-            cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack)[:4]
-        elif self.prep_id == 2: # brainstem crop
-            cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack)[:4]
-        else:
-            raise
-        self.image_origin_wrt_wholebrain_tbResol['sagittal'] = \
-        np.array([cropboxXY_wrt_wholebrain_tbResol[0], cropboxXY_wrt_wholebrain_tbResol[2], 0])
-
-        fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=self.stack, prep_id=4)
-        download_from_s3(fp)
-        cropbox_wrt_wholebrain_tbResol = np.loadtxt(fp)
-        # print 'cropbox_wrt_wholebrain_tbResol=', cropbox_wrt_wholebrain_tbResol
-        for gid in ['coronal', 'horizontal', 'sagittal_tb']:
-            self.image_origin_wrt_wholebrain_tbResol[gid] = \
-            np.array([cropbox_wrt_wholebrain_tbResol[0], cropbox_wrt_wholebrain_tbResol[2], cropbox_wrt_wholebrain_tbResol[4]])
-
-        print self.image_origin_wrt_wholebrain_tbResol
+        for gid in ['tb_coronal', 'tb_horizontal', 'tb_sagittal']:
+            self.gscenes[gid].set_image_origin_wrt_wholebrain_um(intensity_volume_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
 
     @pyqtSlot(object)
     def handle_global_transform_update(self, tf):
@@ -284,7 +252,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             sec (int): section
         """
 
-        self.gscenes['sagittal'].per_channel_pixmap_cached[sec] = qimage_blue
+        self.gscenes['main_sagittal'].per_channel_pixmap_cached[sec] = qimage_blue
         self.statusBar().showMessage('R/G/B images %d loaded.\n' % sec)
         print 'R/G/B images', sec, 'received.'
 
@@ -334,7 +302,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def select_display_structures(self):
-        loaded_structure_abbrs = set([convert_to_unsided_label(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+        loaded_structure_abbrs = set([convert_to_unsided_label(name_s) for name_s in self.gscenes['main_sagittal'].get_label_section_lookup().keys()])
 
         structure_tree_dict = json.load(open('structure_tree.json'))
         # structure_tree_dict = {name: d for name, d in structure_tree_dict_all.iteritems() if d['abbr'] in loaded_structure_names}
@@ -391,7 +359,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     #
     #     viewport_layout = QVBoxLayout(viewport)
     #
-    #     structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['sagittal'].get_label_section_lookup().keys()])
+    #     structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['main_sagittal'].get_label_section_lookup().keys()])
     #
     #     if not hasattr(self, 'show_structure'):
     #         self.show_structure = {}
@@ -499,10 +467,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def infer_side(self):
-        self.gscenes['sagittal'].infer_side()
-        self.gscenes['sagittal_tb'].infer_side()
-        self.gscenes['coronal'].infer_side()
-        self.gscenes['horizontal'].infer_side()
+        self.gscenes['main_sagittal'].infer_side()
+        self.gscenes['tb_sagittal'].infer_side()
+        self.gscenes['tb_coronal'].infer_side()
+        self.gscenes['tb_horizontal'].infer_side()
     #
     # def merge_contour_entries(self, new_entries_df):
     #     """
@@ -521,7 +489,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
-        sagittal_markers_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username, classes=['neuron'])
+        sagittal_markers_curr_session = self.gscenes['main_sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username, classes=['neuron'])
         sagittal_markers_original = convert_annotation_v3_aligned_cropped_to_original(DataFrame(sagittal_markers_curr_session).T, stack=self.stack,
         prep_id=self.prep_id)
         if self.prep_id == 3: # thalamus only
@@ -581,7 +549,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         import uuid
 
         entries = {}
-        for (name, side), structure_info in self.prob_structure_volumes.iteritems():
+        for (name, side), structure_info in self.structure_volumes.iteritems():
             entry = {}
             vol = structure_info['volume_in_bbox']
             if vol is None:
@@ -591,7 +559,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             entry['origin'] = structure_info['origin']
             entry['name'] = name
             entry['side'] = side
-            entry['resolution'] = '%.1fum' % self.prob_volume_resolution_um
+            entry['resolution'] = '%.1fum' % self.structure_volume_resolution_um
             if 'edits' not in structure_info or structure_info['edits'] is None or len(v['edits']) == 0:
                 entry['edits'] = []
             else:
@@ -621,7 +589,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         timestamp = get_timestamp_now()
 
-        sagittal_contour_entries_curr_session = self.gscenes['sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        sagittal_contour_entries_curr_session = self.gscenes['main_sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
 
         print '\nSaved the following contours:'
         for cid, contour in sagittal_contour_entries_curr_session.iteritems():
@@ -629,7 +597,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print '\n'
 
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original_v2(DataFrame(sagittal_contour_entries_curr_session).T,
-        stack=self.stack, resolution=self.gscenes['sagittal'].data_feeder.resolution, prep_id=self.prep_id)
+        stack=self.stack, resolution=self.gscenes['main_sagittal'].data_feeder.resolution, prep_id=self.prep_id)
         if self.prep_id == 3: # thalamus
             sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp, annotation_rootdir=ANNOTATION_THALAMUS_ROOTDIR)
         else:
@@ -640,7 +608,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
         # Save coronal
-        # coronal_contour_entries_curr_session = self.gscenes['coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # coronal_contour_entries_curr_session = self.gscenes['tb_coronal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
         # # print coronal_contour_entries_curr_session
         # if len(coronal_contour_entries_curr_session) > 0:
         #     # coronal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
@@ -654,7 +622,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     print 'Coronal boundaries saved to %s.' % coronal_contours_df_fp
 
         # Save horizontal
-        # horizontal_contour_entries_curr_session = self.gscenes['horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
+        # horizontal_contour_entries_curr_session = self.gscenes['tb_horizontal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)
         # if len(horizontal_contour_entries_curr_session) > 0:
         #     # horizontal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=False, stack_m=stack_m,
         #     #                                                        classifier_setting_m=classifier_setting_m,
@@ -682,33 +650,20 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         markers_df_cropped = convert_annotation_v3_original_to_aligned_cropped(markers_df, stack=self.stack, prep_id=self.prep_id)
         raise
-        markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'sagittal') & (markers_df_cropped['downsample'] == self.gscenes['sagittal'].data_feeder.downsample)]
+        markers_df_cropped_sagittal = markers_df_cropped[(markers_df_cropped['orientation'] == 'main_sagittal') & (markers_df_cropped['downsample'] == self.gscenes['main_sagittal'].data_feeder.downsample)]
 
         # for i, marker_entry in markers_df_cropped_sagittal.iterrows():
         #     if 'label' not in marker_entry:
         #         print marker_entry
 
-        self.gscenes['sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
+        self.gscenes['main_sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
 
     def get_global_transform(self, name_u, side):
         global_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
-        struct_info = self.prob_structure_volumes[(name_u, side)]
+        struct_info = self.structure_volumes['aligned_atlas'][(name_u, side)]
         for edit in struct_info['edits']:
             if edit['type'].startswith('global'): #  global_rotate3d or global_shift3d
-
-                # if edit['type'] == 'global_shift3d':
                 edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
-
-                # elif edit['type'] == 'global_rotate3d':
-                    # centroid_m_wrt_wholebrain_volRes = np.array(edit['centroid_m'])
-                    # centroid_f_wrt_wholebrain_volRes = np.array(edit['centroid_f'])
-                    # edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'],
-                    #                     centroid_m=centroid_m_wrt_wholebrain_volRes,
-                    #                     centroid_f=centroid_f_wrt_wholebrain_volRes)
-                #     edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
-                # else:
-                #     raise
-
                 global_tf_from_wholebrain_to_wholebrain_volResol = \
                 np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, global_tf_from_wholebrain_to_wholebrain_volResol)
                 print (name_u, side), edit['type'], struct_info['origin']
@@ -745,8 +700,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
                 name_u, side = parse_label(name_s, singular_as_s=True)[:2]
 
-                volume_volResol = rescale_by_resampling(v_10um, 10./self.prob_volume_resolution_um)
-                origin_wrt_fixedWholebrain_volResol = origin_wrt_fixedWholebrain_10um * 10./self.prob_volume_resolution_um
+                volume_volResol = rescale_by_resampling(v_10um, 10./self.structure_volume_resolution_um)
+                origin_wrt_fixedWholebrain_volResol = origin_wrt_fixedWholebrain_10um * 10./self.structure_volume_resolution_um
 
                 # if hasattr(self, 'global_transform_from_wholebrain_to_wholebrain_volResol'):
 
@@ -758,13 +713,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 tf_params=global_transform_from_wholebrain_to_wholebrain_volResol,
                 return_origin_instead_of_bbox=True)
 
-                self.prob_structure_volumes[(name_u, side)]['volume_in_bbox'] = volume_volResol
-                self.prob_structure_volumes[(name_u, side)]['origin'] = origin_wrt_fixedWholebrain_volResol
+                self.structure_volumes['aligned_atlas'][(name_u, side)]['volume_in_bbox'] = volume_volResol
+                self.structure_volumes['aligned_atlas'][(name_u, side)]['origin'] = origin_wrt_fixedWholebrain_volResol
                 print 'Load', (name_u, side), "volume", volume_volResol.shape, "; origin (wrt fixedwholebrain) =", origin_wrt_fixedWholebrain_volResol
 
-                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
-                for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
+                # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
+                # for gscene in self.gscenes.values():
+                #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
+                self.gscenes['tb_sagittal'].update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -809,10 +765,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             for name_s, v in atlas_volumes.iteritems():
                 name_u, side = parse_label(name_s, singular_as_s=True)[:2]
-                self.prob_structure_volumes[(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
-                print 'Load', (name_u, side), self.prob_structure_volumes[(name_u, side)]['bbox']
+                self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
+                print 'Load', (name_u, side), self.structure_volumes[(name_u, side)]['bbox']
 
-                # Update drawings on all gscenes based on `prob_structure_volumes` that was just assigned.
+                # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
                 for gscene in self.gscenes.values():
                     gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
 
@@ -858,16 +814,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.load_atlas_volume(warped=True, structures=[str(selected_structure)])
 
     @pyqtSlot()
-    def load_prob_structures(self):
+    def load_structures(self):
         """
-        Load prob. 3-d structures from file.
+        Load 3-D structure annotations from file.
         """
 
-        if self.prep_id == 3: # thalamus
-            annotation_dir = ANNOTATION_THALAMUS_ROOTDIR
-        else:
-            annotation_dir = ANNOTATION_ROOTDIR
-        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(annotation_dir, self.stack)))
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file",
+        os.path.join((ANNOTATION_THALAMUS_ROOTDIR if self.prep_id == 3 else ANNOTATION_ROOTDIR), self.stack)))
+
         if structures_df_fp == '':
             return
 
@@ -881,11 +835,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             volume = bp.unpack_ndarray_str(struct_info['volume_in_bbox'])
             origin_wrt_wholebrain_storedVolResol = struct_info['origin']
 
-            scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.prob_volume_resolution_um
+            scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
             volume_volResol = rescale_by_resampling(volume, scaling)
             origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
 
-            self.prob_structure_volumes[(name_u, side)] = {
+            self.structure_volumes['aligned_atlas'][(name_u, side)] = {
             'volume_in_bbox': volume_volResol,
             'origin': origin_wrt_wholebrain_volResol,
             'edits': struct_info['edits']
@@ -893,62 +847,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             for gscene in self.gscenes.itervalues():
                 gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
-
-    # @pyqtSlot()
-    # def load_structures(self):
-    #     """
-    #     Load a 3D structure annotation file.
-    #     The structure file stores a table: rows are structure IDs, columns are 3D structure properties.
-    #     """
-    #
-    #     if self.prep_id == 3:
-    #         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_THALAMUS_ROOTDIR, self.stack)))
-    #     else:
-    #         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file", os.path.join(ANNOTATION_ROOTDIR, self.stack)))
-    #
-    #     if structures_df_fp == '':
-    #         return
-    #     structure_df = load_hdf_v2(structures_df_fp)
-    #
-    #     self.structure_df_loaded = structure_df
-    #     for structure_id, structure_entry in structure_df.iterrows():
-    #
-    #         if structure_entry['side'] is None:
-    #             name_side_tuple = (structure_entry['name'], 'S')
-    #         else:
-    #             name_side_tuple = (structure_entry['name'], structure_entry['side'])
-    #
-    #         if 'edits' in structure_entry:
-    #             edits = structure_entry['edits']
-    #         else:
-    #             edits = []
-    #
-    #         bbox_wrt_brainstem_volRes = structure_entry['bbox']
-    #
-    #         bbox_wrt_wholebrain_volRes = bbox_wrt_brainstem_volRes + \
-    #         np.array([self.image_origin_wrt_wholebrain_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
-    #         self.image_origin_wrt_wholebrain_tbResol['sagittal'][0] * 32. / self.volume_downsample_factor,
-    #         self.image_origin_wrt_wholebrain_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
-    #         self.image_origin_wrt_wholebrain_tbResol['sagittal'][1] * 32. / self.volume_downsample_factor,
-    #         self.image_origin_wrt_wholebrain_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor,
-    #         self.image_origin_wrt_wholebrain_tbResol['sagittal_tb'][2] * 32. / self.volume_downsample_factor])
-    #
-    #         self.structure_volumes[name_side_tuple] = {'volume_in_bbox': bp.unpack_ndarray_str(structure_entry['volume_in_bbox']).astype(np.bool),
-    #                                     'bbox': bbox_wrt_wholebrain_volRes,
-    #                                     'edits': edits,
-    #                                     'structure_id': structure_id}
-    #
-    #         print name_side_tuple, self.structure_volumes[name_side_tuple]['bbox']
-    #
-    #         sys.stderr.write("Updating gscene contours for structure %s...\n" % str(name_side_tuple))
-    #         # for gscene_id in self.gscenes:
-    #         #     self.update_structure_volume(structure_entry['name'], structure_entry['side'], use_confirmed_only=False, recompute_from_contours=False)
-    #
-    #         t = time.time()
-    #         self.update_structure_volume(structure_entry['name'], structure_entry['side'], \
-    #         use_confirmed_only=False, recompute_from_contours=False, \
-    #         affected_gscenes=['sagittal', 'sagittal_tb', 'horizontal', 'coronal'])
-    #         sys.stderr.write("Update gscene contours: %.2f seconds.\n" % (time.time()-t))
 
     @pyqtSlot()
     def load_contours(self):
@@ -968,55 +866,37 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         sagittal_contours_df = load_hdf_v2(sagittal_contours_df_fp)
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped_v2(sagittal_contours_df, stack=self.stack,\
-                                        out_resolution=self.gscenes['sagittal'].data_feeder.resolution,
+                                        out_resolution=self.gscenes['main_sagittal'].data_feeder.resolution,
                                         prep_id=self.prep_id)
-        sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal')]
-        self.gscenes['sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
+        sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'main_sagittal')]
+        self.gscenes['main_sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
 
     @pyqtSlot()
     def active_image_updated(self):
         self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
         dict(stack=self.stack,
-        sec=self.gscenes['sagittal'].active_section
-        if self.gscenes['sagittal'].active_section is not None else -1,
-        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['sagittal'].active_section] \
-        if self.gscenes['sagittal'].active_section is not None else '',
-        z=self.gscenes['sagittal'].active_i,
-        x=self.gscenes['coronal'].active_i if self.gscenes['coronal'].active_i is not None else 0,
-        y=self.gscenes['horizontal'].active_i if self.gscenes['horizontal'].active_i is not None else 0))
+        sec=self.gscenes['main_sagittal'].active_section
+        if self.gscenes['main_sagittal'].active_section is not None else -1,
+        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['main_sagittal'].active_section] \
+        if self.gscenes['main_sagittal'].active_section is not None else '',
+        z=self.gscenes['tb_sagittal'].active_i,
+        x=self.gscenes['tb_coronal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
+        y=self.gscenes['tb_horizontal'].active_i if self.gscenes['tb_horizontal'].active_i is not None else 0))
 
 
-    @pyqtSlot(object, str)
-    def crossline_updated(self, cross, source_gscene_id):
+    @pyqtSlot(object)
+    def crossline_updated(self, cross):
         """
         Args:
             cross (3-vector): intersection of the cross wrt wholebrain in raw resolution.
         """
-        print 'Update all crosses to', cross, 'from', source_gscene_id
-
+        print 'Update all crosses to', cross, 'from', self.sender().id
         for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id == 'sagittal_tb' or gscene_id == 'sagittal':
-                # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
-                #     continue
+            # if gscene_id == 'tb_sagittal':
+            # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
+            #     continue
             if gscene.mode == 'crossline':
-                # try:
                 gscene.update_cross(cross)
-                    # except Exception as e:
-                    #     sys.stderr.write(str(e) + '\n')
-
-    # @pyqtSlot(int, int, int, str)
-    # def crossline_updated(self, cross_x_lossless, cross_y_lossless, cross_z_lossless, source_gscene_id):
-    #     print 'GUI: update all crosses to', cross_x_lossless, cross_y_lossless, cross_z_lossless, 'from', source_gscene_id
-    #
-    #     for gscene_id, gscene in self.gscenes.iteritems():
-    #         # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
-    #         #     continue
-    #         if gscene.mode == 'crossline':
-    #             try:
-    #                 gscene.update_cross(cross_x_lossless, cross_y_lossless, cross_z_lossless,
-    #                 origin=self.image_origin_wrt_wholebrain_tbResol[gscene_id]*32.)
-    #             except Exception as e:
-    #                 sys.stderr.write(str(e) + '\n')
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):
@@ -1048,72 +928,96 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         volume_volResol, bbox_wrt_wholebrain_volResol = interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol, interpolation_direction='z')
         return volume_volResol, np.array(bbox_wrt_wholebrain_volResol)[[0,2,4]]
 
-    @pyqtSlot(str, str, bool, bool)
-    def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None, affected_gscenes=None):
-        """
-        This function is triggered by `structure_volume_updated` signal from a gscene.
-
-        - Retrieve the volumes stored internally for each view.
-        The volumes in different views are potentially different.
-        - Compute the average volume across all views.
-        - Use this average volume to update the stored version in each view.
-
-        Args:
-            use_confirmed_only (bool): If True, when reconstructing the volume, only use confirmed contours.
-            recompute_from_contours (bool): Set to True, if want to re-compute the volume based on contours,
-            replacing the volume in `self.structure_volumes` if it already exists.
-            Set to False, if `self.structure_volumes` already stores the new volume and therefore
-            calling this function is just to update the contours.
-            from_gscene_id (str):
-            affected_gscenes (list of str):
-        """
+    @pyqtSlot(str, str, str, bool, bool)
+    def handle_structure_update(self, set_name, name_u, side, use_confirmed_only, recompute_from_contours):
 
         if from_gscene_id is None:
             from_gscene_id = self.sender().id
-        assert from_gscene_id == 'sagittal'
 
         # Arguments passed in are Qt Strings. This guarantees they are python str.
         name_u = str(name_u)
         side = str(side)
 
-        if (name_u, side) not in self.prob_structure_volumes or recompute_from_contours:
-            self.prob_structure_volumes[(name_u, side)]['volume_in_bbox'] , self.prob_structure_volumes[(name_u, side)]['origin'] = \
-            self.reconstruct_structure_from_contours(name_u, side, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
-
-        print self.prob_structure_volumes
-
-        if affected_gscenes is None:
-            affected_gscenes = self.gscenes.keys()
-
-        for gscene_id in affected_gscenes:
-        # for gscene_id in ['sagittal_tb']:
-            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
-            remove_types=['derived_from_atlas', 'intersected'],
-            add_type='intersected')
-
-        print '3D structure updated.'
-        self.statusBar().showMessage('3D structure updated.')
-
-
-    @pyqtSlot(str, str)
-    def update_prob_structure_volume(self, name_u, side, from_gscene_id=None, affected_gscenes=None):
-        """
-        This function is triggered by `prob_structure_volume_updated` signal from a gscene.
-        """
-
-        # Arguments passed in are Qt Strings. This guarantees they are python str.
-        name_u = str(name_u)
-        side = str(side)
+        if set_name == 'handdrawn':
+            if (name_u, side) not in self.structure_volumes[set_name] or recompute_from_contours:
+                self.structure_volumes[set_name][(name_u, side)]['volume_in_bbox'] , self.structure_volumes[set_name][(name_u, side)]['origin'] = \
+                self.reconstruct_structure_from_contours(name_u, side, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
 
         if affected_gscenes is None:
             affected_gscenes = self.gscenes.keys()
 
         for gscene_id in affected_gscenes:
-        # for gscene_id in ['sagittal']:
-            self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
+        # for gscene_id in ['tb_sagittal']:
+            self.gscenes[gscene_id].update_drawings_from_structure_volume(name_u=name_u, side=side, levels=[.5], set_name=set_name)
 
-        print '3D prob structure updated.'
-        self.statusBar().showMessage('3D prob structure updated.')
+        print '3D structure (%s, %s) of set %s updated.' % (name_u, side, set_name)
+        self.statusBar().showMessage('3D structure of set %s updated.' % set_name)
+
+    # def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None, affected_gscenes=None, set_name=None):
+    #     """
+    #     This function is triggered by `structure_volume_updated` signal from a gscene.
+    #
+    #     - Retrieve the volumes stored internally for each view.
+    #     The volumes in different views are potentially different.
+    #     - Compute the average volume across all views.
+    #     - Use this average volume to update the stored version in each view.
+    #
+    #     Args:
+    #         use_confirmed_only (bool): If True, when reconstructing the volume, only use confirmed contours.
+    #         recompute_from_contours (bool): Set to True, if want to re-compute the volume based on contours,
+    #         replacing the volume in `self.structure_volumes` if it already exists.
+    #         Set to False, if `self.structure_volumes` already stores the new volume and therefore
+    #         calling this function is just to update the contours.
+    #         from_gscene_id (str):
+    #         affected_gscenes (list of str):
+    #     """
+    #
+    #     if from_gscene_id is None:
+    #         from_gscene_id = self.sender().id
+    #
+    #     # Arguments passed in are Qt Strings. This guarantees they are python str.
+    #     name_u = str(name_u)
+    #     side = str(side)
+    #
+    #     if (name_u, side) not in self.structure_volumes or recompute_from_contours:
+    #         self.structure_volumes['aligned_atlas'][(name_u, side)]['volume_in_bbox'] , self.structure_volumes['aligned_atlas'][(name_u, side)]['origin'] = \
+    #         self.reconstruct_structure_from_contours(name_u, side, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
+    #
+    #     print self.structure_volumes
+    #
+    #     if affected_gscenes is None:
+    #         affected_gscenes = self.gscenes.keys()
+    #
+    #     for gscene_id in affected_gscenes:
+    #     # for gscene_id in ['tb_sagittal']:
+    #         self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
+    #         remove_types=['derived_from_atlas', 'intersected'],
+    #         add_type='intersected')
+    #
+    #     print '3D structure updated.'
+    #     self.statusBar().showMessage('3D structure updated.')
+
+
+    # @pyqtSlot(str, str)
+    # def update_prob_structure_volume(self, name_u, side, from_gscene_id=None, affected_gscenes=None):
+    #     """
+    #     This function is triggered by `prob_structure_volume_updated` signal from a gscene.
+    #     """
+    #
+    #     # Arguments passed in are Qt Strings. This guarantees they are python str.
+    #     name_u = str(name_u)
+    #     side = str(side)
+    #
+    #     if affected_gscenes is None:
+    #         affected_gscenes = self.gscenes.keys()
+    #
+    #     for gscene_id in affected_gscenes:
+    #     # for gscene_id in ['main_sagittal']:
+    #         self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
+    # remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
+    #
+    #     print '3D prob structure updated.'
+        # self.statusBar().showMessage('3D prob structure updated.')
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1121,21 +1025,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if event.type() == QEvent.KeyPress:
             key = event.key()
             if key == Qt.Key_1:
-                self.gscenes['sagittal'].show_previous()
+                self.gscenes['main_sagittal'].show_previous()
             elif key == Qt.Key_2:
-                self.gscenes['sagittal'].show_next()
+                self.gscenes['main_sagittal'].show_next()
             elif key == Qt.Key_3:
-                self.gscenes['coronal'].show_previous()
+                self.gscenes['tb_coronal'].show_previous()
             elif key == Qt.Key_4:
-                self.gscenes['coronal'].show_next()
+                self.gscenes['tb_coronal'].show_next()
             elif key == Qt.Key_5:
-                self.gscenes['horizontal'].show_previous()
+                self.gscenes['tb_horizontal'].show_previous()
             elif key == Qt.Key_6:
-                self.gscenes['horizontal'].show_next()
+                self.gscenes['tb_horizontal'].show_next()
             elif key == Qt.Key_7:
-                self.gscenes['sagittal_tb'].show_previous()
+                self.gscenes['tb_sagittal'].show_previous()
             elif key == Qt.Key_8:
-                self.gscenes['sagittal_tb'].show_next()
+                self.gscenes['tb_sagittal'].show_next()
 
             elif key == Qt.Key_Space:
                 if not event.isAutoRepeat():
@@ -1178,16 +1082,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # elif key == Qt.Key_A:
             #     print "Reconstructing selected structure volumes..."
             #
-            #     curr_structure_label = self.gscenes['sagittal'].active_polygon.properties['label']
-            #     curr_structure_side = self.gscenes['sagittal'].active_polygon.properties['side']
+            #     curr_structure_label = self.gscenes['main_sagittal'].active_polygon.properties['label']
+            #     curr_structure_side = self.gscenes['main_sagittal'].active_polygon.properties['side']
             #     self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side,
-            #     use_confirmed_only=False, recompute_from_contours=False, from_gscene_id='sagittal')
+            #     use_confirmed_only=False, recompute_from_contours=False, from_gscene_id='main_sagittal')
 
             # elif key == Qt.Key_P:
             #     print "Reconstructing all structure volumes..."
             #
             #     structures_curr_section = [(p.properties['label'], p.properties['side'])
-            #                                 for p in self.gscenes['sagittal'].drawings[self.gscenes['sagittal'].active_i]]
+            #                                 for p in self.gscenes['main_sagittal'].drawings[self.gscenes['main_sagittal'].active_i]]
             #     for curr_structure_label, curr_structure_side in structures_curr_section:
             #         self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side, use_confirmed_only=False, recompute_from_contours=False)
 
@@ -1195,17 +1099,17 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 # For all structures on the current section
                 # structures_curr_section = [(p.properties['label'], p.properties['side'])
-                #                             for p in self.gscenes['sagittal'].drawings[self.gscenes['sagittal'].active_i]]
+                #                             for p in self.gscenes['main_sagittal'].drawings[self.gscenes['main_sagittal'].active_i]]
                 # for curr_structure_label, curr_structure_side in structures_curr_section:
 
-                curr_structure_label = self.gscenes['sagittal'].active_polygon.properties['label']
-                curr_structure_side = self.gscenes['sagittal'].active_polygon.properties['side']
+                curr_structure_label = self.gscenes['main_sagittal'].active_polygon.properties['label']
+                curr_structure_side = self.gscenes['main_sagittal'].active_polygon.properties['side']
 
                 name_side_tuple = (curr_structure_label, curr_structure_side)
                 assert name_side_tuple in self.structure_volumes, \
                 "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
 
-                if name_side_tuple in self.gscenes['sagittal'].uncertainty_lines:
+                if name_side_tuple in self.gscenes['main_sagittal'].uncertainty_lines:
                     print "Remove uncertainty line"
                     for gscene in self.gscenes.itervalues():
                         gscene.hide_uncertainty_line(name_side_tuple)
@@ -1240,14 +1144,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                         print gscene.id, e1_gscene, e2_gscene
                         gscene.set_uncertainty_line(name_side_tuple, e1_gscene, e2_gscene)
 
-                if name_side_tuple in self.gscenes['sagittal'].structure_onscreen_messages:
-                    self.gscenes['sagittal'].hide_structure_onscreen_message(name_side_tuple)
+                if name_side_tuple in self.gscenes['main_sagittal'].structure_onscreen_messages:
+                    self.gscenes['main_sagittal'].hide_structure_onscreen_message(name_side_tuple)
                 else:
                     current_structure_zscores = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
                     param_suffix=name, what='zscores')
                     zscore, fmax, mean, std = current_structure_zscores[118.75]
                     print str((zscore, fmax, mean, std)), np.array(e1_gscene + e2_gscene)/2
-                    self.gscenes['sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
+                    self.gscenes['main_sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
 
         elif event.type() == QEvent.KeyRelease:
             key = event.key()
@@ -1267,11 +1171,11 @@ def point3d_to_point2d(pt3d, gscene):
         gscene (QGraphicScene)
     """
     pt3d_gscene_res = pt3d / gscene.data_feeder.downsample
-    if gscene.id == 'sagittal' or gscene.id == 'sagittal_tb':
+    if gscene.id == 'main_sagittal' or gscene.id == 'tb_sagittal':
         pt2d = (pt3d_gscene_res[0], pt3d_gscene_res[1])
-    elif gscene.id == 'coronal':
+    elif gscene.id == 'tb_coronal':
         pt2d = (gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2], pt3d_gscene_res[1])
-    elif gscene.id == 'horizontal':
+    elif gscene.id == 'tb_horizontal':
         pt2d = (pt3d_gscene_res[0], gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2])
     return np.array(pt2d)
 
@@ -1319,12 +1223,7 @@ if __name__ == "__main__":
     img_version = args.img_version
     prep_id = args.prep
 
-    if prep_id == 3:
-        default_first_sec, default_last_sec = DataManager.load_cropbox_thalamus(stack)[4:]
-    elif prep_id == 2:
-        default_first_sec, default_last_sec = DataManager.load_cropbox(stack)[4:]
-    else:
-        raise
+    default_first_sec, default_last_sec = DataManager.load_cropbox(stack, prep_id=prep_id)[4:]
 
     first_sec = default_first_sec if args.first_sec is None else args.first_sec
     last_sec = default_last_sec if args.last_sec is None else args.last_sec

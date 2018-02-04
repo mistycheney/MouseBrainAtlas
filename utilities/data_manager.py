@@ -520,26 +520,30 @@ class DataManager(object):
         return anchor_fn
 
     @staticmethod
-    def get_cropbox_filename(stack, anchor_fn=None):
+    def get_cropbox_filename(stack, anchor_fn=None, prep_id=2):
         """
         Get the filename to brainstem crop box.
         """
 
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
-        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
-        return fn
 
-    @staticmethod
-    def get_cropbox_thalamus_filename(stack, anchor_fn=None):
-        """
-        Get the filename to thalamus crop box.
-        """
-
-        if anchor_fn is None:
-            anchor_fn = DataManager.load_anchor_filename(stack=stack)
-        fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
+        if prep_id == 3:
+            fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
+        else:
+            fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
         return fn
+    #
+    # @staticmethod
+    # def get_cropbox_thalamus_filename(stack, anchor_fn=None):
+    #     """
+    #     Get the filename to thalamus crop box.
+    #     """
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = DataManager.load_anchor_filename(stack=stack)
+    #     fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
+    #     return fn
 
     @staticmethod
     def get_domain_origin(stack, domain, resolution='down32'):
@@ -579,15 +583,17 @@ class DataManager(object):
                 raise "Domain %s is not recognized.\n" % domain
 
     @staticmethod
-    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False):
+    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2):
         """
         Loads the crop box for brainstem.
 
         Args:
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+            prep_id (int)
         """
 
-        fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn)
+
+        fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         if convert_section_to_z:
@@ -599,26 +605,26 @@ class DataManager(object):
             cropbox = np.loadtxt(fp).astype(np.int)
         return cropbox
 
-    @staticmethod
-    def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
-        """
-        Loads the crop box for thalamus.
-
-        Args:
-            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
-        """
-
-        fp = DataManager.get_cropbox_thalamus_filename(stack=stack, anchor_fn=anchor_fn)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-
-        if convert_section_to_z:
-            xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
-            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
-            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
-            cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
-        else:
-            cropbox = np.loadtxt(fp).astype(np.int)
-        return cropbox
+    # @staticmethod
+    # def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
+    #     """
+    #     Loads the crop box for thalamus.
+    #
+    #     Args:
+    #         convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax); if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+    #     """
+    #
+    #     fp = DataManager.get_cropbox_thalamus_filename(stack=stack, anchor_fn=anchor_fn)
+    #     download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+    #
+    #     if convert_section_to_z:
+    #         xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
+    #         zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
+    #         zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
+    #         cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
+    #     else:
+    #         cropbox = np.loadtxt(fp).astype(np.int)
+    #     return cropbox
 
     @staticmethod
     def get_sorted_filenames_filename(stack):
@@ -1212,7 +1218,7 @@ class DataManager(object):
         return DataManager.load_data(fn, filetype='bp')
 
     @staticmethod
-    def load_intensity_volume_v3(stack, prep_id=2, downscale=32):
+    def load_intensity_volume_v3(stack, prep_id=2, downscale=32, return_origin_instead_of_bbox=False):
         """
         Returns:
             (3d volume of uint8, bbox_wrt_wholebrain)
@@ -1225,7 +1231,10 @@ class DataManager(object):
         bbox_fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=stack, prep_id=prep_id, downscale=downscale)
         bbox_wrt_wholebrain = np.loadtxt(bbox_fp, dtype=np.int)
 
-        return (vol, bbox_wrt_wholebrain)
+        if return_origin_instead_of_bbox:
+            return (vol, np.array(bbox_wrt_wholebrain)[[0,2,4]])
+        else:
+            return (vol, bbox_wrt_wholebrain)
 
     @staticmethod
     def get_intensity_volume_filepath(stack, downscale=32):

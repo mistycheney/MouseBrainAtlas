@@ -107,6 +107,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         self.histology_pixmap = QPixmap()
 
+        self.global_rotation_center_wrt_wholebrain_volResol = None
+
     def set_mode(self, mode):
         """
         Extend inherited method by:
@@ -1915,21 +1917,34 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             if self.mode == 'global_rotate3d':
 
+                if self.global_rotation_center_wrt_wholebrain_volResol is None:
+                    sys.stderr.write('Must specify rotation center.\n')
+                    return
+
                 print 'press', press_position_wrt_wholebrain_volResol, 'release', release_position_wrt_wholebrain_volResol, 'center', self.global_rotation_center_wrt_wholebrain_volResol
 
                 tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
                 finish=release_position_wrt_wholebrain_volResol,
                 center=self.global_rotation_center_wrt_wholebrain_volResol)
 
+                # Nullify the rotation center after using it.
+                self.global_rotation_center_wrt_wholebrain_volResol = None
+
             else:
 
-                rotation_center_wrt_wholebrain_volResol = self.convert_frame_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
-                in_wrt=self.id, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+                if self.global_rotation_center_wrt_wholebrain_volResol is None:
+                    sys.stderr.write('No rotation center is specified. Using contour center.\n')
+                    rotation_center_wrt_wholebrain_volResol = self.convert_frame_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
+                    in_wrt=self.id, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+                else:
+                    rotation_center_wrt_wholebrain_volResol = self.global_rotation_center_wrt_wholebrain_volResol
 
                 tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
                 finish=release_position_wrt_wholebrain_volResol,
                 center=rotation_center_wrt_wholebrain_volResol
                 )
+
+                self.global_rotation_center_wrt_wholebrain_volResol = None
 
         elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
 

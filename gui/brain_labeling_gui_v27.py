@@ -665,17 +665,42 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.gscenes['main_sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
 
-    def get_global_transform(self, name_s):
+
+    def get_edit_transform(self, name_s):
+        structure_info = self.structure_volumes['aligned_atlas'][name_s]
+        print name_s, [ed['type'] for ed in structure_info['edits']]
+
         global_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
-        struct_info = self.structure_volumes['aligned_atlas'][name_s]
-        for edit in struct_info['edits']:
+        local_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
+        composed_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
+        for edit in structure_info['edits']:
+            edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
             if edit['type'].startswith('global'): #  global_rotate3d or global_shift3d
-                edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
                 global_tf_from_wholebrain_to_wholebrain_volResol = \
                 np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, global_tf_from_wholebrain_to_wholebrain_volResol)
-                print name_s, edit['type'], struct_info['origin']
-                print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))
-        return global_tf_from_wholebrain_to_wholebrain_volResol[:3]
+            elif edit['type'].startswith('prob'):
+                local_tf_from_wholebrain_to_wholebrain_volResol = \
+                np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, local_tf_from_wholebrain_to_wholebrain_volResol)
+
+            composed_tf_from_wholebrain_to_wholebrain_volResol = \
+            np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, composed_tf_from_wholebrain_to_wholebrain_volResol)
+
+            # print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))[:3]
+            # print local_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))[:3]
+            # print composed_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))[:3]
+        return composed_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))[:3]
+
+    # def get_global_transform(self, name_s):
+    #     global_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
+    #     struct_info = self.structure_volumes['aligned_atlas'][name_s]
+    #     for edit in struct_info['edits']:
+    #         if edit['type'].startswith('global'): #  global_rotate3d or global_shift3d
+    #             edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
+    #             global_tf_from_wholebrain_to_wholebrain_volResol = \
+    #             np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, global_tf_from_wholebrain_to_wholebrain_volResol)
+    #             print name_s, edit['type'], struct_info['origin']
+    #             print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))
+    #     return global_tf_from_wholebrain_to_wholebrain_volResol[:3]
 
 
     def load_atlas_volume(self, warped=True, structures=all_known_structures_sided):
@@ -710,14 +735,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 volume_volResol = rescale_by_resampling(v_10um, 10./self.structure_volume_resolution_um)
                 origin_wrt_fixedWholebrain_volResol = origin_wrt_fixedWholebrain_10um * 10./self.structure_volume_resolution_um
 
-                # if hasattr(self, 'global_transform_from_wholebrain_to_wholebrain_volResol'):
-
-                global_transform_from_wholebrain_to_wholebrain_volResol = self.get_global_transform(name_s)
+                edit_transform_from_wholebrain_to_wholebrain_volResol = self.get_edit_transform(name_s)
 
                 volume_volResol, origin_wrt_fixedWholebrain_volResol = \
                 transform_volume_v3(vol=volume_volResol,
                 origin=origin_wrt_fixedWholebrain_volResol,
-                tf_params=global_transform_from_wholebrain_to_wholebrain_volResol,
+                tf_params=edit_transform_from_wholebrain_to_wholebrain_volResol,
                 return_origin_instead_of_bbox=True)
 
                 self.structure_volumes['aligned_atlas'][name_s]['volume'] = volume_volResol
@@ -926,6 +949,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         print 'Update all crosses to', cross, 'from', self.sender().id
         for gscene_id, gscene in self.gscenes.iteritems():
+            if gscene_id == 'main_sagittal':
+                continue
             # if gscene_id == 'tb_sagittal':
             # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
             #     continue
@@ -985,6 +1010,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     affected_gscenes = self.gscenes.keys()
 
         for gscene_id in self.gscenes.keys():
+            if gscene_id == 'main_sagittal':
+                continue
         # for gscene_id in affected_gscenes:
         # for gscene_id in ['tb_sagittal']:
             self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)

@@ -309,22 +309,26 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
     # nproc = multiprocessing.cpu_count()
     nproc = 1
 
-    if along_direction == 'z':
+    if along_direction == 'z' or along_direction == 'sagittal':
         if positions is None:
             positions = range(0, labeled_volume.shape[2])
-    elif along_direction == 'x':
+    elif along_direction == 'x' or along_direction == 'coronal':
         if positions is None:
             positions = range(0, labeled_volume.shape[1])
-    elif along_direction == 'y':
+    elif along_direction == 'y' or along_direction == 'horizontal':
         if positions is None:
             positions = range(0, labeled_volume.shape[0])
 
     def find_contour_points_slice(p):
         if along_direction == 'x':
             vol_slice = labeled_volume[:, p, :]
-        if along_direction == 'y':
+        elif along_direction == 'coronal':
+            vol_slice = labeled_volume[:, p, ::-1]
+        elif along_direction == 'y':
             vol_slice = labeled_volume[p, :, :]
-        if along_direction == 'z':
+        elif along_direction == 'horizontal':
+            vol_slice = labeled_volume[p, :, ::-1].T
+        elif along_direction == 'z' or along_direction == 'sagittal':
             vol_slice = labeled_volume[:, :, p]
 
         cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)

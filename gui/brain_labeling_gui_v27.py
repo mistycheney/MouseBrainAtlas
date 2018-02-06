@@ -94,7 +94,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_save.clicked.connect(self.save_contours)
         self.button_saveMarkers.clicked.connect(self.save_markers)
         # self.button_saveStructures.clicked.connect(self.save_structures)
-        self.button_saveProbStructures.clicked.connect(self.save_prob_structures)
+        self.button_saveProbStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
@@ -110,8 +110,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.structure_volumes = {'handdrawn': {}, 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
         for name_s in all_known_structures_sided:
-            name_u, side = parse_label(name_s, singular_as_s=True)[:2]
-            self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume_in_bbox': None, 'origin': None, 'edits': []}
+            # name_u, side = parse_label(name_s, singular_as_s=True)[:2]
+            # self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': None, 'origin': None, 'edits': []}
+            self.structure_volumes['aligned_atlas'][name_s] = {'volume': None, 'origin': None, 'edits': []}
 
         self.structure_volume_resolution_um = 16.
 
@@ -128,7 +129,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #     sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
 
         self.splitter.setSizes([500, 500, 500])
-        self.splitter_2.setSizes([1000, 500])
+        self.splitter_2.setSizes([500, 500])
 
         self.tb_sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='tb_sagittal', gui=self, gview=self.tb_sagittal_gview)
         self.tb_sagittal_gview.setScene(self.tb_sagittal_gscene)
@@ -513,7 +514,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     #     entries = {}
     #     for (name, side), v in self.structure_volumes.iteritems():
     #         entry = {}
-    #         entry['volume_in_bbox'] = bp.pack_ndarray_str(v['volume_in_bbox'])
+    #         entry['volume'] = bp.pack_ndarray_str(v['volume'])
     #         entry['origin'] = v['origin']
     #         entry['name'] = name
     #         entry['side'] = side
@@ -540,27 +541,33 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
 
     @pyqtSlot()
-    def save_prob_structures(self):
+    def save_structures(self):
         """
-        Save probabilistic structure volumes.
+        Save structure volumes in a file.
         """
 
         # timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
         import uuid
 
         entries = {}
-        for (name, side), structure_info in self.structure_volumes.iteritems():
+        for name_s, structure_info in self.structure_volumes['aligned_atlas'].iteritems():
+
+            name_u, side = parse_label(name_s)[:2]
+
             entry = {}
-            vol = structure_info['volume_in_bbox']
+            vol = structure_info['volume']
+            sys.stderr.write("Saved structure %s\n" % name_s)
+
             if vol is None:
-                continue
-            sys.stderr.write("Saved structure (%s, %s)\n" % (name, side))
-            entry['volume_in_bbox'] = bp.pack_ndarray_str(vol)
-            entry['origin'] = structure_info['origin']
-            entry['name'] = name
+                entry['volume'] = None
+                entry['origin'] = None
+            else:
+                entry['volume'] = bp.pack_ndarray_str(vol)
+                entry['origin'] = structure_info['origin']
+            entry['name'] = name_u
             entry['side'] = side
             entry['resolution'] = '%.1fum' % self.structure_volume_resolution_um
-            if 'edits' not in structure_info or structure_info['edits'] is None or len(v['edits']) == 0:
+            if 'edits' not in structure_info or structure_info['edits'] is None or len(structure_info['edits']) == 0:
                 entry['edits'] = []
             else:
                 entry['edits'] = structure_info['edits']
@@ -658,15 +665,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.gscenes['main_sagittal'].load_drawings(markers_df_cropped_sagittal, append=False, vertex_color=MARKER_COLOR_CHAR)
 
-    def get_global_transform(self, name_u, side):
+    def get_global_transform(self, name_s):
         global_tf_from_wholebrain_to_wholebrain_volResol = np.eye(4)
-        struct_info = self.structure_volumes['aligned_atlas'][(name_u, side)]
+        struct_info = self.structure_volumes['aligned_atlas'][name_s]
         for edit in struct_info['edits']:
             if edit['type'].startswith('global'): #  global_rotate3d or global_shift3d
                 edit_tf_from_wholebrain_to_wholebrain_volRes = consolidate(edit['transform'])
                 global_tf_from_wholebrain_to_wholebrain_volResol = \
                 np.dot(edit_tf_from_wholebrain_to_wholebrain_volRes, global_tf_from_wholebrain_to_wholebrain_volResol)
-                print (name_u, side), edit['type'], struct_info['origin']
+                print name_s, edit['type'], struct_info['origin']
                 print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))
         return global_tf_from_wholebrain_to_wholebrain_volResol[:3]
 
@@ -698,14 +705,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # atlas_volumes = {name_s: (rescale(v_10um, self.sagittal_downsample), b_wrt_fixedWholebrain_10um[[0,2,4]] * self.sagittal_downsample)
                 #                         for name_s, (v_10um, b_wrt_fixedWholebrain_10um) in atlas_volumes.iteritems()}
                 # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
-                name_u, side = parse_label(name_s, singular_as_s=True)[:2]
+                # name_u, side = parse_label(name_s, singular_as_s=True)[:2]
 
                 volume_volResol = rescale_by_resampling(v_10um, 10./self.structure_volume_resolution_um)
                 origin_wrt_fixedWholebrain_volResol = origin_wrt_fixedWholebrain_10um * 10./self.structure_volume_resolution_um
 
                 # if hasattr(self, 'global_transform_from_wholebrain_to_wholebrain_volResol'):
 
-                global_transform_from_wholebrain_to_wholebrain_volResol = self.get_global_transform(name_u, side)
+                global_transform_from_wholebrain_to_wholebrain_volResol = self.get_global_transform(name_s)
 
                 volume_volResol, origin_wrt_fixedWholebrain_volResol = \
                 transform_volume_v3(vol=volume_volResol,
@@ -713,14 +720,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 tf_params=global_transform_from_wholebrain_to_wholebrain_volResol,
                 return_origin_instead_of_bbox=True)
 
-                self.structure_volumes['aligned_atlas'][(name_u, side)]['volume_in_bbox'] = volume_volResol
-                self.structure_volumes['aligned_atlas'][(name_u, side)]['origin'] = origin_wrt_fixedWholebrain_volResol
-                print 'Load', (name_u, side), "volume", volume_volResol.shape, "; origin (wrt fixedwholebrain) =", origin_wrt_fixedWholebrain_volResol
+                self.structure_volumes['aligned_atlas'][name_s]['volume'] = volume_volResol
+                self.structure_volumes['aligned_atlas'][name_s]['origin'] = origin_wrt_fixedWholebrain_volResol
+                print 'Load', name_s, "volume", volume_volResol.shape, "; origin (wrt fixedwholebrain) =", origin_wrt_fixedWholebrain_volResol
 
                 # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
-                # for gscene in self.gscenes.values():
-                #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
-                self.gscenes['tb_sagittal'].update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
+                for gscene in self.gscenes.values():
+                    gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
+                # self.gscenes['tb_sagittal'].update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -765,7 +772,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             for name_s, v in atlas_volumes.iteritems():
                 name_u, side = parse_label(name_s, singular_as_s=True)[:2]
-                self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume_in_bbox': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
+                self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
                 print 'Load', (name_u, side), self.structure_volumes[(name_u, side)]['bbox']
 
                 # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
@@ -789,10 +796,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Load particular structures from warped atlas.
         """
         possible_structures_to_load = all_known_structures_sided
-        selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
-   "list of structures", possible_structures_to_load, 0, False)
-        if ok and selected_structure:
-            self.load_atlas_volume(warped=False, structures=[str(selected_structure)])
+
+   #      selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
+   # "list of structures", possible_structures_to_load, 0, False)
+        # if ok and selected_structure:
+        #     self.load_atlas_volume(warped=False, structures=[str(selected_structure)])
+
+        structures_loaded = set([name_s
+        for name_s, struct_info in self.structure_volumes['aligned_atlas'].iteritems()
+        if struct_info['volume'] is not None])
+
+        dial = ListSelection("Select structures to load", "List of structures", possible_structures_to_load, structures_loaded, self)
+        if dial.exec_() == QDialog.Accepted:
+            selected_structures = set(map(str, dial.itemsSelected()))
+        else:
+            return
+
+        print selected_structures
+        new_structures_to_load = selected_structures - structures_loaded
+        print 'structures_to_load', new_structures_to_load
+
+        structures_to_remove = structures_loaded - selected_structures
+        print 'structures_to_remove', structures_to_remove
+
+        # for name_s in structures_to_remove:
+        #     self.structure_volumes['aligned_atlas'][name_s]['volume'] = None
+
+        self.load_atlas_volume(warped=False, structures=new_structures_to_load)
+
 
     @pyqtSlot()
     def load_warped_atlas_volume(self):
@@ -828,25 +859,28 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structure_df = load_hdf_v2(structures_df_fp)
 
         for sid, struct_info in structure_df.iterrows():
-            name_u = struct_info['name']
-            side = struct_info['side']
-            print name_u, side
+            name_s = compose_label(struct_info['name'], side=struct_info['side'])
+            print name_s
 
-            volume = bp.unpack_ndarray_str(struct_info['volume_in_bbox'])
-            origin_wrt_wholebrain_storedVolResol = struct_info['origin']
+            if struct_info['volume'] is None:
+                volume_volResol = None
+                origin_wrt_wholebrain_volResol = None
+            else:
+                volume = bp.unpack_ndarray_str(struct_info['volume'])
+                origin_wrt_wholebrain_storedVolResol = struct_info['origin']
 
-            scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
-            volume_volResol = rescale_by_resampling(volume, scaling)
-            origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
+                scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
+                volume_volResol = rescale_by_resampling(volume, scaling)
+                origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
 
-            self.structure_volumes['aligned_atlas'][(name_u, side)] = {
-            'volume_in_bbox': volume_volResol,
+            self.structure_volumes['aligned_atlas'][name_s] = {
+            'volume': volume_volResol,
             'origin': origin_wrt_wholebrain_volResol,
             'edits': struct_info['edits']
             }
 
             for gscene in self.gscenes.itervalues():
-                gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5], remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
+                gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
 
     @pyqtSlot()
     def load_contours(self):
@@ -903,8 +937,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Drawings updated.'
         # self.save()
 
-    def reconstruct_structure_from_contours(self, name_u, side, use_confirmed_only, gscene_id):
-        print 'Re-computing volume of %s from contours.' % str((name_u, side))
+    def reconstruct_structure_from_contours(self, name_s, use_confirmed_only, gscene_id):
+        name_u, side = parse_label(name_s)[:2]
+
+        print 'Re-computing volume of %s from contours.' % name_s
         gscene = self.gscenes[gscene_id]
         contours_xyz_wrt_wholebrain_volResol = []
         for i, polygons in gscene.drawings.iteritems():
@@ -922,102 +958,39 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print contours_xyz_wrt_wholebrain_volResol
 
         if len(contours_xyz_wrt_wholebrain_volResol) < 2:
-            sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, (name_u, side)))
+            sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, name_s))
             raise
 
         volume_volResol, bbox_wrt_wholebrain_volResol = interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol, interpolation_direction='z')
         return volume_volResol, np.array(bbox_wrt_wholebrain_volResol)[[0,2,4]]
 
-    @pyqtSlot(str, str, str, bool, bool)
-    def handle_structure_update(self, set_name, name_u, side, use_confirmed_only, recompute_from_contours):
+    @pyqtSlot(str, str, bool, bool)
+    def handle_structure_update(self, set_name, name_s, use_confirmed_only, recompute_from_contours):
 
-        if from_gscene_id is None:
-            from_gscene_id = self.sender().id
+        from_gscene_id = self.sender().id
 
         # Arguments passed in are Qt Strings. This guarantees they are python str.
-        name_u = str(name_u)
-        side = str(side)
+        # name_u = str(name_u)
+        # side = str(side)
+        name_s = str(name_s)
+        set_name = str(set_name)
 
         if set_name == 'handdrawn':
-            if (name_u, side) not in self.structure_volumes[set_name] or recompute_from_contours:
-                self.structure_volumes[set_name][(name_u, side)]['volume_in_bbox'] , self.structure_volumes[set_name][(name_u, side)]['origin'] = \
-                self.reconstruct_structure_from_contours(name_u, side, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
+            if name_s not in self.structure_volumes[set_name] or recompute_from_contours:
+                self.structure_volumes[set_name][name_s]['volume'] , \
+                self.structure_volumes[set_name][name_s]['origin'] = \
+                self.reconstruct_structure_from_contours(name_s, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
 
-        if affected_gscenes is None:
-            affected_gscenes = self.gscenes.keys()
+        # if affected_gscenes is None:
+        #     affected_gscenes = self.gscenes.keys()
 
-        for gscene_id in affected_gscenes:
+        for gscene_id in self.gscenes.keys():
+        # for gscene_id in affected_gscenes:
         # for gscene_id in ['tb_sagittal']:
-            self.gscenes[gscene_id].update_drawings_from_structure_volume(name_u=name_u, side=side, levels=[.5], set_name=set_name)
+            self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
 
-        print '3D structure (%s, %s) of set %s updated.' % (name_u, side, set_name)
+        print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)
-
-    # def update_structure_volume(self, name_u, side, use_confirmed_only, recompute_from_contours, from_gscene_id=None, affected_gscenes=None, set_name=None):
-    #     """
-    #     This function is triggered by `structure_volume_updated` signal from a gscene.
-    #
-    #     - Retrieve the volumes stored internally for each view.
-    #     The volumes in different views are potentially different.
-    #     - Compute the average volume across all views.
-    #     - Use this average volume to update the stored version in each view.
-    #
-    #     Args:
-    #         use_confirmed_only (bool): If True, when reconstructing the volume, only use confirmed contours.
-    #         recompute_from_contours (bool): Set to True, if want to re-compute the volume based on contours,
-    #         replacing the volume in `self.structure_volumes` if it already exists.
-    #         Set to False, if `self.structure_volumes` already stores the new volume and therefore
-    #         calling this function is just to update the contours.
-    #         from_gscene_id (str):
-    #         affected_gscenes (list of str):
-    #     """
-    #
-    #     if from_gscene_id is None:
-    #         from_gscene_id = self.sender().id
-    #
-    #     # Arguments passed in are Qt Strings. This guarantees they are python str.
-    #     name_u = str(name_u)
-    #     side = str(side)
-    #
-    #     if (name_u, side) not in self.structure_volumes or recompute_from_contours:
-    #         self.structure_volumes['aligned_atlas'][(name_u, side)]['volume_in_bbox'] , self.structure_volumes['aligned_atlas'][(name_u, side)]['origin'] = \
-    #         self.reconstruct_structure_from_contours(name_u, side, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
-    #
-    #     print self.structure_volumes
-    #
-    #     if affected_gscenes is None:
-    #         affected_gscenes = self.gscenes.keys()
-    #
-    #     for gscene_id in affected_gscenes:
-    #     # for gscene_id in ['tb_sagittal']:
-    #         self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
-    #         remove_types=['derived_from_atlas', 'intersected'],
-    #         add_type='intersected')
-    #
-    #     print '3D structure updated.'
-    #     self.statusBar().showMessage('3D structure updated.')
-
-
-    # @pyqtSlot(str, str)
-    # def update_prob_structure_volume(self, name_u, side, from_gscene_id=None, affected_gscenes=None):
-    #     """
-    #     This function is triggered by `prob_structure_volume_updated` signal from a gscene.
-    #     """
-    #
-    #     # Arguments passed in are Qt Strings. This guarantees they are python str.
-    #     name_u = str(name_u)
-    #     side = str(side)
-    #
-    #     if affected_gscenes is None:
-    #         affected_gscenes = self.gscenes.keys()
-    #
-    #     for gscene_id in affected_gscenes:
-    #     # for gscene_id in ['main_sagittal']:
-    #         self.gscenes[gscene_id].update_drawings_from_prob_structure_volume(name_u, side, levels=[.5],
-    # remove_types=['derived_from_atlas'], add_type='derived_from_atlas')
-    #
-    #     print '3D prob structure updated.'
-        # self.statusBar().showMessage('3D prob structure updated.')
 
     def eventFilter(self, obj, event):
         # print obj.metaObject().className(), event.type()
@@ -1058,7 +1031,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
                 for (name, side), structure_entry in self.structure_volumes.iteritems():
                     struct_id = structure_entry['structure_id']
-                    new_structure_df.loc[struct_id]['volume_in_bbox'] = structure_entry['volume_in_bbox']
+                    new_structure_df.loc[struct_id]['volume'] = structure_entry['volume']
                     new_structure_df.loc[struct_id]['bbox'] = structure_entry['bbox']
                     new_structure_df.loc[struct_id]['edits'] = structure_entry['edits']
 
@@ -1131,7 +1104,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
                     len_lossless_res = pw_max_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
 
-                    vol = self.structure_volumes[name_side_tuple]['volume_in_bbox']
+                    vol = self.structure_volumes[name_side_tuple]['volume']
                     bbox = self.structure_volumes[name_side_tuple]['bbox']
                     c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
 
@@ -1219,7 +1192,6 @@ if __name__ == "__main__":
 
     stack = args.stack_name
     resolution = args.resolution
-    # downsample = args.downsample
     img_version = args.img_version
     prep_id = args.prep
 

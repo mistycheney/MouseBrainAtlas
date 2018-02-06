@@ -284,7 +284,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
         return p_wrt_outdomain_outResol
 
-    def update_drawings_from_structure_volume(self, name_u, side, levels, set_name):
+    def update_drawings_from_structure_volume(self, name_s, levels, set_name):
         """
         Update drawings based on `self.structure_volumes['aligned_atlas']`, which is a reference to the GUI's `prob_structure_volumes`.
         Polygons created by this function has type "derived_from_atlas".
@@ -300,22 +300,41 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
 
-        print "%s: Updating drawings based on structure volume of %s, %s" % (self.id, name_u, side)
+        print "%s: Updating drawings based on structure volume of %s" % (self.id, name_s)
 
-        if self.structure_volumes[set_name][(name_u, side)]['volume_in_bbox'] is None:
+        if self.structure_volumes[set_name][name_s]['volume'] is None:
             return
 
-        structure_volume_volResol = self.structure_volumes[set_name][(name_u, side)]['volume_in_bbox']
-        structure_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][(name_u, side)]['origin'])
+        structure_volume_volResol = self.structure_volumes[set_name][name_s]['volume']
+        structure_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
+
+        if set_name == 'aligned_atlas':
+            types_to_remove = ['derived_from_atlas']
+        elif set_name == 'handdrawn':
+            types_to_remove = ['intersected']
+        else:
+            print set_name
+            raise
+
+        name_u, side = parse_label(name_s)[:2]
+
+        polygons_to_remove = {i: [p for p in polygons \
+                                                    if p.properties['label'] == name_u and \
+                                                    p.properties['side'] == side and \
+                                                    p.properties['type'] in types_to_remove]
+                                                for i, polygons in self.drawings.iteritems()}
+
+        # t = time.time()
+        for i in self.drawings.keys():
+            for p in polygons_to_remove[i]:
+                self.drawings[i].remove(p)
+                if i == self.active_i:
+                    self.removeItem(p)
+        # sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
         for level in levels:
 
-            if self.data_feeder.orientation == 'sagittal':
-                contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level, along_direction='z', sample_every=1)
-            elif self.data_feeder.orientation == 'coronal':
-                contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level, along_direction='x', sample_every=1)
-            elif self.data_feeder.orientation == 'horizontal':
-                contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level, along_direction='y', sample_every=1)
+            contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level, along_direction= self.data_feeder.orientation, sample_every=1)
 
             for d, cnt_uv in contour_2d_wrt_structureVolume_allpos_volResol.iteritems():
                 contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv, np.ones((len(cnt_uv),))*d])
@@ -334,14 +353,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if any([p.properties['label'] == name_u and p.properties['side'] == side and p.properties['type'] == 'confirmed'
                         for p in self.drawings[index_wrt_dataVolume]]):
                     continue
+                #
+                # print contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]
+                # print index_wrt_dataVolume
 
-                print contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]
-                print index_wrt_dataVolume
+                # print self.id, convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
+
+                if convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                    linewidth = 1
+                else:
+                    linewidth = 10
 
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]),
                                                     index=index_wrt_dataVolume,
                                                     label=name_u,
-                                                    linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level], linewidth=1,
+                                                    linewidth=linewidth,
+                                                    linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level],
                                                     type='derived_from_atlas',
                                                     level=level,
                                                     side=side,
@@ -812,8 +839,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 #     print p
                 #     raise Exception("")
 
+                print self.id, convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
+
+                if convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                    linewidth = 1
+                else:
+                    linewidth = 30
+
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
                                                         label=contour['name'], label_pos=contour['label_position'],
+                                                        linewidth=linewidth,
                                                         linecolor=linecolor, vertex_color=vertex_color,
                                                         section=sec, type=contour_type,
                                                         side=contour['side'],
@@ -1128,11 +1163,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif selected_action == action_reconstruct:
             assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
-            self.structure_volume_updated.emit('handdrawn', self.active_polygon.properties['label'], self.active_polygon.properties['side'], True, True)
+            self.structure_volume_updated.emit('handdrawn', compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side']), True, True)
 
         elif selected_action == action_reconstructUsingUnconfirmed:
             assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
-            self.structure_volume_updated.emit('handdrawn', self.active_polygon.properties['label'], self.active_polygon.properties['side'], False, True)
+            self.structure_volume_updated.emit('handdrawn', compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side']), False, True)
 
         # elif selected_action in action_resolutions:
         #     selected_downsample_factor = action_resolutions[selected_action]
@@ -1178,22 +1213,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #         # self.print_history()
 
 
-    def get_structure_centroid3d(self, name, side, prob=False):
+    def get_structure_centroid3d(self, set_name, name_s, prob=False):
         """
         Args:
+            name_s (str): name, sided
             prob (bool): If true, compute centroid for `prob_structure_volumes`; if False, compute centroid for `structure_volumes`.
         Return:
             ((3,)-array): structure centroid in 3d wrt wholebrain
         """
 
-        name_side_tuple = (name, side)
-
-        if prob:
-            structure_volumes = self.structure_volumes['aligned_atlas']
-        else:
-            structure_volumes = self.structure_volumes
-
-        vol = structure_volumes[name_side_tuple]['volume_in_bbox']
+        vol = self.structure_volumes[set_name][name_s]['volume']
 
         yc_wrt_structureVolInBbox_volResol, \
         xc_wrt_structureVolInBbox_volResol, \
@@ -1204,23 +1233,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         yc_wrt_structureVolInBbox_volResol, \
         zc_wrt_structureVolInBbox_volResol))
 
-        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['origin'])
+        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[set_name][name_s]['origin'])
 
         print prob, vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
         structure_centroid3d_wrt_wholebrain_volResol = structure_centroid3d_wrt_structureVolInBbox_volResol + vol_origin_wrt_wholebrain_volResol
 
         return np.array(structure_centroid3d_wrt_wholebrain_volResol)
 
-    def align_atlas_structure_to_manual_structure(self, name, side):
-        manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name, side, prob=False)
+    def align_atlas_structure_to_manual_structure(self, name_s):
+        manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s, prob=False)
         print "manual=", manual_structure_centroid3d_wrt_wholebrain_volResol
-        prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name, side, prob=True)
+        prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s, prob=True)
         print "prob=", prob_structure_centroid3d_wrt_wholebrain_volResol
-        print  'before', self.structure_volumes['aligned_atlas'][(name, side)]['origin']
-        self.structure_volumes['aligned_atlas'][(name, side)]['origin'] = self.structure_volumes['aligned_atlas'][(name, side)]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
-        print  'after', self.structure_volumes['aligned_atlas'][(name, side)]['origin']
-        self.update_drawings_from_prob_structure_volume(name_u=name, side=side, levels=[0.1, 0.25, 0.5, 0.75, 0.99])
-
+        print  'before', self.structure_volumes['aligned_atlas'][name_s]['origin']
+        self.structure_volumes['aligned_atlas'][name_s]['origin'] = self.structure_volumes['aligned_atlas'][name_s]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
+        print  'after', self.structure_volumes['aligned_atlas'][name_s]['origin']
+        self.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.1, 0.25, 0.5, 0.75, 0.99])
 
     def start_new_polygon(self, init_properties=None, color='r'):
         """
@@ -1770,15 +1798,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif self.mode == 'global_shift3d' or self.mode == 'global_rotate3d':
 
-                for name, side in self.structure_volumes['aligned_atlas'].iterkeys():
-                    self.transform_structure(name=name, side=side)
+                for name_s in self.structure_volumes['aligned_atlas'].iterkeys():
+                    self.transform_structure(name_s=name_s)
                 self.set_mode('idle')
 
                 # self.global_transform_updated.emit(self.get_global_transform())
 
             elif self.mode == 'prob_shift3d' or self.mode == 'prob_rotate3d':
 
-                self.transform_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
+                self.transform_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']))
                 self.set_mode('idle')
 
             elif self.mode == 'delete vertices':
@@ -1815,6 +1843,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         """
 
         i = np.where(start - finish == 0)[0]
+        assert len(i) == 1, 'Movement should be more curvy.'
         if i == 0: # around x axis
             print 'around x axis'
             vec2 = finish[[1,2]] - center[[1,2]]
@@ -1844,24 +1873,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         return tf
 
-    def transform_structure(self, name, side):
+    def transform_structure(self, name_s):
         """
         Compute transform based on recorded mouse movements.
         Transform the given structure and save back into repository.
         Then send signal to update display.
 
         Args:
-            name (str): Structure name, without sides.
-            side (str): L, R or S
+            name_s (str): Structure name, sided.
         """
 
-        name_side_tuple = (name, side)
-
-        structure_volumes = self.structure_volumes['aligned_atlas']
+        # structure_volumes = self.structure_volumes['aligned_atlas']
         structure_volume_resolution_um = self.structure_volumes_resolution_um
 
-        assert name_side_tuple in structure_volumes, \
-        "`structure_volumes` does not contain %s. Need to load this structure first." % str(name_side_tuple)
+        assert name_s in self.structure_volumes['aligned_atlas'], \
+        "`structure_volumes` does not contain %s. Need to load this structure first." % name_s
 
         #
         # if self.id == 'sagittal' or self.id == 'sagittal_tb':
@@ -1879,10 +1905,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         release_position_wrt_wholebrain_volResol = self.convert_frame_and_resolution(p=(self.gscene_x, self.gscene_y, 0),
         in_wrt=self.id, in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
 
-        if structure_volumes[name_side_tuple]['volume_in_bbox'] is not None: # the volume is loaded
+        if self.structure_volumes['aligned_atlas'][name_s]['volume'] is not None: # the volume is loaded
 
-            vol = structure_volumes[name_side_tuple]['volume_in_bbox']
-            vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[name_side_tuple]['origin'])
+            vol = self.structure_volumes['aligned_atlas'][name_s]['volume']
+            vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes['aligned_atlas'][name_s]['origin'])
             print 'vol', vol.shape, 'vol_origin_wrt_wholebrain_volResol', vol_origin_wrt_wholebrain_volResol
 
         if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
@@ -1916,14 +1942,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         # If this structure's volume has not been loaded, don't do the transform, just add edits.
 
-        if structure_volumes[name_side_tuple]['volume_in_bbox'] is not None: # the volume is loaded
+        if self.structure_volumes['aligned_atlas'][name_s]['volume'] is not None: # the volume is loaded
 
-            tfed_structure_volume, tfed_structure_volume_origin_wrt_wholebrain_volResol = transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
+            tfed_structure_volume, tfed_structure_volume_origin_wrt_wholebrain_volResol = \
+            transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
             tf_params=tf,
             return_origin_instead_of_bbox=True)
 
-            structure_volumes[name_side_tuple]['volume_in_bbox'] = tfed_structure_volume
-            structure_volumes[name_side_tuple]['origin'] = tfed_structure_volume_origin_wrt_wholebrain_volResol
+            self.structure_volumes['aligned_atlas'][name_s]['volume'] = tfed_structure_volume
+            self.structure_volumes['aligned_atlas'][name_s]['origin'] = tfed_structure_volume_origin_wrt_wholebrain_volResol
 
         ###################### Append edits ###############################
 
@@ -1931,7 +1958,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
         'type': self.mode,
         'transform':tf}
-        structure_volumes[name_side_tuple]['edits'].append(edit_entry)
-        print name_side_tuple, 'edit added', self.mode
+        self.structure_volumes['aligned_atlas'][name_s]['edits'].append(edit_entry)
+        print name_s, 'edit added', self.mode
 
-        self.structure_volume_updated.emit('aligned_atlas', name, side)
+        self.structure_volume_updated.emit('aligned_atlas', name_s, False, False)

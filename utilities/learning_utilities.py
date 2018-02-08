@@ -691,14 +691,15 @@ def extract_patches_given_locations(patch_size,
     if img is None:
         t = time.time()
         
-        if sec is not None:
-            fn = metadata_cache['sections_to_filenames'][stack][sec]
-            if stack in all_nissl_stacks:
-                is_nissl = True
+        if is_nissl is None:
+            if sec is not None:
+                fn = metadata_cache['sections_to_filenames'][stack][sec]
+                if stack in all_nissl_stacks:
+                    is_nissl = True
+                else:
+                    is_nissl = fn.split('-')[1][0] == 'N'
             else:
-                is_nissl = fn.split('-')[1][0] == 'N'
-        else:
-            assert is_nissl is not None
+                raise Exception("Must specify whether image is Nissl by providing is_nissl.")
         
         if stack == 'ChatCryoJane201710':
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='Ntb')
@@ -1119,12 +1120,13 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
     return DataFrame(patch_indices_allSections_allStructures)
 
 
-def win_id_to_gridspec(win_id, stack):
+def win_id_to_gridspec(win_id, stack=None, image_shape=None):
     """
     Derive a gridspec from window id.
     
     Args:
         stack (str): stack is needed because different stacks have different span width and height, and may have different planar resolution.
+        image_shape (2-tuple): (width, height) in pixel
     
     Returns:
         4-tuple: a gridspec tuple (patch size in pixel, spacing in pixel, span width in pixel, span height in pixel)
@@ -1145,7 +1147,12 @@ def win_id_to_gridspec(win_id, stack):
         spacing_um = windowing_properties['spacing_um']
         spacing_px = int(np.round(spacing_um / planar_resolution[stack]))
     
-    w_px, h_px = metadata_cache['image_shape'][stack]
+    if stack in metadata_cache['image_shape']:
+        w_px, h_px = metadata_cache['image_shape'][stack]
+    else:
+        assert image_shape is not None
+        w_px, h_px = image_shape
+        
     grid_spec = (patch_size_px, spacing_px, w_px, h_px)
     return grid_spec
 

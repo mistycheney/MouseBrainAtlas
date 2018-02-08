@@ -467,7 +467,8 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD658':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD661':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD662':XY_PIXEL_DISTANCE_LOSSLESS,
-                     'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+                     'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
                     }
 
 #######################################

@@ -425,7 +425,7 @@ labels_sided_indices = dict((j, i+1) for i, j in enumerate(labels_sided)) # Back
 ############ Physical Dimension #############
 
 # section_thickness = 20 # in um
-SECTION_THICKNESS = 20 # in um
+SECTION_THICKNESS = 20. # in um
 # xy_pixel_distance_lossless = 0.46
 XY_PIXEL_DISTANCE_LOSSLESS = 0.46 # This is the spec for Nanozoomer
 XY_PIXEL_DISTANCE_TB = XY_PIXEL_DISTANCE_LOSSLESS * 32 # in um, thumbnail

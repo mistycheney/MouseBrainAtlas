@@ -33,6 +33,7 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+
 #####################################################################
 
 def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
@@ -294,13 +295,10 @@ def compute_covar_from_instance_centroids(instance_centroids):
 
 def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
     """
-    This function uses multiple processes.
-
-
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
         along_direction (str): 'x', 'y' or 'z'.
-        positions (None or list of int): if None, use all positions of input volume, from 0 to the depth of volume.
+        positions (None or list of int): if None, find contours at all positions of input volume, from 0 to the depth of volume.
 
     Returns:
         dict {int: (n,2)-ndarray}: contours. {voxel position: contour vertices (second dim, first dim)}.
@@ -311,22 +309,26 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
     # nproc = multiprocessing.cpu_count()
     nproc = 1
 
-    if along_direction == 'z':
+    if along_direction == 'z' or along_direction == 'sagittal':
         if positions is None:
             positions = range(0, labeled_volume.shape[2])
-    elif along_direction == 'x':
+    elif along_direction == 'x' or along_direction == 'coronal':
         if positions is None:
             positions = range(0, labeled_volume.shape[1])
-    elif along_direction == 'y':
+    elif along_direction == 'y' or along_direction == 'horizontal':
         if positions is None:
             positions = range(0, labeled_volume.shape[0])
 
     def find_contour_points_slice(p):
         if along_direction == 'x':
             vol_slice = labeled_volume[:, p, :]
-        if along_direction == 'y':
+        elif along_direction == 'coronal':
+            vol_slice = labeled_volume[:, p, ::-1]
+        elif along_direction == 'y':
             vol_slice = labeled_volume[p, :, :]
-        if along_direction == 'z':
+        elif along_direction == 'horizontal':
+            vol_slice = labeled_volume[p, :, ::-1].T
+        elif along_direction == 'z' or along_direction == 'sagittal':
             vol_slice = labeled_volume[:, :, p]
 
         cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)

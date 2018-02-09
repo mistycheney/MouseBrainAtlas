@@ -665,6 +665,49 @@ def locate_patches_given_addresses_v2(addresses):
     return patch_locations_all_inOriginalOrder
     
     
+# def normalize(patches, stack):
+    
+#     patches_normalized_uint8 = []
+#     for p in patches:
+#         mu = p.mean()
+#         sigma = p.std()
+#         # print mu
+#         p_normalized = (p - mu) / sigma
+#         if stack in all_nissl_stacks:
+#             p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
+#         else:
+#             if is_nissl:
+#                 p_normalized_uint8 = rescale_intensity_v2(p_normalized, -6, 1)
+#             else:
+#                 p_normalized_uint8 = rescale_intensity_v2(p_normalized, 6, -1)
+#         # p_normalized_uint8 = p_normalized
+#         patches_normalized_uint8.append(p_normalized_uint8)
+#     patches = patches_normalized_uint8
+
+#     t = time.time()
+#     patches_flattened = np.reshape(patches, (len(patches), -1))
+#     sys.stderr.write('Flatten: %.2f seconds.\n' % (time.time() - t))
+
+#     t = time.time()
+#     patches_flattened = (patches_flattened - patches_flattened.mean(axis=1)[:,None]) / patches_flattened.std(axis=1)[:,None]
+#     sys.stderr.write('Normalize: %.2f seconds.\n' % (time.time() - t))
+
+#     t = time.time()
+#     if stack in all_nissl_stacks:
+#         patches_flattened = rescale_intensity_v2(patches_flattened, -6, 1)
+#     else:
+#         if is_nissl:
+#             patches_flattened = rescale_intensity_v2(patches_flattened, -6, 1)
+#         else:
+#             patches_flattened = rescale_intensity_v2(patches_flattened, 6, -1)
+#     sys.stderr.write('Rescale to uint8: %.2f seconds.\n' % (time.time() - t))
+
+#     t = time.time()
+#     patches = patches_flattened.reshape((len(patches), patches[0].shape[0], patches[0].shape[1]))
+#     sys.stderr.write('Reshape back: %.2f seconds.\n' % (time.time() - t))
+    
+    # return patches
+    
 def extract_patches_given_locations(patch_size, 
                                     locs,
                                     img=None,
@@ -744,8 +787,12 @@ def extract_patches_given_locations(patch_size,
 
 #         else:
 #             patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
+        t = time.time()
+        
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-
+        
+        sys.stderr.write('Crop patches: %.2f seconds.\n' % (time.time() - t))
+        
         if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
             patches_normalized_uint8 = []
             for p in patches:
@@ -765,6 +812,39 @@ def extract_patches_given_locations(patch_size,
             patches = patches_normalized_uint8
 
         elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,5)':
+            
+############################################            
+            # print "NUM_CORES = %d" % NUM_CORES
+            # n_per_job = int(np.ceil(len(patches) / 4))
+            # pool = Pool(4)
+            # res = pool.map(lambda i: normalize(patches[i:i+n_per_job], stack=stack), range(0, len(patches), n_per_job))
+            # patches = list(chain(*res))
+            # pool.close()
+            # pool.join()
+############################################
+            
+#             t = time.time()
+#             patches_flattened = np.reshape(patches, (len(patches), -1))
+#             sys.stderr.write('Flatten: %.2f seconds.\n' % (time.time() - t))
+
+#             t = time.time()
+#             patches_flattened = (patches_flattened - patches_flattened.mean(axis=1)[:,None]) / patches_flattened.std(axis=1)[:,None]
+#             sys.stderr.write('Normalize: %.2f seconds.\n' % (time.time() - t))
+            
+#             t = time.time()
+#             if stack in all_nissl_stacks:
+#                 patches_flattened = rescale_intensity_v2(patches_flattened, -6, 1)
+#             else:
+#                 if is_nissl:
+#                     patches_flattened = rescale_intensity_v2(patches_flattened, -6, 1)
+#                 else:
+#                     patches_flattened = rescale_intensity_v2(patches_flattened, 6, -1)
+#             sys.stderr.write('Rescale to uint8: %.2f seconds.\n' % (time.time() - t))
+            
+#             t = time.time()
+#             patches = patches_flattened.reshape((len(patches), patch_size, patch_size))
+#             sys.stderr.write('Reshape back: %.2f seconds.\n' % (time.time() - t))
+############################################
             patches_normalized_uint8 = []
             for p in patches:
                 mu = p.mean()
@@ -820,7 +900,7 @@ def extract_patches_given_locations(patch_size,
             pass
         else:
             raise Exception("Normalization scheme %s is not recognized.\n" % normalization_scheme)
-        
+                
     return patches
 
 def extract_patches_given_locations_multiple_sections(addresses,

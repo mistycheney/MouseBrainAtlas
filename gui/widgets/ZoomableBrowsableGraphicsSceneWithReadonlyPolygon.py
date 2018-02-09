@@ -1,12 +1,12 @@
-from matplotlib.backends import qt4_compat
-if qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
+#from matplotlib.backends import qt4_compat
+#if qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE:
+#    #print 'Using PySide'
+#    from PySide.QtCore import *
+#    from PySide.QtGui import *
+#else:
     #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 from SignalEmittingGraphicsPathItem import SignalEmittingGraphicsPathItem
 from ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene

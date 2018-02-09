@@ -984,12 +984,7 @@ def convert_annotation_v3_original_to_aligned_cropped_v2(contour_df, stack, out_
 
     contour_df = contour_df.copy()
 
-    if prep_id == 2:
-        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack)
-    elif prep_id == 3:
-        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox_thalamus(stack)
-    else:
-        raise
+    xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack, prep_id=prep_id)
 
     Ts_rawResol = DataManager.load_transforms(stack=stack, resolution='raw', use_inverse=True)
 
@@ -1079,13 +1074,8 @@ def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, reso
 
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-    if prep_id == 2:
-        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack)
-    elif prep_id == 3:
-        xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox_thalamus(stack)
-    else:
-        raise
-
+    xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack, prep_id=prep_id)
+    
     Ts_rawResol = DataManager.load_transforms(stack=stack, resolution='raw', use_inverse=True)
 
     # cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['resolution'] == resolution)]

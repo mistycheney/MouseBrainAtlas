@@ -17,7 +17,7 @@ from gui_utilities import *
 from custom_widgets import AutoCompleteInputDialog
 from DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene
 
-from memory_profiler import profile
+# from memory_profiler import profile
 
 CROSSLINE_PEN_WIDTH = 2
 CROSSLINE_RED_PEN = QPen(Qt.red)
@@ -1706,7 +1706,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         return tf
 
-    @profile(precision=4)
+    # @profile(precision=4)
     def transform_structure(self, name_s):
         """
         Compute transform based on recorded mouse movements.

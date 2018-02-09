@@ -41,6 +41,7 @@ from DataFeeder import ImageDataFeeder_v2, VolumeResectionDataFeeder
 
 MARKER_COLOR_CHAR = 'w'
 
+
 #######################################################################
 
 class ReadRGBComponentImagesThread(QThread):
@@ -93,16 +94,16 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.button_save.clicked.connect(self.save_contours)
         self.button_saveMarkers.clicked.connect(self.save_markers)
-        # self.button_saveStructures.clicked.connect(self.save_structures)
-        self.button_saveProbStructures.clicked.connect(self.save_structures)
+        self.button_saveStructures.clicked.connect(self.save_structures)
+        # self.button_saveProbStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
         # self.button_loadProbStructures.clicked.connect(self.load_structures)
-        self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
-        self.button_loadWarpedStructure.clicked.connect(self.load_warped_structure)
-        self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
-        self.button_loadUnwarpedStructure.clicked.connect(self.load_unwarped_structure)
+        # self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
+        self.button_loadWarpedAtlas.clicked.connect(self.load_warped_structure)
+        # self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
+        self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_structure)
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
@@ -221,6 +222,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         for gid in ['tb_coronal', 'tb_horizontal', 'tb_sagittal']:
             self.gscenes[gid].set_image_origin_wrt_wholebrain_um(intensity_volume_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
+
+        # Syncing main scene with crossline localization requires constantly loading
+        # raw images which can be slow.
+        self.DISABLE_UPDATE_MAIN_SCENE = False
 
     @pyqtSlot(object)
     def handle_global_transform_update(self, tf):
@@ -765,59 +770,50 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             return_label_mappings=False,
             name_or_index_as_key='name',
             structures=structures
-            # structures=['7N_L', '5N_L', 'SNR_L']
-            # ['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R', 'Pn_L', 'Pn_R', 'Tz_L', 'Tz_R', 'VLL_L', 'VLL_R', 'RMC_L', 'RMC_R', 'SNC_L', 'SNC_R', 'SNR_L', 'SNR_R', '3N_L', '3N_R', '4N_L', '4N_R', 'Sp5I_L', 'Sp5I_R', 'Sp5O_L', 'Sp5O_R', 'Sp5C_L', 'Sp5C_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'VCA_L', 'VCA_R', 'VCP_L', 'VCP_R', 'DC_L', 'DC_R', 'AP', '12N', 'RtTg', 'SC', 'IC']
-            # structures=['5N_L', '5N_R', '6N_L', '6N_R', '7N_L', '7N_R', '7n_L', '7n_R', 'Amb_L', 'Amb_R', 'LC_L', 'LC_R', 'LRt_L', 'LRt_R'],
-            # structures=['IC']
             )
 
-            if self.prep_id == 3: # thalamus
-                atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox_thalamus(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
-            else:
-                atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True)[[0,2,4]]
+            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True, prep_id=self.prep_id)[[0,2,4]]
+            atlas_origin_wrt_wholebrain_volResol = atlas_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack) / self.structure_volume_resolution_um
 
-            atlas_ydim_wrt_wholebrain_tbResol, \
-            atlas_xdim_wrt_wholebrain_tbResol, \
-            atlas_zdim_wrt_wholebrain_tbResol = atlas_volumes.values()[0].shape
+            # atlas_ydim_wrt_wholebrain_tbResol, \
+            # atlas_xdim_wrt_wholebrain_tbResol, \
+            # atlas_zdim_wrt_wholebrain_tbResol = atlas_volumes.values()[0].shape
 
-            atlas_bbox_wrt_wholebrain_tbResol = np.array([atlas_origin_wrt_wholebrain_tbResol[0],
-            atlas_origin_wrt_wholebrain_tbResol[0] + atlas_xdim_wrt_wholebrain_tbResol - 1,
-            atlas_origin_wrt_wholebrain_tbResol[1],
-            atlas_origin_wrt_wholebrain_tbResol[1] + atlas_ydim_wrt_wholebrain_tbResol - 1,
-            atlas_origin_wrt_wholebrain_tbResol[2],
-            atlas_origin_wrt_wholebrain_tbResol[2] + atlas_zdim_wrt_wholebrain_tbResol - 1])
+            # atlas_bbox_wrt_wholebrain_tbResol = np.array([atlas_origin_wrt_wholebrain_tbResol[0],
+            # atlas_origin_wrt_wholebrain_tbResol[0] + atlas_xdim_wrt_wholebrain_tbResol - 1,
+            # atlas_origin_wrt_wholebrain_tbResol[1],
+            # atlas_origin_wrt_wholebrain_tbResol[1] + atlas_ydim_wrt_wholebrain_tbResol - 1,
+            # atlas_origin_wrt_wholebrain_tbResol[2],
+            # atlas_origin_wrt_wholebrain_tbResol[2] + atlas_zdim_wrt_wholebrain_tbResol - 1])
 
-            atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
-
-            from skimage.transform import rescale
-            atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
-            atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
+            # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
+            # from skimage.transform import rescale
+            # atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
+            # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
 
             for name_s, v in atlas_volumes.iteritems():
-                name_u, side = parse_label(name_s, singular_as_s=True)[:2]
-                self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': v, 'bbox': atlas_bbox_wrt_wholebrain_volResol}
-                print 'Load', (name_u, side), self.structure_volumes[(name_u, side)]['bbox']
+                self.structure_volumes['aligned_atlas'][name_s]['volume'] = v
+                self.structure_volumes['aligned_atlas'][name_s]['origin'] = atlas_origin_wrt_wholebrain_volResol
+                print 'Load', name_s, self.structure_volumes['aligned_atlas'][name_s]['origin']
 
                 # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
                 for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_prob_structure_volume(name_u, side, levels=[0.5])
+                    gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
+
+    # @pyqtSlot()
+    # def load_unwarped_atlas_volume(self):
+    #     """
+    #     Load atlas volumes that are not aligned to subject.
+    #     Initial pose is such that the origin of the atlas coincides with that of the subject volume.
+    #
+    #     This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
+    #     """
+    #
+    #     self.load_atlas_volume(warped=False, structures=['IC', '7N_L', 'SNR_L', 'Sp5C_L', '7N_R', 'SNR_R', 'Sp5C_R'])
+
 
     @pyqtSlot()
-    def load_unwarped_atlas_volume(self):
-        """
-        Load atlas volumes that are not aligned to subject.
-        Initial pose is such that the origin of the atlas coincides with that of the subject volume.
-
-        This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
-        """
-
-        self.load_atlas_volume(warped=False, structures=['IC', '7N_L', 'SNR_L', 'Sp5C_L', '7N_R', 'SNR_R', 'Sp5C_R'])
-
-    @pyqtSlot()
-    def load_unwarped_structure(self):
-        """
-        Load particular structures from warped atlas.
-        """
+    def select_structures(self):
         possible_structures_to_load = all_known_structures_sided
 
    #      selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
@@ -842,30 +838,32 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         structures_to_remove = structures_loaded - selected_structures
         print 'structures_to_remove', structures_to_remove
 
-        # for name_s in structures_to_remove:
-        #     self.structure_volumes['aligned_atlas'][name_s]['volume'] = None
-
-        self.load_atlas_volume(warped=False, structures=new_structures_to_load)
-
+        return selected_structures, new_structures_to_load, structures_to_remove
 
     @pyqtSlot()
-    def load_warped_atlas_volume(self):
+    def load_unwarped_structure(self):
         """
-        Load warped atlas volumes.
-        This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
+        Load particular structures from warped atlas.
         """
-        self.load_atlas_volume(warped=True)
+
+        selected_structures, new_structures_to_load, structures_to_remove = self.select_structures()
+        self.load_atlas_volume(warped=False, structures=new_structures_to_load)
+    #
+    # @pyqtSlot()
+    # def load_warped_atlas_volume(self):
+    #     """
+    #     Load warped atlas volumes.
+    #     This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
+    #     """
+    #     self.load_atlas_volume(warped=True)
 
     @pyqtSlot()
     def load_warped_structure(self):
         """
         Load particular structures from warped atlas.
         """
-        possible_structures_to_load = all_known_structures_sided
-        selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
-   "list of structures", possible_structures_to_load, 0, False)
-        if ok and selected_structure:
-            self.load_atlas_volume(warped=True, structures=[str(selected_structure)])
+        selected_structures, new_structures_to_load, structures_to_remove = self.select_structures()
+        self.load_atlas_volume(warped=True, structures=new_structures_to_load)
 
     @pyqtSlot()
     def load_structures(self):
@@ -925,7 +923,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         sagittal_contours_df_cropped = convert_annotation_v3_original_to_aligned_cropped_v2(sagittal_contours_df, stack=self.stack,\
                                         out_resolution=self.gscenes['main_sagittal'].data_feeder.resolution,
                                         prep_id=self.prep_id)
-        sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'main_sagittal')]
+        sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal')]
         self.gscenes['main_sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
 
     @pyqtSlot()
@@ -949,8 +947,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         print 'Update all crosses to', cross, 'from', self.sender().id
         for gscene_id, gscene in self.gscenes.iteritems():
-            if gscene_id == 'main_sagittal':
-                continue
+
+            if self.DISABLE_UPDATE_MAIN_SCENE:
+                if gscene_id == 'main_sagittal':
+                    continue
             # if gscene_id == 'tb_sagittal':
             # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
             #     continue
@@ -1010,10 +1010,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     affected_gscenes = self.gscenes.keys()
 
         for gscene_id in self.gscenes.keys():
-            if gscene_id == 'main_sagittal':
-                continue
-        # for gscene_id in affected_gscenes:
-        # for gscene_id in ['tb_sagittal']:
             self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
@@ -1153,6 +1149,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     print str((zscore, fmax, mean, std)), np.array(e1_gscene + e2_gscene)/2
                     self.gscenes['main_sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
 
+            elif key == Qt.Key_O:
+                self.DISABLE_UPDATE_MAIN_SCENE = not self.DISABLE_UPDATE_MAIN_SCENE
+                sys.stderr.write("DISABLE_UPDATE_MAIN_SCENE = %s\n" % self.DISABLE_UPDATE_MAIN_SCENE)
+
         elif event.type() == QEvent.KeyRelease:
             key = event.key()
             if key == Qt.Key_Space:
@@ -1209,7 +1209,8 @@ if __name__ == "__main__":
     parser.add_argument("stack_name", type=str, help="Stack name")
     parser.add_argument("-f", "--first_sec", type=int, help="First section")
     parser.add_argument("-l", "--last_sec", type=int, help="Last section")
-    parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='jpeg')
+    # parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='jpeg')
+    parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='grayJpeg')
     parser.add_argument("-r", "--resolution", type=str, help="Resolution of image displayed in main scene. Default = %(default)s.", default='lossless')
     parser.add_argument("-p", "--prep", type=int, help="Frame identifier of image displayed in main scene (2 for brainstem crop, 3 for thalamus crop). Default = %(default)d.", default=2)
     args = parser.parse_args()

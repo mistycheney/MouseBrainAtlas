@@ -598,8 +598,8 @@ class DataManager(object):
 
         if convert_section_to_z:
             xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
-            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
-            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
+            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32)))
+            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32)))
             cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
         else:
             cropbox = np.loadtxt(fp).astype(np.int)

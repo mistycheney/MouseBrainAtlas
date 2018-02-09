@@ -72,13 +72,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="button_saveProbStructures">
-        <property name="text">
-         <string>Save Prob Structures</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QPushButton" name="button_save">
         <property name="text">
          <string>Save Contours</string>
@@ -100,13 +93,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="button_loadProbStructures">
-        <property name="text">
-         <string>Load Prob Stru.</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QPushButton" name="button_loadWarpedAtlas">
         <property name="text">
          <string>Load Warped Atlas</string>
@@ -114,23 +100,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="button_loadWarpedStructure">
-        <property name="text">
-         <string>Load Warped Structure</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QPushButton" name="button_loadUnwarpedAtlas">
         <property name="text">
          <string>Load Unwarped Atlas</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="button_loadUnwarpedStructure">
-        <property name="text">
-         <string>Load Unwarped Structure</string>
         </property>
        </widget>
       </item>

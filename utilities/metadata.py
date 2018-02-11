@@ -1,7 +1,7 @@
 """
 This module stores static meta information.
 """
-import os
+import os, sys
 
 ########### Data Directories #############
 
@@ -330,10 +330,18 @@ def convert_to_nonsurround_label(name):
 #         return convert_to_original_name(name)
 
 def convert_to_left_name(name):
-    return convert_to_unsided_label(name) + '_L'
+    if name in singular_structures:
+        sys.stderr.write("Asked for left name for singular structure %s, returning itself.\n" % name)
+        return name
+    else:
+        return convert_to_unsided_label(name) + '_L'
 
 def convert_to_right_name(name):
-    return convert_to_unsided_label(name) + '_R'
+    if name in singular_structures:
+        sys.stderr.write("Asked for right name for singular structure %s, returning itself.\n" % name)
+        return name
+    else:
+        return convert_to_unsided_label(name) + '_R'
 
 def convert_to_original_name(name):
     return name.split('_')[0]

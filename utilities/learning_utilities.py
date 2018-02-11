@@ -712,7 +712,7 @@ def extract_patches_given_locations(patch_size,
                                     locs,
                                     img=None,
                                     stack=None, sec=None, fn=None, version=None, prep_id=2,
-                                   normalization_scheme=None, is_nissl=None):
+                                   normalization_scheme=None, is_nissl=None, output_patch_size=224):
     """
     Extract patches from one image at given locations.
     The image can be given, or the user can provide stack,sec,version,prep_id.
@@ -728,8 +728,6 @@ def extract_patches_given_locations(patch_size,
     """
 
     from utilities2015 import rescale_intensity_v2 # Without this, rescale_intensity_v2 has wrong behavior. WHY?
-    
-    half_size = patch_size/2
     
     if img is None:
         t = time.time()
@@ -750,12 +748,29 @@ def extract_patches_given_locations(patch_size,
             img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
         else:
             if is_nissl:
-                img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)[...,2]
+                # if version is None:
+                #     img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='grayJpeg')
+                # else:
+                img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)
+                if img.ndim == 3:
+                    # img = img[...,2] # use blue channel of nissl
+                    img = img_as_ubyte(rgb2gray(img)) # convert grayscale
             else:
-                img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)[...,2]
+                img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)
+                if img.ndim == 3:
+                    img = img[...,2] # use blue channel of neurotrace
 
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
         
+    if patch_size != output_patch_size:
+        t = time.time()
+        rescale_factor = float(output_patch_size) / patch_size
+        img = rescale_by_resampling(img, rescale_factor)
+        locs = np.round(np.array(locs) * rescale_factor).astype(np.int)
+        sys.stderr.write('Rescale image from %d to %d: %.2f seconds.\n' % (patch_size, output_patch_size, time.time() - t))
+        
+    half_size = output_patch_size / 2
+    
     if normalization_scheme == 'stretch_min_max_global':
         if stack in all_nissl_stacks:
             img = rescale_intensity_v2(img, img.min(), img.max())
@@ -765,32 +780,11 @@ def extract_patches_given_locations(patch_size,
             else:
                 img = rescale_intensity_v2(img, img.max(), img.min())
         
-#         if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
-#             a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-#             patches = [img_as_ubyte(resize(img[y-int(half_size*a):y+int(half_size*a), 
-#                                                 x-int(half_size*a):x+int(half_size*a)], 
-#                                             (half_size*2, half_size*2)))
-#                        for x, y in locs]
-
-#         else:
-#             patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-        
     else:
         
-#         if stack == 'ChatCryoJane201710': # This one has higher resolution than other stacks.
-#             a = XY_PIXEL_DISTANCE_LOSSLESS / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-#             patches = [resize(img[y-int(half_size*a):y+int(half_size*a), 
-#                                                 x-int(half_size*a):x+int(half_size*a)], 
-#                                             (half_size*2, half_size*2), preserve_range=True)
-#                        for x, y in locs]
-
-#         else:
-#             patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
         t = time.time()
-        
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
-        
         sys.stderr.write('Crop patches: %.2f seconds.\n' % (time.time() - t))
         
         if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
@@ -884,7 +878,10 @@ def extract_patches_given_locations(patch_size,
 
 
         elif normalization_scheme == 'median_curve':
-            ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
+            if stack == 'ChatCryoJane201710':
+                ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack))
+            else:    
+                ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
             patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]
 
         elif normalization_scheme == 'stretch_min_max':
@@ -951,12 +948,14 @@ def extract_patches_given_locations_multiple_sections(addresses,
             extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
                                                                 img=images[stack_sec], 
                                                                 patch_size=patch_size, 
+                                                                prep_id=prep_id,
                                                                 normalization_scheme=normalization_scheme)
         else:
             sys.stderr.write("No images are provided. Load instead.\n")
             extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
                                                                 version=version,
                                                                 patch_size=patch_size, 
+                                                                prep_id=prep_id,
                                                                 normalization_scheme=normalization_scheme)
             
         patches_all += extracted_patches
@@ -2010,7 +2009,7 @@ def visualize_filters(model, name, input_channel=0, title=''):
     
 def get_local_regions(stack, by_human, margin_um=500, level=None, structures=None, detector_id_f=15):
     """
-    Find the local region bounding boxes around a structure on every section.
+    Find the bounding boxes around a structure on every section.
     Bounding boxes are wrt cropped images in lossless resolution.
     
     Args:
@@ -2061,54 +2060,135 @@ def get_local_regions(stack, by_human, margin_um=500, level=None, structures=Non
                 min(h-1, int(np.ceil(ymax+margin_pixel))))
     else:
         
-        warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', 
-                                                                              stack_f=stack,
-                                                                                detector_id_f=detector_id_f,
-                                                                              prep_id_f=2,
-                                                                                warp_setting=17, 
-                                                                              sided=True,
-                                                                                 structures=structures)
-        # Origin of `warped_volumes` is at cropped domain.
+        warped_volumes = {}
+
+        for structure in structures:
+            stack_m_spec = dict(name='atlasV5',
+                           vol_type='score',
+                           detector_id=None,
+                           prep_id=None,
+                           structure=structure,
+                           resolution='down32')
+
+            stack_f_spec = dict(name=stack,
+                               vol_type='score',
+                               detector_id=detector_id_f,
+                               prep_id=2,
+                               structure=convert_to_original_name(structure),
+                               resolution='down32')
+
+            init_alignment_stack_m_spec = dict(name='atlasV5',
+                               vol_type='score',
+                               detector_id=None,
+                               prep_id=None,
+                               structure=None,
+                               resolution='down32')
+
+            init_alignment_stack_f_spec = dict(name=stack,
+                               vol_type='score',
+                               detector_id=detector_id_f,
+                               prep_id=2,
+                               structure=None,
+                               resolution='down32')
+
+            initial_alignment_spec = dict(stack_m=init_alignment_stack_m_spec, 
+                                  stack_f=init_alignment_stack_f_spec,
+                                  warp_setting=20)
+
+            local_alignment_spec = dict(stack_m=stack_m_spec, 
+                                  stack_f=stack_f_spec,
+                                  warp_setting=17,
+                                       initial_alignment_spec=initial_alignment_spec)
+
+            warped_volumes[structure] = \
+            DataManager.load_transformed_volume_all_known_structures_v3(alignment_spec=local_alignment_spec,
+                                                                        resolution='down32',
+                                                                        structures=[structure], 
+                                                                        sided=True, 
+                                                                        return_label_mappings=False, 
+                                                                        name_or_index_as_key='name', 
+                                                                        common_shape=False,
+                                                                       return_origin_instead_of_bbox=True)[structure]
+                        
+        try:
+            structures = DataManager.load_annotation_v4(stack=stack_fixed, 
+                                                by_human=True,
+                                                timestamp='latest', suffix='structures')
+            # These only contain structures that have been modified, not those that are untouched.
+            
+            human_correction_tf_tbResol = {}
+            for _, entry in structures.iterrows():
+                tf = np.eye(4)
+                edits = entry['edits']
+                for edit in edits:
+                    if 'type' in edit:
+                        if edit['type'] == 'shift3d' or edit['type'] == 'rotation3d':
+                            centroid_m_wrt_wholebrainXYcropped_volRes = np.array(edit['centroid_m'])
+                            centroid_f_wrt_wholebrainXYcropped_volRes = np.array(edit['centroid_f'])
+                            T = consolidate(edit['transform'], 
+                                            centroid_m_wrt_wholebrainXYcropped_volRes / 8.,
+                                            centroid_f_wrt_wholebrainXYcropped_volRes / 8.)
+                            T[:3, 3] = T[:3, 3] / 8.
+                            tf = np.dot(T, tf)
+                print entry['name'], entry['side']
+                human_correction_tf_tbResol[(entry['name'], entry['side'])] = tf
+                
+            for name_s, (vol, bbox_wrt_wholebrainXYcropped_volResol) in warped_volumes.iteritems():
+                name, side, _, _ = parse_label(name_s)
+
+                if (name, side) in human_correction_tf_tbResol:
+
+                    human_corrected_vol, human_corrected_vol_bbox_wrt_wholebrainXYcropped_volResol = \
+                    transform_volume_v3(vol=vol, bbox=bbox_wrt_wholebrainXYcropped_volResol, 
+                                        tf_params=human_correction_tf_tbResol[(name, side)][:3].flatten())
+
+                    human_corrected_vol = crop_and_pad_volume(in_vol=human_corrected_vol, 
+                                        in_bbox=human_corrected_vol_bbox_wrt_wholebrainXYcropped_volResol,
+                                       out_bbox=bbox_wrt_wholebrainXYcropped_volResol)
+
+                    warped_volumes[name_s] = human_corrected_vol
+                    sys.stderr.write("Used human corrected version for %s.\n" % name_s)
+            
+        except:
+            sys.stderr.write("Cannot load human corrected aligned structures. Using automated local aligned result.\n")
+                
+        #########################################################################
         
-        local_region_bboxes_allStructures_allSections = {structure: {} for structure in warped_volumes.keys()}
+#         warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', 
+#                                                                               stack_f=stack,
+#                                                                                 detector_id_f=detector_id_f,
+#                                                                               prep_id_f=2,
+#                                                                                 warp_setting=17, 
+#                                                                               sided=True,
+#                                                                                  structures=structures)
+#         Origin of `warped_volumes` is at cropped domain.
+        
+#         local_region_bboxes_allStructures_allSections = {structure: {} for structure in warped_volumes.keys()}
 
-        for name_s, vol_alignedTo_f in warped_volumes.iteritems():
-            vol_alignedTo_f_binary = vol_alignedTo_f >= level
-            vol_xmin_wrt_fixedvol_volResol, vol_xmax_wrt_fixedvol_volResol, \
-            vol_ymin_wrt_fixedvol_volResol, vol_ymax_wrt_fixedvol_volResol, \
-            vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol = bbox_3d(vol_alignedTo_f_binary)
+#         for name_s, vol_alignedTo_f in warped_volumes.iteritems():
+#             vol_alignedTo_f_binary = vol_alignedTo_f >= level
+#             vol_xmin_wrt_fixedvol_volResol, vol_xmax_wrt_fixedvol_volResol, \
+#             vol_ymin_wrt_fixedvol_volResol, vol_ymax_wrt_fixedvol_volResol, \
+#             vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol = bbox_3d(vol_alignedTo_f_binary)
             
-            for sec in range(metadata_cache['section_limits'][stack][0], metadata_cache['section_limits'][stack][1]+1):
+#             for sec in range(metadata_cache['section_limits'][stack][0], metadata_cache['section_limits'][stack][1]+1):
+#                 if is_invalid(sec=sec, stack=stack):
+#                     continue
                 
-                z_wrtFixedVol = int(DataManager.convert_section_to_z(sec, downsample=32, first_sec=metadata_cache['section_limits'][stack][0], mid=True))
+#                 z_wrtFixedVol = int(DataManager.convert_section_to_z(sec, downsample=32, first_sec=metadata_cache['section_limits'][stack][0], mid=True, stack=stack))
                 
-                if z_wrtFixedVol > vol_zmin_wrt_fixedvol_volResol and z_wrtFixedVol < vol_zmax_wrt_fixedvol_volResol:
+#                 if z_wrtFixedVol > vol_zmin_wrt_fixedvol_volResol and z_wrtFixedVol < vol_zmax_wrt_fixedvol_volResol:
                 
-                    xmin_2d_wrt_fixedVol_volResol, \
-                    xmax_2d_wrt_fixedVol_volResol, \
-                    ymin_2d_wrt_fixedVol_volResol, \
-                    ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
+#                     xmin_2d_wrt_fixedVol_volResol, \
+#                     xmax_2d_wrt_fixedVol_volResol, \
+#                     ymin_2d_wrt_fixedVol_volResol, \
+#                     ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
 
-                    local_region_bboxes_allStructures_allSections[name_s][sec] = \
-                    (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
-                     min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
-                     max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)),
-                     min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
-            
-#             for z_wrtFixedVol in range(vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol + 1):
-#                 sec = DataManager.convert_z_to_section(z=z_wrtFixedVol, downsample=32, 
-#                                                        sec_z0=metadata_cache['section_limits'][stack][0])
-                
-#                 xmin_2d_wrt_fixedVol_volResol, \
-#                 xmax_2d_wrt_fixedVol_volResol, \
-#                 ymin_2d_wrt_fixedVol_volResol, \
-#                 ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
-                
-#                 local_region_bboxes_allStructures_allSections[name_s][sec] = \
-#                 (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
-#                  min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
-#                  max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
-#                  min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
+#                     local_region_bboxes_allStructures_allSections[name_s][sec] = \
+#                     (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
+#                      min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
+#                      max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)),
+#                      min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
             
     return local_region_bboxes_allStructures_allSections
 
@@ -2233,17 +2313,21 @@ def read_cnn_features(addresses, scheme, win_id, prep_id=2,
             test_patches = extract_patches_given_locations(stack=stack, sec=section,
                                                            locs=locations_to_compute, 
                                                            patch_size=patch_size_px, 
+                                                           output_patch_size=224,
                                                            normalization_scheme=scheme)
+            sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
 
             # Resize the patches to 224 x 224 as required by CNN.
-            if test_patches[0].shape != (224,224):
-                sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
-                test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+            # if test_patches[0].shape != (224,224):
+            #     sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
+            #     t = time.time()
+            #     test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+            #     sys.stderr.write('Resize: %.1f s\n' % (time.time()-t))
 
-            sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
         #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
 
             t = time.time()
+            sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
             features_newly_computed = convert_image_patches_to_features_v2(test_patches, model=model, 
                                                  mean_img=mean_img, 
                                                  batch_size=batch_size)
@@ -2311,7 +2395,7 @@ def compute_and_save_features(scheme, win_id, addresses=None, stack=None, prep_i
         assert feature == 'cnn'
 
         features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                    prep_id=2,
+                                                    prep_id=prep_id,
                                                     win_id=win_id, 
                               normalization_scheme=scheme,
                                              model_name=model_name)
@@ -2333,6 +2417,7 @@ def compute_and_save_features(scheme, win_id, addresses=None, stack=None, prep_i
         t = time.time()
 
         test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
+                                                       prep_id=prep_id,
                                                        locs=locations_to_compute, 
                                                        patch_size=grid_spec[0], 
                                                        normalization_scheme=scheme)
@@ -2378,7 +2463,8 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                   out_resolution_um=None, in_resolution_um=None,
                   feature='cnn', 
                   model=None, mean_img=None, model_name=None,
-                  batch_size=None
+                  batch_size=None, image_shape=None, is_nissl=None, output_patch_size=None,
+                  version=None,
                  ):
     """
     Generate the scoremap for a given region.
@@ -2406,7 +2492,10 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     if bbox is None:
         roi_xmin = 0
         roi_ymin = 0
-        roi_w, roi_h = metadata_cache['image_shape'][stack]
+        if image_shape is None:
+            roi_w, roi_h = metadata_cache['image_shape'][stack]
+        else:
+            roi_w, roi_h = image_shape
     else:
         roi_xmin, roi_xmax, roi_ymin, roi_ymax = bbox
         roi_w = roi_xmax + 1 - roi_xmin
@@ -2419,7 +2508,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         
     t = time.time()
     mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=prep_id, fn=fn)
-    grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack)
+    grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack, image_shape=image_shape)
     indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
                                     bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
     sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
@@ -2432,7 +2521,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         assert feature == 'cnn'
         
         features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                    prep_id=2,
+                                                    prep_id=prep_id,
                                                     win_id=win_id, 
                               normalization_scheme=scheme,
                                              model_name=model_name)
@@ -2450,14 +2539,18 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         t = time.time()
             
         test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
+                                                       prep_id=prep_id,
                                                        locs=sample_locations_roi, 
                                                        patch_size=grid_spec[0], 
-                                                       normalization_scheme=scheme)
+                                                       normalization_scheme=scheme,
+                                                       output_patch_size=output_patch_size,
+                                                       version=version,
+                                                      is_nissl=is_nissl)
 
         # Resize the patches to 224 x 224 as required by CNN.
-        if test_patches[0].shape != (224,224):
-            sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
-            test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
+        # if test_patches[0].shape != (224,224):
+        #     sys.stderr.write('Resize patches from %d x %d to 224 x 224.\n' % test_patches[0].shape)
+        #     test_patches = [img_as_ubyte(resize(p, (224, 224))) for p in test_patches]
 
         sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
     #     display_images_in_grids(test_patches[::1000], nc=5, cmap=plt.cm.gray)
@@ -2475,7 +2568,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         
         t = time.time()
         DataManager.save_dnn_features_v2(features=features, locations=sample_locations_roi, 
-                                         stack=stack, sec=sec, fn=fn,
+                                         stack=stack, sec=sec, fn=fn, prep_id=prep_id,
                                          win_id=win_id, normalization_scheme=scheme,
                                          model_name=model_name)
         sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))

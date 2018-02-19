@@ -25,5 +25,5 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 25,24,rigid,,1e4,,,,,,inverse,0,local reg with surr no grid search; global counterpart is setting 24,1000
 26,20,rigid,,1e4,,,,,,inverse,1,local reg with surr no grid search with regularization (strength=1),1000
 27,None,rigid,,1e4,,,,,,inverse,0,local reg with surr with global transform as init_T,1000
+98,,translation,,,,,,,,,,simply align volume center,
 99,17,rigid,,,,,,,,inverse,0,human local correction,
-

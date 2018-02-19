@@ -216,7 +216,10 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
         level_colors (dict {set_name: dict {float: (3,)-ndarray of float}}): 256-based contour color for each level for each set
     """
 
-    wholebrainXYcropped_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_fixed, domain='wholebrainXYcropped')
+    wholebrainXYcropped_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_fixed, 
+                                                                              domain='wholebrainXYcropped',
+                                                                             resolution=volume_resolution)
+    # This is down32 of the raw resolution of the given stack.
     
     if level_colors is None:
         level_colors = {set_name: {0.1: (0,255,255),
@@ -252,7 +255,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
         except Exception as e:
             sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol='lossless', prep_id=2, version=bg_img_version)
-            bg = rescale_by_resampling(bg, out_downsample)
+            bg = rescale_by_resampling(bg, 1./out_downsample)
                 
     if bg.ndim == 2:
         bg = gray2rgb(bg)
@@ -298,86 +301,6 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
                         cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
 
     return viz
-
-
-
-# def annotation_from_warped_atlas_overlay_on(bg, warped_volumes, volume_origin, stack_fixed, volume_downsample=32,
-#                                             fn=None, sec=None, orientation='sagittal',
-#                             structures=None, out_downsample=32,
-#                             users=None, level_colors=None, levels=None, show_text=True,
-#                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
-#     """
-#     Args:
-#         levels (list of float): probability levels at which the contours are drawn.
-#         level_colors (dict {float: (3,)-ndarray of float}): contour color for each level
-#         volume_origin ((3,)-ndarray of float): the origin of the given volumes.
-#     """
-
-#     if level_colors is None:
-#         level_colors = {0.1: (0,255,255),
-#                     0.25: (0,255,0),
-#                     0.5: (255,0,0),
-#                     0.75: (255,255,0),
-#                     0.99: (255,0,255)}
-
-#     if levels is None:
-#         levels = level_colors.keys()
-
-#     t = time.time()
-
-#     xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
-
-#     if bg == 'original':
-
-#         if out_downsample == 32:
-#             resol_str = 'thumbnail'
-#         elif out_downsample == 1:
-#             resol_str = 'lossless'
-#         else:
-#             resol_str = 'down'+str(out_downsample)
-
-#         try:
-#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
-#         except Exception as e:
-#             sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
-#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=resol_str, prep_id=2, version=bg_img_version)
-#     #         img = resize(img, np.array(metadata_cache['image_shape'][stack_fixed][::-1])/downsample_factor)
-#             bg = bg[::out_downsample, ::out_downsample]
-
-#     if bg.ndim == 2:
-#         bg = gray2rgb(bg)
-
-#     viz = bg.copy()
-
-#     assert orientation == 'sagittal'
-
-#     z = int(np.mean(DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, downsample=volume_downsample)))
-
-#     # Find moving volume annotation contours.
-#     for name_s, vol in warped_volumes.iteritems():
-
-#         label_pos = None
-
-#         for level in levels:
-#             cnts = find_contours(vol[..., z], level=level) # rows, cols
-#             for cnt in cnts:
-#                 # r,c to x,y
-#                 cnt_on_cropped_volRes = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-#                 cnt_on_cropped_imgRes = cnt_on_cropped_volRes * volume_downsample / out_downsample
-#                 cv2.polylines(viz, [cnt_on_cropped_imgRes.astype(np.int)],
-#                               True, level_colors[level], contour_width)
-
-#                 if show_text:
-#                     if label_pos is None:
-#                         label_pos = np.mean(cnt_on_cropped_imgRes, axis=0)
-
-#         # Show text
-#         if label_pos is not None:
-#             cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
-#                     cv2.FONT_HERSHEY_DUPLEX, 1, ((0,0,0)), 3)
-
-#     return viz
-
 
 def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=8,

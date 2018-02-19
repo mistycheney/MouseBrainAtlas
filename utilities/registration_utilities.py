@@ -1673,33 +1673,21 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
 
     voxel_size_m = convert_resolution_string_to_voxel_size(resolution=resolution_m, stack=stack_m_spec['name'])
     print "voxel size for moving = %.2f um" % voxel_size_m
-    voxel_size_f = convert_resolution_string_to_voxel_size(resolution=resolution_f, stack=stack_m_spec['name'])
+    voxel_size_f = convert_resolution_string_to_voxel_size(resolution=resolution_f, stack=stack_f_spec['name'])
     print "voxel size for fixed = %.2f um" % voxel_size_f
-    ratio_m_to_f = voxel_size_m/voxel_size_f
+    ratio_m_to_f = voxel_size_m / voxel_size_f
     if ratio_m_to_f < 1:
         print 'Moving volume voxel size (%.2f um) is smaller than fixed volume (%.2f um); downsample moving volume to %.2f um.' % (voxel_size_m, voxel_size_f, voxel_size_f)
         # float16 is not supported by zoom()
         volume_moving = {k: rescale_by_resampling(v, ratio_m_to_f) for k, v in volume_moving.iteritems()}
-        # for k, v in volume_moving.iteritems():
-        #     print k
-        #     t = time.time()
-        #     # volume_moving[k] = zoom(v.astype(np.float32), ratio_m_to_f).astype(np.float16)
-        #     volume_moving[k] = rescale_volume_by_resampling(volume_moving[k], ratio_m_to_f)
-        #     print time.time() - t
         if upstream_warp_setting is None:
             volume_moving_bbox_wrt_atlasSpace = volume_moving_bbox_wrt_atlasSpace * ratio_m_to_f
         else:
             volume_moving_bbox_wrt_wholebrain = volume_moving_bbox_wrt_wholebrain * ratio_m_to_f
         unified_resolution = voxel_size_f
     elif ratio_m_to_f > 1:
-        print 'Fixed volume voxel size (%.2f um) is larger than moving volume (%.2f um); downsample fixed volume to %.2f um.' % (voxel_size_f, voxel_size_m, voxel_size_m)
+        print 'Fixed volume voxel size (%.2f um) is smaller than moving volume (%.2f um); downsample fixed volume to %.2f um.' % (voxel_size_f, voxel_size_m, voxel_size_m)
         volume_fixed = {k: rescale_by_resampling(v, 1./ratio_m_to_f) for k, v in volume_fixed.iteritems()}
-        # for k, v in volume_fixed.iteritems():
-        #     print k
-        #     t = time.time()
-        #     # volume_fixed[k] = zoom(v.astype(np.float32), 1./ratio_m_to_f).astype(np.float16)
-        #     volume_fixed[k] = rescale_volume_by_resampling(volume_fixed[k], 1./ratio_m_to_f)
-        #     print time.time() - t
         volume_fixed_bbox_wrt_wholebrain = volume_fixed_bbox_wrt_wholebrain / ratio_m_to_f
         unified_resolution = voxel_size_m
     else:
@@ -2350,81 +2338,6 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 
 from data_manager import *
 
-def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sections, downsample_factor=32, level=.5,
-                                              sample_every=1, first_sec=1):
-    """
-    Re-section atlas volumes and obtain structure contours on each section.
-
-    Args:
-        volumes (dict of 3D ndarrays of float): {structure: volume}. volume is a 3d array of probability values.
-        volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
-        sections (list of int):
-        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
-        first_sec (int): the first section that the beginning of the input volume is at. Default is 1.
-        level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
-
-    Returns:
-        dict {int: {str: (n,2)-ndarray}}: dict of {section: {name_s: contour vertices}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
-    """
-
-    # from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
-    from collections import defaultdict
-
-    # estimate mapping between z and section
-    # xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
-    # voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
-
-    xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
-
-    structure_contours = defaultdict(dict)
-
-    # Multiprocess is not advisable here because volumes must be duplicated across processes which is very RAM heavy.
-
-#     def compute_contours_one_section(sec):
-#         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
-#         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
-#         contours_one_section = {}
-#         # Find moving volume annotation contours
-#         for name_s, vol in volumes.iteritems():
-#             cnts = find_contours(vol[..., z], level=level) # rows, cols
-#             for cnt in cnts:
-#                 # r,c to x,y
-#                 contours_one_section[name_s] = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
-#         return contours_one_section
-
-#     pool = Pool(NUM_CORES/2)
-#     structuer_contours = dict(zip(sections, pool.map(compute_contours_one_section, sections)))
-#     pool.close()
-#     pool.join()
-
-    for sec in sections:
-        sys.stderr.write('Computing structure contours for section %d...\n' % sec)
-        # z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
-        z = int(DataManager.convert_section_to_z(sec=sec, downsample=downsample_factor, first_sec=first_sec, mid=True, stack=stack)) - zmin_vol_f
-        for name_s, vol in volumes.iteritems():
-            if np.count_nonzero(vol[..., z]) == 0:
-                continue
-            sys.stderr.write('Probability mass detected on section %d...\n' % sec)
-
-            cnts_rowcol = find_contours(vol[..., z], level=level)
-
-            if len(cnts_rowcol) == 0:
-                sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
-            else:
-                if len(cnts_rowcol) > 1:
-                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d. Keep only the longest.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
-
-                best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
-
-                # Address contours with identical first point and last point - remove last point
-                if all(np.array(best_cnt[0]) == np.array(best_cnt[-1])):
-                    # sys.stderr.write("Detected contour with identical first point and last point. section %d, %s, len %d\n" % (sec, sided_name, len(contour)))
-                    best_cnt = best_cnt[:-1]
-
-                contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
-                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
-
-    return structure_contours
 
 
 # def extract_contours_from_labeled_volume(stack, volume,
@@ -3356,7 +3269,7 @@ def alignment_parameters_to_transform_matrix(transform_parameters):
     T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
     return T
 
-def transform_volume_by_alignment_parameters(volume, bbox, transform_parameters):
+def transform_volume_by_alignment_parameters(volume, transform_parameters=None, bbox=None, origin=None):
     """
     Args:
         vol: the volume to transform
@@ -3368,9 +3281,17 @@ def transform_volume_by_alignment_parameters(volume, bbox, transform_parameters)
     """
 
     T = alignment_parameters_to_transform_matrix(transform_parameters)
-    volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
-    transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
-    return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+    
+    if origin is not None:
+        volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
+            transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
+        return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
+    elif bbox is not None:
+        volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
+            transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
+        return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+    else: 
+        raise
 
 
 def transform_points_by_transform_parameters(pts, transform_parameters):

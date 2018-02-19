@@ -78,6 +78,11 @@ def convert_frame(p, in_frame, out_frame, zdim):
 
 #####################################################################
 
+def identify_shape(img_fp):
+    return map(int, check_output("identify -format %%Wx%%H \"%s\"" % img_fp, shell=True).split('x'))
+
+#####################################################################
+
 def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
     from datetime import datetime
     return datetime.now().strftime(fmt)
@@ -85,17 +90,18 @@ def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
 ######################################################################
 
 def rescale_by_resampling(v, scaling):
+    print v.shape, scaling
     if v.ndim == 3:
         if v.shape[-1] == 3: # RGB image
-            return v[np.meshgrid(np.round(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.round(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
         else: # 3-d volume
             return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
               np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
               np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
     elif v.ndim == 2:
-        return v[np.meshgrid(np.round(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.round(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+        return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
     else:
         raise
 
@@ -1381,6 +1387,8 @@ def display_volume_sections_checkerboard(vol_f, vol_mTof, every=5, ncols=5, dire
 
 def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):
     """
+    Show the sections of a volume in a grid display.
+    
     Args:
         direction (str): x,y or z
     """
@@ -1413,14 +1421,24 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
 
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, **kwargs):
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, pad_color='white', 
+                            title_fontsize=10, **kwargs):
     """
+    Display a list of images in a grid.
+    
     Args:
+        vizs (list of images): 
+        nc (int): number of images in each row
         maintain_shape (bool): pad patches to same size.
+        pad_color (str): black or white
     """
 
     if maintain_shape:
-        vizs = pad_patches_to_same_size(vizs)
+        if pad_color == 'white':
+            pad_value = 255
+        elif pad_color == 'black':
+            pad_value = 0
+        vizs = pad_patches_to_same_size(vizs, pad_value=pad_value)
 
     n = len(vizs)
     nr = int(np.ceil(n/float(nc)))
@@ -1437,7 +1455,7 @@ def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shap
                 vizs[i] = vizs[i].astype(np.float32)
             axes[i].imshow(vizs[i], **kwargs);
             if titles is not None:
-                axes[i].set_title(titles[i], fontsize=30);
+                axes[i].set_title(titles[i], fontsize=title_fontsize);
             axes[i].set_xticks([]);
             axes[i].set_yticks([]);
 

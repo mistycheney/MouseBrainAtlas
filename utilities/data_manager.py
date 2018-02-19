@@ -598,8 +598,8 @@ class DataManager(object):
 
         if convert_section_to_z:
             xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
-            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32)))
-            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32)))
+            zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
+            zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
             cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
         else:
             cropbox = np.loadtxt(fp).astype(np.int)
@@ -2824,20 +2824,36 @@ class DataManager(object):
         return scoremap_viz_fp
 
     @staticmethod
-    def get_scoremap_viz_filepath_v2(stack, out_resolution_um, detector_id, prep_id=2,
+    def get_scoremap_viz_filepath_v2(stack, out_resolution, detector_id, prep_id=2,
                                      section=None, fn=None, structure=None):
+        """
+        Args:
+            out_resolution (str): e.g. 10.0um or down32
+        """
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn):
                 raise Exception('Section is invalid: %s.' % fn)
 
-        scoremap_viz_fp = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(outres).1fum',
+        scoremap_viz_fp = os.path.join(SCOREMAP_VIZ_ROOTDIR, '%(outres)s',
                                        '%(struct)s', '%(stack)s', 'detector%(detector_id)d',
-                                       'prep%(prep)s', '%(fn)s_prep%(prep)d_%(outres).1fum_%(struct)s_detector%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'outres':out_resolution_um, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
+                                       'prep%(prep)s', '%(fn)s_prep%(prep)d_%(outres)s_%(struct)s_detector%(detector_id)s_scoremapViz.jpg') % {'stack':stack, 'struct':structure, 'outres':out_resolution, 'prep':prep_id, 'fn':fn, 'detector_id':detector_id}
 
         return scoremap_viz_fp
 
+    @staticmethod
+    def load_scoremap_viz_v2(stack, out_resolution, detector_id, prep_id=2,
+                                     section=None, fn=None, structure=None):
+        """
+        Args:
+            out_resolution (str): e.g. 10.0um or down32
+        """
+        viz_fp = DataManager.get_scoremap_viz_filepath_v2(**locals())
+        download_from_s3(viz_fp)
+        viz = imread(viz_fp)
+        return viz
+    
     @staticmethod
     def get_downscaled_scoremap_filepath(stack, structure, detector_id,
                                          out_resolution_um=None, downscale=None,
@@ -3137,7 +3153,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def save_dnn_features_v2(features, locations, stack,
+    def save_dnn_features_v2(features, locations, stack, prep_id,
                              win_id, normalization_scheme, model_name, sec=None, fn=None, timestamp=None):
         """
         Args:
@@ -3145,14 +3161,14 @@ class DataManager(object):
             locations ((n,2) array of int): list of (x,y) coordinates relative to prep=2 image. This matches the features list.
         """
 
-        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
+        features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features', timestamp=timestamp)
         create_parent_dir_if_not_exists(features_fp)
         bp.pack_ndarray_file(features, features_fp)
         upload_to_s3(features_fp)
 
-        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=2, win_id=win_id,
+        locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations', timestamp=timestamp)
         np.savetxt(locations_fp, locations, fmt='%d')
@@ -3364,9 +3380,15 @@ class DataManager(object):
         else:
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
+            print img_fp
 
         if img is None:
-            raise Exception("Image loading failed.")
+            if version == 'grayJpeg':
+                sys.stderr.write("Version %s is not available. Generating on the fly...\n" % version)
+                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                img = img_as_ubyte(rgb2gray(img))
+            else:
+                raise Exception("Image loading failed.")
 
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
@@ -3528,14 +3550,10 @@ class DataManager(object):
 
     @staticmethod
     # def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, first_sec=None, mid=False):
-    def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, mid=False):
+    def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, mid=False, z_begin=None, first_sec=None):
         """
-        Because the z-spacing is much larger than the pixel size on x-y plane,
-        the voxels are square on x-y plane and elongated in z-direction.
-        In practice we need to represent volume using cubic voxels.
-        This function computes the z-coordinate for a given section number,
-        assuming the use of cubic voxels.
-
+        Voxel size is determined by `resolution`.
+        
         z = sec * section_thickness_in_unit_of_cubic_voxel_size - z_begin
 
         Physical size of a cubic voxel depends on the downsample factor.
@@ -3566,10 +3584,13 @@ class DataManager(object):
         #     else:
         #         first_sec = 1
         #
-        # if z_begin is None:
-        #     z_begin = (first_sec - 1) * section_thickness_in_voxel
-
-        z_begin = 0
+        
+        if z_begin is None:
+            if first_sec is not None:
+                z_begin = (first_sec - 1) * section_thickness_in_voxel
+            else:
+                z_begin = 0
+        
         z1 = (sec-1) * section_thickness_in_voxel
         z2 = sec * section_thickness_in_voxel
         # print "z1, z2 =", z1, z2
@@ -3943,6 +3964,8 @@ class DataManager(object):
         """
         if stack is None:
             fp = os.path.join(DATA_DIR, 'average_nissl_intensity_mapping.npy')
+        elif stack == 'ChatCryoJane201710':
+            fp = os.path.join(DATA_DIR, 'kleinfeld_neurotrace_to_nissl_intensity_mapping.npy')
         else:
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_mapping', '%s_intensity_mapping.npy' % (ntb_fn))
 

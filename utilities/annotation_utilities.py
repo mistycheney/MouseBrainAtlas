@@ -11,6 +11,156 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 
+def get_structure_contours_from_structure_volumes(volumes, stack, sections, resolution, level=.5, sample_every=1):
+    """
+    Re-section atlas volumes and obtain structure contours on each section.
+    Resolution of output contours are in volume resolution.
+
+    Args:
+        volumes (dict of (3D array, 3-tuple)): {structure: (volume, origin_wrt_wholebrain)}. volume is a 3d array of probability values.
+        sections (list of int):
+        resolution (int): resolution of input volumes.
+        level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
+
+    Returns:
+        dict {int: {str: (n,2)-ndarray}}: dict of {section: {name_s: contour vertices}}. The vertex coordinates are wrt wholebrain and in volume resolution.
+    """
+
+    from collections import defaultdict
+
+    # xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
+
+    structure_contours = defaultdict(dict)
+
+    for sec in sections:
+        sys.stderr.write('Computing structure contours for section %d...\n' % sec)
+        for name_s, (vol, origin_wrt_wholebrain_volResol) in volumes.iteritems():
+            
+            z = int(DataManager.convert_section_to_z(sec=sec, resolution=resolution, mid=True, stack=stack)) - origin_wrt_wholebrain_volResol[2]
+            z = int(np.floor(z))
+            if z < 0 or z >= vol.shape[-1]:
+                continue
+            
+            if np.count_nonzero(vol[..., z]) == 0:
+                continue
+            sys.stderr.write('Probability mass detected on section %d...\n' % sec)
+
+            cnts_rowcol = find_contours(vol[..., z], level=level)
+
+            if len(cnts_rowcol) == 0:
+                sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
+            else:
+                if len(cnts_rowcol) > 1:
+                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d. Keep only the longest.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
+
+                best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
+
+                # Address contours with identical first point and last point - remove last point
+                if all(np.array(best_cnt[0]) == np.array(best_cnt[-1])):
+                    # sys.stderr.write("Detected contour with identical first point and last point. section %d, %s, len %d\n" % (sec, sided_name, len(contour)))
+                    best_cnt = best_cnt[:-1]
+
+                contours_wrt_wholebrain_volResol = best_cnt[:, ::-1][::sample_every] + origin_wrt_wholebrain_volResol[:2]
+                structure_contours[sec][name_s] = contours_wrt_wholebrain_volResol
+
+    return structure_contours
+
+def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sections, downsample_factor=32, level=.5,
+                                              sample_every=1, first_sec=1):
+    """
+    Re-section atlas volumes and obtain structure contours on each section.
+
+    Args:
+        volumes (dict of 3D ndarrays of float): {structure: volume}. volume is a 3d array of probability values.
+        volume_origin (tuple): (xmin_vol_f, ymin_vol_f, zmin_vol_f) relative to cropped image volume.
+        sections (list of int):
+        downsample_factor (int): the downscale factor of input volumes. Output contours are in original resolution.
+        first_sec (int): the first section that the beginning of the input volume is at. Default is 1.
+        level (float): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
+
+    Returns:
+        dict {int: {str: (n,2)-ndarray}}: dict of {section: {name_s: contour vertices}}. The vertex coordinates are relative to cropped image volume and in lossless resolution.
+    """
+
+    # from metadata import XY_PIXEL_DISTANCE_LOSSLESS, SECTION_THICKNESS
+    from collections import defaultdict
+
+    # estimate mapping between z and section
+    # xy_pixel_distance_downsampled = XY_PIXEL_DISTANCE_LOSSLESS * downsample_factor
+    # voxel_z_size = SECTION_THICKNESS / xy_pixel_distance_downsampled
+
+    xmin_vol_f, ymin_vol_f, zmin_vol_f = volume_origin
+
+    structure_contours = defaultdict(dict)
+
+    # Multiprocess is not advisable here because volumes must be duplicated across processes which is very RAM heavy.
+
+#     def compute_contours_one_section(sec):
+#         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
+#         z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+#         contours_one_section = {}
+#         # Find moving volume annotation contours
+#         for name_s, vol in volumes.iteritems():
+#             cnts = find_contours(vol[..., z], level=level) # rows, cols
+#             for cnt in cnts:
+#                 # r,c to x,y
+#                 contours_one_section[name_s] = cnt[:,::-1] + (xmin_vol_f, ymin_vol_f)
+#         return contours_one_section
+
+#     pool = Pool(NUM_CORES/2)
+#     structuer_contours = dict(zip(sections, pool.map(compute_contours_one_section, sections)))
+#     pool.close()
+#     pool.join()
+
+    for sec in sections:
+        sys.stderr.write('Computing structure contours for section %d...\n' % sec)
+        # z = int(np.round(voxel_z_size * (sec - 1) - zmin_vol_f))
+        z = int(DataManager.convert_section_to_z(sec=sec, downsample=downsample_factor, first_sec=first_sec, mid=True, stack=stack)) - zmin_vol_f
+        for name_s, vol in volumes.iteritems():
+            if np.count_nonzero(vol[..., z]) == 0:
+                continue
+            sys.stderr.write('Probability mass detected on section %d...\n' % sec)
+
+            cnts_rowcol = find_contours(vol[..., z], level=level)
+
+            if len(cnts_rowcol) == 0:
+                sys.stderr.write('Some probability mass of %s are on section %d but no contour is extracted at level=%.2f.\n' % (name_s, sec, level))
+            else:
+                if len(cnts_rowcol) > 1:
+                    sys.stderr.write('%d contours (%s) of %s is extracted at level=%.2f on section %d. Keep only the longest.\n' % (len(cnts_rowcol), map(len, cnts_rowcol), name_s, level, sec))
+
+                best_cnt = cnts_rowcol[np.argmax(map(len, cnts_rowcol))]
+
+                # Address contours with identical first point and last point - remove last point
+                if all(np.array(best_cnt[0]) == np.array(best_cnt[-1])):
+                    # sys.stderr.write("Detected contour with identical first point and last point. section %d, %s, len %d\n" % (sec, sided_name, len(contour)))
+                    best_cnt = best_cnt[:-1]
+
+                contours_on_cropped_tb = best_cnt[:, ::-1][::sample_every] + (xmin_vol_f, ymin_vol_f)
+                structure_contours[sec][name_s] = contours_on_cropped_tb * downsample_factor
+
+    return structure_contours
+
+
+def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolution=None, stack=None):
+    volume_origin_dict = {}
+    for sid, structure_info in structures_df.iterrows():
+        name_s = compose_label(structure_info['name'], structure_info['side'])
+        v = bp.unpack_ndarray_str(structure_info['volume'])
+        
+        if out_resolution is None:
+            out_resolution = structure_info['resolution']
+            out_v = v
+            out_origin = structure_info['origin']
+        else:
+            in_voxel_um = convert_resolution_string_to_voxel_size(resolution=structure_info['resolution'], stack=stack)
+            out_voxel_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack)
+            out_v = rescale_by_resampling(v, in_voxel_um/out_voxel_um)
+            out_origin = structure_info['origin'] * in_voxel_um/out_voxel_um
+            
+        volume_origin_dict[name_s] = (out_v, out_origin)
+    return volume_origin_dict, out_resolution
+
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
     """
     Convert an interger-valued annotation volume to a set of probability-valued score volumes.

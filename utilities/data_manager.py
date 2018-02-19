@@ -267,7 +267,8 @@ class DataManager(object):
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
                                                        detector_id_m=None, detector_id_f=None,
                                                        prep_id_m=None, prep_id_f=2,
-                                                       warp_setting=17, trial_idx=None, timestamp=None, **kwargs):
+                                                       warp_setting=17, trial_idx=None, timestamp=None, 
+                                                       suffix=None, **kwargs):
 
         if timestamp is not None:
             if timestamp == 'latest':
@@ -296,8 +297,11 @@ class DataManager(object):
                 timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
         if by_human:
-
-            fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
+            
+            if suffix is not None:
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp, 'suffix':suffix})
+            else:
+                fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_win%(win)d_%(timestamp)s_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp})
         else:
 
             basename = DataManager.get_warped_volume_basename(stack_m=stack_m, stack_f=stack,
@@ -550,19 +554,23 @@ class DataManager(object):
         """
         Loads the 3D origin of a domain for a given stack.
         If specimen, the origin is wrt to wholebrain, in 1/32 raw pixel resolution.
-        If atlas, the origin is wrt to atlas space, in 1/32 raw pixel resolution.
+        If atlas, the origin is wrt to atlas space, in 1/32 raw pixel resolution (NANOZOOMER).
 
         Args:
             domain (str): domain name
         """
+        
+        loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack=stack)
+        out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+        
         if stack.startswith('atlas'):
             if domain == 'atlasSpace':
-                return np.zeros((3,))
+                origin_loadedResol = np.zeros((3,))
             elif domain == 'atlasSpaceBrainstem':
                 b = DataManager.load_original_volume_bbox(stack=stack, volume_type='score',
                                         downscale=32,
                                           structure='7N_L')
-                return b[[0,2,4]]
+                origin_loadedResol = b[[0,2,4]]
         else:
             crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
 
@@ -570,18 +578,22 @@ class DataManager(object):
             crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
 
             if domain == 'wholebrain':
-                return np.zeros((3,))
+                origin_loadedResol = np.zeros((3,))
             elif domain == 'wholebrainXYcropped':
-                return np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, 0])
+                origin_loadedResol = np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, 0])
             elif domain == 'brainstemXYfull':
-                return np.array([0, 0, crop_zmin_rel2uncropped])
+                origin_loadedResol = np.array([0, 0, crop_zmin_rel2uncropped])
             elif domain == 'brainstem':
-                return np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, crop_zmin_rel2uncropped])
+                origin_loadedResol = np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, crop_zmin_rel2uncropped])
             elif domain == 'brainstemXYFullNoMargin':
-                return np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack='MD589', prep_id=4, downscale=32)).astype(np.int)[[0,2,4]]
+                origin_loadedResol = np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack='MD589', prep_id=4, downscale=32)).astype(np.int)[[0,2,4]]
             else:
                 raise "Domain %s is not recognized.\n" % domain
 
+        origin_outResol = origin_loadedResol * loaded_resolution_um / out_resolution_um
+                
+        return origin_outResol
+                
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
@@ -856,7 +868,8 @@ class DataManager(object):
     def load_alignment_parameters_v3(alignment_spec):
         tf_param_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
         download_from_s3(tf_param_fp)
-        return load_json(tf_param_fp)
+        tf_param = load_json(tf_param_fp)        
+        return {k: np.array(v) if isinstance(v, list) else v for k, v in tf_param.iteritems()}
 
 #     @staticmethod
 #     def save_alignment_parameters(fp, params, centroid_m, centroid_f,
@@ -1585,7 +1598,8 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_transformed_volume_v2(alignment_spec, resolution, structure=None, trial_idx=None):
+    def load_transformed_volume_v2(alignment_spec, resolution, structure=None, trial_idx=None, 
+                                   return_origin_instead_of_bbox=False, legacy=False):
         """
         Args:
 
@@ -1594,16 +1608,42 @@ class DataManager(object):
 
         """
         kwargs = locals()
+        
+        if legacy:
+            stack_m = alignment_spec['stack_m']['name']
+            stack_f = alignment_spec['stack_f']['name']
+            detector_id_f = alignment_spec['stack_f']['detector_id']
+            warp = alignment_spec['warp_setting']
+            origin = DataManager.get_domain_origin(stack=stack_f, domain='brainstem').astype(np.int)
 
-        fp = DataManager.get_transformed_volume_filepath_v2(**kwargs)
-        download_from_s3(fp)
-        vol = DataManager.load_data(fp, filetype='bp')
+            vol = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f, 
+                                                      warp_setting=warp, detector_id_m=None, 
+                                                      detector_id_f=detector_id_f, 
+                                                      prep_id_m=None, prep_id_f=2, 
+                                                        vol_type_m='score', vol_type_f='score', downscale=32, 
+                                                        structure=structure)
+            
+            bbox = np.array((origin[0], origin[0]+vol.shape[1], origin[1], origin[1]+vol.shape[0], origin[2], origin[2]+vol.shape[2]))
+        else:
 
-        bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain', **kwargs)
-        download_from_s3(bbox_fp)
-        bbox = np.loadtxt(bbox_fp)
+            fp = DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, 
+                                                                resolution=resolution, 
+                                                                structure=structure)
+            download_from_s3(fp)
+            vol = DataManager.load_data(fp, filetype='bp')
 
-        return (vol, bbox)
+            bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain', 
+                                                                         alignment_spec=alignment_spec, 
+                                                                resolution=resolution, 
+                                                                structure=structure)
+            download_from_s3(bbox_fp)
+            bbox = np.loadtxt(bbox_fp)
+            origin = bbox[[0,2,4]]
+            
+        if return_origin_instead_of_bbox:
+            return (vol, origin)
+        else:
+            return (vol, bbox)
 
     @staticmethod
     def load_transformed_volume(stack_m, stack_f,
@@ -1635,6 +1675,7 @@ class DataManager(object):
                                                      name_or_index_as_key='name',
                                                      common_shape=True,
                                                         return_origin_instead_of_bbox=False,
+                                                        legacy=False,
 ):
         """
         Load transformed volumes for all structures and normalize them into a common shape.
@@ -1687,7 +1728,8 @@ class DataManager(object):
                 v, b = DataManager.load_transformed_volume_v2(alignment_spec=alignment_spec,
                                                               structure=structure,
                                                               trial_idx=trial_idx_,
-                                                             resolution=resolution)
+                                                             resolution=resolution,
+                                                             legacy=legacy)
 
                 if name_or_index_as_key == 'name':
                     volumes[structure] = (v,b)
@@ -2227,9 +2269,8 @@ class DataManager(object):
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                           '%(basename)s',
                           'score_volumes',
-                         '%(basename)s_%(struct)s_bbox_wrt_' + wrt + '.txt') % \
+                         '%(basename)s_%(struct)s_bbox' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
-
         return fp
 
     @staticmethod
@@ -2586,6 +2627,7 @@ class DataManager(object):
                     index += 1
 
             except Exception as e:
+                raise e
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
@@ -2640,6 +2682,8 @@ class DataManager(object):
 
         if stack_spec['vol_type'] == 'score':
             return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
+        elif stack_spec['vol_type'] == 'annotationAsScore':
+            return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
         else:
             raise
 
@@ -2660,7 +2704,7 @@ class DataManager(object):
         return fp
 
     @staticmethod
-    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain'):
+    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain', return_origin_instead_of_bbox=False):
         """
         Args:
 
@@ -2677,7 +2721,10 @@ class DataManager(object):
         download_from_s3(bbox_fp)
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
 
-        return volume, volume_bbox
+        if return_origin_instead_of_bbox:
+            return volume, volume_bbox[[0,2,4]]
+        else:
+            return volume, volume_bbox
 
 
     # @staticmethod
@@ -2746,6 +2793,15 @@ class DataManager(object):
         return volume_bbox_wrt_wholebrainXYcropped
 
     @staticmethod
+    def load_original_volume_bbox_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
+        """
+        """
+
+        bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(**locals())
+        download_from_s3(bbox_fp)
+        return np.loadtxt(bbox_fp)
+
+    @staticmethod
     def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
         volume_type = stack_spec['vol_type']
         if volume_type == 'annotation':
@@ -2753,7 +2809,7 @@ class DataManager(object):
         elif volume_type == 'score':
             bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
         elif volume_type == 'annotationAsScore':
-            raise
+            bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
         elif volume_type == 'shell':
             raise
         elif volume_type == 'thumbnail':
@@ -3313,9 +3369,9 @@ class DataManager(object):
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
             if resol == 'thumbnail':
-                image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
+                image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)
             else:
-                image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol + '_' + version)
+                image_dir = os.path.join(data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)
 
         return image_dir
 
@@ -3360,12 +3416,15 @@ class DataManager(object):
 
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
-        img_fp = DataManager.get_image_filepath_v2(**locals())
+        
+        img_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=prep_id, resol=resol, version=version,
+                                                       section=section, fn=fn, data_dir=data_dir, ext=ext,
+                                                      thumbnail_data_dir=thumbnail_data_dir)
+        
         if resol == 'lossless' or resol == 'down8':
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        # return imread(img_fp)
 
         global use_image_cache
         if use_image_cache:
@@ -3384,9 +3443,13 @@ class DataManager(object):
 
         if img is None:
             if version == 'grayJpeg':
-                sys.stderr.write("Version %s is not available. Generating on the fly...\n" % version)
+                sys.stderr.write("Version %s is not available. Instead, load lossless RGB and convert to uint8 grayscale...\n" % version)
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
                 img = img_as_ubyte(rgb2gray(img))
+            elif version == 'Ntb':
+                sys.stderr.write("Version %s is not available. Instead, load lossless and take the blue channel...\n" % version)
+                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                img = img[..., 2]
             else:
                 raise Exception("Image loading failed.")
 
@@ -3449,9 +3512,9 @@ class DataManager(object):
                 ext = 'tif'
 
         if version is None:
-            image_name = fn + '_prep%d' % prep_id + '_%s' % resol + '.' + ext
+            image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '.' + ext
         else:
-            image_name = fn + '_prep%d' % prep_id + '_' + resol + '_' + version + '.' + ext
+            image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_' + resol + '_' + version + '.' + ext
         image_path = os.path.join(image_dir, image_name)
 
         return image_path
@@ -4104,6 +4167,17 @@ class DataManager(object):
 
         return merged_features, merged_addresses
 
+    ############################################
+
+    @staticmethod
+    def get_brightfield_or_fluorescence(stack, sec=None, fn=None):
+        if stack in all_nissl_stacks:
+            return 'N'
+        elif metadata_cache['sections_to_filenames'][stack][sec].split('-')[1].startswith('N'):
+            return 'N'
+        else:
+            return 'F'
+    
 ##################################################
 
 def download_all_metadata():

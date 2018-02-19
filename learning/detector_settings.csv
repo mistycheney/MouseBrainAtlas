@@ -14,3 +14,7 @@ detector_id,input_version,windowing_id,feature_network,feature_classifier_id,com
 14,grayDefault,5,inception-bn-blue,72
 15,gray,5,inception-bn-blue,73
 16,gray,6,inception-bn-blue,130,twice as large patches
+17,grayDefault,7,inception-bn-blue,73,for neurotrace data matched to CSHL nissl; For example applied to ucsd chat neurotrace that is matched to cshl ntb and further to cshl nissl
+18,grayDefault,7,inception-bn-blue,38,for neurotrace data matched to CSHL nissl; For example applied to ucsd chat neurotrace that is matched to cshl ntb and further to cshl nissl
+998,normalized_-1_5,7,inception-bn-blue,998,trained using normalized MD589/MD594/MD585 with 500um margin for negatives
+999,normalized_-1_5,7,inception-bn-blue,999,trained from auto-aligned MD661/MD662 before correction

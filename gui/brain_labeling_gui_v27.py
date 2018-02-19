@@ -109,7 +109,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
-        self.structure_volumes = {'handdrawn': {}, 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
+        self.structure_volumes = {'handdrawn': defaultdict(dict), 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
         for name_s in all_known_structures_sided:
             # name_u, side = parse_label(name_s, singular_as_s=True)[:2]
             # self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': None, 'origin': None, 'edits': []}
@@ -725,8 +725,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             structures=structures,
             common_shape=False,
             return_origin_instead_of_bbox=True
-            # structures=['7N_L', '5N_L', 'SNR_L']
-            # structures=['IC']
             )
 
             for name_s, (v_10um, origin_wrt_fixedWholebrain_10um) in atlas_volumes.iteritems():
@@ -770,47 +768,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             return_label_mappings=False,
             name_or_index_as_key='name',
             structures=structures
-            )
+            ) # down32 resolution
 
-            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True, prep_id=self.prep_id)[[0,2,4]]
-            atlas_origin_wrt_wholebrain_volResol = atlas_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack) / self.structure_volume_resolution_um
+            # atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack,
+            # warp_setting=20, prep_id_f=2, detector_id_f=detector_id_f,
+            # return_label_mappings=False,
+            # name_or_index_as_key='name',
+            # structures=structures
+            # ) # down32 resolution
 
-            # atlas_ydim_wrt_wholebrain_tbResol, \
-            # atlas_xdim_wrt_wholebrain_tbResol, \
-            # atlas_zdim_wrt_wholebrain_tbResol = atlas_volumes.values()[0].shape
+            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True, prep_id=self.prep_id, return_origin_instead_of_bbox=True)
 
-            # atlas_bbox_wrt_wholebrain_tbResol = np.array([atlas_origin_wrt_wholebrain_tbResol[0],
-            # atlas_origin_wrt_wholebrain_tbResol[0] + atlas_xdim_wrt_wholebrain_tbResol - 1,
-            # atlas_origin_wrt_wholebrain_tbResol[1],
-            # atlas_origin_wrt_wholebrain_tbResol[1] + atlas_ydim_wrt_wholebrain_tbResol - 1,
-            # atlas_origin_wrt_wholebrain_tbResol[2],
-            # atlas_origin_wrt_wholebrain_tbResol[2] + atlas_zdim_wrt_wholebrain_tbResol - 1])
+            for name_s, v_down32 in atlas_volumes.iteritems():
 
-            # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_tbResol * 32. / self.prob_volume_downsample_factor
-            # from skimage.transform import rescale
-            # atlas_volumes = {name_s: rescale(v, self.sagittal_downsample) for name_s, v in atlas_volumes.iteritems()}
-            # atlas_bbox_wrt_wholebrain_volResol = atlas_bbox_wrt_wholebrain_volResol * self.sagittal_downsample
-
-            for name_s, v in atlas_volumes.iteritems():
-                self.structure_volumes['aligned_atlas'][name_s]['volume'] = v
-                self.structure_volumes['aligned_atlas'][name_s]['origin'] = atlas_origin_wrt_wholebrain_volResol
+                self.structure_volumes['aligned_atlas'][name_s]['volume'] = rescale_by_resampling(v_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um)
+                self.structure_volumes['aligned_atlas'][name_s]['origin'] = atlas_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um
                 print 'Load', name_s, self.structure_volumes['aligned_atlas'][name_s]['origin']
 
                 # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
                 for gscene in self.gscenes.values():
                     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
-
-    # @pyqtSlot()
-    # def load_unwarped_atlas_volume(self):
-    #     """
-    #     Load atlas volumes that are not aligned to subject.
-    #     Initial pose is such that the origin of the atlas coincides with that of the subject volume.
-    #
-    #     This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
-    #     """
-    #
-    #     self.load_atlas_volume(warped=False, structures=['IC', '7N_L', 'SNR_L', 'Sp5C_L', '7N_R', 'SNR_R', 'Sp5C_R'])
-
 
     @pyqtSlot()
     def select_structures(self):
@@ -974,9 +951,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 p.properties['side'] == side and \
                 ((p.properties['type'] == 'confirmed') if use_confirmed_only else True):
                     contour_uvi = [(c.scenePos().x(), c.scenePos().y(), i) for c in p.vertex_circles]
-                    print contour_uvi
-                    contour_wrt_wholebrain_volResol = gscene.convert_coordinate_system_and_resolution(contour_uvi,
-                    in_wrt=gscene.data_feeder.orientation, in_resolution='image_image_index',
+                    print p.properties['type'] , contour_uvi
+                    contour_wrt_wholebrain_volResol = gscene.convert_frame_and_resolution(contour_uvi,
+                    in_wrt=gscene.id, in_resolution='image_image_index',
                     out_wrt='wholebrain', out_resolution='volume')
                     contours_xyz_wrt_wholebrain_volResol.append(contour_wrt_wholebrain_volResol)
 

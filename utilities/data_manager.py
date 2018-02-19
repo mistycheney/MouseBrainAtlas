@@ -583,7 +583,7 @@ class DataManager(object):
                 raise "Domain %s is not recognized.\n" % domain
 
     @staticmethod
-    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2):
+    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
         Loads the crop box for brainstem.
 
@@ -603,7 +603,11 @@ class DataManager(object):
             cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
         else:
             cropbox = np.loadtxt(fp).astype(np.int)
-        return cropbox
+
+        if return_origin_instead_of_bbox:
+            return cropbox[[0,2,4]]
+        else:
+            return cropbox
 
     # @staticmethod
     # def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
@@ -2610,6 +2614,16 @@ class DataManager(object):
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
+        """
+        Args:
+            stack_spec (dict): keys are:                                
+                                - name
+                                - resolution
+                                - prep_id (optional)
+                                - detector_id (optional)
+                                - structure (optional)
+                                - vol_type
+        """
 
         if stack_spec['resolution'] is None:
             assert resolution is not None

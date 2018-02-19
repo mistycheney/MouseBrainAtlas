@@ -69,6 +69,11 @@ echo "sudosgeadmin() { sudo -u sgeadmin -i \$1; }" >> /home/ubuntu/.bashrc
 # after manually changing it in the aws web console.
 echo "increase_ebs_size() { sudo resize2fs /dev/xvdb; }" >> /home/ubuntu/.bashrc
 
+# For some reason, this does not get added into .bashrc if done later
+# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+# sudo rm /usr/local/cuda
+# sudo ln -s /usr/local/cuda-9.0/ /usr/local/cuda
+
 #########################################################################
 
 # Code repo
@@ -92,8 +97,12 @@ sudo nvidia-xconfig --cool-bits=28
 # Install CUDA
 # https://gist.github.com/albertstartup/9619faab6a2f6afdf4dc13f897d48a05
 # https://gist.github.com/albertstartup/fed638a5d6862c9f0e8ffe8c3a74dbc8
-wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
-sudo dpkg -i cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+
+# wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+# sudo dpkg -i cuda-repo-ubuntu1604_8.0.61-1_amd64.deb
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.1.85-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1604_9.1.85-1_amd64.deb
+sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
 sudo apt-get update
 sudo apt-get install -y cuda
 echo -e "export CUDA_HOME=/usr/local/cuda\nexport PATH=\$PATH:\$CUDA_HOME/bin\nexport LD_LIBRARY_PATH=\$LD_LINKER_PATH:\$CUDA_HOME/lib64" >> ~/.bashrc
@@ -107,4 +116,4 @@ sudo cp include/cudnn.h /usr/local/cuda/include/
 
 # Install Mxnet
 # http://mxnet.io/get_started/install.html
-sudo pip install mxnet-cu80
+sudo pip install mxnet-cu90==1.0.0

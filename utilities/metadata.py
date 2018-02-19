@@ -236,6 +236,8 @@ else:
 
 #################### Resolution conversions ############
 
+def convert_resolution_string_to_um(resolution, stack=None):
+    return convert_resolution_string_to_voxel_size(resolution, stack=stack)
 
 def convert_resolution_string_to_voxel_size(resolution, stack=None):
     """

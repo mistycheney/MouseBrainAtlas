@@ -35,48 +35,6 @@ from skimage.measure import find_contours, regionprops
 
 ####################################################################
 
-def convert_frame(p, in_frame, out_frame, zdim):
-    """
-    Convert among the three frames specified by the second methods here
-    https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
-    """
-
-    if in_frame == 'sagittal':
-        p_sagittal = p
-    elif in_frame == 'coronal':
-        x = p[..., 2]
-        y = p[..., 1]
-        z = zdim - p[..., 0]
-        p_sagittal = np.column_stack([x,y,z])
-    elif in_frame == 'horizontal':
-        x = p[..., 0]
-        y = p[..., 2]
-        z = zdim - p[..., 1]
-        p_sagittal = np.column_stack([x,y,z])
-    else:
-        print in_frame
-        raise
-
-    if out_frame == 'sagittal':
-        p_out = p_sagittal
-    elif out_frame == 'coronal':
-        x = zdim - p_sagittal[..., 2]
-        y = p_sagittal[..., 1]
-        z = p_sagittal[..., 0]
-        p_out = np.column_stack([x,y,z])
-    elif out_frame == 'horizontal':
-        x = p_sagittal[..., 0]
-        y = zdim - p_sagittal[..., 2]
-        z = p_sagittal[..., 1]
-        p_out = np.column_stack([x,y,z])
-    else:
-        print out_frame
-        raise
-
-    return p_out
-
-####################################################################
-
 def get_structure_length_at_direction(structure_vol, d):
 
     xyzs = np.array(np.where(structure_vol))[[1,0,2]]

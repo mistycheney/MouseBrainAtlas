@@ -1375,8 +1375,66 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+    
+    @staticmethod
+    def get_mesh_filepath_v2(brain_spec, structure=None, resolution=None):
+        
+        if 'stack_f' in brain_spec: # warped
+            basename = DataManager.get_warped_volume_basename_v2(alignment_spec=brain_spec, structure=structure, resolution=resolution)
+            return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
+        else:
+            basename = DataManager.get_original_volume_basename_v2(stack_spec=brain_spec)
+            if structure is None:
+                structure = brain_spec['structure']
+            assert structure is not None, 'Must specify structure'
+            
+            mesh_fp = os.path.join(MESH_ROOTDIR, '%(stack)s',
+                      '%(basename)s',
+                     '%(basename)s_%(struct)s.stl') % \
+{'stack':brain_spec['name'], 'basename':basename, 'struct':structure}
+            return mesh_fp
+
+    @staticmethod
+    def load_mesh_v2(brain_spec, structure=None, resolution=None, return_polydata_only=True):
+        mesh_fp = DataManager.get_mesh_filepath_v2(brain_spec=brain_spec, structure=structure, resolution=resolution)
+        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
+        if mesh is None:
+            raise Exception('Mesh is empty: %s.' % structure)
+        return mesh
+    
+    @staticmethod
+    def load_meshes_v2(brain_spec,
+                    structures=None,
+                       resolution=None,
+                    sided=True,
+                    return_polydata_only=True,
+                   include_surround=False):
+
+        kwargs = locals()
+
+        if structures is None:
+            if sided:
+                if include_surround:
+                    structures = all_known_structures_sided_with_surround
+                else:
+                    structures = all_known_structures_sided
+            else:
+                structures = all_known_structures
+
+        meshes = {}
+        for structure in structures:
+            try:
+                meshes[structure] = DataManager.load_mesh_v2(brain_spec=brain_spec, 
+                                                             structure=structure, 
+                                                             resolution=resolution,
+                                                             return_polydata_only=return_polydata_only)
+            except Exception as e:
+                sys.stderr.write('Error loading mesh for %s: %s\n' % (structure, e))
+
+        return meshes
 
 
+    
     @staticmethod
     def load_mesh(stack_m,
                                     structure,

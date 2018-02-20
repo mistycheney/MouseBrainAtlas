@@ -395,7 +395,11 @@ windowing_settings = {1: {"patch_size": 224, "spacing": 56},
                      4: {'patch_size':224, 'spacing':128, 'comment':'smaller spacing'},
                      5: {'patch_size':224, 'spacing':64, 'comment':'smaller spacing'},
                      6: {'patch_size': 448, 'spacing':64, 'comment': 'twice as large patch'},
-                     7: {'patch_size_um':103.04, 'spacing_um':30, 'comment':'specify size/spacing in terms of microns rather than pixels'},}
+                     7: {'patch_size_um':103.04, 'spacing_um':30, 'comment':'specify size/spacing in terms of microns rather than pixels'},
+                     8: {'patch_size_um':206.08, 'spacing_um':30, 'comment':'larger patch'},
+                     9: {'patch_size_um':412.16, 'spacing_um':30, 'comment':'larger patch'},
+                    10: {'patch_size_um':824.32, 'spacing_um':30, 'comment':'larger patch'}
+                     }
 
 ############ Class Labels #############
 

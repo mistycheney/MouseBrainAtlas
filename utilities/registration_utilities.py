@@ -785,7 +785,7 @@ class Aligner4(object):
 
             # ref: https://math.stackexchange.com/questions/222894/how-to-take-the-gradient-of-the-quadratic-form
             if tf_type == 'rigid':
-                print grad[:3], - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
+                # print grad[:3], - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
                 grad[:3] = grad[:3] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
             elif tf_type == 'affine':
                 grad[[3,7,11]] = grad[[3,7,11]] - self.reg_weight * np.dot((self.inv_covar_mats_all_indices[ind_m] + self.inv_covar_mats_all_indices[ind_m].T), [tx,ty,tz])
@@ -1521,7 +1521,9 @@ class Aligner4(object):
 
 from scipy.ndimage.interpolation import zoom
 
-def generate_aligner_parameters(alignment_spec, structures_m=all_known_structures_sided):
+def generate_aligner_parameters(alignment_spec, 
+                                structures_m=all_known_structures_sided,
+                               structures_f=None):
     """
     Args:
         alignment_spec (dict):
@@ -1610,7 +1612,8 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
                                                          name_or_index_as_key='index',
                                                          common_shape=True,
                                                         structures=structures_m,
-                                                         in_bbox_wrt='atlasSpace',
+                                                         # in_bbox_wrt='atlasSpace',
+                                                                 in_bbox_wrt='wholebrain',
                                                             # out_bbox_wrt='atlasSpace'
                                                         )
     else:
@@ -1638,12 +1641,21 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
 
     #############################################################################
 
+    if structures_f is None:
+        structures_f = set([convert_to_unsided_label(s) for s in structures_m])
+    
+    if stack_f_spec['name'] == 'ChatCryoJane201710':
+        in_bbox_wrt = 'brainstem'
+    elif stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
+        in_bbox_wrt = 'wholebrain'
+    else:
+        in_bbox_wrt = 'wholebrainXYcropped'
+    
     volume_fixed, volume_fixed_bbox_wrt_wholebrain, structure_to_label_fixed, label_to_structure_fixed = \
     DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
-                                in_bbox_wrt='brainstem' if stack_f_spec['name'] == 'ChatCryoJane201710' else 'wholebrainXYcropped',
+                                in_bbox_wrt=in_bbox_wrt,
                                                      # out_bbox_wrt='wholebrain',
-                                                             structures=set([convert_to_unsided_label(s)
-                                                                             for s in structures_m]),
+                                                             structures=structures_f,
                                                     # sided=False,
                                                     include_surround=include_surround,
                                                      return_label_mappings=True,
@@ -1700,10 +1712,15 @@ def generate_aligner_parameters(alignment_spec, structures_m=all_known_structure
     if include_surround:
         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
 
-    label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
+        
+    if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
+        label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
+                     for label_m, name_m in label_to_structure_moving.iteritems()
+                     if name_m in structure_subset_m and name_m in structure_to_label_fixed}
+    else:
+        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in structure_subset_m and convert_to_original_name(name_m) in structure_to_label_fixed}
-
 
     if positive_weight == 'inverse' or surround_weight == 'inverse':
         t = time.time()
@@ -1772,7 +1789,7 @@ def compute_gradient(volumes, smooth_first=False):
         volumes (dict {int: 3d-array})
         smooth_first (bool): If true, smooth each volume before computing gradients.
         This is useful if volume is binary and gradients are only nonzero at structure borders.
-
+        
     Note:
         # 3.3 second - re-computing is much faster than loading
         # .astype(np.float32) is important;
@@ -1781,11 +1798,31 @@ def compute_gradient(volumes, smooth_first=False):
     """
     gradients = {}
     for ind, v in volumes.iteritems():
+        print "Computing gradient for", ind
+        
+        t1 = time.time()
+        
+        gradients[ind] = np.zeros((3,) + v.shape)
+                
+        # t = time.time()
+        cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
+        # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
+                
         if smooth_first:
-            gy_gx_gz = np.gradient(gaussian(v, 3).astype(np.float32), 3, 3, 3)
-        else:
-            gy_gx_gz = np.gradient(v.astype(np.float32), 3, 3, 3)
-        gradients[ind] = np.array([gy_gx_gz[1], gy_gx_gz[0], gy_gx_gz[2]])
+            # t = time.time()
+            cropped_v = gaussian(cropped_v, 3)
+            # sys.stderr.write("Smooth: %.2f seconds.\n" % (time.time()-t))
+
+        # t = time.time()
+        cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
+        # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
+        
+        gradients[ind][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
+        gradients[ind][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
+        gradients[ind][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
+        
+        # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
+        
     return gradients
 
 

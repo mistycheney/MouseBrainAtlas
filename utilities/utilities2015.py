@@ -33,6 +33,9 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+##################################################################
+
+
 ####################################################################
 
 def get_structure_length_at_direction(structure_vol, d):
@@ -200,8 +203,50 @@ def rescale_by_resampling(v, scaling):
 
 ###################################################################
 
+def get_structure_centroids(vol_bbox_dict=None, vol_dict=None):
+    """
+    Compute structure centroids.
+    """
+    
+    structure_centroids = {}
+    if vol_bbox_dict is not None:
+        for label, (v, bb) in vol_bbox_dict.iteritems():
+            xmin, _, ymin, _, zmin, _ = bb
+            ym, xm, zm = np.mean(np.nonzero(v), axis=1)
+            structure_centroids[label] = (xm+xmin, ym+ymin, zm+zmin)
+    elif vol_dict is not None:
+        for label, v in vol_dict.iteritems():
+            ym, xm, zm = np.mean(np.nonzero(v), axis=1)
+            structure_centroids[label] = (xm, ym, zm)
+    return structure_centroids
+
 def get_centroid_3d(v):
     return np.mean(np.where(v), axis=1)[[1,0,2]]
+
+def compute_midpoints(structure_centroids):
+    """
+    Compute the mid-points of each structure.
+    
+    Args:
+        structure_centroids (dict of dict): {sided name: (centroid x,y,z)}
+    
+    Returns:
+        dict of (3,)-array: {unsided name: mid-point}
+    """
+    midpoints = {}
+    for s in all_known_structures:
+        if s in singular_structures:
+            if s not in structure_centroids:
+                continue
+            c = np.array(structure_centroids[s])
+        else:
+            sl = convert_to_left_name(s)
+            sr = convert_to_right_name(s)
+            if sl not in structure_centroids or sr not in structure_centroids:
+                continue
+            c = (np.array(structure_centroids[sl]) + np.array(structure_centroids[sr]))/2
+        midpoints[s] = c
+    return midpoints
 
 def eulerAnglesToRotationMatrix(theta):
     """
@@ -755,12 +800,23 @@ def dice(hm, hf):
 
 ########################################################################################
 
-def crop_volume_to_minimal(vol, origin):
+def crop_volume_to_minimal(vol, origin=(0,0,0), margin=0, return_origin_instead_of_bbox=True):
     """
-    Return only the nonzero part.
+    Returns:
+        (nonzero part of volume, origin of cropped volume)
     """
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
-    return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
+    xmin = max(0, xmin - margin)
+    ymin = max(0, ymin - margin)
+    zmin = max(0, zmin - margin)
+    xmax = min(vol.shape[1]-1, xmax + margin)
+    ymax = min(vol.shape[0]-1, ymax + margin)
+    zmax = min(vol.shape[2]-1, zmax + margin)
+    
+    if return_origin_instead_of_bbox:
+        return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
+    else:
+        return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin)[[0,0,1,1,2,2]] + (xmin,xmax,ymin,ymax,zmin,zmax)
 
 def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     if bboxes is None:

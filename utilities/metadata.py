@@ -244,30 +244,15 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     Returns:
         voxel/pixel size in microns.
     """
-    if resolution == 'down32':
+    if resolution in ['down32', 'thumbnail']:
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_TB
-    elif resolution == 'thumbnail':
-        assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_TB
+        return planar_resolution[stack] * 32.        
     elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_LOSSLESS
+        return planar_resolution[stack] 
     elif resolution == 'down8':
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 8.
-        else:
-            return XY_PIXEL_DISTANCE_LOSSLESS * 8.
+        return planar_resolution[stack] * 8.
     elif resolution.endswith('um'):
         return float(resolution[:-2])
     else:
@@ -485,7 +470,8 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD661':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD662':XY_PIXEL_DISTANCE_LOSSLESS,
                      'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
-                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
                     }
 
 #######################################

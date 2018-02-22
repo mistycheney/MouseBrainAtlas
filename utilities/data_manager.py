@@ -687,7 +687,7 @@ class DataManager(object):
 
         if use_inverse:
             Ts_inv_rescaled = {}
-            for fn, T_down32 in Ts_down32.iteritems():
+            for fn, T_down32 in sorted(Ts_down32.items()):
                 T_rescaled = T_down32.copy()
                 T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
                 T_rescaled_inv = np.linalg.inv(T_rescaled)
@@ -695,10 +695,11 @@ class DataManager(object):
             return Ts_inv_rescaled
         else:
             Ts_rescaled = {}
-            for fn, T_down32 in Ts_down32.iteritems():
+            for fn, T_down32 in sorted(Ts_down32.items()):
                 T_rescaled = T_down32.copy()
-                T_rescaled[:2, 2] = T_rescaled[:2, 2] * 32 * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
+                T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
                 Ts_rescaled[fn] = T_rescaled
+                
             return Ts_rescaled
 
     ################
@@ -3581,10 +3582,10 @@ class DataManager(object):
         # random_fn = section_to_filename[i]
         # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
         # try:
-        if stack == 'ChatCryoJane201710':
-            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
-        else:
+        try:
             img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
+        except:
+            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
             # break
         # except:
         #     pass

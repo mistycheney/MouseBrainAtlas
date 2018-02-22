@@ -122,8 +122,9 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     plt.xlabel(xlabel, fontsize=20);
     plt.ylabel(ylabel, fontsize=20);
     if xlim is None:
-        plt.xlim([-1, len(structures)+1]);
-    plt.ylim([yticks[0], yticks[-1]]);
+        xlim = [-1, len(structures)+1]
+    plt.xlim(xlim);
+    plt.ylim([yticks[0], yticks[-1]+1]);
     plt.legend();
     plt.title(title, fontsize=20);
 

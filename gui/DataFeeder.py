@@ -15,7 +15,7 @@ from qt_utilities import *
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
-ACTIVE_SET_SIZE = 125
+ACTIVE_SET_SIZE = 2
 
 class SignalEmitter(QObject):
     update_active_set = pyqtSignal(object, object)
@@ -85,10 +85,13 @@ class ReadImagesThread(QThread):
 
 class ImageDataFeeder_v2(object):
 
-    def __init__(self, name, stack, prep_id=None, sections=None, use_data_manager=True, resolution=None, labeled_filenames=None, version=None):
+    def __init__(self, name, stack, prep_id=None, sections=None, resolution=None,
+    labeled_filenames=None, version=None, use_data_manager=True,
+    use_thread=True):
         """
         Args:
             resolution (str):
+            use_data_manager (bool): deprecated.
         """
 
         self.name = name
@@ -96,13 +99,13 @@ class ImageDataFeeder_v2(object):
         self.prep_id = prep_id
         self.version = version
 
-        if use_data_manager:
-            assert sections is not None
-            self.sections = sections
-            self.min_section = min(self.sections)
-            self.max_section = max(self.sections)
-        else:
-            self.sections = sections
+        # if use_data_manager:
+        #     assert sections is not None
+        self.sections = sections
+        # self.min_section = min(self.sections)
+        # self.max_section = max(self.sections)
+        # else:
+        #     self.sections = sections
 
         self.n = len(self.sections)
 
@@ -116,16 +119,19 @@ class ImageDataFeeder_v2(object):
             self.set_resolution(resolution)
 
         self.se = SignalEmitter()
-        self.image_loader_thread = ReadImagesThread(stack=self.stack, sections=sections,
-                img_version=self.version,
-                # downsample=self.downsample,
-                resolution=self.resolution,
-                prep_id=prep_id)
 
-        self.image_loader_thread.connect(self.se, SIGNAL("update_active_set(PyQt_PyObject, PyQt_PyObject)"), self.image_loader_thread.update_active_set)
-        self.se.connect(self.image_loader_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
-        self.se.connect(self.image_loader_thread, SIGNAL("drop_image(int)"), self.drop_image)
-        self.image_loader_thread.start()
+        if use_thread:
+
+            self.image_loader_thread = ReadImagesThread(stack=self.stack, sections=sections,
+                    img_version=self.version,
+                    # downsample=self.downsample,
+                    resolution=self.resolution,
+                    prep_id=prep_id)
+
+            self.image_loader_thread.connect(self.se, SIGNAL("update_active_set(PyQt_PyObject, PyQt_PyObject)"), self.image_loader_thread.update_active_set)
+            self.se.connect(self.image_loader_thread, SIGNAL("image_loaded(QImage, int)"), self.image_loaded)
+            self.se.connect(self.image_loader_thread, SIGNAL("drop_image(int)"), self.drop_image)
+            self.image_loader_thread.start()
 
         # if labeled_filenames is not None:
         #     self.set_images(labeled_filenames=labeled_filenames)
@@ -248,6 +254,7 @@ class ImageDataFeeder_v2(object):
                 self.z_dim = arbitrary_img.height()
 
     def set_resolution(self, resolution):
+        print 'resolution set to', resolution
         self.resolution = resolution
         self.compute_dimension()
     #

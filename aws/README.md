@@ -1,0 +1,1 @@
+Post-intall scripts (e.g. `cfncluster_post_install_gpu.sh`) are uploaded to S3://mousebrainatlas-scripts, and will be used by cfncluster at launching. The S3 location of the script is specified in the cfncluster configuration file (e.g `gpu_cluster_config`).

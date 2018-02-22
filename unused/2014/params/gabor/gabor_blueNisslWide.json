@@ -1,8 +1,0 @@
-{
- "param_id": "redNissl", 
- "min_wavelen": 5.0, 
- "max_wavelen": 130.0, 
- "freq_step": 1.5, 
- "theta_interval": 16, 
- "bandwidth": 2
-}

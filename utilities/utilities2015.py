@@ -33,6 +33,9 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+##################################################################
+
+
 ####################################################################
 
 def get_structure_length_at_direction(structure_vol, d):
@@ -44,37 +47,37 @@ def get_structure_length_at_direction(structure_vol, d):
 
 ####################################################################
 
-def plot_by_method_by_structure(data_all_stacks_all_structures, structures, stacks, 
-                                stack_to_color=None, ylabel='', title='', ylim=[0,1], 
+def plot_by_method_by_structure(data_all_stacks_all_structures, structures, stacks,
+                                stack_to_color=None, ylabel='', title='', ylim=[0,1],
                                 yspacing=.2, style='scatter',
                                figsize=(20, 6), spacing_btw_stacks=1,
                                xticks_fontsize=20):
-        
+
     if stack_to_color is None:
         stack_to_color = {stack: random_colors(1)[0] for stack in data_all_stacks_all_structures.keys()}
-    
+
     n_structures = len(structures)
     n_stacks = len(data_all_stacks_all_structures.keys())
-    
+
     plt.figure(figsize=figsize);
     for stack_i, stack in enumerate(stacks):
         data_all_structures = data_all_stacks_all_structures[stack]
         data_mean = [np.mean(data_all_structures[s]) for s in structures]
         data_std = [np.std(data_all_structures[s]) for s in structures]
         plt.bar(stack_i + (n_stacks + spacing_btw_stacks) * np.arange(n_structures), data_mean, yerr=data_std, label=stack)
-    
+
         plt.gca().yaxis.grid(True, linestyle='-', which='major', color='grey', alpha=0.5)
         # Hide these grid behind plot objects
         plt.gca().set_axisbelow(True)
-        
+
     for structure_i in xrange(0, n_structures):
         plt.axvline(x = n_stacks + (n_stacks + spacing_btw_stacks) * structure_i + spacing_btw_stacks / 2.,
                     color='k', linewidth=.3)
-            
-    plt.xticks(np.arange((n_stacks)/2, n_structures*(n_stacks + spacing_btw_stacks), (n_stacks + spacing_btw_stacks)), 
+
+    plt.xticks(np.arange((n_stacks)/2, n_structures*(n_stacks + spacing_btw_stacks), (n_stacks + spacing_btw_stacks)),
                structures, rotation='60', fontsize=xticks_fontsize);
-    plt.yticks(np.arange(ylim[0], ylim[1] + yspacing, yspacing), 
-               map(lambda x: '%.2f'%x, np.arange(ylim[0], ylim[1]+yspacing, yspacing)), 
+    plt.yticks(np.arange(ylim[0], ylim[1] + yspacing, yspacing),
+               map(lambda x: '%.2f'%x, np.arange(ylim[0], ylim[1]+yspacing, yspacing)),
                fontsize=20);
     plt.xlabel('Structures', fontsize=20);
     plt.ylabel(ylabel, fontsize=20);
@@ -82,21 +85,21 @@ def plot_by_method_by_structure(data_all_stacks_all_structures, structures, stac
     plt.ylim(ylim);
     plt.legend();
     plt.title(title, fontsize=20);
-    
-def plot_by_stack_by_structure(data_all_stacks_all_structures, structures, 
+
+def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                                yticks=None, yticklabel_fmt='%.2f', yticks_fontsize=20,
-                               stack_to_color=None, ylabel='', title='', style='scatter', 
+                               stack_to_color=None, ylabel='', title='', style='scatter',
                                figsize=(20, 6), xticks_fontsize=20, xlabel='Structures', xlim=None,
                               ):
-        
+
     if stack_to_color is None:
         stack_to_color = {stack: random_colors(1)[0] for stack in data_all_stacks_all_structures.keys()}
-    
+
     plt.figure(figsize=figsize);
-    
+
     if style == 'scatter':
-        for stack in sorted(data_all_stacks_all_structures.keys()): 
-            data_all_structures = data_all_stacks_all_structures[stack] 
+        for stack in sorted(data_all_stacks_all_structures.keys()):
+            data_all_structures = data_all_stacks_all_structures[stack]
             vals = [data_all_structures[s] if s in data_all_structures else None
                     for i, s in enumerate(structures)]
             plt.scatter(range(len(vals)), vals, marker='o', s=100, label=stack, c=np.array(stack_to_color[stack])/255.);
@@ -106,17 +109,17 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
             bplot = plt.boxplot(D, positions=range(0, len(structures)), patch_artist=True);
             for patch in bplot['boxes']:
                 patch.set_facecolor(np.array(stack_to_color[stack])/255.)
-        
+
         plt.gca().yaxis.grid(True, linestyle='-', which='major', color='grey', alpha=0.5)
         # Hide these grid behind plot objects
         plt.gca().set_axisbelow(True)
     else:
         raise Exception("%s is not recognized." % style)
-            
+
     plt.xticks(range(len(structures)), structures, rotation='60', fontsize=xticks_fontsize);
-    
-    # plt.yticks(np.arange(ylim[0], ylim[1] + yspacing, yspacing), 
-    #            map(lambda x: '%.2f'%x, np.arange(ylim[0], ylim[1]+yspacing, yspacing)), 
+
+    # plt.yticks(np.arange(ylim[0], ylim[1] + yspacing, yspacing),
+    #            map(lambda x: '%.2f'%x, np.arange(ylim[0], ylim[1]+yspacing, yspacing)),
     #            fontsize=20);
     plt.yticks(yticks, [yticklabel_fmt % y for y in yticks], fontsize=yticks_fontsize);
     plt.xlabel(xlabel, fontsize=20);
@@ -127,7 +130,6 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     plt.ylim([yticks[0], yticks[-1]+1]);
     plt.legend();
     plt.title(title, fontsize=20);
-
 
 #####################################################################
 
@@ -146,7 +148,7 @@ def rescale_by_resampling(v, scaling):
     # print v.shape, scaling
     if scaling == 1:
         return v
-    
+
     if v.ndim == 3:
         if v.shape[-1] == 3: # RGB image
             return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
@@ -202,8 +204,50 @@ def rescale_by_resampling(v, scaling):
 
 ###################################################################
 
+def get_structure_centroids(vol_bbox_dict=None, vol_dict=None):
+    """
+    Compute structure centroids.
+    """
+    
+    structure_centroids = {}
+    if vol_bbox_dict is not None:
+        for label, (v, bb) in vol_bbox_dict.iteritems():
+            xmin, _, ymin, _, zmin, _ = bb
+            ym, xm, zm = np.mean(np.nonzero(v), axis=1)
+            structure_centroids[label] = (xm+xmin, ym+ymin, zm+zmin)
+    elif vol_dict is not None:
+        for label, v in vol_dict.iteritems():
+            ym, xm, zm = np.mean(np.nonzero(v), axis=1)
+            structure_centroids[label] = (xm, ym, zm)
+    return structure_centroids
+
 def get_centroid_3d(v):
     return np.mean(np.where(v), axis=1)[[1,0,2]]
+
+def compute_midpoints(structure_centroids):
+    """
+    Compute the mid-points of each structure.
+    
+    Args:
+        structure_centroids (dict of dict): {sided name: (centroid x,y,z)}
+    
+    Returns:
+        dict of (3,)-array: {unsided name: mid-point}
+    """
+    midpoints = {}
+    for s in all_known_structures:
+        if s in singular_structures:
+            if s not in structure_centroids:
+                continue
+            c = np.array(structure_centroids[s])
+        else:
+            sl = convert_to_left_name(s)
+            sr = convert_to_right_name(s)
+            if sl not in structure_centroids or sr not in structure_centroids:
+                continue
+            c = (np.array(structure_centroids[sl]) + np.array(structure_centroids[sr]))/2
+        midpoints[s] = c
+    return midpoints
 
 def eulerAnglesToRotationMatrix(theta):
     """
@@ -757,12 +801,23 @@ def dice(hm, hf):
 
 ########################################################################################
 
-def crop_volume_to_minimal(vol, origin):
+def crop_volume_to_minimal(vol, origin=(0,0,0), margin=0, return_origin_instead_of_bbox=True):
     """
-    Return only the nonzero part.
+    Returns:
+        (nonzero part of volume, origin of cropped volume)
     """
     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
-    return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
+    xmin = max(0, xmin - margin)
+    ymin = max(0, ymin - margin)
+    zmin = max(0, zmin - margin)
+    xmax = min(vol.shape[1]-1, xmax + margin)
+    ymax = min(vol.shape[0]-1, ymax + margin)
+    zmax = min(vol.shape[2]-1, zmax + margin)
+    
+    if return_origin_instead_of_bbox:
+        return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
+    else:
+        return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin)[[0,0,1,1,2,2]] + (xmin,xmax,ymin,ymax,zmin,zmax)
 
 def get_overall_bbox(vol_bbox_tuples=None, bboxes=None):
     if bboxes is None:
@@ -1446,7 +1501,7 @@ def display_volume_sections_checkerboard(vol_f, vol_mTof, every=5, ncols=5, dire
 def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=None, **kwargs):
     """
     Show the sections of a volume in a grid display.
-    
+
     Args:
         direction (str): x,y or z
     """
@@ -1479,13 +1534,13 @@ def display_volume_sections(vol, every=5, ncols=5, direction='z', start_level=No
     display_images_in_grids(vizs, nc=ncols, titles=titles, **kwargs)
 
 
-def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, pad_color='white', 
+def display_images_in_grids(vizs, nc, titles=None, export_fn=None, maintain_shape=True, pad_color='white',
                             title_fontsize=10, **kwargs):
     """
     Display a list of images in a grid.
-    
+
     Args:
-        vizs (list of images): 
+        vizs (list of images):
         nc (int): number of images in each row
         maintain_shape (bool): pad patches to same size.
         pad_color (str): black or white

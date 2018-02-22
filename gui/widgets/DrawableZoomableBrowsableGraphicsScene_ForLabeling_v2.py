@@ -36,47 +36,6 @@ reference_resources = {
         'Allen Reference Atlas (Coronal)': 'http://atlas.brain-map.org/atlas?atlas=1#atlas=1&structure=661&resolution=6.98&x=6039.549458821615&y=4468.1439208984375&zoom=-2&plate=100960181'}
 }
 
-
-def convert_frame(p, in_frame, out_frame, zdim):
-    """
-    Convert among the three frames specified by the second methods here
-    https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
-    """
-
-    if in_frame == 'sagittal':
-        p_sagittal = p
-    elif in_frame == 'coronal':
-        x = p[..., 2]
-        y = p[..., 1]
-        z = zdim - p[..., 0]
-        p_sagittal = np.column_stack([x,y,z])
-    elif in_frame == 'horizontal':
-        x = p[..., 0]
-        y = p[..., 2]
-        z = zdim - p[..., 1]
-        p_sagittal = np.column_stack([x,y,z])
-    else:
-        print in_frame
-        raise
-
-    if out_frame == 'sagittal':
-        p_out = p_sagittal
-    elif out_frame == 'coronal':
-        x = zdim - p_sagittal[..., 2]
-        y = p_sagittal[..., 1]
-        z = p_sagittal[..., 0]
-        p_out = np.column_stack([x,y,z])
-    elif out_frame == 'horizontal':
-        x = p_sagittal[..., 0]
-        y = zdim - p_sagittal[..., 2]
-        z = p_sagittal[..., 1]
-        p_out = np.column_stack([x,y,z])
-    else:
-        print out_frame
-        raise
-
-    return p_out
-
 class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsableGraphicsScene):
     """
     Used for annotation GUI.
@@ -153,10 +112,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if in_resolution == 'image':
             p_um = p * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-        # elif in_resolution == 'image_image_index':
-        #     uv_um = p[..., :2] * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-        #     i_um = np.array([SECTION_THICKNESS * self.data_feeder.sections[int(idx)] for idx in p[..., 2]])
-        #     p_um = np.column_stack([uv_um, i_um])
+        elif in_resolution == 'image_image_index':
+            uv_um = p[..., :2] * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+            i_um = np.array([SECTION_THICKNESS * self.data_feeder.sections[int(idx)] for idx in p[..., 2]])
+            p_um = np.column_stack([uv_um, i_um])
         elif in_resolution == 'volume':
             p_um = p * self.structure_volumes_resolution_um
         elif in_resolution == 'raw':
@@ -205,6 +164,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def convert_to_wholebrain_um(self, p, wrt, resolution,
         structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+
+        print 'convert_to_wholebrain_um', wrt
 
         p = np.array(p)
         assert np.atleast_2d(p).shape[1] == 3

@@ -2,10 +2,11 @@
 This module stores static meta information.
 """
 import os, sys
+import numpy as np
+import subprocess
 
 ########### Data Directories #############
 
-import subprocess
 hostname = subprocess.check_output("hostname", shell=True).strip()
 
 # if hostname.endswith('sdsc.edu'):
@@ -236,6 +237,192 @@ else:
 
 #################### Resolution conversions ############
 
+wrt_metadata = {'wholebrain': {'origin_wrt_wholebrain_um': 0, 
+                'plane': 'sagittal', 
+                'zdim_um': None}}
+
+def convert_frame(p, in_frame, out_frame, zdim):
+    """
+    Convert among the three frames specified by the second methods here
+    https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
+    """
+
+    if in_frame == 'sagittal':
+        p_sagittal = p
+    elif in_frame == 'coronal':
+        x = p[..., 2]
+        y = p[..., 1]
+        z = zdim - p[..., 0]
+        p_sagittal = np.column_stack([x,y,z])
+    elif in_frame == 'horizontal':
+        x = p[..., 0]
+        y = p[..., 2]
+        z = zdim - p[..., 1]
+        p_sagittal = np.column_stack([x,y,z])
+    else:
+        print in_frame
+        raise
+
+    if out_frame == 'sagittal':
+        p_out = p_sagittal
+    elif out_frame == 'coronal':
+        x = zdim - p_sagittal[..., 2]
+        y = p_sagittal[..., 1]
+        z = p_sagittal[..., 0]
+        p_out = np.column_stack([x,y,z])
+    elif out_frame == 'horizontal':
+        x = p_sagittal[..., 0]
+        y = zdim - p_sagittal[..., 2]
+        z = p_sagittal[..., 1]
+        p_out = np.column_stack([x,y,z])
+    else:
+        print out_frame
+        raise
+
+    return p_out
+
+def convert_resolution(p, in_resolution, out_resolution, 
+                       stack=None, image_resolution=None, 
+                       section_list=None,
+                      volume_resolution_um=None):
+
+    if in_resolution == 'image':
+        p_um = p * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+    elif in_resolution == 'image_image_section':
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
+        p_um = np.column_stack([uv_um, d_um])
+    elif in_resolution == 'image_image_index':
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        i_um = np.array([SECTION_THICKNESS * section_list[int(idx)] for idx in p[..., 2]])
+        p_um = np.column_stack([uv_um, i_um])
+    elif in_resolution == 'volume':
+        p_um = p * volume_resolution_um
+    elif in_resolution == 'raw':
+        p_um = p * planar_resolution[stack]
+    elif in_resolution == 'down32':
+        p_um = p * (planar_resolution[stack] * 32.)
+    elif in_resolution == 'um':
+        p_um = p
+    else:
+        raise
+
+    if out_resolution == 'image':
+        p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+    # elif out_resolution == 'image_image_section':
+    #     uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #     sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in p_um[..., 2]])
+    #     p_outResol = np.column_stack([uv_outResol, sec_outResol])
+    elif out_resolution == 'image_image_index':
+        uv_outResol = p_um[..., :2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        if hasattr(self.data_feeder, 'sections'):
+            i_outResol = []
+            for d_um in p_um[..., 2]:
+                sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                if sec in section_list:
+                    index = section_list.index(sec)
+                else:
+                    index = np.nan
+                i_outResol.append(index)
+            i_outResol = np.array(i_outResol)
+            # i_outResol = np.array([self.data_feeder.sections.index(1 + int(np.floor(d_um / SECTION_THICKNESS))) for d_um in p_um[..., 2]])
+        else:
+            i_outResol = p_um[..., 2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        p_outResol = np.column_stack([uv_outResol, i_outResol])
+    elif out_resolution == 'volume':
+        p_outResol = p_um / volume_resolution_um
+    elif out_resolution == 'raw':
+        p_outResol = p_um / planar_resolution[stack]
+    elif out_resolution == 'down32':
+        p_outResol = p_um / (planar_resolution[stack] * 32.)
+    elif out_resolution == 'um':
+        p_outResol = p_um
+    else:
+        raise
+
+    return p_outResol
+
+
+def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
+                               image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+
+    p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
+    assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3
+
+    if wrt == 'wholebrain':
+        p_wrt_outdomain_um = p_wrt_wholebrain_um
+    elif 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
+        box, plane = wrt.split('_')
+        p_wrt_boxSagittal_origin_um = p_wrt_wholebrain_um - wrt_metadata[wrt]['origin_wrt_wholebrain_um']
+        assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
+        p_wrt_outdomain_um = convert_frame(p_wrt_boxSagittal_origin_um, in_frame='sagittal', 
+                                           out_frame=plane, 
+                                           zdim=wrt_metadata[wrt]['zdim_um'])
+    else:
+        print wrt
+        raise
+
+    p_wrt_outdomain_outResol = convert_resolution(p_wrt_outdomain_um, in_resolution='um', out_resolution=resolution,
+                                                 image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
+    return np.squeeze(p_wrt_outdomain_outResol)
+
+def convert_to_wholebrain_um(p, wrt, resolution,
+                             image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+
+    p = np.array(p)
+    assert np.atleast_2d(p).shape[1] == 3
+
+    p_um = convert_resolution(p, in_resolution=resolution, out_resolution='um',
+                             image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
+
+    if wrt == 'wholebrain':
+        p_wrt_wholebrain_um = p_um
+    elif 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
+        box, plane = wrt.split('_')
+        assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
+        p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal', zdim=wrt_metadata[wrt]['zdim_um'])
+        box_origin_wrt_wholebrain_um = wrt_metadata[wrt]['origin_wrt_wholebrain_um']
+        p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
+    else:
+        print wrt
+        raise
+
+    return np.squeeze(p_wrt_wholebrain_um)
+
+def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resolution,
+                                 image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+        """
+        `wrt` can be any of:
+        - wholebrain
+        - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+
+        `resolution` can be any of:
+        - raw
+        - down32
+        - vol
+        - image: gscene resolution, determined by data_feeder.resolution
+        - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
+        """
+
+        p_wrt_wholebrain_um = convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
+                                                       image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+
+        p_wrt_outdomain_outResol = convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
+                                                              image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+        # print 'p', p
+        # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
+        # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
+        return p_wrt_outdomain_outResol
+
+def convert_resolution_string_to_um(resolution, stack=None):
+    return convert_resolution_string_to_voxel_size(resolution, stack=stack)
 
 def convert_resolution_string_to_voxel_size(resolution, stack=None):
     """

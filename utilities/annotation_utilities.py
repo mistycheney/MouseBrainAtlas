@@ -795,7 +795,7 @@ def average_multiple_volumes(volumes, bboxes):
     return overall_volume, (overall_xmin, overall_xmax, overall_ymin, overall_ymax, overall_zmin, overall_zmax)
 
 def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
-                                    return_contours=False, len_interval=20, fill=True):
+                                    return_contours=False, len_interval=20, fill=True, return_origin_instead_of_bbox=False):
     """Interpolate contours.
 
     Args:
@@ -878,7 +878,10 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
             elif interpolation_direction == 'x':
                 volume[pts[:,0]-ymin, i-xmin, pts[:,1]-zmin] = 1
 
-    return volume, (xmin,xmax,ymin,ymax,zmin,zmax)
+    if return_origin_instead_of_bbox:
+        return volume, np.array((xmin,ymin,zmin))
+    else:
+        return volume, np.array((xmin,xmax,ymin,ymax,zmin,zmax))
 
 
 def get_interpolated_contours(contours_grouped_by_pos, len_interval):

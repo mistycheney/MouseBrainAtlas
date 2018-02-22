@@ -1026,7 +1026,8 @@ def actor_volume_v2(rgb, alpha=None, origin=(0,0,0)):
 
     return volume
 
-def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05):
+def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_colors=None, tb_opacity=.05,
+                white_more_transparent=True):
     """
     Args:
         volume (3d-array)
@@ -1056,25 +1057,44 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
     volumeProperty = vtk.vtkVolumeProperty()
 
     if what == 'tb':
+        
+        if white_more_transparent:
 
-        compositeOpacity = vtk.vtkPiecewiseFunction()
-        compositeOpacity.AddPoint(0.0, 0.)
+            compositeOpacity = vtk.vtkPiecewiseFunction()
+            compositeOpacity.AddPoint(0.0, 0.)
 
-        if tb_colors is not None:
-            for v, c in sorted(tb_colors.items()):
-                vl = v - .5
-                vr = v + .5
-                cp1 = vl-.25
-                cp2 = vr-.25
-                compositeOpacity.AddPoint(cp1, .5*cp1/200., .5, 1.)
-                compositeOpacity.AddPoint(v, 1., .5, 1.)
-                compositeOpacity.AddPoint(cp2, .5*cp2/200., .5, 1.)
-            compositeOpacity.AddPoint(vr, .5*vr/200.)
-        compositeOpacity.AddPoint(240., tb_opacity)
-        compositeOpacity.AddPoint(255.0, tb_opacity)
-        # compositeOpacity.AddPoint(240., .5)
-        # compositeOpacity.AddPoint(255.0, .5)
+            if tb_colors is not None:
+                for v, c in sorted(tb_colors.items()):
+                    vl = v - .5
+                    vr = v + .5
+                    cp1 = vl-.25
+                    cp2 = vr-.25
+                    compositeOpacity.AddPoint(cp1, .5*cp1/200., .5, 1.)
+                    compositeOpacity.AddPoint(v, 1., .5, 1.)
+                    compositeOpacity.AddPoint(cp2, .5*cp2/200., .5, 1.)
+                compositeOpacity.AddPoint(vr, .5*vr/200.)
+            compositeOpacity.AddPoint(240., tb_opacity)
+            compositeOpacity.AddPoint(255.0, tb_opacity)
+        else:
+            compositeOpacity = vtk.vtkPiecewiseFunction()
+            compositeOpacity.AddPoint(255.0, 0.)
 
+            if tb_colors is not None:
+                for v, c in sorted(tb_colors.items()):
+                    vl = v - .5
+                    vr = v + .5
+                    cp1 = vl-.25
+                    cp2 = vr-.25
+                    compositeOpacity.AddPoint(cp1, .5*cp1/200., .5, 1.)
+                    compositeOpacity.AddPoint(v, 1., .5, 1.)
+                    compositeOpacity.AddPoint(cp2, .5*cp2/200., .5, 1.)
+                compositeOpacity.AddPoint(vr, .5*vr/200.)
+                
+            compositeOpacity.AddPoint(15., tb_opacity)
+            compositeOpacity.AddPoint(0., tb_opacity)
+            # compositeOpacity.AddPoint(240., .5)
+            # compositeOpacity.AddPoint(255.0, .5)
+            
         color = vtk.vtkColorTransferFunction()
         color.AddRGBPoint(0.0, 0,0,0)
 

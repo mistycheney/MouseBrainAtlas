@@ -5,7 +5,7 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 5,1,rigid,1e-6,1e5,1e4,100,100,100,30,inverse,0
 6,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.5,0
 7,None,rigid,1e-6,1e5,1000,50,50,50,10,0
-8,None,rigid,1e-6,1e5,1e4,200,200,200,30,inverse,0,align mid-sagittal planes
+8,None,rigid,1e-6,1e5,1e4,200,200,200,30,,0,align mid-sagittal planes
 9,8,rigid,1e-6,1e5,1e4,2000,2000,2000,30,,,global registration given mid-sagittal planes are aligned
 10,None,rigid,1e-5,1e5,1000,100,100,100,30,0
 11,1,affine,1e-5,1e5,1e4,100,100,100,30,-0.1,0
@@ -25,5 +25,6 @@ warp_id,upstream_warp_id,transform_type,terminate_thresh,grad_computation_sample
 25,24,rigid,,1e4,,,,,,inverse,0,local reg with surr no grid search; global counterpart is setting 24,1000
 26,20,rigid,,1e4,,,,,,inverse,1,local reg with surr no grid search with regularization (strength=1),1000
 27,None,rigid,,1e4,,,,,,inverse,0,local reg with surr with global transform as init_T,1000
+28,None,rigid,,
 98,,translation,,,,,,,,,,simply align volume center,
 99,17,rigid,,,,,,,,inverse,0,human local correction,

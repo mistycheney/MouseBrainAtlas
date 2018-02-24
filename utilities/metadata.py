@@ -395,6 +395,8 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
                                  image_resolution=None, stack=None, volume_resolution_um=None,
     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
         """
+        Use this in combination with DataManager.get_domain_origin().
+        
         `wrt` can be any of:
         - wholebrain
         - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
@@ -431,30 +433,15 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     Returns:
         voxel/pixel size in microns.
     """
-    if resolution == 'down32':
+    if resolution in ['down32', 'thumbnail']:
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_TB
-    elif resolution == 'thumbnail':
-        assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_TB_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_TB
+        return planar_resolution[stack] * 32.        
     elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-        else:
-            return XY_PIXEL_DISTANCE_LOSSLESS
+        return planar_resolution[stack] 
     elif resolution == 'down8':
         assert stack is not None
-        if stack == 'ChatCryoJane201710':
-            return XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 8.
-        else:
-            return XY_PIXEL_DISTANCE_LOSSLESS * 8.
+        return planar_resolution[stack] * 8.
     elif resolution.endswith('um'):
         return float(resolution[:-2])
     else:
@@ -605,7 +592,7 @@ all_structures_with_classifiers = sorted([l for l in all_known_structures if l n
 
 structures_sided_sorted_by_size = ['4N_L', '4N_R', '6N_L', '6N_R', 'Amb_L', 'Amb_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'AP', '3N_L', '3N_R', 'LC_L', 'LC_R', 'SNC_L', 'SNC_R', 'Tz_L', 'Tz_R', '7n_L', '7n_R', 'RMC_L', 'RMC_R', '5N_L', '5N_R', 'VCP_L', 'VCP_R', '12N', 'LRt_L', 'LRt_R', '7N_L', '7N_R', 'VCA_L', 'VCA_R', 'VLL_L', 'VLL_R', 'DC_L', 'DC_R', 'Sp5O_L', 'Sp5O_R', 'Sp5I_L', 'Sp5I_R', 'Pn_L', 'Pn_R', 'RtTg', 'SNR_L', 'SNR_R', 'Sp5C_L', 'Sp5C_R', 'IC', 'SC']
 
-structures_sided_sorted_by_rostral_caudal_position = ['SNC_R', 'SNC_L', 'SC', 'SNR_R', 'SNR_L', 'RMC_R', 'RMC_L', '3N_R', '3N_L', 'PBG_R', 'PBG_L', '4N_R', '4N_L', 'Pn_R', 'Pn_L', 'VLL_R', 'VLL_L', 'RtTg', '5N_R', '5N_L', 'LC_R', 'LC_L', 'Tz_R', 'Tz_L', 'VCA_R', 'VCA_L', '7n_R', '7n_L', '6N_R', '6N_L', 'DC_R', 'VCP_R', 'DC_L', 'VCP_L', '7N_R', '7N_L', 'Sp5O_R', 'Sp5O_L', 'Amb_R', 'Amb_L', 'Sp5I_R', 'Sp5I_L', 'AP', '12N', '10N_R', '10N_L', 'LRt_R', 'LRt_L', 'Sp5C_R', 'Sp5C_L']
+structures_sided_sorted_by_rostral_caudal_position = ['SNC_R', 'SNC_L', 'SC', 'SNR_R', 'SNR_L', 'RMC_R', 'RMC_L', '3N_R', '3N_L', 'PBG_R', 'PBG_L', '4N_R', '4N_L', 'Pn_R', 'Pn_L', 'VLL_R', 'VLL_L', 'RtTg', '5N_R', '5N_L', 'LC_R', 'LC_L', 'Tz_R', 'Tz_L', 'VCA_R', 'VCA_L', '7n_R', '7n_L', '6N_R', '6N_L', 'DC_R', 'DC_L','VCP_R', 'VCP_L', '7N_R', '7N_L', 'Sp5O_R', 'Sp5O_L', 'Amb_R', 'Amb_L', 'Sp5I_R', 'Sp5I_L', 'AP', '12N', '10N_R', '10N_L', 'LRt_R', 'LRt_L', 'Sp5C_R', 'Sp5C_L']
 
 structures_unsided_sorted_by_rostral_caudal_position = ['SNC', 'SC', 'IC', 'SNR', 'RMC', '3N', 'PBG','4N', 'Pn','VLL','RtTg', '5N', 'LC', 'Tz', 'VCA', '7n', '6N', 'DC', 'VCP', '7N', 'Sp5O', 'Amb', 'Sp5I', 'AP', '12N', '10N', 'LRt', 'Sp5C']
 
@@ -642,7 +629,7 @@ XY_PIXEL_DISTANCE_TB_AXIOSCAN = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 32
 
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
-all_dk_ntb_stacks = ['ChatCryoJane201710']
+all_dk_ntb_stacks = ['CHATM2']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
@@ -672,7 +659,8 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD661':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD662':XY_PIXEL_DISTANCE_LOSSLESS,
                      'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
-                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
                     }
 
 #######################################

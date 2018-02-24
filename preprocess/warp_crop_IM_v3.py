@@ -24,6 +24,7 @@ parser.add_argument("y", type=int, help="y on thumbnail", default=0)
 parser.add_argument("w", type=int, help="w on thumbnail", default=2000)
 parser.add_argument("h", type=int, help="h on thumbnail", default=1500)
 parser.add_argument("background_color", type=str, help="background color (black or white)", default='white')
+parser.add_argument("-r", "--init_rotate", type=str, help="imagemagick convert option string for initial flipping and rotation", default='')
 args = parser.parse_args()
 
 stack = args.stack_name
@@ -33,6 +34,7 @@ transform = np.reshape(map(np.float, args.transform.split(',')), (3,3))
 background_color = args.background_color
 sys.stderr.write("Background color: %s\n" % background_color)
 suffix = args.suffix
+init_rotate = args.init_rotate
 
 x = args.x
 y = args.y
@@ -52,8 +54,10 @@ T = np.linalg.inv(T2)
 
 create_parent_dir_if_not_exists(output_fp)
 
-execute_command("convert \"%(input_fp)s\" -virtual-pixel background -background %(bg_color)s +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw \"%(output_fp)s\"" % \
-                {'sx':T[0,0],
+
+execute_command("convert \"%(input_fp)s\" %(init_rotate)s -virtual-pixel background -background %(bg_color)s +distort AffineProjection '%(sx)f,%(rx)f,%(ry)f,%(sy)f,%(tx)f,%(ty)f' -crop %(w)sx%(h)s%(x)s%(y)s\! -flatten -compress lzw \"%(output_fp)s\"" % \
+                {'init_rotate':init_rotate,
+                    'sx':T[0,0],
      'sy':T[1,1],
      'rx':T[1,0],
      'ry':T[0,1],

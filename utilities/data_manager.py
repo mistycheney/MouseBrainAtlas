@@ -550,28 +550,35 @@ class DataManager(object):
     #     return fn
 
     @staticmethod
-    def get_domain_origin(stack, domain, resolution='down32'):
+    def get_domain_origin(stack, domain, resolution):
         """
         Loads the 3D origin of a domain for a given stack.
-        If specimen, the origin is wrt to wholebrain, in 1/32 raw pixel resolution.
-        If atlas, the origin is wrt to atlas space, in 1/32 raw pixel resolution (NANOZOOMER).
+        
+        If specimen, the origin is wrt to wholebrain.
+        If atlas, the origin is wrt to atlas space.
+
+        Use this in combination with convert_frame_and_resolution().
 
         Args:
             domain (str): domain name
         """
         
-        loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack=stack)
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
         
         if stack.startswith('atlas'):
             if domain == 'atlasSpace':
                 origin_loadedResol = np.zeros((3,))
-            elif domain == 'atlasSpaceBrainstem':
+                loaded_resolution_um = 0. # does not matter
+            elif domain == 'atlasSpaceBrainstem': # obsolete?
                 b = DataManager.load_original_volume_bbox(stack=stack, volume_type='score',
                                         downscale=32,
                                           structure='7N_L')
                 origin_loadedResol = b[[0,2,4]]
+                loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589') 
         else:
+            
+            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack=stack)
+            
             crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
 
             s1, s2 = metadata_cache['section_limits'][stack]
@@ -691,7 +698,7 @@ class DataManager(object):
 
         if use_inverse:
             Ts_inv_rescaled = {}
-            for fn, T_down32 in Ts_down32.iteritems():
+            for fn, T_down32 in sorted(Ts_down32.items()):
                 T_rescaled = T_down32.copy()
                 T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
                 T_rescaled_inv = np.linalg.inv(T_rescaled)
@@ -699,10 +706,11 @@ class DataManager(object):
             return Ts_inv_rescaled
         else:
             Ts_rescaled = {}
-            for fn, T_down32 in Ts_down32.iteritems():
+            for fn, T_down32 in sorted(Ts_down32.items()):
                 T_rescaled = T_down32.copy()
-                T_rescaled[:2, 2] = T_rescaled[:2, 2] * 32 * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
+                T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
                 Ts_rescaled[fn] = T_rescaled
+                
             return Ts_rescaled
 
     ################
@@ -2670,8 +2678,12 @@ class DataManager(object):
                 if loaded:
                     index = structure_to_label[structure]
 
-                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt)
-                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt)
+                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+                
+                
+                
+                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
+                                                                             resolution=stack_spec['resolution'])
                 b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
 
                 if name_or_index_as_key == 'name':
@@ -2685,7 +2697,7 @@ class DataManager(object):
                     index += 1
 
             except Exception as e:
-                raise e
+                # raise e
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
@@ -3653,10 +3665,10 @@ class DataManager(object):
         # random_fn = section_to_filename[i]
         # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
         # try:
-        if stack == 'ChatCryoJane201710':
-            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
-        else:
+        try:
             img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
+        except:
+            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
             # break
         # except:
         #     pass

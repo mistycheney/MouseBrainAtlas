@@ -146,7 +146,7 @@ def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolu
     volume_origin_dict = {}
     for sid, structure_info in structures_df.iterrows():
         name_s = compose_label(structure_info['name'], structure_info['side'])
-        v = bp.unpack_ndarray_str(structure_info['volume'])
+        v = bp.unpack_ndarray_str(structure_info['volume_in_bbox'])
         
         if out_resolution is None:
             out_resolution = structure_info['resolution']

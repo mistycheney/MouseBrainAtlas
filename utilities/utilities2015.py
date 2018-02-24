@@ -87,9 +87,9 @@ def plot_by_method_by_structure(data_all_stacks_all_structures, structures, stac
     plt.title(title, fontsize=20);
 
 def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
-                               yticks=None, yticklabel_fmt='%.2f', yticks_fontsize=20,
+                               yticks=None, yticklabel_fmt='%.2f', yticks_fontsize=15,
                                stack_to_color=None, ylabel='', title='', style='scatter',
-                               figsize=(20, 6), xticks_fontsize=20, xlabel='Structures', xlim=None,
+                               figsize=(20, 6), xticks_fontsize=12, xlabel='Structures', xlim=None,
                               ):
 
     if stack_to_color is None:
@@ -127,7 +127,7 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     if xlim is None:
         xlim = [-1, len(structures)+1]
     plt.xlim(xlim);
-    plt.ylim([yticks[0], yticks[-1]+1]);
+    plt.ylim([yticks[0], yticks[-1]+yticks[-1]-yticks[-2]]);
     plt.legend();
     plt.title(title, fontsize=20);
 
@@ -234,6 +234,9 @@ def compute_midpoints(structure_centroids):
     Returns:
         dict of (3,)-array: {unsided name: mid-point}
     """
+    
+    from metadata import all_known_structures, singular_structures, convert_to_left_name, convert_to_right_name
+    
     midpoints = {}
     for s in all_known_structures:
         if s in singular_structures:
@@ -1127,16 +1130,25 @@ def create_if_not_exists(path):
 def execute_command(cmd, stdout=None, stderr=None):
     print cmd
 
-    try:
-        retcode = call(cmd, shell=True, stdout=stdout, stderr=stderr)
-        # if retcode < 0:
-            # print >>sys.stderr, "Child was terminated by signal", -retcode
-        # else:
-            # print >>sys.stderr, "Child returned", retcode
-        return retcode
-    except OSError as e:
-        print >>sys.stderr, "Execution failed:", e
-        raise e
+    # try:
+#     from errand_boy.transports.unixsocket import UNIXSocketTransport
+#     errand_boy_transport = UNIXSocketTransport()
+#     stdout, stderr, retcode = errand_boy_transport.run_cmd(cmd)
+
+#     print stdout
+#     print stderr
+    
+    # import os
+    # retcode = os.system(cmd)
+    retcode = call(cmd, shell=True, stdout=stdout, stderr=stderr)
+    print retcode
+    # if retcode < 0:
+    #     print >>sys.stderr, "Child was terminated by signal", -retcode
+    # else:
+    #     print >>sys.stderr, "Child returned", retcode
+    # except OSError as e:
+    #     print >>sys.stderr, "Execution failed:", e
+    #     raise e
 
 def draw_arrow(image, p, q, color, arrow_magnitude=9, thickness=5, line_type=8, shift=0):
     # adapted from http://mlikihazar.blogspot.com.au/2013/02/draw-arrow-opencv.html

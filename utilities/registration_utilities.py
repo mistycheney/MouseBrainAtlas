@@ -813,8 +813,7 @@ def compute_gradient(volumes, smooth_first=False):
         
     return gradients
 
-
-def transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
+def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
     """
     `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
 
@@ -822,15 +821,34 @@ def transform_parameters_to_init_T(global_transform_parameters, local_aligner_pa
         (3,4)-array:
     """
 
-    T = alignment_parameters_to_transform_matrix(global_transform_parameters)
+    T = alignment_parameters_to_transform_matrix_v2(global_transform_parameters)
     R = T[:3,:3]
     t = T[:3,3]
 
-    lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
-    lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
+    # lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+    # lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
 
-    init_T = np.column_stack([R, np.dot(R, lom + centroid_m) + t - lof - centroid_f])
+    init_T = np.column_stack([R, np.dot(R, centroid_m) + t - centroid_f])
     return init_T
+
+
+# def transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
+#     """
+#     `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
+
+#     Returns:
+#         (3,4)-array:
+#     """
+
+#     T = alignment_parameters_to_transform_matrix(global_transform_parameters)
+#     R = T[:3,:3]
+#     t = T[:3,3]
+
+#     lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+#     lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
+
+#     init_T = np.column_stack([R, np.dot(R, lom + centroid_m) + t - lof - centroid_f])
+#     return init_T
 
 
 def global_registration(global_alignment_spec, structures_m):

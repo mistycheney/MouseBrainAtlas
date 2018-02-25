@@ -4,7 +4,7 @@ from itertools import groupby
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from data_manager import *
 
-def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_bbox=True):
+def images_to_volume(images, voxel_size, first_sec=None, last_sec=None):
     """
     Assume section 1 is at z=0.
     
@@ -13,6 +13,9 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
         voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
         firse_sec (int): the beginning section of the bounding box.  Default is the the smallest key of `images`.
         last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
+    
+    Returns:
+        (volume, bbox): bbox is wrt to wholebrainXYcropped.
     """
 
     if isinstance(images, dict):
@@ -51,12 +54,8 @@ def images_to_volume(images, voxel_size, first_sec=None, last_sec=None, return_b
             im = images(sections[i])
         volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
 
-    volume_bbox = (0,xdim-1,0,ydim-1,z_begin,z_end)
-
-    if return_bbox:
-        return volume, volume_bbox
-    else:
-        return volume
+    volume_bbox = np.array([0,xdim-1,0,ydim-1,z_begin,z_end])
+    return volume, volume_bbox
 
 
 def points2d_to_points3d(pts2d_grouped_by_section, pts2d_downsample, pts3d_downsample, stack, pts3d_origin=(0,0,0)):

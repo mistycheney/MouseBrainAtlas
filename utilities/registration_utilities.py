@@ -327,9 +327,9 @@ def generate_aligner_parameters_v2(alignment_spec,
     if structures_f is None:
         structures_f = set([convert_to_unsided_label(s) for s in structures_m])
     
-    if stack_f_spec['name'] == 'ChatCryoJane201710':
-        in_bbox_wrt = 'brainstem'
-    elif stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
+    # if stack_f_spec['name'] == 'ChatCryoJane201710':
+    #     in_bbox_wrt = 'brainstem'
+    if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
         in_bbox_wrt = 'wholebrain'
     else:
         in_bbox_wrt = 'wholebrainXYcropped'
@@ -362,7 +362,12 @@ def generate_aligner_parameters_v2(alignment_spec,
         sys.stderr.write("No fixed volumes.\n")
     else:
         sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
-
+        
+#         structure_center = {label_to_structure_fixed[i]: o + np.array(v.shape)[[1,0,2]] for i, (v, o) in volume_fixed.iteritems()}
+#         all_loaded_unsided_names = set([convert_to_unsided_name(s) for s in structure_to_label_fixed.iterkeys()])
+#         for name_u in all_loaded_unsided_names:
+#             if name_u == 
+            
     ############################################################################
 
     # Make two volumes the same resolution.
@@ -375,11 +380,11 @@ def generate_aligner_parameters_v2(alignment_spec,
     if ratio_m_to_f < 1:
         print 'Moving volume voxel size (%.2f um) is smaller than fixed volume (%.2f um); downsample moving volume to %.2f um.' % (voxel_size_m, voxel_size_f, voxel_size_f)
         # float16 is not supported by zoom()
-        volume_moving = {k: (rescale_by_resampling(v, ratio_m_to_f), o * ratio_m_to_f) for k, (v,o ) in volume_moving.iteritems()}
+        volume_moving = {k: (rescale_by_resampling(v, ratio_m_to_f), o * ratio_m_to_f) for k, (v, o) in volume_moving.iteritems()}
         unified_resolution = voxel_size_f
     elif ratio_m_to_f > 1:
         print 'Fixed volume voxel size (%.2f um) is smaller than moving volume (%.2f um); downsample fixed volume to %.2f um.' % (voxel_size_f, voxel_size_m, voxel_size_m)
-        volume_fixed = {k: (rescale_by_resampling(v, 1./ratio_m_to_f), o / ratio_m_to_f) for k, (v, o) in volume_fixed.iteritems()}
+        volume_fixed = {k: (rescale_by_resampling(v, 1./ratio_m_to_f), o / float(ratio_m_to_f)) for k, (v, o) in volume_fixed.iteritems()}
         unified_resolution = voxel_size_m
     else:
         unified_resolution = voxel_size_m
@@ -2288,6 +2293,52 @@ def alignment_parameters_to_transform_matrix(transform_parameters):
     params = np.array(transform_parameters['parameters'])
     T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
     return T
+
+def alignment_parameters_to_transform_matrix_v2(transform_parameters):
+    """
+    Returns:
+        (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
+    """
+    cf = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+    cm = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+    params = np.array(transform_parameters['parameters'])
+    T = consolidate(params=params, centroid_m=cm, centroid_f=cf)[:3]
+    return T
+
+def transform_volume_by_alignment_parameters_v2(volume, transform_parameters=None, bbox=None, origin=None):
+    """
+    Args:
+        vol: the volume to transform
+        bbox: wrt wholebrain
+        transform_parameters (dict): the dict that describes the transform
+
+    Returns:
+        (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
+    """
+
+    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
+    
+    if origin is not None:
+        volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
+            transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
+        return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
+    elif bbox is not None:
+        volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
+            transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
+        return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+    else: 
+        raise
+        
+def transform_points_by_transform_parameters_v2(pts, transform_parameters):
+    """
+    Args:
+        pts ((n,3)-array): wrt wholebrain
+    """
+
+    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
+    R = T[:3,:3]
+    t = T[:3,3]
+    return np.dot(R, np.array(pts).T).T + t
 
 def transform_volume_by_alignment_parameters(volume, transform_parameters=None, bbox=None, origin=None):
     """

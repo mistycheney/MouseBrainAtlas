@@ -35,7 +35,9 @@ from skimage.measure import find_contours, regionprops
 
 ##################################################################
 
-
+def volume_origin_to_bbox(v, o):
+    return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
+    
 ####################################################################
 
 def get_structure_length_at_direction(structure_vol, d):

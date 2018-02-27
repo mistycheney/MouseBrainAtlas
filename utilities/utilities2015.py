@@ -35,7 +35,9 @@ from skimage.measure import find_contours, regionprops
 
 ##################################################################
 
-
+def volume_origin_to_bbox(v, o):
+    return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
+    
 ####################################################################
 
 def get_structure_length_at_direction(structure_vol, d):
@@ -635,12 +637,13 @@ def draw_alignment(warped_atlas, fixed_volumes, level_spacing=10, zs=None, ncols
     plt.show()
 
 
-def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
+def get_grid_mesh_coordinates(bbox, spacings=(1,1,1), dot_spacing=1, include_borderline=True):
     """
     Get the coordinates of grid lines.
 
     Args:
-        spacing (int): the spacing between dots if broken lines are desired.
+        spacings (3-tuple): spacing between grid lines in x,y and z.
+        dot_spacing (int): the spacing between dots if broken lines are desired.
 
     Returns:
         (n,3)-array
@@ -650,9 +653,9 @@ def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
 
     xdim, ydim, zdim = (xmax+1-xmin, ymax+1-ymin, zmax+1-zmin)
 
-    xs = np.arange(0, xdim, 1)
-    ys = np.arange(0, ydim, 1)
-    zs = np.arange(0, zdim, 1)
+    xs = np.arange(0, xdim, spacings[0])
+    ys = np.arange(0, ydim, spacings[1])
+    zs = np.arange(0, zdim, spacings[2])
 
     vol = np.zeros((ydim, xdim, zdim), np.bool)
     xs = xs.astype(np.int)
@@ -675,18 +678,18 @@ def get_grid_mesh_coordinates(bbox, spacing, include_borderline=True):
         else:
             zs = np.r_[zs, zdim-1]
     for y in ys:
-        vol[y, xs, ::spacing] = 1
-        vol[y, ::spacing, zs] = 1
+        vol[y, xs, ::dot_spacing] = 1
+        vol[y, ::dot_spacing, zs] = 1
     for x in xs:
-        vol[ys, x, ::spacing] = 1
-        vol[::spacing, x, zs] = 1
+        vol[ys, x, ::dot_spacing] = 1
+        vol[::dot_spacing, x, zs] = 1
     for z in zs:
-        vol[ys, ::spacing, z] = 1
-        vol[::spacing, xs, z] = 1
+        vol[ys, ::dot_spacing, z] = 1
+        vol[::dot_spacing, xs, z] = 1
 
     ys, xs, zs = np.nonzero(vol)
 
-    return np.c_[xs, ys, zs]
+    return np.c_[xs, ys, zs] + (xmin,ymin,zmin)
 
 
 def get_grid_mesh_volume(xs, ys, zs, vol_shape, s=1, include_borderline=True):
@@ -756,7 +759,7 @@ def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
         return vol, gp_xyzs
     else:
         return vol
-
+    
 def return_gridline_points_v2(xdim, ydim, spacing, z):
     xs = np.arange(0, xdim, spacing)
     ys = np.arange(0, ydim, spacing)

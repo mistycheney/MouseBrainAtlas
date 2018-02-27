@@ -77,12 +77,12 @@ class Aligner(object):
         # self.all_indices_m = list(set(self.labelIndexMap_m2f.keys()) & labels_in_volume_m)
         # self.all_indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
 
-        global volume_f
+        global volume_f, volume_f_origin
 
         if isinstance(volume_f_, dict): # probabilistic volume
             # volume_f = volume_f_
             volume_f = {i: volume_f_[i][0] for i in self.all_indices_f}
-            volume_f_origin = {i: volume_f_[i][1] for i in self.all_indices_f}
+            volume_f_origin = {i: volume_f_[i][1].astype(np.int) for i in self.all_indices_f}
 
         # else: # annotation volume
         #     volume_f = {i: np.zeros_like(volume_f_, dtype=np.float16) for i in self.all_indices_f}
@@ -94,12 +94,12 @@ class Aligner(object):
         # for i, v in volume_f.iteritems():
         #     volume_f[i] = gaussian(v, 3)
 
-        global volume_m
+        global volume_m, volume_m_origin
 
         if isinstance(volume_m_, dict): # probabilistic volume
             # volume_m = volume_m_
             volume_m = {i: volume_m_[i][0] for i in self.all_indices_m}
-            volume_m_origin = {i: volume_m_[i][1] for i in self.all_indices_m}
+            volume_m_origin = {i: volume_m_[i][1].astype(np.int) for i in self.all_indices_m}
         # else: # annotation volume; also convert to dict, treated the same as prob. volume
         #     volume_m = {i: np.zeros_like(volume_m_, dtype=np.float16) for i in self.all_indices_m}
         #     for i in self.all_indices_m:
@@ -160,8 +160,9 @@ class Aligner(object):
 
             # nzvoxels_m_ = [parallel_where_binary(volume_m[i] > nz_thresh) + volume_m_origin[i] for i in list(self.all_indices_m)]
             # nzvoxels_m = dict(zip(list(self.all_indices_m), nzvoxels_m_))
-            nzvoxels_m = {i: parallel_where_binary(volume_m[i] > nz_thresh) + volume_m_origin[i] 
-                           for i in self.all_indices_m}
+            nzvoxels_m = {ind_m: parallel_where_binary(volume_m[ind_m] > nz_thresh) + volume_m_origin[ind_m] 
+                           for ind_m in self.all_indices_m}
+            print nzvoxels_m is None
         else:
             nzvoxels_m = nzvoxels_m_
 
@@ -278,7 +279,12 @@ class Aligner(object):
             if centroid_m == 'structure_centroid':
                 self.centroid_m = np.concatenate([nzvoxels_m[i] for i in indices_m]).mean(axis=0)
             elif centroid_m == 'volume_centroid':
-                self.centroid_m = np.r_[.5*self.xdim_m, .5*self.ydim_m, .5*self.zdim_m]
+                bboxes = np.array([volume_origin_to_bbox(volume_m[i], volume_m_origin[i]) for i in indices_m])
+                # print bboxes
+                xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2
+                yc = (bboxes[:,2].min(axis=0) + bboxes[:,3].max(axis=0)) / 2
+                zc = (bboxes[:,4].min(axis=0) + bboxes[:,5].max(axis=0)) / 2
+                self.centroid_m = np.r_[xc, yc, zc]
             elif centroid_m == 'origin':
                 self.centroid_m = np.zeros((3,))
             else:
@@ -293,8 +299,11 @@ class Aligner(object):
                 assert "Need to check, volume_f is no longer the same"
                 self.centroid_f = np.hstack([np.nonzero(volume_f[self.labelIndexMap_m2f[i]]) for i in indices_m]).mean(axis=1)[[1,0,2]]
             elif centroid_f == 'volume_centroid':
-                # self.centroid_f = np.r_[.5*self.xdim_f, .5*self.ydim_f, .5*self.zdim_f]
-                raise
+                bboxes = np.array([volume_origin_to_bbox(volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]) for i in indices_m])
+                xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2
+                yc = (bboxes[:,2].min(axis=0) + bboxes[:,3].max(axis=0)) / 2
+                zc = (bboxes[:,4].min(axis=0) + bboxes[:,5].max(axis=0)) / 2
+                self.centroid_f = np.r_[xc, yc, zc]
             elif centroid_f == 'origin':
                 self.centroid_f = np.zeros((3,))
             else:
@@ -351,11 +360,11 @@ class Aligner(object):
             indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
             sys.stderr.write('indices_f: %s\n' % indices_f)
 
-        global grad_f
+        global grad_f, grad_f_origin
 
         if gradients is not None:
             grad_f = {i: g for i, (g, o) in gradients.iteritems()}
-            grad_f_origin = {i: o for i, (g, o) in gradients.iteritems()}
+            grad_f_origin = {i: o.astype(np.int) for i, (g, o) in gradients.iteritems()}
         else:
             raise
 #         else:
@@ -415,7 +424,8 @@ class Aligner(object):
 
             # t = time.time()
             import random
-            random_indices = np.array(random.sample( xrange(num_nz), min(num_nz, n_sample) ))
+            random_indices = np.array(sorted(random.sample(xrange(num_nz), min(num_nz, n_sample))))
+            # NOTE: sorted is important
             # sys.stderr.write('random_indices: %.2f seconds\n' % (time.time() - t))
 
             if tf_type == 'affine' or tf_type == 'rigid':
@@ -436,19 +446,21 @@ class Aligner(object):
 
             xs_prime_sampled, ys_prime_sampled, zs_prime_sampled = pts_prime_sampled.T
             
+            # print 'origin=', volume_f_origin[ind_f], 'volume_shape=', [volume_f[ind_f].shape[1], volume_f[ind_f].shape[0], volume_f[ind_f].shape[2]]
+            
             valid_indicator_within_sampled = (xs_prime_sampled - volume_f_origin[ind_f][0] >= 0) & \
             (ys_prime_sampled - volume_f_origin[ind_f][1] >= 0) & \
             (zs_prime_sampled - volume_f_origin[ind_f][2] >= 0) & \
-            (xs_prime_sampled - volume_f_origin[ind_f][0] < self.xdim_f) & \
-            (ys_prime_sampled - volume_f_origin[ind_f][1] < self.ydim_f) & \
-            (zs_prime_sampled - volume_f_origin[ind_f][2] < self.zdim_f)
-            
+            (xs_prime_sampled - volume_f_origin[ind_f][0] < volume_f[ind_f].shape[1]) & \
+            (ys_prime_sampled - volume_f_origin[ind_f][1] < volume_f[ind_f].shape[0]) & \
+            (zs_prime_sampled - volume_f_origin[ind_f][2] < volume_f[ind_f].shape[2])
+              
             valid_moving_voxel_indicator[random_indices[valid_indicator_within_sampled]] = 1
-
+                
             xs_prime_valid = xs_prime_sampled[valid_indicator_within_sampled]
             ys_prime_valid = ys_prime_sampled[valid_indicator_within_sampled]
             zs_prime_valid = zs_prime_sampled[valid_indicator_within_sampled]
-
+            
         else:
             if tf_type == 'affine' or tf_type == 'rigid':
                 pts_prime = transform_points_affine(np.array(T),
@@ -464,9 +476,16 @@ class Aligner(object):
                                                     NuNvNw_allTestPts=self.NuNvNw_allTestPts[ind_m]).astype(np.int16)
 
             xs_prime, ys_prime, zs_prime = pts_prime.T
-
-            valid_moving_voxel_indicator = (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
-                    (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
+            
+            valid_moving_voxel_indicator = (xs_prime - volume_f_origin[ind_f][0] >= 0) & \
+            (ys_prime - volume_f_origin[ind_f][1] >= 0) & \
+            (zs_prime - volume_f_origin[ind_f][2] >= 0) & \
+            (xs_prime - volume_f_origin[ind_f][0] < volume_f[ind_f].shape[1]) & \
+            (ys_prime - volume_f_origin[ind_f][1] < volume_f[ind_f].shape[0]) & \
+            (zs_prime - volume_f_origin[ind_f][2] < volume_f[ind_f].shape[2])
+            
+#             (xs_prime >= 0) & (ys_prime >= 0) & (zs_prime >= 0) & \
+#                     (xs_prime < self.xdim_f) & (ys_prime < self.ydim_f) & (zs_prime < self.zdim_f)
 
             xs_prime_valid = xs_prime[valid_moving_voxel_indicator]
             ys_prime_valid = ys_prime[valid_moving_voxel_indicator]
@@ -505,7 +524,9 @@ class Aligner(object):
         # sys.stderr.write("fancy indexing into moving volume nz voxels: %.2f s\n" % (time.time() - t))
         # Moving volume's value at valid voxels. (n_valid_nz_m, )
         # t = time.time()
-        S_m_valid_scores = volume_m[ind_m][xyzs_valid[:,1], xyzs_valid[:,0], xyzs_valid[:,2]]
+        S_m_valid_scores = volume_m[ind_m][xyzs_valid[:,1] - volume_m_origin[ind_m][1], 
+                                           xyzs_valid[:,0] - volume_m_origin[ind_m][0], 
+                                           xyzs_valid[:,2] - volume_m_origin[ind_m][2]]
         # sys.stderr.write("fancy indexing into moving volume: %.2f s\n" % (time.time() - t))
 
         # Moving volume's valid voxel coordinates (centralized).
@@ -521,15 +542,15 @@ class Aligner(object):
         # Fixed volume's gradients at valid voxels.
 
         # t = time.time()
-        Sx = grad_f[ind_f][0, ys_prime_valid - grad_f_origin[1], 
-                           xs_prime_valid - grad_f_origin[0], 
-                           zs_prime_valid - grad_f_origin[2]]
-        Sy = grad_f[ind_f][1, ys_prime_valid - grad_f_origin[1], 
-                           xs_prime_valid - grad_f_origin[0], 
-                           zs_prime_valid - grad_f_origin[2]]
-        Sz = grad_f[ind_f][2, ys_prime_valid - grad_f_origin[1], 
-                           xs_prime_valid - grad_f_origin[0], 
-                           zs_prime_valid - grad_f_origin[2]]
+        Sx = grad_f[ind_f][0, ys_prime_valid - grad_f_origin[ind_f][1], 
+                           xs_prime_valid - grad_f_origin[ind_f][0], 
+                           zs_prime_valid - grad_f_origin[ind_f][2]]
+        Sy = grad_f[ind_f][1, ys_prime_valid - grad_f_origin[ind_f][1], 
+                           xs_prime_valid - grad_f_origin[ind_f][0], 
+                           zs_prime_valid - grad_f_origin[ind_f][2]]
+        Sz = grad_f[ind_f][2, ys_prime_valid - grad_f_origin[ind_f][1], 
+                           xs_prime_valid - grad_f_origin[ind_f][0], 
+                           zs_prime_valid - grad_f_origin[ind_f][2]]
         if np.all(Sx == 0) and np.all(Sy == 0) and np.all(Sz == 0):
             raise Exception("Image gradient at all valid voxel is zero.")
         # sys.stderr.write("fancy indexing into fixed volume gradient: %.2f s\n" % (time.time() - t))
@@ -694,8 +715,6 @@ class Aligner(object):
                 # sys.stderr.write("compute_score_and_gradient_one: %.2f s\n" % (time.time()-t))
                 # sys.stderr.write("%d, %f\n" % (ind_m, score_one))
                 # print "grad_one", grad_one.shape
-                # grad += grad_one
-                # score += score_one
                 grad += self.label_weights[ind_m] * grad_one
                 score += self.label_weights[ind_m] * score_one
 
@@ -741,10 +760,16 @@ class Aligner(object):
         self.get_valid_voxels_after_transform(T, tf_type=tf_type, ind_m=ind_m, return_valid=True, n_sample=n_sample)
         # sys.stderr.write("Timing 2: get_valid_voxels_after_transform: %.2f seconds.\n" % (time.time()-t))
 
-        n_total = len(nzvoxels_centered_m[ind_m])
+        if n_sample is None:
+            n_total = len(nzvoxels_centered_m[ind_m])
+        else:
+            n_total = min(n_sample, len(nzvoxels_centered_m[ind_m]))
         n_valid = np.count_nonzero(valid_moving_voxel_indicator)
         n_invalid = n_total - n_valid
-        # sys.stderr.write('%d: %d valid, %d out-of-bound voxels after transform.\n' % (ind_m, n_valid, n_invalid))
+        # n_invalid = 0
+        # print valid_moving_voxel_indicator
+        if n_invalid > 0:
+            sys.stderr.write('%d: %d valid, %d out-of-bound voxels after transform.\n' % (ind_m, n_valid, n_invalid))
         if n_valid == 0:
             raise Exception('%d: No valid voxels after transform.' % ind_m)
 
@@ -758,12 +783,12 @@ class Aligner(object):
 
         # This one considers the values of atlas voxels.
         xs_valid, ys_valid, zs_valid = nzvoxels_m[ind_m].astype(np.int16)[valid_moving_voxel_indicator].T
-        voxel_probs_valid = volume_m[ind_m][ys_valid - volume_m_origin[1], 
-                                            xs_valid - volume_m_origin[0], 
-                                            zs_valid - volume_m_origin[2]] * \
-        volume_f[ind_f][ys_prime_valid - volume_f_origin[1], 
-                        xs_prime_valid - volume_f_origin[0], 
-                        zs_prime_valid - volume_f_origin[2]] / 1e6
+        voxel_probs_valid = volume_m[ind_m][ys_valid - volume_m_origin[ind_m][1], 
+                                            xs_valid - volume_m_origin[ind_m][0], 
+                                            zs_valid - volume_m_origin[ind_m][2]] * \
+        volume_f[ind_f][ys_prime_valid - volume_f_origin[ind_f][1], 
+                        xs_prime_valid - volume_f_origin[ind_f][0], 
+                        zs_prime_valid - volume_f_origin[ind_f][2]] / 1e6
 
         # sys.stderr.write("Timing 2: fancy indexing valid voxels into fixed volume: %.2f seconds.\n" % (time.time()-t))
 
@@ -1291,24 +1316,24 @@ class Aligner(object):
 
         if euler_angles_R_new[2] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], np.pi/4.])
-            sys.stderr.write("Constrain around-z angle.\n")
+            sys.stderr.write("Constrain around-z angle. Force to < 45 degree.\n")
         elif euler_angles_R_new[2] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], -np.pi/4.])
-            sys.stderr.write("Constrain around-z angle.\n")
+            sys.stderr.write("Constrain around-z angle. Force to < 45 degree\n")
 
         if euler_angles_R_new[1] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], np.pi/4., euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-y angle.\n")
+            sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
         elif euler_angles_R_new[1] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], -np.pi/4., euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-y angle.\n")
+            sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
 
         if euler_angles_R_new[0] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-x angle.\n")
+            sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
         elif euler_angles_R_new[0] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([-np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-x angle.\n")
+            sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
 
         # Constrain the amount of rotation around ANY axis.
 
@@ -1376,3 +1401,253 @@ class Aligner(object):
         elif tf_type == 'bspline':
             sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max()))
         return new_T, score, grad_historical, sq_updates_historical
+    
+    
+    
+    
+def global_registration(global_alignment_spec, structures_m):
+    global_aligner_parameters = generate_aligner_parameters_v2(alignment_spec=global_alignment_spec, structures_m=structures_m)
+
+    volume_fixed = global_aligner_parameters['volume_fixed']
+    volume_moving = global_aligner_parameters['volume_moving']
+
+    aligner = Aligner(volume_fixed, volume_moving, labelIndexMap_m2f=global_aligner_parameters['label_mapping_m2f'])
+
+    aligner.set_centroid(centroid_m='volume_centroid', centroid_f='centroid_m')
+    aligner.set_label_weights(label_weights=global_aligner_parameters['label_weights_m'])
+
+    # If no any structures overlap after centroid alignment, we need to do grid search to obtain a better initial transform.
+    # grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=1,
+    #                                    grid_search_sample_number=5,
+    #                 parallel=True,
+    #                 std_tx=50, std_ty=50, std_tz=30)
+
+    gradients_f = compute_gradient_v2(volume_fixed, smooth_first=True)
+    aligner.load_gradient(gradients=gradients_f)
+
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=global_aligner_parameters['transform_type'],
+                                         max_iter_num=1000,
+                                         history_len=20,
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.1,
+                                         grad_computation_sample_number=global_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=10, lr2=.1,
+                                        # init_T=grid_search_T,
+                                         affine_scaling_limits=(.9, 1.2)
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # T = T_all_trials[best_trial]
+    T = traj_all_trials[best_trial][-1]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+
+
+    transform_parameters = {
+    'parameters': T_all_trials[best_trial],
+    'centroid_m_wrt_wholebrain': aligner.centroid_m,
+    'centroid_f_wrt_wholebrain': aligner.centroid_f,
+    'resolution_um': global_aligner_parameters['resolution_um'] 
+    }
+
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=global_alignment_spec)
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=global_alignment_spec)
+
+    ####################################
+    
+    stack_m_spec = global_alignment_spec['stack_m']
+    
+    scale_registration_resol_to_original_resol = transform_parameters['resolution_um'] / convert_resolution_string_to_voxel_size(resolution=stack_m_spec['resolution'], stack=stack_m_spec['name'])
+    # scale to original resolution of the moving volume
+    print 'scale_registration_resol_to_original_resol =', scale_registration_resol_to_original_resol
+
+    parameters_rescaled_to_originalResol = transform_parameters['parameters'].copy()
+    parameters_rescaled_to_originalResol[[3,7,11]] = np.array(transform_parameters['parameters'])[[3,7,11]] * scale_registration_resol_to_original_resol
+
+    transform_parameters_originalResol = {'centroid_f_wrt_wholebrain': transform_parameters['centroid_f_wrt_wholebrain'] * scale_registration_resol_to_original_resol, 
+                                 'centroid_m_wrt_wholebrain': transform_parameters['centroid_m_wrt_wholebrain'] * scale_registration_resol_to_original_resol,
+                                 'parameters': parameters_rescaled_to_originalResol.flatten()
+                                }    
+
+    for name_s in all_known_structures_sided_with_surround:
+
+        volume, bbox_wrt_atlasSpace = \
+        DataManager.load_original_volume_v2(stack_m_spec, structure=name_s, bbox_wrt='atlasSpace')
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = \
+        transform_volume_by_alignment_parameters_v2(volume, bbox=bbox_wrt_atlasSpace, 
+                                                 transform_parameters=transform_parameters_originalResol)
+    #     print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=global_alignment_spec, 
+                                            resolution=stack_m_spec['resolution'], 
+                                            structure=name_s)
+        del volume, transformed_vol
+
+
+def local_registration(local_alignment_spec, global_alignment_spec):
+
+    structure_m = local_alignment_spec['stack_m']['structure']
+
+    local_aligner_parameters = generate_aligner_parameters_v2(alignment_spec=local_alignment_spec,
+                                                           structures_m=[structure_m])
+
+    global_transform_parameters = DataManager.load_alignment_parameters_v3(global_alignment_spec)
+
+    volume_fixed = local_aligner_parameters['volume_fixed']
+    volume_moving = local_aligner_parameters['volume_moving']
+
+    v, o = volume_moving[local_aligner_parameters['structure_to_label_moving'][structure_m]]
+    init_shift_wrt_movingWholebrain = get_centroid_3d(v) + o
+    init_shift_wrt_fixedWholebrain = transform_points_by_transform_parameters_v2(pts=[init_shift_wrt_movingWholebrain],
+    transform_parameters=global_transform_parameters)[0]
+
+    print init_shift_wrt_movingWholebrain, init_shift_wrt_fixedWholebrain
+
+    aligner = Aligner(volume_fixed, volume_moving, labelIndexMap_m2f=local_aligner_parameters['label_mapping_m2f'])
+    aligner.set_centroid(centroid_m=init_shift_wrt_movingWholebrain, centroid_f=init_shift_wrt_fixedWholebrain)
+    aligner.set_label_weights(label_weights=local_aligner_parameters['label_weights_m'])
+
+    gradients_f = compute_gradient_v2(volume_fixed, smooth_first=True)
+
+    # gradients_f = {}
+    # for ind_f, struct_f in local_aligner_parameters['label_to_structure_fixed'].iteritems():
+    #     tmpl = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=local_alignment_spec['stack_f'], structure=struct_f)
+    #     gradients_f[ind_f] = np.asarray([bp.unpack_ndarray_file(tmpl % {'suffix': 'gx'}),
+    #                          bp.unpack_ndarray_file(tmpl % {'suffix': 'gy'}),
+    #                          bp.unpack_ndarray_file(tmpl % {'suffix': 'gz'})])
+
+    aligner.load_gradient(gradients=gradients_f)
+
+
+    init_T = transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters,
+                                   centroid_m=init_shift_wrt_movingWholebrain, 
+                                    centroid_f=init_shift_wrt_fixedWholebrain)
+    print 'init_T', init_T
+
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=local_aligner_parameters['transform_type'],
+                                         max_iter_num=10000,
+                                         history_len=20,
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.01,
+                                    grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=1, lr2=.01,
+                                         init_T=init_T.flatten()
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+
+
+
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # T = T_all_trials[best_trial]
+    T = traj_all_trials[best_trial][-1]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+
+    transform_parameters = {
+        'parameters': T_all_trials[best_trial],
+        'centroid_m_wrt_wholebrain': aligner.centroid_m,
+        'centroid_f_wrt_wholebrain': aligner.centroid_f,
+    }
+
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=local_alignment_spec)
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=local_alignment_spec)
+
+    
+    stack_m_spec = local_alignment_spec['stack_m']
+    
+    for name_s in [structure_m]:
+
+        volume, bbox_wrt_atlasSpace = \
+            DataManager.load_original_volume_v2(stack_m_spec, structure=name_s, bbox_wrt='atlasSpace')
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters_v2(volume, bbox=bbox_wrt_atlasSpace, transform_parameters=transform_parameters)
+        print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=local_alignment_spec, 
+                                            resolution='%.1fum' % local_aligner_parameters['resolution_um'], 
+                                            structure=name_s)

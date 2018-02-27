@@ -119,12 +119,12 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             self.active_section = self.data_feeder.sections[self.active_i]
             print self.id, ': Set active section to', self.active_section
 
-        try:
-            self.update_image()
-        except Exception as e: # if failed, do not change active_i or active_section
-            sys.stderr.write('Error setting index to %d\n' % i)
-            self.pixmapItem.setVisible(False)
-            raise e
+        # try:
+        self.update_image()
+        # except Exception as e: # if failed, do not change active_i or active_section
+        #     sys.stderr.write('Error setting index to %d\n' % i)
+        #     self.pixmapItem.setVisible(False)
+        #     raise e
             # return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
 
         if emit_changed_signal:
@@ -160,11 +160,11 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         self.pixmapItem.setPixmap(pixmap)
         self.pixmapItem.setVisible(True)
 
-    def set_downsample_factor(self, downsample):
-        if self.data_feeder.downsample == downsample:
-            return
-        self.data_feeder.set_downsample_factor(downsample)
-        self.update_image()
+    # def set_downsample_factor(self, downsample):
+    #     if self.data_feeder.downsample == downsample:
+    #         return
+    #     self.data_feeder.set_downsample_factor(downsample)
+    #     self.update_image()
 
     def show_next(self, cycle=False):
         if cycle:

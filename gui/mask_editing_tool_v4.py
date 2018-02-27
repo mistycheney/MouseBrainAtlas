@@ -67,7 +67,6 @@ class MaskEditingGUI(QMainWindow):
         self.ui.slider_minSize.valueChanged.connect(self.snake_minSize_changed)
 
         self.sections_to_filenames = DataManager.load_sorted_filenames(stack)[1]
-        # self.sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if sec >= 95 and sec < 105}
         self.valid_sections_to_filenames = {sec: fn for sec, fn in self.sections_to_filenames.iteritems() if not is_invalid(fn)}
         self.valid_filenames_to_sections = {fn: sec for sec, fn in self.valid_sections_to_filenames.iteritems()}
         q = sorted(self.valid_sections_to_filenames.items())
@@ -121,10 +120,11 @@ class MaskEditingGUI(QMainWindow):
 
         self.auto_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForSnake(id='init_snake_contours', gview=self.ui.init_snake_contour_gview)
         self.auto_masks_feeder = ImageDataFeeder_v2(name='init_snake_contours', stack=self.stack, \
-                                    sections=self.valid_sections, use_data_manager=True,
-                                    resolution='down32',
+                                    sections=self.valid_sections, auto_load=True,
+                                    resolution='thumbnail',
                                     prep_id=1,
-                                    version='Ntb')
+                                    version='NtbNormalized',
+                                    use_thread=False)
                                     # labeled_filenames={sec: os.path.join(RAW_DATA_DIR, self.stack, fn + ".png")
                                         # for sec, fn in self.valid_sections_to_filenames.iteritems()})
         self.auto_submasks_gscene.set_data_feeder(self.auto_masks_feeder)
@@ -144,10 +144,11 @@ class MaskEditingGUI(QMainWindow):
 
         self.user_submasks_gscene = DrawableZoomableBrowsableGraphicsScene_ForMasking(id='user_submasks', gview=self.ui.gview_final_masks_user)
         self.user_submasks_feeder = ImageDataFeeder_v2(name='user_submasks', stack=self.stack, \
-                                    sections=self.valid_sections, use_data_manager=True,
-                                    resolution='down32',
+                                    sections=self.valid_sections, auto_load=True,
+                                    resolution='thumbnail',
                                     prep_id=1,
-                                    version='Ntb')
+                                    version='NtbNormalized',
+                                    use_thread=False)
         self.user_submasks_gscene.set_data_feeder(self.user_submasks_feeder)
         self.user_submasks_gscene.submask_decision_updated.connect(self.user_submask_decision_updated)
         self.user_submasks_gscene.submask_updated.connect(self.user_submask_updated)
@@ -173,16 +174,19 @@ class MaskEditingGUI(QMainWindow):
 
         self.gscene_thresholded = ZoomableBrowsableGraphicsScene(id='thresholded', gview=self.ui.gview_thresholded)
         self.thresholded_image_feeder = ImageDataFeeder_v2(name='thresholded', stack=self.stack, \
-                                                        sections=self.valid_sections, use_data_manager=False,
-                                                        resolution='down32')
+                                                        sections=self.valid_sections, auto_load=False,
+                                                        resolution='thumbnail',
+                                                        use_thread=False
+                                                        )
         self.gscene_thresholded.set_data_feeder(self.thresholded_image_feeder)
 
         #########################################################
 
         self.gscene_merged_mask = ZoomableBrowsableGraphicsScene(id='mergedMask', gview=self.ui.gview_merged_mask)
         self.merged_masks_feeder = ImageDataFeeder_v2(name='mergedMask', stack=self.stack, \
-                                                sections=self.valid_sections, use_data_manager=False,
-                                                resolution='down32')
+                                                sections=self.valid_sections, auto_load=False,
+                                                resolution='thumbnail',
+                                                use_thread=False)
         self.gscene_merged_mask.set_data_feeder(self.merged_masks_feeder)
 
 
@@ -215,7 +219,9 @@ class MaskEditingGUI(QMainWindow):
         contours_on_anchor_sections = \
             {sec: vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
             for sec in self.auto_submasks_gscene.anchor_sections}
-        save_pickle(contours_on_anchor_sections, DataManager.get_anchor_initial_snake_contours_filepath(stack))
+        fp = DataManager.get_anchor_initial_snake_contours_filepath(stack)
+        save_pickle(contours_on_anchor_sections, fp)
+        print 'Anchor contours saved to', fp
 
     def load_all_init_snake_contours(self):
         init_snake_contours_on_all_sections = load_pickle(DataManager.get_initial_snake_contours_filepath(stack=stack))
@@ -233,7 +239,9 @@ class MaskEditingGUI(QMainWindow):
                 init_snake_contours_on_all_sections[fn] = vertices_from_polygon(self.auto_submasks_gscene.init_snake_contour_polygons[sec])
             else:
                 sys.stderr.write("Image %s (section %d) does not have any initial snake contour.\n" % (fn, sec))
-        save_pickle(init_snake_contours_on_all_sections, DataManager.get_initial_snake_contours_filepath(stack=stack))
+        fp = DataManager.get_initial_snake_contours_filepath(stack=stack)
+        save_pickle(init_snake_contours_on_all_sections, fp)
+        print 'Initial contours for all sections saved to', fp
 
     def save_final_masks_all_sections(self):
         # pool = Pool(16)
@@ -364,7 +372,8 @@ class MaskEditingGUI(QMainWindow):
     def update_contrast_stretched_image(self, sec):
         if sec not in self.original_images:
             # img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif')
-            img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif', version='Ntb')
+            img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif', version='NtbNormalized')
+            print img
             self.original_images[sec] = brightfieldize_image(img)
         if sec not in self.selected_channels:
             self.selected_channels[sec] = DEFAULT_MASK_CHANNEL

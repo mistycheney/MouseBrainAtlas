@@ -1401,3 +1401,253 @@ class Aligner(object):
         elif tf_type == 'bspline':
             sys.stderr.write("in T: min %.2f, max %.2f; out T: min %.2f, max %.2f\n" % (T.min(), T.max(), new_T.min(), new_T.max()))
         return new_T, score, grad_historical, sq_updates_historical
+    
+    
+    
+    
+def global_registration(global_alignment_spec, structures_m):
+    global_aligner_parameters = generate_aligner_parameters_v2(alignment_spec=global_alignment_spec, structures_m=structures_m)
+
+    volume_fixed = global_aligner_parameters['volume_fixed']
+    volume_moving = global_aligner_parameters['volume_moving']
+
+    aligner = Aligner(volume_fixed, volume_moving, labelIndexMap_m2f=global_aligner_parameters['label_mapping_m2f'])
+
+    aligner.set_centroid(centroid_m='volume_centroid', centroid_f='centroid_m')
+    aligner.set_label_weights(label_weights=global_aligner_parameters['label_weights_m'])
+
+    # If no any structures overlap after centroid alignment, we need to do grid search to obtain a better initial transform.
+    # grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=1,
+    #                                    grid_search_sample_number=5,
+    #                 parallel=True,
+    #                 std_tx=50, std_ty=50, std_tz=30)
+
+    gradients_f = compute_gradient_v2(volume_fixed, smooth_first=True)
+    aligner.load_gradient(gradients=gradients_f)
+
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=global_aligner_parameters['transform_type'],
+                                         max_iter_num=1000,
+                                         history_len=20,
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.1,
+                                         grad_computation_sample_number=global_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=10, lr2=.1,
+                                        # init_T=grid_search_T,
+                                         affine_scaling_limits=(.9, 1.2)
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # T = T_all_trials[best_trial]
+    T = traj_all_trials[best_trial][-1]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+
+
+    transform_parameters = {
+    'parameters': T_all_trials[best_trial],
+    'centroid_m_wrt_wholebrain': aligner.centroid_m,
+    'centroid_f_wrt_wholebrain': aligner.centroid_f,
+    'resolution_um': global_aligner_parameters['resolution_um'] 
+    }
+
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=global_alignment_spec)
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=global_alignment_spec)
+
+    ####################################
+    
+    stack_m_spec = global_alignment_spec['stack_m']
+    
+    scale_registration_resol_to_original_resol = transform_parameters['resolution_um'] / convert_resolution_string_to_voxel_size(resolution=stack_m_spec['resolution'], stack=stack_m_spec['name'])
+    # scale to original resolution of the moving volume
+    print 'scale_registration_resol_to_original_resol =', scale_registration_resol_to_original_resol
+
+    parameters_rescaled_to_originalResol = transform_parameters['parameters'].copy()
+    parameters_rescaled_to_originalResol[[3,7,11]] = np.array(transform_parameters['parameters'])[[3,7,11]] * scale_registration_resol_to_original_resol
+
+    transform_parameters_originalResol = {'centroid_f_wrt_wholebrain': transform_parameters['centroid_f_wrt_wholebrain'] * scale_registration_resol_to_original_resol, 
+                                 'centroid_m_wrt_wholebrain': transform_parameters['centroid_m_wrt_wholebrain'] * scale_registration_resol_to_original_resol,
+                                 'parameters': parameters_rescaled_to_originalResol.flatten()
+                                }    
+
+    for name_s in all_known_structures_sided_with_surround:
+
+        volume, bbox_wrt_atlasSpace = \
+        DataManager.load_original_volume_v2(stack_m_spec, structure=name_s, bbox_wrt='atlasSpace')
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = \
+        transform_volume_by_alignment_parameters_v2(volume, bbox=bbox_wrt_atlasSpace, 
+                                                 transform_parameters=transform_parameters_originalResol)
+    #     print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=global_alignment_spec, 
+                                            resolution=stack_m_spec['resolution'], 
+                                            structure=name_s)
+        del volume, transformed_vol
+
+
+def local_registration(local_alignment_spec, global_alignment_spec):
+
+    structure_m = local_alignment_spec['stack_m']['structure']
+
+    local_aligner_parameters = generate_aligner_parameters_v2(alignment_spec=local_alignment_spec,
+                                                           structures_m=[structure_m])
+
+    global_transform_parameters = DataManager.load_alignment_parameters_v3(global_alignment_spec)
+
+    volume_fixed = local_aligner_parameters['volume_fixed']
+    volume_moving = local_aligner_parameters['volume_moving']
+
+    v, o = volume_moving[local_aligner_parameters['structure_to_label_moving'][structure_m]]
+    init_shift_wrt_movingWholebrain = get_centroid_3d(v) + o
+    init_shift_wrt_fixedWholebrain = transform_points_by_transform_parameters_v2(pts=[init_shift_wrt_movingWholebrain],
+    transform_parameters=global_transform_parameters)[0]
+
+    print init_shift_wrt_movingWholebrain, init_shift_wrt_fixedWholebrain
+
+    aligner = Aligner(volume_fixed, volume_moving, labelIndexMap_m2f=local_aligner_parameters['label_mapping_m2f'])
+    aligner.set_centroid(centroid_m=init_shift_wrt_movingWholebrain, centroid_f=init_shift_wrt_fixedWholebrain)
+    aligner.set_label_weights(label_weights=local_aligner_parameters['label_weights_m'])
+
+    gradients_f = compute_gradient_v2(volume_fixed, smooth_first=True)
+
+    # gradients_f = {}
+    # for ind_f, struct_f in local_aligner_parameters['label_to_structure_fixed'].iteritems():
+    #     tmpl = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=local_alignment_spec['stack_f'], structure=struct_f)
+    #     gradients_f[ind_f] = np.asarray([bp.unpack_ndarray_file(tmpl % {'suffix': 'gx'}),
+    #                          bp.unpack_ndarray_file(tmpl % {'suffix': 'gy'}),
+    #                          bp.unpack_ndarray_file(tmpl % {'suffix': 'gz'})])
+
+    aligner.load_gradient(gradients=gradients_f)
+
+
+    init_T = transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters,
+                                   centroid_m=init_shift_wrt_movingWholebrain, 
+                                    centroid_f=init_shift_wrt_fixedWholebrain)
+    print 'init_T', init_T
+
+    # Tuning learning rate:
+    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
+    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
+
+    trial_num = 1
+
+    T_all_trials = []
+    scores_all_trials = []
+    traj_all_trials = []
+
+    for _ in range(trial_num):
+
+        try:
+            T, scores = aligner.optimize(tf_type=local_aligner_parameters['transform_type'],
+                                         max_iter_num=10000,
+                                         history_len=20,
+                                         terminate_thresh_rot=.001,
+                                         terminate_thresh_trans=.01,
+                                    grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
+                                         lr1=1, lr2=.01,
+                                         init_T=init_T.flatten()
+                                        )
+            T_all_trials.append(T)
+            scores_all_trials.append(scores)
+            traj_all_trials.append(aligner.Ts)
+
+        except Exception as e:
+            sys.stderr.write('%s\n' % e)
+
+
+
+    Ts = np.array(aligner.Ts)
+
+    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
+    # T = T_all_trials[best_trial]
+    T = traj_all_trials[best_trial][-1]
+    scores = scores_all_trials[best_trial]
+    print 'Best trial:', best_trial
+    print max(scores), scores[-1]
+
+    print T.reshape((3,4))
+    plt.figure();
+    plt.plot(scores);
+    plt.show();
+
+    transform_parameters = {
+        'parameters': T_all_trials[best_trial],
+        'centroid_m_wrt_wholebrain': aligner.centroid_m,
+        'centroid_f_wrt_wholebrain': aligner.centroid_f,
+    }
+
+    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
+                       score_traj=scores_all_trials[best_trial],
+                       parameter_traj=traj_all_trials[best_trial],
+                      alignment_spec=local_alignment_spec)
+
+    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=local_alignment_spec)
+
+    
+    stack_m_spec = local_alignment_spec['stack_m']
+    
+    for name_s in [structure_m]:
+
+        volume, bbox_wrt_atlasSpace = \
+            DataManager.load_original_volume_v2(stack_m_spec, structure=name_s, bbox_wrt='atlasSpace')
+
+        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters_v2(volume, bbox=bbox_wrt_atlasSpace, transform_parameters=transform_parameters)
+        print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
+        DataManager.save_transformed_volume(volume=transformed_vol, 
+                                            bbox=transformed_vol_box_wrt_fixedWholebrain, 
+                                            alignment_spec=local_alignment_spec, 
+                                            resolution='%.1fum' % local_aligner_parameters['resolution_um'], 
+                                            structure=name_s)

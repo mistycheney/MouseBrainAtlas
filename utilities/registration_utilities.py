@@ -850,249 +850,6 @@ def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner
 #     init_T = np.column_stack([R, np.dot(R, lom + centroid_m) + t - lof - centroid_f])
 #     return init_T
 
-
-def global_registration(global_alignment_spec, structures_m):
-    global_aligner_parameters = generate_aligner_parameters(alignment_spec=global_alignment_spec, structures_m=structures_m)
-
-    volume_fixed = global_aligner_parameters['volume_fixed']
-    volume_moving = global_aligner_parameters['volume_moving']
-
-    aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=global_aligner_parameters['label_mapping_m2f'])
-
-    aligner.set_centroid(centroid_m='volume_centroid', centroid_f='volume_centroid')
-    aligner.set_label_weights(label_weights=global_aligner_parameters['label_weights_m'])
-
-    # If no any structures overlap after centroid alignment, we need to do grid search to obtain a better initial transform.
-    grid_search_T, grid_search_score = aligner.do_grid_search(grid_search_iteration_number=1,
-                                       grid_search_sample_number=5,
-                    parallel=True,
-                    std_tx=50, std_ty=50, std_tz=30)
-
-    gradients_f = compute_gradient(volume_fixed, smooth_first=True)
-    aligner.load_gradient(gradients=gradients_f)
-
-    # Tuning learning rate:
-    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
-    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
-
-    trial_num = 1
-
-    T_all_trials = []
-    scores_all_trials = []
-    traj_all_trials = []
-
-    for _ in range(trial_num):
-
-        try:
-            T, scores = aligner.optimize(tf_type=global_aligner_parameters['transform_type'],
-                                         max_iter_num=1000,
-                                         history_len=20,
-                                         terminate_thresh_rot=.001,
-                                         terminate_thresh_trans=.1,
-                                         grad_computation_sample_number=global_aligner_parameters['grad_computation_sample_number'],
-                                         lr1=10, lr2=.1,
-                                        init_T=grid_search_T,
-    #                                      affine_scaling_limits=(.9, 1.2)
-                                        )
-            T_all_trials.append(T)
-            scores_all_trials.append(scores)
-            traj_all_trials.append(aligner.Ts)
-
-        except Exception as e:
-            sys.stderr.write('%s\n' % e)
-
-    Ts = np.array(aligner.Ts)
-
-    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
-    plt.title('rotational params');
-    plt.xlabel('Iteration');
-    plt.show();
-
-    plt.plot(Ts[:, [3,7,11]]);
-    plt.title('translation params');
-    plt.xlabel('Iteration');
-    plt.show();
-
-    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
-    # best_trial = 1
-    T = T_all_trials[best_trial]
-    scores = scores_all_trials[best_trial]
-    print 'Best trial:', best_trial
-    print max(scores), scores[-1]
-
-    print T.reshape((3,4))
-    plt.figure();
-    plt.plot(scores);
-    plt.show();
-
-
-    transform_parameters = {
-    'parameters': T_all_trials[best_trial],
-    'centroid_m': aligner.centroid_m,
-    'centroid_f': aligner.centroid_f,
-    'domain_m_origin_wrt_wholebrain': global_aligner_parameters['volume_moving_origin_wrt_wholebrain'],
-    'domain_f_origin_wrt_wholebrain': global_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
-}
-
-    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
-                       score_traj=scores_all_trials[best_trial],
-                       parameter_traj=traj_all_trials[best_trial],
-                      alignment_spec=global_alignment_spec)
-
-    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=global_alignment_spec)
-
-    for name_s in all_known_structures_sided_with_surround:
-
-        volume, bbox_wrt_wholebrain = \
-            DataManager.load_original_volume_all_known_structures_v2(stack='atlasV5', sided=True,
-                                                                  volume_type='score',
-                                                                  include_surround=True,
-                                                                    return_label_mappings=False,
-                                                                     name_or_index_as_key='name',
-                                                                     common_shape=False,
-                                                                    in_bbox_wrt='atlasSpace',
-                                                                    out_bbox_wrt='atlasSpace',
-                                                                    structures=[name_s]
-                                                                    )[name_s]
-
-        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(volume, bbox_wrt_wholebrain, transform_parameters=transform_parameters)
-    #     print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
-        DataManager.save_transformed_volume(volume=transformed_vol,
-                                            bbox=transformed_vol_box_wrt_fixedWholebrain,
-                                            alignment_spec=global_alignment_spec,
-                                            resolution=None,
-                                            structure=name_s)
-
-
-def local_registration(local_alignment_spec, global_alignment_spec):
-
-    structure_m = local_alignment_spec['stack_m']['structure']
-
-    local_aligner_parameters = generate_aligner_parameters(alignment_spec=local_alignment_spec,
-                                                           structures_m=[structure_m])
-
-
-    global_transform_parameters = DataManager.load_alignment_parameters_v3(global_alignment_spec)
-
-    volume_fixed = local_aligner_parameters['volume_fixed']
-    volume_moving = local_aligner_parameters['volume_moving']
-
-    init_shift_wrt_movingvol = get_centroid_3d(volume_moving[local_aligner_parameters['structure_to_label_moving'][structure_m]])
-    init_shift_wrt_fixedvol = transform_points_by_transform_parameters(pts=[init_shift_wrt_movingvol + global_transform_parameters['domain_m_origin_wrt_wholebrain']],
-    transform_parameters=global_transform_parameters)[0] - global_transform_parameters['domain_f_origin_wrt_wholebrain']
-
-    print init_shift_wrt_movingvol, init_shift_wrt_fixedvol
-
-    aligner = Aligner4(volume_fixed, volume_moving, labelIndexMap_m2f=local_aligner_parameters['label_mapping_m2f'])
-    aligner.set_centroid(centroid_m=init_shift_wrt_movingvol,
-                         centroid_f=init_shift_wrt_fixedvol)
-    # aligner.set_centroid(centroid_m=np.zeros((3,)),
-    #                      centroid_f=np.zeros((3,)))
-    aligner.set_label_weights(label_weights=local_aligner_parameters['label_weights_m'])
-
-    # gradients_f = compute_gradient(volume_fixed, smooth_first=True)
-
-    gradients_f = {}
-    for ind_f, struct_f in local_aligner_parameters['label_to_structure_fixed'].iteritems():
-        tmpl = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=local_alignment_spec['stack_f'], structure=struct_f)
-        gradients_f[ind_f] = np.asarray([bp.unpack_ndarray_file(tmpl % {'suffix': 'gx'}),
-                             bp.unpack_ndarray_file(tmpl % {'suffix': 'gy'}),
-                             bp.unpack_ndarray_file(tmpl % {'suffix': 'gz'})])
-
-    aligner.load_gradient(gradients=gradients_f)
-
-
-    init_T = transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters,
-                                       centroid_m=init_shift_wrt_movingvol,
-                                        centroid_f=init_shift_wrt_fixedvol)
-    print 'init_T', init_T
-
-    # Tuning learning rate:
-    # lr1=10., if lucky converges much faster than lr1=1., but sometimes stuck in local maxima
-    # If lr1=1., grad_computation_sample_number=1e5 is sufficient.
-
-    trial_num = 1
-
-    T_all_trials = []
-    scores_all_trials = []
-    traj_all_trials = []
-
-    for _ in range(trial_num):
-
-        try:
-            T, scores = aligner.optimize(tf_type=local_aligner_parameters['transform_type'],
-                                         max_iter_num=1000,
-                                         history_len=20,
-                                         terminate_thresh_rot=.001,
-                                         terminate_thresh_trans=.01,
-                                    grad_computation_sample_number=local_aligner_parameters['grad_computation_sample_number'],
-                                         lr1=1, lr2=.01,
-                                         init_T=init_T.flatten()
-                                        )
-            T_all_trials.append(T)
-            scores_all_trials.append(scores)
-            traj_all_trials.append(aligner.Ts)
-
-        except Exception as e:
-            sys.stderr.write('%s\n' % e)
-
-
-
-    Ts = np.array(aligner.Ts)
-
-    plt.plot(Ts[:, [0,1,2,4,5,6,8,9,10]]);
-    plt.title('rotational params');
-    plt.xlabel('Iteration');
-    plt.show();
-
-    plt.plot(Ts[:, [3,7,11]]);
-    plt.title('translation params');
-    plt.xlabel('Iteration');
-    plt.show();
-
-    best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
-    # best_trial = 1
-    T = T_all_trials[best_trial]
-    scores = scores_all_trials[best_trial]
-    print 'Best trial:', best_trial
-    print max(scores), scores[-1]
-
-    print T.reshape((3,4))
-    plt.figure();
-    plt.plot(scores);
-    plt.show();
-
-
-    transform_parameters = {
-        'parameters': T_all_trials[best_trial],
-        'centroid_m': aligner.centroid_m,
-        'centroid_f': aligner.centroid_f,
-        'domain_m_origin_wrt_wholebrain': local_aligner_parameters['volume_moving_origin_wrt_wholebrain'],
-        'domain_f_origin_wrt_wholebrain': local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
-    }
-
-    DataManager.save_alignment_results_v2(transform_parameters=transform_parameters,
-                       score_traj=scores_all_trials[best_trial],
-                       parameter_traj=traj_all_trials[best_trial],
-                      alignment_spec=local_alignment_spec)
-
-    transform_parameters = DataManager.load_alignment_parameters_v3(alignment_spec=local_alignment_spec)
-
-    for name_s in [structure_m]:
-
-        volume, bbox_wrt_atlasSpace = \
-            DataManager.load_original_volume_v2(local_alignment_spec['stack_m'], structure=name_s, bbox_wrt='atlasSpace')
-
-        transformed_vol, transformed_vol_box_wrt_fixedWholebrain = transform_volume_by_alignment_parameters(volume, bbox_wrt_atlasSpace, transform_parameters=transform_parameters)
-        print transformed_vol.shape, transformed_vol_box_wrt_fixedWholebrain
-        DataManager.save_transformed_volume(volume=transformed_vol,
-                                            bbox=transformed_vol_box_wrt_fixedWholebrain,
-                                            alignment_spec=local_alignment_spec,
-                                            resolution='%.1fum' % local_aligner_parameters['resolution_um'],
-                                            structure=name_s)
-
-
-
 from scipy.optimize import approx_fprime
 
 def hessian(x0, f, epsilon=1.e-5, linear_approx=False, *args):
@@ -1382,83 +1139,6 @@ def find_z_section_map(stack, volume_zmin, downsample_factor = 16):
 from data_manager import *
 
 
-
-# def extract_contours_from_labeled_volume(stack, volume,
-#                             section_z_map=None,
-#                             downsample_factor=None,
-#                             volume_limits=None,
-#                             labels=None, extrapolate_num_section=0,
-#                             force=True, filepath=None):
-#     """
-#     Extract labeled contours from a labeled volume.
-#     """
-
-#     if volume == 'localAdjusted':
-#         volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_localAdjustedVolume.bp'%{'stack':stack})
-#     elif volume == 'globalAligned':
-#         volume = bp.unpack_ndarray_file(volume_dir + '/%(stack)s/%(stack)s_atlasProjectedVolume.bp'%{'stack':stack})
-#     else:
-#         raise 'Volume unknown.'
-
-#     if filepath is None:
-#         filepath = volume_dir + '/initCntsAllSecs_%s.pkl' % stack
-
-#     if os.path.exists(filepath) and not force:
-#         init_cnts_allSecs = pickle.load(open(filepath, 'r'))
-#     else:
-#         if volume_limits is None:
-#             volume_xmin, volume_xmax, volume_ymin, volume_ymax, volume_zmin, volume_zmax = \
-#             np.loadtxt(os.path.join(volume_dir, '%(stack)s/%(stack)s_scoreVolume_limits.txt' % {'stack': stack}), dtype=np.int)
-
-#         if section_z_map is None:
-#             assert downsample_factor is not None, 'Because section_z_map is not given, must specify downsample_factor.'
-#             z_section_map = find_z_section_map(stack, volume_zmin, downsample_factor=downsample_factor)
-#             section_z_map = {sec: z for z, sec in z_section_map.iteritems()}
-
-#         init_cnts_allSecs = {}
-
-#         first_detect_sec, last_detect_sec = detect_bbox_range_lookup[stack]
-
-#         for sec in range(first_detect_sec, last_detect_sec+1):
-
-#             z = section_z_map[sec]
-#             projected_annotation_labelmap = volume[..., z]
-
-#             init_cnts = find_contour_points(projected_annotation_labelmap) # downsampled 16
-#             init_cnts = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
-#                               for label_ind, cnts in init_cnts.iteritems()])
-
-#             # extend contour to copy annotations of undetected classes from neighbors
-#             if extrapolate_num_section > 0:
-
-#                 sss = np.empty((2*extrapolate_num_section,), np.int)
-#                 sss[1::2] = -np.arange(1, extrapolate_num_section+1)
-#                 sss[::2] = np.arange(1, extrapolate_num_section+1)
-
-#                 Ls = []
-#                 for ss in sss:
-#                     sec2 = sec + ss
-#                     z2 = section_z_map[sec2]
-#                     if z2 >= volume.shape[2] or z2 < 0:
-#                         continue
-
-#                     init_cnts2 = find_contour_points(volume[..., z2]) # downsampled 16
-#                     init_cnts2 = dict([(labels[label_ind], (cnts[0]+(volume_xmin, volume_ymin))*2)
-#                                       for label_ind, cnts in init_cnts2.iteritems()])
-#                     Ls.append(init_cnts2)
-
-#                 for ll in Ls:
-#                     for l, c in ll.iteritems():
-#                         if l not in init_cnts:
-#                             init_cnts[l] = c
-
-#             init_cnts_allSecs[sec] = init_cnts
-
-#         pickle.dump(init_cnts_allSecs, open(filepath, 'w'))
-
-#     return init_cnts_allSecs
-
-
 def surr_points(vertices):
     poly = Polygon(vertices)
     p1 = points_in_polygon(list(poly.buffer(10, resolution=2).exterior.coords))
@@ -1700,8 +1380,7 @@ def mahalanobis_distance_sq(nzs, mu, sigma):
     dms = np.array([np.dot(d, np.dot(sigma_inv, d)) for d in ds])
     return dms
 
-
-def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_points, sigmas, weights):
+def transform_points_polyrigid_inverse_v2(pts_prime, rigid_param_list, anchor_points, sigmas, weights):
     """
     Transform points by the inverse of a weighted-average transform.
 
@@ -1728,8 +1407,10 @@ def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_point
         nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts_prime, ap, sigma))
                             for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
     elif sigmas[0].ndim == 1: # sigma is a single scalar
-        nzvoxels_weights = np.array([w*np.exp(-np.sum((pts_prime - ap)**2, axis=1)/sigma**2) \
-                            for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+        # nzvoxels_weights = np.array([w*np.exp(-np.sum((pts_prime - ap)**2, axis=1)/sigma**2) \
+        #                     for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+        nzvoxels_weights = np.array([w*1./(np.sum((pts_prime - ap)**2, axis=1)/sigma**2 + 1e-6) \
+                    for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
@@ -1738,8 +1419,48 @@ def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_point
     # print nzvoxels_weights
 
     nzs_m_aligned_to_f = np.array([np.sum([w * (np.dot(Rinv, p) + tinv) for w, Rinv,tinv in zip(ws, Rs_inverse,ts_inverse)], axis=0)
-                                   for p, ws in zip(pts_prime, nzvoxels_weights.T)]).astype(np.int16)
+                                   for p, ws in zip(pts_prime, nzvoxels_weights.T)]).astype(np.int)
     return nzs_m_aligned_to_f
+
+# def transform_points_polyrigid_inverse(pts_prime, rigid_param_list, anchor_points, sigmas, weights):
+#     """
+#     Transform points by the inverse of a weighted-average transform.
+
+#     Args:
+#         pts_prime ((n,3)-ndarray): points to transform
+#         rigid_param_list (list of (12,)-ndarrays): list of rigid transforms
+
+#     Returns:
+#         ((n,3)-ndarray): transformed points.
+#     """
+
+#     n_comp = len(rigid_param_list)
+#     n_voxels = len(pts_prime)
+
+#     Rs = [r.reshape((3,4))[:3,:3] for r in rigid_param_list]
+#     ts = [r.reshape((3,4))[:, 3] for r in rigid_param_list]
+#     Rs_inverse = [np.linalg.inv(R) for R in Rs]
+#     ts_inverse = [-np.dot(Rinv, t) for Rinv, t in zip(Rs_inverse, ts)]
+
+#     anchor_points_prime = np.array([np.dot(R, a) + t for R, t, a in zip(Rs, ts, anchor_points)])
+#     # print zip(anchor_points, anchor_points_prime)
+
+#     if sigmas[0].ndim == 2: # sigma is covariance matrix
+#         nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts_prime, ap, sigma))
+#                             for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+#     elif sigmas[0].ndim == 1: # sigma is a single scalar
+#         nzvoxels_weights = np.array([w*np.exp(-np.sum((pts_prime - ap)**2, axis=1)/sigma**2) \
+#                             for ap, sigma, w in zip(anchor_points_prime, sigmas, weights)])
+#     nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+#     # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
+#     # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
+#     # n_components x n_voxels
+
+#     # print nzvoxels_weights
+
+#     nzs_m_aligned_to_f = np.array([np.sum([w * (np.dot(Rinv, p) + tinv) for w, Rinv,tinv in zip(ws, Rs_inverse,ts_inverse)], axis=0)
+#                                    for p, ws in zip(pts_prime, nzvoxels_weights.T)]).astype(np.int16)
+#     return nzs_m_aligned_to_f
 
 
 def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, weights):
@@ -1754,25 +1475,40 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
         ((n,3)-ndarray): transformed points.
     """
 
+    # for ap, sigma, w in zip(anchor_points, sigmas, weights):
+        # print w, -mahalanobis_distance_sq(pts, ap, sigma)
+    
     if sigmas[0].ndim == 2: # sigma is covariance matrix
         nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts, ap, sigma))
-                            for ap, sigma, w in zip(anchor_points, sigmas, weights)]) + 1e-6
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     elif sigmas[0].ndim == 1: # sigma is a single scalar
-        nzvoxels_weights = np.array([w*np.exp(-np.sum((pts - ap)**2, axis=1)/sigma**2) \
-                            for ap, sigma, w in zip(anchor_points, sigmas, weights)]) + 1e-6
+        nzvoxels_weights = np.array([w*np.exp(-np.sum((pts - ap)**2, axis=1)/(sigma**2)) \
+                            for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+        # nzvoxels_weights = np.array([w*1./(np.sum((pts - ap)**2, axis=1)/sigma**2 + 1e-10) \
+        #                     for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+        # nzvoxels_weights = np.array([w*1./(np.sqrt(np.sum((pts - ap)**2, axis=1))/sigma + 1e-10) \
+        #                     for ap, sigma, w in zip(anchor_points, sigmas, weights)])
+        # nzvoxels_weights = np.array([w*((np.sqrt(np.sum((pts - ap)**2, axis=1)) < sigma).astype(np.int) + 1e-10) \
+        #                     for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     # add a small constant to prevent from being rounded to 0.
+    
+    nzvoxels_weights = nzvoxels_weights / (nzvoxels_weights.sum(axis=0))
+    nzvoxels_weights[nzvoxels_weights < 1e-3] = 0
+    # nzvoxels_weights = nzvoxels_weights / (nzvoxels_weights.sum(axis=0) + 1e-10)
+        
+    # print nzvoxels_weights.sum(axis=0)
+        
+    # for x in nzvoxels_weights:
+    #     print x
 
-    nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
-    # nzvoxels_weights[nzvoxels_weights < 1e-1] = 0
-    # nzvoxels_weights = nzvoxels_weights/nzvoxels_weights.sum(axis=0)
     # n_components x n_voxels
 
-    nzs_m_aligned_to_f = np.zeros((len(pts), 3), dtype=np.float16)
+    nzs_m_aligned_to_f = np.zeros((len(pts), 3), dtype=np.float)
 
     for i, rigid_params in enumerate(rigid_param_list):
-        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(rigid_params, pts=pts).astype(np.float16)
+        nzs_m_aligned_to_f += nzvoxels_weights[i][:,None] * transform_points_affine(rigid_params, pts=pts).astype(np.float)
 
-    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int16)
+    nzs_m_aligned_to_f = nzs_m_aligned_to_f.astype(np.int32)
     return nzs_m_aligned_to_f
 
 
@@ -2418,193 +2154,6 @@ def compose_alignment_parameters(list_of_transform_parameters):
     return T0
 
 
-# def transform_and_save_volume_v3(volume, bbox_wrt_movingWholebrain, structure, G, volume_f_origin_wrt_fixedWholebrain, alignment_spec, resolution=None):
-#     """
-#     Transform volume and then save transformed volume.
-
-#     Args:
-#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
-#         alignment_spec (dict): determines the file name to save the transformed volumes to.
-#         resolution (str):
-#         volume_f_origin_wrt_fixedWholebrain ((3,)-array)
-#     """
-#     t = time.time()
-
-#     volume_m_warped_inbbox, volume_m_warped_bbox_rel2fixedvol = \
-#     transform_volume_v3(vol=volume, bbox=bbox_wrt_movingWholebrain, tf_params=G.flatten())
-
-#     if resolution is None:
-#         resolution = alignment_spec['stack_m']['resolution']
-
-#     # "fixedvol" is the domain defined by the fixed volume (which was input to the aligner).
-
-#     ######### Save volume ##########
-#     volume_m_warped_fp = \
-#     DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure,
-#                                                    resolution=resolution)
-#     create_parent_dir_if_not_exists(volume_m_warped_fp)
-#     bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
-#     upload_to_s3(volume_m_warped_fp)
-
-#     ############### Save bbox #############
-#     volume_m_warped_bbox_fp = \
-#     DataManager.get_transformed_volume_bbox_filepath_v2(alignment_spec=alignment_spec, structure=structure,
-#                                                        resolution=resolution, wrt='fixedWholebrain')
-#     create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
-#     np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + volume_f_origin_wrt_fixedWholebrain[[0,0,1,1,2,2]], fmt='%d')
-#     upload_to_s3(volume_m_warped_bbox_fp)
-
-#     sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
-
-
-
-# def transform_and_save_volume_v2(volume, structure, G, volume_f_origin_wrt_fixedWholebrain, alignment_spec, resolution=None):
-#     """
-#     Transform volume and then save transformed volume.
-
-#     Args:
-#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
-#         alignment_spec (dict): determines the file name to save the transformed volumes to.
-#         resolution (str):
-#         volume_f_origin_wrt_fixedWholebrain ((3,)-array)
-#     """
-#     t = time.time()
-
-#     volume_m_warped_inbbox, volume_m_warped_bbox_rel2fixedvol = \
-#     transform_volume_v2(vol=volume, tf_params=G.flatten())
-
-#     if resolution is None:
-#         resolution = alignment_spec['stack_m']['resolution']
-
-#     # "fixedvol" is the domain defined by the fixed volume (which was input to the aligner).
-
-#     ######### Save volume ##########
-#     volume_m_warped_fp = \
-#     DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure,
-#                                                    resolution=resolution)
-#     create_parent_dir_if_not_exists(volume_m_warped_fp)
-#     bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
-#     upload_to_s3(volume_m_warped_fp)
-
-#     ############### Save bbox #############
-#     volume_m_warped_bbox_fp = \
-#     DataManager.get_transformed_volume_bbox_filepath_v2(alignment_spec=alignment_spec, structure=structure,
-#                                                        resolution=resolution, wrt='fixedWholebrain')
-#     create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
-#     np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + volume_f_origin_wrt_fixedWholebrain[[0,0,1,1,2,2]], fmt='%d')
-#     upload_to_s3(volume_m_warped_bbox_fp)
-
-#     sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
-
-
-# def transform_and_save_volume(volume, structure, G, crop_origin_f, alignment_name_dict):
-#     """
-#     Transform volume and then save transformed volume.
-
-#     Args:
-#         G ((3,4)-array): incorporates initial shift and subsequent affine/rigid transforms.
-#         alignment_name_dict (dict): determines the file name to save the transformed volumes to.
-#     """
-
-#     stack_m = alignment_name_dict['stack_m']
-#     stack_f = alignment_name_dict['stack_f']
-#     warp_setting = alignment_name_dict['warp_setting']
-#     vol_type_f = alignment_name_dict['vol_type_f']
-#     vol_type_m = alignment_name_dict['vol_type_m']
-
-#     try:
-#         t = time.time()
-
-#         # vol_m, vol_m_bbox = DataManager.load_original_volume_v2(stack=stack_m, structure=structure, downscale=32,
-#         #                                         volume_type=vol_type_m)
-
-#         volume_m_warped_inbbox, volume_m_warped_bbox_rel2movingvol = \
-#         transform_volume_v2(vol=volume, tf_params=G.flatten())
-
-#         # Note: volume_m_warped_bbox_rel2movingvol is the same as volume_m_warped_bbox_rel2fixedvol.
-#         volume_m_warped_bbox_rel2fixedvol = volume_m_warped_bbox_rel2movingvol
-
-#         ######### Save volume ##########
-
-#         volume_m_warped_fp = \
-#         DataManager.get_transformed_volume_filepath(stack_m=stack_m,
-#                                                     stack_f=stack_f,
-#                                                     warp_setting=warp_setting,
-#                                                     vol_type_f=vol_type_f,
-#                                                     vol_type_m=vol_type_m,
-#                                                     structure=structure)
-
-#         create_parent_dir_if_not_exists(volume_m_warped_fp)
-#         bp.pack_ndarray_file(volume_m_warped_inbbox, volume_m_warped_fp)
-#         upload_to_s3(volume_m_warped_fp)
-
-#         ############### bbox #############
-#         volume_m_warped_bbox_fp = \
-#         DataManager.get_transformed_volume_bbox_filepath(stack_m=stack_m,
-#                                                     stack_f=stack_f,
-#                                                     warp_setting=warp_setting,
-#                                                     vol_type_f=vol_type_f,
-#                                                          vol_type_m=vol_type_m,
-#                                                     structure=structure)
-
-#         create_parent_dir_if_not_exists(volume_m_warped_bbox_fp)
-#         np.savetxt(volume_m_warped_bbox_fp, volume_m_warped_bbox_rel2fixedvol + crop_origin_f[[0,0,1,1,2,2]])
-#         upload_to_s3(volume_m_warped_bbox_fp)
-
-#         sys.stderr.write('Transform: %.2f seconds.\n' % (time.time() - t)) # 3s
-
-#     except Exception as e:
-#         sys.stderr.write('Error transforming volume %s: %s.\n' % (structure, e))
-
-# def save_alignment_results(best_param, centroid_m, centroid_f,
-#                            crop_origin_m, crop_origin_f,
-#                            score_traj, parameter_traj, alignment_spec):
-#     """
-#     Save the following alignment results:
-#     - `parameters`: eventual parameters
-#     - `scoreHistory`: score trajectory
-#     - `scoreEvolution`: a plot of score trajectory, exported as PNG
-#     - `trajectory`: parameter trajectory
-
-#     Args:
-#         best_param ((12,) array): best parameters
-#         score_traj ((Ti,) array): score trajectory
-#         parameter_traj ((Ti, 12) array): parameter trajectory
-#     """
-
-#     # stack_m = alignment_name_dict['stack_m']
-#     # stack_f = alignment_name_dict['stack_f']
-#     # warp_setting = alignment_name_dict['warp_setting']
-#     # vol_type_f = alignment_name_dict['vol_type_f']
-#     # vol_type_m = alignment_name_dict['vol_type_m']
-#     # detector_id_f = alignment_name_dict['detector_id_f']
-#     # prep_id_f = alignment_name_dict['prep_id_f']
-
-#     # Save parameters
-#     params_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
-#     DataManager.save_alignment_parameters_v2(params_fp, best_param, centroid_m, centroid_f, crop_origin_m, crop_origin_f)
-#     upload_to_s3(params_fp)
-
-#     # Save score history
-#     history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreHistory')
-#     bp.pack_ndarray_file(np.array(score_traj), history_fp)
-#     upload_to_s3(history_fp)
-
-#     # Save score plot
-#     score_plot_fp = \
-#     history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreEvolution')
-#     fig = plt.figure();
-#     plt.plot(score_traj);
-#     plt.savefig(score_plot_fp, bbox_inches='tight')
-#     plt.close(fig)
-#     upload_to_s3(score_plot_fp)
-
-#     # Save trajectory
-#     trajectory_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='trajectory')
-#     bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
-#     upload_to_s3(trajectory_fp)
-
-
 def fit_plane(X):
     """
     Fit a plane to a set of 3d points
@@ -2708,67 +2257,3 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
 
     return canonical_locations, midplane_point, midplane_normal
 
-
-# def save_alignment_results(T_all_trials, score_traj_all_trials, parameter_traj_all_trials):
-#     """
-#     Save the following alignment results:
-#     - `parameters`: eventual parameters of the best trial
-#     - `scoreHistory`: score trajectory of the best trial
-#     - `scoreEvolution`: a plot of score trajectory of the best trial, exported as PNG
-#     - `trajectory`: trajectory of all
-
-#     Args:
-#         T_all_trials (list of N (12,) arrays): best parameters of each trial. N is number of trials.
-#         score_traj_all_trials (list of N (Ti,) arrays): score trajectory for all trials. Ti is number of iterations for the i'th trial.
-#         parameter_traj_all_trials (list of N (Ti, 12) arrays): parameter trajectory for all trials
-#     """
-
-#     best_trial = np.argsort([np.max(scores) for scores in scores_all_trials])[-1]
-
-#     # Save parameters
-#     params_fp = \
-#         DataManager.get_alignment_result_filepath(stack_m=stack_moving,
-#                                                       stack_f=stack_fixed,
-#                                                       warp_setting=warp_setting,
-#                                                   vol_type_f='annotationAsScore',
-#                                                   vol_type_m='annotationAsScore',
-#                                                      what='parameters')
-#     DataManager.save_alignment_parameters(params_fp, T_all_trials[best_trial],
-#                                           aligner.centroid_m, aligner.centroid_f,
-#                                           aligner.xdim_m, aligner.ydim_m, aligner.zdim_m,
-#                                           aligner.xdim_f, aligner.ydim_f, aligner.zdim_f)
-#     upload_to_s3(params_fp)
-
-#     # Save score history
-#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
-#                                                   stack_f=stack_fixed,
-#                                                   warp_setting=warp_setting,
-#                                                            vol_type_f='annotationAsScore',
-#                                                            vol_type_m='annotationAsScore',
-#                                                  what='scoreHistory')
-#     bp.pack_ndarray_file(np.array(score_traj_all_trials[best_trial]), history_fp)
-#     upload_to_s3(history_fp)
-
-#     # Save score plot
-#     score_plot_fp = \
-#     history_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
-#                                                   stack_f=stack_fixed,
-#                                                   warp_setting=warp_setting,
-#                                                            vol_type_f='annotationAsScore',
-#                                                            vol_type_m='annotationAsScore',
-#                                                  what='scoreEvolution')
-#     fig = plt.figure();
-#     plt.plot(score_traj_all_trials[best_trial]);
-#     plt.savefig(score_plot_fp, bbox_inches='tight')
-#     plt.close(fig)
-#     upload_to_s3(score_plot_fp)
-
-#     # Save trajectory
-#     trajectory_fp = DataManager.get_alignment_result_filepath(stack_m=stack_moving,
-#                                                       stack_f=stack_fixed,
-#                                                       warp_setting=warp_setting,
-#                                                               vol_type_f='annotationAsScore',
-#                                                               vol_type_m='annotationAsScore',
-#                                                      what='trajectory')
-#     bp.pack_ndarray_file(np.array(parameter_traj_all_trials[best_trial]), trajectory_fp)
-#     upload_to_s3(trajectory_fp)

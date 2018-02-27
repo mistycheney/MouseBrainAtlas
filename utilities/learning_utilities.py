@@ -2807,8 +2807,9 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     t = time.time()
     if bg_img_local_region is None:    
         if bg_img is None:
-            if stack == 'ChatCryoJane201710':
-                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbJpeg', fn=fn)
+            if stack == 'CHATM2':
+                # bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbJpeg', fn=fn)
+                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='Ntb', fn=fn)
             else:
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn)
         bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]

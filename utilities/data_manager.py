@@ -84,17 +84,203 @@ def volume_type_to_str(t):
     else:
         raise Exception('Volume type %s is not recognized.' % t)
 
-# def generate_suffix(train_sample_scheme=None, global_transform_scheme=None, local_transform_scheme=None):
+    
+def convert_frame(p, in_frame, out_frame, zdim):
+    """
+    Convert among the three frames specified by the second methods here
+    https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
+    """
 
-#     suffix = []
-#     if train_sample_scheme is not None:
-#         suffix.append('trainSampleScheme_%d'%train_sample_scheme)
-#     if global_transform_scheme is not None:
-#         suffix.append('globalTxScheme_%d'%global_transform_scheme)
-#     if local_transform_scheme is not None:
-#         suffix.append('localTxScheme_%d'%local_transform_scheme)
+    if in_frame == 'sagittal':
+        p_sagittal = p
+    elif in_frame == 'coronal':
+        x = p[..., 2]
+        y = p[..., 1]
+        z = zdim - p[..., 0]
+        p_sagittal = np.column_stack([x,y,z])
+    elif in_frame == 'horizontal':
+        x = p[..., 0]
+        y = p[..., 2]
+        z = zdim - p[..., 1]
+        p_sagittal = np.column_stack([x,y,z])
+    else:
+        print in_frame
+        raise
 
-#     return '_'.join(suffix)
+    if out_frame == 'sagittal':
+        p_out = p_sagittal
+    elif out_frame == 'coronal':
+        x = zdim - p_sagittal[..., 2]
+        y = p_sagittal[..., 1]
+        z = p_sagittal[..., 0]
+        p_out = np.column_stack([x,y,z])
+    elif out_frame == 'horizontal':
+        x = p_sagittal[..., 0]
+        y = zdim - p_sagittal[..., 2]
+        z = p_sagittal[..., 1]
+        p_out = np.column_stack([x,y,z])
+    else:
+        print out_frame
+        raise
+
+    return p_out
+
+def convert_resolution(p, in_resolution, out_resolution, 
+                       stack=None, image_resolution=None, 
+                       section_list=None,
+                      volume_resolution_um=None):
+
+    if in_resolution == 'image':
+        p_um = p * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+    elif in_resolution == 'image_image_section':
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
+        p_um = np.column_stack([uv_um, d_um])
+    elif in_resolution == 'image_image_index':
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        i_um = np.array([SECTION_THICKNESS * section_list[int(idx)] for idx in p[..., 2]])
+        p_um = np.column_stack([uv_um, i_um])
+    elif in_resolution == 'volume':
+        p_um = p * volume_resolution_um
+    elif in_resolution == 'raw':
+        p_um = p * planar_resolution[stack]
+    elif in_resolution == 'down32':
+        p_um = p * (planar_resolution[stack] * 32.)
+    elif in_resolution == 'um':
+        p_um = p
+    else:
+        p_um = p * convert_resolution_string_to_um(stack=stack, resolution=in_resolution)
+
+    if out_resolution == 'image':
+        p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+    elif out_resolution == 'image_image_section':
+        uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=stack, resolution=image_resolution)
+        sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
+        p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
+    elif out_resolution == 'image_image_index':
+        uv_outResol = p_um[..., :2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        if hasattr(self.data_feeder, 'sections'):
+            i_outResol = []
+            for d_um in p_um[..., 2]:
+                sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                if sec in section_list:
+                    index = section_list.index(sec)
+                else:
+                    index = np.nan
+                i_outResol.append(index)
+            i_outResol = np.array(i_outResol)
+            # i_outResol = np.array([self.data_feeder.sections.index(1 + int(np.floor(d_um / SECTION_THICKNESS))) for d_um in p_um[..., 2]])
+        else:
+            i_outResol = p_um[..., 2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
+        p_outResol = np.column_stack([uv_outResol, i_outResol])
+    elif out_resolution == 'volume':
+        p_outResol = p_um / volume_resolution_um
+    elif out_resolution == 'raw':
+        p_outResol = p_um / planar_resolution[stack]
+    elif out_resolution == 'down32':
+        p_outResol = p_um / (planar_resolution[stack] * 32.)
+    elif out_resolution == 'um':
+        p_outResol = p_um
+    else:
+        p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=out_resolution)
+
+
+def get_wrt_details(wrt, stack=None, zdim_um=None):
+
+    try:
+        box, plane = wrt.split('_')
+    except:
+        plane = 'sagittal'
+
+    wrt_details = {'origin_wrt_wholebrain_um': DataManager.get_domain_origin(stack, wrt, resolution='1um'),
+                'plane': plane, 
+                'zdim_um': zdim_um}
+
+    return wrt_details
+
+def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
+                               image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+
+    p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
+    assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3
+
+    if wrt == 'wholebrain':
+        p_wrt_outdomain_um = p_wrt_wholebrain_um
+    else:
+        wrt_details = get_wrt_details(wrt, stack)
+        # if 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
+        # box, plane = wrt.split('_')        
+        p_wrt_boxSagittal_origin_um = p_wrt_wholebrain_um - wrt_details['origin_wrt_wholebrain_um']
+        # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
+        p_wrt_outdomain_um = convert_frame(p_wrt_boxSagittal_origin_um, in_frame='sagittal', 
+                                           out_frame=wrt_details['plane'], 
+                                           zdim=wrt_details['zdim_um'])
+    # else:
+    #     print wrt
+    #     raise
+
+    p_wrt_outdomain_outResol = convert_resolution(p_wrt_outdomain_um, in_resolution='um', out_resolution=resolution,
+                                                 image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
+    return np.squeeze(p_wrt_outdomain_outResol)
+
+def convert_to_wholebrain_um(p, wrt, resolution,
+                             image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+
+    p = np.array(p)
+    assert np.atleast_2d(p).shape[1] == 3
+
+    p_um = convert_resolution(p, in_resolution=resolution, out_resolution='um',
+                             image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
+
+    if wrt == 'wholebrain':
+        p_wrt_wholebrain_um = p_um
+    else:    
+        wrt_details = get_wrt_details(wrt, stack)
+        # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
+        p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=wrt_details['plane'], out_frame='sagittal', zdim=wrt_details['zdim_um'])
+        box_origin_wrt_wholebrain_um = wrt_details['origin_wrt_wholebrain_um']
+        p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
+
+    return np.squeeze(p_wrt_wholebrain_um)
+
+def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resolution,
+                                 image_resolution=None, stack=None, volume_resolution_um=None,
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    """
+    Use this in combination with DataManager.get_domain_origin().
+
+    `wrt` can be any of:
+    - wholebrain
+    - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    - wholebrainXYcropped
+    - brainstemXYfull
+    - brainstem
+    - brainstemXYFullNoMargin
+
+    `resolution` can be any of:
+    - raw
+    - down32
+    - vol
+    - image: gscene resolution, determined by data_feeder.resolution
+    - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
+    - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
+    """
+
+    p_wrt_wholebrain_um = convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
+                                                   image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+    structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+
+    p_wrt_outdomain_outResol = convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
+                                                          image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+    structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+    # print 'p', p
+    # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
+    # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
+    return p_wrt_outdomain_outResol
 
 
 class DataManager(object):
@@ -102,6 +288,7 @@ class DataManager(object):
     ################################################
     ##   Conversion between coordinate systems    ##
     ################################################
+
 
     @staticmethod
     def get_crop_bbox_rel2uncropped(stack):
@@ -548,7 +735,7 @@ class DataManager(object):
     #         anchor_fn = DataManager.load_anchor_filename(stack=stack)
     #     fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
     #     return fn
-
+    
     @staticmethod
     def get_domain_origin(stack, domain, resolution):
         """
@@ -2680,8 +2867,6 @@ class DataManager(object):
 
                 v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
                 
-                
-                
                 in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
                                                                              resolution=stack_spec['resolution'])
                 b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
@@ -2714,15 +2899,14 @@ class DataManager(object):
             # else:
             #     return volumes
             if return_label_mappings:
-                if return_origin_instead_of_bbox:
-                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
-                else:
-                    raise
+                return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
+                            return_origin_instead_of_bbox=return_origin_instead_of_bbox) 
+                        for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
+
             else:
-                if return_origin_instead_of_bbox:
-                    return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]]) for k, (v, b) in volumes.iteritems()}
-                else:
-                    raise
+                return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
+                            return_origin_instead_of_bbox=return_origin_instead_of_bbox) 
+                        for k, (v, b) in volumes.iteritems()}
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
@@ -2772,9 +2956,10 @@ class DataManager(object):
         else:
             raise Exception("Volume type must be one of score, annotation, annotationAsScore or intensity.")
         return fp
+    
 
     @staticmethod
-    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain', return_origin_instead_of_bbox=False):
+    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain', return_origin_instead_of_bbox=False, crop_to_minimal=False):
         """
         Args:
 
@@ -2791,6 +2976,9 @@ class DataManager(object):
         download_from_s3(bbox_fp)
         volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
 
+        if crop_to_minimal:
+            volume, volume_bbox = crop_volume_to_minimal(vol=volume, origin=volume_bbox[[0,2,4]], return_origin_instead_of_bbox=False)
+        
         if return_origin_instead_of_bbox:
             return volume, volume_bbox[[0,2,4]]
         else:
@@ -3512,7 +3700,9 @@ class DataManager(object):
             print img_fp
 
         if img is None:
-            if version == 'grayJpeg':
+            if version == 'blue':
+                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)[..., 2]
+            elif version == 'grayJpeg':
                 sys.stderr.write("Version %s is not available. Instead, load lossless RGB and convert to uint8 grayscale...\n" % version)
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
                 img = img_as_ubyte(rgb2gray(img))
@@ -3656,26 +3846,29 @@ class DataManager(object):
             (image width, image height).
         """
 
-        first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
+        # first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-
+        
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack='CHATM2', prep_id=2)
+        return (xmax - xmin + 1) * 32, (ymax - ymin + 1) * 32
+        
         # for i in range(10, 13):
-        random_fn = metadata_cache['valid_filenames'][stack][0]
-        # random_fn = section_to_filename[i]
-        # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
-        # try:
-        try:
-            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
-        except:
-            img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
-            # break
-        # except:
-        #     pass
+#         random_fn = metadata_cache['valid_filenames'][stack][0]
+#         # random_fn = section_to_filename[i]
+#         # fp = DataManager.get_image_filepath(stack=stack, resol='thumbnail', version='cropped', fn=random_fn, anchor_fn=anchor_fn)
+#         # try:
+#         try:
+#             img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn)
+#         except:
+#             img = DataManager.load_image_v2(stack=stack, resol='thumbnail', prep_id=2, fn=random_fn, version='Ntb')
+#             # break
+#         # except:
+#         #     pass
 
-        image_height, image_width = img.shape[:2]
-        image_height = image_height * 32
-        image_width = image_width * 32
+#         image_height, image_width = img.shape[:2]
+#         image_height = image_height * 32
+#         image_width = image_width * 32
 
         return image_width, image_height
 
@@ -4243,10 +4436,14 @@ class DataManager(object):
     def get_brightfield_or_fluorescence(stack, sec=None, fn=None):
         if stack in all_nissl_stacks:
             return 'N'
-        elif metadata_cache['sections_to_filenames'][stack][sec].split('-')[1].startswith('N'):
-            return 'N'
         else:
-            return 'F'
+            if fn is None:
+                fn = metadata_cache['sections_to_filenames'][stack][sec]
+                
+            if fn.split('-')[1].startswith('N'):
+                return 'N'
+            else:
+                return 'F'
     
 ##################################################
 

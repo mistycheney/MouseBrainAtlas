@@ -183,6 +183,8 @@ def convert_resolution(p, in_resolution, out_resolution,
         p_outResol = p_um
     else:
         p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=out_resolution)
+        
+    return p_outResol
 
 
 def get_wrt_details(wrt, stack=None, zdim_um=None):

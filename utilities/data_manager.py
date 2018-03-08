@@ -844,7 +844,7 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_sorted_filenames(stack):
+    def load_sorted_filenames(stack=None, fp=None):
         """
         Get the mapping between section index and image filename.
 
@@ -852,7 +852,9 @@ class DataManager(object):
             Two dicts: filename_to_section, section_to_filename
         """
 
-        fp = DataManager.get_sorted_filenames_filename(stack)
+        if fp is None:
+            fp = DataManager.get_sorted_filenames_filename(stack)
+            
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:

@@ -8,7 +8,9 @@ This will download the scripts and the package containing the reference anatomic
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
-Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. Each section should have two versions:
+Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. The images must be of sagittal sections, with the anterior at the left and the posterior at the right.
+
+Each section should have two versions:
 
 * the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
 * a thumbnail `<imageName>_thumbnail.tif`.

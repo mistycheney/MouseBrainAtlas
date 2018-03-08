@@ -2462,7 +2462,7 @@ class DataManager(object):
 
     @staticmethod
     def get_score_volume_filepath(stack, structure, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
         vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',
@@ -2493,7 +2493,7 @@ class DataManager(object):
 
     @staticmethod
     def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type)
+        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
                               '%(basename)s',
                               'score_volumes',

@@ -689,26 +689,45 @@ class vtkRecordVideoTimerCallback():
         self.iren = iren
         self.win = win
         self.camera = camera
-
+                
+        self.start_tick = 5
+            
+        self.azimuth_stepsize = 5.
+        self.elevation_stepsize = 5. 
+        self.azimuth_rotation_start_tick = self.start_tick
+        self.azimith_rotation_end_tick = self.azimuth_rotation_start_tick + 360./self.azimuth_stepsize
+        self.elevation_rotation_start_tick = self.azimith_rotation_end_tick
+        self.elevation_rotation_end_tick = self.elevation_rotation_start_tick + 360./self.elevation_stepsize
+        
+        self.finish_tick = self.elevation_rotation_end_tick
+        
         create_parent_dir_if_not_exists('/tmp/brain_video/')
         execute_command('rm /tmp/brain_video/*')
 
     def execute(self,obj,event):
+
         # print self.timer_count
         # for actor in self.actors:
         #     actor.SetPosition(self.timer_count, self.timer_count,0)
-        self.camera.Azimuth(5.)
-        # arr = take_screenshot_as_numpy(self.win, magnification=1)
+        
+        if self.timer_count >= self.start_tick:
+
+            if self.timer_count >= self.azimuth_rotation_start_tick and self.timer_count < self.azimith_rotation_end_tick:
+                self.camera.Azimuth(self.azimuth_stepsize)
+            elif self.timer_count >= self.elevation_rotation_start_tick and self.timer_count < self.elevation_rotation_end_tick:
+                self.camera.Elevation(self.elevation_stepsize)
+                self.camera.OrthogonalizeViewUp() # This is important! http://vtk.1045678.n5.nabble.com/rotating-vtkCamera-td1232623.html
+            # arr = take_screenshot_as_numpy(self.win, magnification=1)
 
         if self.movie_fp is not None:
-            take_screenshot(self.win, '/tmp/brain_video/%d.png' % self.timer_count, magnification=1)
+            take_screenshot(self.win, '/tmp/brain_video/%03d.png' % self.timer_count, magnification=1)
 
-            if self.timer_count == 10:
+            if self.timer_count == self.finish_tick:
 
-                cmd = '~/ffmpeg-3.4.1-64bit-static/ffmpeg -framerate %(framerate)d -pattern_type glob -i "/tmp/brain_video/*.png" -c:v libx264 -vf "scale=-1:1080,fps=25,format=yuv420p" %(output_fp)s' % \
+                cmd = '/home/yuncong/ffmpeg-3.4.1-64bit-static/ffmpeg -framerate %(framerate)d -pattern_type glob -i "/tmp/brain_video/*.png" -c:v libx264 -vf "scale=-1:1080,format=yuv420p" %(output_fp)s' % \
                 {'framerate': self.framerate, 'output_fp': self.movie_fp}
                 execute_command(cmd)
-
+            
                 self.win.Finalize()
                 self.iren.TerminateApp()
                 del self.iren, self.win
@@ -722,7 +741,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
             interactive=True, snapshot_fn=None, snapshot_magnification=3,
             axes=True, background_color=(1,1,1), axes_label_color=(1,1,1),
             animate=False, movie_fp=None, framerate=10,
-              view_up=None, position=None, focal=None, depth_peeling=True):
+              view_up=None, position=None, focal=None, distance=1, depth_peeling=True):
     """
     Press q to close render window.
     s to take snapshot.
@@ -771,7 +790,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     ##########################################
 
     camera = vtk.vtkCamera()
-
+    
     if view_up is not None and position is not None and focal is not None:
         camera.SetViewUp(view_up[0], view_up[1], view_up[2])
         camera.SetPosition(position[0], position[1], position[2])
@@ -801,7 +820,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     elif init_angle == 'sagittal': # left to right
 
         camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(0, 0, -1)
+        camera.SetPosition(0, 0, -distance)
         camera.SetFocalPoint(0, 0, 1)
 
     elif init_angle == 'coronal' or init_angle == 'coronal_posteriorToAnterior' :
@@ -809,7 +828,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
 
         # coronal
         camera.SetViewUp(0, -1, 0)
-        camera.SetPosition(-2, 0, 0)
+        camera.SetPosition(-distance, 0, 0)
         camera.SetFocalPoint(-1, 0, 0)
 
 #     elif init_angle == 'coronal_anteriorToPosterior':
@@ -823,14 +842,14 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
 
         # horizontal
         camera.SetViewUp(0, 0, -1)
-        camera.SetPosition(0, 1, 0)
+        camera.SetPosition(0, distance, 0)
         camera.SetFocalPoint(0, -1, 0)
 
     elif init_angle == 'horizontal_topDown':
 
         # horizontal
         camera.SetViewUp(0, 0, 1)
-        camera.SetPosition(0, -1, 0)
+        camera.SetPosition(0, -distance, 0)
         camera.SetFocalPoint(0, 1, 0)
     else:
         raise Exception("init_angle %s is not recognized." % init_angle)

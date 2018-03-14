@@ -67,7 +67,7 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 This script computes a rigid transform between every pair of adjacent sections using the third-party program `elastix`.
 It then selects an anchor section (by default this is the largest section in the stack) and concatenate the adjacent transforms to align every section to match the anchor.
 
-On the workstation, with 8 processes, this takes about 1500 seconds.
+On the workstation, with 8 processes, this takes about 30 minutes.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_elastix_output`

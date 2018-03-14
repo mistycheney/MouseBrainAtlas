@@ -42,7 +42,7 @@ Create a JSON file that describes the image file paths. The file contains the fo
 
 The image file path mappings are indexed by (version, resolution) tuples.
 - A **version** is a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
-- A **resolution** is a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw in both dimension by 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
+- A **resolution** is a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw data in both dimensions by a factor of 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
 
 An example file is `CHATM3_input_specification.json`.
 

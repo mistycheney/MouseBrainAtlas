@@ -4,20 +4,61 @@
 
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 
+Edit `global_setting.py`. In particular, specify the following variables:
+- `DATA_DIR`
+- `REPO_DIR`
+
+
 # Preprocessing a new stack 
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
-Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. The images must be of sagittal sections, with the anterior at the left and the posterior at the right.
+## Data preparation
 
-Each section should have two versions:
+The raw images must be of sagittal sections, with the anterior at the left and the posterior at the right.
 
-* the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
-* a thumbnail `<imageName>_thumbnail.tif`.
+All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi format to 16-bit tiff, use `CZItoTIFFConverter` from University of Geneva.
 
-To convert the native czi format for Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
+## Initialization
 
-Step 2: Launch the preprocessing GUI.
+Create a JSON file that describes the image file paths. The file contains the following keys:
+- `raw_data_dirs`
+- `input_image_filename_mapping`
+- `input_image_filename_to_imagename_re_pattern_mapping`
+- `condition_list_fp`
+- `ordering_rule_fp`
+
+An example file is `CHATM3_input_specification.json`.
+
+Run `$ initialize.py <input_spec_filepath>`.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_sorted_filenames.txt`
+- `<stack>_thumbnail_Ntb`. This contains symbolic links to the actual files.
+- `<stack>_raw_Ntb`. This contains symbolic links to the actual files.
+- `<stack>_raw_CHAT`. This contains symbolic links to the actual files.
+
+## Intensity normalize fluorescent images
+
+`$ normalize_intensity.py <stack> [input_version] [output_version]`
+
+`<input_version>` default to "Ntb".
+`<output_version>` default to "NtbNormalized"
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_thumbnail_NtbNormalized`
+
+## Compute intra-stack transforms
+
+`$ align.py <stack>`
+
+This script computes a rigid transform between every pair of adjacent sections using the third-party program `elastix`.
+On the workstation, with 8 processes, this takes about 1500 seconds.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_elastix_output`.
+
+## Launch the preprocessing GUI.
 
 `$ gui/preprocess_gui.py <stack>`
 

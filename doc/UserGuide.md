@@ -19,6 +19,15 @@ The raw images must be of sagittal sections, with the anterior at the left and t
 
 All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi format to 16-bit tiff, use `CZItoTIFFConverter` from University of Geneva.
 
+Each physical section is associated with an `imageName`.
+There is no fixed composition rule for image names.
+The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
+- slide number
+- section or scene index in the slide
+Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
+For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
+It is important to use only one composition rule for each brain.
+
 ## Initialization
 
 Create a JSON file that describes the image file paths. The file contains the following keys:
@@ -33,10 +42,10 @@ An example file is `CHATM3_input_specification.json`.
 Run `$ initialize.py <input_spec_filepath>`.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_sorted_filenames.txt`
-- `<stack>_thumbnail_Ntb`. This contains symbolic links to the actual files.
-- `<stack>_raw_Ntb`. This contains symbolic links to the actual files.
-- `<stack>_raw_CHAT`. This contains symbolic links to the actual files.
+- `<stack>_sorted_filenames.txt`. In this file, each line contains an image name (without space), followed by its index in the series. The index is used to determine the z-position of a section, so any discarded section still occupies an index slot. You can ignore these sections or use the word "Placeholder" in place of their image names.
+- `<stack>_thumbnail_Ntb`. This contains images named `<imageName>_thumbnail_Ntb.tif`. These can be either symbolic links or actual files.
+- `<stack>_raw_Ntb`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
+- `<stack>_raw_CHAT`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
 
 ## Intensity normalize fluorescent images
 

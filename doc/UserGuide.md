@@ -19,6 +19,8 @@ The raw images must be of sagittal sections, with the anterior at the left and t
 
 All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi format to 16-bit tiff, use `CZItoTIFFConverter` from University of Geneva.
 
+### Image Name ###
+
 Each physical section is associated with an `imageName`.
 There is no fixed composition rule for image names.
 The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
@@ -66,6 +68,22 @@ On the workstation, with 8 processes, this takes about 1500 seconds.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_elastix_output`.
+- `<stack>_prep1_thumbnail_NtbNormalized`
+
+## Launch the preprocessing GUI.
+
+`$ gui/preprocess_tool_v3.py <stack>`
+
+- Click "Load image order"
+- Adjust the order by moving particular images up or down the stack.
+- Click "Save image order"
+- If the alignment between some pair requires correction, 
+	- Click "Edit transforms"
+	- Browse to the pair whose alignment needs correction.
+	- Compute new alignment by supplying alternative parameter files to `elastix` or manually providing matching landmark points.
+
+If any correction is made, make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_custom_transforms`
 
 ## Launch the preprocessing GUI.
 

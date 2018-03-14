@@ -33,7 +33,7 @@ It is important to use only one composition rule for each brain. Do not use spac
 
 ## Initialization
 
-Create a JSON file that describes the image file paths. The file contains the following keys:
+Create a JSON file that describes the image file paths. The file contains the following information:
 - `raw_data_dirs`
 - `input_image_filename_mapping`.
 - `input_image_filename_to_imagename_re_pattern_mapping`

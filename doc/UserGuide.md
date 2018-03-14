@@ -26,6 +26,7 @@ There is no fixed composition rule for image names.
 The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
 - slide number
 - section or scene index in the slide
+
 Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
 It is important to use only one composition rule for each brain.

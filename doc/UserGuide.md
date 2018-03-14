@@ -94,13 +94,25 @@ Then re-run
 
 ## Specify cropping
 
-Cropping is required for computational consideration.
+Cropping of the images is desired to focus computation only on the brainstem part.
 
 Draw a 2-D crop box on top of the aligned stack, that contains only the brain region of interest.
-7. Set the first section and the last section that contains only the brain region of interest. These together with the 2-D crop box define a 3-D ROI for the reconstructed specimen volume. The cropbox coordinates and the two section limits are stored in file `<stack>_alignedTo_<anchorImageName>_cropbox.txt`.
-8. Click "Crop" button. The GUI invokes ImageMagick `convert` to crop the thumbnail images, transform and crop the raw images. The cropped thumbnail images are stored in `<stack>_prep2_thumbnail`. The cropped raw images are stored in `<stack>_prep2_lossless`. Note that because the transform and crop of the raw images is done in one-shot, we do not store the aligned pre-crop raw images.
 
-Step 3: Launch the mask editing GUI.
+Set the first section and the last section that contains only the brain region of interest. These together with the 2-D crop box define a 3-D ROI for the reconstructed specimen volume. The cropbox coordinates and the two section limits are stored in file `<stack>_alignedTo_<anchorImageName>_cropbox.txt`.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`
+
+Run 
+`$ crop.py <stack>`
+
+This invokes ImageMagick `convert` to crop the thumbnail images and transform and crop the raw images. Note that because the transform and crop of the raw images is done in one command, we do not store the aligned but non-cropped raw images.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_prep2_thumbnail_<channel>`
+- `<stack>_prep2_raw_<channel>`
+
+## Generate masks
 
 `$ mask_editing_tool_v3.py <stack>`
 

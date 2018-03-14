@@ -78,10 +78,10 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 - Click "Load image order"
 - Adjust the order by moving particular images up or down the stack.
 - Click "Save image order"
-- If the alignment between some pair requires correction, 
+- If the alignment between any pair requires correction, 
 	- Click "Edit transforms"
 	- Browse to the pair whose alignment needs correction.
-	- Compute new alignment by supplying alternative parameter files to `elastix` or manually providing matching landmark points.
+	- Compute new alignment either by re-running `elastix` using another parameter file or manually providing matching landmark points.
 
 If any correction is made, make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_custom_transforms`

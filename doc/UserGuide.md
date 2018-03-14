@@ -65,13 +65,16 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 `$ align.py <stack>`
 
 This script computes a rigid transform between every pair of adjacent sections using the third-party program `elastix`.
+It then selects an anchor section (by default this is the largest section in the stack) and concatenate the adjacent transforms to align every section to match the anchor.
+
 On the workstation, with 8 processes, this takes about 1500 seconds.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_elastix_output`.
+- `<stack>_elastix_output`
 - `<stack>_prep1_thumbnail_NtbNormalized`
+- `<stack>_anchor.txt`
 
-## Launch the preprocessing GUI.
+## Review alignment
 
 `$ gui/preprocess_tool_v3.py <stack>`
 
@@ -86,16 +89,14 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 If any correction is made, make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_custom_transforms`
 
-## Launch the preprocessing GUI.
+Then re-run
+`$ align.py <stack>`
 
-`$ gui/preprocess_gui.py <stack>`
+## Specify cropping
 
-1. The GUI displays the thumbnails, sorted according to a hard-coded `imageName`-based sorting rule. You can adjust the order by changing the image assigned to each slice slot.
-2. Click "Align" button. The GUI invokes `elastix` to compute a transform between each consecutive section pair. The automatically computed transform parameters are stored in `<stack>_elastix_output`. Once finished, you can review the pairwise transforms for every pair. You can correct the wrong ones by manually placing anchor points and request a re-compute. These manually specified transforms are stored in `<stack>_custom_transforms`.
-3. Once all pairwise transforms are reviewed, select a target section that you want all sections to register towards. The default is the largest section. The imageName of the target section is stored in `<stack>_anchor.txt`.
-4. Click "Compose" button. The program composes all pairwise transforms and aligns every section to the target section. Aligned images are generated in the folder `<stack>_prep1_thumbnail`. Once finished, the aligned stack is loaded in the "Aligned" panel.
-5. Browse and inspect the aligned stack. If there are ordering errors or alignment errors between particular pairs, repeat step 1-4.
-6. Draw a 2-D crop box on top of the aligned stack, that contains only the brain region of interest.
+Cropping is required for computational consideration.
+
+Draw a 2-D crop box on top of the aligned stack, that contains only the brain region of interest.
 7. Set the first section and the last section that contains only the brain region of interest. These together with the 2-D crop box define a 3-D ROI for the reconstructed specimen volume. The cropbox coordinates and the two section limits are stored in file `<stack>_alignedTo_<anchorImageName>_cropbox.txt`.
 8. Click "Crop" button. The GUI invokes ImageMagick `convert` to crop the thumbnail images, transform and crop the raw images. The cropped thumbnail images are stored in `<stack>_prep2_thumbnail`. The cropped raw images are stored in `<stack>_prep2_lossless`. Note that because the transform and crop of the raw images is done in one-shot, we do not store the aligned pre-crop raw images.
 

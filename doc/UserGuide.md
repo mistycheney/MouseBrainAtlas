@@ -29,26 +29,30 @@ The principle is that one can trace back from an image name to the physical sect
 
 Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
-It is important to use only one composition rule for each brain.
+It is important to use only one composition rule for each brain. Do not use space or special characters.
 
 ## Initialization
 
 Create a JSON file that describes the image file paths. The file contains the following keys:
 - `raw_data_dirs`
-- `input_image_filename_mapping`
+- `input_image_filename_mapping`.
 - `input_image_filename_to_imagename_re_pattern_mapping`
 - `condition_list_fp`
 - `ordering_rule_fp`
+
+The image file path mappings are indexed by (version, resolution) tuples.
+- A **version** is a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
+- A **resolution** is a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw in both dimension by 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
 
 An example file is `CHATM3_input_specification.json`.
 
 Run `$ initialize.py <input_spec_filepath>`.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_sorted_filenames.txt`. In this file, each line contains an image name (without space), followed by its index in the series. The index is used to determine the z-position of a section, so any discarded section still occupies an index slot. You can ignore these sections or use the word "Placeholder" in place of their image names.
+- `<stack>_sorted_filenames.txt`. In this file, each line contains an image name (without space), followed by its index in the series. The index is used to determine the z-position of a section, so any unused section still occupies an index slot. For these sections, use the word "Placeholder" in place of image name.
 - `<stack>_thumbnail_Ntb`. This contains images named `<imageName>_thumbnail_Ntb.tif`. These can be either symbolic links or actual files.
 - `<stack>_raw_Ntb`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
-- `<stack>_raw_CHAT`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
+- `<stack>_raw_CHAT`. This contains images named `<imageName>_raw_CHAT.tif`. These can be either symbolic links or actual files.
 
 ## Intensity normalize fluorescent images
 
@@ -94,14 +98,13 @@ Then re-run
 
 ## Specify cropping
 
-Cropping of the images is desired to focus computation only on the brainstem part.
+Cropping of the images is desired to focus computation only on the region of interest.
 
-Draw a 2-D crop box on top of the aligned stack, that contains only the brain region of interest.
-
-Set the first section and the last section that contains only the brain region of interest. These together with the 2-D crop box define a 3-D ROI for the reconstructed specimen volume. The cropbox coordinates and the two section limits are stored in file `<stack>_alignedTo_<anchorImageName>_cropbox.txt`.
+Select "Show cropbox". Draw a 2-D crop box.
+Also set the first section and the last section.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`
+- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`. This file contains one line (xmin, xmax, ymin, ymax, sec_min, sec_max).
 
 Run 
 `$ crop.py <stack>`

@@ -494,3 +494,12 @@ name_sided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
 name_unsided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
                      for i, s in enumerate(all_known_structures) }
 stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n in enumerate(all_stacks)}
+
+
+####################################
+
+orientation_argparse_str_to_imagemagick_str = \
+{'transpose': '-transpose',
+ 'transverse': '-transverse',
+ 'rotate90': '-rotate 90'
+}

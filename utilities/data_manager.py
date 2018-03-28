@@ -844,7 +844,7 @@ class DataManager(object):
         return fn
 
     @staticmethod
-    def load_sorted_filenames(stack=None, fp=None):
+    def load_sorted_filenames(stack=None, fp=None, redownload=False):
         """
         Get the mapping between section index and image filename.
 
@@ -855,7 +855,7 @@ class DataManager(object):
         if fp is None:
             fp = DataManager.get_sorted_filenames_filename(stack)
             
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR, redownload=redownload)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
@@ -867,6 +867,35 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_%s.pkl' % anchor_fn)
         return fn
+    
+    
+    @staticmethod    
+    def load_consecutive_section_transform(stack, moving_fn, fixed_fn, elastix_output_dir):
+        
+        from preprocess_utilities import parse_elastix_parameter_file
+
+        custom_tf_fp = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
+        
+        custom_tf_fp2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+        
+        if os.path.exists(custom_tf_fp):
+            # if custom transform is provided
+            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fp)
+            with open(custom_tf_fp, 'r') as f:
+                t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
+            transformation_to_previous_sec = np.linalg.inv(np.array([[t11, t12, t13], [t21, t22, t23], [0,0,1]]))
+        elif os.path.exists(custom_tf_fp2):
+            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fp2)
+            transformation_to_previous_sec = parse_elastix_parameter_file(custom_tf_fp2)
+        else:
+            # otherwise, load elastix output
+            param_fp = os.path.join(elastix_output_dir, moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+            sys.stderr.write('Load elastix-computed transform: %s\n' % param_fp)
+            if not os.path.exists(param_fp):
+                raise Exception('Transform file does not exist: %s to %s, %s' % (moving_fn, fixed_fn, param_fp))
+            transformation_to_previous_sec = parse_elastix_parameter_file(param_fp)
+
+        return transformation_to_previous_sec
 
     @staticmethod
     def load_transforms(stack, downsample_factor=None, resolution=None, use_inverse=True, anchor_fn=None):

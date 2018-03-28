@@ -58,6 +58,11 @@ def get_random_masked_regions(region_shape, stack, num_regions=1, sec=None, fn=N
 
     return regions
 
+
+def invert_section_to_filename_mapping(section_to_filename):
+    filename_to_section = {fn: sec for sec, fn in section_to_filename.iteritems() if not is_invalid(fn)}
+    return filename_to_section
+
 def is_invalid(fn=None, sec=None, stack=None):
     if sec is not None:
         assert stack is not None
@@ -84,7 +89,7 @@ def volume_type_to_str(t):
     else:
         raise Exception('Volume type %s is not recognized.' % t)
 
-    
+
 def convert_frame(p, in_frame, out_frame, zdim):
     """
     Convert among the three frames specified by the second methods here
@@ -125,8 +130,8 @@ def convert_frame(p, in_frame, out_frame, zdim):
 
     return p_out
 
-def convert_resolution(p, in_resolution, out_resolution, 
-                       stack=None, image_resolution=None, 
+def convert_resolution(p, in_resolution, out_resolution,
+                       stack=None, image_resolution=None,
                        section_list=None,
                       volume_resolution_um=None):
 
@@ -183,7 +188,7 @@ def convert_resolution(p, in_resolution, out_resolution,
         p_outResol = p_um
     else:
         p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=out_resolution)
-        
+
     return p_outResol
 
 
@@ -195,7 +200,7 @@ def get_wrt_details(wrt, stack=None, zdim_um=None):
         plane = 'sagittal'
 
     wrt_details = {'origin_wrt_wholebrain_um': DataManager.get_domain_origin(stack, wrt, resolution='1um'),
-                'plane': plane, 
+                'plane': plane,
                 'zdim_um': zdim_um}
 
     return wrt_details
@@ -212,11 +217,11 @@ def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
     else:
         wrt_details = get_wrt_details(wrt, stack)
         # if 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
-        # box, plane = wrt.split('_')        
+        # box, plane = wrt.split('_')
         p_wrt_boxSagittal_origin_um = p_wrt_wholebrain_um - wrt_details['origin_wrt_wholebrain_um']
         # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
-        p_wrt_outdomain_um = convert_frame(p_wrt_boxSagittal_origin_um, in_frame='sagittal', 
-                                           out_frame=wrt_details['plane'], 
+        p_wrt_outdomain_um = convert_frame(p_wrt_boxSagittal_origin_um, in_frame='sagittal',
+                                           out_frame=wrt_details['plane'],
                                            zdim=wrt_details['zdim_um'])
     # else:
     #     print wrt
@@ -238,7 +243,7 @@ def convert_to_wholebrain_um(p, wrt, resolution,
 
     if wrt == 'wholebrain':
         p_wrt_wholebrain_um = p_um
-    else:    
+    else:
         wrt_details = get_wrt_details(wrt, stack)
         # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
         p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=wrt_details['plane'], out_frame='sagittal', zdim=wrt_details['zdim_um'])
@@ -456,7 +461,7 @@ class DataManager(object):
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
                                                        detector_id_m=None, detector_id_f=None,
                                                        prep_id_m=None, prep_id_f=2,
-                                                       warp_setting=17, trial_idx=None, timestamp=None, 
+                                                       warp_setting=17, trial_idx=None, timestamp=None,
                                                        suffix=None, **kwargs):
 
         if timestamp is not None:
@@ -486,7 +491,7 @@ class DataManager(object):
                 timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
 
         if by_human:
-            
+
             if suffix is not None:
                 fp = os.path.join(ANNOTATION_ROOTDIR, stack, '%(stack)s_annotation_%(suffix)s_%(timestamp)s_win%(win)d_grid_indices_lookup.hdf' % {'stack':stack, 'win':win_id, 'timestamp':timestamp, 'suffix':suffix})
             else:
@@ -737,12 +742,12 @@ class DataManager(object):
     #         anchor_fn = DataManager.load_anchor_filename(stack=stack)
     #     fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
     #     return fn
-    
+
     @staticmethod
     def get_domain_origin(stack, domain, resolution):
         """
         Loads the 3D origin of a domain for a given stack.
-        
+
         If specimen, the origin is wrt to wholebrain.
         If atlas, the origin is wrt to atlas space.
 
@@ -751,9 +756,9 @@ class DataManager(object):
         Args:
             domain (str): domain name
         """
-        
+
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
-        
+
         if stack.startswith('atlas'):
             if domain == 'atlasSpace':
                 origin_loadedResol = np.zeros((3,))
@@ -763,11 +768,11 @@ class DataManager(object):
                                         downscale=32,
                                           structure='7N_L')
                 origin_loadedResol = b[[0,2,4]]
-                loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589') 
+                loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589')
         else:
-            
+
             loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack=stack)
-            
+
             crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
 
             s1, s2 = metadata_cache['section_limits'][stack]
@@ -787,9 +792,9 @@ class DataManager(object):
                 raise "Domain %s is not recognized.\n" % domain
 
         origin_outResol = origin_loadedResol * loaded_resolution_um / out_resolution_um
-                
+
         return origin_outResol
-                
+
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
@@ -854,7 +859,7 @@ class DataManager(object):
 
         if fp is None:
             fp = DataManager.get_sorted_filenames_filename(stack)
-            
+
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
@@ -867,6 +872,53 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_%s.pkl' % anchor_fn)
         return fn
+
+    @staticmethod
+    def get_elastix_parameters_dir():
+        return os.path.join(REPO_DIR, 'preprocess', 'parameters')
+
+    @staticmethod
+    def load_image_filepath_warped_to_adjacent_section(stack, moving_fn, fixed_fn):
+        # generated by manually specifying landmark points
+        custom_aligned_image_fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_alignedTo_' + fixed_fn + '.tif')
+
+        # generated by running elastix
+        custom_aligned_image_fn2 = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'result.0.tif')
+
+        if os.path.exists(custom_aligned_image_fn):
+            sys.stderr.write('Load custom transform image. %s\n' % custom_aligned_image_fn)
+            return custom_aligned_image_fn
+        elif os.path.exists(custom_aligned_image_fn2):
+            sys.stderr.write('Load custom transform image. %s\n' % custom_aligned_image_fn2)
+            return custom_aligned_image_fn2
+        else:
+            fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_elastix_output', moving_fn + '_to_' + fixed_fn, 'result.0.tif')
+            return fp
+
+    @staticmethod
+    def load_consecutive_section_transform(stack, moving_fn, fixed_fn):
+
+        custom_tf_fn = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
+        custom_tf_fn2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+        if os.path.exists(custom_tf_fn):
+            # if custom transform is provided
+            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn)
+            with open(custom_tf_fn, 'r') as f:
+                t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
+            transformation_to_previous_sec = np.linalg.inv(np.array([[t11, t12, t13], [t21, t22, t23], [0,0,1]]))
+
+        elif os.path.exists(custom_tf_fn2):
+            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn2)
+            transformation_to_previous_sec = parse_elastix_parameter_file(custom_tf_fn2)
+        else:
+            # otherwise, load elastix output
+            sys.stderr.write('Load elastix-computed transform: %s\n' % custom_tf_fn2)
+            param_fn = os.path.join(elastix_output_dir, moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+            if not os.path.exists(param_fn):
+                raise Exception('Transform file does not exist: %s to %s, %s' % (moving_fn, fixed_fn, param_fn))
+            transformation_to_previous_sec = parse_elastix_parameter_file(param_fn)
+
+        return transformation_to_previous_sec
 
     @staticmethod
     def load_transforms(stack, downsample_factor=None, resolution=None, use_inverse=True, anchor_fn=None):
@@ -901,7 +953,7 @@ class DataManager(object):
                 T_rescaled = T_down32.copy()
                 T_rescaled[:2, 2] = T_down32[:2, 2] * 32. * planar_resolution[stack] / convert_resolution_string_to_voxel_size(stack=stack, resolution=resolution)
                 Ts_rescaled[fn] = T_rescaled
-                
+
             return Ts_rescaled
 
     ################
@@ -1067,7 +1119,7 @@ class DataManager(object):
     def load_alignment_parameters_v3(alignment_spec):
         tf_param_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
         download_from_s3(tf_param_fp)
-        tf_param = load_json(tf_param_fp)        
+        tf_param = load_json(tf_param_fp)
         return {k: np.array(v) if isinstance(v, list) else v for k, v in tf_param.iteritems()}
 
 #     @staticmethod
@@ -1574,10 +1626,10 @@ class DataManager(object):
         basename = DataManager.get_warped_volume_basename(**locals())
         fn = basename + '_%s' % structure
         return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
-    
+
     @staticmethod
     def get_mesh_filepath_v2(brain_spec, structure=None, resolution=None):
-        
+
         if 'stack_f' in brain_spec: # warped
             basename = DataManager.get_warped_volume_basename_v2(alignment_spec=brain_spec, structure=structure, resolution=resolution)
             return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
@@ -1586,7 +1638,7 @@ class DataManager(object):
             if structure is None:
                 structure = brain_spec['structure']
             assert structure is not None, 'Must specify structure'
-            
+
             mesh_fp = os.path.join(MESH_ROOTDIR, '%(stack)s',
                       '%(basename)s',
                      '%(basename)s_%(struct)s.stl') % \
@@ -1600,7 +1652,7 @@ class DataManager(object):
         if mesh is None:
             raise Exception('Mesh is empty: %s.' % structure)
         return mesh
-    
+
     @staticmethod
     def load_meshes_v2(brain_spec,
                     structures=None,
@@ -1623,8 +1675,8 @@ class DataManager(object):
         meshes = {}
         for structure in structures:
             try:
-                meshes[structure] = DataManager.load_mesh_v2(brain_spec=brain_spec, 
-                                                             structure=structure, 
+                meshes[structure] = DataManager.load_mesh_v2(brain_spec=brain_spec,
+                                                             structure=structure,
                                                              resolution=resolution,
                                                              return_polydata_only=return_polydata_only)
             except Exception as e:
@@ -1633,7 +1685,7 @@ class DataManager(object):
         return meshes
 
 
-    
+
     @staticmethod
     def load_mesh(stack_m,
                                     structure,
@@ -1855,7 +1907,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_transformed_volume_v2(alignment_spec, resolution, structure=None, trial_idx=None, 
+    def load_transformed_volume_v2(alignment_spec, resolution, structure=None, trial_idx=None,
                                    return_origin_instead_of_bbox=False, legacy=False):
         """
         Args:
@@ -1865,7 +1917,7 @@ class DataManager(object):
 
         """
         kwargs = locals()
-        
+
         if legacy:
             stack_m = alignment_spec['stack_m']['name']
             stack_f = alignment_spec['stack_f']['name']
@@ -1873,30 +1925,30 @@ class DataManager(object):
             warp = alignment_spec['warp_setting']
             origin = DataManager.get_domain_origin(stack=stack_f, domain='brainstem').astype(np.int)
 
-            vol = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f, 
-                                                      warp_setting=warp, detector_id_m=None, 
-                                                      detector_id_f=detector_id_f, 
-                                                      prep_id_m=None, prep_id_f=2, 
-                                                        vol_type_m='score', vol_type_f='score', downscale=32, 
+            vol = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f,
+                                                      warp_setting=warp, detector_id_m=None,
+                                                      detector_id_f=detector_id_f,
+                                                      prep_id_m=None, prep_id_f=2,
+                                                        vol_type_m='score', vol_type_f='score', downscale=32,
                                                         structure=structure)
-            
+
             bbox = np.array((origin[0], origin[0]+vol.shape[1], origin[1], origin[1]+vol.shape[0], origin[2], origin[2]+vol.shape[2]))
         else:
 
-            fp = DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, 
-                                                                resolution=resolution, 
+            fp = DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec,
+                                                                resolution=resolution,
                                                                 structure=structure)
             download_from_s3(fp)
             vol = DataManager.load_data(fp, filetype='bp')
 
-            bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain', 
-                                                                         alignment_spec=alignment_spec, 
-                                                                resolution=resolution, 
+            bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain',
+                                                                         alignment_spec=alignment_spec,
+                                                                resolution=resolution,
                                                                 structure=structure)
             download_from_s3(bbox_fp)
             bbox = np.loadtxt(bbox_fp)
             origin = bbox[[0,2,4]]
-            
+
         if return_origin_instead_of_bbox:
             return (vol, origin)
         else:
@@ -2870,7 +2922,7 @@ class DataManager(object):
                     index = structure_to_label[structure]
 
                 v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
-                
+
                 in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
                                                                              resolution=stack_spec['resolution'])
                 b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
@@ -2904,19 +2956,19 @@ class DataManager(object):
             #     return volumes
             if return_label_mappings:
                 return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
-                            return_origin_instead_of_bbox=return_origin_instead_of_bbox) 
+                            return_origin_instead_of_bbox=return_origin_instead_of_bbox)
                         for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
 
             else:
                 return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
-                            return_origin_instead_of_bbox=return_origin_instead_of_bbox) 
+                            return_origin_instead_of_bbox=return_origin_instead_of_bbox)
                         for k, (v, b) in volumes.iteritems()}
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
         """
         Args:
-            stack_spec (dict): keys are:                                
+            stack_spec (dict): keys are:
                                 - name
                                 - resolution
                                 - prep_id (optional)
@@ -2960,7 +3012,7 @@ class DataManager(object):
         else:
             raise Exception("Volume type must be one of score, annotation, annotationAsScore or intensity.")
         return fp
-    
+
 
     @staticmethod
     def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain', return_origin_instead_of_bbox=False, crop_to_minimal=False):
@@ -2982,7 +3034,7 @@ class DataManager(object):
 
         if crop_to_minimal:
             volume, volume_bbox = crop_volume_to_minimal(vol=volume, origin=volume_bbox[[0,2,4]], return_origin_instead_of_bbox=False)
-        
+
         if return_origin_instead_of_bbox:
             return volume, volume_bbox[[0,2,4]]
         else:
@@ -3171,7 +3223,7 @@ class DataManager(object):
         download_from_s3(viz_fp)
         viz = imread(viz_fp)
         return viz
-    
+
     @staticmethod
     def get_downscaled_scoremap_filepath(stack, structure, detector_id,
                                          out_resolution_um=None, downscale=None,
@@ -3678,11 +3730,11 @@ class DataManager(object):
 
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
-        
+
         img_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=prep_id, resol=resol, version=version,
                                                        section=section, fn=fn, data_dir=data_dir, ext=ext,
                                                       thumbnail_data_dir=thumbnail_data_dir)
-        
+
         if resol == 'lossless' or resol == 'down8':
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
@@ -3853,10 +3905,10 @@ class DataManager(object):
         # first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-        
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack='CHATM2', prep_id=2)
+
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack=stack, prep_id=2)
         return (xmax - xmin + 1) * 32, (ymax - ymin + 1) * 32
-        
+
         # for i in range(10, 13):
 #         random_fn = metadata_cache['valid_filenames'][stack][0]
 #         # random_fn = section_to_filename[i]
@@ -3874,7 +3926,7 @@ class DataManager(object):
 #         image_height = image_height * 32
 #         image_width = image_width * 32
 
-        return image_width, image_height
+        # return image_width, image_height
 
     #######################################################
 
@@ -3883,7 +3935,7 @@ class DataManager(object):
     def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, mid=False, z_begin=None, first_sec=None):
         """
         Voxel size is determined by `resolution`.
-        
+
         z = sec * section_thickness_in_unit_of_cubic_voxel_size - z_begin
 
         Physical size of a cubic voxel depends on the downsample factor.
@@ -3914,13 +3966,13 @@ class DataManager(object):
         #     else:
         #         first_sec = 1
         #
-        
+
         if z_begin is None:
             if first_sec is not None:
                 z_begin = (first_sec - 1) * section_thickness_in_voxel
             else:
                 z_begin = 0
-        
+
         z1 = (sec-1) * section_thickness_in_voxel
         z2 = sec * section_thickness_in_voxel
         # print "z1, z2 =", z1, z2
@@ -4443,12 +4495,12 @@ class DataManager(object):
         else:
             if fn is None:
                 fn = metadata_cache['sections_to_filenames'][stack][sec]
-                
+
             if fn.split('-')[1].startswith('N'):
                 return 'N'
             else:
                 return 'F'
-    
+
 ##################################################
 
 def download_all_metadata():

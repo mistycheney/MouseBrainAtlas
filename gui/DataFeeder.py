@@ -15,7 +15,8 @@ from qt_utilities import *
 
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
-ACTIVE_SET_SIZE = 999
+# ACTIVE_SET_SIZE = 999
+ACTIVE_SET_SIZE = 10
 
 class SignalEmitter(QObject):
     update_active_set = pyqtSignal(object, object)
@@ -103,6 +104,7 @@ class ImageDataFeeder_v2(object):
         """
         Args:
             resolution (str):
+            sections (list of str or int): a label for each section
         """
 
         self.name = name
@@ -121,6 +123,8 @@ class ImageDataFeeder_v2(object):
             self.set_resolution(resolution)
 
         self.se = SignalEmitter()
+
+        self.use_thread = use_thread
 
         if auto_load:
             if use_thread:
@@ -186,10 +190,16 @@ class ImageDataFeeder_v2(object):
             else:
                 raise Exception('Either filepath or numpy_image must be provided.')
 
-        print 'set image %s %d' % (resolution, sec)
+        print '%s: set image %s %s' % (self.name, resolution, sec)
         self.image_cache[resolution][sec] = qimage
 
         self.compute_dimension()
+
+    def set_sections(self, new_labels):
+
+        self.sections = new_labels
+        assert set(self.sections) == set(new_labels)
+        # self.retrieve_i(i=self.active_i)
 
     def set_images(self, labels=None, filenames=None, labeled_filenames=None, resolution=None, load_with_cv2=False):
 
@@ -198,10 +208,13 @@ class ImageDataFeeder_v2(object):
             labels = labeled_filenames.keys()
             filenames = labeled_filenames.values()
 
+        assert len(labels) == len(filenames), "Length of labels is different from length of filenames."
+
         for lbl, fn in zip(labels, filenames):
             if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
                 img = cv2.imread(fn)
                 if img is None:
+                    sys.stderr.write("ERROR: cv2 cannot read %s.\n" % fn)
                     continue
                 qimage = numpy_to_qimage(img)
             else:
@@ -249,9 +262,9 @@ class ImageDataFeeder_v2(object):
         if sec not in self.image_cache[resolution]:
 
             # raise Exception('Image is not loaded: section %d' % sec)
-            sys.stderr.write('%s: Image data for section %d is not loaded.\n' % (self.name, sec))
+            sys.stderr.write('%s: Image data for section %s is not loaded.\n' % (self.name, sec))
 
-            if use_thread:
+            if self.use_thread:
 
                 sys.stderr.write('%s: Looking at active set and loaded sections.\n' % (self.name))
 

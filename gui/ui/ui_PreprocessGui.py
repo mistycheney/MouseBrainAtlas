@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'PreprocessTool.ui'
+# Form implementation generated from reading ui file 'ui/PreprocessTool.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -141,6 +141,12 @@ class Ui_PreprocessGui(object):
         self.button_send_info_gordon = QtGui.QPushButton(self.centralwidget)
         self.button_send_info_gordon.setObjectName(_fromUtf8("button_send_info_gordon"))
         self.gridLayout_2.addWidget(self.button_send_info_gordon, 6, 3, 1, 1)
+        self.button_update_order = QtGui.QPushButton(self.centralwidget)
+        self.button_update_order.setObjectName(_fromUtf8("button_update_order"))
+        self.gridLayout_2.addWidget(self.button_update_order, 0, 4, 1, 1)
+        self.button_toggle_show_hide_invalid = QtGui.QPushButton(self.centralwidget)
+        self.button_toggle_show_hide_invalid.setObjectName(_fromUtf8("button_toggle_show_hide_invalid"))
+        self.gridLayout_2.addWidget(self.button_toggle_show_hide_invalid, 6, 4, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout_2)
         self.horizontalLayout_9.addLayout(self.verticalLayout)
         self.verticalLayout_3.addLayout(self.horizontalLayout_9)
@@ -221,7 +227,7 @@ class Ui_PreprocessGui(object):
         self.verticalLayout_3.addLayout(self.horizontalLayout_5)
         PreprocessGui.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(PreprocessGui)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1906, 19))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1906, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         PreprocessGui.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(PreprocessGui)
@@ -267,6 +273,8 @@ class Ui_PreprocessGui(object):
         self.button_warp_crop_mask.setText(_translate("PreprocessGui", "Warp/Crop Masks", None))
         self.button_edit_masks.setText(_translate("PreprocessGui", "Edit Masks", None))
         self.button_send_info_gordon.setText(_translate("PreprocessGui", "Send info to Gordon", None))
+        self.button_update_order.setText(_translate("PreprocessGui", "Update order", None))
+        self.button_toggle_show_hide_invalid.setText(_translate("PreprocessGui", "Hide Invalid", None))
         self.label_section2_filename.setText(_translate("PreprocessGui", "File", None))
         self.label_section2_index.setText(_translate("PreprocessGui", "Index", None))
         self.label_section3_filename.setText(_translate("PreprocessGui", "File", None))

@@ -236,7 +236,7 @@ else:
 
 
 #################### Resolution conversions ############
-    
+
 def convert_resolution_string_to_um(resolution, stack=None):
     return convert_resolution_string_to_voxel_size(resolution, stack=stack)
 
@@ -249,10 +249,10 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     """
     if resolution in ['down32', 'thumbnail']:
         assert stack is not None
-        return planar_resolution[stack] * 32.        
+        return planar_resolution[stack] * 32.
     elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
-        return planar_resolution[stack] 
+        return planar_resolution[stack]
     elif resolution == 'down8':
         assert stack is not None
         return planar_resolution[stack] * 8.

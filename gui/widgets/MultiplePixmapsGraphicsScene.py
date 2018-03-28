@@ -1,13 +1,5 @@
-from matplotlib.backends import qt4_compat
-use_pyside = qt4_compat.QT_API == qt4_compat.QT_API_PYSIDE
-if use_pyside:
-    #print 'Using PySide'
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-else:
-    #print 'Using PyQt4'
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 from custom_widgets import *
 from SignalEmittingItems import *
@@ -18,20 +10,6 @@ sys.path.append(os.environ['REPO_DIR'] + '/utilities')
 from data_manager import DataManager
 from metadata import *
 
-from annotation_utilities import *
-from registration_utilities import *
-
-PEN_WIDTH = 10
-
-BLUE_PEN = QPen(Qt.blue)
-BLUE_PEN.setWidth(PEN_WIDTH)
-GREEN_PEN = QPen(Qt.green)
-GREEN_PEN.setWidth(PEN_WIDTH)
-
-CROSSLINE_PEN_WIDTH = 2
-CROSSLINE_RED_PEN = QPen(Qt.red)
-CROSSLINE_RED_PEN.setWidth(CROSSLINE_PEN_WIDTH)
-
 class MultiplePixmapsGraphicsScene(QGraphicsScene):
     """
     Variant that supports overlaying multiple pixmaps and adjusting opacity of each.
@@ -40,6 +18,11 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
     active_image_updated = pyqtSignal()
 
     def __init__(self, id, pixmap_labels, gview=None, parent=None):
+        """
+        Args:
+            pixmap_labels (list of str): keys that specify different image groups
+        """
+
         super(QGraphicsScene, self).__init__(parent=parent)
 
         self.pixmapItems = {l: QGraphicsPixmapItem() for l in pixmap_labels}
@@ -52,8 +35,8 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         self.gview = gview
         self.id = id
 
-        self.active_section = None
-        self.active_i = None
+        self.active_sections = None
+        self.active_indices = None
 
         self.installEventFilter(self)
 
@@ -75,26 +58,25 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         # self.gview.installEventFilter(self)
         self.gview.viewport().installEventFilter(self)
 
-        # self.set_mode('idle')
-
-    # def set_mode(self, mode):
-    #     self.mode = mode
 
     def set_opacity(self, pixmap_label, opacity):
         self.pixmapItems[pixmap_label].setOpacity(opacity)
 
     def set_data_feeder(self, feeder, pixmap_label):
-        if hasattr(self, 'data_feeder') and self.data_feeder == feeder:
+        if hasattr(self, 'data_feeders') and pixmap_label in self.data_feeders and self.data_feeders[pixmap_label] == feeder:
             return
 
         self.data_feeders[pixmap_label] = feeder
 
-        self.active_sections = None
-        self.active_indices = None
+        # self.active_section = None
+        # self.active_i = None
 
-        # if hasattr(self, 'active_i') and self.active_i is not None:
-        #     self.update_image()
-        #     self.active_image_updated.emit()
+        if hasattr(feeder, 'se'): # Only implemented for image reader, not volume resection reader.
+            self.connect(feeder.se, SIGNAL("image_loaded(int)"), self.image_loaded)
+
+    @pyqtSlot(int)
+    def image_loaded(self, int):
+        self.active_image_updated.emit()
 
     def set_active_indices(self, indices, emit_changed_signal=True):
 
@@ -110,31 +92,23 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in self.active_indices.iteritems()}
         print self.id, ': Set active section to', self.active_sections
 
-        try:
-            self.update_image()
-        except Exception as e: # if failed, do not change active_i or active_section
-            raise e
-            self.active_indices = old_indices
-            self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in old_indices.iteritems()}
+        # try:
+        self.update_image()
+        # except Exception as e: # if failed, do not change active_i or active_section
+        #     raise e
+        #     self.active_indices = old_indices
+        #     self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in old_indices.iteritems()}
 
         if emit_changed_signal:
             self.active_image_updated.emit()
 
-    def set_active_section(self, sections, emit_changed_signal=True):
-        raise Exception('Not implemented.')
+    def set_active_sections(self, sections, emit_changed_signal=True):
+        # raise Exception('Not implemented.')
 
-        # if sections == self.active_sections:
-        #     return
-        #
-        # print self.id, ': Set active section to', sections
-        #
-        # if hasattr(self.data_feeder, 'sections'):
-        #     indices = {}
-        #     for sec in sections:
-        #         assert sec in self.data_feeder.all_sections, 'Section %s is not loaded.' % str(sec)
-        #         i = self.data_feeder.all_sections.index(sec)
-        #         indices.append(i)
-        #     self.set_active_indices(indices, emit_changed_signal=emit_changed_signal)
+        print self.id, ': Set active sections to', sections
+
+        indices = {set_name: self.data_feeders[set_name].sections.index(sec) for set_name, sec in sections.iteritems()}
+        self.set_active_indices(indices, emit_changed_signal=emit_changed_signal)
 
     def update_image(self):
 
@@ -143,6 +117,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         # indices = {label: self.data_feeders[label].all_sections.index(sec) for label, sec in sections.iteritems()}
 
         for label, idx in indices.iteritems():
+            print label, idx
             image = self.data_feeders[label].retrieve_i(i=idx)
             pixmap = QPixmap.fromImage(image)
             self.pixmapItems[label].setPixmap(pixmap)
@@ -150,13 +125,13 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
 
         # self.set_active_indices(indices)
 
-    def set_downsample_factor(self, downsample):
-        for feeder in self.data_feeders.values():
-            if feeder.downsample == downsample:
-                continue
-            feeder.set_downsample_factor(downsample)
-
-        self.update_image()
+    # def set_downsample_factor(self, downsample):
+    #     for feeder in self.data_feeders.values():
+    #         if feeder.downsample == downsample:
+    #             continue
+    #         feeder.set_downsample_factor(downsample)
+    #
+    #     self.update_image()
 
     def show_next(self, cycle=False):
         indices = {}

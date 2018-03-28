@@ -294,9 +294,9 @@ class SimpleGraphicsScene3(ZoomableBrowsableGraphicsScene):
     """
 
     # bad_status_changed = pyqtSignal(int)
-    first_section_set = pyqtSignal(int)
-    last_section_set = pyqtSignal(int)
-    anchor_set = pyqtSignal(int)
+    first_section_set = pyqtSignal(str)
+    last_section_set = pyqtSignal(str)
+    anchor_set = pyqtSignal(str)
     move_up_requested = pyqtSignal()
     move_down_requested = pyqtSignal()
     # edit_transform_requested = pyqtSignal()

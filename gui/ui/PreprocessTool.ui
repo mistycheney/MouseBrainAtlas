@@ -287,6 +287,20 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="4">
+           <widget class="QPushButton" name="button_update_order">
+            <property name="text">
+             <string>Update order</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="4">
+           <widget class="QPushButton" name="button_toggle_show_hide_invalid">
+            <property name="text">
+             <string>Hide Invalid</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
        </layout>
@@ -432,7 +446,7 @@
      <x>0</x>
      <y>0</y>
      <width>1906</width>
-     <height>19</height>
+     <height>25</height>
     </rect>
    </property>
   </widget>

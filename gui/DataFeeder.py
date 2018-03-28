@@ -86,7 +86,7 @@ class ReadImagesThread(QThread):
         for sec in sections_to_load:
 
             if sec not in metadata_cache['valid_sections'][self.stack]:
-                sys.stderr.write('Section %d is invalid: %s\n' % (sec, str(e)))
+                sys.stderr.write('Section %d is invalid.\n' % sec)
                 continue
 
             qimage = load_qimage(stack=self.stack, sec=sec, prep_id=self.prep_id, resolution=self.resolution, img_version=self.img_version)

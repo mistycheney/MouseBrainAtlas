@@ -179,9 +179,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,
-        prep_id=self.prep_id, use_data_manager=False,
+        prep_id=self.prep_id,
         resolution=self.resolution,
-        version=img_version)
+        version=img_version,
+        auto_load=True,
+        use_thread=True)
         image_feeder.set_orientation('sagittal')
 
         self.gscenes['main_sagittal'].set_data_feeder(image_feeder)

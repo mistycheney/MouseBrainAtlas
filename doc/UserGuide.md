@@ -4,33 +4,118 @@
 
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 
+Edit `global_setting.py`. In particular, specify the following variables:
+- `DATA_DIR`
+- `REPO_DIR`
+
+
 # Preprocessing a new stack 
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
-Step 1: Place unaligned images in `DATA_FOLDER/<stack>`. The images must be of sagittal sections, with the anterior at the left and the posterior at the right.
+## Data preparation
 
-Each section should have two versions:
+The raw images must be of sagittal sections, with the anterior at the left and the posterior at the right.
 
-* the raw data `<imageName>_lossless.tif` (~ 1-2 GB per image), and
-* a thumbnail `<imageName>_thumbnail.tif`.
+All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi format to 16-bit tiff, use `CZItoTIFFConverter` from University of Geneva.
 
-To convert the native czi format for Zeiss scanners to 16-bit tiff use `CZItoTIFFConverter` from University of Geneva.
+### Image Name ###
 
-Step 2: Launch the preprocessing GUI.
+Each physical section is associated with an `imageName`.
+There is no fixed composition rule for image names.
+The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
+- slide number
+- section or scene index in the slide
 
-`$ gui/preprocess_gui.py <stack>`
+Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
+For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
+It is important to use only one composition rule for each brain. Do not use space or special characters.
 
-1. The GUI displays the thumbnails, sorted according to a hard-coded `imageName`-based sorting rule. You can adjust the order by changing the image assigned to each slice slot.
-2. Click "Align" button. The GUI invokes `elastix` to compute a transform between each consecutive section pair. The automatically computed transform parameters are stored in `<stack>_elastix_output`. Once finished, you can review the pairwise transforms for every pair. You can correct the wrong ones by manually placing anchor points and request a re-compute. These manually specified transforms are stored in `<stack>_custom_transforms`.
-3. Once all pairwise transforms are reviewed, select a target section that you want all sections to register towards. The default is the largest section. The imageName of the target section is stored in `<stack>_anchor.txt`.
-4. Click "Compose" button. The program composes all pairwise transforms and aligns every section to the target section. Aligned images are generated in the folder `<stack>_prep1_thumbnail`. Once finished, the aligned stack is loaded in the "Aligned" panel.
-5. Browse and inspect the aligned stack. If there are ordering errors or alignment errors between particular pairs, repeat step 1-4.
-6. Draw a 2-D crop box on top of the aligned stack, that contains only the brain region of interest.
-7. Set the first section and the last section that contains only the brain region of interest. These together with the 2-D crop box define a 3-D ROI for the reconstructed specimen volume. The cropbox coordinates and the two section limits are stored in file `<stack>_alignedTo_<anchorImageName>_cropbox.txt`.
-8. Click "Crop" button. The GUI invokes ImageMagick `convert` to crop the thumbnail images, transform and crop the raw images. The cropped thumbnail images are stored in `<stack>_prep2_thumbnail`. The cropped raw images are stored in `<stack>_prep2_lossless`. Note that because the transform and crop of the raw images is done in one-shot, we do not store the aligned pre-crop raw images.
+## Initialization
 
-Step 3: Launch the mask editing GUI.
+Create a JSON file that describes the image file paths. The file contains the following information:
+- `raw_data_dirs`
+- `input_image_filename_mapping`.
+- `input_image_filename_to_imagename_re_pattern_mapping`
+- `condition_list_fp`
+- `ordering_rule_fp`
+
+The image file path mappings are indexed by (version, resolution) tuples.
+- A **version** is a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
+- A **resolution** is a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw data in both dimensions by a factor of 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
+
+An example file is `CHATM3_input_specification.json`.
+
+Run `$ initialize.py <input_spec_filepath>`.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_sorted_filenames.txt`. In this file, each line contains an image name (without space), followed by its index in the series. The index is used to determine the z-position of a section, so any unused section still occupies an index slot. For these sections, use the word "Placeholder" in place of image name.
+- `<stack>_thumbnail_Ntb`. This contains images named `<imageName>_thumbnail_Ntb.tif`. These can be either symbolic links or actual files.
+- `<stack>_raw_Ntb`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
+- `<stack>_raw_CHAT`. This contains images named `<imageName>_raw_CHAT.tif`. These can be either symbolic links or actual files.
+
+## Intensity normalize fluorescent images
+
+`$ normalize_intensity.py <stack> [input_version] [output_version]`
+
+`<input_version>` default to "Ntb".
+`<output_version>` default to "NtbNormalized"
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_thumbnail_NtbNormalized`
+
+## Compute intra-stack transforms
+
+`$ align.py <stack>`
+
+This script computes a rigid transform between every pair of adjacent sections using the third-party program `elastix`.
+It then selects an anchor section (by default this is the largest section in the stack) and concatenate the adjacent transforms to align every section to match the anchor.
+
+On the workstation, with 8 processes, this takes about 30 minutes.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_elastix_output`
+- `<stack>_prep1_thumbnail_NtbNormalized`
+- `<stack>_anchor.txt`
+
+## Review alignment
+
+`$ gui/preprocess_tool_v3.py <stack>`
+
+- Click "Load image order"
+- Adjust the order by moving particular images up or down the stack.
+- Click "Save image order"
+- If the alignment between any pair requires correction, 
+	- Click "Edit transforms"
+	- Browse to the pair whose alignment needs correction.
+	- Compute new alignment either by re-running `elastix` using another parameter file or manually providing matching landmark points.
+
+If any correction is made, make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_custom_transforms`
+
+Then re-run
+`$ align.py <stack>`
+
+## Specify cropping
+
+Cropping of the images is desired to focus computation only on the region of interest.
+
+Select "Show cropbox". Draw a 2-D crop box.
+Also set the first section and the last section.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`. This file contains one line (xmin, xmax, ymin, ymax, sec_min, sec_max).
+
+Run 
+`$ crop.py <stack>`
+
+This invokes ImageMagick `convert` to crop the thumbnail images and transform and crop the raw images. Note that because the transform and crop of the raw images is done in one command, we do not store the aligned but non-cropped raw images.
+
+Make sure the following items are generated under `DATA_DIR/<stack>`:
+- `<stack>_prep2_thumbnail_<channel>`
+- `<stack>_prep2_raw_<channel>`
+
+## Generate masks
 
 `$ mask_editing_tool_v3.py <stack>`
 

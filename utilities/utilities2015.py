@@ -146,25 +146,72 @@ def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
 
 ######################################################################
 
-def rescale_by_resampling(v, scaling):
-    # print v.shape, scaling
-    if scaling == 1:
-        return v
-
+def rescale_by_resampling(v, scaling=None, new_shape=None):
+    """
+    Args:
+        scaling (int or list): if more than one element, (scaling x, scaling y, scaling z)
+    """
+    
+#     if scaling is None:
+#         assert new_shape is not None
+#         if v.ndim == 3:
+#             scaling = np.array(new_shape) / np.array([v.shape[1], v.shape[0], v.shape[2]], np.float)
+#         elif v.ndim == 2:
+#             scaling = np.array(new_shape) / np.array([v.shape[1], v.shape[0]], np.float)
+    
+    if scaling is not None:
+        n = len(np.atleast_1d(scaling))
+        if n == 1:
+            scaling = np.ones((v.ndim,))
+        
     if v.ndim == 3:
         if v.shape[-1] == 3: # RGB image
-            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+            if scaling is not None:
+                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
+                                     np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int), 
+                                     indexing='ij')]
+            else:
+                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
+                                 np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), 
+                                 indexing='ij')]
         else: # 3-d volume
-            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
+            if scaling is not None:
+                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
+                                     np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int),
+                                     np.floor(np.arange(0, v.shape[2], 1./scaling[2])).astype(np.int), 
+                                     indexing='ij')]
+            else:
+                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
+                                 np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int),
+                                 np.floor(np.linspace(0, v.shape[2]-1, new_shape[2])).astype(np.int), 
+                                 indexing='ij')]
     elif v.ndim == 2:
-        return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+            if scaling is not None:
+                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
+                                 np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int), 
+                                 indexing='ij')]
+            else:
+                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
+                             np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), 
+                             indexing='ij')]
     else:
         raise
 
+#         if v.ndim == 3:
+#             if v.shape[-1] == 3: # RGB image
+#                 return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+#             else: # 3-d volume
+#                 return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
+#                   np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
+#         elif v.ndim == 2:
+#             return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+#         else:
+#             raise
+    # else:
+    #     raise
 
 # def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
 #     """

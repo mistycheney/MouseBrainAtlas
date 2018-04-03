@@ -2425,13 +2425,14 @@ from scipy.ndimage.interpolation import map_coordinates
 
 def resample_scoremap(sparse_scores, sample_locations, gridspec,
                       out_dtype=np.float16,
-                      downscale=None):
-                      # out_resolution_um=None, 
-                      # , in_resolution_um=None):
+                      downscale=None,
+                      out_resolution_um=None, 
+                      in_resolution_um=None):
     """
     Args:
         sparse_scores:
         sample_locations:
+        gridspec: the tuple (patch size in pixel, spacing in pixel, width, height in pixel)
         half_size (int):
         spacing (int): minimal spacing in pixel
         in_resolution_um (float):
@@ -2447,9 +2448,9 @@ def resample_scoremap(sparse_scores, sample_locations, gridspec,
     patch_size_px, spacing_px, w, h = gridspec
     half_size_px = patch_size_px / 2
     
-    # if downscale is None:
-    #     assert out_resolution_um is not None and in_resolution_um is not None
-    #     downscale = out_resolution_um / in_resolution_um
+    if downscale is None:
+        assert out_resolution_um is not None and in_resolution_um is not None
+        downscale = out_resolution_um / in_resolution_um
 
     downscaled_grid_y = np.arange(0, h, downscale)
     downscaled_grid_x = np.arange(0, w, downscale)

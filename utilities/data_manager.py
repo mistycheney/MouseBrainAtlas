@@ -756,7 +756,7 @@ class DataManager(object):
         Args:
             domain (str): domain name
         """
-
+        
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
 
         if stack.startswith('atlas'):
@@ -769,22 +769,25 @@ class DataManager(object):
                                           structure='7N_L')
                 origin_loadedResol = b[[0,2,4]]
                 loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589')
+            else:
+                raise
         else:
 
-            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack=stack)
-
-            crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
-
-            s1, s2 = metadata_cache['section_limits'][stack]
-            crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
+            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
 
             if domain == 'wholebrain':
                 origin_loadedResol = np.zeros((3,))
             elif domain == 'wholebrainXYcropped':
+                crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
                 origin_loadedResol = np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, 0])
             elif domain == 'brainstemXYfull':
+                s1, s2 = metadata_cache['section_limits'][stack]
+                crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
                 origin_loadedResol = np.array([0, 0, crop_zmin_rel2uncropped])
             elif domain == 'brainstem':
+                crop_xmin_rel2uncropped, crop_ymin_rel2uncropped = metadata_cache['cropbox'][stack][[0,2]]
+                s1, s2 = metadata_cache['section_limits'][stack]
+                crop_zmin_rel2uncropped = int(np.floor(np.mean(DataManager.convert_section_to_z(stack=stack, sec=s1, downsample=32, z_begin=0))))
                 origin_loadedResol = np.array([crop_xmin_rel2uncropped, crop_ymin_rel2uncropped, crop_zmin_rel2uncropped])
             elif domain == 'brainstemXYFullNoMargin':
                 origin_loadedResol = np.loadtxt(DataManager.get_intensity_volume_bbox_filepath_v2(stack='MD589', prep_id=4, downscale=32)).astype(np.int)[[0,2,4]]
@@ -1910,6 +1913,8 @@ class DataManager(object):
     @staticmethod
     def save_transformed_volume(volume, bbox, alignment_spec, resolution=None, structure=None):
         """
+        Save volume array as bp file and bounding box as txt file.
+        
         Args:
             resolution (str):
             bbox ((3,)-array): wrt fixedWholebrain
@@ -2898,7 +2903,6 @@ class DataManager(object):
                 return volumes
 
 
-
     @staticmethod
     def load_original_volume_all_known_structures_v3(stack_spec,
                                                      in_bbox_wrt,
@@ -2926,7 +2930,7 @@ class DataManager(object):
                 if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
                 else, returns volume_bbox_tuples.
         """
-
+        
         if structures is None:
             if sided:
                 if include_surround:
@@ -2940,36 +2944,38 @@ class DataManager(object):
         sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
 
         volumes = {}
+        
         if not loaded:
             structure_to_label = {}
             label_to_structure = {}
             index = 1
+            
         for structure in structures:
-            try:
+            # try:
 
-                if loaded:
-                    index = structure_to_label[structure]
+            if loaded:
+                index = structure_to_label[structure]
 
-                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+            v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
-                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
-                                                                             resolution=stack_spec['resolution'])
-                b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
+            in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
+                                                                         resolution=stack_spec['resolution'])
+            b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
 
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,b)
-                else:
-                    volumes[index] = (v,b)
+            if name_or_index_as_key == 'name':
+                volumes[structure] = (v,b)
+            else:
+                volumes[index] = (v,b)
 
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
+            if not loaded:
+                structure_to_label[structure] = index
+                label_to_structure[index] = structure
+                index += 1
 
-            except Exception as e:
-                # raise e
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+            # except Exception as e:
+            #     # raise e
+            #     sys.stderr.write('%s\n' % e)
+            #     sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
         if common_shape:
             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
@@ -2979,10 +2985,6 @@ class DataManager(object):
             else:
                 return volumes_normalized, common_bbox
         else:
-            # if return_label_mappings:
-            #     return volumes, structure_to_label, label_to_structure
-            # else:
-            #     return volumes
             if return_label_mappings:
                 return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
                             return_origin_instead_of_bbox=return_origin_instead_of_bbox)

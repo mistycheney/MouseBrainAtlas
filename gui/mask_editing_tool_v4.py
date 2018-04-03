@@ -384,6 +384,17 @@ class MaskEditingGUI(QMainWindow):
             self.contrast_stretched_images[sec] = contrast_stretch_image(self.original_images[sec])
         self.update_thresholded_image(sec=sec)
 
+    def update_thresholded_image(self, sec=None):
+        """
+        Update the image in the thresholded image gscene, based on contrast_stretched_images.
+        """
+
+        print "update_thresholded_image"
+        if sec is None:
+            sec = self.auto_submasks_gscene.active_section
+        self.thresholded_image_feeder.set_image(sec=sec, qimage=numpy_to_qimage(self.contrast_stretched_images[sec]))
+        self.gscene_thresholded.update_image(sec=sec)
+
     def do_snake(self, sec):
         self.selected_snake_lambda1[sec] = self.ui.slider_snakeShrink.value() * .5
         self.selected_snake_min_size[sec] = self.ui.slider_minSize.value()
@@ -424,17 +435,6 @@ class MaskEditingGUI(QMainWindow):
     def snake_shrinkParam_changed(self, value):
         self.ui.label_snakeShrink.setText(str(value*.5))
 
-    def update_thresholded_image(self, sec=None):
-        """
-        Update the image in the thresholded image gscene, based on contrast_stretched_images.
-        """
-
-        print "update_thresholded_image"
-        if sec is None:
-            sec = self.auto_submasks_gscene.active_section
-        self.thresholded_image_feeder.set_image(sec=sec, qimage=numpy_to_qimage(self.contrast_stretched_images[sec]))
-        self.gscene_thresholded.update_image(sec=sec)
-
     def auto_submasks_gscene_section_changed(self):
         """
         What happens when the image in "Automatic Masks" panel is changed.
@@ -452,10 +452,11 @@ class MaskEditingGUI(QMainWindow):
         self.ui.comboBox_channel.setCurrentIndex(self.selected_channels[sec])
         # self.change_channel(self.selected_channels[sec])
 
-        try:
-            self.gscene_thresholded.set_active_section(sec)
-        except: # The first time this will complain "Image not loaded" yet. But will not once update_thresholded_image() loads the image.
-            pass
+        # try:
+        self.update_contrast_stretched_image(sec)
+        self.gscene_thresholded.set_active_section(sec)
+        # except: # The first time this will complain "Image not loaded" yet. But will not once update_thresholded_image() loads the image.
+        #     pass
 
         if sec in self.selected_snake_lambda1:
             self.ui.slider_snakeShrink.setValue(self.selected_snake_lambda1[sec]/.5)

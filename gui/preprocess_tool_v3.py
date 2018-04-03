@@ -10,7 +10,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import pandas
 
-from ui.ui_PreprocessGui import Ui_PreprocessGui
+from ui.ui_PreprocessGui_v2 import Ui_PreprocessGui
 from ui.ui_AlignmentGui import Ui_AlignmentGui
 
 from widgets.ZoomableBrowsableGraphicsScene import ZoomableBrowsableGraphicsScene, SimpleGraphicsScene2, SimpleGraphicsScene3, SimpleGraphicsScene4
@@ -31,6 +31,7 @@ from qt_utilities import *
 
 # Use the third method in http://pyqt.sourceforge.net/Docs/PyQt4/designer.html
 class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
+
     def __init__(self, parent=None, stack=None, tb_fmt='png'):
         """
         Initialization of preprocessing tool.
@@ -83,14 +84,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.installEventFilter(self)
 
         self.comboBox_show.activated.connect(self.show_option_changed)
-        self.button_sort.clicked.connect(self.sort)
+        # self.button_sort.clicked.connect(self.sort)
         self.button_load_sorted_filenames.clicked.connect(self.load_sorted_filenames)
-        self.button_save_sorted_filenames.clicked.connect(self.save_sorted_filenames)
-        self.button_confirm_alignment.clicked.connect(self.compose)
+        # self.button_save_sorted_filenames.clicked.connect(self.save_sorted_filenames)
+        # self.button_confirm_alignment.clicked.connect(self.compose)
         self.button_edit_transform.clicked.connect(self.edit_transform)
-        self.button_crop.clicked.connect(self.crop)
-        self.button_load_crop.clicked.connect(self.load_crop)
+        # self.button_crop.clicked.connect(self.crop)
         self.button_save_crop.clicked.connect(self.save_crop)
+        self.button_load_crop.clicked.connect(self.load_crop)
         self.button_update_order.clicked.connect(self.update_sorted_sections_gscene_from_sorted_filenames)
         self.button_toggle_show_hide_invalid.clicked.connect(self.toggle_show_hide_invalid)
 
@@ -98,6 +99,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         self.placeholders = set([])
         self.rescans = set([])
+
+        pp_fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_problematic_pairs.txt')
+        if os.path.exists(pp_fp):
+            sys.stderr.write("Loaded problematic pairs.\n")
+            with open(pp_fp, 'r') as f:
+                self.problematic_pairs = [tuple(line.split()) for line in f.readlines()]
+        else:
+            sys.stderr.write("Did not find problematic pairs.\n")
+            self.problematic_pairs = []
 
     def toggle_show_hide_invalid(self):
         self.show_valid_only = not self.show_valid_only
@@ -345,8 +355,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def apply_custom_transform(self):
 
-        curr_section_fn = self.sorted_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
-        prev_section_fn = self.sorted_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+        # section_filenames = self.get_sorted_filenames(valid_only=self.show_valid_only)
+
+        # curr_section_fn = section_filenames[self.valid_section_indices[self.curr_gscene.active_i]-1]
+        # prev_section_fn = section_filenames[self.valid_section_indices[self.prev_gscene.active_i]-1]
+        curr_section_fn = self.curr_gscene.active_section
+        prev_section_fn = self.prev_gscene.active_section
 
         custom_tf_fn = os.path.join(self.stack_data_dir, self.stack+'_custom_transforms', curr_section_fn + '_to_' + prev_section_fn, curr_section_fn + '_to_' + prev_section_fn + '_customTransform.txt')
         with open(custom_tf_fn, 'r') as f:
@@ -390,8 +404,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         curr_section_fn = self.curr_gscene.active_section
         prev_section_fn = section_filenames[section_filenames.index(curr_section_fn) - 1]
 
-        self.alignment_ui.label_current_filename.setText(curr_section_fn)
-        self.alignment_ui.label_current_index.setText(str(curr_section_fn))
+        print self.problematic_pairs
+
+        if (prev_section_fn, curr_section_fn) in self.problematic_pairs:
+            self.alignment_ui.label_current_filename.setText('(CHECK)' + str(curr_section_fn))
+            self.alignment_ui.label_current_index.setText('(CHECK)' + str(curr_section_fn))
+        else:
+            self.alignment_ui.label_current_filename.setText(str(curr_section_fn))
+            self.alignment_ui.label_current_index.setText(str(curr_section_fn))
         self.prev_gscene.set_active_section(prev_section_fn)
         self.overlay_gscene.set_active_sections({'moving': curr_section_fn, 'fixed': prev_section_fn})
 
@@ -409,11 +429,11 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
     ########################## END OF EDIT TRANSFORM ######################################3
 
 
-    def sort(self):
-        """
-        Sort images.
-        """
-        self.update_sorted_sections_gscene_from_sorted_filenames()
+    # def sort(self):
+    #     """
+    #     Sort images.
+    #     """
+    #     self.update_sorted_sections_gscene_from_sorted_filenames()
 
     def save_everything(self):
 

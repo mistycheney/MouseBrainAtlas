@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreprocessGui</class>
+ <widget class="QMainWindow" name="PreprocessGui">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1906</width>
+    <height>1088</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_3">
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_9">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
+          <item>
+           <widget class="QGraphicsView" name="sorted_sections_gview">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>600</width>
+              <height>500</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_sorted_sections_status">
+            <property name="text">
+             <string>TextLabel</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="QLabel" name="label_sorted_sections_filename">
+            <property name="text">
+             <string>Filename</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_sorted_sections_index">
+            <property name="text">
+             <string>Section Index</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="3" column="4">
+           <widget class="QPushButton" name="button_edit_transform">
+            <property name="text">
+             <string>Edit Transform</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QPushButton" name="button_load_crop">
+            <property name="text">
+             <string>Load Crop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QPushButton" name="button_save_crop">
+            <property name="text">
+             <string>Save Crop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="comboBox_show">
+            <item>
+             <property name="text">
+              <string>Original</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Original Aligned</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Mask Contoured</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Brainstem Cropped</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Brainstem Cropped Masked</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="2" column="4">
+           <widget class="QPushButton" name="button_update_order">
+            <property name="text">
+             <string>Update order</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QPushButton" name="button_toggle_show_hide_invalid">
+            <property name="text">
+             <string>Hide Invalid</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QPushButton" name="button_save_sorted_filenames">
+        <property name="text">
+         <string>Save Sorted Filenames</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_load_sorted_filenames">
+        <property name="text">
+         <string>Load Sorted Filenames</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1906</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

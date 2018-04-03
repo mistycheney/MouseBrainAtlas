@@ -204,8 +204,9 @@ from skimage.filters import gaussian
 from scipy.ndimage.interpolation import zoom
 
 def generate_aligner_parameters_v2(alignment_spec, 
-                                structures_m=all_known_structures_sided,
-                               structures_f=None):
+                                   structures_m=all_known_structures_sided, 
+                                   structures_f=None,
+                                  fixed_structures_are_sided=False):
     """
     Args:
         alignment_spec (dict):
@@ -286,6 +287,12 @@ def generate_aligner_parameters_v2(alignment_spec,
         structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200') for s in structures_m])
 
     if upstream_warp_setting is None:
+        
+        if stack_m_spec['name'].startswith('atlas'):
+            in_bbox_wrt='atlasSpace'
+        else:
+            in_bbox_wrt='wholebrain'
+        
         volume_moving, structure_to_label_moving, label_to_structure_moving = \
         DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_m_spec,
                                                                  sided=True,
@@ -294,7 +301,7 @@ def generate_aligner_parameters_v2(alignment_spec,
                                                          name_or_index_as_key='index',
                                                          common_shape=False,
                                                         structures=structures_m,
-                                                         in_bbox_wrt='atlasSpace',
+                                                         in_bbox_wrt=in_bbox_wrt,
                                                                  return_origin_instead_of_bbox=True
                                                                  # in_bbox_wrt='wholebrain',
                                                             # out_bbox_wrt='atlasSpace'
@@ -325,11 +332,12 @@ def generate_aligner_parameters_v2(alignment_spec,
     #############################################################################
 
     if structures_f is None:
-        structures_f = set([convert_to_unsided_label(s) for s in structures_m])
+        if fixed_structures_are_sided:
+            structures_f = set([s for s in structures_m])
+        else:
+            structures_f = set([convert_to_unsided_label(s) for s in structures_m])
     
-    # if stack_f_spec['name'] == 'ChatCryoJane201710':
-    #     in_bbox_wrt = 'brainstem'
-    if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
+    if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27']:
         in_bbox_wrt = 'wholebrain'
     else:
         in_bbox_wrt = 'wholebrainXYcropped'
@@ -345,6 +353,7 @@ def generate_aligner_parameters_v2(alignment_spec,
                                                      name_or_index_as_key='index',
                                                      common_shape=False,
                                                             return_origin_instead_of_bbox=True)
+    
     # DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False,
     #                                                       volume_type=vol_type_f,
     #                                                      include_surround=include_surround,

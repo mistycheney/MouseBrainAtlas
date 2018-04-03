@@ -206,7 +206,7 @@ def rescale_by_resampling(v, scaling):
 
 ###################################################################
 
-def get_structure_centroids(vol_bbox_dict=None, vol_dict=None):
+def get_structure_centroids(vol_bbox_dict=None, vol_origin_dict=None, vol_dict=None):
     """
     Compute structure centroids.
     """
@@ -217,11 +217,18 @@ def get_structure_centroids(vol_bbox_dict=None, vol_dict=None):
             xmin, _, ymin, _, zmin, _ = bb
             ym, xm, zm = np.mean(np.nonzero(v), axis=1)
             structure_centroids[label] = (xm+xmin, ym+ymin, zm+zmin)
+    elif vol_origin_dict is not None:
+        for label, (v, o) in vol_origin_dict.iteritems():
+            xmin, ymin, zmin = o
+            ym, xm, zm = np.mean(np.nonzero(v), axis=1)
+            structure_centroids[label] = (xm+xmin, ym+ymin, zm+zmin)
     elif vol_dict is not None:
         for label, v in vol_dict.iteritems():
+            print np.where(v)
             ym, xm, zm = np.mean(np.nonzero(v), axis=1)
             structure_centroids[label] = (xm, ym, zm)
     return structure_centroids
+
 
 def get_centroid_3d(v):
     return np.mean(np.where(v), axis=1)[[1,0,2]]
@@ -768,8 +775,7 @@ def return_gridline_points_v2(xdim, ydim, spacing, z):
 def return_gridline_points(xs, ys, z, w, h):
     grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
     return grid_points
-
-
+    
 def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
     Convert the set (parameter, centroid m, centroid f) to a single matrix.

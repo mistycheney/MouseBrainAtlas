@@ -1191,7 +1191,7 @@ if __name__ == "__main__":
     # parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='jpeg')
     parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='grayJpeg')
     parser.add_argument("-r", "--resolution", type=str, help="Resolution of image displayed in main scene. Default = %(default)s.", default='lossless')
-    parser.add_argument("-p", "--prep", type=int, help="Frame identifier of image displayed in main scene (2 for brainstem crop, 3 for thalamus crop). Default = %(default)d.", default=2)
+    parser.add_argument("-p", "--prep", type=int, help="Frame identifier of image displayed in main scene (1 for no crop, 2 for brainstem crop, 3 for thalamus crop). Default = %(default)d.", default=2)
     args = parser.parse_args()
 
     from sys import argv, exit

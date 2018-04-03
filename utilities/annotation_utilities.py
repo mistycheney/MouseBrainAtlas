@@ -35,12 +35,12 @@ def get_structure_contours_from_structure_volumes(volumes, stack, sections, reso
     for sec in sections:
         sys.stderr.write('Computing structure contours for section %d...\n' % sec)
         for name_s, (vol, origin_wrt_wholebrain_volResol) in volumes.iteritems():
-            
+
             z = int(DataManager.convert_section_to_z(sec=sec, resolution=resolution, mid=True, stack=stack)) - origin_wrt_wholebrain_volResol[2]
             z = int(np.floor(z))
             if z < 0 or z >= vol.shape[-1]:
                 continue
-            
+
             if np.count_nonzero(vol[..., z]) == 0:
                 continue
             sys.stderr.write('Probability mass detected on section %d...\n' % sec)
@@ -147,7 +147,7 @@ def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolu
     for sid, structure_info in structures_df.iterrows():
         name_s = compose_label(structure_info['name'], structure_info['side'])
         v = bp.unpack_ndarray_str(structure_info['volume_in_bbox'])
-        
+
         if out_resolution is None:
             out_resolution = structure_info['resolution']
             out_v = v
@@ -157,7 +157,7 @@ def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolu
             out_voxel_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack)
             out_v = rescale_by_resampling(v, in_voxel_um/out_voxel_um)
             out_origin = structure_info['origin'] * in_voxel_um/out_voxel_um
-            
+
         volume_origin_dict[name_s] = (out_v, out_origin)
     return volume_origin_dict, out_resolution
 
@@ -1228,7 +1228,7 @@ def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, reso
     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
     xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack, prep_id=prep_id)
-    
+
     Ts_rawResol = DataManager.load_transforms(stack=stack, resolution='raw', use_inverse=True)
 
     # cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['resolution'] == resolution)]
@@ -1255,50 +1255,3 @@ def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, reso
             contour_df.set_value(cnt_id, 'label_position', np.dot(T_rawResol, np.r_[label_position_wrt_alignedUncropped_rawResol, 1])[:2])
 
     return contour_df
-
-# def convert_annotation_v3_aligned_cropped_to_original(contour_df, stack, in_downsample=1, prep_id=2):
-#     """
-#     Convert contours defined wrt aligned cropped frame in resolution `in_downsample` to
-#     contours defined wrt orignal unprocessed image frame in the raw resolution.
-#
-#     Args:
-#         contour_df (DataFrame): rows are polygon ids, columns are properties.
-#         in_downsample (float): use input contours at this scale.
-#
-#     Returns:
-#         DataFrame: a DataFrame containing converted polygons.
-#     """
-#
-#     filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
-#
-#     if prep_id == 2:
-#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
-#     elif prep_id == 3:
-#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
-#     else:
-#         raise
-#
-#     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
-#
-#     cnts = contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == in_downsample)]
-#
-#     for cnt_id, cnt in cnts.iterrows():
-#         sec = cnt['section']
-#         fn = section_to_filename[sec]
-#         if fn in ['Placeholder', 'Nonexisting', 'Rescan']:
-#             continue
-#         contour_df.loc[cnt_id, 'filename'] = fn
-#
-#         T = np.linalg.inv(Ts[fn])
-#
-#         n = len(cnt['vertices'])
-#
-#         vertices_on_aligned = np.array(cnt['vertices'])*in_downsample + (xmin*32, ymin*32)
-#         contour_df.set_value(cnt_id, 'vertices', np.dot(T, np.c_[vertices_on_aligned, np.ones((n,))].T).T[:, :2])
-#         contour_df.set_value(cnt_id, 'downsample', 1.)
-#
-#         if 'label_position' in cnt and cnt['label_position'] is not None:
-#             label_position_on_aligned = np.array(cnt['label_position'])*in_downsample + (xmin*32, ymin*32)
-#             contour_df.set_value(cnt_id, 'label_position', np.dot(T, np.r_[label_position_on_aligned, 1])[:2])
-#
-#     return contour_df

@@ -443,7 +443,7 @@ XY_PIXEL_DISTANCE_TB_AXIOSCAN = XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN * 32
 
 all_nissl_stacks = ['MD585', 'MD589', 'MD590', 'MD591', 'MD592', 'MD593', 'MD594', 'MD595', 'MD598', 'MD599', 'MD602', 'MD603']
 all_ntb_stacks = ['MD635']
-all_dk_ntb_stacks = ['CHATM2']
+all_dk_ntb_stacks = ['CHATM2', 'CHATM3']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
@@ -472,8 +472,8 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD658':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD661':XY_PIXEL_DISTANCE_LOSSLESS,
                      'MD662':XY_PIXEL_DISTANCE_LOSSLESS,
-                     'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
-                     'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     # 'ChatCryoJane201710': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     # 'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM3': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
                     }

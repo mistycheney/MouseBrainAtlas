@@ -92,7 +92,7 @@ def volume_type_to_str(t):
 
 def convert_frame(p, in_frame, out_frame, zdim):
     """
-    Convert among the three frames specified by the second methods here
+    Convert among the three frames specified by the second method in this presentation
     https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
     """
 
@@ -134,6 +134,10 @@ def convert_resolution(p, in_resolution, out_resolution,
                        stack=None, image_resolution=None,
                        section_list=None,
                       volume_resolution_um=None):
+    """
+    Rescales coordinates according to the given input and output resolution.
+    This function does not change physical position of coordinate origin or the direction of the axes.
+    """
 
     if in_resolution == 'image':
         p_um = p * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
@@ -205,15 +209,21 @@ def get_wrt_details(wrt, stack=None, zdim_um=None):
 
     return wrt_details
 
+
 def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
                                image_resolution=None, stack=None, volume_resolution_um=None,
     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    """
+    Convert the coordinates expressed in "wholebrain" frame in microns to
+    coordinates expressed in the given frame and resolution.
+    """
 
     p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
-    assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3
+    assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3, "Coordinates must have three elements."
 
     if wrt == 'wholebrain':
         p_wrt_outdomain_um = p_wrt_wholebrain_um
+    
     else:
         wrt_details = get_wrt_details(wrt, stack)
         # if 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
@@ -234,10 +244,13 @@ def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
 def convert_to_wholebrain_um(p, wrt, resolution,
                              image_resolution=None, stack=None, volume_resolution_um=None,
     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    """
+    Convert the coordinates expressed in given frame and resolution to 
+    coordinates expressed in "wholebrain" frame in microns.
+    """
 
     p = np.array(p)
-    assert np.atleast_2d(p).shape[1] == 3
-
+    assert np.atleast_2d(p).shape[1] == 3, "Coordinates must have three elements."    
     p_um = convert_resolution(p, in_resolution=resolution, out_resolution='um',
                              image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
 
@@ -245,7 +258,6 @@ def convert_to_wholebrain_um(p, wrt, resolution,
         p_wrt_wholebrain_um = p_um
     else:
         wrt_details = get_wrt_details(wrt, stack)
-        # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
         p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=wrt_details['plane'], out_frame='sagittal', zdim=wrt_details['zdim_um'])
         box_origin_wrt_wholebrain_um = wrt_details['origin_wrt_wholebrain_um']
         p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
@@ -254,21 +266,36 @@ def convert_to_wholebrain_um(p, wrt, resolution,
 
 def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resolution,
                                  image_resolution=None, stack=None, volume_resolution_um=None,
-    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None,
+                                in_image_resolution=None, out_image_resolution=None,
+                                return_transform_matrix=False):
     """
+    Converts between coordinates that are expressed in different frames and different resolutions.
+        
     Use this in combination with DataManager.get_domain_origin().
 
-    `wrt` can be any of:
-    - wholebrain
-    - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    - wholebrainXYcropped
-    - brainstemXYfull
-    - brainstem
-    - brainstemXYFullNoMargin
+    `wrt` can be either 3-D frames or 2-D frames. 
+    Detailed definitions of various frames can be found at https://goo.gl/o2Yydw.
 
-    `resolution` can be any of:
+    There are two ways to specify 3-D frames.
+    
+    1. The "absolute" way:
+    - wholebrain: formed by stacking all sections of prep1 (aligned + padded) images
+    - wholebrainXYcropped: formed by stacking all sections of prep2 images
+    - brainstemXYfull: formed by stacking sections of prep1 images that contain brainstem
+    - brainstem: formed by stacking brainstem sections of prep2 images
+    - brainstemXYFullNoMargin: formed by stacking brainstem sections of prep4 images
+    
+    2. The "relative" way:
+    - x_sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    - x_coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    
+    2-D frames include:
+    - {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
+
+    Resolution specifies the physical units of the coodrinate axes. 
+    `resolution` for 3-D coordinates can be any of these strings:
     - raw
     - down32
     - vol
@@ -276,19 +303,81 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
     - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
     - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
     """
+    
+    if in_wrt == 'raw' and out_wrt == 'alignedPadded':
+        
+        assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
+        assert in_image_resolution is not None, "Must specify input image resolution."
+        assert out_image_resolution is not None, "Must specify output image resolution."
+        
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
+        
+        p_wrt_outdomain_outResol = np.zeros(p.shape)
+        
+        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+        
+        different_sections = np.unique(p[:, 2])
+        for sec in different_sections:
+            curr_section_mask = p[:, 2] == sec
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+            T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
+            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol, 
+                                      np.c_[uv_um[curr_section_mask, :2], 
+                                            np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
+            
+            uv_wrt_alignedPadded_outResol_curr_section = \
+            uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
+                        
+            p_wrt_outdomain_outResol[curr_section_mask] = \
+            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section, 
+                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
+            
+    elif in_wrt == 'alignedPadded' and out_wrt == 'raw':
 
-    p_wrt_wholebrain_um = convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
-                                                   image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
-    structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+        assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
+        assert in_image_resolution is not None, "Must specify input image resolution."
+        assert out_image_resolution is not None, "Must specify output image resolution."
+        
+        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
+        
+        p_wrt_outdomain_outResol = np.zeros(p.shape)
+        
+        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+        Ts_anchor_to_individual_section_image_resol = {fn: np.linalg.inv(T) for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems()}
+        
+        different_sections = np.unique(p[:, 2])
+        for sec in different_sections:
+            curr_section_mask = p[:, 2] == sec
+            fn = metadata_cache['sections_to_filenames'][stack][sec]
+            T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
+            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol, 
+                                      np.c_[uv_um[curr_section_mask, :2], 
+                                            np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
+            
+            uv_wrt_alignedPadded_outResol_curr_section = \
+            uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
+            
+            p_wrt_outdomain_outResol[curr_section_mask] = \
+            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section, 
+                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])            
+            
+        return p_wrt_outdomain_outResol
+    else:
 
-    p_wrt_outdomain_outResol = convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
-                                                          image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
-    structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+        p_wrt_wholebrain_um = convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
+                                                       image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+
+        p_wrt_outdomain_outResol = convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
+                                                              image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
+        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
     # print 'p', p
     # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
     # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
-    return p_wrt_outdomain_outResol
+        return p_wrt_outdomain_outResol
 
+# def get_prep_str(prep_id):
+#     return prep_id_to_str[prep_id]
 
 class DataManager(object):
 
@@ -927,30 +1016,63 @@ class DataManager(object):
             fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_elastix_output', moving_fn + '_to_' + fixed_fn, 'result.0.tif')
             return fp
 
+#     @staticmethod
+#     def load_consecutive_section_transform(stack, moving_fn, fixed_fn):
+
+#         custom_tf_fn = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
+#         custom_tf_fn2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+#         if os.path.exists(custom_tf_fn):
+#             # if custom transform is provided
+#             sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn)
+#             with open(custom_tf_fn, 'r') as f:
+#                 t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
+#             transformation_to_previous_sec = np.linalg.inv(np.array([[t11, t12, t13], [t21, t22, t23], [0,0,1]]))
+
+#         elif os.path.exists(custom_tf_fn2):
+#             sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn2)
+#             transformation_to_previous_sec = parse_elastix_parameter_file(custom_tf_fn2)
+#         else:
+#             # otherwise, load elastix output
+#             sys.stderr.write('Load elastix-computed transform: %s\n' % custom_tf_fn2)
+#             param_fn = os.path.join(elastix_output_dir, moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+#             if not os.path.exists(param_fn):
+#                 raise Exception('Transform file does not exist: %s to %s, %s' % (moving_fn, fixed_fn, param_fn))
+#             transformation_to_previous_sec = parse_elastix_parameter_file(param_fn)
+
+#         return transformation_to_previous_sec
+
+
     @staticmethod
-    def load_consecutive_section_transform(stack, moving_fn, fixed_fn):
+    def load_transforms_v2(stack, in_image_resolution, out_image_resolution, use_inverse=True, anchor_fn=None):
+        """
+        Args:
+            use_inverse (bool): If True, load the 2-d rigid transforms that when multiplied
+                                to coordinates on the raw image space converts it to on aligned space.
+                                In preprocessing, set to False, which means simply parse the transform files as they are.
+            downsample_factor (float): the downsample factor of images that the output transform will be applied to.
+            resolution (str): resolution of the image that the output transform will be applied to.
+        """        
 
-        custom_tf_fn = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
-        custom_tf_fn2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
-        if os.path.exists(custom_tf_fn):
-            # if custom transform is provided
-            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn)
-            with open(custom_tf_fn, 'r') as f:
-                t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
-            transformation_to_previous_sec = np.linalg.inv(np.array([[t11, t12, t13], [t21, t22, t23], [0,0,1]]))
+        rescale_in_resol_to_1um = convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
+        rescale_1um_to_out_resol = convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
+                
+        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+        
+        Ts = {}
+        
+        for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems():
+        
+            if use_inverse:
+                T = np.linalg.inv(T)
+        
+            T_rescale_1um_to_out_resol = np.diag([1./rescale_1um_to_out_resol, 1./rescale_1um_to_out_resol, 1.])
+            T_rescale_in_resol_to_1um = np.diag([rescale_in_resol_to_1um, rescale_in_resol_to_1um, 1.])
 
-        elif os.path.exists(custom_tf_fn2):
-            sys.stderr.write('Load custom transform: %s\n' % custom_tf_fn2)
-            transformation_to_previous_sec = parse_elastix_parameter_file(custom_tf_fn2)
-        else:
-            # otherwise, load elastix output
-            sys.stderr.write('Load elastix-computed transform: %s\n' % custom_tf_fn2)
-            param_fn = os.path.join(elastix_output_dir, moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
-            if not os.path.exists(param_fn):
-                raise Exception('Transform file does not exist: %s to %s, %s' % (moving_fn, fixed_fn, param_fn))
-            transformation_to_previous_sec = parse_elastix_parameter_file(param_fn)
-
-        return transformation_to_previous_sec
+            T_overall = np.dot(T_rescale_1um_to_out_resol, np.dot(T, T_rescale_in_resol_to_1um))
+            Ts[fn] = T_overall
+            
+        return Ts
+            
 
     @staticmethod
     def load_transforms(stack, downsample_factor=None, resolution=None, use_inverse=True, anchor_fn=None):
@@ -3779,11 +3901,19 @@ class DataManager(object):
                 img = image_cache[args_tuple]
             else:
                 img = cv2.imread(img_fp, -1)
+                if img is None:
+                    img = imread(img_fp, -1)
+                    if img is None:
+                        raise Exception("Image loading returns None")
                 image_cache[args_tuple] = img
                 sys.stderr.write("Image %s is cached.\n" % os.path.basename(img_fp))
         else:
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
+            if img is None:
+                img = imread(img_fp, -1)
+                if img is None:
+                    raise Exception("Image loading returns None")
             print img_fp
 
         if img is None:
@@ -3960,6 +4090,35 @@ class DataManager(object):
         # return image_width, image_height
 
     #######################################################
+        
+    @staticmethod
+    def get_intensity_normalization_result_filepath(what, stack, fn=None, section=None):
+        
+        if fn is None:
+            fn = metadata_cache['sections_to_filenames'][stack][section]
+            if is_invalid(fn=fn):
+                raise Exception('Section is invalid: %s.' % fn)
+                
+        if what == 'region_centers':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'regionCenters',
+                         stack + '_' + fn + '_raw_regionCenters.bp')
+        elif what == 'mean_std_all_regions':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'meanStdAllRegions',
+                         stack + '_' + fn + '_raw_meanStdAllRegions.bp')
+        elif what == 'mean_map':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'meanMap',
+                         stack + '_' + fn + '_raw_meanMap.bp')
+        elif what == 'std_map':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'stdMap',
+                         stack + '_' + fn + '_raw_stdMap.bp')
+        elif what == 'float_histogram':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'floatHistogram',
+                         stack + '_' + fn + '_raw_floatHistogram.png')
+        
+        return fp
+    
+    
+    #######################################################
 
     @staticmethod
     # def convert_section_to_z(sec, downsample=None, resolution=None, stack=None, first_sec=None, mid=False):
@@ -4049,17 +4208,6 @@ class DataManager(object):
     def get_anchor_initial_snake_contours_filepath(stack):
         return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_anchorInitSnakeContours.pkl')
 
-    # @staticmethod
-    # def get_auto_submask_rootdir_filepath(stack):
-    #     """
-    #     Args:
-    #         what (str): submask or decisions.
-    #         submask_ind (int): if what is submask, must provide submask_ind.
-    #     """
-    #     anchor_fn = metadata_cache['anchor_fn'][stack]
-    #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_auto_submasks')
-    #     return dir_path
-
     @staticmethod
     def get_auto_submask_rootdir_filepath(stack):
         return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_autoSubmasks')
@@ -4071,26 +4219,6 @@ class DataManager(object):
             fn = metadata_cache['sections_to_filenames'][stack][sec]
         dir_path = os.path.join(submasks_dir, fn)
         return dir_path
-
-#     @staticmethod
-#     def get_auto_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
-#         """
-#         Args:
-#             what (str): submask or decisions.
-#             submask_ind (int): if what is submask, must provide submask_ind.
-#         """
-#         anchor_fn = metadata_cache['anchor_fn'][stack]
-#         dir_path = DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
-
-#         if what == 'submask':
-#             assert submask_ind is not None, "Must provide submask_ind."
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_%d.png' % submask_ind)
-#         elif what == 'decisions':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_auto_submask_decisions.csv')
-#         else:
-#             raise Exception("Not recognized.")
-
-#         return fp
 
     @staticmethod
     def get_auto_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
@@ -4115,28 +4243,6 @@ class DataManager(object):
     def get_user_modified_submask_rootdir_filepath(stack):
         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep1_thumbnail_userModifiedSubmasks')
         return dir_path
-
-    # @staticmethod
-    # def get_user_modified_submask_rootdir_filepath(stack):
-    #     """
-    #     Args:
-    #         what (str): submask or decisions.
-    #         submask_ind (int): if what is submask, must provide submask_ind.
-    #     """
-    #     anchor_fn = metadata_cache['anchor_fn'][stack]
-    #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_userModified_submasks')
-    #     return dir_path
-
-    # @staticmethod
-    # def get_user_modified_submask_rootdir_filepath(stack):
-    #     """
-    #     Args:
-    #         what (str): submask or decisions.
-    #         submask_ind (int): if what is submask, must provide submask_ind.
-    #     """
-    #     anchor_fn = metadata_cache['anchor_fn'][stack]
-    #     dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_userModified_submasks')
-    #     return dir_path
 
     @staticmethod
     def get_user_modified_submask_dir_filepath(stack, fn=None, sec=None):
@@ -4170,98 +4276,12 @@ class DataManager(object):
         return fp
 
 
-#     @staticmethod
-#     def get_user_modified_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
-#         """
-#         Args:
-#             what (str): submask or decisions.
-#             submask_ind (int): if what is submask, must provide submask_ind.
-#         """
-#         anchor_fn = metadata_cache['anchor_fn'][stack]
-#         dir_path = DataManager.get_user_modified_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
-
-#         if what == 'submask':
-#             assert submask_ind is not None, "Must provide submask_ind."
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_%d.png' % submask_ind)
-#         elif what == 'decisions':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_decisions.csv')
-#         elif what == 'parameters':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_parameters.json')
-#         elif what == 'contour_vertices':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_contour_vertices.pkl')
-#         else:
-#             raise Exception("Not recognized.")
-
-#         return fp
-
-
-    # @staticmethod
-    # def get_thumbnail_mask_dir_v3(stack, version='aligned'):
-    #     """
-    #     Get directory path of thumbnail mask.
-    #
-    #     Args:
-    #         version (str): One of aligned, aligned_cropped, cropped.
-    #     """
-    #
-    #     anchor_fn = metadata_cache['anchor_fn'][stack]
-    #     if version == 'aligned':
-    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
-    #     elif version == 'aligned_cropped' or version == 'cropped':
-    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
-    #     else:
-    #         raise Exception('version %s is not recognized.' % version)
-    #     return dir_path
-
-#     @staticmethod
-#     def get_user_modified_submask_filepath(stack, what, submask_ind=None, fn=None, sec=None):
-#         """
-#         Args:
-#             what (str): submask or decisions.
-#             submask_ind (int): if what is submask, must provide submask_ind.
-#         """
-#         anchor_fn = metadata_cache['anchor_fn'][stack]
-#         dir_path = DataManager.get_user_modified_submask_dir_filepath(stack=stack, fn=fn, sec=sec)
-
-#         if what == 'submask':
-#             assert submask_ind is not None, "Must provide submask_ind."
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_%d.png' % submask_ind)
-#         elif what == 'decisions':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_decisions.csv')
-#         elif what == 'parameters':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_parameters.json')
-#         elif what == 'contour_vertices':
-#             fp = os.path.join(dir_path, fn + '_alignedTo_' + anchor_fn + '_userModified_submask_contour_vertices.pkl')
-#         else:
-#             raise Exception("Not recognized.")
-
-#         return fp
-
-
-    # @staticmethod
-    # def get_thumbnail_mask_dir_v3(stack, version='aligned'):
-    #     """
-    #     Get directory path of thumbnail mask.
-    #
-    #     Args:
-    #         version (str): One of aligned, aligned_cropped, cropped.
-    #     """
-    #
-    #     anchor_fn = metadata_cache['anchor_fn'][stack]
-    #     if version == 'aligned':
-    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks')
-    #     elif version == 'aligned_cropped' or version == 'cropped':
-    #         dir_path = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_masks_cropped')
-    #     else:
-    #         raise Exception('version %s is not recognized.' % version)
-    #     return dir_path
-
     @staticmethod
     def get_thumbnail_mask_dir_v3(stack, prep_id):
         """
         Get directory path of thumbnail mask.
         """
-        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_prep%d_thumbnail_mask' % prep_id)
+        return os.path.join(THUMBNAIL_DATA_DIR, stack, stack + ('_prep%d_' % prep_id if prep_id is not None else '_') + 'thumbnail_mask')
 
     @staticmethod
     def get_thumbnail_mask_filename_v3(stack, prep_id, section=None, fn=None):
@@ -4272,7 +4292,7 @@ class DataManager(object):
         dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, prep_id=prep_id)
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
-        fp = os.path.join(dir_path, fn + '_prep%d_thumbnail_mask.png' % prep_id)
+        fp = os.path.join(dir_path, fn + ('_prep%d_' % prep_id if prep_id is not None else '_') + 'thumbnail_mask.png')
         return fp
 
     # @staticmethod

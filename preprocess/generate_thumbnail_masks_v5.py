@@ -6,7 +6,6 @@ import time
 
 import numpy as np
 from multiprocess import Pool
-import morphsnakes
 
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
@@ -54,7 +53,9 @@ def generate_contours(fn, init_cnt):
     submasks = snake(img, init_contours=[init_cnt], lambda1=lambda1, min_size=min_size)
     submasks = dict(enumerate(submasks))
 
-    assert len(submasks) > 0, "No submask is found."
+    if len(submasks) == 0:
+        sys.stderr.write("No submask is found.")
+        return       
     
     # Create output dir.
     create_if_not_exists(DataManager.get_auto_submask_dir_filepath(stack=stack, fn=fn))

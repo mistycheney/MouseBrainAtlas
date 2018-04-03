@@ -478,6 +478,10 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'CHATM3': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
                     }
 
+########################################
+
+prep_id_to_str = {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
+
 #######################################
 
 import multiprocessing

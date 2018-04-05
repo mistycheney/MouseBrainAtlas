@@ -223,7 +223,7 @@ def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
 
     if wrt == 'wholebrain':
         p_wrt_outdomain_um = p_wrt_wholebrain_um
-    
+
     else:
         wrt_details = get_wrt_details(wrt, stack)
         # if 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
@@ -245,12 +245,12 @@ def convert_to_wholebrain_um(p, wrt, resolution,
                              image_resolution=None, stack=None, volume_resolution_um=None,
     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
     """
-    Convert the coordinates expressed in given frame and resolution to 
+    Convert the coordinates expressed in given frame and resolution to
     coordinates expressed in "wholebrain" frame in microns.
     """
 
     p = np.array(p)
-    assert np.atleast_2d(p).shape[1] == 3, "Coordinates must have three elements."    
+    assert np.atleast_2d(p).shape[1] == 3, "Coordinates must have three elements."
     p_um = convert_resolution(p, in_resolution=resolution, out_resolution='um',
                              image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
 
@@ -271,30 +271,30 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
                                 return_transform_matrix=False):
     """
     Converts between coordinates that are expressed in different frames and different resolutions.
-        
+
     Use this in combination with DataManager.get_domain_origin().
 
-    `wrt` can be either 3-D frames or 2-D frames. 
+    `wrt` can be either 3-D frames or 2-D frames.
     Detailed definitions of various frames can be found at https://goo.gl/o2Yydw.
 
     There are two ways to specify 3-D frames.
-    
+
     1. The "absolute" way:
     - wholebrain: formed by stacking all sections of prep1 (aligned + padded) images
     - wholebrainXYcropped: formed by stacking all sections of prep2 images
     - brainstemXYfull: formed by stacking sections of prep1 images that contain brainstem
     - brainstem: formed by stacking brainstem sections of prep2 images
     - brainstemXYFullNoMargin: formed by stacking brainstem sections of prep4 images
-    
+
     2. The "relative" way:
     - x_sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
     - x_coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
     - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    
+
     2-D frames include:
     - {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
 
-    Resolution specifies the physical units of the coodrinate axes. 
+    Resolution specifies the physical units of the coodrinate axes.
     `resolution` for 3-D coordinates can be any of these strings:
     - raw
     - down32
@@ -303,64 +303,64 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
     - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
     - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
     """
-    
+
     if in_wrt == 'raw' and out_wrt == 'alignedPadded':
-        
+
         assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
         assert in_image_resolution is not None, "Must specify input image resolution."
         assert out_image_resolution is not None, "Must specify output image resolution."
-        
+
         uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
-        
+
         p_wrt_outdomain_outResol = np.zeros(p.shape)
-        
+
         Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
-        
+
         different_sections = np.unique(p[:, 2])
         for sec in different_sections:
             curr_section_mask = p[:, 2] == sec
             fn = metadata_cache['sections_to_filenames'][stack][sec]
             T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
-            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol, 
-                                      np.c_[uv_um[curr_section_mask, :2], 
+            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
+                                      np.c_[uv_um[curr_section_mask, :2],
                                             np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
-            
+
             uv_wrt_alignedPadded_outResol_curr_section = \
             uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
-                        
+
             p_wrt_outdomain_outResol[curr_section_mask] = \
-            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section, 
+            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
                        sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
-            
+
     elif in_wrt == 'alignedPadded' and out_wrt == 'raw':
 
         assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
         assert in_image_resolution is not None, "Must specify input image resolution."
         assert out_image_resolution is not None, "Must specify output image resolution."
-        
+
         uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
-        
+
         p_wrt_outdomain_outResol = np.zeros(p.shape)
-        
+
         Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
         Ts_anchor_to_individual_section_image_resol = {fn: np.linalg.inv(T) for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems()}
-        
+
         different_sections = np.unique(p[:, 2])
         for sec in different_sections:
             curr_section_mask = p[:, 2] == sec
             fn = metadata_cache['sections_to_filenames'][stack][sec]
             T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
-            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol, 
-                                      np.c_[uv_um[curr_section_mask, :2], 
+            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
+                                      np.c_[uv_um[curr_section_mask, :2],
                                             np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
-            
+
             uv_wrt_alignedPadded_outResol_curr_section = \
             uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
-            
+
             p_wrt_outdomain_outResol[curr_section_mask] = \
-            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section, 
-                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])            
-            
+            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
+                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
+
         return p_wrt_outdomain_outResol
     else:
 
@@ -845,7 +845,7 @@ class DataManager(object):
         Args:
             domain (str): domain name
         """
-        
+
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
 
         if stack.startswith('atlas'):
@@ -951,7 +951,7 @@ class DataManager(object):
 
         if fp is None:
             fp = DataManager.get_sorted_filenames_filename(stack)
-            
+
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR, redownload=redownload)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
@@ -964,17 +964,17 @@ class DataManager(object):
             anchor_fn = metadata_cache['anchor_fn'][stack]
         fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_transformsTo_%s.pkl' % anchor_fn)
         return fn
-    
-    
-    @staticmethod    
+
+
+    @staticmethod
     def load_consecutive_section_transform(stack, moving_fn, fixed_fn, elastix_output_dir):
-        
+
         from preprocess_utilities import parse_elastix_parameter_file
 
         custom_tf_fp = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
-        
+
         custom_tf_fp2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
-        
+
         if os.path.exists(custom_tf_fp):
             # if custom transform is provided
             sys.stderr.write('Load custom transform: %s\n' % custom_tf_fp)
@@ -1051,28 +1051,28 @@ class DataManager(object):
                                 In preprocessing, set to False, which means simply parse the transform files as they are.
             downsample_factor (float): the downsample factor of images that the output transform will be applied to.
             resolution (str): resolution of the image that the output transform will be applied to.
-        """        
+        """
 
         rescale_in_resol_to_1um = convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
         rescale_1um_to_out_resol = convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
-                
+
         Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
-        
+
         Ts = {}
-        
+
         for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems():
-        
+
             if use_inverse:
                 T = np.linalg.inv(T)
-        
+
             T_rescale_1um_to_out_resol = np.diag([1./rescale_1um_to_out_resol, 1./rescale_1um_to_out_resol, 1.])
             T_rescale_in_resol_to_1um = np.diag([rescale_in_resol_to_1um, rescale_in_resol_to_1um, 1.])
 
             T_overall = np.dot(T_rescale_1um_to_out_resol, np.dot(T, T_rescale_in_resol_to_1um))
             Ts[fn] = T_overall
-            
+
         return Ts
-            
+
 
     @staticmethod
     def load_transforms(stack, downsample_factor=None, resolution=None, use_inverse=True, anchor_fn=None):
@@ -1159,12 +1159,33 @@ class DataManager(object):
                 - resolution
         """
 
-        prep_id = stack_spec['prep_id']
-        detector_id = stack_spec['detector_id']
-        volume_type = stack_spec['vol_type']
-        structure = stack_spec['structure']
+        if 'prep_id' in stack_spec:
+            prep_id = stack_spec['prep_id']
+        else:
+            prep_id = None
+
+        if 'detector_id' in stack_spec:
+            detector_id = stack_spec['detector_id']
+        else:
+            detector_id = None
+
+        if 'vol_type' in stack_spec:
+            volume_type = stack_spec['vol_type']
+        else:
+            volume_type = None
+
+        if 'structure' in stack_spec:
+            structure = stack_spec['structure']
+        else:
+            structure = None
+
+        assert 'name' in stack_spec, stack_spec
         stack = stack_spec['name']
-        resolution = stack_spec['resolution']
+
+        if 'resolution' in stack_spec:
+            resolution = stack_spec['resolution']
+        else:
+            resolution = None
 
         components = []
         if prep_id is not None:
@@ -1175,46 +1196,50 @@ class DataManager(object):
             components.append(resolution)
 
         tmp_str = '_'.join(components)
-        basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
-            {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
+        basename = '%(stack)s_%(tmp_str)s%(volstr)s' % \
+            {'stack':stack, 'tmp_str': (tmp_str+'_') if tmp_str != '' else '', 'volstr':volume_type_to_str(volume_type)}
         if structure is not None:
             basename += '_' + structure
         return basename
 
-    @staticmethod
-    def get_warped_volume_basename(stack_m,
-                                   stack_f=None,
-                                   warp_setting=None,
-                                   prep_id_m=None,
-                                   prep_id_f=None,
-                                   detector_id_m=None,
-                                   detector_id_f=None,
-                                   downscale=32,
-                                   structure_m=None,
-                                   structure_f=None,
-                                   vol_type_m='score',
-                                   vol_type_f='score',
-                                   trial_idx=None,
-                                   **kwargs):
-
-        basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-                                                  resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-
-        if stack_f is None:
-            assert warp_setting is None
-            vol_name = basename_m
-        else:
-            basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-                                                  resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
-            vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
-
-        if trial_idx is not None:
-            vol_name += '_trial_%d' % trial_idx
-
-        return vol_name
+    # @staticmethod
+    # def get_warped_volume_basename(stack_m,
+    #                                stack_f=None,
+    #                                warp_setting=None,
+    #                                prep_id_m=None,
+    #                                prep_id_f=None,
+    #                                detector_id_m=None,
+    #                                detector_id_f=None,
+    #                                downscale=32,
+    #                                structure_m=None,
+    #                                structure_f=None,
+    #                                vol_type_m='score',
+    #                                vol_type_f='score',
+    #                                trial_idx=None,
+    #                                **kwargs):
+    #
+    #     basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
+    #                                               resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
+    #
+    #     if stack_f is None:
+    #         assert warp_setting is None
+    #         vol_name = basename_m
+    #     else:
+    #         basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
+    #                                               resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
+    #         vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
+    #
+    #     if trial_idx is not None:
+    #         vol_name += '_trial_%d' % trial_idx
+    #
+    #     return vol_name
 
     @staticmethod
     def get_warped_volume_basename_v2(alignment_spec, trial_idx=None):
+        """
+        Args:
+            alignment_spec (dict): must have these keys warp_setting, stack_m and stack_f
+        """
 
         warp_setting = alignment_spec['warp_setting']
         basename_m = DataManager.get_original_volume_basename_v2(alignment_spec['stack_m'])
@@ -1226,71 +1251,67 @@ class DataManager(object):
 
         return vol_name
 
-    @staticmethod
-    def get_alignment_parameters_filepath(stack_f, stack_m,
-                                          warp_setting,
-                                          prep_id_m=None, prep_id_f=None,
-                                          detector_id_m=None, detector_id_f=None,
-                                          structure_f=None, structure_m=None,
-                                          vol_type_f='score', vol_type_m='score',
-                                          downscale=32,
-                                          trial_idx=None):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
-                              '%(basename)s',
-                              '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
-        return fp
+    # @staticmethod
+    # def get_alignment_parameters_filepath(stack_f, stack_m,
+    #                                       warp_setting,
+    #                                       prep_id_m=None, prep_id_f=None,
+    #                                       detector_id_m=None, detector_id_f=None,
+    #                                       structure_f=None, structure_m=None,
+    #                                       vol_type_f='score', vol_type_m='score',
+    #                                       downscale=32,
+    #                                       trial_idx=None):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
+    #                           '%(basename)s',
+    #                           '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
+    #     return fp
+
+    # @staticmethod
+    # def load_alignment_parameters(stack_f, stack_m, warp_setting,
+    #                               prep_id_m=None, prep_id_f=None,
+    #                               detector_id_m=None, detector_id_f=None,
+    #                               structure_f=None, structure_m=None,
+    #                               vol_type_f='score', vol_type_m='score',
+    #                               downscale=32, trial_idx=None):
+    #     """
+    #     Returns
+    #         (flattened parameters, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f)
+    #     """
+    #     params_fp = DataManager.get_alignment_parameters_filepath(**locals())
+    #     # download_from_s3(params_fp, redownload=True)
+    #     download_from_s3(params_fp, redownload=False)
+    #     return DataManager.load_data(params_fp, 'transform_params')
+
+    # @staticmethod
+    # def load_alignment_parameters_v2(stack_f, stack_m, warp_setting,
+    #                               prep_id_m=None, prep_id_f=None,
+    #                               detector_id_m=None, detector_id_f=None,
+    #                               structure_f=None, structure_m=None,
+    #                               vol_type_f='score', vol_type_m='score',
+    #                               downscale=32, trial_idx=None):
+    #     what = 'parameters'
+    #     tf_param_fp = DataManager.get_alignment_result_filepath_v2(**locals())
+    #     download_from_s3(tf_param_fp)
+    #     return load_json(tf_param_fp)
+
+    # @staticmethod
+    # def load_alignment_parameters_v3(alignment_spec, reg_root_dir):
+    #     tf_param_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters', reg_root_dir=reg_root_dir)
+    #     download_from_s3(tf_param_fp)
+    #     tf_param = load_json(tf_param_fp)
+    #     return {k: np.array(v) if isinstance(v, list) else v for k, v in tf_param.iteritems()}
 
     @staticmethod
-    def load_alignment_parameters(stack_f, stack_m, warp_setting,
-                                  prep_id_m=None, prep_id_f=None,
-                                  detector_id_m=None, detector_id_f=None,
-                                  structure_f=None, structure_m=None,
-                                  vol_type_f='score', vol_type_m='score',
-                                  downscale=32, trial_idx=None):
+    def load_alignment_results_v3(alignment_spec, what, reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR):
         """
-        Returns
-            (flattened parameters, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f)
         """
-        params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-        # download_from_s3(params_fp, redownload=True)
-        download_from_s3(params_fp, redownload=False)
-        return DataManager.load_data(params_fp, 'transform_params')
+        return load_data(DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what=what, reg_root_dir=reg_root_dir))
 
     @staticmethod
-    def load_alignment_parameters_v2(stack_f, stack_m, warp_setting,
-                                  prep_id_m=None, prep_id_f=None,
-                                  detector_id_m=None, detector_id_f=None,
-                                  structure_f=None, structure_m=None,
-                                  vol_type_f='score', vol_type_m='score',
-                                  downscale=32, trial_idx=None):
-        what = 'parameters'
-        tf_param_fp = DataManager.get_alignment_result_filepath_v2(**locals())
-        download_from_s3(tf_param_fp)
-        return load_json(tf_param_fp)
-
-    @staticmethod
-    def load_alignment_parameters_v3(alignment_spec):
-        tf_param_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
-        download_from_s3(tf_param_fp)
-        tf_param = load_json(tf_param_fp)
-        return {k: np.array(v) if isinstance(v, list) else v for k, v in tf_param.iteritems()}
-
-#     @staticmethod
-#     def save_alignment_parameters(fp, params, centroid_m, centroid_f,
-#                                   xdim_m=0, ydim_m=0, zdim_m=0,
-#                                   xdim_f=0, ydim_f=0, zdim_f=0):
-
-#         create_if_not_exists(os.path.dirname(fp))
-#         with open(fp, 'w') as f:
-#             f.write(array_to_one_liner(params))
-#             f.write(array_to_one_liner(centroid_m))
-#             f.write(array_to_one_liner([xdim_m, ydim_m, zdim_m]))
-#             f.write(array_to_one_liner(centroid_f))
-#             f.write(array_to_one_liner([xdim_f, ydim_f, zdim_f]))
-
-    @staticmethod
-    def save_alignment_results_v2(transform_parameters, score_traj, parameter_traj, alignment_spec):
+    def save_alignment_results_v3(transform_parameters=None, score_traj=None, parameter_traj=None,
+                                  alignment_spec=None,
+                                  aligner=None, select_best='last_value',
+                                  reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR):
         """
         Save the following alignment results:
         - `parameters`: eventual parameters
@@ -1298,35 +1319,45 @@ class DataManager(object):
         - `scoreEvolution`: a plot of score trajectory, exported as PNG
         - `trajectory`: parameter trajectory
 
+        Must provide `alignment_spec`
+
         Args:
-            transform_parameters (dict):
-                - parameters ((12,)-array): If reshaped into 3x4 array, this is [R|t].
-                - centroid_m ((3,)-array): cm
-                - centroid_f ((3,)-array): cf
-                - domain_m_origin_wrt_wholebrain ((3,)-array):
-                - domain_f_origin_wrt_wholebrain ((3,)-array):
-                - (unused) domain_m (str): domain of the moving volume.
-                - (unused) domain_f (str): domain of the fixed volume.
-                - (unused) stack_m (str): moving stack name.
-                - (unused) stack_f (str): fixed stack name.
+            transform_parameters:
             score_traj ((Ti,) array): score trajectory
             parameter_traj ((Ti, 12) array): parameter trajectory
+            select_best (str): last_value or max_value
+            alignment_spec (dict)
         """
 
+        if aligner is not None:
+            score_traj = aligner.scores
+            parameter_traj = aligner.Ts
+
+            if select_best == 'last_value':
+                transform_parameters = dict(parameters=parameter_traj[-1],
+                centroid_m_wrt_wholebrain=np.zeros((3,)),
+                centroid_f_wrt_wholebrain=np.zeros((3,)))
+            elif select_best == 'max_value':
+                transform_parameters = dict(parameters=parameter_traj[np.argmax(score_traj)],
+                centroid_m_wrt_wholebrain=np.zeros((3,)),
+                centroid_f_wrt_wholebrain=np.zeros((3,)))
+            else:
+                raise Exception("select_best %s is not recognize." % select_best)
+
         # Save parameters
-        params_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters')
+        params_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters', reg_root_dir=reg_root_dir)
         create_if_not_exists(os.path.dirname(params_fp))
         save_json(transform_parameters, params_fp)
         upload_to_s3(params_fp)
 
         # Save score history
-        history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreHistory')
+        history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreHistory', reg_root_dir=reg_root_dir)
         bp.pack_ndarray_file(np.array(score_traj), history_fp)
         upload_to_s3(history_fp)
 
         # Save score plot
         score_plot_fp = \
-        history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreEvolution')
+        history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreEvolution', reg_root_dir=reg_root_dir)
         fig = plt.figure();
         plt.plot(score_traj);
         plt.savefig(score_plot_fp, bbox_inches='tight')
@@ -1334,61 +1365,17 @@ class DataManager(object):
         upload_to_s3(score_plot_fp)
 
         # Save trajectory
-        trajectory_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='trajectory')
+        trajectory_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='trajectory', reg_root_dir=reg_root_dir)
         bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
         upload_to_s3(trajectory_fp)
 
-#     @staticmethod
-#     def save_alignment_parameters_v3(fp, params, centroid_m, centroid_f,
-#                                     domain_m, domain_f):
-#         """
-#         Args:
-#             params ((12,)-array): If reshaped into 3x4 array, this is [R|t].
-#             centroid_m ((3,)-array): initial shift of the moving volume.
-#             centroid_f ((3,)-array): initial shift of the fixed volume.
-#             domain_m (str): domain of the moving volume.
-#             domain_f (str): domain of the fixed volume.
-
-#         Note: coordinate correspondence is defined by "xf-cf = R(xm-cm) + t".
-#         xf: coordinate in the fixed volume domain.
-#         xm: coordinate in the moving volume domain.
-#         """
-
-#         create_if_not_exists(os.path.dirname(fp))
-#         alignment_parameter_dict = {'params': params.flatten().tolist(),
-#                                     'centroid_m': centroid_m.tolist(),
-#                                     'centroid_f': centroid_f.tolist(),
-#                                     'domain_m': domain_m,
-#                                     'domain_f': domain_f
-#                                    }
-#         save_json(alignment_parameter_dict, fp)
 
     @staticmethod
-    def save_alignment_parameters_v2(fp, params, centroid_m, centroid_f,
-                                     crop_origin_m, crop_origin_f):
+    def get_alignment_result_filepath_v3(alignment_spec, what, reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR):
         """
         Args:
-            params ((12,)-array): If reshaped into 3x4 array, this is [R|t].
-            centroid_m ((3,)-array): cm
-            centroid_f ((3,)-array): cf
-            crop_origin_m ((3,)-array): om
-            crop_origin_f ((3,)-array): of
-
-        Note: coordinate correspondence is defined by "xf-of-cf = R(xm-om-cm) + t".
+            what (str): any of parameters, scoreHistory/trajectory, scoreEvolution, parametersWeightedAverage
         """
-
-        create_if_not_exists(os.path.dirname(fp))
-
-        alignment_parameter_dict = {'params': params.flatten().tolist(),
-        'centroid_m': centroid_m.tolist(),
-        'centroid_f': centroid_f.tolist(),
-         'crop_origin_m': crop_origin_m.tolist(),
-         'crop_origin_f': crop_origin_f.tolist(),
-        }
-        save_json(alignment_parameter_dict, fp)
-
-    @staticmethod
-    def get_alignment_result_filepath_v3(alignment_spec, what):
         warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec)
         if what == 'parameters':
             ext = 'json'
@@ -1401,49 +1388,9 @@ class DataManager(object):
         else:
             raise
 
-        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, alignment_spec['stack_m']['name'],
+        fp = os.path.join(reg_root_dir, alignment_spec['stack_m']['name'],
                           warp_basename, warp_basename + '_' + what + '.' + ext)
         return fp
-
-    @staticmethod
-    def get_alignment_result_filepath_v2(stack_f, stack_m, warp_setting, what, ext=None,
-                                      detector_id_m=None, detector_id_f=None,
-                                      prep_id_m=None, prep_id_f=None,
-                                      structure_f=None, structure_m=None,
-                                      vol_type_f='score', vol_type_m='score',
-                                      downscale=32, trial_idx=None):
-        reg_basename = DataManager.get_warped_volume_basename(**locals())
-        if what == 'parameters':
-            ext = 'json'
-        elif what == 'scoreHistory' or what == 'trajectory':
-            ext = 'bp'
-        elif what == 'scoreEvolution':
-            ext = 'png'
-        elif what == 'parametersWeightedAverage':
-            ext = 'pkl'
-        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, reg_basename, reg_basename + '_' + what + '.' + ext)
-        return fp
-
-    # @staticmethod
-    # def get_alignment_result_filepath(stack_f, stack_m, warp_setting, what, ext=None,
-    #                                   detector_id_m=None, detector_id_f=None,
-    #                                   prep_id_m=None, prep_id_f=None,
-    #                                   structure_f=None, structure_m=None,
-    #                                   vol_type_f='score', vol_type_m='score',
-    #                                   downscale=32, trial_idx=None):
-    #     reg_basename = DataManager.get_warped_volume_basename(**locals())
-    #     if what == 'parameters':
-    #         ext = 'txt'
-    #     elif what == 'scoreHistory' or what == 'trajectory':
-    #         ext = 'bp'
-    #     elif what == 'scoreEvolution':
-    #         ext = 'png'
-    #     elif what == 'parametersWeightedAverage':
-    #         ext = 'pkl'
-    #     fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, stack_m, reg_basename, reg_basename + '_' + what + '.' + ext)
-    #     return fp
-
-    ####### Best trial index file #########
 
     @staticmethod
     def get_best_trial_index_filepath(stack_f, stack_m, warp_setting,
@@ -1764,25 +1711,24 @@ class DataManager(object):
         shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, basename + "_smoothed.stl")
         return shell_mesh_fn
 
+    # @staticmethod
+    # def get_mesh_filepath(stack_m,
+    #                         structure,
+    #                         detector_id_m=None,
+    #                       prep_id_f=None,
+    #                         detector_id_f=None,
+    #                         warp_setting=None,
+    #                         stack_f=None,
+    #                         downscale=32,
+    #                         vol_type_m='score',
+    #                       vol_type_f='score',
+    #                         trial_idx=None, **kwargs):
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     fn = basename + '_%s' % structure
+    #     return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
 
     @staticmethod
-    def get_mesh_filepath(stack_m,
-                            structure,
-                            detector_id_m=None,
-                          prep_id_f=None,
-                            detector_id_f=None,
-                            warp_setting=None,
-                            stack_f=None,
-                            downscale=32,
-                            vol_type_m='score',
-                          vol_type_f='score',
-                            trial_idx=None, **kwargs):
-        basename = DataManager.get_warped_volume_basename(**locals())
-        fn = basename + '_%s' % structure
-        return os.path.join(MESH_ROOTDIR, stack_m, basename, fn + '.stl')
-
-    @staticmethod
-    def get_mesh_filepath_v2(brain_spec, structure=None, resolution=None):
+    def get_mesh_filepath_v2(brain_spec, structure=None, resolution=None, level=None):
 
         if 'stack_f' in brain_spec: # warped
             basename = DataManager.get_warped_volume_basename_v2(alignment_spec=brain_spec, structure=structure, resolution=resolution)
@@ -1793,15 +1739,22 @@ class DataManager(object):
                 structure = brain_spec['structure']
             assert structure is not None, 'Must specify structure'
 
-            mesh_fp = os.path.join(MESH_ROOTDIR, '%(stack)s',
-                      '%(basename)s',
-                     '%(basename)s_%(struct)s.stl') % \
-{'stack':brain_spec['name'], 'basename':basename, 'struct':structure}
+            if level is None:
+                mesh_fp = os.path.join(MESH_ROOTDIR, '%(stack)s',
+                          '%(basename)s',
+                         '%(basename)s_%(struct)s.stl') % \
+    {'stack':brain_spec['name'], 'basename':basename, 'struct':structure}
+            else:
+                mesh_fp = os.path.join(MESH_ROOTDIR, '%(stack)s',
+                          '%(basename)s',
+                         '%(basename)s_%(struct)s_l%(level).1f.stl') % \
+    {'stack':brain_spec['name'], 'basename':basename, 'struct':structure, 'level': level}
+
             return mesh_fp
 
     @staticmethod
-    def load_mesh_v2(brain_spec, structure=None, resolution=None, return_polydata_only=True):
-        mesh_fp = DataManager.get_mesh_filepath_v2(brain_spec=brain_spec, structure=structure, resolution=resolution)
+    def load_mesh_v2(brain_spec, structure=None, resolution=None, return_polydata_only=True, level=None):
+        mesh_fp = DataManager.get_mesh_filepath_v2(brain_spec=brain_spec, structure=structure, resolution=resolution, level=level)
         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
         if mesh is None:
             raise Exception('Mesh is empty: %s.' % structure)
@@ -1813,116 +1766,52 @@ class DataManager(object):
                        resolution=None,
                     sided=True,
                     return_polydata_only=True,
-                   include_surround=False):
+                   include_surround=False,
+                      levels=None):
+        """
+        Args:
+            levels (list of float): levels to load
+        """
 
         kwargs = locals()
 
         if structures is None:
             if sided:
                 if include_surround:
-                    structures = all_known_structures_sided_with_surround
+                    structures = all_known_structures_sided_with_surround_200um
                 else:
                     structures = all_known_structures_sided
             else:
                 structures = all_known_structures
 
-        meshes = {}
-        for structure in structures:
-            try:
-                meshes[structure] = DataManager.load_mesh_v2(brain_spec=brain_spec,
-                                                             structure=structure,
-                                                             resolution=resolution,
-                                                             return_polydata_only=return_polydata_only)
-            except Exception as e:
-                sys.stderr.write('Error loading mesh for %s: %s\n' % (structure, e))
+        if isinstance(levels, float):
+            meshes = {}
+            for structure in structures:
+                try:
+                    meshes[structure] = DataManager.load_mesh_v2(brain_spec=brain_spec,
+                                                                 structure=structure,
+                                                                 resolution=resolution,
+                                                                 return_polydata_only=return_polydata_only,
+                                                                level=levels)
+                except Exception as e:
+                    sys.stderr.write('Error loading mesh for %s: %s\n' % (structure, e))
+            return meshes
 
-        return meshes
+        else:
+            meshes_all_levels_all_structures = defaultdict(dict)
+            for structure in structures:
+                for level in levels:
+                    try:
+                        meshes[structure][level] = DataManager.load_mesh_v2(brain_spec=brain_spec,
+                                                                     structure=structure,
+                                                                     resolution=resolution,
+                                                                     return_polydata_only=return_polydata_only,
+                                                                    level=level)
+                    except Exception as e:
+                        sys.stderr.write('Error loading mesh for %s: %s\n' % (structure, e))
+            meshes_all_levels_all_structures.default_factory = None
 
-
-
-    @staticmethod
-    def load_mesh(stack_m,
-                                    structure,
-                                    detector_id_m=None,
-                                    stack_f=None,
-                                  prep_id_f=None,
-                                    detector_id_f=None,
-                                    warp_setting=None,
-                                    downscale=32,
-                                    vol_type_m='score', vol_type_f='score',
-                                    trial_idx=None,
-                                    return_polydata_only=True,
-                                    **kwargs):
-        mesh_fp = DataManager.get_mesh_filepath(**locals())
-        mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
-        if mesh is None:
-            raise Exception('Mesh is empty: %s.' % structure)
-        return mesh
-
-    @staticmethod
-    def load_meshes(stack_m,
-                    stack_f=None,
-                    detector_id_m=None,
-                    prep_id_f=None,
-                    detector_id_f=None,
-                    warp_setting=None,
-                    downscale=32,
-                    vol_type_m='score', vol_type_f='score',
-                    trial_idx=None,
-                    structures=None,
-                    sided=True,
-                    return_polydata_only=True,
-                   include_surround=False):
-
-        kwargs = locals()
-
-        if structures is None:
-            if sided:
-                if include_surround:
-                    structures = all_known_structures_sided_with_surround
-                else:
-                    structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
-
-        meshes = {}
-        for structure in structures:
-            try:
-                meshes[structure] = DataManager.load_mesh(structure=structure, **kwargs)
-            except Exception as e:
-                sys.stderr.write('Error loading mesh for %s: %s.\n' % (structure, e))
-
-        return meshes
-
-
-#     @staticmethod
-#     def load_atlas_mesh(atlas_name, structure, return_polydata_only=True, **kwargs):
-#         mesh_fp = DataManager.get_structure_mean_mesh_filepath(atlas_name=atlas_name, structure=structure)
-#         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
-#         if mesh is None:
-#             raise Exception('Mesh is empty: %s.' % structure)
-#         return mesh
-
-#     @staticmethod
-#     def load_atlas_meshes(atlas_name, structures=None, sided=True, return_polydata_only=True, include_surround=False):
-#         kwargs = locals()
-#         if structures is None:
-#             if sided:
-#                 if include_surround:
-#                     structures = all_known_structures_sided_with_surround
-#                 else:
-#                     structures = all_known_structures_sided
-#             else:
-#                 structures = all_known_structures
-
-#         meshes = {}
-#         for structure in structures:
-#             try:
-#                 meshes[structure] = DataManager.load_atlas_mesh(atlas_name=atlas_name, structure=structure)
-#             except Exception as e:
-#                 sys.stderr.write('Error loading mesh for %s: %s.\n' % (structure, e))
-
-#         return meshes
+            return meshes_all_levels_all_structures
 
     @staticmethod
     def get_atlas_canonical_centroid_filepath(atlas_name, **kwargs):
@@ -1945,12 +1834,12 @@ class DataManager(object):
         """
         return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_meanPositions.pkl')
 
-    @staticmethod
-    def get_instance_centroids_filepath(atlas_name, **kwargs):
-        """
-        Filepath of the structure mean positions.
-        """
-        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_instanceCentroids.pkl')
+    # @staticmethod
+    # def get_instance_centroids_filepath(atlas_name, **kwargs):
+    #     """
+    #     Filepath of the structure mean positions.
+    #     """
+    #     return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_instanceCentroids.pkl')
 
     @staticmethod
     def get_structure_viz_filepath(atlas_name, structure, suffix, **kwargs):
@@ -1959,35 +1848,65 @@ class DataManager(object):
         return os.path.join(MESH_ROOTDIR, atlas_name, 'visualizations', structure, atlas_name + '_' + structure + '_' + suffix + '.png')
 
     @staticmethod
-    def get_structure_mean_shape_filepath(atlas_name, structure, **kwargs):
+    def get_mean_shape_filepath(atlas_name, structure, what, resolution, level=None, **kwargs):
         """
+        Args:
+            structure (str): unsided structure name
+            what (str): any of volume, origin_wrt_canonicalAtlasSpace and mesh.
+            level (float): required if `what` = "mesh".
         """
-        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShape.bp')
+
+        if what == 'volume':
+            return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + resolution + '_' + structure + '_meanShape_volume.bp')
+        elif what == 'origin_wrt_meanShapeCentroid':
+            return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + resolution + '_' + structure + '_meanShape_origin_wrt_meanShapeCentroid.txt')
+        elif what == 'mesh':
+            return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + resolution + '_' + structure + '_meanShape_mesh_level%.1f.stl' % level)
+        else:
+            raise
+
+    # @staticmethod
+    # def get_structure_mean_shape_origin_filepath(atlas_name, structure, **kwargs):
+    #     """
+    #     Mean shape origin, relative to the template instance's centroid.
+    #     """
+    #     return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShapeOrigin.txt')
+
+
+    # @staticmethod
+    # def get_structure_mean_shape_filepath(atlas_name, structure, **kwargs):
+    #     """
+    #     """
+    #     return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShape.bp')
+
+    # @staticmethod
+    # def get_structure_mean_shape_origin_filepath(atlas_name, structure, **kwargs):
+    #     """
+    #     Mean shape origin, relative to the template instance's centroid.
+    #     """
+    #     return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShapeOrigin.txt')
+
+    # @staticmethod
+    # def get_structure_mean_mesh_filepath(atlas_name, structure, **kwargs):
+    #     """
+    #     Structure mean mesh, relative to the template instance's centroid.
+    #     """
+    #     return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanMesh.stl')
 
     @staticmethod
-    def get_structure_mean_shape_origin_filepath(atlas_name, structure, **kwargs):
-        """
-        Mean shape origin, relative to the template instance's centroid.
-        """
-        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanShapeOrigin.txt')
-
-    @staticmethod
-    def get_structure_mean_mesh_filepath(atlas_name, structure, **kwargs):
-        """
-        Structure mean mesh, relative to the template instance's centroid.
-        """
-        return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + structure + '_meanMesh.stl')
-
-    @staticmethod
-    def get_instance_mesh_filepath(atlas_name, structure, index, **kwargs):
+    def get_instance_mesh_filepath(atlas_name, structure, index, resolution=None, **kwargs):
         """
         Filepath of the instance mesh to derive mean shapes in atlas.
 
         Args:
             index (int): the index of the instance. The template instance is at index 0.
-
         """
-        return os.path.join(MESH_ROOTDIR, atlas_name, 'instance_meshes', atlas_name + '_' + structure + '_' + str(index) + '.stl')
+
+        if resolution is None:
+            return os.path.join(MESH_ROOTDIR, atlas_name, 'aligned_instance_meshes', atlas_name + '_' + structure + '_' + str(index) + '.stl')
+        else:
+            return os.path.join(MESH_ROOTDIR, atlas_name, 'aligned_instance_meshes', atlas_name + '_' + resolution + '_' + structure + '_' + str(index) + '.stl')
+
 
     @staticmethod
     def get_instance_sources_filepath(atlas_name, structure, **kwargs):
@@ -2036,7 +1955,7 @@ class DataManager(object):
     def save_transformed_volume(volume, bbox, alignment_spec, resolution=None, structure=None):
         """
         Save volume array as bp file and bounding box as txt file.
-        
+
         Args:
             resolution (str):
             bbox ((3,)-array): wrt fixedWholebrain
@@ -2207,6 +2126,7 @@ class DataManager(object):
                     index += 1
 
             except Exception as e:
+                # raise e
                 sys.stderr.write('%s\n' % e)
                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
@@ -2724,7 +2644,7 @@ class DataManager(object):
     @staticmethod
     def get_score_volume_bbox_filepath_v3(stack_spec, structure, wrt='wholebrain'):
 
-        if stack_spec['structure'] is None:
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
             stack_spec_no_structure = stack_spec.copy()
@@ -3052,7 +2972,7 @@ class DataManager(object):
                 if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
                 else, returns volume_bbox_tuples.
         """
-        
+
         if structures is None:
             if sided:
                 if include_surround:
@@ -3066,38 +2986,38 @@ class DataManager(object):
         sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
 
         volumes = {}
-        
+
         if not loaded:
             structure_to_label = {}
             label_to_structure = {}
             index = 1
-            
+
         for structure in structures:
-            # try:
+            try:
 
-            if loaded:
-                index = structure_to_label[structure]
+                if loaded:
+                    index = structure_to_label[structure]
 
-            v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
-            in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
-                                                                         resolution=stack_spec['resolution'])
-            b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
+                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
+                                                                             resolution=stack_spec['resolution'])
+                b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
 
-            if name_or_index_as_key == 'name':
-                volumes[structure] = (v,b)
-            else:
-                volumes[index] = (v,b)
+                if name_or_index_as_key == 'name':
+                    volumes[structure] = (v,b)
+                else:
+                    volumes[index] = (v,b)
 
-            if not loaded:
-                structure_to_label[structure] = index
-                label_to_structure[index] = structure
-                index += 1
+                if not loaded:
+                    structure_to_label[structure] = index
+                    label_to_structure[index] = structure
+                    index += 1
 
-            # except Exception as e:
-            #     # raise e
-            #     sys.stderr.write('%s\n' % e)
-            #     sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+            except Exception as e:
+                # raise e
+                sys.stderr.write('%s\n' % e)
+                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
         if common_shape:
             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
@@ -3130,11 +3050,11 @@ class DataManager(object):
                                 - vol_type
         """
 
-        if stack_spec['resolution'] is None:
+        if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
             assert resolution is not None
             stack_spec['resolution'] = resolution
 
-        if stack_spec['structure'] is None:
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
             stack_spec_no_structure = stack_spec.copy()
@@ -4090,15 +4010,15 @@ class DataManager(object):
         # return image_width, image_height
 
     #######################################################
-        
+
     @staticmethod
     def get_intensity_normalization_result_filepath(what, stack, fn=None, section=None):
-        
+
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn=fn):
                 raise Exception('Section is invalid: %s.' % fn)
-                
+
         if what == 'region_centers':
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'regionCenters',
                          stack + '_' + fn + '_raw_regionCenters.bp')
@@ -4114,10 +4034,10 @@ class DataManager(object):
         elif what == 'float_histogram':
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'floatHistogram',
                          stack + '_' + fn + '_raw_floatHistogram.png')
-        
+
         return fp
-    
-    
+
+
     #######################################################
 
     @staticmethod

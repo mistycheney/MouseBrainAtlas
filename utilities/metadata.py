@@ -319,14 +319,14 @@ def convert_to_nonsurround_label(name):
 
 def convert_to_left_name(name):
     if name in singular_structures:
-        sys.stderr.write("Asked for left name for singular structure %s, returning itself.\n" % name)
+        # sys.stderr.write("Asked for left name for singular structure %s, returning itself.\n" % name)
         return name
     else:
         return convert_to_unsided_label(name) + '_L'
 
 def convert_to_right_name(name):
     if name in singular_structures:
-        sys.stderr.write("Asked for right name for singular structure %s, returning itself.\n" % name)
+        # sys.stderr.write("Asked for right name for singular structure %s, returning itself.\n" % name)
         return name
     else:
         return convert_to_unsided_label(name) + '_R'
@@ -400,8 +400,8 @@ all_known_structures_sided = sum([[n] if n in singular_structures
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in all_known_structures], [])
 #all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
-all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin=200) for s in all_known_structures_sided]
-all_known_structures_sided_with_surround = sorted(all_known_structures_sided + all_known_structures_sided_surround_only)
+all_known_structures_sided_surround_200um = [convert_to_surround_name(s, margin='200um') for s in all_known_structures_sided]
+all_known_structures_sided_including_surround_200um = sorted(all_known_structures_sided + all_known_structures_sided_surround_200um)
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
 structures_sided_sorted_by_size = ['4N_L', '4N_R', '6N_L', '6N_R', 'Amb_L', 'Amb_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'AP', '3N_L', '3N_R', 'LC_L', 'LC_R', 'SNC_L', 'SNC_R', 'Tz_L', 'Tz_R', '7n_L', '7n_R', 'RMC_L', 'RMC_R', '5N_L', '5N_R', 'VCP_L', 'VCP_R', '12N', 'LRt_L', 'LRt_R', '7N_L', '7N_R', 'VCA_L', 'VCA_R', 'VLL_L', 'VLL_R', 'DC_L', 'DC_R', 'Sp5O_L', 'Sp5O_R', 'Sp5I_L', 'Sp5I_R', 'Pn_L', 'Pn_R', 'RtTg', 'SNR_L', 'SNR_R', 'Sp5C_L', 'Sp5C_R', 'IC', 'SC']

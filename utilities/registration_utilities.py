@@ -203,8 +203,8 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 from skimage.filters import gaussian
 from scipy.ndimage.interpolation import zoom
 
-def generate_aligner_parameters_v2(alignment_spec, 
-                                   structures_m=all_known_structures_sided, 
+def generate_aligner_parameters_v2(alignment_spec,
+                                   structures_m=all_known_structures_sided,
                                    structures_f=None,
                                   fixed_structures_are_sided=False):
     """
@@ -287,12 +287,12 @@ def generate_aligner_parameters_v2(alignment_spec,
         structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200') for s in structures_m])
 
     if upstream_warp_setting is None:
-        
+
         if stack_m_spec['name'].startswith('atlas'):
             in_bbox_wrt='atlasSpace'
         else:
             in_bbox_wrt='wholebrain'
-        
+
         volume_moving, structure_to_label_moving, label_to_structure_moving = \
         DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_m_spec,
                                                                  sided=True,
@@ -336,12 +336,12 @@ def generate_aligner_parameters_v2(alignment_spec,
             structures_f = set([s for s in structures_m])
         else:
             structures_f = set([convert_to_unsided_label(s) for s in structures_m])
-    
+
     if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27']:
         in_bbox_wrt = 'wholebrain'
     else:
         in_bbox_wrt = 'wholebrainXYcropped'
-    
+
     volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
     DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
                                 in_bbox_wrt=in_bbox_wrt,
@@ -353,7 +353,7 @@ def generate_aligner_parameters_v2(alignment_spec,
                                                      name_or_index_as_key='index',
                                                      common_shape=False,
                                                             return_origin_instead_of_bbox=True)
-    
+
     # DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False,
     #                                                       volume_type=vol_type_f,
     #                                                      include_surround=include_surround,
@@ -371,12 +371,12 @@ def generate_aligner_parameters_v2(alignment_spec,
         sys.stderr.write("No fixed volumes.\n")
     else:
         sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
-        
+
 #         structure_center = {label_to_structure_fixed[i]: o + np.array(v.shape)[[1,0,2]] for i, (v, o) in volume_fixed.iteritems()}
 #         all_loaded_unsided_names = set([convert_to_unsided_name(s) for s in structure_to_label_fixed.iterkeys()])
 #         for name_u in all_loaded_unsided_names:
-#             if name_u == 
-            
+#             if name_u ==
+
     ############################################################################
 
     # Make two volumes the same resolution.
@@ -405,7 +405,7 @@ def generate_aligner_parameters_v2(alignment_spec,
     if include_surround:
         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
 
-        
+
     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
         label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
                      for label_m, name_m in label_to_structure_moving.iteritems()
@@ -473,7 +473,7 @@ def generate_aligner_parameters_v2(alignment_spec,
 
     return alinger_parameters
 
-# def generate_aligner_parameters(alignment_spec, 
+# def generate_aligner_parameters(alignment_spec,
 #                                 structures_m=all_known_structures_sided,
 #                                structures_f=None):
 #     """
@@ -595,14 +595,14 @@ def generate_aligner_parameters_v2(alignment_spec,
 
 #     if structures_f is None:
 #         structures_f = set([convert_to_unsided_label(s) for s in structures_m])
-    
+
 #     if stack_f_spec['name'] == 'ChatCryoJane201710':
 #         in_bbox_wrt = 'brainstem'
 #     elif stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
 #         in_bbox_wrt = 'wholebrain'
 #     else:
 #         in_bbox_wrt = 'wholebrainXYcropped'
-    
+
 #     volume_fixed, volume_fixed_bbox_wrt_wholebrain, structure_to_label_fixed, label_to_structure_fixed = \
 #     DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
 #                                 in_bbox_wrt=in_bbox_wrt,
@@ -664,7 +664,7 @@ def generate_aligner_parameters_v2(alignment_spec,
 #     if include_surround:
 #         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
 
-        
+
 #     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
 #         label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
 #                      for label_m, name_m in label_to_structure_moving.iteritems()
@@ -741,27 +741,27 @@ def compute_gradient_v2(volumes, smooth_first=False):
         volumes (dict {int: (3d-array, 3-tuple)}): dict of volume and origin tuple
         smooth_first (bool): If true, smooth each volume before computing gradients.
         This is useful if volume is binary and gradients are only nonzero at structure borders.
-        
+
     Note:
         # 3.3 second - re-computing is much faster than loading
         # .astype(np.float32) is important;
         # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
         # 2s (float32) vs. 20s (float16)
     """
-    
+
     gradients = {}
-       
+
     for ind, (v, o) in volumes.iteritems():
         print "Computing gradient for", ind
-        
+
         t1 = time.time()
-        
+
         gradients[ind] = (np.zeros((3,) + v.shape), o)
-                
+
         # t = time.time()
         cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
         # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
-                
+
         if smooth_first:
             # t = time.time()
             cropped_v = gaussian(cropped_v, 3)
@@ -770,13 +770,13 @@ def compute_gradient_v2(volumes, smooth_first=False):
         # t = time.time()
         cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
         # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
-        
+
         gradients[ind][0][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
         gradients[ind][0][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
         gradients[ind][0][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
-        
+
         # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
-        
+
     return gradients
 
 def compute_gradient(volumes, smooth_first=False):
@@ -785,7 +785,7 @@ def compute_gradient(volumes, smooth_first=False):
         volumes (dict {int: 3d-array}): dict of volumes
         smooth_first (bool): If true, smooth each volume before computing gradients.
         This is useful if volume is binary and gradients are only nonzero at structure borders.
-        
+
     Note:
         # 3.3 second - re-computing is much faster than loading
         # .astype(np.float32) is important;
@@ -793,18 +793,18 @@ def compute_gradient(volumes, smooth_first=False):
         # 2s (float32) vs. 20s (float16)
     """
     gradients = {}
-       
+
     for ind, v in volumes.iteritems():
         print "Computing gradient for", ind
-        
+
         t1 = time.time()
-        
+
         gradients[ind] = np.zeros((3,) + v.shape)
-                
+
         # t = time.time()
         cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
         # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
-                
+
         if smooth_first:
             # t = time.time()
             cropped_v = gaussian(cropped_v, 3)
@@ -813,13 +813,13 @@ def compute_gradient(volumes, smooth_first=False):
         # t = time.time()
         cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
         # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
-        
+
         gradients[ind][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
         gradients[ind][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
         gradients[ind][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
-        
+
         # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
-        
+
     return gradients
 
 def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
@@ -840,24 +840,18 @@ def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner
     init_T = np.column_stack([R, np.dot(R, centroid_m) + t - centroid_f])
     return init_T
 
+def transform_parameters_relative_to_initial_shift(transform_parameters, centroid_m, centroid_f):
+    """
+    Returns:
+        (3,4)-array:
+    """
 
-# def transform_parameters_to_init_T(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
-#     """
-#     `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
+    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
+    R = T[:3,:3]
+    t_composite = T[:3,3]
 
-#     Returns:
-#         (3,4)-array:
-#     """
-
-#     T = alignment_parameters_to_transform_matrix(global_transform_parameters)
-#     R = T[:3,:3]
-#     t = T[:3,3]
-
-#     lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
-#     lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
-
-#     init_T = np.column_stack([R, np.dot(R, lom + centroid_m) + t - lof - centroid_f])
-#     return init_T
+    t = t_composite - centroid_f + np.dot(R, centroid_m)
+    return np.column_stack([R, t])
 
 from scipy.optimize import approx_fprime
 
@@ -1486,7 +1480,7 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
 
     # for ap, sigma, w in zip(anchor_points, sigmas, weights):
         # print w, -mahalanobis_distance_sq(pts, ap, sigma)
-    
+
     if sigmas[0].ndim == 2: # sigma is covariance matrix
         nzvoxels_weights = np.array([w*np.exp(-mahalanobis_distance_sq(pts, ap, sigma))
                             for ap, sigma, w in zip(anchor_points, sigmas, weights)])
@@ -1500,13 +1494,13 @@ def transform_points_polyrigid(pts, rigid_param_list, anchor_points, sigmas, wei
         # nzvoxels_weights = np.array([w*((np.sqrt(np.sum((pts - ap)**2, axis=1)) < sigma).astype(np.int) + 1e-10) \
         #                     for ap, sigma, w in zip(anchor_points, sigmas, weights)])
     # add a small constant to prevent from being rounded to 0.
-    
+
     nzvoxels_weights = nzvoxels_weights / (nzvoxels_weights.sum(axis=0))
     nzvoxels_weights[nzvoxels_weights < 1e-3] = 0
     # nzvoxels_weights = nzvoxels_weights / (nzvoxels_weights.sum(axis=0) + 1e-10)
-        
+
     # print nzvoxels_weights.sum(axis=0)
-        
+
     # for x in nzvoxels_weights:
     #     print x
 
@@ -1643,7 +1637,6 @@ def get_weighted_average_rigid_parameters(stack_m, stack_f, structures, alpha=10
     for structure in structures:
         volume_moving_structure_sizes[structure] = np.count_nonzero(volumes[structure] > cutoff)
 
-
     total_size = sum(volume_moving_structure_sizes[s] for s in structures)
     structure_sizes_percent = {s: float(volume_moving_structure_sizes[s])/total_size
                                for s in structures}
@@ -1758,7 +1751,7 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
     else:
         return volume_m_aligned_to_f, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
-def transform_volume_v3(vol, tf_params, bbox=None, origin=None, centroid_m=(0,0,0), centroid_f=(0,0,0), return_origin_instead_of_bbox=False):
+def transform_volume_v3(vol, tf_params=None, bbox=None, origin=None, centroid_m=(0,0,0), centroid_f=(0,0,0), return_origin_instead_of_bbox=False, transform_parameters=None):
     """
     One can specify initial shift and the transform separately.
     First, `centroid_m` and `centroid_f` are aligned.
@@ -1781,9 +1774,16 @@ def transform_volume_v3(vol, tf_params, bbox=None, origin=None, centroid_m=(0,0,
         (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
     """
 
+    if transform_parameters is not None:
+        tf_dict = convert_transform_forms(transform_parameters=transform_parameters, out_form='dict')
+        tf_params = tf_dict['parameters']
+        centroid_m = tf_dict['centroid_m_wrt_wholebrain']
+        centroid_f = tf_dict['centroid_f_wrt_wholebrain']
+
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
 
+    assert origin is not None or bbox is not None, 'Must provide origin or bbox.'
     if origin is None:
         if bbox is not None:
             origin = bbox[[0,2,4]]
@@ -1814,6 +1814,8 @@ def transform_volume_v3(vol, tf_params, bbox=None, origin=None, centroid_m=(0,0,
             dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
         else:
             dense_volume = volume_m_aligned_to_f
+    elif np.issubdtype(volume_m_aligned_to_f.dtype, bool):
+        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f.astype(np.int)).astype(vol.dtype)
     else:
         raise Exception('transform_volume: Volume must be either float or int.')
 
@@ -2044,28 +2046,105 @@ def fill_sparse_volume(volume_sparse):
 
     return volume
 
-def alignment_parameters_to_transform_matrix(transform_parameters):
+# def alignment_parameters_to_transform_matrix(transform_parameters):
+#     """
+#     Returns:
+#         (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
+#     """
+#     cf = np.array(transform_parameters['centroid_f'])
+#     cm = np.array(transform_parameters['centroid_m'])
+#     of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
+#     om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
+#     params = np.array(transform_parameters['parameters'])
+#     T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
+#     return T
+
+def convert_transform_forms(out_form, transform_parameters=None, aligner=None, select_best='last_value'):
     """
-    Returns:
-        (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
+    Args:
+        out_form: (3,4) or (4,4) or (12,) or "dict"
     """
-    cf = np.array(transform_parameters['centroid_f'])
-    cm = np.array(transform_parameters['centroid_m'])
-    of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
-    om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
-    params = np.array(transform_parameters['parameters'])
-    T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
+
+    if aligner is not None:
+        centroid_m = aligner.centroid_m
+        centroid_f = aligner.centroid_f
+
+        if select_best == 'last_value':
+            params = aligner.Ts[-1]
+        elif select_best == 'max_value':
+            params = aligner.Ts[np.argmax(aligner.scores)]
+        else:
+            raise Exception("select_best %s is not recognize." % select_best)
+    else:
+        if isinstance(transform_parameters, dict):
+            centroid_f = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+            centroid_m = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+            params = np.array(transform_parameters['parameters'])
+        elif isinstance(transform_parameters, np.ndarray):
+            if transform_parameters.shape == (12,):
+                params = transform_parameters
+                centroid_m = np.zeros((3,))
+                centroid_f = np.zeros((3,))
+            elif transform_parameters.shape == (3,4):
+                params = transform_parameters.flatten()
+                centroid_m = np.zeros((3,))
+                centroid_f = np.zeros((3,))
+            elif transform_parameters.shape == (4,4):
+                params = transform_parameters[:3].flatten()
+                centroid_m = np.zeros((3,))
+                centroid_f = np.zeros((3,))
+            else:
+                raise
+        else:
+            raise Exception(type(transform_parameters))
+
+    T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)
+
+    if out_form == (3,4):
+        return T[:3]
+    elif out_form == (4,4):
+        return T
+    elif out_form == (12,):
+        return T.flatten()
+    elif out_form == 'dict':
+        return dict(centroid_f_wrt_wholebrain = np.zeros((3,)),
+                    centroid_m_wrt_wholebrain = np.zeros((3,)),
+                    parameters = T[:3].flatten())
+    else:
+        raise Exception("Output form of %s is not recognized." % out_form)
+
     return T
+
 
 def alignment_parameters_to_transform_matrix_v2(transform_parameters):
     """
     Returns:
         (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
     """
-    cf = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
-    cm = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
-    params = np.array(transform_parameters['parameters'])
-    T = consolidate(params=params, centroid_m=cm, centroid_f=cf)[:3]
+
+    if isinstance(transform_parameters, dict):
+        centroid_f = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+        centroid_m = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+        params = np.array(transform_parameters['parameters'])
+    elif isinstance(transform_parameters, np.ndarray):
+        if transform_parameters.shape == (12,):
+            params = transform_parameters
+            centroid_m = np.zeros((3,))
+            centroid_f = np.zeros((3,))
+        elif transform_parameters.shape == (3,4):
+            params = transform_parameters.flatten()
+            centroid_m = np.zeros((3,))
+            centroid_f = np.zeros((3,))
+        elif transform_parameters.shape == (4,4):
+            params = transform_parameters[:3].flatten()
+            centroid_m = np.zeros((3,))
+            centroid_f = np.zeros((3,))
+        else:
+            raise
+    else:
+        raise Exception(type(transform_parameters))
+
+    T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)
     return T
 
 def transform_volume_by_alignment_parameters_v2(volume, transform_parameters=None, bbox=None, origin=None):
@@ -2080,7 +2159,7 @@ def transform_volume_by_alignment_parameters_v2(volume, transform_parameters=Non
     """
 
     T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
-    
+
     if origin is not None:
         volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
             transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
@@ -2089,9 +2168,9 @@ def transform_volume_by_alignment_parameters_v2(volume, transform_parameters=Non
         volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
             transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
         return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
-    else: 
+    else:
         raise
-        
+
 def transform_points_by_transform_parameters_v2(pts, transform_parameters):
     """
     Args:
@@ -2115,7 +2194,7 @@ def transform_volume_by_alignment_parameters(volume, transform_parameters=None, 
     """
 
     T = alignment_parameters_to_transform_matrix(transform_parameters)
-    
+
     if origin is not None:
         volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
             transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
@@ -2124,7 +2203,7 @@ def transform_volume_by_alignment_parameters(volume, transform_parameters=None, 
         volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
             transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
         return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
-    else: 
+    else:
         raise
 
 
@@ -2152,12 +2231,25 @@ def compose_alignment_parameters(list_of_transform_parameters):
 
     for transform_parameters in list_of_transform_parameters:
 
-        cf = np.array(transform_parameters['centroid_f'])
-        cm = np.array(transform_parameters['centroid_m'])
-        of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
-        om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
-        params = np.array(transform_parameters['parameters'])
-        T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)
+        if isinstance(transform_parameters, dict):
+            # cf = np.array(transform_parameters['centroid_f'])
+            # cm = np.array(transform_parameters['centroid_m'])
+            # of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
+            # om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
+            # params = np.array(transform_parameters['parameters'])
+            # T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)
+
+            cf = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+            cm = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+            params = np.array(transform_parameters['parameters'])
+            T = consolidate(params=params, centroid_m=cm, centroid_f=cf)
+        elif transform_parameters.shape == (3,4):
+            T = np.vstack([transform_parameters, [0,0,0,1]])
+        elif transform_parameters.shape == (12,):
+            T = np.vstack([transform_parameters.reshape((3,4)), [0,0,0,1]])
+        else:
+            raise
+
         T0 = np.dot(T, T0)
 
     return T0
@@ -2206,14 +2298,22 @@ def R_align_two_vectors(a, b):
 
 def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None):
     """
-    Find the average location of all landmarks, forcing symmetricity with respect to mid-sagittal plane.
+    Compute the standard centroid of every structure.
+
+    This first estimates the mid-sagittal plane.
+    Then find a standard centroid for each structure, that is closest to the mean and also being symmetric with respect to mid-sagittal plane.
 
     Args:
         centroid_allLandmarks (dict {str: (n,3)-array})
         mean_centroid_allLandmarks (dict {str: (3,)-array})
 
-    Return (0,0,0) centered coordinates where (0,0,0) is a point on the midplane
-    """
+    Returns:
+        standard_centroids_wrt_canonical: average locations of every structure, relative to the midplane anchor. Paired structures are symmetric relative to the mid-plane defined by centroid and normal.
+        instance_centroids_wrt_canonical: the instance centroids in canonical atlas space
+        midplane_anchor: a point on the mid-sagittal plane
+        midplane_normal: normal vector of the mid-sagittal plane estimated from centroids in original coordinates. Note that this is NOT the mid-plane normal using canonical coordinates, which by design should be (0,0,1).
+        transform_matrix_to_atlasCanonicalSpace: (4,4) matrix that maps to canonical atlas space
+        """
 
     if mean_centroid_allLandmarks is None:
         mean_centroid_allLandmarks = {name: np.mean(centroids, axis=0)
@@ -2238,14 +2338,32 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
 
     # print midpoints
 
-    midplane_normal, midplane_point = fit_plane(np.c_[midpoints.values()])
+    midplane_normal, midplane_anchor = fit_plane(np.c_[midpoints.values()])
 
-    print midplane_normal,'@', midplane_point
+    print 'Mid-sagittal plane normal vector =', midplane_normal
+    print 'Mid-sagittal plane anchor =', midplane_anchor
 
-    R_to_canonical = R_align_two_vectors(midplane_normal , np.r_[0, 0, 1])
+    R_to_canonical = R_align_two_vectors(midplane_normal, (0, 0, 1))
 
-    points_midplane_oriented = {name: np.dot(R_to_canonical, p - midplane_point)
+    # points_midplane_oriented = {name: np.dot(R_to_canonical, p - midplane_anchor)
+    #                             for name, p in mean_centroid_allLandmarks.iteritems()}
+
+    transform_matrix_to_atlasCanonicalSpace = consolidate(params=np.column_stack([R_to_canonical, np.zeros((3,))]),
+                centroid_m=midplane_anchor,
+               centroid_f=(0,0,0))
+
+    print 'Transform matrix to canonical atlas space ='
+    print transform_matrix_to_atlasCanonicalSpace
+
+    print 'Angular deviation around y axis (degree) =', np.rad2deg(np.arccos(midplane_normal[2]))
+
+    points_midplane_oriented = {name: transform_points_by_transform_parameters_v2(p, transform_parameters=transform_matrix_to_atlasCanonicalSpace)
                                 for name, p in mean_centroid_allLandmarks.iteritems()}
+
+    instance_centroid_rel2atlasCanonicalSpace = \
+{n: transform_points_by_transform_parameters_v2(s,
+                                           transform_parameters=transform_matrix_to_atlasCanonicalSpace)
+for n, s in centroid_allLandmarks.iteritems()}
 
     canonical_locations = {}
 
@@ -2264,5 +2382,4 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
             x, y, _ = points_midplane_oriented[name]
             canonical_locations[name] = np.r_[x, y, 0]
 
-    return canonical_locations, midplane_point, midplane_normal
-
+    return canonical_locations, instance_centroid_rel2atlasCanonicalSpace, midplane_anchor, midplane_normal, transform_matrix_to_atlasCanonicalSpace

@@ -229,7 +229,7 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
 def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200, return_mesh=False):
     """
-    Convert a volume to a mesh.
+    Convert a volume to a mesh, either as vertices/faces tuple or a vtk.Polydata.
 
     Args:
         level (float): the level to threshold the input volume
@@ -265,8 +265,8 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
 
     t = time.time()
 
-    if return_mesh:
-        return vs, fs
+#     if return_mesh:
+#         return vs, fs
 
     polydata = mesh_to_polydata(vs, fs)
 
@@ -302,8 +302,12 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
 
         if polydata.GetNumberOfPoints() < min_vertices:
             break
-
-    return polydata
+            
+    
+    if return_mesh:
+        return polydata_to_mesh(polydata)
+    else:
+        return polydata
 
 
 def polydata_to_volume(polydata):
@@ -1464,12 +1468,12 @@ def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
     # return moving_pts_centered
 
 
-def average_shape(polydata_list=None, volume_list=None, origin_list=None, consensus_percentage=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
-                 sigma=2.):
+def average_shape(polydata_list=None, volume_origin_list=None, volume_list=None, origin_list=None, surface_level=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
+                 sigma=2., return_vertices_faces=False):
     """
     Args:
         polydata_list (list of Polydata): List of meshes whose centroids are at zero.
-        consensus_percentage (float): If None, only return the probabilistic volume and origin. Otherwise, also return the surface mesh thresholded at the given percentage.
+        surface_level (float): If None, only return the probabilistic volume and origin. Otherwise, also return the surface mesh thresholded at the given percentage.
         num_simplify_iter (int): Number of simplification iterations for thresholded mesh generation.
         smooth (bool): Whether to smooth for thresholded mesh generation.
         force_symmetric (bool): If True, force the resulting volume and mesh to be symmetric wrt z.
@@ -1481,6 +1485,9 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
         average_polydata (Polydata): mesh of the 3D boundary thresholded at concensus_percentage
     """
 
+    if volume_origin_list is not None:
+        volume_list, origin_list = map(list, zip(*volume_origin_list))
+    
     if volume_list is None:
         volume_list = []
         origin_list = []
@@ -1492,25 +1499,9 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
             volume_list.append(v)
             origin_list.append(np.array(orig, np.int))
 
-    bbox_list = [(xm, xm+v.shape[1], ym, ym+v.shape[0], zm, zm+v.shape[2]) for v,(xm,ym,zm) in zip(volume_list, origin_list)]
+    bbox_list = [(xm, xm+v.shape[1]-1, ym, ym+v.shape[0]-1, zm, zm+v.shape[2]-1) for v,(xm,ym,zm) in zip(volume_list, origin_list)]
     common_volume_list, common_volume_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_tuples=zip(volume_list, bbox_list))
     common_volume_list = map(lambda v: (v > 0).astype(np.int), common_volume_list)
-
-    # common_mins = np.min(origin_list, axis=0).astype(np.int)
-    # relative_origins = origin_list - common_mins
-
-#     common_xdim, common_ydim, common_zdim = np.max([(v.shape[1]+o[0], v.shape[0]+o[1], v.shape[2]+o[2])
-#                                                     for v,o in zip(volume_list, relative_origins)], axis=0)
-
-#     common_volume_list = []
-
-#     for i, v in enumerate(volume_list):
-#         common_volume = np.zeros( (common_ydim, common_xdim, common_zdim), np.uint8)
-#         x0, y0, z0 = relative_origins[i]
-#         ydim, xdim, zdim = v.shape
-#         common_volume[y0:y0+ydim, x0:x0+xdim, z0:z0+zdim] = v
-
-#         common_volume_list.append((common_volume > 0).astype(np.int))
 
     average_volume = np.sum(common_volume_list, axis=0)
     average_volume_prob = average_volume / float(average_volume.max())
@@ -1524,14 +1515,13 @@ def average_shape(polydata_list=None, volume_list=None, origin_list=None, consen
 
     common_origin = np.array(common_volume_bbox)[[0,2,4]]
 
-    if consensus_percentage is not None:
-        # Threshold prob. volumes to generate structure meshes
-        average_volume_thresholded = average_volume_prob >= consensus_percentage
-        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_origin, num_simplify_iter=num_simplify_iter,
-                                              smooth=smooth)
+    if surface_level is not None:
+        average_volume_thresholded = average_volume_prob >= surface_level
+        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_origin, num_simplify_iter=num_simplify_iter, smooth=smooth, return_mesh=return_vertices_faces)
         return average_volume_prob, common_origin, average_polydata
     else:
         return average_volume_prob, common_origin
+    
 
 def symmetricalize_volume(prob_vol):
     """

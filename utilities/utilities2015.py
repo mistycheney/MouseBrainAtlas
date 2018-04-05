@@ -33,11 +33,63 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+
+def load_data(fp, polydata_instead_of_face_vertex_list=True):
+
+    print fp
+    from vis3d_utilities import load_mesh_stl
+
+    if fp.endswith('.bp'):
+        data = bp.unpack_ndarray_file(fp)
+    elif fp.endswith('.json'):
+        data = load_json(fp)
+    elif fp.endswith('.pkl'):
+        data = load_pickle(fp)
+    elif fp.endswith('.stl'):
+        data = load_mesh_stl(fp, return_polydata_only=polydata_instead_of_face_vertex_list)
+    elif fp.endswith('.txt'):
+        data = np.load(fp)
+    elif fp.endswith('.png'):
+        data = imread(fp)
+    else:
+        raise
+
+    return data
+
+def save_data(data, fp, upload_s3=True):
+
+    from distributed_utilities import upload_to_s3
+    from vis3d_utilities import save_mesh_stl
+
+    create_parent_dir_if_not_exists(fp)
+
+    if fp.endswith('.bp'):
+        bp.pack_ndarray_file(data, fp)
+    elif fp.endswith('.json'):
+        save_json(data, fp)
+    elif fp.endswith('.pkl'):
+        save_pickle(data, fp)
+    elif fp.endswith('.stl'):
+        save_mesh_stl(data, fp)
+    elif fp.endswith('.txt'):
+        if isinstance(data, np.ndarray):
+            np.savetxt(fp, data)
+        else:
+            raise
+    else:
+        raise
+
+    if upload_s3:
+        upload_to_s3(fp)
+
 ##################################################################
 
 def volume_origin_to_bbox(v, o):
+    """
+    Convert a (volume, origin) tuple into a bounding box.
+    """
     return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
-    
+
 ####################################################################
 
 def get_structure_length_at_direction(structure_vol, d):
@@ -146,72 +198,25 @@ def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
 
 ######################################################################
 
-def rescale_by_resampling(v, scaling=None, new_shape=None):
-    """
-    Args:
-        scaling (int or list): if more than one element, (scaling x, scaling y, scaling z)
-    """
-    
-#     if scaling is None:
-#         assert new_shape is not None
-#         if v.ndim == 3:
-#             scaling = np.array(new_shape) / np.array([v.shape[1], v.shape[0], v.shape[2]], np.float)
-#         elif v.ndim == 2:
-#             scaling = np.array(new_shape) / np.array([v.shape[1], v.shape[0]], np.float)
-    
-    if scaling is not None:
-        n = len(np.atleast_1d(scaling))
-        if n == 1:
-            scaling = np.ones((v.ndim,))
-        
+def rescale_by_resampling(v, scaling):
+    # print v.shape, scaling
+    if scaling == 1:
+        return v
+
     if v.ndim == 3:
         if v.shape[-1] == 3: # RGB image
-            if scaling is not None:
-                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
-                                     np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int), 
-                                     indexing='ij')]
-            else:
-                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
-                                 np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), 
-                                 indexing='ij')]
+            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
         else: # 3-d volume
-            if scaling is not None:
-                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
-                                     np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int),
-                                     np.floor(np.arange(0, v.shape[2], 1./scaling[2])).astype(np.int), 
-                                     indexing='ij')]
-            else:
-                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
-                                 np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int),
-                                 np.floor(np.linspace(0, v.shape[2]-1, new_shape[2])).astype(np.int), 
-                                 indexing='ij')]
+            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
     elif v.ndim == 2:
-            if scaling is not None:
-                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling[1])).astype(np.int),
-                                 np.floor(np.arange(0, v.shape[1], 1./scaling[0])).astype(np.int), 
-                                 indexing='ij')]
-            else:
-                return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
-                             np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), 
-                             indexing='ij')]
+        return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
     else:
         raise
 
-#         if v.ndim == 3:
-#             if v.shape[-1] == 3: # RGB image
-#                 return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
-#             else: # 3-d volume
-#                 return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
-#                   np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
-#         elif v.ndim == 2:
-#             return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-#                   np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
-#         else:
-#             raise
-    # else:
-    #     raise
 
 # def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
 #     """
@@ -257,7 +262,7 @@ def get_structure_centroids(vol_bbox_dict=None, vol_origin_dict=None, vol_dict=N
     """
     Compute structure centroids.
     """
-    
+
     structure_centroids = {}
     if vol_bbox_dict is not None:
         for label, (v, bb) in vol_bbox_dict.iteritems():
@@ -278,21 +283,45 @@ def get_structure_centroids(vol_bbox_dict=None, vol_origin_dict=None, vol_dict=N
 
 
 def get_centroid_3d(v):
-    return np.mean(np.where(v), axis=1)[[1,0,2]]
+    """
+    Compute the centroids of volumes.
+
+    Args:
+        v: volumes as 3d array, or dict of volumes, or dict of (volume, origin))
+    """
+
+    if isinstance(v, dict):
+        centroids = {}
+        for n, s in v.iteritems():
+            if isinstance(s, tuple): # volume, origin_or_bbox
+                vol, origin_or_bbox = s
+                if len(origin_or_bbox) == 3:
+                    origin = origin_or_bbox
+                elif len(origin_or_bbox) == 6:
+                    bbox = origin_or_bbox
+                    origin = bbox[[0,2,4]]
+                else:
+                    raise
+                centroids[n] = np.mean(np.where(vol), axis=1)[[1,0,2]] + origin
+            else: # volume
+                centroids[n] = np.mean(np.where(s), axis=1)[[1,0,2]]
+        return centroids
+    else:
+        return np.mean(np.where(v), axis=1)[[1,0,2]]
 
 def compute_midpoints(structure_centroids):
     """
     Compute the mid-points of each structure.
-    
+
     Args:
         structure_centroids (dict of dict): {sided name: (centroid x,y,z)}
-    
+
     Returns:
         dict of (3,)-array: {unsided name: mid-point}
     """
-    
+
     from metadata import all_known_structures, singular_structures, convert_to_left_name, convert_to_right_name
-    
+
     midpoints = {}
     for s in all_known_structures:
         if s in singular_structures:
@@ -358,7 +387,15 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
                                       cov_mat_allStructures=None,
                                       radii_allStructures=None,
                                       ellipsoid_matrix_allStructures=None,
-                                     colors=None):
+                                     colors=None,
+                                     show_canonical_centroid=True,
+                                     xlim=(0,400),
+                                     ylim=(0,400),
+                                     zlim=(0,400),
+                                     xlabel='x',
+                                     ylabel='y',
+                                     zlabel='z',
+                                     title='Centroid means and covariances'):
     """
     Plot the means and covariance matrices in 3D.
     All coordinates are relative to cropped MD589.
@@ -388,7 +425,7 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
     import matplotlib.pyplot as plt
     from metadata import name_unsided_to_color, convert_to_original_name
 
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(20, 20))
     ax = fig.add_subplot(111, projection='3d')
 
     if colors is None:
@@ -404,7 +441,6 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
 
         ax.scatter(centroids2[:,0], centroids2[:,1], centroids2[:,2],
                    marker='o', s=100, alpha=.1, color=colors[name_s])
-
 
         if canonical_centroid is None:
             c = nominal_locations[name_s]
@@ -428,12 +464,13 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
         ax.plot_wireframe(x, y, z,  rstride=4, cstride=4, color='b', alpha=0.2)
 
     if canonical_centroid is not None:
-        ax.scatter(canonical_centroid[0], canonical_centroid[1], canonical_centroid[2],
+        if show_canonical_centroid:
+            ax.scatter(canonical_centroid[0], canonical_centroid[1], canonical_centroid[2],
                color=(0,0,0), marker='^', s=200)
 
         # Plot mid-sagittal plane
         if canonical_normal is not None:
-            canonical_midplane_xx, canonical_midplane_yy = np.meshgrid(range(0, 500, 100), range(0, 500, 100), indexing='xy')
+            canonical_midplane_xx, canonical_midplane_yy = np.meshgrid(range(xlim[0], xlim[1], 100), range(ylim[0], ylim[1], 100), indexing='xy')
             canonical_midplane_z = -(canonical_normal[0]*(canonical_midplane_xx-canonical_centroid[0]) + \
             canonical_normal[1]*(canonical_midplane_yy-canonical_centroid[1]) + \
             canonical_normal[2]*(-canonical_centroid[2]))/canonical_normal[2]
@@ -441,22 +478,29 @@ def plot_centroid_means_and_covars_3d(instance_centroids,
     else:
         sys.stderr.write("canonical_centroid not provided. Skip plotting cenonical centroid and mid-sagittal plane.\n")
 
-    # ax.set_xlabel('X Label')
-    # ax.set_ylabel('Y Label')
-    # ax.set_zlabel('Z Label')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_zlabel(zlabel)
     # ax.set_axis_off()
-    ax.set_xlim3d([0, 400]);
-    ax.set_ylim3d([0, 400]);
-    ax.set_zlim3d([0, 400]);
+    ax.set_xlim3d([xlim[0], xlim[1]]);
+    ax.set_ylim3d([ylim[0], ylim[1]]);
+    ax.set_zlim3d([zlim[0], zlim[1]]);
     # ax.view_init(azim = 90 + 20,elev = 0 - 20)
-    ax.view_init(azim = 90,elev = 0)
+    ax.view_init(azim = 270, elev = 0)
+
+    # Hide y-axis (https://stackoverflow.com/questions/12391271/matplotlib-turn-off-z-axis-only-in-3-d-plot)
+    ax.w_yaxis.line.set_lw(0.)
+    ax.set_yticks([])
+
     ax.set_aspect(1.0)
+    ax.set_title(title)
     plt.legend()
     plt.show()
 
 def compute_ellipsoid_from_covar(covar_mat):
     """
     Compute the ellipsoid (three radii and three axes) of each structure from covariance matrices.
+    Radii are the square root of the singular values (or 1 sigma).
 
     Returns:
         dict {str: (3,)-ndarray}: radius of each axis
@@ -813,7 +857,7 @@ def get_grid_point_volume(xs, ys, zs, vol_shape, return_nz=False):
         return vol, gp_xyzs
     else:
         return vol
-    
+
 def return_gridline_points_v2(xdim, ydim, spacing, z):
     xs = np.arange(0, xdim, spacing)
     ys = np.arange(0, ydim, spacing)
@@ -822,7 +866,7 @@ def return_gridline_points_v2(xdim, ydim, spacing, z):
 def return_gridline_points(xs, ys, z, w, h):
     grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
     return grid_points
-    
+
 def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
     """
     Convert the set (parameter, centroid m, centroid f) to a single matrix.
@@ -872,7 +916,7 @@ def crop_volume_to_minimal(vol, origin=(0,0,0), margin=0, return_origin_instead_
     xmax = min(vol.shape[1]-1, xmax + margin)
     ymax = min(vol.shape[0]-1, ymax + margin)
     zmax = min(vol.shape[2]-1, zmax + margin)
-    
+
     if return_origin_instead_of_bbox:
         return vol[ymin:ymax+1, xmin:xmax+1, zmin:zmax+1], np.array(origin) + (xmin,ymin,zmin)
     else:
@@ -1193,7 +1237,7 @@ def execute_command(cmd, stdout=None, stderr=None):
 
 #     print stdout
 #     print stderr
-    
+
     # import os
     # retcode = os.system(cmd)
     retcode = call(cmd, shell=True, stdout=stdout, stderr=stderr)

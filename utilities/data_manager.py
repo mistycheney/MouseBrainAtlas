@@ -446,8 +446,8 @@ class DataManager(object):
     ########################
 
     @staticmethod
-    def get_lauren_markers_filepath(stack, structure):
-        return os.path.join(ROOT_DIR, 'lauren_data', 'markers', stack, stack + '_markers_%s.bp' % structure)
+    def get_lauren_markers_filepath(stack, structure, resolution):
+        return os.path.join(ROOT_DIR, 'lauren_data', 'markers', stack, stack + '_markers_%s_%s.bp' % (resolution, structure))
 
     ##############
     ##   SPM    ##
@@ -850,6 +850,9 @@ class DataManager(object):
 
         if stack.startswith('atlas'):
             if domain == 'atlasSpace':
+                origin_loadedResol = np.zeros((3,))
+                loaded_resolution_um = 0. # does not matter
+            elif domain == 'canonicalAtlasSpace':
                 origin_loadedResol = np.zeros((3,))
                 loaded_resolution_um = 0. # does not matter
             elif domain == 'atlasSpaceBrainstem': # obsolete?
@@ -1302,10 +1305,19 @@ class DataManager(object):
     #     return {k: np.array(v) if isinstance(v, list) else v for k, v in tf_param.iteritems()}
 
     @staticmethod
-    def load_alignment_results_v3(alignment_spec, what, reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR):
+    def load_alignment_results_v3(alignment_spec, what, reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR, out_form='dict'):
         """
+        Args:
+            what (str): any of parameters, scoreHistory, scoreEvolution or trajectory
         """
-        return load_data(DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what=what, reg_root_dir=reg_root_dir))
+        from registration_utilities import convert_transform_forms
+        res = load_data(DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what=what, reg_root_dir=reg_root_dir))
+        if what == 'parameters':
+            tf_out = convert_transform_forms(transform=res, out_form=out_form)
+            return tf_out
+        else:
+            return res
+
 
     @staticmethod
     def save_alignment_results_v3(transform_parameters=None, score_traj=None, parameter_traj=None,
@@ -1335,12 +1347,12 @@ class DataManager(object):
 
             if select_best == 'last_value':
                 transform_parameters = dict(parameters=parameter_traj[-1],
-                centroid_m_wrt_wholebrain=np.zeros((3,)),
-                centroid_f_wrt_wholebrain=np.zeros((3,)))
+                centroid_m_wrt_wholebrain=aligner.centroid_m,
+                centroid_f_wrt_wholebrain=aligner.centroid_f)
             elif select_best == 'max_value':
                 transform_parameters = dict(parameters=parameter_traj[np.argmax(score_traj)],
-                centroid_m_wrt_wholebrain=np.zeros((3,)),
-                centroid_f_wrt_wholebrain=np.zeros((3,)))
+                centroid_m_wrt_wholebrain=aligner.centroid_m,
+                centroid_f_wrt_wholebrain=aligner.centroid_f)
             else:
                 raise Exception("select_best %s is not recognize." % select_best)
 
@@ -1700,16 +1712,16 @@ class DataManager(object):
     # Mesh related #
     ################
 
-    @staticmethod
-    def load_shell_mesh(stack, downscale, return_polydata_only=True):
-        shell_mesh_fn = DataManager.get_shell_mesh_filepath(stack, downscale)
-        return load_mesh_stl(shell_mesh_fn, return_polydata_only=return_polydata_only)
-
-    @staticmethod
-    def get_shell_mesh_filepath(stack, downscale):
-        basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, volume_type='outer_contour')
-        shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, basename + "_smoothed.stl")
-        return shell_mesh_fn
+    # @staticmethod
+    # def load_shell_mesh(stack, downscale, return_polydata_only=True):
+    #     shell_mesh_fn = DataManager.get_shell_mesh_filepath(stack, downscale)
+    #     return load_mesh_stl(shell_mesh_fn, return_polydata_only=return_polydata_only)
+    #
+    # @staticmethod
+    # def get_shell_mesh_filepath(stack, downscale):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, downscale=downscale, volume_type='outer_contour')
+    #     shell_mesh_fn = os.path.join(MESH_ROOTDIR, stack, basename, basename + "_smoothed.stl")
+    #     return shell_mesh_fn
 
     # @staticmethod
     # def get_mesh_filepath(stack_m,
@@ -1767,7 +1779,7 @@ class DataManager(object):
                     sided=True,
                     return_polydata_only=True,
                    include_surround=False,
-                      levels=None):
+                      levels=.5):
         """
         Args:
             levels (list of float): levels to load
@@ -1778,7 +1790,7 @@ class DataManager(object):
         if structures is None:
             if sided:
                 if include_surround:
-                    structures = all_known_structures_sided_with_surround_200um
+                    structures = all_known_structures_sided + [convert_to_surround_name(s, margin='200um') for s in all_known_structures_sided]
                 else:
                     structures = all_known_structures_sided
             else:
@@ -1808,6 +1820,7 @@ class DataManager(object):
                                                                      return_polydata_only=return_polydata_only,
                                                                     level=level)
                     except Exception as e:
+                        raise e
                         sys.stderr.write('Error loading mesh for %s: %s\n' % (structure, e))
             meshes_all_levels_all_structures.default_factory = None
 
@@ -1816,7 +1829,8 @@ class DataManager(object):
     @staticmethod
     def get_atlas_canonical_centroid_filepath(atlas_name, **kwargs):
         """
-        Filepath of the atlas canonical centroid data. The centroid is with respect to aligned uncropped MD589.
+        Filepath of the atlas canonical centroid data.
+        The centroid is with respect to aligned uncropped MD589.
         """
         return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalCentroid.txt')
 
@@ -1828,11 +1842,11 @@ class DataManager(object):
         return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalNormal.txt')
 
     @staticmethod
-    def get_structure_mean_positions_filepath(atlas_name, **kwargs):
+    def get_structure_mean_positions_filepath(atlas_name, resolution, **kwargs):
         """
         Filepath of the structure mean positions.
         """
-        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_meanPositions.pkl')
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_' + resolution + '_meanPositions.pkl')
 
     # @staticmethod
     # def get_instance_centroids_filepath(atlas_name, **kwargs):
@@ -1848,11 +1862,21 @@ class DataManager(object):
         return os.path.join(MESH_ROOTDIR, atlas_name, 'visualizations', structure, atlas_name + '_' + structure + '_' + suffix + '.png')
 
     @staticmethod
+    def load_mean_shape(atlas_name, structure, resolution):
+        """
+        Returns:
+            (volume, origin_wrt_meanShapeCentroid)
+        """
+        vol = load_data(DataManager.get_mean_shape_filepath(atlas_name=atlas_name, structure=structure, what='volume', resolution=resolution))
+        ori_wrt_meanShapeCentroid = load_data(DataManager.get_mean_shape_filepath(atlas_name=atlas_name, structure=structure, what='origin_wrt_meanShapeCentroid', resolution=resolution))
+        return vol, ori_wrt_meanShapeCentroid
+
+    @staticmethod
     def get_mean_shape_filepath(atlas_name, structure, what, resolution, level=None, **kwargs):
         """
         Args:
             structure (str): unsided structure name
-            what (str): any of volume, origin_wrt_canonicalAtlasSpace and mesh.
+            what (str): any of volume, origin_wrt_meanShapeCentroid and mesh
             level (float): required if `what` = "mesh".
         """
 
@@ -1864,6 +1888,14 @@ class DataManager(object):
             return os.path.join(MESH_ROOTDIR, atlas_name, 'mean_shapes', atlas_name + '_' + resolution + '_' + structure + '_meanShape_mesh_level%.1f.stl' % level)
         else:
             raise
+
+    # @staticmethod
+    # def save_mean_shape(volume, origin, atlas_name, structure, resolution):
+    #     """
+    #     Save (volume, origin_wrt_meanShapeCentroid)
+    #     """
+    #     save_data(volume, DataManager.get_mean_shape_filepath(atlas_name=atlas_name, structure=structure, what='volume', resolution=resolution))
+    #     save_data(origin, DataManager.get_mean_shape_filepath(atlas_name=atlas_name, structure=structure, what='origin_wrt_meanShapeCentroid', resolution=resolution))
 
     # @staticmethod
     # def get_structure_mean_shape_origin_filepath(atlas_name, structure, **kwargs):
@@ -2054,6 +2086,7 @@ class DataManager(object):
                                                     structures=None,
                                                     sided=True,
                                                     include_surround=False,
+                                                    surround_margin='200um',
                                                      trial_idx=None,
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
@@ -2083,7 +2116,7 @@ class DataManager(object):
         if structures is None:
             if sided:
                 if include_surround:
-                    structures = all_known_structures_sided_with_surround
+                    structures = structures + [convert_to_surround_name(s, margin=surround_margin) for s in structures]
                 else:
                     structures = all_known_structures_sided
             else:
@@ -2155,213 +2188,213 @@ class DataManager(object):
 
 
 
-    @staticmethod
-    def load_transformed_volume_all_known_structures_v2(stack_m,
-                                                     stack_f,
-                                                    warp_setting,
-                                                    detector_id_m=None,
-                                                    detector_id_f=None,
-                                                     prep_id_m=None,
-                                                     prep_id_f=None,
-                                                    vol_type_m='score',
-                                                    vol_type_f='score',
-                                                    downscale=32,
-                                                    structures=None,
-                                                    sided=True,
-                                                    include_surround=False,
-                                                     trial_idx=None,
-                                                     return_label_mappings=False,
-                                                     name_or_index_as_key='name',
-                                                     common_shape=True
-):
-        """
-        Load transformed volumes for all structures and normalize them into a common shape.
-
-        Args:
-            trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
-            common_shape (bool): If true, volumes are normalized to the same shape.
-
-        Returns:
-            If `common_shape` is True:
-                if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
-                else, returns (volumes, common_bbox).
-            If `common_shape` is False:
-                if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
-                else, returns volume_bbox_tuples.
-        """
-
-        if structures is None:
-            if sided:
-                if include_surround:
-                    structures = all_known_structures_sided_with_surround
-                else:
-                    structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
-
-        loaded = False
-        sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
-
-        volumes = {}
-        if not loaded:
-            structure_to_label = {}
-            label_to_structure = {}
-            index = 1
-        for structure in structures:
-            try:
-
-                if loaded:
-                    index = structure_to_label[structure]
-
-                if trial_idx is None or isinstance(trial_idx, int):
-                    trial_idx_ = trial_idx
-                else:
-                    trial_idx_ = trial_idx[convert_to_nonsurround_label(structure)]
-
-                v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
-                                                        stack_f=stack_f, vol_type_f=vol_type_f,
-                                                        downscale=downscale,
-                                                        prep_id_m=prep_id_m,
-                                                        prep_id_f=prep_id_f,
-                                                        detector_id_m=detector_id_m,
-                                                        detector_id_f=detector_id_f,
-                                                        warp_setting=warp_setting,
-                                                        structure=structure,
-                                                        trial_idx=trial_idx_)
-
-                b = DataManager.load_transformed_volume_bbox(stack_m=stack_m, vol_type_m=vol_type_m,
-                                                        stack_f=stack_f, vol_type_f=vol_type_f,
-                                                        downscale=downscale,
-                                                        prep_id_m=prep_id_m,
-                                                        prep_id_f=prep_id_f,
-                                                        detector_id_m=detector_id_m,
-                                                        detector_id_f=detector_id_f,
-                                                        warp_setting=warp_setting,
-                                                        structure=structure,
-                                                        trial_idx=trial_idx_)
-
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,b)
-                else:
-                    volumes[index] = (v,b)
-
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
-
-            except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
-
-        if common_shape:
-            volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
-
-            if return_label_mappings:
-                return volumes_normalized, common_bbox, structure_to_label, label_to_structure
-            else:
-                return volumes_normalized, common_bbox
-        else:
-            if return_label_mappings:
-                return volumes, structure_to_label, label_to_structure
-            else:
-                return volumes
-
-    @staticmethod
-    def load_transformed_volume_all_known_structures(stack_m,
-                                                     stack_f,
-                                                    warp_setting,
-                                                    detector_id_m=None,
-                                                    detector_id_f=None,
-                                                     prep_id_m=None,
-                                                     prep_id_f=None,
-                                                    vol_type_m='score',
-                                                    vol_type_f='score',
-                                                    downscale=32,
-                                                    structures=None,
-                                                    sided=True,
-                                                    include_surround=False,
-                                                     trial_idx=None,
-                                                     return_label_mappings=False,
-                                                     name_or_index_as_key='name'
-):
-        """
-        Load transformed volumes for all structures.
-
-        Args:
-            trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
-            structures: Default is None - using all structures.
-
-        Returns:
-            if return_label_mappings is True, returns (volumes, structure_to_label, label_to_structure), volumes is dict.
-            else, returns volumes.
-        """
-
-        if structures is None:
-            if sided:
-                if include_surround:
-                    structures = all_known_structures_sided_with_surround
-                else:
-                    structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
-
-        loaded = False
-        sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
-
-        volumes = {}
-        if not loaded:
-            structure_to_label = {}
-            label_to_structure = {}
-            index = 1
-        for structure in structures:
-            try:
-
-                if loaded:
-                    index = structure_to_label[structure]
-
-                if trial_idx is None or isinstance(trial_idx, int):
-                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
-                                                            stack_f=stack_f, vol_type_f=vol_type_f,
-                                                            downscale=downscale,
-                                                            prep_id_m=prep_id_m,
-                                                            prep_id_f=prep_id_f,
-                                                            detector_id_m=detector_id_m,
-                                                            detector_id_f=detector_id_f,
-                                                            warp_setting=warp_setting,
-                                                            structure=structure,
-                                                            trial_idx=trial_idx)
-
-                else:
-                    v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
-                                                            stack_f=stack_f, vol_type_f=vol_type_f,
-                                                            downscale=downscale,
-                                                            prep_id_m=prep_id_m,
-                                                            prep_id_f=prep_id_f,
-                                                            detector_id_m=detector_id_m,
-                                                            detector_id_f=detector_id_f,
-                                                            warp_setting=warp_setting,
-                                                            structure=structure,
-                                                            trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
-
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = v
-                else:
-                    volumes[index] = v
-
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
-
-            except Exception as e:
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
-
-        if return_label_mappings:
-            return volumes, structure_to_label, label_to_structure
-        else:
-            return volumes
+#     @staticmethod
+#     def load_transformed_volume_all_known_structures_v2(stack_m,
+#                                                      stack_f,
+#                                                     warp_setting,
+#                                                     detector_id_m=None,
+#                                                     detector_id_f=None,
+#                                                      prep_id_m=None,
+#                                                      prep_id_f=None,
+#                                                     vol_type_m='score',
+#                                                     vol_type_f='score',
+#                                                     downscale=32,
+#                                                     structures=None,
+#                                                     sided=True,
+#                                                     include_surround=False,
+#                                                      trial_idx=None,
+#                                                      return_label_mappings=False,
+#                                                      name_or_index_as_key='name',
+#                                                      common_shape=True
+# ):
+#         """
+#         Load transformed volumes for all structures and normalize them into a common shape.
+#
+#         Args:
+#             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
+#             common_shape (bool): If true, volumes are normalized to the same shape.
+#
+#         Returns:
+#             If `common_shape` is True:
+#                 if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
+#                 else, returns (volumes, common_bbox).
+#             If `common_shape` is False:
+#                 if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
+#                 else, returns volume_bbox_tuples.
+#         """
+#
+#         if structures is None:
+#             if sided:
+#                 if include_surround:
+#                     structures = all_known_structures_sided_with_surround_200um
+#                 else:
+#                     structures = all_known_structures_sided
+#             else:
+#                 structures = all_known_structures
+#
+#         loaded = False
+#         sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+#
+#         volumes = {}
+#         if not loaded:
+#             structure_to_label = {}
+#             label_to_structure = {}
+#             index = 1
+#         for structure in structures:
+#             try:
+#
+#                 if loaded:
+#                     index = structure_to_label[structure]
+#
+#                 if trial_idx is None or isinstance(trial_idx, int):
+#                     trial_idx_ = trial_idx
+#                 else:
+#                     trial_idx_ = trial_idx[convert_to_nonsurround_label(structure)]
+#
+#                 v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+#                                                         stack_f=stack_f, vol_type_f=vol_type_f,
+#                                                         downscale=downscale,
+#                                                         prep_id_m=prep_id_m,
+#                                                         prep_id_f=prep_id_f,
+#                                                         detector_id_m=detector_id_m,
+#                                                         detector_id_f=detector_id_f,
+#                                                         warp_setting=warp_setting,
+#                                                         structure=structure,
+#                                                         trial_idx=trial_idx_)
+#
+#                 b = DataManager.load_transformed_volume_bbox(stack_m=stack_m, vol_type_m=vol_type_m,
+#                                                         stack_f=stack_f, vol_type_f=vol_type_f,
+#                                                         downscale=downscale,
+#                                                         prep_id_m=prep_id_m,
+#                                                         prep_id_f=prep_id_f,
+#                                                         detector_id_m=detector_id_m,
+#                                                         detector_id_f=detector_id_f,
+#                                                         warp_setting=warp_setting,
+#                                                         structure=structure,
+#                                                         trial_idx=trial_idx_)
+#
+#                 if name_or_index_as_key == 'name':
+#                     volumes[structure] = (v,b)
+#                 else:
+#                     volumes[index] = (v,b)
+#
+#                 if not loaded:
+#                     structure_to_label[structure] = index
+#                     label_to_structure[index] = structure
+#                     index += 1
+#
+#             except Exception as e:
+#                 sys.stderr.write('%s\n' % e)
+#                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+#
+#         if common_shape:
+#             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
+#
+#             if return_label_mappings:
+#                 return volumes_normalized, common_bbox, structure_to_label, label_to_structure
+#             else:
+#                 return volumes_normalized, common_bbox
+#         else:
+#             if return_label_mappings:
+#                 return volumes, structure_to_label, label_to_structure
+#             else:
+#                 return volumes
+#
+#     @staticmethod
+#     def load_transformed_volume_all_known_structures(stack_m,
+#                                                      stack_f,
+#                                                     warp_setting,
+#                                                     detector_id_m=None,
+#                                                     detector_id_f=None,
+#                                                      prep_id_m=None,
+#                                                      prep_id_f=None,
+#                                                     vol_type_m='score',
+#                                                     vol_type_f='score',
+#                                                     downscale=32,
+#                                                     structures=None,
+#                                                     sided=True,
+#                                                     include_surround=False,
+#                                                      trial_idx=None,
+#                                                      return_label_mappings=False,
+#                                                      name_or_index_as_key='name'
+# ):
+#         """
+#         Load transformed volumes for all structures.
+#
+#         Args:
+#             trial_idx: could be int (for global transform) or dict {sided structure name: best trial index} (for local transform).
+#             structures: Default is None - using all structures.
+#
+#         Returns:
+#             if return_label_mappings is True, returns (volumes, structure_to_label, label_to_structure), volumes is dict.
+#             else, returns volumes.
+#         """
+#
+#         if structures is None:
+#             if sided:
+#                 if include_surround:
+#                     structures = all_known_structures_sided_with_surround_200um
+#                 else:
+#                     structures = all_known_structures_sided
+#             else:
+#                 structures = all_known_structures
+#
+#         loaded = False
+#         sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+#
+#         volumes = {}
+#         if not loaded:
+#             structure_to_label = {}
+#             label_to_structure = {}
+#             index = 1
+#         for structure in structures:
+#             try:
+#
+#                 if loaded:
+#                     index = structure_to_label[structure]
+#
+#                 if trial_idx is None or isinstance(trial_idx, int):
+#                     v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+#                                                             stack_f=stack_f, vol_type_f=vol_type_f,
+#                                                             downscale=downscale,
+#                                                             prep_id_m=prep_id_m,
+#                                                             prep_id_f=prep_id_f,
+#                                                             detector_id_m=detector_id_m,
+#                                                             detector_id_f=detector_id_f,
+#                                                             warp_setting=warp_setting,
+#                                                             structure=structure,
+#                                                             trial_idx=trial_idx)
+#
+#                 else:
+#                     v = DataManager.load_transformed_volume(stack_m=stack_m, vol_type_m=vol_type_m,
+#                                                             stack_f=stack_f, vol_type_f=vol_type_f,
+#                                                             downscale=downscale,
+#                                                             prep_id_m=prep_id_m,
+#                                                             prep_id_f=prep_id_f,
+#                                                             detector_id_m=detector_id_m,
+#                                                             detector_id_f=detector_id_f,
+#                                                             warp_setting=warp_setting,
+#                                                             structure=structure,
+#                                                             trial_idx=trial_idx[convert_to_nonsurround_label(structure)])
+#
+#                 if name_or_index_as_key == 'name':
+#                     volumes[structure] = v
+#                 else:
+#                     volumes[index] = v
+#
+#                 if not loaded:
+#                     structure_to_label[structure] = index
+#                     label_to_structure[index] = structure
+#                     index += 1
+#
+#             except Exception as e:
+#                 sys.stderr.write('%s\n' % e)
+#                 sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+#
+#         if return_label_mappings:
+#             return volumes, structure_to_label, label_to_structure
+#         else:
+#             return volumes
 
     @staticmethod
     def get_transformed_volume_filepath_v2(alignment_spec, resolution=None, trial_idx=None, structure=None):
@@ -2377,45 +2410,45 @@ class DataManager(object):
         return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
                             vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
 
-    @staticmethod
-    def get_transformed_volume_filepath(stack_m, stack_f,
-                                        warp_setting,
-                                        prep_id_m=None,
-                                        prep_id_f=None,
-                                        detector_id_m=None,
-                                        detector_id_f=None,
-                                        structure_m=None,
-                                        structure_f=None,
-                                        downscale=32,
-                                        vol_type_m='score',
-                                        vol_type_f='score',
-                                        structure=None,
-                                        trial_idx=None):
+    # @staticmethod
+    # def get_transformed_volume_filepath(stack_m, stack_f,
+    #                                     warp_setting,
+    #                                     prep_id_m=None,
+    #                                     prep_id_f=None,
+    #                                     detector_id_m=None,
+    #                                     detector_id_f=None,
+    #                                     structure_m=None,
+    #                                     structure_f=None,
+    #                                     downscale=32,
+    #                                     vol_type_m='score',
+    #                                     vol_type_f='score',
+    #                                     structure=None,
+    #                                     trial_idx=None):
+    #
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     if structure is not None:
+    #         fn = basename + '_%s' % structure
+    #     else:
+    #         fn = basename
+    #     return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
 
-        basename = DataManager.get_warped_volume_basename(**locals())
-        if structure is not None:
-            fn = basename + '_%s' % structure
-        else:
-            fn = basename
-        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
-
-    @staticmethod
-    def load_transformed_volume_bbox(stack_m, stack_f,
-                                        warp_setting,
-                                        prep_id_m=None,
-                                        prep_id_f=None,
-                                        detector_id_m=None,
-                                        detector_id_f=None,
-                                        structure_m=None,
-                                        structure_f=None,
-                                        downscale=32,
-                                        vol_type_m='score',
-                                        vol_type_f='score',
-                                        structure=None,
-                                        trial_idx=None):
-        fp = DataManager.get_transformed_volume_bbox_filepath(**locals())
-        download_from_s3(fp)
-        return np.loadtxt(fp)
+    # @staticmethod
+    # def load_transformed_volume_bbox(stack_m, stack_f,
+    #                                     warp_setting,
+    #                                     prep_id_m=None,
+    #                                     prep_id_f=None,
+    #                                     detector_id_m=None,
+    #                                     detector_id_f=None,
+    #                                     structure_m=None,
+    #                                     structure_f=None,
+    #                                     downscale=32,
+    #                                     vol_type_m='score',
+    #                                     vol_type_f='score',
+    #                                     structure=None,
+    #                                     trial_idx=None):
+    #     fp = DataManager.get_transformed_volume_bbox_filepath(**locals())
+    #     download_from_s3(fp)
+    #     return np.loadtxt(fp)
 
     @staticmethod
     def get_transformed_volume_bbox_filepath_v2(alignment_spec,
@@ -2441,27 +2474,27 @@ class DataManager(object):
         return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
                             vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '_bbox_wrt_' + wrt + '.txt')
 
-    @staticmethod
-    def get_transformed_volume_bbox_filepath(stack_m, stack_f,
-                                        warp_setting,
-                                        prep_id_m=None,
-                                        prep_id_f=None,
-                                        detector_id_m=None,
-                                        detector_id_f=None,
-                                        structure_m=None,
-                                        structure_f=None,
-                                        downscale=32,
-                                        vol_type_m='score',
-                                        vol_type_f='score',
-                                        structure=None,
-                                        trial_idx=None):
-
-        basename = DataManager.get_warped_volume_basename(**locals())
-        if structure is not None:
-            fn = basename + '_%s' % structure
-        else:
-            fn = basename
-        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '_bbox.txt')
+    # @staticmethod
+    # def get_transformed_volume_bbox_filepath(stack_m, stack_f,
+    #                                     warp_setting,
+    #                                     prep_id_m=None,
+    #                                     prep_id_f=None,
+    #                                     detector_id_m=None,
+    #                                     detector_id_f=None,
+    #                                     structure_m=None,
+    #                                     structure_f=None,
+    #                                     downscale=32,
+    #                                     vol_type_m='score',
+    #                                     vol_type_f='score',
+    #                                     structure=None,
+    #                                     trial_idx=None):
+    #
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #     if structure is not None:
+    #         fn = basename + '_%s' % structure
+    #     else:
+    #         fn = basename
+    #     return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '_bbox.txt')
 
 
 
@@ -2569,46 +2602,46 @@ class DataManager(object):
 #             fn = basename + '_' + structure
 #         return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'probabilistic_shapes', fn + '_origin.txt')
 
-    @staticmethod
-    def get_volume_filepath(stack_m, stack_f=None,
-                                        warp_setting=None,
-                                        classifier_setting_m=None,
-                                        classifier_setting_f=None,
-                                        downscale=32,
-                                         type_m='score',
-                                          type_f='score',
-                                        structure=None,
-                                        trial_idx=None):
+    # @staticmethod
+    # def get_volume_filepath(stack_m, stack_f=None,
+    #                                     warp_setting=None,
+    #                                     classifier_setting_m=None,
+    #                                     classifier_setting_f=None,
+    #                                     downscale=32,
+    #                                      type_m='score',
+    #                                       type_f='score',
+    #                                     structure=None,
+    #                                     trial_idx=None):
+    #
+    #     basename = DataManager.get_warped_volume_basename(**locals())
+    #
+    #     if structure is not None:
+    #         fn = basename + '_' + structure
+    #
+    #     if type_m == 'score':
+    #         return DataManager.get_score_volume_filepath(stack=stack_m, structure=structure, downscale=downscale)
+    #     else:
+    #         raise
 
-        basename = DataManager.get_warped_volume_basename(**locals())
-
-        if structure is not None:
-            fn = basename + '_' + structure
-
-        if type_m == 'score':
-            return DataManager.get_score_volume_filepath(stack=stack_m, structure=structure, downscale=downscale)
-        else:
-            raise
-
-    @staticmethod
-    def get_score_volume_filepath(stack, structure, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
-        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s.bp') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
-        return vol_fp
-
-    @staticmethod
-    def get_score_volume_filepath_v2(stack, structure, resolution, volume_type='score', prep_id=None, detector_id=None):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
-        vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s.bp') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
-        return vol_fp
+    # @staticmethod
+    # def get_score_volume_filepath(stack, structure, volume_type='score', prep_id=None, detector_id=None, downscale=32):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
+    #     vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volumes',
+    #                          '%(basename)s_%(struct)s.bp') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+    #     return vol_fp
+    #
+    # @staticmethod
+    # def get_score_volume_filepath_v2(stack, structure, resolution, volume_type='score', prep_id=None, detector_id=None):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
+    #     vol_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volumes',
+    #                          '%(basename)s_%(struct)s.bp') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+    #     return vol_fp
 
     @staticmethod
     def get_score_volume_filepath_v3(stack_spec, structure):
@@ -2621,24 +2654,41 @@ class DataManager(object):
         return vol_fp
 
 
-    @staticmethod
-    def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
-        fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s_bbox.txt') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
-        return fp
+    # @staticmethod
+    # def get_score_volume_bbox_filepath(stack, structure, downscale, detector_id, prep_id=2, volume_type='score', **kwargs):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, downscale=downscale)
+    #     fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volumes',
+    #                          '%(basename)s_%(struct)s_bbox.txt') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+    #     return fp
+    #
+    # @staticmethod
+    # def get_score_volume_bbox_filepath_v2(stack, structure, resolution, detector_id, prep_id=2, volume_type='score', **kwargs):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
+    #     fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volumes',
+    #                          '%(basename)s_%(struct)s_bbox.txt') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+        # return fp
 
     @staticmethod
-    def get_score_volume_bbox_filepath_v2(stack, structure, resolution, detector_id, prep_id=2, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, detector_id=detector_id, prep_id=prep_id, volume_type=volume_type, resolution=resolution)
+    def get_score_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
+
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        else:
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
         fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volumes',
-                             '%(basename)s_%(struct)s_bbox.txt') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
+                          '%(basename)s',
+                          'score_volumes',
+                         '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
+        {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         return fp
 
     @staticmethod
@@ -2658,26 +2708,26 @@ class DataManager(object):
         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         return fp
 
-    @staticmethod
-    def get_volume_gradient_filepath_template(stack, structure, prep_id=None, detector_id=None, downscale=32, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, downscale=downscale, volume_type=volume_type, **kwargs)
-        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volume_gradients',
-                             '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
-        return grad_fp
-
-    @staticmethod
-    def get_volume_gradient_filepath_template_v2(stack, structure, out_resolution_um=10.,
-                                                 prep_id=None, detector_id=None, volume_type='score', **kwargs):
-        basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, out_resolution_um=out_resolution_um, volume_type=volume_type, **kwargs)
-        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
-                              '%(basename)s',
-                              'score_volume_gradients',
-                             '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
-        {'stack':stack, 'basename':basename, 'struct':structure}
-        return grad_fp
+    # @staticmethod
+    # def get_volume_gradient_filepath_template(stack, structure, prep_id=None, detector_id=None, downscale=32, volume_type='score', **kwargs):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, downscale=downscale, volume_type=volume_type, **kwargs)
+    #     grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volume_gradients',
+    #                          '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+    #     return grad_fp
+    #
+    # @staticmethod
+    # def get_volume_gradient_filepath_template_v2(stack, structure, out_resolution_um=10.,
+    #                                              prep_id=None, detector_id=None, volume_type='score', **kwargs):
+    #     basename = DataManager.get_original_volume_basename(stack=stack, prep_id=prep_id, detector_id=detector_id, out_resolution_um=out_resolution_um, volume_type=volume_type, **kwargs)
+    #     grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+    #                           '%(basename)s',
+    #                           'score_volume_gradients',
+    #                          '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
+    #     {'stack':stack, 'basename':basename, 'struct':structure}
+    #     return grad_fp
 
     @staticmethod
     def get_volume_gradient_filepath_template_v3(stack_spec, structure, **kwargs):
@@ -2696,15 +2746,15 @@ class DataManager(object):
         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         return grad_fp
 
-    @staticmethod
-    def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-        grad_fp = DataManager.get_volume_gradient_filepath_template(**locals())  % {'suffix': suffix}
-        return grad_fp
-
-    @staticmethod
-    def get_volume_gradient_filepath_v2(stack, structure, suffix, out_resolution_um=10., volume_type='score', prep_id=None, detector_id=None, ):
-        grad_fp = DataManager.get_volume_gradient_filepath_template_v2(**locals())  % {'suffix': suffix}
-        return grad_fp
+    # @staticmethod
+    # def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', prep_id=None, detector_id=None, downscale=32):
+    #     grad_fp = DataManager.get_volume_gradient_filepath_template(**locals())  % {'suffix': suffix}
+    #     return grad_fp
+    #
+    # @staticmethod
+    # def get_volume_gradient_filepath_v2(stack, structure, suffix, out_resolution_um=10., volume_type='score', prep_id=None, detector_id=None, ):
+    #     grad_fp = DataManager.get_volume_gradient_filepath_template_v2(**locals())  % {'suffix': suffix}
+    #     return grad_fp
 
     @staticmethod
     def get_volume_gradient_filepath_v3(stack_spec, structure, suffix):
@@ -2847,102 +2897,102 @@ class DataManager(object):
 #             return volumes
 
 
-    @staticmethod
-    def load_original_volume_all_known_structures_v2(stack,
-                                                     in_bbox_wrt,
-                                                     out_bbox_wrt='wholebrain',
-                                                    detector_id=None,
-                                                     prep_id=None,
-                                                    volume_type='score',
-                                                    downscale=32,
-                                                    structures=None,
-                                                    sided=True,
-                                                    include_surround=False,
-                                                     return_label_mappings=False,
-                                                     name_or_index_as_key='name',
-                                                     common_shape=True
-                                                    ):
-        """
-        Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
-
-        Args:
-            common_shape (bool): If true, volumes are padded to the same shape.
-
-        Returns:
-            If `common_shape` is True:
-                if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
-                else, returns (volumes, common_bbox).
-            Note that `common_bbox` is relative to the same origin the individual volumes' bounding boxes are (which, ideally, one can infer from the bbox filenames (TODO: systematic renaming)).
-            If `common_shape` is False:
-                if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
-                else, returns volume_bbox_tuples.
-        """
-
-        if structures is None:
-            if sided:
-                if include_surround:
-                    structures = all_known_structures_sided_with_surround
-                else:
-                    structures = all_known_structures_sided
-            else:
-                structures = all_known_structures
-
-        loaded = False
-        sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
-
-        volumes = {}
-        if not loaded:
-            structure_to_label = {}
-            label_to_structure = {}
-            index = 1
-
-        for structure in structures:
-            try:
-
-                if loaded:
-                    index = structure_to_label[structure]
-
-                v = DataManager.load_original_volume(stack=stack, volume_type=volume_type,
-                                                        downscale=downscale,
-                                                        prep_id=prep_id,
-                                                        detector_id=detector_id,
-                                                        structure=structure)
-
-                b = DataManager.load_original_volume_bbox(stack=stack, volume_type=volume_type,
-                                                        downscale=downscale,
-                                                        prep_id=prep_id,
-                                                        detector_id=detector_id,
-                                                          structure=structure)
-
-                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack, domain=in_bbox_wrt)
-                b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
-
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,b)
-                else:
-                    volumes[index] = (v,b)
-
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
-
-            except Exception as e:
-                # raise e
-                sys.stderr.write('Error loading score volume for %s: %s.\n' % (structure, e))
-
-        if common_shape:
-            volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
-
-            if return_label_mappings:
-                return volumes_normalized, common_bbox, structure_to_label, label_to_structure
-            else:
-                return volumes_normalized, common_bbox
-        else:
-            if return_label_mappings:
-                return volumes, structure_to_label, label_to_structure
-            else:
-                return volumes
+    # @staticmethod
+    # def load_original_volume_all_known_structures_v2(stack,
+    #                                                  in_bbox_wrt,
+    #                                                  out_bbox_wrt='wholebrain',
+    #                                                 detector_id=None,
+    #                                                  prep_id=None,
+    #                                                 volume_type='score',
+    #                                                 downscale=32,
+    #                                                 structures=None,
+    #                                                 sided=True,
+    #                                                 include_surround=False,
+    #                                                  return_label_mappings=False,
+    #                                                  name_or_index_as_key='name',
+    #                                                  common_shape=True
+    #                                                 ):
+    #     """
+    #     Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
+    #
+    #     Args:
+    #         common_shape (bool): If true, volumes are padded to the same shape.
+    #
+    #     Returns:
+    #         If `common_shape` is True:
+    #             if return_label_mappings is True, returns (volumes, common_bbox, structure_to_label, label_to_structure), volumes is dict.
+    #             else, returns (volumes, common_bbox).
+    #         Note that `common_bbox` is relative to the same origin the individual volumes' bounding boxes are (which, ideally, one can infer from the bbox filenames (TODO: systematic renaming)).
+    #         If `common_shape` is False:
+    #             if return_label_mappings is True, returns (dict of volume_bbox_tuples, structure_to_label, label_to_structure).
+    #             else, returns volume_bbox_tuples.
+    #     """
+    #
+    #     if structures is None:
+    #         if sided:
+    #             if include_surround:
+    #                 structures = all_known_structures_sided_with_surround
+    #             else:
+    #                 structures = all_known_structures_sided
+    #         else:
+    #             structures = all_known_structures
+    #
+    #     loaded = False
+    #     sys.stderr.write('Prior structure/index map not found. Generating a new one.\n')
+    #
+    #     volumes = {}
+    #     if not loaded:
+    #         structure_to_label = {}
+    #         label_to_structure = {}
+    #         index = 1
+    #
+    #     for structure in structures:
+    #         try:
+    #
+    #             if loaded:
+    #                 index = structure_to_label[structure]
+    #
+    #             v = DataManager.load_original_volume(stack=stack, volume_type=volume_type,
+    #                                                     downscale=downscale,
+    #                                                     prep_id=prep_id,
+    #                                                     detector_id=detector_id,
+    #                                                     structure=structure)
+    #
+    #             b = DataManager.load_original_volume_bbox(stack=stack, volume_type=volume_type,
+    #                                                     downscale=downscale,
+    #                                                     prep_id=prep_id,
+    #                                                     detector_id=detector_id,
+    #                                                       structure=structure)
+    #
+    #             in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack, domain=in_bbox_wrt)
+    #             b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
+    #
+    #             if name_or_index_as_key == 'name':
+    #                 volumes[structure] = (v,b)
+    #             else:
+    #                 volumes[index] = (v,b)
+    #
+    #             if not loaded:
+    #                 structure_to_label[structure] = index
+    #                 label_to_structure[index] = structure
+    #                 index += 1
+    #
+    #         except Exception as e:
+    #             # raise e
+    #             sys.stderr.write('Error loading score volume for %s: %s.\n' % (structure, e))
+    #
+    #     if common_shape:
+    #         volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
+    #
+    #         if return_label_mappings:
+    #             return volumes_normalized, common_bbox, structure_to_label, label_to_structure
+    #         else:
+    #             return volumes_normalized, common_bbox
+    #     else:
+    #         if return_label_mappings:
+    #             return volumes, structure_to_label, label_to_structure
+    #         else:
+    #             return volumes
 
 
     @staticmethod
@@ -2952,6 +3002,7 @@ class DataManager(object):
                                                     structures=None,
                                                     sided=True,
                                                     include_surround=False,
+                                                    surround_margin='200um',
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
                                                      common_shape=True,
@@ -2976,7 +3027,7 @@ class DataManager(object):
         if structures is None:
             if sided:
                 if include_surround:
-                    structures = all_known_structures_sided_with_surround
+                    structures = structures + [convert_to_surround_name(s, margin=surround_margin) for s in structures]
                 else:
                     structures = all_known_structures_sided
             else:
@@ -2998,16 +3049,16 @@ class DataManager(object):
                 if loaded:
                     index = structure_to_label[structure]
 
-                v, b = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+                v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
                 in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
                                                                              resolution=stack_spec['resolution'])
-                b = b + in_bbox_origin_wrt_wholebrain[[0,0,1,1,2,2]]
+                o = o + in_bbox_origin_wrt_wholebrain
 
                 if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,b)
+                    volumes[structure] = (v,o)
                 else:
-                    volumes[index] = (v,b)
+                    volumes[index] = (v,o)
 
                 if not loaded:
                     structure_to_label[structure] = index
@@ -3028,14 +3079,14 @@ class DataManager(object):
                 return volumes_normalized, common_bbox
         else:
             if return_label_mappings:
-                return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
+                return {k: crop_volume_to_minimal(vol=v, origin=o,
                             return_origin_instead_of_bbox=return_origin_instead_of_bbox)
-                        for k, (v, b) in volumes.iteritems()}, structure_to_label, label_to_structure
+                        for k, (v, o) in volumes.iteritems()}, structure_to_label, label_to_structure
 
             else:
-                return {k: crop_volume_to_minimal(vol=v, origin=b[[0,2,4]],
+                return {k: crop_volume_to_minimal(vol=v, origin=o,
                             return_origin_instead_of_bbox=return_origin_instead_of_bbox)
-                        for k, (v, b) in volumes.iteritems()}
+                        for k, (v, o) in volumes.iteritems()}
 
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
@@ -3070,25 +3121,27 @@ class DataManager(object):
         else:
             raise
 
-    @staticmethod
-    def get_original_volume_filepath(stack, structure, prep_id=None, detector_id=None, volume_type='score', downscale=32):
-        if volume_type == 'score':
-            fp = DataManager.get_score_volume_filepath(**locals())
-        elif volume_type == 'annotation':
-            fp = DataManager.get_annotation_volume_filepath(stack=stack, downscale=downscale)
-        elif volume_type == 'annotationAsScore':
-            fp = DataManager.get_score_volume_filepath(**locals())
-        elif volume_type == 'intensity':
-            fp = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
-        elif volume_type == 'intensity_mhd':
-            fp = DataManager.get_intensity_volume_mhd_filepath(stack=stack, downscale=downscale)
-        else:
-            raise Exception("Volume type must be one of score, annotation, annotationAsScore or intensity.")
-        return fp
+    # @staticmethod
+    # def get_original_volume_filepath(stack, structure, prep_id=None, detector_id=None, volume_type='score', downscale=32):
+    #     if volume_type == 'score':
+    #         fp = DataManager.get_score_volume_filepath(**locals())
+    #     elif volume_type == 'annotation':
+    #         fp = DataManager.get_annotation_volume_filepath(stack=stack, downscale=downscale)
+    #     elif volume_type == 'annotationAsScore':
+    #         fp = DataManager.get_score_volume_filepath(**locals())
+    #     elif volume_type == 'intensity':
+    #         fp = DataManager.get_intensity_volume_filepath(stack=stack, downscale=downscale)
+    #     elif volume_type == 'intensity_mhd':
+    #         fp = DataManager.get_intensity_volume_mhd_filepath(stack=stack, downscale=downscale)
+    #     else:
+    #         raise Exception("Volume type must be one of score, annotation, annotationAsScore or intensity.")
+    #     return fp
 
 
     @staticmethod
-    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain', return_origin_instead_of_bbox=False, crop_to_minimal=False):
+    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain',
+                                return_origin_instead_of_bbox=True,
+                                crop_to_minimal=False):
         """
         Args:
 
@@ -3100,18 +3153,22 @@ class DataManager(object):
         download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
 
-        bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(stack_spec=stack_spec, structure=structure,
-                                                                   resolution=resolution, wrt=bbox_wrt)
-        download_from_s3(bbox_fp)
-        volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
+        # bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(stack_spec=stack_spec, structure=structure,
+        #                                                            resolution=resolution, wrt=bbox_wrt)
+        # download_from_s3(bbox_fp)
+        # volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
+
+        origin = load_data(DataManager.get_original_volume_origin_filepath_v2(stack_spec=stack_spec, structure=structure,
+                                                                   resolution=resolution, wrt=bbox_wrt))
 
         if crop_to_minimal:
-            volume, volume_bbox = crop_volume_to_minimal(vol=volume, origin=volume_bbox[[0,2,4]], return_origin_instead_of_bbox=False)
+            volume, origin = crop_volume_to_minimal(vol=volume, origin=origin, return_origin_instead_of_bbox=True)
 
-        if return_origin_instead_of_bbox:
-            return volume, volume_bbox[[0,2,4]]
-        else:
-            return volume, volume_bbox
+        # if return_origin_instead_of_bbox:
+        return volume, origin
+        # else:
+        #     convert_frame
+        #     return volume, volume_bbox
 
 
     # @staticmethod
@@ -3134,69 +3191,67 @@ class DataManager(object):
     #
     #     return volume, volume_bbox
 
-    @staticmethod
-    def load_original_volume(stack, structure, downscale, prep_id=None, detector_id=None, volume_type='score'):
-        """
-        Args:
-        """
-        vol_fp = DataManager.get_original_volume_filepath(**locals())
-        download_from_s3(vol_fp, is_dir=False)
-        volume = DataManager.load_data(vol_fp, filetype='bp')
-        if volume_type == 'annotationAsScore':
-            volume = volume.astype(np.float32)
-        return volume
+    # @staticmethod
+    # def load_original_volume(stack, structure, downscale, prep_id=None, detector_id=None, volume_type='score'):
+    #     """
+    #     Args:
+    #     """
+    #     vol_fp = DataManager.get_original_volume_filepath(**locals())
+    #     download_from_s3(vol_fp, is_dir=False)
+    #     volume = DataManager.load_data(vol_fp, filetype='bp')
+    #     if volume_type == 'annotationAsScore':
+    #         volume = volume.astype(np.float32)
+    #     return volume
+
+    # @staticmethod
+    # def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32,
+    #                              relative_to_uncropped=False):
+    #     """
+    #     This returns the 3D bounding box of the volume.
+    #     (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
+    #
+    #     Args:
+    #         volume_type (str): score or annotationAsScore.
+    #         relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
+    #
+    #     Returns:
+    #         (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
+    #     """
+    #
+    #     bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
+    #     download_from_s3(bbox_fp)
+    #     volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
+    #     # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
+    #     # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
+    #
+    #     if relative_to_uncropped:
+    #         if volume_type == 'score' or volume_type == 'thumbnail':
+    #             # bbox of "brainstem" wrt "wholebrain"
+    #             brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
+    #             volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
+    #             return volume_bbox_wrt_wholebrain
+    #         # else:
+    #         #     continue
+    #             # raise
+    #
+    #     return volume_bbox_wrt_wholebrainXYcropped
+
+    # @staticmethod
+    # def load_original_volume_bbox_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
+    #     """
+    #     """
+    #
+    #     bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(**locals())
+    #     download_from_s3(bbox_fp)
+    #     return np.loadtxt(bbox_fp)
 
     @staticmethod
-    def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32,
-                                 relative_to_uncropped=False):
-        """
-        This returns the 3D bounding box of the volume.
-        (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
-
-        Args:
-            volume_type (str): score or annotationAsScore.
-            relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
-
-        Returns:
-            (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
-        """
-
-        bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
-        download_from_s3(bbox_fp)
-        volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
-        # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
-        # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
-
-        if relative_to_uncropped:
-            if volume_type == 'score' or volume_type == 'thumbnail':
-                # bbox of "brainstem" wrt "wholebrain"
-                brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
-                volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
-                return volume_bbox_wrt_wholebrain
-            # else:
-            #     continue
-                # raise
-
-        return volume_bbox_wrt_wholebrainXYcropped
-
-    @staticmethod
-    def load_original_volume_bbox_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
-        """
-        """
-
-        bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(**locals())
-        download_from_s3(bbox_fp)
-        return np.loadtxt(bbox_fp)
-
-    @staticmethod
-    def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
+    def get_original_volume_origin_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
         volume_type = stack_spec['vol_type']
-        if volume_type == 'annotation':
-            raise
-        elif volume_type == 'score':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+        if volume_type == 'score':
+            origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
         elif volume_type == 'annotationAsScore':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+            origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
         elif volume_type == 'shell':
             raise
         elif volume_type == 'thumbnail':
@@ -3204,30 +3259,60 @@ class DataManager(object):
         else:
             raise Exception('Type must be annotation, score, shell or thumbnail.')
 
-        return bbox_fn
+        return origin_fp
 
     @staticmethod
-    def get_original_volume_bbox_filepath(stack,
-                                detector_id=None,
-                                          prep_id=None,
-                                downscale=32,
-                                 volume_type='score',
-                                structure=None, **kwargs):
-        if volume_type == 'annotation':
-            bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
-        elif volume_type == 'score':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
-        elif volume_type == 'annotationAsScore':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
-        elif volume_type == 'shell':
-            bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
-        elif volume_type == 'thumbnail':
-            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
-            detector_id=detector_id)
-        else:
-            raise Exception('Type must be annotation, score, shell or thumbnail.')
+    def save_original_volume(volume, stack_spec, structure=None, wrt='wholebrain', **kwargs):
+        """
+        Args:
+            volume: any representation
+        """
 
-        return bbox_fn
+        vol, ori = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
+
+        save_data(vol, DataManager.get_original_volume_filepath_v2(stack_spec=stack_spec, structure=structure))
+        save_data(ori, DataManager.get_original_volume_origin_filepath_v2(stack_spec=stack_spec, structure=structure, wrt=wrt))
+
+    # @staticmethod
+    # def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
+    #     volume_type = stack_spec['vol_type']
+    #     if volume_type == 'annotation':
+    #         raise
+    #     elif volume_type == 'score':
+    #         bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+    #     elif volume_type == 'annotationAsScore':
+    #         bbox_fn = DataManager.get_score_volume_bbox_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+    #     elif volume_type == 'shell':
+    #         raise
+    #     elif volume_type == 'thumbnail':
+    #         raise
+    #     else:
+    #         raise Exception('Type must be annotation, score, shell or thumbnail.')
+    #
+    #     return bbox_fn
+
+    # @staticmethod
+    # def get_original_volume_bbox_filepath(stack,
+    #                             detector_id=None,
+    #                                       prep_id=None,
+    #                             downscale=32,
+    #                              volume_type='score',
+    #                             structure=None, **kwargs):
+    #     if volume_type == 'annotation':
+    #         bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
+    #     elif volume_type == 'score':
+    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
+    #     elif volume_type == 'annotationAsScore':
+    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
+    #     elif volume_type == 'shell':
+    #         bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
+    #     elif volume_type == 'thumbnail':
+    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
+    #         detector_id=detector_id)
+    #     else:
+    #         raise Exception('Type must be annotation, score, shell or thumbnail.')
+    #
+    #     return bbox_fn
 
     @staticmethod
     def get_shell_bbox_filepath(stack, label, downscale):

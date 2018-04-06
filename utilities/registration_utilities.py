@@ -22,6 +22,43 @@ from distributed_utilities import download_from_s3
 from metadata import *
 from lie import matrix_exp_v
 
+def plot_alignment_results(traj, scores, select_best):
+
+    if select_best == 'last_value':
+        best_score = scores[-1]
+        best_param = traj[-1]
+    elif select_best == 'max_value':
+        best_score = np.max(scores)
+        best_param = traj[np.argmax(scores)]
+    else:
+        raise
+
+    print 'Best parameters ='
+    print best_param.reshape((3,4))
+    print 'Best score =', best_score, ", initial score =", scores[0]
+
+    Ts = np.array(traj)
+
+    plt.plot(Ts[:, [0,5,10]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [1,2,4,6,8,9]]);
+    plt.title('rotational params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.plot(Ts[:, [3,7,11]]);
+    plt.title('translation params');
+    plt.xlabel('Iteration');
+    plt.show();
+
+    plt.figure();
+    plt.plot(scores);
+    plt.title('Score');
+    plt.show();
+
 def parallel_where_binary(binary_volume, num_samples=None):
     """
     Returns:
@@ -206,7 +243,8 @@ from scipy.ndimage.interpolation import zoom
 def generate_aligner_parameters_v2(alignment_spec,
                                    structures_m=all_known_structures_sided,
                                    structures_f=None,
-                                  fixed_structures_are_sided=False):
+                                  fixed_structures_are_sided=False,
+                                  fixed_surroundings_have_positive_value=False):
     """
     Args:
         alignment_spec (dict):
@@ -225,17 +263,23 @@ def generate_aligner_parameters_v2(alignment_spec,
     stack_m_spec = alignment_spec['stack_m']
     stack_m = stack_m_spec['name']
     vol_type_m = stack_m_spec['vol_type']
-    structure_m = stack_m_spec['structure']
-    detector_id_m = stack_m_spec['detector_id']
-    prep_id_m = stack_m_spec['prep_id']
+    if 'structure' in stack_m_spec:
+        structure_m = stack_m_spec['structure']
+    if 'detector_id' in stack_m_spec:
+        detector_id_m = stack_m_spec['detector_id']
+    if 'prep_id' in stack_m_spec:
+        prep_id_m = stack_m_spec['prep_id']
     resolution_m = stack_m_spec['resolution']
 
     stack_f_spec = alignment_spec['stack_f']
     stack_f = stack_f_spec['name']
     vol_type_f = stack_f_spec['vol_type']
-    structure_f = stack_f_spec['structure']
-    detector_id_f = stack_f_spec['detector_id']
-    prep_id_f = stack_f_spec['prep_id']
+    if 'structure' in stack_m_spec:
+        structure_f = stack_f_spec['structure']
+    if 'detector_id' in stack_m_spec:
+        detector_id_f = stack_f_spec['detector_id']
+    if 'prep_id' in stack_m_spec:
+        prep_id_f = stack_f_spec['prep_id']
     resolution_f = stack_f_spec['resolution']
 
     warp_setting = alignment_spec['warp_setting']
@@ -250,17 +294,7 @@ def generate_aligner_parameters_v2(alignment_spec,
     if upstream_warp_setting == 'None':
         upstream_warp_setting = None
     transform_type = warp_properties['transform_type']
-#     terminate_thresh = warp_properties['terminate_thresh']
     grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
-#     grid_search_sample_number = warp_properties['grid_search_sample_number']
-#     std_tx_um = warp_properties['std_tx_um']
-#     std_ty_um = warp_properties['std_ty_um']
-#     std_tz_um = warp_properties['std_tz_um']
-#     std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-#     std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-#     std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-#     std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
-#     print std_tx, std_ty, std_tz, std_theta_xy
 
     surround_weight = warp_properties['surround_weight']
     if isinstance(surround_weight, float) or isinstance(surround_weight, int):
@@ -273,23 +307,19 @@ def generate_aligner_parameters_v2(alignment_spec,
 
     print 'surround', surround_weight, include_surround
 
-#     MAX_ITER_NUM = 1000
-#     HISTORY_LEN = 20
-#     lr1 = 10
-#     lr2 = 0.1
-
     positive_weight = 'size'
     # positive_weight = 'inverse'
 
     ############################################################################
 
     if include_surround:
-        structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200') for s in structures_m])
+        structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200um') for s in structures_m])
 
     if upstream_warp_setting is None:
 
         if stack_m_spec['name'].startswith('atlas'):
-            in_bbox_wrt='atlasSpace'
+            # in_bbox_wrt='atlasSpace'
+            in_bbox_wrt='canonicalAtlasSpace'
         else:
             in_bbox_wrt='wholebrain'
 
@@ -337,10 +367,10 @@ def generate_aligner_parameters_v2(alignment_spec,
         else:
             structures_f = set([convert_to_unsided_label(s) for s in structures_m])
 
-    if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27']:
-        in_bbox_wrt = 'wholebrain'
-    else:
-        in_bbox_wrt = 'wholebrainXYcropped'
+    # if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27', 'LM17']:
+    in_bbox_wrt = 'wholebrain'
+    # else:
+    #     in_bbox_wrt = 'wholebrainXYcropped'
 
     volume_fixed, structure_to_label_fixed, label_to_structure_fixed = \
     DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
@@ -354,28 +384,10 @@ def generate_aligner_parameters_v2(alignment_spec,
                                                      common_shape=False,
                                                             return_origin_instead_of_bbox=True)
 
-    # DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False,
-    #                                                       volume_type=vol_type_f,
-    #                                                      include_surround=include_surround,
-    #                                                      return_label_mappings=True,
-    #                                                          name_or_index_as_key='index',
-    #                                                      common_shape=True,
-    #                                                         structures=set([convert_to_unsided_label(s)
-    #                                                                         for s in structures_m]),
-    #                                                         prep_id=prep_id_f,
-    #                                                          detector_id=detector_id_f,
-    #                                                         in_bbox_wrt='wholebrainXYcropped',
-    #                                                         out_bbox_wrt='wholebrain')
-
     if len(volume_fixed) == 0:
         sys.stderr.write("No fixed volumes.\n")
     else:
         sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
-
-#         structure_center = {label_to_structure_fixed[i]: o + np.array(v.shape)[[1,0,2]] for i, (v, o) in volume_fixed.iteritems()}
-#         all_loaded_unsided_names = set([convert_to_unsided_name(s) for s in structure_to_label_fixed.iterkeys()])
-#         for name_u in all_loaded_unsided_names:
-#             if name_u ==
 
     ############################################################################
 
@@ -403,8 +415,7 @@ def generate_aligner_parameters_v2(alignment_spec,
     structure_subset_m = all_known_structures_sided
 
     if include_surround:
-        structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
-
+        structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin='200um') for s in structure_subset_m]
 
     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
         label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
@@ -440,18 +451,26 @@ def generate_aligner_parameters_v2(alignment_spec,
             else:
                 sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
 
+    print surround_weight
+
     for label_m in label_mapping_m2f.iterkeys():
         name_m = label_to_structure_moving[label_m]
         if is_surround_label(name_m):
             label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
             if surround_weight == 'inverse':
-                # Note that this is positive for Stacy's data; for regular data, surround is negative
-                label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
-#                 label_weights_m[label_m] = label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
+                if fixed_surroundings_have_positive_value:
+                    # for Neurolucida annotation data
+                    # fixed contains 7N, 7N_surround as separate map, each has positive values.
+                    label_weights_m[label_m] = label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns] / float(volume_moving_structure_sizes[label_m])
+                else:
+                    # fixed brain has only 7N prob. map
+                    label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns] / float(volume_moving_structure_sizes[label_m])
             elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
                 label_weights_m[label_m] = surround_weight
             else:
                 sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
+
+    print label_weights_m
 
     ######################################################
 
@@ -466,274 +485,10 @@ def generate_aligner_parameters_v2(alignment_spec,
      'label_to_structure_fixed': label_to_structure_fixed,
      'transform_type': transform_type,
      'grad_computation_sample_number': grad_computation_sample_number,
-     # 'volume_moving_origin_wrt_wholebrain': volume_moving_bbox_wrt_atlasSpace[[0,2,4]] if upstream_warp_setting is None else volume_moving_bbox_wrt_fixedWholebrain[[0,2,4]],
-     # 'volume_fixed_origin_wrt_wholebrain': volume_fixed_bbox_wrt_wholebrain[[0,2,4]],
      'resolution_um': unified_resolution
     }
 
     return alinger_parameters
-
-# def generate_aligner_parameters(alignment_spec,
-#                                 structures_m=all_known_structures_sided,
-#                                structures_f=None):
-#     """
-#     Args:
-#         alignment_spec (dict):
-
-#     Returns:
-#         - 'volume_moving': dict {ind_m: 3d array},
-#         - 'volume_fixed': dict {ind_m: 3d array},
-#         - 'structure_to_label_moving': dict {str: int},
-#         - 'label_to_structure_moving': dict {int: str},
-#         - 'structure_to_label_fixed': dict {str: int},
-#         - 'label_to_structure_fixed': dict {int: str},
-#         - 'label_weights_m': dict {int: float},
-#         - 'label_mapping_m2f': dict {int: int},
-#     """
-
-#     stack_m_spec = alignment_spec['stack_m']
-#     stack_m = stack_m_spec['name']
-#     vol_type_m = stack_m_spec['vol_type']
-#     structure_m = stack_m_spec['structure']
-#     detector_id_m = stack_m_spec['detector_id']
-#     prep_id_m = stack_m_spec['prep_id']
-#     resolution_m = stack_m_spec['resolution']
-
-#     stack_f_spec = alignment_spec['stack_f']
-#     stack_f = stack_f_spec['name']
-#     vol_type_f = stack_f_spec['vol_type']
-#     structure_f = stack_f_spec['structure']
-#     detector_id_f = stack_f_spec['detector_id']
-#     prep_id_f = stack_f_spec['prep_id']
-#     resolution_f = stack_f_spec['resolution']
-
-#     warp_setting = alignment_spec['warp_setting']
-
-#     registration_settings = read_csv(REGISTRATION_SETTINGS_CSV, header=0, index_col=0)
-#     warp_properties = registration_settings.loc[warp_setting]
-#     print warp_properties
-
-#     ################################################################
-
-#     upstream_warp_setting = warp_properties['upstream_warp_id']
-#     if upstream_warp_setting == 'None':
-#         upstream_warp_setting = None
-#     transform_type = warp_properties['transform_type']
-# #     terminate_thresh = warp_properties['terminate_thresh']
-#     grad_computation_sample_number = int(warp_properties['grad_computation_sample_number'])
-# #     grid_search_sample_number = warp_properties['grid_search_sample_number']
-# #     std_tx_um = warp_properties['std_tx_um']
-# #     std_ty_um = warp_properties['std_ty_um']
-# #     std_tz_um = warp_properties['std_tz_um']
-# #     std_tx = std_tx_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-# #     std_ty = std_ty_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-# #     std_tz = std_tz_um/(XY_PIXEL_DISTANCE_LOSSLESS*32)
-# #     std_theta_xy = np.deg2rad(warp_properties['std_theta_xy_degree'])
-# #     print std_tx, std_ty, std_tz, std_theta_xy
-
-#     surround_weight = warp_properties['surround_weight']
-#     if isinstance(surround_weight, float) or isinstance(surround_weight, int):
-#         surround_weight = float(surround_weight)
-#         include_surround = surround_weight != 0 and not np.isnan(surround_weight)
-#     elif isinstance(surround_weight, str):
-#         surround_weight = str(surround_weight)
-#         # Setting surround_weight as inverse is very important. Using -1 often gives false peaks.
-#         include_surround = True
-
-#     print 'surround', surround_weight, include_surround
-
-# #     MAX_ITER_NUM = 1000
-# #     HISTORY_LEN = 20
-# #     lr1 = 10
-# #     lr2 = 0.1
-
-#     positive_weight = 'size'
-#     # positive_weight = 'inverse'
-
-#     ############################################################################
-
-#     if include_surround:
-#         structures_m = set(structures_m) | set([convert_to_surround_name(s, margin='200') for s in structures_m])
-
-#     if upstream_warp_setting is None:
-#         volume_moving, volume_moving_bbox_wrt_atlasSpace, structure_to_label_moving, label_to_structure_moving = \
-#         DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_m_spec,
-#                                                                  sided=True,
-#                                                       include_surround=include_surround,
-#                                                         return_label_mappings=True,
-#                                                          name_or_index_as_key='index',
-#                                                          common_shape=True,
-#                                                         structures=structures_m,
-#                                                          in_bbox_wrt='atlasSpace',
-#                                                                  # in_bbox_wrt='wholebrain',
-#                                                             # out_bbox_wrt='atlasSpace'
-#                                                         )
-#     else:
-
-#         initial_alignment_spec = alignment_spec['initial_alignment_spec']
-#         print initial_alignment_spec
-
-#         volume_moving, volume_moving_bbox_wrt_fixedWholebrain, structure_to_label_moving, label_to_structure_moving = \
-#         DataManager.load_transformed_volume_all_known_structures_v3(alignment_spec=initial_alignment_spec,
-#                                                                     resolution=resolution_m,
-#                                                             structures=structures_m,
-#                                                             sided=True,
-#                                                             return_label_mappings=True,
-#                                                             name_or_index_as_key='index',
-#                                                             common_shape=True,
-#                                                            return_origin_instead_of_bbox=False,
-# #                                                                     in_bbox_wrt='wholebrain',
-# #                                                                     out_bbox_wrt='wholebrain'
-#                                                                 )
-
-#     if len(volume_moving) == 0:
-#         sys.stderr.write("No moving volumes.\n")
-#     else:
-#         sys.stderr.write("Loaded moving volumes: %s.\n" % sorted(structure_to_label_moving.keys()))
-
-#     #############################################################################
-
-#     if structures_f is None:
-#         structures_f = set([convert_to_unsided_label(s) for s in structures_m])
-
-#     if stack_f_spec['name'] == 'ChatCryoJane201710':
-#         in_bbox_wrt = 'brainstem'
-#     elif stack_f_spec['name'] in ['MD589', 'MD585', 'MD594']:
-#         in_bbox_wrt = 'wholebrain'
-#     else:
-#         in_bbox_wrt = 'wholebrainXYcropped'
-
-#     volume_fixed, volume_fixed_bbox_wrt_wholebrain, structure_to_label_fixed, label_to_structure_fixed = \
-#     DataManager.load_original_volume_all_known_structures_v3(stack_spec=stack_f_spec,
-#                                 in_bbox_wrt=in_bbox_wrt,
-#                                                      # out_bbox_wrt='wholebrain',
-#                                                              structures=structures_f,
-#                                                     # sided=False,
-#                                                     include_surround=include_surround,
-#                                                      return_label_mappings=True,
-#                                                      name_or_index_as_key='index',
-#                                                      common_shape=True)
-#     # DataManager.load_original_volume_all_known_structures_v2(stack=stack_f, sided=False,
-#     #                                                       volume_type=vol_type_f,
-#     #                                                      include_surround=include_surround,
-#     #                                                      return_label_mappings=True,
-#     #                                                          name_or_index_as_key='index',
-#     #                                                      common_shape=True,
-#     #                                                         structures=set([convert_to_unsided_label(s)
-#     #                                                                         for s in structures_m]),
-#     #                                                         prep_id=prep_id_f,
-#     #                                                          detector_id=detector_id_f,
-#     #                                                         in_bbox_wrt='wholebrainXYcropped',
-#     #                                                         out_bbox_wrt='wholebrain')
-
-#     if len(volume_fixed) == 0:
-#         sys.stderr.write("No fixed volumes.\n")
-#     else:
-#         sys.stderr.write("Loaded fixed volumes: %s.\n" % sorted(structure_to_label_fixed.keys()))
-
-#     ############################################################################
-
-#     # Make two volumes the same resolution.
-
-#     voxel_size_m = convert_resolution_string_to_voxel_size(resolution=resolution_m, stack=stack_m_spec['name'])
-#     print "voxel size for moving = %.2f um" % voxel_size_m
-#     voxel_size_f = convert_resolution_string_to_voxel_size(resolution=resolution_f, stack=stack_f_spec['name'])
-#     print "voxel size for fixed = %.2f um" % voxel_size_f
-#     ratio_m_to_f = voxel_size_m / voxel_size_f
-#     if ratio_m_to_f < 1:
-#         print 'Moving volume voxel size (%.2f um) is smaller than fixed volume (%.2f um); downsample moving volume to %.2f um.' % (voxel_size_m, voxel_size_f, voxel_size_f)
-#         # float16 is not supported by zoom()
-#         volume_moving = {k: rescale_by_resampling(v, ratio_m_to_f) for k, v in volume_moving.iteritems()}
-#         if upstream_warp_setting is None:
-#             volume_moving_bbox_wrt_atlasSpace = volume_moving_bbox_wrt_atlasSpace * ratio_m_to_f
-#         else:
-#             volume_moving_bbox_wrt_wholebrain = volume_moving_bbox_wrt_wholebrain * ratio_m_to_f
-#         unified_resolution = voxel_size_f
-#     elif ratio_m_to_f > 1:
-#         print 'Fixed volume voxel size (%.2f um) is smaller than moving volume (%.2f um); downsample fixed volume to %.2f um.' % (voxel_size_f, voxel_size_m, voxel_size_m)
-#         volume_fixed = {k: rescale_by_resampling(v, 1./ratio_m_to_f) for k, v in volume_fixed.iteritems()}
-#         volume_fixed_bbox_wrt_wholebrain = volume_fixed_bbox_wrt_wholebrain / ratio_m_to_f
-#         unified_resolution = voxel_size_m
-#     else:
-#         unified_resolution = voxel_size_m
-
-#     #############################################################################
-
-#     structure_subset_m = all_known_structures_sided
-
-#     if include_surround:
-#         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin=200) for s in structure_subset_m]
-
-
-#     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
-#         label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
-#                      for label_m, name_m in label_to_structure_moving.iteritems()
-#                      if name_m in structure_subset_m and name_m in structure_to_label_fixed}
-#     else:
-#         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
-#                      for label_m, name_m in label_to_structure_moving.iteritems()
-#                      if name_m in structure_subset_m and convert_to_original_name(name_m) in structure_to_label_fixed}
-
-#     if positive_weight == 'inverse' or surround_weight == 'inverse':
-#         t = time.time()
-#         cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
-#     #     pool = Pool(NUM_CORES)
-#     #     volume_moving_structure_sizes = dict(zip(volume_moving.keys(),
-#     #                                              pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff),
-#     #                                                       volume_moving.keys())))
-#     #     pool.close()
-#     #     pool.join()
-#         volume_moving_structure_sizes = dict(zip(volume_moving.keys(),
-#                                                  map(lambda l: np.count_nonzero(volume_moving[l] > cutoff),
-#                                                           volume_moving.keys())))
-#         sys.stderr.write("Computing structure sizes: %.2f s\n" % (time.time() - t))
-
-
-#     label_weights_m = {}
-
-#     for label_m in label_mapping_m2f.iterkeys():
-#         name_m = label_to_structure_moving[label_m]
-#         if not is_surround_label(name_m):
-#             if positive_weight == 'size':
-#                 label_weights_m[label_m] = 1.
-#             elif positive_weight == 'inverse':
-#                 p = np.percentile(volume_moving_structure_sizes.values(), 50)
-#                 label_weights_m[label_m] =  np.minimum(p / volume_moving_structure_sizes[label_m], 1.)
-#             else:
-#                 sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
-
-#     for label_m in label_mapping_m2f.iterkeys():
-#         name_m = label_to_structure_moving[label_m]
-#         if is_surround_label(name_m):
-#             label_ns = structure_to_label_moving[convert_to_nonsurround_name(name_m)]
-#             if surround_weight == 'inverse':
-#                 # Note that this is positive for Stacy's data; for regular data, surround is negative
-#                 label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
-# #                 label_weights_m[label_m] = label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns]/float(volume_moving_structure_sizes[label_m])
-#             elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
-#                 label_weights_m[label_m] = surround_weight
-#             else:
-#                 sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
-
-#     ######################################################
-
-#     alinger_parameters = \
-#     {'label_weights_m': label_weights_m,
-#      'label_mapping_m2f': label_mapping_m2f,
-#      'volume_moving': volume_moving,
-#      'volume_fixed': volume_fixed,
-#      'structure_to_label_moving': structure_to_label_moving,
-#      'label_to_structure_moving': label_to_structure_moving,
-#      'structure_to_label_fixed': structure_to_label_fixed,
-#      'label_to_structure_fixed': label_to_structure_fixed,
-#      'transform_type': transform_type,
-#      'grad_computation_sample_number': grad_computation_sample_number,
-#      'volume_moving_origin_wrt_wholebrain': volume_moving_bbox_wrt_atlasSpace[[0,2,4]] if upstream_warp_setting is None else volume_moving_bbox_wrt_fixedWholebrain[[0,2,4]],
-#      'volume_fixed_origin_wrt_wholebrain': volume_fixed_bbox_wrt_wholebrain[[0,2,4]],
-#      'resolution_um': unified_resolution
-#     }
-
-#     return alinger_parameters
 
 def compute_gradient_v2(volumes, smooth_first=False):
     """
@@ -822,38 +577,38 @@ def compute_gradient(volumes, smooth_first=False):
 
     return gradients
 
-def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
-    """
-    `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
+# def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
+#     """
+#     `init_T` is on top of shifting moving volume by `centroid_m` and shifting fixed volume by `centroid_f`.
+#
+#     Returns:
+#         (3,4)-array:
+#     """
+#
+#     T = alignment_parameters_to_transform_matrix_v2(global_transform_parameters)
+#     R = T[:3,:3]
+#     t = T[:3,3]
+#
+#     # lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
+#     # lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
+#
+#     init_T = np.column_stack([R, np.dot(R, centroid_m) + t - centroid_f])
+#     return init_T
 
-    Returns:
-        (3,4)-array:
-    """
-
-    T = alignment_parameters_to_transform_matrix_v2(global_transform_parameters)
-    R = T[:3,:3]
-    t = T[:3,3]
-
-    # lof = local_aligner_parameters['volume_fixed_origin_wrt_wholebrain']
-    # lom = local_aligner_parameters['volume_moving_origin_wrt_wholebrain']
-
-    init_T = np.column_stack([R, np.dot(R, centroid_m) + t - centroid_f])
-    return init_T
-
-def transform_parameters_relative_to_initial_shift(transform_parameters, centroid_m, centroid_f):
-    """
-    Returns:
-        (3,4)-array:
-    """
-
-    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
-    R = T[:3,:3]
-    t_composite = T[:3,3]
-
-    t = t_composite - centroid_f + np.dot(R, centroid_m)
-    return np.column_stack([R, t])
-
-from scipy.optimize import approx_fprime
+# def transform_parameters_relative_to_initial_shift(transform_parameters, centroid_m, centroid_f):
+#     """
+#     Returns:
+#         (3,4)-array:
+#     """
+#
+#     T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
+#     R = T[:3,:3]
+#     t_composite = T[:3,3]
+#
+#     t = t_composite - centroid_f + np.dot(R, centroid_m)
+#     return np.column_stack([R, t])
+#
+# from scipy.optimize import approx_fprime
 
 def hessian(x0, f, epsilon=1.e-5, linear_approx=False, *args):
     """
@@ -1303,6 +1058,26 @@ def transform_points_bspline(buvwx, buvwy, buvwz,
     transformed_pts = pts_centered + np.c_[sum_uvw_NuNvNwbuvwx, sum_uvw_NuNvNwbuvwy, sum_uvw_NuNvNwbuvwz] + c_prime
     return transformed_pts
 
+def transform_points(pts, transform):
+    '''
+    Transform points.
+
+    Args:
+        pts:
+        transform: any representation
+    '''
+
+    T = convert_transform_forms(transform=transform, out_form=(3,4))
+
+    t = T[:, 3]
+    A = T[:, :3]
+
+    if len(np.atleast_2d(pts)) == 1:
+            pts_prime = np.dot(A, np.array(pts).T) + t
+    else:
+        pts_prime = np.dot(A, np.array(pts).T) + t[:,None]
+
+    return pts_prime.T
 
 def transform_points_affine(T, pts=None, c=(0,0,0), pts_centered=None, c_prime=(0,0,0)):
     '''
@@ -1746,12 +1521,12 @@ def transform_volume_bspline(vol, buvwx, buvwy, buvwz, volume_shape, interval=No
         elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
             dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
         else:
-            raise Exception('transform_volume: Volume must be either float or int.')
+            raise Exception('transform_volume spline: Volume must be either float or int.')
         return dense_volume, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
     else:
         return volume_m_aligned_to_f, (nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f)
 
-def transform_volume_v3(vol, tf_params=None, bbox=None, origin=None, centroid_m=(0,0,0), centroid_f=(0,0,0), return_origin_instead_of_bbox=False, transform_parameters=None):
+def transform_volume_v4(volume, transform=None, return_origin_instead_of_bbox=False):
     """
     One can specify initial shift and the transform separately.
     First, `centroid_m` and `centroid_f` are aligned.
@@ -1763,22 +1538,29 @@ def transform_volume_v3(vol, tf_params=None, bbox=None, origin=None, centroid_m=
     coord_f = np.dot(T, coord_m)
 
     Args:
-        vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
-        bbox (6-tuple): bounding box of the input volume.
-        origin (3-tuple)
-        tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
-        centroid_m (3-tuple): transform center in the volume to transform
-        centroid_f (3-tuple): transform center in the result volume.
+        volume ()
+        transform ()
 
     Returns:
-        (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
     """
 
-    if transform_parameters is not None:
-        tf_dict = convert_transform_forms(transform_parameters=transform_parameters, out_form='dict')
-        tf_params = tf_dict['parameters']
-        centroid_m = tf_dict['centroid_m_wrt_wholebrain']
-        centroid_f = tf_dict['centroid_f_wrt_wholebrain']
+    if isinstance(volume, np.ndarray):
+        vol = volume
+        origin = np.zeros((3,))
+    elif isinstance(volume, tuple):
+        if len(volume[1]) == 6: # bbox
+            raise
+        elif len(volume[1]) == 3: # origin
+            vol = volume[0]
+            origin = volume[1]
+    else:
+        raise
+
+
+    tf_dict = convert_transform_forms(transform=transform, out_form='dict')
+    tf_params = tf_dict['parameters']
+    centroid_m = tf_dict['centroid_m_wrt_wholebrain']
+    centroid_f = tf_dict['centroid_f_wrt_wholebrain']
 
     nzvoxels_m_temp = parallel_where_binary(vol > 0)
     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
@@ -1827,119 +1609,195 @@ def transform_volume_v3(vol, tf_params=None, bbox=None, origin=None, centroid_m=
         return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
 
 
-def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0), fill_sparse=True):
-    """
-    One can specify initial shift and the transform separately.
-    First, `centroid_m` and `centroid_f` are aligned.
-    Then the tranform (R,t) parameterized by `tf_params` is applied.
-    The relationship between coordinates in the fixed and moving volumes is:
-    coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
+# def transform_volume_v3(vol, tf_params=None, bbox=None, origin=None, centroid_m=(0,0,0), centroid_f=(0,0,0), return_origin_instead_of_bbox=False, transform=None):
+#     """
+#     One can specify initial shift and the transform separately.
+#     First, `centroid_m` and `centroid_f` are aligned.
+#     Then the tranform (R,t) parameterized by `tf_params` is applied.
+#     The relationship between coordinates in the fixed and moving volumes is:
+#     coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
+#
+#     One can also incorporate the initial shift into tf_params. In that case, do not specify `centroid_m` and `centroid_f`.
+#     coord_f = np.dot(T, coord_m)
+#
+#     Args:
+#         vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
+#         bbox (6-tuple): bounding box of the input volume.
+#         origin (3-tuple)
+#         tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
+#         centroid_m (3-tuple): transform center in the volume to transform
+#         centroid_f (3-tuple): transform center in the result volume.
+#
+#     Returns:
+#         (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
+#     """
+#
+#     if transform_parameters is not None:
+#         tf_dict = convert_transform_forms(transform_parameters=transform_parameters, out_form='dict')
+#         tf_params = tf_dict['parameters']
+#         centroid_m = tf_dict['centroid_m_wrt_wholebrain']
+#         centroid_f = tf_dict['centroid_f_wrt_wholebrain']
+#
+#     nzvoxels_m_temp = parallel_where_binary(vol > 0)
+#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+#
+#     assert origin is not None or bbox is not None, 'Must provide origin or bbox.'
+#     if origin is None:
+#         if bbox is not None:
+#             origin = bbox[[0,2,4]]
+#
+#     nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp + origin,
+#                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
+#
+#     nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
+#     nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
+#
+#     xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
+#     ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
+#     zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
+#
+#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+#     xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
+#     xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+#     volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
+#
+#     del nzs_m_aligned_to_f
+#
+#     t = time.time()
+#
+#     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+#         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+#     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+#         if not np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
+#             dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+#         else:
+#             dense_volume = volume_m_aligned_to_f
+#     elif np.issubdtype(volume_m_aligned_to_f.dtype, bool):
+#         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f.astype(np.int)).astype(vol.dtype)
+#     else:
+#         raise Exception('transform_volume: Volume must be either float or int.')
+#
+#     sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
+#
+#     if return_origin_instead_of_bbox:
+#         return dense_volume, np.array((nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f))
+#     else:
+#         return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
 
-    One can also incorporate the initial shift into tf_params. In that case, do not specify `centroid_m` and `centroid_f`.
-    coord_f = np.dot(T, coord_m)
 
-    Args:
-        vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
-        tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
-        centroid_m (3-tuple): transform center in the volume to transform
-        centroid_f (3-tuple): transform center in the result volume.
-
-    Returns:
-        (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
-    """
-
-    t = time.time()
-    nzvoxels_m_temp = parallel_where_binary(vol > 0)
-    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-    sys.stderr.write('parallel_where_binary: %.2f seconds.\n' % (time.time() - t))
-
-    t = time.time()
-    nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp,
-                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
-    sys.stderr.write('transform_points_affine: %.2f seconds.\n' % (time.time() - t))
-
-    nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
-    nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
-
-    xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
-    ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
-    zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
-
-    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
-    xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
-    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
-    volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
-
-    del nzs_m_aligned_to_f
-
-    t = time.time()
-
-    if fill_sparse:
-        if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-            print 'float'
-            dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
-        elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-            print 'int'
-            if np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
-                print 'uint8'
-                dense_volume = volume_m_aligned_to_f
-            else:
-                dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
-        else:
-            raise Exception('transform_volume: Volume must be either float or int, not %s.' % volume_m_aligned_to_f.dtype)
-    else:
-        dense_volume = volume_m_aligned_to_f
-
-    sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
-
-    return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
-
-
-def transform_volume(vol, global_params, centroid_m=(0,0,0), centroid_f=(0,0,0), xdim_f=None, ydim_f=None, zdim_f=None):
-    """
-    First, centroid_m and centroid_f are aligned.
-    Then the tranform parameterized by global_params is applied.
-    The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
-
-    Args:
-        vol (3d array): the volume to transform
-        global_params (12-tuple): flattened vector of transform parameters
-        centroid_m (3-tuple): transform center in the volume to transform
-        centroid_f (3-tuple): transform center in the result volume.
-        xmin_f (int): if None, this is inferred from the
-        ydim_f (int): if None, the
-        zdim_f (int): if None, the
-    """
-
-    nzvoxels_m_temp = parallel_where_binary(vol > 0)
-    # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
-
-    nzs_m_aligned_to_f = transform_points_affine(global_params, pts=nzvoxels_m_temp,
-                            c=centroid_m, c_prime=centroid_f).astype(np.int16)
-
-    volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
-
-    xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
-
-    valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
-    (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
-
-    xs_m, ys_m, zs_m = nzvoxels_m_temp.T
-
-    volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
-    vol[ys_m[valid], xs_m[valid], zs_m[valid]]
-
-    del nzs_m_aligned_to_f
-
-    if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
-        dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
-    elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
-        dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
-        #dense_volume = volume_m_aligned_to_f
-    else:
-        raise Exception('transform_volume: Volume must be either float or int.')
-
-    return dense_volume
+# def transform_volume_v2(vol, tf_params, centroid_m=(0,0,0), centroid_f=(0,0,0), fill_sparse=True):
+#     """
+#     One can specify initial shift and the transform separately.
+#     First, `centroid_m` and `centroid_f` are aligned.
+#     Then the tranform (R,t) parameterized by `tf_params` is applied.
+#     The relationship between coordinates in the fixed and moving volumes is:
+#     coord_f - centroid_f = np.dot(R, (coord_m - centroid_m)) + t
+#
+#     One can also incorporate the initial shift into tf_params. In that case, do not specify `centroid_m` and `centroid_f`.
+#     coord_f = np.dot(T, coord_m)
+#
+#     Args:
+#         vol (3D ndarray of float or int): the volume to transform. If dtype is int, treated as label volume; if is float, treated as score volume.
+#         tf_params ((nparam,)-ndarray): flattened vector of transform parameters. If `tf_params` already incorporates the initial shift that aligns two centroids, then there is no need to specify arguments `centroid_m` and `centroid_f`.
+#         centroid_m (3-tuple): transform center in the volume to transform
+#         centroid_f (3-tuple): transform center in the result volume.
+#
+#     Returns:
+#         (3d array, 6-tuple): resulting volume, bounding box whose coordinates are relative to the input volume.
+#     """
+#
+#     t = time.time()
+#     nzvoxels_m_temp = parallel_where_binary(vol > 0)
+#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+#     sys.stderr.write('parallel_where_binary: %.2f seconds.\n' % (time.time() - t))
+#
+#     t = time.time()
+#     nzs_m_aligned_to_f = transform_points_affine(tf_params, pts=nzvoxels_m_temp,
+#                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
+#     sys.stderr.write('transform_points_affine: %.2f seconds.\n' % (time.time() - t))
+#
+#     nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f = np.min(nzs_m_aligned_to_f, axis=0)
+#     nzs_m_xmax_f, nzs_m_ymax_f, nzs_m_zmax_f = np.max(nzs_m_aligned_to_f, axis=0)
+#
+#     xdim_f = nzs_m_xmax_f - nzs_m_xmin_f + 1
+#     ydim_f = nzs_m_ymax_f - nzs_m_ymin_f + 1
+#     zdim_f = nzs_m_zmax_f - nzs_m_zmin_f + 1
+#
+#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+#     xs_f_wrt_bbox, ys_f_wrt_bbox, zs_f_wrt_inbbox = (nzs_m_aligned_to_f - (nzs_m_xmin_f, nzs_m_ymin_f, nzs_m_zmin_f)).T
+#     xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+#     volume_m_aligned_to_f[ys_f_wrt_bbox, xs_f_wrt_bbox, zs_f_wrt_inbbox] = vol[ys_m, xs_m, zs_m]
+#
+#     del nzs_m_aligned_to_f
+#
+#     t = time.time()
+#
+#     if fill_sparse:
+#         if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+#             print 'float'
+#             dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+#         elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+#             print 'int'
+#             if np.issubdtype(volume_m_aligned_to_f.dtype, np.uint8):
+#                 print 'uint8'
+#                 dense_volume = volume_m_aligned_to_f
+#             else:
+#                 dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+#         else:
+#             raise Exception('transform_volume: Volume must be either float or int, not %s.' % volume_m_aligned_to_f.dtype)
+#     else:
+#         dense_volume = volume_m_aligned_to_f
+#
+#     sys.stderr.write('Interpolating/filling sparse volume: %.2f seconds.\n' % (time.time() - t))
+#
+#     return dense_volume, np.array((nzs_m_xmin_f, nzs_m_xmax_f, nzs_m_ymin_f, nzs_m_ymax_f, nzs_m_zmin_f, nzs_m_zmax_f))
+#
+#
+# def transform_volume(vol, global_params, centroid_m=(0,0,0), centroid_f=(0,0,0), xdim_f=None, ydim_f=None, zdim_f=None):
+#     """
+#     First, centroid_m and centroid_f are aligned.
+#     Then the tranform parameterized by global_params is applied.
+#     The resulting volume will have dimension (xdim_f, ydim_f, zdim_f).
+#
+#     Args:
+#         vol (3d array): the volume to transform
+#         global_params (12-tuple): flattened vector of transform parameters
+#         centroid_m (3-tuple): transform center in the volume to transform
+#         centroid_f (3-tuple): transform center in the result volume.
+#         xmin_f (int): if None, this is inferred from the
+#         ydim_f (int): if None, the
+#         zdim_f (int): if None, the
+#     """
+#
+#     nzvoxels_m_temp = parallel_where_binary(vol > 0)
+#     # "_temp" is appended to avoid name conflict with module level variable defined in registration.py
+#
+#     nzs_m_aligned_to_f = transform_points_affine(global_params, pts=nzvoxels_m_temp,
+#                             c=centroid_m, c_prime=centroid_f).astype(np.int16)
+#
+#     volume_m_aligned_to_f = np.zeros((ydim_f, xdim_f, zdim_f), vol.dtype)
+#
+#     xs_f, ys_f, zs_f = nzs_m_aligned_to_f.T
+#
+#     valid = (xs_f >= 0) & (ys_f >= 0) & (zs_f >= 0) & \
+#     (xs_f < xdim_f) & (ys_f < ydim_f) & (zs_f < zdim_f)
+#
+#     xs_m, ys_m, zs_m = nzvoxels_m_temp.T
+#
+#     volume_m_aligned_to_f[ys_f[valid], xs_f[valid], zs_f[valid]] = \
+#     vol[ys_m[valid], xs_m[valid], zs_m[valid]]
+#
+#     del nzs_m_aligned_to_f
+#
+#     if np.issubdtype(volume_m_aligned_to_f.dtype, np.float):
+#         dense_volume = fill_sparse_score_volume(volume_m_aligned_to_f)
+#     elif np.issubdtype(volume_m_aligned_to_f.dtype, np.integer):
+#         dense_volume = fill_sparse_volume(volume_m_aligned_to_f)
+#         #dense_volume = volume_m_aligned_to_f
+#     else:
+#         raise Exception('transform_volume: Volume must be either float or int.')
+#
+#     return dense_volume
 
 def transform_volume_inverse(vol, global_params, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m):
 
@@ -2059,10 +1917,10 @@ def fill_sparse_volume(volume_sparse):
 #     T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)[:3]
 #     return T
 
-def convert_transform_forms(out_form, transform_parameters=None, aligner=None, select_best='last_value'):
+def convert_transform_forms(out_form, transform=None, aligner=None, select_best='last_value'):
     """
     Args:
-        out_form: (3,4) or (4,4) or (12,) or "dict"
+        out_form: (3,4) or (4,4) or (12,) or "dict", "tuple"
     """
 
     if aligner is not None:
@@ -2076,27 +1934,34 @@ def convert_transform_forms(out_form, transform_parameters=None, aligner=None, s
         else:
             raise Exception("select_best %s is not recognize." % select_best)
     else:
-        if isinstance(transform_parameters, dict):
-            centroid_f = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
-            centroid_m = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
-            params = np.array(transform_parameters['parameters'])
-        elif isinstance(transform_parameters, np.ndarray):
-            if transform_parameters.shape == (12,):
-                params = transform_parameters
+        if isinstance(transform, dict):
+            if 'centroid_f_wrt_wholebrain' in transform:
+                centroid_f = np.array(transform['centroid_f_wrt_wholebrain'])
+                centroid_m = np.array(transform['centroid_m_wrt_wholebrain'])
+                params = np.array(transform['parameters'])
+            elif 'centroid_f' in transforms:
+                centroid_f = np.array(transform['centroid_f'])
+                centroid_m = np.array(transform['centroid_m'])
+                params = np.array(transform['parameters'])
+            else:
+                raise
+        elif isinstance(transform, np.ndarray):
+            if transform.shape == (12,):
+                params = transform
                 centroid_m = np.zeros((3,))
                 centroid_f = np.zeros((3,))
-            elif transform_parameters.shape == (3,4):
-                params = transform_parameters.flatten()
+            elif transform.shape == (3,4):
+                params = transform.flatten()
                 centroid_m = np.zeros((3,))
                 centroid_f = np.zeros((3,))
-            elif transform_parameters.shape == (4,4):
-                params = transform_parameters[:3].flatten()
+            elif transform.shape == (4,4):
+                params = transform[:3].flatten()
                 centroid_m = np.zeros((3,))
                 centroid_f = np.zeros((3,))
             else:
                 raise
         else:
-            raise Exception(type(transform_parameters))
+            raise Exception("Transform type %s is not recognized" % type(transform))
 
     T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)
 
@@ -2110,113 +1975,112 @@ def convert_transform_forms(out_form, transform_parameters=None, aligner=None, s
         return dict(centroid_f_wrt_wholebrain = np.zeros((3,)),
                     centroid_m_wrt_wholebrain = np.zeros((3,)),
                     parameters = T[:3].flatten())
+    elif out_form == 'tuple':
+        return T[:3].flatten(), np.zeros((3,)), np.zeros((3,))
     else:
         raise Exception("Output form of %s is not recognized." % out_form)
 
     return T
 
 
-def alignment_parameters_to_transform_matrix_v2(transform_parameters):
-    """
-    Returns:
-        (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
-    """
+# def alignment_parameters_to_transform_matrix_v2(transform_parameters):
+#     """
+#     Returns:
+#         (4,4) matrix that maps wholebrain domain of the moving brain to wholebrain domain of the fixed brain.
+#     """
+#
+#     if isinstance(transform_parameters, dict):
+#         centroid_f = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+#         centroid_m = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+#         params = np.array(transform_parameters['parameters'])
+#     elif isinstance(transform_parameters, np.ndarray):
+#         if transform_parameters.shape == (12,):
+#             params = transform_parameters
+#             centroid_m = np.zeros((3,))
+#             centroid_f = np.zeros((3,))
+#         elif transform_parameters.shape == (3,4):
+#             params = transform_parameters.flatten()
+#             centroid_m = np.zeros((3,))
+#             centroid_f = np.zeros((3,))
+#         elif transform_parameters.shape == (4,4):
+#             params = transform_parameters[:3].flatten()
+#             centroid_m = np.zeros((3,))
+#             centroid_f = np.zeros((3,))
+#         else:
+#             raise
+#     else:
+#         raise Exception(type(transform_parameters))
+#
+#     T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)
+#     return T
 
-    if isinstance(transform_parameters, dict):
-        centroid_f = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
-        centroid_m = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
-        params = np.array(transform_parameters['parameters'])
-    elif isinstance(transform_parameters, np.ndarray):
-        if transform_parameters.shape == (12,):
-            params = transform_parameters
-            centroid_m = np.zeros((3,))
-            centroid_f = np.zeros((3,))
-        elif transform_parameters.shape == (3,4):
-            params = transform_parameters.flatten()
-            centroid_m = np.zeros((3,))
-            centroid_f = np.zeros((3,))
-        elif transform_parameters.shape == (4,4):
-            params = transform_parameters[:3].flatten()
-            centroid_m = np.zeros((3,))
-            centroid_f = np.zeros((3,))
-        else:
-            raise
-    else:
-        raise Exception(type(transform_parameters))
+# def transform_volume_v2(volume, bbox=None, origin=None, transform=None):
+#     """
+#     Args:
+#         vol: the volume to transform
+#         bbox: wrt wholebrain
+#         transform_parameters (dict): the dict that describes the transform
+#
+#     Returns:
+#         (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
+#     """
+#
+#     if origin is not None:
+#         volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
+#             transform_volume_v3(vol=volume, origin=origin, tranform=transform, return_origin_instead_of_bbox=True)
+#         return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
+#     elif bbox is not None:
+#         volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
+#             transform_volume_v3(vol=volume, bbox=bbox,  tranform=transform)
+#         return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+#     else:
+#         raise
 
-    T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)
-    return T
+# def transform_points_by_transform_parameters_v2(pts, transform_parameters):
+#     """
+#     Args:
+#         pts ((n,3)-array): wrt wholebrain
+#     """
+#
+#     T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
+#     R = T[:3,:3]
+#     t = T[:3,3]
+#     return np.dot(R, np.array(pts).T).T + t
 
-def transform_volume_by_alignment_parameters_v2(volume, transform_parameters=None, bbox=None, origin=None):
-    """
-    Args:
-        vol: the volume to transform
-        bbox: wrt wholebrain
-        transform_parameters (dict): the dict that describes the transform
+# def transform_volume_by_alignment_parameters(volume, transform_parameters=None, bbox=None, origin=None):
+#     """
+#     Args:
+#         vol: the volume to transform
+#         bbox: wrt wholebrain
+#         transform_parameters (dict): the dict that describes the transform
+#
+#     Returns:
+#         (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
+#     """
+#
+#     T = alignment_parameters_to_transform_matrix(transform_parameters)
+#
+#     if origin is not None:
+#         volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
+#             transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
+#         return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
+#     elif bbox is not None:
+#         volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
+#             transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
+#         return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
+#     else:
+#         raise
 
-    Returns:
-        (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
-    """
-
-    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
-
-    if origin is not None:
-        volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
-            transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
-        return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
-    elif bbox is not None:
-        volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
-            transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
-        return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
-    else:
-        raise
-
-def transform_points_by_transform_parameters_v2(pts, transform_parameters):
-    """
-    Args:
-        pts ((n,3)-array): wrt wholebrain
-    """
-
-    T = alignment_parameters_to_transform_matrix_v2(transform_parameters)
-    R = T[:3,:3]
-    t = T[:3,3]
-    return np.dot(R, np.array(pts).T).T + t
-
-def transform_volume_by_alignment_parameters(volume, transform_parameters=None, bbox=None, origin=None):
-    """
-    Args:
-        vol: the volume to transform
-        bbox: wrt wholebrain
-        transform_parameters (dict): the dict that describes the transform
-
-    Returns:
-        (2-tuple): (volume, bounding box wrt wholebrain of fixed brain)
-    """
-
-    T = alignment_parameters_to_transform_matrix(transform_parameters)
-
-    if origin is not None:
-        volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain = \
-            transform_volume_v3(vol=volume, origin=origin, tf_params=T.flatten(), return_origin_instead_of_bbox=True)
-        return volume_m_warped_inbbox, volume_m_warped_origin_wrt_fixedWholebrain
-    elif bbox is not None:
-        volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain = \
-            transform_volume_v3(vol=volume, bbox=bbox, tf_params=T.flatten())
-        return volume_m_warped_inbbox, volume_m_warped_bbox_wrt_fixedWholebrain
-    else:
-        raise
-
-
-def transform_points_by_transform_parameters(pts, transform_parameters):
-    """
-    Args:
-        pts ((n,3)-array): wrt wholebrain
-    """
-
-    T = alignment_parameters_to_transform_matrix(transform_parameters)
-    R = T[:3,:3]
-    t = T[:3,3]
-    return np.dot(R, np.array(pts).T).T + t
+# def transform_points_by_transform_parameters(pts, transform_parameters):
+#     """
+#     Args:
+#         pts ((n,3)-array): wrt wholebrain
+#     """
+#
+#     T = alignment_parameters_to_transform_matrix(transform_parameters)
+#     R = T[:3,:3]
+#     t = T[:3,3]
+#     return np.dot(R, np.array(pts).T).T + t
 
 def compose_alignment_parameters(list_of_transform_parameters):
     """
@@ -2357,12 +2221,11 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
 
     print 'Angular deviation around y axis (degree) =', np.rad2deg(np.arccos(midplane_normal[2]))
 
-    points_midplane_oriented = {name: transform_points_by_transform_parameters_v2(p, transform_parameters=transform_matrix_to_atlasCanonicalSpace)
+    points_midplane_oriented = {name: transform_points(p, transform=transform_matrix_to_atlasCanonicalSpace)
                                 for name, p in mean_centroid_allLandmarks.iteritems()}
 
     instance_centroid_rel2atlasCanonicalSpace = \
-{n: transform_points_by_transform_parameters_v2(s,
-                                           transform_parameters=transform_matrix_to_atlasCanonicalSpace)
+{n: transform_points(s,transform=transform_matrix_to_atlasCanonicalSpace)
 for n, s in centroid_allLandmarks.iteritems()}
 
     canonical_locations = {}

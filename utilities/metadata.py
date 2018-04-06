@@ -402,6 +402,8 @@ all_known_structures_sided = sum([[n] if n in singular_structures
 #all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
 all_known_structures_sided_surround_200um = [convert_to_surround_name(s, margin='200um') for s in all_known_structures_sided]
 all_known_structures_sided_including_surround_200um = sorted(all_known_structures_sided + all_known_structures_sided_surround_200um)
+all_known_structures_unsided_including_surround_200um = all_known_structures + [convert_to_surround_name(u, margin='200um') for u in all_known_structures]
+
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
 
 structures_sided_sorted_by_size = ['4N_L', '4N_R', '6N_L', '6N_R', 'Amb_L', 'Amb_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'AP', '3N_L', '3N_R', 'LC_L', 'LC_R', 'SNC_L', 'SNC_R', 'Tz_L', 'Tz_R', '7n_L', '7n_R', 'RMC_L', 'RMC_R', '5N_L', '5N_R', 'VCP_L', 'VCP_R', '12N', 'LRt_L', 'LRt_R', '7N_L', '7N_R', 'VCA_L', 'VCA_R', 'VLL_L', 'VLL_R', 'DC_L', 'DC_R', 'Sp5O_L', 'Sp5O_R', 'Sp5I_L', 'Sp5I_R', 'Pn_L', 'Pn_R', 'RtTg', 'SNR_L', 'SNR_R', 'Sp5C_L', 'Sp5C_R', 'IC', 'SC']
@@ -495,10 +497,14 @@ hc_perm = [ 0,  5, 28, 26, 12, 11,  4,  8, 25, 22,  3,  1, 20, 19, 27, 13, 24,
 high_contrast_colors = [high_contrast_colors[i] for i in hc_perm]
 name_sided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
                      for i, s in enumerate(all_known_structures_sided) }
+name_sided_to_color_float = {s: np.array(c)/255. for s, c in name_sided_to_color.iteritems()}
+
 name_unsided_to_color = {s: high_contrast_colors[i%len(high_contrast_colors)]
                      for i, s in enumerate(all_known_structures) }
-stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n in enumerate(all_stacks)}
+name_unsided_to_color_float = {s: np.array(c)/255. for s, c in name_unsided_to_color.iteritems()}
 
+stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n in enumerate(all_stacks)}
+stack_to_color_float = {s: np.array(c)/255. for s, c in stack_to_color.iteritems()}
 
 ####################################
 

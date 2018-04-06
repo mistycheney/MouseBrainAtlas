@@ -43,6 +43,15 @@ def download_volume(stack, what, dest_dir, name_u=None):
 
 ################ Conversion between volume representations #################
 
+def rescale_polydata(polydata, factor):
+    v, f = polydata_to_mesh(polydata)
+    return mesh_to_polydata(v * factor, f)
+
+def transform_polydata(polydata, transform):
+    v, f = polydata_to_mesh(polydata)
+    from registration_utilities import transform_points
+    new_v = transform_points(transform=transform, pts=v)
+    return mesh_to_polydata(new_v, f)
 
 def move_polydata(polydata, d):
     # !!! IMPORTANT!! Note that this operation discards all scalar data (for example heatmap) in the input polydata.
@@ -227,15 +236,17 @@ def mesh_to_polydata(vertices, faces, num_simplify_iter=0, smooth=False):
 
     return polydata
 
-def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False, level=0., min_vertices=200, return_mesh=False):
+def volume_to_polydata(volume, num_simplify_iter=0, smooth=False, level=0., min_vertices=200, return_vertex_face_list=False):
     """
     Convert a volume to a mesh, either as vertices/faces tuple or a vtk.Polydata.
 
     Args:
         level (float): the level to threshold the input volume
         min_vertices (int): minimum number of vertices. Simplification will stop if the number of vertices drops below this value.
-        return_mesh (bool): If True, return only (vertices, faces); otherwise, return polydata.
+        return_vertex_face_list (bool): If True, return only (vertices, faces); otherwise, return polydata.
     """
+
+    volume, origin = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
 
     vol = volume > level
 
@@ -302,9 +313,9 @@ def volume_to_polydata(volume, origin=(0,0,0), num_simplify_iter=0, smooth=False
 
         if polydata.GetNumberOfPoints() < min_vertices:
             break
-            
-    
-    if return_mesh:
+
+
+    if return_vertex_face_list:
         return polydata_to_mesh(polydata)
     else:
         return polydata
@@ -693,18 +704,18 @@ class vtkRecordVideoTimerCallback():
         self.iren = iren
         self.win = win
         self.camera = camera
-                
+
         self.start_tick = 5
-            
+
         self.azimuth_stepsize = 5.
-        self.elevation_stepsize = 5. 
+        self.elevation_stepsize = 5.
         self.azimuth_rotation_start_tick = self.start_tick
         self.azimith_rotation_end_tick = self.azimuth_rotation_start_tick + 360./self.azimuth_stepsize
         self.elevation_rotation_start_tick = self.azimith_rotation_end_tick
         self.elevation_rotation_end_tick = self.elevation_rotation_start_tick + 360./self.elevation_stepsize
-        
+
         self.finish_tick = self.elevation_rotation_end_tick
-        
+
         create_parent_dir_if_not_exists('/tmp/brain_video/')
         execute_command('rm /tmp/brain_video/*')
 
@@ -713,7 +724,7 @@ class vtkRecordVideoTimerCallback():
         # print self.timer_count
         # for actor in self.actors:
         #     actor.SetPosition(self.timer_count, self.timer_count,0)
-        
+
         if self.timer_count >= self.start_tick:
 
             if self.timer_count >= self.azimuth_rotation_start_tick and self.timer_count < self.azimith_rotation_end_tick:
@@ -731,7 +742,7 @@ class vtkRecordVideoTimerCallback():
                 cmd = '/home/yuncong/ffmpeg-3.4.1-64bit-static/ffmpeg -framerate %(framerate)d -pattern_type glob -i "/tmp/brain_video/*.png" -c:v libx264 -vf "scale=-1:1080,format=yuv420p" %(output_fp)s' % \
                 {'framerate': self.framerate, 'output_fp': self.movie_fp}
                 execute_command(cmd)
-            
+
                 self.win.Finalize()
                 self.iren.TerminateApp()
                 del self.iren, self.win
@@ -794,7 +805,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
     ##########################################
 
     camera = vtk.vtkCamera()
-    
+
     if view_up is not None and position is not None and focal is not None:
         camera.SetViewUp(view_up[0], view_up[1], view_up[2])
         camera.SetPosition(position[0], position[1], position[2])
@@ -831,7 +842,7 @@ def launch_vtk(actors, init_angle='45', window_name=None, window_size=None,
         # posterior to anterior
 
         # coronal
-        camera.SetViewUp(0, -1, 0)
+        camera.SetViewUp(1.1, 0, 0)
         camera.SetPosition(-distance, 0, 0)
         camera.SetFocalPoint(-1, 0, 0)
 
@@ -1021,7 +1032,6 @@ def actor_ellipse(anchor_point, anchor_vector0, anchor_vector1, anchor_vector2,
 
     return a
 
-
 def actor_volume_v2(rgb, alpha=None, origin=(0,0,0)):
     """
     Args:
@@ -1080,7 +1090,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
     volumeProperty = vtk.vtkVolumeProperty()
 
     if what == 'tb':
-        
+
         if white_more_transparent:
 
             compositeOpacity = vtk.vtkPiecewiseFunction()
@@ -1112,12 +1122,12 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
                     compositeOpacity.AddPoint(v, 1., .5, 1.)
                     compositeOpacity.AddPoint(cp2, .5*cp2/200., .5, 1.)
                 compositeOpacity.AddPoint(vr, .5*vr/200.)
-                
+
             compositeOpacity.AddPoint(15., tb_opacity)
             compositeOpacity.AddPoint(0., tb_opacity)
             # compositeOpacity.AddPoint(240., .5)
             # compositeOpacity.AddPoint(255.0, .5)
-            
+
         color = vtk.vtkColorTransferFunction()
         color.AddRGBPoint(0.0, 0,0,0)
 
@@ -1353,124 +1363,121 @@ def polydata_heat_sphere(func, loc, phi_resol=100, theta_resol=100, radius=1, vm
 
     return sphere_polydata
 
+# def mirror_volume(volume, origin):
+#     """
+#     Use to get the mirror image of the volume.
+#     volume argument is the volume in right hemisphere.
+#     origin argument is the origin of the mirrored result volume.
+#
+#     !!! This assumes the mirror plane is vertical; Consider adding a mirror plane as argument
+#     """
+#     ydim, xdim, zdim = volume.shape
+#     real_origin = origin - (0,0, zdim-1)
+#     volume = volume[:,:,::-1].copy()
+#     return volume, real_origin
 
-###################################################################################
+# from scipy.spatial import KDTree
+# from collections import defaultdict
 
-def mirror_volume(volume, origin):
-    """
-    Use to get the mirror image of the volume.
-    volume argument is the volume in right hemisphere.
-    origin argument is the origin of the mirrored result volume.
-
-    !!! This assumes the mirror plane is vertical; Consider adding a mirror plane as argument
-    """
-    ydim, xdim, zdim = volume.shape
-    real_origin = origin - (0,0, zdim-1)
-    volume = volume[:,:,::-1].copy()
-    return volume, real_origin
-
-from scipy.spatial import KDTree
-from collections import defaultdict
-
-def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
-    # https://www.wikiwand.com/en/Orthogonal_Procrustes_problem
-    # https://www.wikiwand.com/en/Kabsch_algorithm
-
-
-    fixed_pts_c0 = fixed_pts.mean(axis=0)
-    moving_pts_c0 = moving_pts.mean(axis=0)
-
-    fixed_pts_centered = fixed_pts - fixed_pts_c0
-    moving_pts_centered = moving_pts - moving_pts_c0
-
-    tree = KDTree(fixed_pts_centered)
-
-    moving_pts0 = moving_pts_centered.copy()
-
-    for i in range(num_iter):
-
-        t = time.time()
-
-        ds, nns = tree.query(moving_pts_centered)
-#         fixed_pts_nn = fixed_pts[nns]
-
-        a = defaultdict(list)
-        for mi, fi in enumerate(nns):
-            a[fi].append(mi)
-
-        inlier_moving_indices = []
-        inlier_fixed_indices = []
-        inlier_moving_pts = []
-        inlier_fixed_pts = []
-        for fi, mis in a.iteritems():
-            inlier_fixed_indices.append(fi)
-            mi = a[fi][np.argsort(ds[mis])[0]]
-            inlier_moving_indices.append(mi)
-            inlier_fixed_pts.append(fixed_pts_centered[fi])
-            inlier_moving_pts.append(moving_pts_centered[mi])
-
-        inlier_fixed_pts = np.array(inlier_fixed_pts)
-        inlier_moving_pts = np.array(inlier_moving_pts)
-        n_inlier = len(inlier_fixed_pts)
-
-        c_fixed = inlier_fixed_pts.mean(axis=0)
-        inlier_fixed_pts_centered = inlier_fixed_pts - c_fixed
-
-
-        c_moving = inlier_moving_pts.mean(axis=0)
-        inlier_moving_pts_centered = inlier_moving_pts - c_moving
-
-
-        random_indices = np.random.choice(range(n_inlier), 50)
-
-        inlier_fixed_pts_centered = inlier_fixed_pts_centered[random_indices]
-        inlier_moving_pts_centered = inlier_moving_pts_centered[random_indices]
-
-
-
-        M = np.dot(inlier_moving_pts_centered.T, inlier_fixed_pts_centered)
-
-        U, s, VT = np.linalg.svd(M)
-
-        if rotation_only:
-            s2 = np.ones_like(s)
-            s2[-1] = np.sign(np.linalg.det(np.dot(U, VT).T))
-            R = np.dot(np.dot(U, np.diag(s2)), VT).T
-            # print R
-        else:
-            R = np.dot(U, VT).T
-
-        moving_pts_centered = np.dot(moving_pts_centered - c_moving, R.T) + c_fixed
-
-        d = np.mean(np.sqrt(np.sum((inlier_moving_pts - inlier_fixed_pts)**2, axis=1)))
-        # if i > 1:
-        #    sys.stderr.write('mean change = %f\n' % abs(d_prev - d))
-        if i > 1 and abs(d_prev - d) < 1e-5:
-            break
-        d_prev = d
-
-        # sys.stderr.write('icp @ %d err %f @ %d inlier: %.2f seconds\n' % (i, d, len(inlier_moving_indices), time.time() - t))
-
-    c_fixed = inlier_fixed_pts.mean(axis=0)
-    inlier_fixed_pts_centered = inlier_fixed_pts - c_fixed
-
-    c_moving = moving_pts0[inlier_moving_indices].mean(axis=0)
-    inlier_moving_pts_centered =  moving_pts0[inlier_moving_indices] - c_moving
-
-    M = np.dot(inlier_moving_pts_centered.T, inlier_fixed_pts_centered)
-    U, _, VT = np.linalg.svd(M)
-    R = np.dot(U, VT).T
-
-    moving_pts_centered = np.dot(moving_pts0 - c_moving, R.T) + c_fixed
-
-    return moving_pts_centered + moving_pts_c0
-    # return moving_pts
-    # return moving_pts_centered
-
+# def icp(fixed_pts, moving_pts, num_iter=10, rotation_only=True):
+#     # https://www.wikiwand.com/en/Orthogonal_Procrustes_problem
+#     # https://www.wikiwand.com/en/Kabsch_algorithm
+#
+#     fixed_pts_c0 = fixed_pts.mean(axis=0)
+#     moving_pts_c0 = moving_pts.mean(axis=0)
+#
+#     fixed_pts_centered = fixed_pts - fixed_pts_c0
+#     moving_pts_centered = moving_pts - moving_pts_c0
+#
+#     tree = KDTree(fixed_pts_centered)
+#
+#     moving_pts0 = moving_pts_centered.copy()
+#
+#     for i in range(num_iter):
+#
+#         t = time.time()
+#
+#         ds, nns = tree.query(moving_pts_centered)
+# #         fixed_pts_nn = fixed_pts[nns]
+#
+#         a = defaultdict(list)
+#         for mi, fi in enumerate(nns):
+#             a[fi].append(mi)
+#
+#         inlier_moving_indices = []
+#         inlier_fixed_indices = []
+#         inlier_moving_pts = []
+#         inlier_fixed_pts = []
+#         for fi, mis in a.iteritems():
+#             inlier_fixed_indices.append(fi)
+#             mi = a[fi][np.argsort(ds[mis])[0]]
+#             inlier_moving_indices.append(mi)
+#             inlier_fixed_pts.append(fixed_pts_centered[fi])
+#             inlier_moving_pts.append(moving_pts_centered[mi])
+#
+#         inlier_fixed_pts = np.array(inlier_fixed_pts)
+#         inlier_moving_pts = np.array(inlier_moving_pts)
+#         n_inlier = len(inlier_fixed_pts)
+#
+#         c_fixed = inlier_fixed_pts.mean(axis=0)
+#         inlier_fixed_pts_centered = inlier_fixed_pts - c_fixed
+#
+#
+#         c_moving = inlier_moving_pts.mean(axis=0)
+#         inlier_moving_pts_centered = inlier_moving_pts - c_moving
+#
+#
+#         random_indices = np.random.choice(range(n_inlier), 50)
+#
+#         inlier_fixed_pts_centered = inlier_fixed_pts_centered[random_indices]
+#         inlier_moving_pts_centered = inlier_moving_pts_centered[random_indices]
+#
+#
+#
+#         M = np.dot(inlier_moving_pts_centered.T, inlier_fixed_pts_centered)
+#
+#         U, s, VT = np.linalg.svd(M)
+#
+#         if rotation_only:
+#             s2 = np.ones_like(s)
+#             s2[-1] = np.sign(np.linalg.det(np.dot(U, VT).T))
+#             R = np.dot(np.dot(U, np.diag(s2)), VT).T
+#             # print R
+#         else:
+#             R = np.dot(U, VT).T
+#
+#         moving_pts_centered = np.dot(moving_pts_centered - c_moving, R.T) + c_fixed
+#
+#         d = np.mean(np.sqrt(np.sum((inlier_moving_pts - inlier_fixed_pts)**2, axis=1)))
+#         # if i > 1:
+#         #    sys.stderr.write('mean change = %f\n' % abs(d_prev - d))
+#         if i > 1 and abs(d_prev - d) < 1e-5:
+#             break
+#         d_prev = d
+#
+#         # sys.stderr.write('icp @ %d err %f @ %d inlier: %.2f seconds\n' % (i, d, len(inlier_moving_indices), time.time() - t))
+#
+#     c_fixed = inlier_fixed_pts.mean(axis=0)
+#     inlier_fixed_pts_centered = inlier_fixed_pts - c_fixed
+#
+#     c_moving = moving_pts0[inlier_moving_indices].mean(axis=0)
+#     inlier_moving_pts_centered =  moving_pts0[inlier_moving_indices] - c_moving
+#
+#     M = np.dot(inlier_moving_pts_centered.T, inlier_fixed_pts_centered)
+#     U, _, VT = np.linalg.svd(M)
+#     R = np.dot(U, VT).T
+#
+#     moving_pts_centered = np.dot(moving_pts0 - c_moving, R.T) + c_fixed
+#
+#     return moving_pts_centered + moving_pts_c0
+#     # return moving_pts
+#     # return moving_pts_centered
 
 def average_shape(polydata_list=None, volume_origin_list=None, volume_list=None, origin_list=None, surface_level=None, num_simplify_iter=0, smooth=False, force_symmetric=False,
                  sigma=2., return_vertices_faces=False):
     """
+    Compute the mean shape based on many co-registered volumes.
+
     Args:
         polydata_list (list of Polydata): List of meshes whose centroids are at zero.
         surface_level (float): If None, only return the probabilistic volume and origin. Otherwise, also return the surface mesh thresholded at the given percentage.
@@ -1487,7 +1494,7 @@ def average_shape(polydata_list=None, volume_origin_list=None, volume_list=None,
 
     if volume_origin_list is not None:
         volume_list, origin_list = map(list, zip(*volume_origin_list))
-    
+
     if volume_list is None:
         volume_list = []
         origin_list = []
@@ -1517,11 +1524,11 @@ def average_shape(polydata_list=None, volume_origin_list=None, volume_list=None,
 
     if surface_level is not None:
         average_volume_thresholded = average_volume_prob >= surface_level
-        average_polydata = volume_to_polydata(average_volume_thresholded, origin=common_origin, num_simplify_iter=num_simplify_iter, smooth=smooth, return_mesh=return_vertices_faces)
+        average_polydata = volume_to_polydata(volume=(average_volume_thresholded, common_origin), num_simplify_iter=num_simplify_iter, smooth=smooth, return_vertex_face_list=return_vertices_faces)
         return average_volume_prob, common_origin, average_polydata
     else:
         return average_volume_prob, common_origin
-    
+
 
 def symmetricalize_volume(prob_vol):
     """

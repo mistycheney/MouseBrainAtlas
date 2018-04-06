@@ -38,7 +38,7 @@ grad_f_origin = None
 class Aligner(object):
     def __init__(self, volume_f_, volume_m_=None, nzvoxels_m_=None, centroid_f=None, centroid_m=None, \
                 labelIndexMap_m2f=None, label_weights=None, reg_weights=None, zrange=None, nz_thresh=0, init_T=None, init_transform_type='affine',
-                invalid_voxel_penalty=1.):
+                invalid_voxel_penalty=1., verbose=True):
         """
         Variant that takes in two probabilistic volumes.
 
@@ -54,6 +54,7 @@ class Aligner(object):
         """
 
         self.invalid_voxel_penalty = invalid_voxel_penalty
+        self.verbose = verbose
 
         if init_T is None:
             if init_transform_type == 'affine' or init_transform_type == 'rigid':
@@ -232,7 +233,6 @@ class Aligner(object):
                 self.centroid_m = np.concatenate([nzvoxels_m[i] for i in indices_m]).mean(axis=0)
             elif centroid_m == 'volume_centroid':
                 bboxes = np.array([volume_origin_to_bbox(volume_m[i], volume_m_origin[i]) for i in indices_m])
-                # print bboxes
                 xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2
                 yc = (bboxes[:,2].min(axis=0) + bboxes[:,3].max(axis=0)) / 2
                 zc = (bboxes[:,4].min(axis=0) + bboxes[:,5].max(axis=0)) / 2
@@ -736,7 +736,8 @@ class Aligner(object):
         # n_invalid = 0
         # print valid_moving_voxel_indicator
         if n_invalid > 0:
-            sys.stderr.write('%d: %d valid, %d out-of-bound voxels after transform.\n' % (ind_m, n_valid, n_invalid))
+            if self.verbose:
+                sys.stderr.write('%d: %d valid, %d out-of-bound voxels after transform.\n' % (ind_m, n_valid, n_invalid))
         if n_valid == 0:
             raise Exception('%d: No valid voxels after transform.' % ind_m)
 
@@ -957,7 +958,8 @@ class Aligner(object):
             sigma_tz = std_tz*np.exp(-iteration/eta)
             sigma_theta_xy = std_theta_xy*np.exp(-iteration/eta)
 
-            sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg), n:%d\n' % \
+            if self.verbose:
+                sys.stderr.write('sigma_tx: %.2f (voxel), sigma_ty: %.2f, sigma_tz: %.2f, sigma_theta_xy: %.2f (deg), n:%d\n' % \
             (sigma_tx, sigma_ty, sigma_tz, np.rad2deg(sigma_theta_xy), n))
 
             dx_grid = sigma_tx * np.linspace(-1,1,n)
@@ -1037,8 +1039,9 @@ class Aligner(object):
     def optimize(self, tf_type, init_T=None, label_weights=None, \
                 # grid_search_iteration_number=0, grid_search_sample_number=1000,
                 grad_computation_sample_number=None,
-                max_iter_num=1000, history_len=200, terminate_thresh_rot=.005, \
-                 terminate_thresh_trans=.4, \
+                max_iter_num=1000, history_len=200,
+                terminate_thresh_rot=.005, \
+                terminate_thresh_trans=.4, \
                 indices_m=None, lr1=None, lr2=None, full_lr=None,
                 # std_tx=100, std_ty=100, std_tz=30, std_theta_xy=np.deg2rad(30),
                  # grid_search_eta=3.,
@@ -1104,7 +1107,8 @@ class Aligner(object):
 
             # t = time.time()
 
-            sys.stderr.write('\niteration %d\n' % iteration)
+            if self.verbose:
+                sys.stderr.write('\niteration %d\n' % iteration)
 
             t = time.time()
 
@@ -1118,7 +1122,7 @@ class Aligner(object):
 
                 new_T, s, grad_historical, sq_updates_historical = self.step_lie(T, lr=lr,
                     grad_historical=grad_historical, sq_updates_historical=sq_updates_historical,
-                    verbose=False, num_samples=grad_computation_sample_number,
+                    num_samples=grad_computation_sample_number,
                     indices_m=indices_m,
                     epsilon=epsilon)
 
@@ -1146,13 +1150,15 @@ class Aligner(object):
             else:
                 raise Exception('Type must be either rigid or affine.')
 
-            sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
-            sys.stderr.write('current score: %f\n' % s)
+            if self.verbose:
+                sys.stderr.write('step: %.2f seconds\n' % (time.time() - t))
+                sys.stderr.write('current score: %f\n' % s)
 
             if tf_type == 'rigid' or tf_type == 'affine':
                 # sys.stderr.write('new_T: %s\n' % new_T[[3,7,11]])
-                sys.stderr.write('new_T: %s\n' % new_T)
-                sys.stderr.write('det: %.2f\n' % np.linalg.det(new_T.reshape((3,4))[:3, :3]))
+                if self.verbose:
+                    sys.stderr.write('new_T: %s\n' % new_T)
+                    sys.stderr.write('det: %.2f\n' % np.linalg.det(new_T.reshape((3,4))[:3, :3]))
             elif tf_type == 'bspline':
                 sys.stderr.write('min: %.2f, max: %.2f\n' % (new_T.min(), new_T.max()))
 
@@ -1189,7 +1195,7 @@ class Aligner(object):
 
         return best_gradient_descent_params, self.scores
 
-    def step_lie(self, T, lr, grad_historical, sq_updates_historical, verbose=False, num_samples=1000, indices_m=None,
+    def step_lie(self, T, lr, grad_historical, sq_updates_historical, num_samples=1000, indices_m=None,
                 epsilon=1e-8):
         """
         One optimization step over the manifold SE(3).
@@ -1225,8 +1231,9 @@ class Aligner(object):
         grad_adjusted = grad / np.sqrt(grad_historical + epsilon)
         # Note: It is wrong to do: grad_adjusted = grad /  (np.sqrt(grad_historical) + epsilon)
         # sys.stderr.write('Norm of gradient = %f\n' % np.linalg.norm(grad_adjusted))
-        sys.stderr.write('Norm of gradient (translation) = %f\n' % np.linalg.norm(grad_adjusted[:3]))
-        sys.stderr.write('Norm of gradient (rotation) = %f\n' % np.linalg.norm(grad_adjusted[3:]))
+        if self.verbose:
+            sys.stderr.write('Norm of gradient (translation) = %f\n' % np.linalg.norm(grad_adjusted[:3]))
+            sys.stderr.write('Norm of gradient (rotation) = %f\n' % np.linalg.norm(grad_adjusted[3:]))
 
         # AdaDelta Rule
         # Does not work, very unstable!
@@ -1272,29 +1279,36 @@ class Aligner(object):
         ###########################
 
         euler_angles_R_new = rotationMatrixToEulerAngles(R_new) # (around x, around y, around z)
-        sys.stderr.write("around x=%.2f; around y=%.2f; around z=%.2f\n" % \
+        if self.verbose:
+            sys.stderr.write("around x=%.2f; around y=%.2f; around z=%.2f\n" % \
         (np.rad2deg(euler_angles_R_new[0]), np.rad2deg(euler_angles_R_new[1]), np.rad2deg(euler_angles_R_new[2])))
 
         if euler_angles_R_new[2] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], np.pi/4.])
-            sys.stderr.write("Constrain around-z angle. Force to < 45 degree.\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-z angle. Force to < 45 degree.\n")
         elif euler_angles_R_new[2] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0],euler_angles_R_new[1], -np.pi/4.])
-            sys.stderr.write("Constrain around-z angle. Force to < 45 degree\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-z angle. Force to < 45 degree\n")
 
         if euler_angles_R_new[1] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], np.pi/4., euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
         elif euler_angles_R_new[1] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([euler_angles_R_new[0], -np.pi/4., euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-y angle. Force to < 45 degree\n")
 
         if euler_angles_R_new[0] > np.pi/4:
             R_new = eulerAnglesToRotationMatrix([np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
         elif euler_angles_R_new[0] < -np.pi/4:
             R_new = eulerAnglesToRotationMatrix([-np.pi/4., euler_angles_R_new[1],euler_angles_R_new[2]])
-            sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
+            if self.verbose:
+                sys.stderr.write("Constrain around-x angle. Force to < 45 degree\n")
 
         # Constrain the amount of rotation around ANY axis.
 

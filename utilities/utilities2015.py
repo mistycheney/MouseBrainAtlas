@@ -36,7 +36,6 @@ from skimage.measure import find_contours, regionprops
 
 def load_data(fp, polydata_instead_of_face_vertex_list=True):
 
-    print fp
     from vis3d_utilities import load_mesh_stl
 
     if fp.endswith('.bp'):
@@ -48,7 +47,7 @@ def load_data(fp, polydata_instead_of_face_vertex_list=True):
     elif fp.endswith('.stl'):
         data = load_mesh_stl(fp, return_polydata_only=polydata_instead_of_face_vertex_list)
     elif fp.endswith('.txt'):
-        data = np.load(fp)
+        data = np.loadtxt(fp)
     elif fp.endswith('.png'):
         data = imread(fp)
     else:
@@ -84,11 +83,67 @@ def save_data(data, fp, upload_s3=True):
 
 ##################################################################
 
-def volume_origin_to_bbox(v, o):
+def mirror_volume_v2(volume, new_centroid, centroid_wrt_origin=None):
+    """
+    Use to get the mirror image of the volume.
+
+    `Volume` argument is the volume in right hemisphere.
+    Note: This assumes the mirror plane is vertical; Consider adding a mirror plane as argument
+
+    Args:
+        volume: any representation
+        new_centroid: the centroid of the resulting mirrored volume.
+        centroid_wrt_origin: if not specified, this uses the center of mass.
+
+    Returns:
+        (volume, origin): new origin is wrt the same coordinate frame as `new_centroid`.
+    """
+
+    vol, ori = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
+    ydim, xdim, zdim = vol.shape
+    if centroid_wrt_origin is None:
+        centroid_wrt_origin = get_centroid_3d(vol)
+    centroid_x_wrt_origin, centroid_y_wrt_origin, centroid_z_wrt_origin = centroid_wrt_origin
+    new_origin_wrt_centroid = (-centroid_x_wrt_origin, -centroid_y_wrt_origin, - (zdim - 1 - centroid_z_wrt_origin))
+
+    new_origin = new_centroid + new_origin_wrt_centroid
+    new_vol = vol[:,:,::-1].copy()
+    return new_vol, new_origin
+
+def convert_volume_forms(volume, out_form):
     """
     Convert a (volume, origin) tuple into a bounding box.
     """
-    return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
+
+    if isinstance(volume, np.ndarray):
+        vol = volume
+        ori = np.zeros((3,))
+    elif isinstance(volume, tuple):
+        assert len(volume) == 2
+        vol = volume[0]
+        if len(volume[1]) == 3:
+            ori = volume[1]
+        elif len(volume[1]) == 6:
+            ori = volume[1][[0,2,4]]
+        else:
+            raise
+
+    bbox = np.array([ori[0], ori[0] + vol.shape[1]-1, ori[1], ori[1] + vol.shape[0]-1, ori[2], ori[2] + vol.shape[2]-1])
+
+    if out_form == ("volume", 'origin'):
+        return (vol, ori)
+    elif out_form == ("volume", 'bbox'):
+        return (vol, bbox)
+    elif out_form == "volume":
+        return vol
+    else:
+        raise Exception("out_form %s is not recognized.")
+
+# def volume_origin_to_bbox(v, o):
+#     """
+#     Convert a (volume, origin) tuple into a bounding box.
+#     """
+#     return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
 
 ####################################################################
 
@@ -867,22 +922,22 @@ def return_gridline_points(xs, ys, z, w, h):
     grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
     return grid_points
 
-def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
-    """
-    Convert the set (parameter, centroid m, centroid f) to a single matrix.
-
-    Args:
-        params ((12,)-array):
-        centroid_m ((3,)-array):
-        centroid_f ((3,)-array):
-
-    Returns:
-        ((4,4)-array)
-    """
-    G = params.reshape((3,4))
-    R = G[:3,:3]
-    t = - np.dot(R, centroid_m) + G[:3,3] + centroid_f
-    return np.vstack([np.c_[R,t], [0,0,0,1]])
+# def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+#     """
+#     Convert the set (parameter, centroid m, centroid f) to a single matrix.
+#
+#     Args:
+#         params ((12,)-array):
+#         centroid_m ((3,)-array):
+#         centroid_f ((3,)-array):
+#
+#     Returns:
+#         ((4,4)-array)
+#     """
+#     G = params.reshape((3,4))
+#     R = G[:3,:3]
+#     t = - np.dot(R, centroid_m) + G[:3,3] + centroid_f
+#     return np.vstack([np.c_[R,t], [0,0,0,1]])
 
 def jaccard_masks(m1, m2, wrt_min=False):
     """

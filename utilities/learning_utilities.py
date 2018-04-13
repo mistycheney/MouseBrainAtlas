@@ -2423,54 +2423,120 @@ def get_local_regions(stack, by_human, margin_um=500, level=None,
 
 from scipy.ndimage.interpolation import map_coordinates
 
-def resample_scoremap(sparse_scores, sample_locations, gridspec,
-                      out_dtype=np.float16,
+def resample_scoremap(sparse_scores, sample_locations, 
+                      gridspec=None,
                       downscale=None,
                       out_resolution_um=None, 
-                      in_resolution_um=None):
+                      in_resolution_um=None,
+                        return_sparse_map=False,
+                     interpolation_order=2):
     """
+    Resample a dense scoremap based on score at sparse locations.
+    
+    Note: Make sure `sample_locations` are on the grid specified by `gridspec`.
+    
     Args:
-        sparse_scores:
-        sample_locations:
+        sparse_scores ((n,) float): scores
+        sample_locations ((n,2) int): locations of the scores
         gridspec: the tuple (patch size in pixel, spacing in pixel, width, height in pixel)
-        half_size (int):
-        spacing (int): minimal spacing in pixel
+        downscale (int):
         in_resolution_um (float):
         out_resolution_um (float):
+        return_sparse_map (bool): if true, return tuple (dense map, sparse map), else return only dense map.
         
     Returns:
-        2d-array: scoremap
+        (2d-array): scoremap over the entire grid
     """
 
+    sample_locations = np.array(sample_locations)
     assert len(sparse_scores) == len(sample_locations)
+
+    if len(gridspec) == 4:
+        patch_size_px, spacing_px, w, h = gridspec
+        grid_origin = (patch_size_px / 2, patch_size_px / 2)
+    elif len(gridspec) == 5:
+        patch_size_px, spacing_px, w, h, grid_origin = gridspec
+    else:
+        raise
     
-    # w, h = img_shape
-    patch_size_px, spacing_px, w, h = gridspec
-    half_size_px = patch_size_px / 2
+#     half_size_px = patch_size_px / 2
     
     if downscale is None:
         assert out_resolution_um is not None and in_resolution_um is not None
         downscale = out_resolution_um / in_resolution_um
 
-    downscaled_grid_y = np.arange(0, h, downscale)
-    downscaled_grid_x = np.arange(0, w, downscale)
-    downscaled_ny = len(downscaled_grid_y)
-    downscaled_nx = len(downscaled_grid_x)
+    downscaled_grid_ys = np.arange(0, h, downscale)
+    downscaled_grid_xs = np.arange(0, w, downscale)
+    downscaled_ny = len(downscaled_grid_ys)
+    downscaled_nx = len(downscaled_grid_xs)
+        
+    scores_on_unit_grid = np.zeros(((h - grid_origin[1]) / spacing_px + 1, (w - grid_origin[0]) / spacing_px + 1))
+    sample_locations_unit_grid = (sample_locations - grid_origin) / spacing_px
+    scores_on_unit_grid[sample_locations_unit_grid[:,1], sample_locations_unit_grid[:,0]] = sparse_scores
     
-    f_grid = np.zeros(((h-half_size_px)/spacing_px+1, (w-half_size_px)/spacing_px+1))
-    a = (sample_locations - half_size_px)/spacing_px
-    f_grid[a[:,1], a[:,0]] = sparse_scores
+    out_ys_on_unit_grid = (downscaled_grid_ys - grid_origin[1]) / float(spacing_px)
+    out_xs_on_unit_grid = (downscaled_grid_xs - grid_origin[0]) / float(spacing_px)
 
-    yinterps = (downscaled_grid_y - half_size_px)/float(spacing_px)
-    xinterps = (downscaled_grid_x - half_size_px)/float(spacing_px)
+    points_y, points_x = np.broadcast_arrays(out_ys_on_unit_grid.reshape(-1,1), out_xs_on_unit_grid)
+    out_yxs_on_unit_grid = np.c_[points_y.flat, points_x.flat]
+    f_interp = map_coordinates(scores_on_unit_grid, out_yxs_on_unit_grid.T, 
+                               order=interpolation_order, 
+                               prefilter=False)
+    dense_scoremap = f_interp.reshape((downscaled_ny, downscaled_nx))
 
-    points_y, points_x = np.broadcast_arrays(yinterps.reshape(-1,1), xinterps)
-    coord = np.c_[points_y.flat, points_x.flat]
-    f_interp = map_coordinates(f_grid, coord.T, order=1)
-    f_interp_2d = f_interp.reshape((downscaled_ny, downscaled_nx))
-    scoremap = f_interp_2d.astype(out_dtype)
+    if return_sparse_map:
+        return dense_scoremap, scores_on_unit_grid
+    else:
+        return dense_scoremap
 
-    return scoremap
+# def resample_scoremap(sparse_scores, sample_locations, gridspec,
+#                       out_dtype=np.float16,
+#                       downscale=None,
+#                       out_resolution_um=None, 
+#                       in_resolution_um=None):
+#     """
+#     Args:
+#         sparse_scores:
+#         sample_locations:
+#         gridspec: the tuple (patch size in pixel, spacing in pixel, width, height in pixel)
+#         half_size (int):
+#         spacing (int): minimal spacing in pixel
+#         in_resolution_um (float):
+#         out_resolution_um (float):
+        
+#     Returns:
+#         2d-array: scoremap
+#     """
+
+#     assert len(sparse_scores) == len(sample_locations)
+    
+#     # w, h = img_shape
+#     patch_size_px, spacing_px, w, h = gridspec
+#     half_size_px = patch_size_px / 2
+    
+#     if downscale is None:
+#         assert out_resolution_um is not None and in_resolution_um is not None
+#         downscale = out_resolution_um / in_resolution_um
+
+#     downscaled_grid_y = np.arange(0, h, downscale)
+#     downscaled_grid_x = np.arange(0, w, downscale)
+#     downscaled_ny = len(downscaled_grid_y)
+#     downscaled_nx = len(downscaled_grid_x)
+    
+#     f_grid = np.zeros(((h-half_size_px)/spacing_px+1, (w-half_size_px)/spacing_px+1))
+#     a = (sample_locations - half_size_px)/spacing_px
+#     f_grid[a[:,1], a[:,0]] = sparse_scores
+
+#     yinterps = (downscaled_grid_y - half_size_px)/float(spacing_px)
+#     xinterps = (downscaled_grid_x - half_size_px)/float(spacing_px)
+
+#     points_y, points_x = np.broadcast_arrays(yinterps.reshape(-1,1), xinterps)
+#     coord = np.c_[points_y.flat, points_x.flat]
+#     f_interp = map_coordinates(f_grid, coord.T, order=1)
+#     f_interp_2d = f_interp.reshape((downscaled_ny, downscaled_nx))
+#     scoremap = f_interp_2d.astype(out_dtype)
+
+#     return scoremap
 
 
 from skimage.transform import rescale

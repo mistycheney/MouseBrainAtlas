@@ -237,7 +237,6 @@ def compute_bspline_cp_contribution_to_test_pts(control_points, test_points):
 
 #########################################################################
 
-from skimage.filters import gaussian
 from scipy.ndimage.interpolation import zoom
 
 def generate_aligner_parameters_v2(alignment_spec,
@@ -365,7 +364,7 @@ def generate_aligner_parameters_v2(alignment_spec,
         if fixed_structures_are_sided:
             structures_f = set([s for s in structures_m])
         else:
-            structures_f = set([convert_to_unsided_label(s) for s in structures_m])
+            structures_f = set([convert_to_original_name(s) for s in structures_m])
 
     # if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27', 'LM17']:
     in_bbox_wrt = 'wholebrain'
@@ -451,8 +450,6 @@ def generate_aligner_parameters_v2(alignment_spec,
             else:
                 sys.stderr.write("positive_weight %s is not recognized. Using the default.\n" % positive_weight)
 
-    print surround_weight
-
     for label_m in label_mapping_m2f.iterkeys():
         name_m = label_to_structure_moving[label_m]
         if is_surround_label(name_m):
@@ -490,92 +487,48 @@ def generate_aligner_parameters_v2(alignment_spec,
 
     return alinger_parameters
 
-def compute_gradient_v2(volumes, smooth_first=False):
-    """
-    Args:
-        volumes (dict {int: (3d-array, 3-tuple)}): dict of volume and origin tuple
-        smooth_first (bool): If true, smooth each volume before computing gradients.
-        This is useful if volume is binary and gradients are only nonzero at structure borders.
+# def compute_gradient(volumes, smooth_first=False):
+#     """
+#     Args:
+#         volumes (dict {int: 3d-array}): dict of volumes
+#         smooth_first (bool): If true, smooth each volume before computing gradients.
+#         This is useful if volume is binary and gradients are only nonzero at structure borders.
 
-    Note:
-        # 3.3 second - re-computing is much faster than loading
-        # .astype(np.float32) is important;
-        # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
-        # 2s (float32) vs. 20s (float16)
-    """
+#     Note:
+#         # 3.3 second - re-computing is much faster than loading
+#         # .astype(np.float32) is important;
+#         # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
+#         # 2s (float32) vs. 20s (float16)
+#     """
+#     gradients = {}
 
-    gradients = {}
+#     for ind, v in volumes.iteritems():
+#         print "Computing gradient for", ind
 
-    for ind, (v, o) in volumes.iteritems():
-        print "Computing gradient for", ind
+#         t1 = time.time()
 
-        t1 = time.time()
+#         gradients[ind] = np.zeros((3,) + v.shape)
 
-        gradients[ind] = (np.zeros((3,) + v.shape), o)
+#         # t = time.time()
+#         cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
+#         # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
 
-        # t = time.time()
-        cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
-        # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
+#         if smooth_first:
+#             # t = time.time()
+#             cropped_v = gaussian(cropped_v, 3)
+#             # sys.stderr.write("Smooth: %.2f seconds.\n" % (time.time()-t))
 
-        if smooth_first:
-            # t = time.time()
-            cropped_v = gaussian(cropped_v, 3)
-            # sys.stderr.write("Smooth: %.2f seconds.\n" % (time.time()-t))
+#         # t = time.time()
+#         cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
+#         # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
 
-        # t = time.time()
-        cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
-        # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
+#         gradients[ind][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
+#         gradients[ind][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
+#         gradients[ind][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
 
-        gradients[ind][0][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
-        gradients[ind][0][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
-        gradients[ind][0][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
+#         # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
 
-        # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
-
-    return gradients
-
-def compute_gradient(volumes, smooth_first=False):
-    """
-    Args:
-        volumes (dict {int: 3d-array}): dict of volumes
-        smooth_first (bool): If true, smooth each volume before computing gradients.
-        This is useful if volume is binary and gradients are only nonzero at structure borders.
-
-    Note:
-        # 3.3 second - re-computing is much faster than loading
-        # .astype(np.float32) is important;
-        # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
-        # 2s (float32) vs. 20s (float16)
-    """
-    gradients = {}
-
-    for ind, v in volumes.iteritems():
-        print "Computing gradient for", ind
-
-        t1 = time.time()
-
-        gradients[ind] = np.zeros((3,) + v.shape)
-
-        # t = time.time()
-        cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
-        # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
-
-        if smooth_first:
-            # t = time.time()
-            cropped_v = gaussian(cropped_v, 3)
-            # sys.stderr.write("Smooth: %.2f seconds.\n" % (time.time()-t))
-
-        # t = time.time()
-        cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
-        # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
-
-        gradients[ind][0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
-        gradients[ind][1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
-        gradients[ind][2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
-
-        # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
-
-    return gradients
+#     return gradients
 
 # def transform_parameters_to_init_T_v2(global_transform_parameters, local_aligner_parameters, centroid_m, centroid_f):
 #     """

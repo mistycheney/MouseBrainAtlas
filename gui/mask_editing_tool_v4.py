@@ -373,7 +373,6 @@ class MaskEditingGUI(QMainWindow):
         if sec not in self.original_images:
             # img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif')
             img = DataManager.load_image_v2(stack=self.stack, section=sec, resol='thumbnail', prep_id=1, ext='tif', version='NtbNormalized')
-            print img
             self.original_images[sec] = brightfieldize_image(img)
         if sec not in self.selected_channels:
             self.selected_channels[sec] = DEFAULT_MASK_CHANNEL

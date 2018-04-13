@@ -488,12 +488,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
             else:
-                from joblib import Parallel, delayed
-                shapes = Parallel(n_jobs=16)(delayed(identify_shape)(os.path.join(RAW_DATA_DIR, self.stack, img_fn + '.' + self.tb_fmt)) for img_fn in self.valid_section_filenames)
+                filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
+                shapes = \
+                    [identify_shape(DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version='NtbNormalized', resol='thumbnail'))
+                    for fn in filenames_to_load]
                 largest_idx = np.argmax([h*w for h, w in shapes])
-                print 'largest section is ', self.sorted_filenames[largest_idx]
-                self.set_anchor(self.sorted_filenames[largest_idx])
-                print self.sorted_filenames[largest_idx]
+                print 'largest section is ', filenames_to_load[largest_idx]
+                self.set_anchor(filenames_to_load[largest_idx])
+                print filenames_to_load[largest_idx]
 
         if self.currently_showing == 'original':
 
@@ -615,12 +617,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     def set_first_section(self, fn):
         self.first_section = str(fn)
-        print self.first_section, self.last_section
         self.update_sorted_sections_gscene_label()
 
     def set_last_section(self, fn):
         self.last_section = str(fn)
-        print self.first_section, self.last_section
         self.update_sorted_sections_gscene_label()
 
     def set_anchor(self, anchor):
@@ -664,6 +664,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             self.label_sorted_sections_status.setText('LAST')
         elif hasattr(self, 'anchor_fn') and self.sorted_sections_gscene.active_section is not None and \
             self.sorted_sections_gscene.active_section == self.anchor_fn:
+            print self.sorted_sections_gscene.active_section
             self.label_sorted_sections_status.setText('ANCHOR')
         else:
             self.label_sorted_sections_status.setText('')

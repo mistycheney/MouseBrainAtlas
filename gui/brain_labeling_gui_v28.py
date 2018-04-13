@@ -1,9 +1,5 @@
 #! /usr/bin/env python
 
-"""
-This version supports visualization of contours of multiple levels.
-"""
-
 import sys
 import os
 from datetime import datetime
@@ -40,7 +36,6 @@ from DataFeeder import ImageDataFeeder_v2, VolumeResectionDataFeeder
 ######################################################################
 
 MARKER_COLOR_CHAR = 'w'
-
 
 #######################################################################
 
@@ -1178,8 +1173,7 @@ def load_structure_names(fn):
 if __name__ == "__main__":
 
     import argparse
-    import sys
-    import time
+    from sys import argv, exit
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1194,7 +1188,6 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--prep", type=int, help="Frame identifier of image displayed in main scene (0 for no alignment or crop, 2 for brainstem crop, 3 for thalamus crop). Default = %(default)d.", default=2)
     args = parser.parse_args()
 
-    from sys import argv, exit
     appl = QApplication(argv)
 
     stack = args.stack_name

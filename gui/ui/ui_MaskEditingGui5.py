@@ -25,7 +25,7 @@ except AttributeError:
 class Ui_MaskEditingGui(object):
     def setupUi(self, MaskEditingGui):
         MaskEditingGui.setObjectName(_fromUtf8("MaskEditingGui"))
-        MaskEditingGui.resize(1046, 825)
+        MaskEditingGui.resize(1417, 825)
         self.gridLayout = QtGui.QGridLayout(MaskEditingGui)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.horizontalLayout = QtGui.QHBoxLayout()
@@ -145,6 +145,19 @@ class Ui_MaskEditingGui(object):
         self.button_snake = QtGui.QPushButton(MaskEditingGui)
         self.button_snake.setObjectName(_fromUtf8("button_snake"))
         self.horizontalLayout_4.addWidget(self.button_snake)
+        self.label_8 = QtGui.QLabel(MaskEditingGui)
+        self.label_8.setObjectName(_fromUtf8("label_8"))
+        self.horizontalLayout_4.addWidget(self.label_8)
+        self.slider_minSize2 = QtGui.QSlider(MaskEditingGui)
+        self.slider_minSize2.setOrientation(QtCore.Qt.Horizontal)
+        self.slider_minSize2.setObjectName(_fromUtf8("slider_minSize2"))
+        self.horizontalLayout_4.addWidget(self.slider_minSize2)
+        self.label_minSize2 = QtGui.QLabel(MaskEditingGui)
+        self.label_minSize2.setObjectName(_fromUtf8("label_minSize2"))
+        self.horizontalLayout_4.addWidget(self.label_minSize2)
+        self.button_minSize2 = QtGui.QPushButton(MaskEditingGui)
+        self.button_minSize2.setObjectName(_fromUtf8("button_minSize2"))
+        self.horizontalLayout_4.addWidget(self.button_minSize2)
         self.verticalLayout_3.addLayout(self.horizontalLayout_4)
         self.gridLayout.addLayout(self.verticalLayout_3, 1, 0, 1, 1)
 
@@ -173,6 +186,9 @@ class Ui_MaskEditingGui(object):
         self.label_7.setText(_translate("MaskEditingGui", "Min Size", None))
         self.label_minSize.setText(_translate("MaskEditingGui", "TextLabel", None))
         self.button_snake.setText(_translate("MaskEditingGui", "Do Snake", None))
+        self.label_8.setText(_translate("MaskEditingGui", "Min Size", None))
+        self.label_minSize2.setText(_translate("MaskEditingGui", "TextLabel", None))
+        self.button_minSize2.setText(_translate("MaskEditingGui", "Eliminate", None))
 
 
 if __name__ == "__main__":

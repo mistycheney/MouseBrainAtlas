@@ -33,10 +33,68 @@ from IPython.display import display
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
+from skimage.filters import gaussian
 
-def load_data(fp, polydata_instead_of_face_vertex_list=True):
+def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
+    """
+    Args:
+        volume
+        smooth_first (bool): If true, smooth each volume before computing gradients.
+        This is useful if volume is binary and gradients are only nonzero at structure borders.
+
+    Note:
+        # 3.3 second - re-computing is much faster than loading
+        # .astype(np.float32) is important;
+        # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
+        # 2s (float32) vs. 20s (float16)
+    """
+    
+    if isinstance(volume, dict):
+        
+        # gradients = {}
+        # for ind, (v, o) in volumes.iteritems():
+        #     print "Computing gradient for", ind
+        #     # t1 = time.time()
+        #     gradients[ind] = (compute_gradient_v2((v, o), smooth_first=smooth_first), o)
+        #     # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
+
+        gradients = {ind: compute_gradient_v2((v, o), smooth_first=smooth_first)
+                     for ind, (v, o) in volumes.iteritems()}
+        
+        return gradients
+        
+    else:
+        v, o = convert_volume_forms(volume, out_form=("volume", "origin"))
+                    
+        g = np.zeros((3,) + v.shape)
+
+        # t = time.time()
+        cropped_v, (xmin,xmax,ymin,ymax,zmin,zmax) = crop_volume_to_minimal(v, margin=5, return_origin_instead_of_bbox=False)
+        # sys.stderr.write("Crop: %.2f seconds.\n" % (time.time()-t))
+
+        if smooth_first:
+            # t = time.time()
+            cropped_v = gaussian(cropped_v, 3)
+            # sys.stderr.write("Smooth: %.2f seconds.\n" % (time.time()-t))
+
+        # t = time.time()
+        cropped_v_gy_gx_gz = np.gradient(cropped_v.astype(np.float32), 3, 3, 3)
+        # sys.stderr.write("Compute gradient: %.2f seconds.\n" % (time.time()-t))
+
+        g[0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
+        g[1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
+        g[2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
+        
+        return g.astype(dtype), o
+    
+
+def load_data(fp, polydata_instead_of_face_vertex_list=True, download_s3=True):
 
     from vis3d_utilities import load_mesh_stl
+    from distributed_utilities import download_from_s3
+
+    if download_s3:
+        download_from_s3(fp)
 
     if fp.endswith('.bp'):
         data = bp.unpack_ndarray_file(fp)
@@ -48,7 +106,7 @@ def load_data(fp, polydata_instead_of_face_vertex_list=True):
         data = load_mesh_stl(fp, return_polydata_only=polydata_instead_of_face_vertex_list)
     elif fp.endswith('.txt'):
         data = np.loadtxt(fp)
-    elif fp.endswith('.png'):
+    elif fp.endswith('.png') or fp.endswith('.tif'):
         data = imread(fp)
     else:
         raise
@@ -75,6 +133,10 @@ def save_data(data, fp, upload_s3=True):
             np.savetxt(fp, data)
         else:
             raise
+    elif fp.endswith('.png'):
+        imsave(fp, data)
+    elif fp.endswith('.tif'):
+        imsave(fp, data)
     else:
         raise
 
@@ -253,24 +315,34 @@ def get_timestamp_now(fmt="%m%d%Y%H%M%S"):
 
 ######################################################################
 
-def rescale_by_resampling(v, scaling):
+def rescale_by_resampling(v, scaling=None, new_shape=None):
+    """
+    Args:
+        new_shape: width, height
+    """
+    
     # print v.shape, scaling
-    if scaling == 1:
-        return v
-
-    if v.ndim == 3:
-        if v.shape[-1] == 3: # RGB image
-            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
-        else: # 3-d volume
-            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
-    elif v.ndim == 2:
-        return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
-              np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+    
+    if new_shape is not None:
+        return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
+                  np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), indexing='ij')]
     else:
-        raise
+        if scaling == 1:
+            return v
+
+        if v.ndim == 3:
+            if v.shape[-1] == 3: # RGB image
+                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+                  np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+            else: # 3-d volume
+                return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+                  np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int),
+                  np.floor(np.arange(0, v.shape[2], 1./scaling)).astype(np.int), indexing='ij')]
+        elif v.ndim == 2:
+            return v[np.meshgrid(np.floor(np.arange(0, v.shape[0], 1./scaling)).astype(np.int),
+                  np.floor(np.arange(0, v.shape[1], 1./scaling)).astype(np.int), indexing='ij')]
+        else:
+            raise
 
 
 # def rescale_volume_by_resampling(vol_m, scaling, dtype=None, return_mapping_only=False):
@@ -922,22 +994,22 @@ def return_gridline_points(xs, ys, z, w, h):
     grid_points = np.array([(x,y,z) for x in range(w) for y in ys] + [(x,y,z) for x in xs for y in range(h)])
     return grid_points
 
-# def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
-#     """
-#     Convert the set (parameter, centroid m, centroid f) to a single matrix.
-#
-#     Args:
-#         params ((12,)-array):
-#         centroid_m ((3,)-array):
-#         centroid_f ((3,)-array):
-#
-#     Returns:
-#         ((4,4)-array)
-#     """
-#     G = params.reshape((3,4))
-#     R = G[:3,:3]
-#     t = - np.dot(R, centroid_m) + G[:3,3] + centroid_f
-#     return np.vstack([np.c_[R,t], [0,0,0,1]])
+def consolidate(params, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+    """
+    Convert the set (parameter, centroid m, centroid f) to a single matrix.
+
+    Args:
+        params ((12,)-array):
+        centroid_m ((3,)-array):
+        centroid_f ((3,)-array):
+
+    Returns:
+        ((4,4)-array)
+    """
+    G = params.reshape((3,4))
+    R = G[:3,:3]
+    t = - np.dot(R, centroid_m) + G[:3,3] + centroid_f
+    return np.vstack([np.c_[R,t], [0,0,0,1]])
 
 def jaccard_masks(m1, m2, wrt_min=False):
     """

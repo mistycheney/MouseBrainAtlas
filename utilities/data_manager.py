@@ -9,10 +9,10 @@ import re
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from utilities2015 import *
 from metadata import *
-try:
-    from vis3d_utilities import *
-except:
-    sys.stderr.write("No vtk")
+# try:
+#     from vis3d_utilities import *
+# except:
+#     sys.stderr.write("No vtk")
 from distributed_utilities import *
 
 use_image_cache = False
@@ -2731,8 +2731,8 @@ class DataManager(object):
 
     @staticmethod
     def get_volume_gradient_filepath_template_v3(stack_spec, structure, **kwargs):
-
-        if stack_spec['structure'] is None:
+        
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
             stack_spec_no_structure = stack_spec.copy()
@@ -2745,23 +2745,82 @@ class DataManager(object):
                              '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         return grad_fp
+    
+#     @staticmethod
+#     def get_volume_gradient_origin_filepath(stack_spec, structure, wrt='wholebrain'):
 
-    # @staticmethod
-    # def get_volume_gradient_filepath(stack, structure, suffix, volume_type='score', prep_id=None, detector_id=None, downscale=32):
-    #     grad_fp = DataManager.get_volume_gradient_filepath_template(**locals())  % {'suffix': suffix}
-    #     return grad_fp
-    #
-    # @staticmethod
-    # def get_volume_gradient_filepath_v2(stack, structure, suffix, out_resolution_um=10., volume_type='score', prep_id=None, detector_id=None, ):
-    #     grad_fp = DataManager.get_volume_gradient_filepath_template_v2(**locals())  % {'suffix': suffix}
-    #     return grad_fp
+#         if 'structure' not in stack_spec or stack_spec['structure'] is None:
+#             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+#         else:
+#             stack_spec_no_structure = stack_spec.copy()
+#             stack_spec_no_structure['structure'] = None
+#             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
+#         grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+#                               '%(basename)s',
+#                               'score_volume_gradients',
+#                              '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
+#         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+#         return grad_fp
 
     @staticmethod
-    def get_volume_gradient_filepath_v3(stack_spec, structure, suffix):
-        grad_fp = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=stack_spec, structure=structure)  % {'suffix': suffix}
+    def get_volume_gradient_filepath_v3(stack_spec, structure, suffix=None):
+        if suffix is None:
+            if 'structure' not in stack_spec or stack_spec['structure'] is None:
+                vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+            else:
+                stack_spec_no_structure = stack_spec.copy()
+                stack_spec_no_structure['structure'] = None
+                vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
+            grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                                  '%(basename)s',
+                                  'score_volume_gradients',
+                                 '%(basename)s_%(struct)s_gradients.bp') % \
+            {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+        else:
+            grad_fp = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=stack_spec, structure=structure)  % {'suffix': suffix}
+            
         return grad_fp
 
+    @staticmethod
+    def get_volume_gradient_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        else:
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
 
+        grad_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                              '%(basename)s',
+                              'score_volume_gradients',
+                             '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
+        {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+        return grad_fp
+
+    @staticmethod
+    def save_volume_gradients(gradients, stack_spec, structure):
+        """
+        Args:
+            gradients: tuple ((gx, gy, gz), origin)
+        """
+        
+        assert isinstance(gradients, tuple)       
+        save_data(gradients[0], DataManager.get_volume_gradient_filepath_v3(stack_spec=stack_spec, structure=structure))
+        save_data(gradients[1], DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure))    
+        
+    @staticmethod
+    def load_volume_gradients(stack_spec, structure):
+        """
+        Returns:
+            tuple ((gx, gy, gz), origin)
+        """
+        
+        gradients = load_data(DataManager.get_volume_gradient_filepath_v3(stack_spec=stack_spec, structure=structure))
+        origin = load_data(DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure)) 
+        return (gradients, origin)
+    
 #     @staticmethod
 #     def load_original_volume_all_known_structures(stack, downscale=32, detector_id=None, prep_id=None,
 #     structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
@@ -3005,7 +3064,7 @@ class DataManager(object):
                                                     surround_margin='200um',
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
-                                                     common_shape=True,
+                                                     common_shape=False,
                                                      return_origin_instead_of_bbox=True):
         """
         Load original (un-transformed) volumes for all structures and optionally pad them into a common shape.
@@ -3044,31 +3103,31 @@ class DataManager(object):
             index = 1
 
         for structure in structures:
-            try:
+            # try:
 
-                if loaded:
-                    index = structure_to_label[structure]
+            if loaded:
+                index = structure_to_label[structure]
 
-                v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+            v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
-                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
-                                                                             resolution=stack_spec['resolution'])
-                o = o + in_bbox_origin_wrt_wholebrain
+            in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
+                                                                         resolution=stack_spec['resolution'])
+            o = o + in_bbox_origin_wrt_wholebrain
 
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,o)
-                else:
-                    volumes[index] = (v,o)
+            if name_or_index_as_key == 'name':
+                volumes[structure] = (v,o)
+            else:
+                volumes[index] = (v,o)
 
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
+            if not loaded:
+                structure_to_label[structure] = index
+                label_to_structure[index] = structure
+                index += 1
 
-            except Exception as e:
-                # raise e
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+            # except Exception as e:
+            #     # raise e
+            #     sys.stderr.write('%s\n' % e)
+            #     sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
         if common_shape:
             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
@@ -4116,9 +4175,17 @@ class DataManager(object):
         elif what == 'std_map':
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'stdMap',
                          stack + '_' + fn + '_raw_stdMap.bp')
-        elif what == 'float_histogram':
+        elif what == 'float_histogram_png':
             fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'floatHistogram',
                          stack + '_' + fn + '_raw_floatHistogram.png')
+        elif what == 'normalized_float_map':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'normalizedFloatMap',
+                         stack + '_' + fn + '_raw_normalizedFloatMap.bp')
+        elif what == 'float_percentiles':
+            fp = os.path.join(DATA_DIR, stack, stack + '_intensity_normalization_results', 'floatPercentiles',
+                         stack + '_' + fn + '_raw_floatPercentiles.bp')
+        else:
+            raise Exception("what = %s is not recognized." % what)
 
         return fp
 

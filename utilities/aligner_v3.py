@@ -275,50 +275,20 @@ class Aligner(object):
         nzvoxels_centered_m_after_init_T =  {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m_after_init_T.iteritems()}
         # print nzvoxels_centered_m_after_init_T[1].mean(axis=0)
 
-    # def compute_gradient(self, indices_f=None):
-    # # For some unknown reasons, directly computing gradients in Aligner class is quick (~2s) for only the first 4-5 volumes;
-    # # extra volumes take exponentially long time. However, loading from disk is quick for all 28 volumes.
-
-    #     if indices_f is None:
-    #         indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
-    #         print indices_f
-    #
-    #     global grad_f
-    #     grad_f = {ind_f: np.empty((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
-    #     # conversion between float16 and float32 takes time.
-    #
-    #     t1 = time.time()
-    #     for ind_f in indices_f:
-    #         t = time.time()
-    #         # np.gradient needs float32 - will convert if input is not.
-    #         gy_gx_gz = np.gradient(volume_f[ind_f].astype(np.float32), 3, 3, 3)
-    #         if hasattr(self, 'zl'):
-    #             grad_f[ind_f][0] = gy_gx_gz[1][..., self.zl:self.zh+1]
-    #             grad_f[ind_f][1] = gy_gx_gz[0][..., self.zl:self.zh+1]
-    #             grad_f[ind_f][2] = gy_gx_gz[2][..., self.zl:self.zh+1]
-    #         else:
-    #             grad_f[ind_f][0] = gy_gx_gz[1]
-    #             grad_f[ind_f][1] = gy_gx_gz[0]
-    #             grad_f[ind_f][2] = gy_gx_gz[2]
-    #         del gy_gx_gz
-    #         sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) #4s
-    #
-    #     sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
-
-
+    
     def compute_gradient(self, smooth_first=True):
         tuples_f = {ind_f: (vol_f, volume_f_origin[ind_f]) for ind_f, vol_f in volume_f.iteritems()}
         gradients_f = compute_gradient_v2(tuples_f, smooth_first=smooth_first)
         self.load_gradient(gradients=gradients_f)
-
-    def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None, rescale=None):
+        
+    def load_gradient(self, indices_f=None, gradients=None, rescale=None):
         """Load gradients of fixed volumes.
 
-        Need to pass gradient_filepath_map_f in from outside because Aligner class should be agnostic about structure names.
+        Need to pass `gradient_filepath_map_f` in from outside because Aligner class should be agnostic about structure names.
 
         Args:
             gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
-            gradients (dict of ((3,dimx,dimy,dimz) arrays, origin):
+            gradients (dict of ((3,ydim,xdim,zdim) arrays, origin):
         """
 
         if indices_f is None:
@@ -332,42 +302,76 @@ class Aligner(object):
             grad_f_origin = {i: o.astype(np.int) for i, (g, o) in gradients.iteritems()}
         else:
             raise
+            
+#     def load_gradient(self, gradient_filepath_map_f=None, indices_f=None, gradients=None, rescale=None):
+#         """Load gradients of fixed volumes.
+
+#         Need to pass `gradient_filepath_map_f` in from outside because Aligner class should be agnostic about structure names.
+
+#         Args:
+#             gradient_filepath_map_f (dict of str): path string that contains formatting parts and (suffix).
+#             gradients (dict of ((3,ydim,xdim,zdim) arrays, origin):
+#         """
+
+#         if indices_f is None:
+#             indices_f = set([self.labelIndexMap_m2f[ind_m] for ind_m in self.all_indices_m])
+#             sys.stderr.write('indices_f: %s\n' % indices_f)
+
+#         global grad_f, grad_f_origin
+
+#         if gradients is not None:
+#             grad_f = {i: g for i, (g, o) in gradients.iteritems()}
+#             grad_f_origin = {i: o.astype(np.int) for i, (g, o) in gradients.iteritems()}
 #         else:
-#             assert gradient_filepath_map_f is not None, 'gradient_filepath_map_f not specified.'
-#             grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
-
-#             t1 = time.time()
-
+#             grad_f = {ind_f: np.zeros((3,) + volume_f[ind_f].shape, dtype=np.float16) for ind_f in indices_f}
 #             for ind_f in indices_f:
-
-#                 t = time.time()
-
-#                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
-#                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
-#                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
-
-#                 if hasattr(self, 'zl'):
-#                     if rescale is None:
-#                         grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
-#                         grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
-#                         grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
-#                     else:
-#                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1], rescale)
-#                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1], rescale)
-#                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1], rescale)
+#                 if rescale is None:
+#                     grad_f[ind_f][0] = load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+#                     grad_f[ind_f][1] = load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+#                     grad_f[ind_f][2] = load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
 #                 else:
-#                     if rescale is None:
-#                         grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
-#                         grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
-#                         grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
-#                     else:
-#                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}), rescale)
-#                         grad_f[ind_f][1] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}), rescale)
-#                         grad_f[ind_f][2] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}), rescale)
+#                     grad_f[ind_f][0] = rescale_volume_by_resampling(load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}), rescale)
+#                     grad_f[ind_f][1] = rescale_volume_by_resampling(load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}), rescale)
+#                     grad_f[ind_f][2] = rescale_volume_by_resampling(load_data(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}), rescale)
+#                 sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t))
+#             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s    
+                    
+# #         else:
+# #             assert gradient_filepath_map_f is not None, 'gradient_filepath_map_f not specified.'
+# #             grad_f = {ind_f: np.zeros((3, self.ydim_f, self.xdim_f, self.zdim_f), dtype=np.float16) for ind_f in indices_f}
 
-#                 sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
+# #             t1 = time.time()
 
-#             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
+# #             for ind_f in indices_f:
+
+# #                 t = time.time()
+
+# #                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}, is_dir=False)
+# #                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}, is_dir=False)
+# #                 download_from_s3(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}, is_dir=False)
+
+# #                 if hasattr(self, 'zl'):
+# #                     if rescale is None:
+# #                         grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1]
+# #                         grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1]
+# #                         grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1]
+# #                     else:
+# #                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})[..., self.zl:self.zh+1], rescale)
+# #                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})[..., self.zl:self.zh+1], rescale)
+# #                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})[..., self.zl:self.zh+1], rescale)
+# #                 else:
+# #                     if rescale is None:
+# #                         grad_f[ind_f][0] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'})
+# #                         grad_f[ind_f][1] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'})
+# #                         grad_f[ind_f][2] = bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'})
+# #                     else:
+# #                         grad_f[ind_f][0] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gx'}), rescale)
+# #                         grad_f[ind_f][1] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gy'}), rescale)
+# #                         grad_f[ind_f][2] = rescale_volume_by_resampling(bp.unpack_ndarray_file(gradient_filepath_map_f[ind_f] % {'suffix': 'gz'}), rescale)
+
+# #                 sys.stderr.write('load gradient %s: %f seconds\n' % (ind_f, time.time() - t)) # ~6s
+
+# #             sys.stderr.write('overall: %f seconds\n' % (time.time() - t1)) # ~100s
 
 
     def get_valid_voxels_after_transform(self, T, tf_type, ind_m, return_valid, n_sample=None):

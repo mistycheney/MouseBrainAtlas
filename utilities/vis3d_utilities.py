@@ -672,30 +672,33 @@ def save_mesh(polydata, fn, color=(255,255,255)):
         raise Exception('Mesh format must be ply or stl')
 
 # http://stackoverflow.com/questions/32636503/how-to-get-the-key-code-in-a-vtk-keypressevent-using-python
-class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+try: # for environment that does not have vtk.
+    class MyInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 
-    def __init__(self, iren=None, renWin=None, snapshot_fn=None, camera=None):
-        self.iren = iren
-        self.renWin = renWin
-        self.snapshot_fn = snapshot_fn
-        self.camera = camera
+        def __init__(self, iren=None, renWin=None, snapshot_fn=None, camera=None):
+            self.iren = iren
+            self.renWin = renWin
+            self.snapshot_fn = snapshot_fn
+            self.camera = camera
 
-        self.AddObserver("KeyPressEvent",self.keyPressEvent)
+            self.AddObserver("KeyPressEvent",self.keyPressEvent)
 
-    def keyPressEvent(self,obj,event):
-        key = self.iren.GetKeySym()
-        if key == 'g':
-            print 'viewup: %f, %f, %f\n' % self.camera.GetViewUp()
-            print 'focal point: %f, %f, %f\n' % self.camera.GetFocalPoint()
-            print 'position: %f, %f, %f\n' % self.camera.GetPosition()
-        elif key == 'e':
-            print 'Quit.'
-            self.renWin.Finalize()
-            self.iren.TerminateApp()
-        elif key == 's':
-            take_screenshot(self.renWin, self.snapshot_fn, 1)
-        # return
-
+        def keyPressEvent(self,obj,event):
+            key = self.iren.GetKeySym()
+            if key == 'g':
+                print 'viewup: %f, %f, %f\n' % self.camera.GetViewUp()
+                print 'focal point: %f, %f, %f\n' % self.camera.GetFocalPoint()
+                print 'position: %f, %f, %f\n' % self.camera.GetPosition()
+            elif key == 'e':
+                print 'Quit.'
+                self.renWin.Finalize()
+                self.iren.TerminateApp()
+            elif key == 's':
+                take_screenshot(self.renWin, self.snapshot_fn, 1)
+            # return
+except:
+    pass
+            
 class vtkRecordVideoTimerCallback():
     def __init__(self, win, iren, camera, movie_fp, framerate=10):
         self.timer_count = 0

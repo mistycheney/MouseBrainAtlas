@@ -10,7 +10,10 @@ import json
 from utilities2015 import execute_command, shell_escape
 from metadata import *
 
-default_root = dict(localhost='/home/yuncong',workstation='/media/yuncong/BstemAtlasData', oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
+default_root = dict(localhost='/home/yuncong',
+                    # workstation='/media/yuncong/BstemAtlasData', 
+                    workstation='/data', 
+                    oasis='/home/yuncong/csd395', s3=S3_DATA_BUCKET, ec2='/shared', ec2scratch='/scratch', s3raw=S3_RAWDATA_BUCKET)
 
 def upload_to_s3(fp, local_root=None, is_dir=False):
     """
@@ -23,8 +26,10 @@ def upload_to_s3(fp, local_root=None, is_dir=False):
     if local_root is None:
         if '/media/yuncong/YuncongPublic' in fp:
             local_root = '/media/yuncong/YuncongPublic'
-        elif '/media/yuncong/BstemAtlasData' in fp:
-            local_root = '/media/yuncong/BstemAtlasData'
+        # elif '/media/yuncong/BstemAtlasData' in fp:
+        elif fp.startswith('/data'):
+            # local_root = '/media/yuncong/BstemAtlasData'
+            local_root = '/data'
         else:
             local_root = ROOT_DIR
 
@@ -45,8 +50,10 @@ def download_from_s3(fp, local_root=None, is_dir=False, redownload=False, includ
     if local_root is None:
         if '/media/yuncong/YuncongPublic' in fp:
             local_root = '/media/yuncong/YuncongPublic'
-        elif '/media/yuncong/BstemAtlasData' in fp:
-            local_root = '/media/yuncong/BstemAtlasData'
+        # elif '/media/yuncong/BstemAtlasData' in fp:
+        elif fp.startswith('/data'):
+            # local_root = '/media/yuncong/BstemAtlasData'
+            local_root = '/data'
         else:
             local_root = ROOT_DIR
 

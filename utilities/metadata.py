@@ -105,12 +105,14 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     if 'DATA_ROOTDIR' in os.environ:
         DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
     else:
-        DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+        # DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+        DATA_ROOTDIR = '/data'
 
     if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
         THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
     else:
-        THUMBNAIL_DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+        # THUMBNAIL_DATA_ROOTDIR = '/media/yuncong/BstemAtlasData'
+        THUMBNAIL_DATA_ROOTDIR = '/data'
 
     RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
 

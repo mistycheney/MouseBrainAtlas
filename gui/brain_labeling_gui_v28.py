@@ -23,7 +23,7 @@ from data_manager import DataManager
 from metadata import *
 from annotation_utilities import *
 from gui_utilities import *
-from registration_utilities import transform_volume_v3
+from registration_utilities import transform_volume_v4
 
 from ui.ui_BrainLabelingGui_v15 import Ui_BrainLabelingGui
 
@@ -83,7 +83,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.stack = stack
         # self.sagittal_downsample = downsample
         self.resolution = resolution
-        self.prep_id = prep_id
+
+        if prep_id == 0:
+            self.prep_id = None
+        else:
+            self.prep_id = prep_id
 
         self.setupUi(self)
 
@@ -115,14 +119,14 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.volume_cache = {}
         # for resol in ['10.0um']:
         for resol in ['down32']:
-            # try:
+            try:
             # self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=1)
             # vol_down32 = DataManager.load_intensity_volume_v2(self.stack, downscale=32, prep_id=4)
-            intensity_volume_down32, intensity_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
-            self.volume_cache[resol] = rescale_by_resampling(intensity_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
-            print 'Intensity volume', self.volume_cache[resol].shape
-            # except:
-            #     sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
+                intensity_volume_down32, intensity_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
+                self.volume_cache[resol] = rescale_by_resampling(intensity_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
+                print 'Intensity volume', self.volume_cache[resol].shape
+            except:
+                sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
 
         self.splitter.setSizes([500, 500, 500])
         self.splitter_2.setSizes([500, 500])
@@ -188,26 +192,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if hasattr(self, 'volume_cache') and self.volume_cache is not None:
 
-            coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
-            coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            coronal_volume_resection_feeder.set_orientation('coronal')
-            coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
-            self.gscenes['tb_coronal'].set_active_i(50)
+            try:
+                coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
+                coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                coronal_volume_resection_feeder.set_orientation('coronal')
+                coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
+                self.gscenes['tb_coronal'].set_active_i(50)
 
-            horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
-            horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            horizontal_volume_resection_feeder.set_orientation('horizontal')
-            horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
-            self.gscenes['tb_horizontal'].set_active_i(150)
+                horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
+                horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                horizontal_volume_resection_feeder.set_orientation('horizontal')
+                horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+                self.gscenes['tb_horizontal'].set_active_i(150)
 
-            sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
-            sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            sagittal_volume_resection_feeder.set_orientation('sagittal')
-            sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
-            self.gscenes['tb_sagittal'].set_active_i(150)
+                sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
+                sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                sagittal_volume_resection_feeder.set_orientation('sagittal')
+                sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
+                self.gscenes['tb_sagittal'].set_active_i(150)
+
+            except:
+                pass
 
         # try:
         self.gscenes['main_sagittal'].set_active_section(first_sec)
@@ -217,8 +225,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, prep_id=self.prep_id)[:4]
         self.gscenes['main_sagittal'].set_image_origin_wrt_wholebrain_um(np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
 
-        for gid in ['tb_coronal', 'tb_horizontal', 'tb_sagittal']:
-            self.gscenes[gid].set_image_origin_wrt_wholebrain_um(intensity_volume_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
+        try:
+            for gid in ['tb_coronal', 'tb_horizontal', 'tb_sagittal']:
+                self.gscenes[gid].set_image_origin_wrt_wholebrain_um(intensity_volume_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
+        except:
+            pass
 
         # Syncing main scene with crossline localization requires constantly loading
         # raw images which can be slow.
@@ -605,14 +616,30 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             print contour['name'], contour['side'], 'section =', contour['section'], 'number of vertices =', len(contour['vertices'])
         print '\n'
 
+        assert self.prep_id == 2 or self.prep_id == 3
+
+        # if self.prep_id == 1:
+        #     in_wrt = 'alignedPadded'
+        # elif self.prep_id == 0 or self.prep_id is None:
+        #     in_wrt = 'original'
+        # elif self.prep_id == 2:
+        #     in_wrt = 'alignedBrainstemCrop'
+        # else:
+        #     raise
+
+        # sagittal_contours_df_1um = convert_annotations(contour_df=DataFrame(sagittal_contour_entries_curr_session).T,
+        # stack=stack, in_wrt=in_wrt, in_resol=self.resolution, out_wrt=out_wrt, out_resol='1um')
+
         sagittal_contours_df_original = convert_annotation_v3_aligned_cropped_to_original_v2(DataFrame(sagittal_contour_entries_curr_session).T,
         stack=self.stack, resolution=self.gscenes['main_sagittal'].data_feeder.resolution, prep_id=self.prep_id)
+
         if self.prep_id == 3: # thalamus
             sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp, annotation_rootdir=ANNOTATION_THALAMUS_ROOTDIR)
         else:
             sagittal_contours_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='contours', timestamp=timestamp)
+
         save_hdf_v2(sagittal_contours_df_original, sagittal_contours_df_fp)
-        upload_to_s3(sagittal_contours_df_fp)
+        # upload_to_s3(sagittal_contours_df_fp)
         self.statusBar().showMessage('Sagittal boundaries saved to %s.' % sagittal_contours_df_fp)
         print 'Sagittal boundaries saved to %s.' % sagittal_contours_df_fp
 
@@ -738,9 +765,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 edit_transform_from_wholebrain_to_wholebrain_volResol = self.get_edit_transform(name_s)
 
                 volume_volResol, origin_wrt_fixedWholebrain_volResol = \
-                transform_volume_v3(vol=volume_volResol,
-                origin=origin_wrt_fixedWholebrain_volResol,
-                tf_params=edit_transform_from_wholebrain_to_wholebrain_volResol,
+                transform_volume_v4(volume=(volume_volResol, origin_wrt_fixedWholebrain_volResol),
+                transform=edit_transform_from_wholebrain_to_wholebrain_volResol,
                 return_origin_instead_of_bbox=True)
 
                 self.structure_volumes['aligned_atlas'][name_s]['volume'] = volume_volResol

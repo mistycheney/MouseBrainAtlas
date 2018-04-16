@@ -16,7 +16,7 @@ from qt_utilities import *
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 # ACTIVE_SET_SIZE = 999
-ACTIVE_SET_SIZE = 10
+ACTIVE_SET_SIZE = 1
 
 class SignalEmitter(QObject):
     update_active_set = pyqtSignal(object, object)
@@ -27,14 +27,15 @@ class SignalEmitter(QObject):
 def load_qimage(stack, sec, prep_id, resolution, img_version):
 
     fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, resol=resolution, version=img_version)
+    print fp
     if not os.path.exists(fp):
-        sys.stderr.write('Image %s with resolution %s, prep %d does not exist.\n' % (fp, resolution, prep_id))
+        sys.stderr.write('Image %s with resolution %s, prep %s does not exist.\n' % (fp, resolution, prep_id))
 
         if resolution != 'lossless':
             sys.stderr.write('Loading lossless instead.\n')
             fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, resol='lossless', version=img_version)
             if not os.path.exists(fp):
-                sys.stderr.write('Image %s with resolution %s, prep %d does not exist.\n' % (fp, resolution, prep_id))
+                sys.stderr.write('Image %s with resolution %s, prep %s does not exist.\n' % (fp, resolution, prep_id))
                 raise
 
             qimage = QImage(fp)

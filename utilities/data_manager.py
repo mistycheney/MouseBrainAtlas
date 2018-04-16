@@ -292,7 +292,7 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
     - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
 
     2-D frames include:
-    - {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
+    - {0: 'original', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'originalCropped'}
 
     Resolution specifies the physical units of the coodrinate axes.
     `resolution` for 3-D coordinates can be any of these strings:
@@ -304,7 +304,7 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
     - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
     """
 
-    if in_wrt == 'raw' and out_wrt == 'alignedPadded':
+    if in_wrt == 'original' and out_wrt == 'alignedPadded':
 
         assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
         assert in_image_resolution is not None, "Must specify input image resolution."
@@ -332,7 +332,7 @@ def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resoluti
             np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
                        sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
 
-    elif in_wrt == 'alignedPadded' and out_wrt == 'raw':
+    elif in_wrt == 'alignedPadded' and out_wrt == 'original':
 
         assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
         assert in_image_resolution is not None, "Must specify input image resolution."
@@ -2731,7 +2731,7 @@ class DataManager(object):
 
     @staticmethod
     def get_volume_gradient_filepath_template_v3(stack_spec, structure, **kwargs):
-        
+
         if 'structure' not in stack_spec or stack_spec['structure'] is None:
             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
@@ -2745,7 +2745,7 @@ class DataManager(object):
                              '%(basename)s_%(struct)s_%%(suffix)s.bp') % \
         {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         return grad_fp
-    
+
 #     @staticmethod
 #     def get_volume_gradient_origin_filepath(stack_spec, structure, wrt='wholebrain'):
 
@@ -2780,7 +2780,7 @@ class DataManager(object):
             {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
         else:
             grad_fp = DataManager.get_volume_gradient_filepath_template_v3(stack_spec=stack_spec, structure=structure)  % {'suffix': suffix}
-            
+
         return grad_fp
 
     @staticmethod
@@ -2805,22 +2805,22 @@ class DataManager(object):
         Args:
             gradients: tuple ((gx, gy, gz), origin)
         """
-        
-        assert isinstance(gradients, tuple)       
+
+        assert isinstance(gradients, tuple)
         save_data(gradients[0], DataManager.get_volume_gradient_filepath_v3(stack_spec=stack_spec, structure=structure))
-        save_data(gradients[1], DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure))    
-        
+        save_data(gradients[1], DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure))
+
     @staticmethod
     def load_volume_gradients(stack_spec, structure):
         """
         Returns:
             tuple ((gx, gy, gz), origin)
         """
-        
+
         gradients = load_data(DataManager.get_volume_gradient_filepath_v3(stack_spec=stack_spec, structure=structure))
-        origin = load_data(DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure)) 
+        origin = load_data(DataManager.get_volume_gradient_origin_filepath_v3(stack_spec=stack_spec, structure=structure))
         return (gradients, origin)
-    
+
 #     @staticmethod
 #     def load_original_volume_all_known_structures(stack, downscale=32, detector_id=None, prep_id=None,
 #     structures=None, sided=True, volume_type='score', return_structure_index_mapping=True, include_surround=False):
@@ -3907,43 +3907,43 @@ class DataManager(object):
         return image_dir
 
 
-    @staticmethod
-    def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None,
-                      data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
-        """
-        Args:
-            data_dir: This by default is DATA_DIR, but one can change this ad-hoc when calling the function
-            resol: can be either lossless or thumbnail
-            version: TODO - Write a list of options
-            modality: can be either nissl or fluorescent. If not specified, it is inferred.
-
-        Returns:
-            Absolute path of the image directory.
-        """
-
-        if anchor_fn is None:
-            anchor_fn = DataManager.load_anchor_filename(stack)
-
-        if resol == 'lossless' and version == 'original_jp2':
-            image_dir = os.path.join(raw_data_dir, stack)
-        elif resol == 'lossless' and version == 'jpeg':
-            assert modality == 'nissl'
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
-        elif resol == 'lossless' and version == 'uncropped_tif':
-            image_dir = os.path.join(data_dir, stack, stack + '_' + resol + '_tif')
-        elif resol == 'lossless' and version == 'cropped_16bit':
-            image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
-        elif resol == 'thumbnail' and (version == 'cropped' or version == 'cropped_tif'):
-            image_dir = os.path.join(thumbnail_data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
-        elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
-            image_dir = os.path.join(thumbnail_data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
-        elif resol == 'thumbnail' and version == 'original_png':
-            image_dir = os.path.join(raw_data_dir, stack)
-        else:
-            # sys.stderr.write('No special rule for (%s, %s). So using the default image directory composition rule.\n' % (version, resol))
-            image_dir = os.path.join(data_dir, stack, stack + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version)
-
-        return image_dir
+    # @staticmethod
+    # def get_image_dir(stack, version, resol='lossless', anchor_fn=None, modality=None,
+    #                   data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
+    #     """
+    #     Args:
+    #         data_dir: This by default is DATA_DIR, but one can change this ad-hoc when calling the function
+    #         resol: can be either lossless or thumbnail
+    #         version: TODO - Write a list of options
+    #         modality: can be either nissl or fluorescent. If not specified, it is inferred.
+    #
+    #     Returns:
+    #         Absolute path of the image directory.
+    #     """
+    #
+    #     if anchor_fn is None:
+    #         anchor_fn = DataManager.load_anchor_filename(stack)
+    #
+    #     if resol == 'lossless' and version == 'original_jp2':
+    #         image_dir = os.path.join(raw_data_dir, stack)
+    #     elif resol == 'lossless' and version == 'jpeg':
+    #         assert modality == 'nissl'
+    #         image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped_compressed' % {'anchor_fn':anchor_fn})
+    #     elif resol == 'lossless' and version == 'uncropped_tif':
+    #         image_dir = os.path.join(data_dir, stack, stack + '_' + resol + '_tif')
+    #     elif resol == 'lossless' and version == 'cropped_16bit':
+    #         image_dir = os.path.join(data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+    #     elif resol == 'thumbnail' and (version == 'cropped' or version == 'cropped_tif'):
+    #         image_dir = os.path.join(thumbnail_data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s_cropped' % {'anchor_fn':anchor_fn})
+    #     elif (resol == 'thumbnail' and version == 'aligned') or (resol == 'thumbnail' and version == 'aligned_tif'):
+    #         image_dir = os.path.join(thumbnail_data_dir, stack, stack+'_'+resol+'_alignedTo_%(anchor_fn)s' % {'anchor_fn':anchor_fn})
+    #     elif resol == 'thumbnail' and version == 'original_png':
+    #         image_dir = os.path.join(raw_data_dir, stack)
+    #     else:
+    #         # sys.stderr.write('No special rule for (%s, %s). So using the default image directory composition rule.\n' % (version, resol))
+    #         image_dir = os.path.join(data_dir, stack, stack + '_' + resol + '_alignedTo_' + anchor_fn + '_' + version)
+    #
+    #     return image_dir
 
     @staticmethod
     def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
@@ -4036,6 +4036,10 @@ class DataManager(object):
             Absolute path of the image file.
         """
 
+        if resol == 'lossless':
+            if stack == 'CHATM2' or stack == 'CHATM3':
+                resol = 'raw'
+
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
             if is_invalid(fn=fn):
@@ -4047,7 +4051,7 @@ class DataManager(object):
         if ext is None:
             if version == 'mask':
                 ext = 'png'
-            elif version == 'contrastStretched' or version == 'grayJpeg' or version == 'jpeg' or version == 'grayDefaultJpeg' or version == 'NtbJpeg' or version == 'ChatJpeg':
+            elif version == 'contrastStretched' or version.endswith('Jpeg') or version == 'jpeg':
                 ext = 'jpg'
             else:
                 ext = 'tif'

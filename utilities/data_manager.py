@@ -1766,6 +1766,8 @@ class DataManager(object):
 
     @staticmethod
     def load_mesh_v2(brain_spec, structure=None, resolution=None, return_polydata_only=True, level=None):
+        from vis3d_utilities import load_mesh_stl
+
         mesh_fp = DataManager.get_mesh_filepath_v2(brain_spec=brain_spec, structure=structure, resolution=resolution, level=level)
         mesh = load_mesh_stl(mesh_fp, return_polydata_only=return_polydata_only)
         if mesh is None:

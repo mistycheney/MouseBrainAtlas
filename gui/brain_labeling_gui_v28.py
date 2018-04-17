@@ -68,7 +68,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 # class BrainLabelingGUI(QMainWindow, Ui_RectificationGUI):
 
     # def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, downsample=None, img_version=None, prep_id=None):
-    def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, resolution=None, img_version=None, prep_id=None):
+    # def __init__(self, parent=None, stack=None, first_sec=None, last_sec=None, resolution=None, img_version=None, prep_id=None):
+    def __init__(self, parent=None, stack=None, resolution=None, img_version=None, prep_id=None):
         """
         Initialization of BrainLabelingGUI.
 
@@ -106,6 +107,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_inferSide.clicked.connect(self.infer_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
+        self.button_navigateToStructure.clicked.connect(self.navigate_to_structure)
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         self.structure_volumes = {'handdrawn': defaultdict(dict), 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
@@ -218,7 +220,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 pass
 
         # try:
-        self.gscenes['main_sagittal'].set_active_section(first_sec)
+        self.gscenes['main_sagittal'].set_active_section(first_sec0)
         # except Exception as e:
         #     pass
 
@@ -234,6 +236,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # Syncing main scene with crossline localization requires constantly loading
         # raw images which can be slow.
         self.DISABLE_UPDATE_MAIN_SCENE = False
+
+
+    def navigate_to_structure(self):
+
+        # Use get_landmark_range_limits_v2()
+
+        loaded_structures = defaultdict(set)
+        for index, elements in self.gscenes['main_sagittal'].drawings.iteritems():
+            section = self.gscenes['main_sagittal'].data_feeder.sections[index]
+            print section, [elem.properties['label'] for elem in elements]
+            for elem in elements:
+                name_s = compose_label(elem.properties['label'], elem.properties['side'])
+                loaded_structures[name_s].add(section)
+
+        print loaded_structures
+
+        dial = ListSelection("Select structures to load", "List of structures", sorted(loaded_structures.keys()), [], self)
+        if dial.exec_() == QDialog.Accepted:
+            selected_structures = map(str, dial.itemsSelected())
+        else:
+            return
+
+        assert len(selected_structures) == 1, 'Only one structure can be selected'
+        selected_structure = selected_structures[0]
+
+        section_to_load = sorted(list(loaded_structures[selected_structure]))[0]
+        print 'section_to_load =', section_to_load
+        self.gscenes['main_sagittal'].set_active_section(section_to_load)
 
     @pyqtSlot(object)
     def handle_global_transform_update(self, tf):
@@ -296,7 +326,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             for gscene in self.gscenes.values():
                 for section_index, polygons in gscene.drawings.iteritems():
                     for polygon in polygons:
-                        if polygon.label == abbr:
+                        if polygon.properties['label'] == abbr:
                             polygon.setVisible(False)
 
         elif check_state == Qt.PartiallyChecked:
@@ -305,7 +335,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             for gscene in self.gscenes.values():
                 for section_index, polygons in gscene.drawings.iteritems():
                     for polygon in polygons:
-                        if polygon.label == abbr:
+                        if polygon.properties['label'] == abbr:
                             polygon.setVisible(True)
         else:
             raise Exception('Unknown check state.')
@@ -482,9 +512,21 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot()
     def infer_side(self):
         self.gscenes['main_sagittal'].infer_side()
-        self.gscenes['tb_sagittal'].infer_side()
-        self.gscenes['tb_coronal'].infer_side()
-        self.gscenes['tb_horizontal'].infer_side()
+
+        try:
+            self.gscenes['tb_sagittal'].infer_side()
+        except:
+            pass
+
+        try:
+            self.gscenes['tb_coronal'].infer_side()
+        except:
+            pass
+
+        try:
+            self.gscenes['tb_horizontal'].infer_side()
+        except:
+            pass
     #
     # def merge_contour_entries(self, new_entries_df):
     #     """
@@ -924,19 +966,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                                         out_resolution=self.gscenes['main_sagittal'].data_feeder.resolution,
                                         prep_id=self.prep_id)
         sagittal_contours_df_cropped_sagittal = sagittal_contours_df_cropped[(sagittal_contours_df_cropped['orientation'] == 'sagittal')]
-        self.gscenes['main_sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False)
+        self.gscenes['main_sagittal'].load_drawings(sagittal_contours_df_cropped_sagittal, append=False, vertex_color='b')
 
     @pyqtSlot()
     def active_image_updated(self):
-        self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
-        dict(stack=self.stack,
-        sec=self.gscenes['main_sagittal'].active_section
-        if self.gscenes['main_sagittal'].active_section is not None else -1,
-        fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['main_sagittal'].active_section] \
-        if self.gscenes['main_sagittal'].active_section is not None else '',
-        z=self.gscenes['tb_sagittal'].active_i,
-        x=self.gscenes['tb_coronal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
-        y=self.gscenes['tb_horizontal'].active_i if self.gscenes['tb_horizontal'].active_i is not None else 0))
+
+        if self.gscenes['main_sagittal'].active_section is not None:
+
+            self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
+            dict(stack=self.stack,
+            sec=self.gscenes['main_sagittal'].active_section
+            if self.gscenes['main_sagittal'].active_section is not None else -1,
+            fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['main_sagittal'].active_section] \
+            if self.gscenes['main_sagittal'].active_section is not None else '',
+            z=self.gscenes['tb_sagittal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
+            x=self.gscenes['tb_coronal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
+            y=self.gscenes['tb_horizontal'].active_i if self.gscenes['tb_horizontal'].active_i is not None else 0))
 
 
     @pyqtSlot(object)
@@ -1010,7 +1055,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     affected_gscenes = self.gscenes.keys()
 
         for gscene_id in self.gscenes.keys():
-            self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+            try:
+                self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+            except:
+                pass
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)
@@ -1206,8 +1254,8 @@ if __name__ == "__main__":
         description='Launch brain labeling GUI.')
 
     parser.add_argument("stack_name", type=str, help="Stack name")
-    parser.add_argument("-f", "--first_sec", type=int, help="First section")
-    parser.add_argument("-l", "--last_sec", type=int, help="Last section")
+    # parser.add_argument("-f", "--first_sec", type=int, help="First section")
+    # parser.add_argument("-l", "--last_sec", type=int, help="Last section")
     # parser.add_argument("-v", "--img_version", type=str, help="Image version. Default = %(default)s.", default='jpeg')
     parser.add_argument("-v", "--img_version", type=str, help="Image version (jpeg or grayJpeg). Default = %(default)s.", default='grayJpeg')
     parser.add_argument("-r", "--resolution", type=str, help="Resolution of image displayed in main scene. Default = %(default)s.", default='raw')
@@ -1221,12 +1269,14 @@ if __name__ == "__main__":
     img_version = args.img_version
     prep_id = args.prep
 
-    default_first_sec, default_last_sec = DataManager.load_cropbox(stack, prep_id=prep_id)[4:]
+    # default_first_sec, default_last_sec = DataManager.load_cropbox(stack, prep_id=prep_id)[4:]
 
-    first_sec = default_first_sec if args.first_sec is None else args.first_sec
-    last_sec = default_last_sec if args.last_sec is None else args.last_sec
+    # first_sec = default_first_sec if args.first_sec is None else args.first_sec
+    # last_sec = default_last_sec if args.last_sec is None else args.last_sec
 
-    m = BrainLabelingGUI(stack=stack, first_sec=first_sec, last_sec=last_sec, resolution=resolution, img_version=img_version, prep_id=prep_id)
+    m = BrainLabelingGUI(stack=stack,
+    # first_sec=first_sec, last_sec=last_sec,
+    resolution=resolution, img_version=img_version, prep_id=prep_id)
 
     m.showMaximized()
     m.raise_()

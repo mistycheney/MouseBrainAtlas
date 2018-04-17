@@ -53,6 +53,9 @@ class Ui_BrainLabelingGui(object):
         self.lineEdit_username = QtGui.QLineEdit(self.centralwidget)
         self.lineEdit_username.setObjectName(_fromUtf8("lineEdit_username"))
         self.horizontalLayout.addWidget(self.lineEdit_username)
+        self.button_navigateToStructure = QtGui.QPushButton(self.centralwidget)
+        self.button_navigateToStructure.setObjectName(_fromUtf8("button_navigateToStructure"))
+        self.horizontalLayout.addWidget(self.button_navigateToStructure)
         self.button_displayStructures = QtGui.QPushButton(self.centralwidget)
         self.button_displayStructures.setObjectName(_fromUtf8("button_displayStructures"))
         self.horizontalLayout.addWidget(self.button_displayStructures)
@@ -105,6 +108,7 @@ class Ui_BrainLabelingGui(object):
     def retranslateUi(self, BrainLabelingGui):
         BrainLabelingGui.setWindowTitle(_translate("BrainLabelingGui", "MainWindow", None))
         self.label_7.setText(_translate("BrainLabelingGui", "Username:", None))
+        self.button_navigateToStructure.setText(_translate("BrainLabelingGui", "Nagivate To Structure", None))
         self.button_displayStructures.setText(_translate("BrainLabelingGui", "Display Structures", None))
         self.button_inferSide.setText(_translate("BrainLabelingGui", "Infer Side", None))
         self.button_displayOptions.setText(_translate("BrainLabelingGui", "Display Options", None))

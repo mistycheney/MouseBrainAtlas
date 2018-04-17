@@ -16,7 +16,7 @@ from qt_utilities import *
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 # ACTIVE_SET_SIZE = 999
-ACTIVE_SET_SIZE = 1
+ACTIVE_SET_SIZE = 10
 
 class SignalEmitter(QObject):
     update_active_set = pyqtSignal(object, object)
@@ -25,14 +25,20 @@ class SignalEmitter(QObject):
         super(SignalEmitter, self).__init__()
 
 def load_qimage(stack, sec, prep_id, resolution, img_version):
+    """
+    Load an image as QImage.
+
+    Returns:
+        QImage
+    """
 
     fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, resol=resolution, version=img_version)
     print fp
     if not os.path.exists(fp):
         sys.stderr.write('Image %s with resolution %s, prep %s does not exist.\n' % (fp, resolution, prep_id))
 
-        if resolution != 'lossless':
-            sys.stderr.write('Loading lossless instead.\n')
+        if resolution != 'lossless' and resolution != 'raw':
+            sys.stderr.write('Load raw and rescale...\n')
             fp = DataManager.get_image_filepath_v2(stack=stack, section=sec, prep_id=prep_id, resol='lossless', version=img_version)
             if not os.path.exists(fp):
                 sys.stderr.write('Image %s with resolution %s, prep %s does not exist.\n' % (fp, resolution, prep_id))
@@ -51,6 +57,8 @@ def load_qimage(stack, sec, prep_id, resolution, img_version):
                 qimage = qimage.scaled(new_width, new_height)
                 sys.stderr.write("Scale image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (scaling, raw_width, raw_height, new_width, new_height))
                 # sys.stderr.write('New qimage bytes = %d\n' % qimage.byteCount())
+        else:
+            raise Exception('Raw image %s, prep %s does not exist.' % (fp, prep_id))
     else:
         qimage = QImage(fp)
 
@@ -90,7 +98,9 @@ class ReadImagesThread(QThread):
                 sys.stderr.write('Section %d is invalid.\n' % sec)
                 continue
 
+            t = time.time()
             qimage = load_qimage(stack=self.stack, sec=sec, prep_id=self.prep_id, resolution=self.resolution, img_version=self.img_version)
+            sys.stderr.write('Load qimage: %.2f seconds.\n' % (time.time() - t))
             self.emit(SIGNAL('image_loaded(QImage, int)'), qimage, sec)
 
     def run(self):
@@ -247,7 +257,7 @@ class ImageDataFeeder_v2(object):
 
     def retrieve_i(self, i=None, sec=None, resolution=None):
         """
-        Retrieve the i'th image in self.sections.
+        Retrieve the i'th image in self.sections. Throws an exception if the image cannot be retrieved.
         """
 
         if resolution is None:
@@ -259,19 +269,21 @@ class ImageDataFeeder_v2(object):
         if resolution not in self.image_cache:
             self.image_cache[resolution] = {}
 
-        # if sec not in self.image_cache[downsample]:
-        if sec not in self.image_cache[resolution]:
+        if sec not in metadata_cache['valid_sections'][self.stack]:
+            sys.stderr.write('%s: Section %s is invalid, skip retrieval.\n' % (self.name, sec))
+            raise Exception("Cannot retrieve image %s" % sec)
 
-            # raise Exception('Image is not loaded: section %d' % sec)
-            sys.stderr.write('%s: Image data for section %s is not loaded.\n' % (self.name, sec))
+        elif sec not in self.image_cache[resolution]:
+
+            sys.stderr.write('%s: Image data for section %s has not been loaded yet.\n' % (self.name, sec))
 
             if self.use_thread:
-
                 sys.stderr.write('%s: Looking at active set and loaded sections.\n' % (self.name))
 
                 # loaded_sections = set(self.image_cache[downsample].keys())
                 loaded_sections = set(self.image_cache[resolution].keys())
                 active_set = set(range(max(min(self.sections), sec-ACTIVE_SET_SIZE/2), min(max(self.sections), sec+ACTIVE_SET_SIZE/2+1)))
+                active_set = active_set & set(metadata_cache['valid_sections'][self.stack])
                 # active_set = set(range(max(min(self.sections), sec-1), min(max(self.sections), sec+2)))
                 # print "Active set: ", active_set
                 # print "Loaded sections:", loaded_sections
@@ -288,14 +300,19 @@ class ImageDataFeeder_v2(object):
                 self.se.update_active_set.emit(list(sections_to_load), list(sections_to_remove))
 
                 # wait for the image to load.
+                t1 = time.time()
                 for t in range(100):
                     time.sleep(.1)
                     # if sec in self.image_cache[downsample]:
                     if sec in self.image_cache[resolution]:
                         break
+                sys.stderr.write('wait for image to load: %.2f seconds\n' % (time.time() - t1))
 
         # return self.image_cache[downsample][sec]
-        return self.image_cache[resolution][sec]
+        if sec in self.image_cache[resolution]:
+            return self.image_cache[resolution][sec]
+        else:
+            raise Exception("Cannot retrieve image %s" % sec)
 
 class VolumeResectionDataFeeder(object):
 

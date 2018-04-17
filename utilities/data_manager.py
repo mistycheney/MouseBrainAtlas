@@ -4039,6 +4039,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
+        elif resol == 'raw':
+            if stack not in ['CHATM2', 'CHATM3']:
+                resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]

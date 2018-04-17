@@ -119,13 +119,13 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             self.active_section = self.data_feeder.sections[self.active_i]
             print self.id, ': Set active section to', self.active_section
 
-        # try:
-        self.update_image()
-        # except Exception as e: # if failed, do not change active_i or active_section
-        #     sys.stderr.write('Error setting index to %d\n' % i)
-        #     self.pixmapItem.setVisible(False)
-        #     raise e
-            # return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
+        try:
+            self.update_image()
+        except Exception as e: # if failed, do not change active_i or active_section
+            sys.stderr.write('Error setting index to %d\n' % i)
+            self.pixmapItem.setVisible(False)
+            # raise e
+            return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
 
         if emit_changed_signal:
             self.active_image_updated.emit()
@@ -153,12 +153,25 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         # self.active_section = sec
 
     def update_image(self, i=None, sec=None):
+        """
+        Update the image at the request index/section.
+        """
 
+        t = time.time()
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
+        sys.stderr.write("get_requested_index_and_section: %.2f seconds.\n" % (time.time() - t))
+        t = time.time()
         image = self.data_feeder.retrieve_i(i=i)
+        sys.stderr.write("data_feeder.retrieve_i: %.2f seconds.\n" % (time.time() - t))
+        t = time.time()
         pixmap = QPixmap.fromImage(image)
+        sys.stderr.write("generate pixmap: %.2f seconds.\n" % (time.time() - t))
+        t = time.time()
         self.pixmapItem.setPixmap(pixmap)
+        sys.stderr.write("set pixmap: %.2f seconds.\n" % (time.time() - t))
+        t = time.time()
         self.pixmapItem.setVisible(True)
+        sys.stderr.write("set visible: %.2f seconds.\n" % (time.time() - t))
 
     # def set_downsample_factor(self, downsample):
     #     if self.data_feeder.downsample == downsample:

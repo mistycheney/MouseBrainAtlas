@@ -1235,7 +1235,7 @@ def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, reso
         DataFrame: a DataFrame containing converted polygons.
     """
 
-    filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
+    _, section_to_filename = DataManager.load_sorted_filenames(stack)
 
     xmin_down32, _, ymin_down32, _, _, _ = DataManager.load_cropbox(stack, prep_id=prep_id)
 

@@ -361,11 +361,23 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
 
         if self.showing_which == 'histology':
+
+            t = time.time()
             qimage = self.data_feeder.retrieve_i(i=i)
+            sys.stderr.write("data_feeder.retrieve: %.2f seconds.\n" % (time.time() - t))
             # histology_pixmap = QPixmap.fromImage(qimage)
+
+            t = time.time()
             self.histology_pixmap.convertFromImage(qimage) # Keeping a global pixmap avoids creating a new pixmap every time which is tha case if using the static method QPixmap.fromImage(image)
+            sys.stderr.write("convertFromImage: %.2f seconds.\n" % (time.time() - t))
+
+            t = time.time()
             self.pixmapItem.setPixmap(self.histology_pixmap)
+            sys.stderr.write("setPixmap: %.2f seconds.\n" % (time.time() - t))
+
+            t = time.time()
             self.pixmapItem.setVisible(True)
+            sys.stderr.write("setVisible: %.2f seconds.\n" % (time.time() - t))
 
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
@@ -576,7 +588,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def load_drawings(self, contours, append=False, vertex_color=None, linecolor='r'):
         """
-        Load annotation contours and place drawings.
+        Load annotation contours and place them onto graphicsScenes.
 
         Args:
             contours (DataFrame): row indices are random polygon_ids, and columns include vertices, edits, creator, section, type, name, side, class, label_position, time_created
@@ -584,7 +596,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         """
 
         if not append:
-            self.drawings = defaultdict(list)
+            self.drawings = defaultdict(list) # keys are image indices
 
         endorser_contour_lookup = defaultdict(set)
         for cnt_id, contour in contours.iterrows():
@@ -602,11 +614,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 continue
 
             for contour_id, contour in group.iterrows():
+
+                print contour['name'], contour['side'], contour['section']
+
                 vertices = contour['vertices']
 
                 # type = confirmed or intersected
-                # if sec >= 170 and sec < 180 and contour['type'] == 'confirmed':
-                #     print sec, contour['name'], 'type', contour['type']
                 if 'type' in contour and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
@@ -617,13 +630,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     contour_class = contour['class']
                 else:
                     contour_class = 'contour'
-                    # contour_class = None
-
-                # p = vertices_from_polygon(path=vertices_to_path(vertices))
-                # if len(p) != len(vertices):
-                #     print vertices
-                #     print p
-                #     raise Exception("")
 
                 print self.id, convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
 

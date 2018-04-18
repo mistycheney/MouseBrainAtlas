@@ -47,9 +47,9 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
         # Otherwise the score volume is type np.float16, np.gradient requires np.float32 and will have to convert which is very slow
         # 2s (float32) vs. 20s (float16)
     """
-    
+
     if isinstance(volume, dict):
-        
+
         # gradients = {}
         # for ind, (v, o) in volumes.iteritems():
         #     print "Computing gradient for", ind
@@ -59,12 +59,12 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
 
         gradients = {ind: compute_gradient_v2((v, o), smooth_first=smooth_first)
                      for ind, (v, o) in volumes.iteritems()}
-        
+
         return gradients
-        
+
     else:
         v, o = convert_volume_forms(volume, out_form=("volume", "origin"))
-                    
+
         g = np.zeros((3,) + v.shape)
 
         # t = time.time()
@@ -83,9 +83,9 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
         g[0][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[1]
         g[1][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[0]
         g[2][ymin:ymax+1, xmin:xmax+1, zmin:zmax+1] = cropped_v_gy_gx_gz[2]
-        
+
         return g.astype(dtype), o
-    
+
 
 def load_data(fp, polydata_instead_of_face_vertex_list=True, download_s3=True):
 
@@ -319,9 +319,9 @@ def rescale_by_resampling(v, scaling=None, new_shape=None):
     Args:
         new_shape: width, height
     """
-    
+
     # print v.shape, scaling
-    
+
     if new_shape is not None:
         return v[np.meshgrid(np.floor(np.linspace(0, v.shape[0]-1, new_shape[1])).astype(np.int),
                   np.floor(np.linspace(0, v.shape[1]-1, new_shape[0])).astype(np.int), indexing='ij')]
@@ -672,6 +672,8 @@ def compute_covar_from_instance_centroids(instance_centroids):
 
 def find_contour_points_3d(labeled_volume, along_direction, positions=None, sample_every=10):
     """
+    Find the cross-section contours given a (binary?) volume.
+
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
         along_direction (str): 'x', 'y' or 'z'.

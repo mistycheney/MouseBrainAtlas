@@ -346,50 +346,50 @@ def assign_sideness(label_polygons, landmark_range_limits=None):
     return label_polygons_sideAssigned
 
 
-
-def get_annotation_on_sections(stack=None, username=None, label_polygons=None, filtered_labels=None):
-    """
-    Get a dictionary, whose keys are landmark names and
-    values are indices of sections containing particular landmarks.
-
-    Parameters
-    ----------
-    stack : str
-    username : str
-    label_polygon : pandas.DataFrame, optional
-    filtered_labels : list of str, optional
-    """
-
-    assert stack is not None or label_polygons is not None
-
-    if label_polygons is None:
-        label_polygons = load_label_polygons_if_exists(stack, username)
-
-    annotation_on_sections = {}
-
-    if filtered_labels is None:
-        labels = set(label_polygons.columns)
-    else:
-        labels = set(label_polygons.columns) & set(filtered_labels)
-
-    for l in labels:
-        annotation_on_sections[l] = list(label_polygons[l].dropna().keys())
-
-    return annotation_on_sections
+# def get_annotation_on_sections(stack=None, username=None, label_polygons=None, filtered_labels=None):
+#     """
+#     Get a dictionary, whose keys are landmark names and
+#     values are indices of sections containing particular landmarks.
+#
+#     Parameters
+#     ----------
+#     stack : str
+#     username : str
+#     label_polygon : pandas.DataFrame, optional
+#     filtered_labels : list of str, optional
+#     """
+#
+#     assert stack is not None or label_polygons is not None
+#
+#     if label_polygons is None:
+#         label_polygons = load_label_polygons_if_exists(stack, username)
+#
+#     annotation_on_sections = {}
+#
+#     if filtered_labels is None:
+#         labels = set(label_polygons.columns)
+#     else:
+#         labels = set(label_polygons.columns) & set(filtered_labels)
+#
+#     for l in labels:
+#         annotation_on_sections[l] = list(label_polygons[l].dropna().keys())
+#
+#     return annotation_on_sections
 
 
 def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered_labels=None):
     """
-    label_section_lookup is a dict, keys are labels, values are sections.
+    Identify the section range spanned by each structure.
+
+    Args:
+        label_section_lookup (dict): keys are labels, values are sections.
     """
 
-    # first_sec, last_sec = section_range_lookup[stack]
-
-    print label_section_lookup
+    print 'label_section_lookup:', label_section_lookup
 
     first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
     mid_sec = (first_sec + last_sec)/2
-    print mid_sec
+    print 'Estimated mid-sagittal section = %d' % (mid_sec)
 
     landmark_limits = {}
 
@@ -433,8 +433,8 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
 
             elif len(secs) == 0:
                 raise
-            else:
 
+            else:
                 inferred_Ls = secs[secs < mid_sec]
                 if len(inferred_Ls) > 0:
                     inferred_maxL = np.max(inferred_Ls)
@@ -499,114 +499,114 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
     return landmark_limits
 
 
-def get_landmark_range_limits(stack=None, username=None, label_polygons=None, label_section_lookup=None, filtered_labels=None):
-    """
-    Get a dictionary, whose keys are landmark names and
-    values are tuples specifying the first and last sections that have the particular landmarks.
-
-    Parameters
-    ----------
-    stack : str
-    username : str
-    label_polygon : pandas.DataFrame, optional
-    filtered_labels : list of str, optional
-    """
-
-    assert stack is not None or label_polygons is not None
-
-    if label_polygons is None:
-        label_polygons = load_label_polygons_if_exists(stack, username)
-
-    mid_sec = (label_polygons.index[0]+label_polygons.index[-1])/2
-
-    landmark_limits = {}
-
-    if filtered_labels is None:
-        d = set(label_polygons.keys())
-    else:
-        d = set(label_polygons.keys()) & set(filtered_labels)
-
-    d_unsided = set(map(convert_name_to_unsided, d))
-
-    for name_u in d_unsided:
-
-        lname = convert_to_left_name(name_u)
-        rname = convert_to_right_name(name_u)
-
-        secs = []
-
-        if name_u in label_polygons:
-            secs += list(label_polygons[name_u].dropna().keys())
-
-        if lname in label_polygons:
-            secs += list(label_polygons[lname].dropna().keys())
-
-        if rname in label_polygons:
-            secs += list(label_polygons[rname].dropna().keys())
-
-        secs = np.array(sorted(secs))
-
-        if name_u in singular_structures: # single
-            landmark_limits[name_u] = (secs.min(), secs.max())
-        else: # two sides
-
-            if len(secs) == 1:
-                sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
-                sec = secs[0]
-                if sec < mid_sec:
-                    landmark_limits[lname] = (sec, sec)
-                else:
-                    landmark_limits[rname] = (sec, sec)
-                continue
-
-            elif len(secs) == 0:
-                raise
-            else:
-
-                diffs = np.diff(secs)
-                peak = np.argmax(diffs)
-
-                inferred_maxL = secs[peak]
-                inferred_minR = secs[peak+1]
-
-                if lname in label_polygons:
-                    labeled_maxL = label_polygons[lname].dropna().keys().max()
-                    maxL = max(labeled_maxL, inferred_maxL)
-                else:
-                    maxL = inferred_maxL
-
-                if rname in label_polygons:
-                    labeled_minR = label_polygons[rname].dropna().keys().min()
-                    minR = min(labeled_minR, inferred_minR)
-                else:
-                    minR = inferred_minR
-
-                if maxL >= minR:
-                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
-
-                    if inferred_maxL < inferred_minR:
-                        maxL = inferred_maxL
-                        minR = inferred_minR
-                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-                    elif labeled_maxL < labeled_minR:
-                        maxL = labeled_maxL
-                        minR = labeled_minR
-                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-                    else:
-                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
-                        continue
-
-            landmark_limits[lname] = (secs.min(), maxL)
-            landmark_limits[rname] = (minR, secs.max())
-
-            # print 'label:', name_u
-            # print 'secs:', secs
-            # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
-            # print '\n'
-
-    return landmark_limits
+# def get_landmark_range_limits(stack=None, username=None, label_polygons=None, label_section_lookup=None, filtered_labels=None):
+#     """
+#     Get a dictionary, whose keys are landmark names and
+#     values are tuples specifying the first and last sections that have the particular landmarks.
+#
+#     Parameters
+#     ----------
+#     stack : str
+#     username : str
+#     label_polygon : pandas.DataFrame, optional
+#     filtered_labels : list of str, optional
+#     """
+#
+#     assert stack is not None or label_polygons is not None
+#
+#     if label_polygons is None:
+#         label_polygons = load_label_polygons_if_exists(stack, username)
+#
+#     mid_sec = (label_polygons.index[0]+label_polygons.index[-1])/2
+#
+#     landmark_limits = {}
+#
+#     if filtered_labels is None:
+#         d = set(label_polygons.keys())
+#     else:
+#         d = set(label_polygons.keys()) & set(filtered_labels)
+#
+#     d_unsided = set(map(convert_name_to_unsided, d))
+#
+#     for name_u in d_unsided:
+#
+#         lname = convert_to_left_name(name_u)
+#         rname = convert_to_right_name(name_u)
+#
+#         secs = []
+#
+#         if name_u in label_polygons:
+#             secs += list(label_polygons[name_u].dropna().keys())
+#
+#         if lname in label_polygons:
+#             secs += list(label_polygons[lname].dropna().keys())
+#
+#         if rname in label_polygons:
+#             secs += list(label_polygons[rname].dropna().keys())
+#
+#         secs = np.array(sorted(secs))
+#
+#         if name_u in singular_structures: # single
+#             landmark_limits[name_u] = (secs.min(), secs.max())
+#         else: # two sides
+#
+#             if len(secs) == 1:
+#                 sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
+#                 sec = secs[0]
+#                 if sec < mid_sec:
+#                     landmark_limits[lname] = (sec, sec)
+#                 else:
+#                     landmark_limits[rname] = (sec, sec)
+#                 continue
+#
+#             elif len(secs) == 0:
+#                 raise
+#             else:
+#
+#                 diffs = np.diff(secs)
+#                 peak = np.argmax(diffs)
+#
+#                 inferred_maxL = secs[peak]
+#                 inferred_minR = secs[peak+1]
+#
+#                 if lname in label_polygons:
+#                     labeled_maxL = label_polygons[lname].dropna().keys().max()
+#                     maxL = max(labeled_maxL, inferred_maxL)
+#                 else:
+#                     maxL = inferred_maxL
+#
+#                 if rname in label_polygons:
+#                     labeled_minR = label_polygons[rname].dropna().keys().min()
+#                     minR = min(labeled_minR, inferred_minR)
+#                 else:
+#                     minR = inferred_minR
+#
+#                 if maxL >= minR:
+#                     sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+#                     # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+#                     #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+#
+#                     if inferred_maxL < inferred_minR:
+#                         maxL = inferred_maxL
+#                         minR = inferred_minR
+#                         sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+#                     elif labeled_maxL < labeled_minR:
+#                         maxL = labeled_maxL
+#                         minR = labeled_minR
+#                         sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+#                     else:
+#                         sys.stderr.write('#### Cannot resolve.. ignored.\n')
+#                         continue
+#
+#             landmark_limits[lname] = (secs.min(), maxL)
+#             landmark_limits[rname] = (minR, secs.max())
+#
+#             # print 'label:', name_u
+#             # print 'secs:', secs
+#             # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
+#             # print '\n'
+#
+#     return landmark_limits
 
 def generate_annotaion_list(stack, username, filepath=None):
 
@@ -806,7 +806,7 @@ def average_multiple_volumes(volumes, bboxes):
 
 def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_direction=None, contours_xyz=None, return_voxels=False,
                                     return_contours=False, len_interval=20, fill=True, return_origin_instead_of_bbox=False):
-    """Interpolate contours.
+    """Interpolate a stack of 2-D contours to create 3-D volume.
 
     Args:
         return_contours (bool): If true, only return resampled contours \{int: (n,2)-ndarrays\}. If false, return (volume, bbox) tuple.

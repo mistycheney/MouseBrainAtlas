@@ -240,7 +240,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     def navigate_to_structure(self):
 
-        # Use get_landmark_range_limits_v2()
+        # Can also use get_landmark_range_limits_v2()
 
         loaded_structures = defaultdict(set)
         for index, elements in self.gscenes['main_sagittal'].drawings.iteritems():
@@ -1008,6 +1008,18 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.save()
 
     def reconstruct_structure_from_contours(self, name_s, use_confirmed_only, gscene_id):
+        """
+        Reconstruct the 3-D structure from 2-D contours.
+
+        Args:
+            name_s (str): the sided name of the structure to reconstruct.
+            use_confirmed_only (bool): if true, reconstruct using only the confirmed contours; if false, use all contours including interpolated ones.
+            gscene_id (str): reconstruct based on contours on which graphics scene.
+
+        Returns:
+            (volume, origin)
+        """
+
         name_u, side = parse_label(name_s)[:2]
 
         print 'Re-computing volume of %s from contours.' % name_s
@@ -1015,11 +1027,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         contours_xyz_wrt_wholebrain_volResol = []
         for i, polygons in gscene.drawings.iteritems():
             for p in polygons:
-                if p.properties['label'] == name_u and \
-                p.properties['side'] == side and \
+                if p.properties['label'] == name_u and p.properties['side'] == side and \
                 ((p.properties['type'] == 'confirmed') if use_confirmed_only else True):
                     contour_uvi = [(c.scenePos().x(), c.scenePos().y(), i) for c in p.vertex_circles]
-                    print p.properties['type'] , contour_uvi
+                    print i, p.properties['type'], contour_uvi
                     contour_wrt_wholebrain_volResol = gscene.convert_frame_and_resolution(contour_uvi,
                     in_wrt=gscene.id, in_resolution='image_image_index',
                     out_wrt='wholebrain', out_resolution='volume')
@@ -1031,8 +1042,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, name_s))
             raise
 
-        volume_volResol, bbox_wrt_wholebrain_volResol = interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol, interpolation_direction='z')
-        return volume_volResol, np.array(bbox_wrt_wholebrain_volResol)[[0,2,4]]
+        return interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol, interpolation_direction='z', return_origin_instead_of_bbox=True)
 
     @pyqtSlot(str, str, bool, bool)
     def handle_structure_update(self, set_name, name_s, use_confirmed_only, recompute_from_contours):

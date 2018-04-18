@@ -70,6 +70,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         self.rotation_center_wrt_wholebrain_volResol = None
 
+        self.converter = None
+
+    def set_converter(converter):
+        """
+        Set the converter used to convert between coordinates expressed in different frames and resolutions.
+        """
+
+        self.converter = converter
+
     def set_mode(self, mode):
         """
         Extend inherited method by:
@@ -108,97 +117,104 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         sys.stderr.write('%s: Set image origin to wrt wholebrain %s um\n' % (self.id, str(origin)))
         self.image_origin_wrt_wholebrain_um = origin
 
+
     def convert_resolution(self, p, in_resolution, out_resolution):
+        return convert_resolution(p=p, in_resolution=in_resolution, out_resolution=out_resolution,
+                               stack=self.gui.stack, image_resolution=self.data_feeder.resolution,
+                               section_list=self.data_feeder.sections,
+                              volume_resolution_um=self.structure_volumes_resolution_um)
 
-        if in_resolution == 'image':
-            p_um = p * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-        elif in_resolution == 'image_image_index':
-            uv_um = p[..., :2] * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-            i_um = np.array([SECTION_THICKNESS * self.data_feeder.sections[int(idx)] for idx in p[..., 2]])
-            p_um = np.column_stack([uv_um, i_um])
-        elif in_resolution == 'volume':
-            p_um = p * self.structure_volumes_resolution_um
-        elif in_resolution == 'raw':
-            p_um = p * planar_resolution[self.gui.stack]
-        elif in_resolution == 'down32':
-            p_um = p * (planar_resolution[self.gui.stack] * 32.)
-        elif in_resolution == 'um':
-            p_um = p
-        else:
-            raise
+    # def convert_resolution(self, p, in_resolution, out_resolution):
+    #
+    #     if in_resolution == 'image':
+    #         p_um = p * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #     elif in_resolution == 'image_image_index':
+    #         uv_um = p[..., :2] * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #         i_um = np.array([SECTION_THICKNESS * self.data_feeder.sections[int(idx)] for idx in p[..., 2]])
+    #         p_um = np.column_stack([uv_um, i_um])
+    #     elif in_resolution == 'volume':
+    #         p_um = p * self.structure_volumes_resolution_um
+    #     elif in_resolution == 'raw':
+    #         p_um = p * planar_resolution[self.gui.stack]
+    #     elif in_resolution == 'down32':
+    #         p_um = p * (planar_resolution[self.gui.stack] * 32.)
+    #     elif in_resolution == 'um':
+    #         p_um = p
+    #     else:
+    #         raise
+    #
+    #     if out_resolution == 'image':
+    #         p_outResol = p_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #     # elif out_resolution == 'image_image_section':
+    #     #     uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #     #     sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in p_um[..., 2]])
+    #     #     p_outResol = np.column_stack([uv_outResol, sec_outResol])
+    #     elif out_resolution == 'image_image_index':
+    #         uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #         if hasattr(self.data_feeder, 'sections'):
+    #             i_outResol = []
+    #             for d_um in p_um[..., 2]:
+    #                 sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+    #                 if sec in self.data_feeder.sections:
+    #                     index = self.data_feeder.sections.index(sec)
+    #                 else:
+    #                     index = np.nan
+    #                 i_outResol.append(index)
+    #             i_outResol = np.array(i_outResol)
+    #             # i_outResol = np.array([self.data_feeder.sections.index(1 + int(np.floor(d_um / SECTION_THICKNESS))) for d_um in p_um[..., 2]])
+    #         else:
+    #             i_outResol = p_um[..., 2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+    #         p_outResol = np.column_stack([uv_outResol, i_outResol])
+    #     elif out_resolution == 'volume':
+    #         p_outResol = p_um / self.structure_volumes_resolution_um
+    #     elif out_resolution == 'raw':
+    #         p_outResol = p_um / planar_resolution[self.gui.stack]
+    #     elif out_resolution == 'down32':
+    #         p_outResol = p_um / (planar_resolution[self.gui.stack] * 32.)
+    #     elif out_resolution == 'um':
+    #         p_outResol = p_um
+    #     else:
+    #         raise
+    #
+    #     return p_outResol
 
-        if out_resolution == 'image':
-            p_outResol = p_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-        # elif out_resolution == 'image_image_section':
-        #     uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-        #     sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in p_um[..., 2]])
-        #     p_outResol = np.column_stack([uv_outResol, sec_outResol])
-        elif out_resolution == 'image_image_index':
-            uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-            if hasattr(self.data_feeder, 'sections'):
-                i_outResol = []
-                for d_um in p_um[..., 2]:
-                    sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
-                    if sec in self.data_feeder.sections:
-                        index = self.data_feeder.sections.index(sec)
-                    else:
-                        index = np.nan
-                    i_outResol.append(index)
-                i_outResol = np.array(i_outResol)
-                # i_outResol = np.array([self.data_feeder.sections.index(1 + int(np.floor(d_um / SECTION_THICKNESS))) for d_um in p_um[..., 2]])
-            else:
-                i_outResol = p_um[..., 2] / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
-            p_outResol = np.column_stack([uv_outResol, i_outResol])
-        elif out_resolution == 'volume':
-            p_outResol = p_um / self.structure_volumes_resolution_um
-        elif out_resolution == 'raw':
-            p_outResol = p_um / planar_resolution[self.gui.stack]
-        elif out_resolution == 'down32':
-            p_outResol = p_um / (planar_resolution[self.gui.stack] * 32.)
-        elif out_resolution == 'um':
-            p_outResol = p_um
-        else:
-            raise
-
-        return p_outResol
-
-    def convert_to_wholebrain_um(self, p, wrt, resolution,
-        structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
-
-        print 'convert_to_wholebrain_um', wrt
-
-        p = np.array(p)
-        assert np.atleast_2d(p).shape[1] == 3
-
-        p_um = self.convert_resolution(p, in_resolution=resolution, out_resolution='um')
-
-        if wrt == 'wholebrain':
-            p_wrt_wholebrain_um = p_um
-        elif 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
-            box, plane = wrt.split('_')
-            if box == 'main':
-                assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
-                p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal', zdim=None)
-                box_origin_wrt_wholebrain_um = self.image_origin_wrt_wholebrain_um
-            elif box == 'tb':
-                p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal', zdim=self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution))
-                box_origin_wrt_wholebrain_um = self.image_origin_wrt_wholebrain_um
-            elif box == 'structure':
-                assert structure_origin is not None and structure_wrt is not None and structure_resolution is not None and structure_zdim is not None
-                p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal',
-                                                                zdim=self.convert_resolution(structure_zdim,
-                                                                in_resolution=structure_resolution,
-                                                                out_resolution='um'))
-                box_origin_wrt_wholebrain_um = self.convert_to_wholebrain_um(structure_origin, wrt=structure_wrt, resolution=structure_resolution)
-            else:
-                print box
-                raise
-            p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
-        else:
-            print wrt
-            raise
-
-        return np.squeeze(p_wrt_wholebrain_um)
+    # def convert_to_wholebrain_um(self, p, wrt, resolution,
+    #     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    #
+    #     print 'convert_to_wholebrain_um', wrt
+    #
+    #     p = np.array(p)
+    #     assert np.atleast_2d(p).shape[1] == 3
+    #
+    #     p_um = self.convert_resolution(p, in_resolution=resolution, out_resolution='um')
+    #
+    #     if wrt == 'wholebrain':
+    #         p_wrt_wholebrain_um = p_um
+    #     elif 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
+    #         box, plane = wrt.split('_')
+    #         if box == 'main':
+    #             assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
+    #             p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal', zdim=None)
+    #             box_origin_wrt_wholebrain_um = self.image_origin_wrt_wholebrain_um
+    #         elif box == 'tb':
+    #             p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal', zdim=self.data_feeder.z_dim * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution))
+    #             box_origin_wrt_wholebrain_um = self.image_origin_wrt_wholebrain_um
+    #         elif box == 'structure':
+    #             assert structure_origin is not None and structure_wrt is not None and structure_resolution is not None and structure_zdim is not None
+    #             p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=plane, out_frame='sagittal',
+    #                                                             zdim=self.convert_resolution(structure_zdim,
+    #                                                             in_resolution=structure_resolution,
+    #                                                             out_resolution='um'))
+    #             box_origin_wrt_wholebrain_um = self.convert_to_wholebrain_um(structure_origin, wrt=structure_wrt, resolution=structure_resolution)
+    #         else:
+    #             print box
+    #             raise
+    #         p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
+    #     else:
+    #         print wrt
+    #         raise
+    #
+    #     return np.squeeze(p_wrt_wholebrain_um)
 
     def convert_from_wholebrain_um(self, p_wrt_wholebrain_um, wrt, resolution,
     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
@@ -228,35 +244,35 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         return np.squeeze(p_wrt_outdomain_outResol)
 
-    def convert_frame_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution,
-    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
-        """
-        `wrt` can be any of:
-        - wholebrain
-        - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-        - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-        - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-
-        `resolution` can be any of:
-        - raw
-        - down32
-        - vol
-        - image: gscene resolution, determined by data_feeder.resolution
-        - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
-        """
-
-        if structure_resolution is None:
-            structure_resolution = '%.1fum' % self.structure_volumes_resolution_um
-
-        p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
-        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
-
-        p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
-        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
-        # print 'p', p
-        # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
-        # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
-        return p_wrt_outdomain_outResol
+    # def convert_frame_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution,
+    # structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
+    #     """
+    #     `wrt` can be any of:
+    #     - wholebrain
+    #     - sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    #     - coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    #     - horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+    #
+    #     `resolution` can be any of:
+    #     - raw
+    #     - down32
+    #     - vol
+    #     - image: gscene resolution, determined by data_feeder.resolution
+    #     - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
+    #     """
+    #
+    #     if structure_resolution is None:
+    #         structure_resolution = '%.1fum' % self.structure_volumes_resolution_um
+    #
+    #     p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
+    #     structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+    #
+    #     p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
+    #     structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
+    #     # print 'p', p
+    #     # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
+    #     # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
+    #     return p_wrt_outdomain_outResol
 
     def update_drawings_from_structure_volume(self, name_s, levels, set_name):
         """
@@ -264,65 +280,89 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Polygons created by this function has type "derived_from_atlas".
 
         Args:
-            set_name (str):
-            name_u (str): structure name, unsided
-            side (str): L, R or S
-            levels (list of float): levels at which the contours are drawn.
+            set_name (str): name of the annotation set, e.g. aligned_atlas or handdrawn.
+            name_u (str): unsided structure name.
+            side (str): L, R or S.
+            levels (list of float): contours of these levels will be drawn onto the graphics scene.
         """
 
         # self.drawings = defaultdict(list) # Clear the internal variable `drawings`, and let `load_drawings` append to an empty set.
 
-        level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
-
         print "%s: Updating drawings based on structure volume of %s" % (self.id, name_s)
 
+        # If the structure volume has not been created, give up.
         if self.structure_volumes[set_name][name_s]['volume'] is None:
             return
 
         structure_volume_volResol = self.structure_volumes[set_name][name_s]['volume']
         structure_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
 
+        ###############################
+        ## Remove existing contours. ##
+        ###############################
+
+        # Identify contours that will be removed.
         if set_name == 'aligned_atlas':
             types_to_remove = ['derived_from_atlas']
         elif set_name == 'handdrawn':
             types_to_remove = ['intersected']
         else:
-            print set_name
-            raise
+            raise Exception("Set name %s does not exist." % set_name)
 
         name_u, side = parse_label(name_s)[:2]
-
         polygons_to_remove = {i: [p for p in polygons \
                                                     if p.properties['label'] == name_u and \
                                                     p.properties['side'] == side and \
                                                     p.properties['type'] in types_to_remove]
                                                 for i, polygons in self.drawings.iteritems()}
 
+        # Remove the contours from drawings list and graphics scene.
         # t = time.time()
         for i in self.drawings.keys():
             for p in polygons_to_remove[i]:
                 self.drawings[i].remove(p)
                 if i == self.active_i:
                     self.removeItem(p)
-
         # import gc
         # gc.get_referrers(foo)
-
         # sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
         for level in levels:
 
-            contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level, along_direction= self.data_feeder.orientation, sample_every=1)
+            assert self.id in self.converter.frames
+
+            out_wrt = name_s + '_' + self.data_feeder.orientation
+            assert out_wrt in self.converter.frames
+
+            assert 'volume' in self.converter.resolutions
+
+            depths_of_all_sections = self.converter.convert_frame_and_resolution(
+            p=self.data_feeder.sections,
+            in_wrt=self.id, in_resolution='section',
+            out_wrt=out_wrt, out_resolution='volume')
+            # structure_origin=structure_origin_wrt_wholebrain_volResol, structure_wrt='wholebrain',
+            # structure_resolution='volume', structure_zdim=structure_volume_volResol.shape[-1])
+
+            contour_2d_wrt_structureVolume_allpos_volResol = find_contour_points_3d(structure_volume_volResol >= level,
+                                                            along_direction=self.data_feeder.orientation,
+                                                            sample_every=1,
+                                                            positions=depths_of_all_sections)
 
             for d, cnt_uv in contour_2d_wrt_structureVolume_allpos_volResol.iteritems():
                 contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv, np.ones((len(cnt_uv),))*d])
 
-                contour_3d_wrt_dataVolume_uv_dataResol_index = self.convert_frame_and_resolution(
-                contour_3d_wrt_structureVolume_volResol,
-                in_wrt='structure_' + self.data_feeder.orientation, in_resolution='volume',
-                out_wrt=self.id, out_resolution='image_image_index',
-                structure_origin=structure_origin_wrt_wholebrain_volResol, structure_wrt='wholebrain',
-                structure_resolution='volume', structure_zdim=structure_volume_volResol.shape[-1])
+# p, in_wrt, in_resolution, out_wrt, out_resolution,
+#                                  image_resolution=None, stack=None, volume_resolution_um=None,
+#     structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None,
+#                                 in_image_resolution=None, out_image_resolution=None,
+#                                 return_transform_matrix=False
+
+                # contour_3d_wrt_dataVolume_uv_dataResol_index = convert_frame_and_resolution(
+                # p=contour_3d_wrt_structureVolume_volResol,
+                # in_wrt='structure_' + self.data_feeder.orientation, in_resolution='volume',
+                # out_wrt=self.id, out_resolution='image_image_index',
+                # structure_origin=structure_origin_wrt_wholebrain_volResol, structure_wrt='wholebrain',
+                # structure_resolution='volume', structure_zdim=structure_volume_volResol.shape[-1])
 
                 if any(np.isnan(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])):
                     sys.stderr.write("d = %.1f is beyond the section range of scene %s.\n" % (d, self.id))
@@ -335,7 +375,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if any([p.properties['label'] == name_u and p.properties['side'] == side and p.properties['type'] == 'confirmed'
                         for p in self.drawings[index_wrt_dataVolume]]):
                     continue
-                #
+
                 # print contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]
                 # print index_wrt_dataVolume
 
@@ -358,6 +398,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
 
     def update_image(self, i=None, sec=None):
+        """
+        Update the image displayed in the graphics scene at the given index/section.
+        """
+
         i, sec = self.get_requested_index_and_section(i=i, sec=sec)
 
         if self.showing_which == 'histology':
@@ -445,11 +489,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             raise Exception("Show option %s is not recognized." % self.showing_which)
 
     def infer_side(self):
+        """
+        Automatically assigns side to each polygon in this graphics scene.
+        """
 
         label_section_lookup = self.get_label_section_lookup()
 
         structure_ranges = get_landmark_range_limits_v2(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
-
         print 'structure_ranges', structure_ranges
 
         for section_index, polygons in self.drawings.iteritems():

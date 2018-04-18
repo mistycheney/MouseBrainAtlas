@@ -197,6 +197,18 @@ def convert_resolution(p, in_resolution, out_resolution,
 
 
 def get_wrt_details(wrt, stack=None, zdim_um=None):
+    """
+    Get parameters of a 3-D frame.
+
+    Args:
+        wrt (str): a 3-D frame specifier.
+
+    Returns:
+        dict whose keys are:
+            - origin_wrt_wholebrain_um: origin of this frame with respect to wholebrain in micron.
+            - plane: sagittal, coronal or horizontal
+            - zdim_um: z-dimension in micron. Used for ???
+    """
 
     try:
         box, plane = wrt.split('_')
@@ -247,6 +259,9 @@ def convert_to_wholebrain_um(p, wrt, resolution,
     """
     Convert the coordinates expressed in given frame and resolution to
     coordinates expressed in "wholebrain" frame in microns.
+
+    Args:
+        p (list of 3-tuples): list of points
     """
 
     p = np.array(p)

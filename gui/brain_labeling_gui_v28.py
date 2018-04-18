@@ -150,8 +150,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.main_sagittal_gscene.set_default_vertex_radius(10)
         self.main_sagittal_gscene.set_default_vertex_color('r')
 
-        self.gscenes = {'tb_coronal': self.tb_coronal_gscene, 'main_sagittal': self.main_sagittal_gscene, 'tb_horizontal': self.tb_horizontal_gscene,
-        'tb_sagittal': self.tb_sagittal_gscene}
+        self.gscenes = { 'main_sagittal': self.main_sagittal_gscene,
+                        'tb_coronal': self.tb_coronal_gscene,
+                        'tb_horizontal': self.tb_horizontal_gscene,
+                        'tb_sagittal': self.tb_sagittal_gscene}
 
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
@@ -165,7 +167,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # gscene.set_drawings(self.drawings)
             gscene.set_structure_volumes_resolution(um=self.structure_volume_resolution_um)
 
-        ###################
+            # Set coordinate converter for every graphics scene.
+            converter = CoordinatesConverter()
+            gscene.set_coordinates_converter(converter)
+            converter.register_new_resolution(resol_name='volume', resol_um=self.structure_volume_resolution_um)
+
         self.contextMenu_set = True
 
         self.recent_labels = []
@@ -176,7 +182,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        first_sec0, last_sec0 = DataManager.load_cropbox(self.stack, prep_id=self.prep_id)[4:]
+        first_sec0, last_sec0 = DataManager.load_cropbox_v2(self.stack, prep_id=self.prep_id)[4:]
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,
@@ -189,54 +195,60 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.gscenes['main_sagittal'].set_data_feeder(image_feeder)
         self.connect(self.gscenes['main_sagittal'], SIGNAL("image_loaded(int)"), self.image_loaded)
+        self.gscenes['main_sagittal'].set_active_section(first_sec0)
+
+        cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=self.stack, prep_id=self.prep_id)[:4]
+
+        self.gscenes['main_sagittal'].converter.derive_three_view_frames(base_frame_name='data',
+        origin_wrt_wholebrain_um=np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack),
+        planes=['sagittal'])
 
         volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
 
+        thumbnail_volume_origin_wrt_wholebrain_um = intensity_volume_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack)
+
         if hasattr(self, 'volume_cache') and self.volume_cache is not None:
 
-            try:
-                coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
-                coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-                coronal_volume_resection_feeder.set_orientation('coronal')
-                coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-                self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
-                self.gscenes['tb_coronal'].set_active_i(50)
+            coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
+            coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            coronal_volume_resection_feeder.set_orientation('coronal')
+            coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+            self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
+            self.gscenes['tb_coronal'].set_active_i(50)
+            self.gscenes['tb_coronal'].converter.derive_three_view_frames(base_frame_name='data',
+            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+            )
 
-                horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
-                horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-                horizontal_volume_resection_feeder.set_orientation('horizontal')
-                horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-                self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
-                self.gscenes['tb_horizontal'].set_active_i(150)
+            horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
+            horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            horizontal_volume_resection_feeder.set_orientation('horizontal')
+            horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+            self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+            self.gscenes['tb_horizontal'].set_active_i(150)
+            self.gscenes['tb_horizontal'].converter.derive_three_view_frames(base_frame_name='data',
+            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+            )
 
-                sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
-                sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-                sagittal_volume_resection_feeder.set_orientation('sagittal')
-                sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-                self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
-                self.gscenes['tb_sagittal'].set_active_i(150)
+            sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
+            sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+            sagittal_volume_resection_feeder.set_orientation('sagittal')
+            sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+            self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
+            self.gscenes['tb_sagittal'].set_active_i(150)
+            self.gscenes['tb_sagittal'].converter.derive_three_view_frames(base_frame_name='data',
+            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+            )
 
-            except:
-                pass
 
-        # try:
-        self.gscenes['main_sagittal'].set_active_section(first_sec0)
-        # except Exception as e:
-        #     pass
-
-        cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, prep_id=self.prep_id)[:4]
-        self.gscenes['main_sagittal'].set_image_origin_wrt_wholebrain_um(np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
-
-        try:
-            for gid in ['tb_coronal', 'tb_horizontal', 'tb_sagittal']:
-                self.gscenes[gid].set_image_origin_wrt_wholebrain_um(intensity_volume_origin_wrt_wholebrain_tbResol * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=self.stack))
-        except:
-            pass
+        for gid, gs in self.gscenes.iteritems():
+            print gid
+            for frame_name, frame in gs.converter.frames.iteritems():
+                print frame_name, frame
+            print
 
         # Syncing main scene with crossline localization requires constantly loading
         # raw images which can be slow.
         self.DISABLE_UPDATE_MAIN_SCENE = False
-
 
     def navigate_to_structure(self):
 
@@ -990,7 +1002,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Args:
             cross (3-vector): intersection of the cross wrt wholebrain in raw resolution.
         """
+
         print 'Update all crosses to', cross, 'from', self.sender().id
+
         for gscene_id, gscene in self.gscenes.iteritems():
 
             if self.DISABLE_UPDATE_MAIN_SCENE:
@@ -1030,19 +1044,34 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if p.properties['label'] == name_u and p.properties['side'] == side and \
                 ((p.properties['type'] == 'confirmed') if use_confirmed_only else True):
                     contour_uvi = [(c.scenePos().x(), c.scenePos().y(), i) for c in p.vertex_circles]
-                    print i, p.properties['type'], contour_uvi
-                    contour_wrt_wholebrain_volResol = gscene.convert_frame_and_resolution(contour_uvi,
-                    in_wrt=gscene.id, in_resolution='image_image_index',
+                    # print i, p.properties['type'], contour_uvi
+                    contour_wrt_wholebrain_volResol = gscene.converter.convert_frame_and_resolution(contour_uvi,
+                    in_wrt=('data', gscene.data_feeder.orientation), in_resolution='image_image_index',
                     out_wrt='wholebrain', out_resolution='volume')
                     contours_xyz_wrt_wholebrain_volResol.append(contour_wrt_wholebrain_volResol)
 
-        print contours_xyz_wrt_wholebrain_volResol
-
         if len(contours_xyz_wrt_wholebrain_volResol) < 2:
-            sys.stderr.write('%s: Cannot interpolate because there are fewer than two confirmed polygons for structure %s.\n' % (gscene_id, name_s))
-            raise
+            raise Exception('%s: Cannot reconstruct structure %s because there are fewer than two confirmed polygons.\n' % (gscene_id, name_s))
 
-        return interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol, interpolation_direction='z', return_origin_instead_of_bbox=True)
+        structure_volume_volResol, structure_volume_origin_wrt_wholebrain_volResol = \
+        interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol,
+        interpolation_direction='z', return_origin_instead_of_bbox=True)
+
+        # Register structure wise frames for every converter.
+        structure_volume_origin_wrt_wholebrain_um = structure_volume_origin_wrt_wholebrain_volResol * self.structure_volume_resolution_um
+
+        for gscene_id, gscene in self.gscenes.iteritems():
+            gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+            origin_wrt_wholebrain_um=structure_volume_origin_wrt_wholebrain_um,
+            zdim_um=structure_volume_volResol.shape[2] * self.structure_volume_resolution_um)
+
+        for gid, gs in self.gscenes.iteritems():
+            print gid
+            for frame_name, frame in gs.converter.frames.iteritems():
+                print frame_name, frame
+            print
+
+        return structure_volume_volResol, structure_volume_origin_wrt_wholebrain_volResol
 
     @pyqtSlot(str, str, bool, bool)
     def handle_structure_update(self, set_name, name_s, use_confirmed_only, recompute_from_contours):
@@ -1064,11 +1093,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # if affected_gscenes is None:
         #     affected_gscenes = self.gscenes.keys()
 
-        for gscene_id in self.gscenes.keys():
-            try:
-                self.gscenes[gscene_id].update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
-            except:
-                pass
+        for gscene_id, gscene in self.gscenes.iteritems():
+            # if gscene_id == 'tb_coronal':
+            gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)

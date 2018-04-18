@@ -89,19 +89,395 @@ def volume_type_to_str(t):
     else:
         raise Exception('Volume type %s is not recognized.' % t)
 
-        
+
 ################
 ## Conversion ##
 ################
 
+class CoordinatesConverter(object):
+    def __init__(self):
+        """
+        """
+        # A 3-D frame is defined by the following information:
+        # - plane: the anatomical name of the 2-D plane spanned by x and y axes.
+        # - zdim_um: ??
+        # - origin_wrt_wholebrain_um: the origin with respect to wholebrain, in microns.
+
+        # Some are derivable from data_feeder
+        # some from stack name
+        # some must be assigned dynamically
+
+        self.frames = {'wholebrain': {'origin_wrt_wholebrain_um': (0,0,0),
+        'zdim_um': None},
+        # 'sagittal': {'origin_wrt_wholebrain_um': None,
+        # 'plane': 'sagittal', 'zdim_um': None},
+        # 'coronal': {'origin_wrt_wholebrain_um': None,
+        # 'plane': 'coronal', 'zdim_um': None},
+        # 'horizontal': {'origin_wrt_wholebrain_um': None,
+        # 'plane': 'horizontal', 'zdim_um': None},
+        }
+
+        self.resolutions = {}
+
+    def set_data(self, data_feeder, stack=None):
+
+        self.data_feeder = data_feeder
+        self.stack = stack
+
+        for frame_name, frame in self.frames.iteritems():
+            if hasattr(self.data_feeder, 'z_dim'):
+                frame['zdim_um'] = self.data_feeder.z_dim * convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.stack)
+
+        self.resolutions['image'] = {'um': convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.stack)}
+        if hasattr(self.data_feeder, 'sections'):
+            self.section_list = self.data_feeder.sections
+
+            # cropbox_origin_xy_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=stack, prep_id=self.prep_id)[[0,2]]
+            # self.frames['wholebrainXYcropped'] = dict(origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=stack),
+            # plane='sagittal', 'zdim_um'=None)
+
+    def derive_three_view_frames(self, base_frame_name, origin_wrt_wholebrain_um=(0,0,0), zdim_um=None, planes=['sagittal', 'coronal', 'horizontal']):
+        """
+        Generate the three new frames that correspond to three orthogonal views.
+        """
+
+        if base_frame_name == 'data': # define by data feeder
+            if hasattr(self.data_feeder, 'z_dim'):
+                zdim_um = self.data_feeder.z_dim * convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.stack)
+
+        self.register_new_frame(base_frame_name, origin_wrt_wholebrain_um, zdim_um)
+
+    def register_new_frame(self, frame_name, origin_wrt_wholebrain_um, zdim_um=None):
+        """
+        Args:
+            frame_name (str): frame identifier
+        """
+        # assert frame_name not in self.frames, 'Frame name %s already exists.' % frame_name
+
+        if frame_name not in self.frames:
+            self.frames[frame_name] = {'origin_wrt_wholebrain_um': None, 'zdim_um': None}
+
+        if zdim_um is not None:
+            self.frames[frame_name]['zdim_um'] = zdim_um
+
+        if origin_wrt_wholebrain_um is not None:
+            self.frames[frame_name]['origin_wrt_wholebrain_um'] = origin_wrt_wholebrain_um
+
+        # if plane is not None:
+        #     self.frames[frame_name]['plane'] = plane
+
+    def register_new_resolution(self, resol_name, resol_um):
+        """
+        Args:
+            resol_name (str): resolution identifier
+            resol_um (float): pixel/voxel size in micron
+        """
+        # assert resol_name not in self.resolutions, 'Resolution name %s already exists.' % resol_name
+        self.resolutions[resol_name] = {'um': resol_um}
+
+    def convert_three_view_frames(self, p, base_frame_name, in_plane, out_plane, p_resol):
+        """
+        Convert among the three frames specified by the second method in this presentation
+        https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
+
+        Args:
+            in_plane (str): one of sagittal, coronal and horizontal
+            out_plane (str): one of sagittal, coronal and horizontal
+        """
+
+        if in_plane == 'coronal' or in_plane == 'horizontal' or out_plane == 'coronal' or out_plane == 'horizontal':
+            zdim_um = self.frames[base_frame_name]['zdim_um']
+            zdim = zdim_um / convert_resolution_string_to_um(resolution=p_resol)
+            print 'zdim_um =', zdim_um, 'zdim = ', zdim
+
+        if in_plane == 'sagittal':
+            p_sagittal = p
+        elif in_plane == 'coronal':
+            x = p[..., 2]
+            y = p[..., 1]
+            z = zdim - p[..., 0]
+            p_sagittal = np.column_stack([x,y,z])
+        elif in_plane == 'horizontal':
+            x = p[..., 0]
+            y = p[..., 2]
+            z = zdim - p[..., 1]
+            p_sagittal = np.column_stack([x,y,z])
+        else:
+            raise Exception("Plane %s is not recognized." % in_plane)
+
+        if out_plane == 'sagittal':
+            p_out = p_sagittal
+        elif out_plane == 'coronal':
+            x = zdim - p_sagittal[..., 2]
+            print 'p_sagittal', p_sagittal.mean(axis=0)
+            y = p_sagittal[..., 1]
+            z = p_sagittal[..., 0]
+            p_out = np.column_stack([x,y,z])
+        elif out_plane == 'horizontal':
+            x = p_sagittal[..., 0]
+            y = zdim - p_sagittal[..., 2]
+            z = p_sagittal[..., 1]
+            p_out = np.column_stack([x,y,z])
+        else:
+            raise Exception("Plane %s is not recognized." % out_plane)
+
+        return p_out
+
+    def convert_resolution(self, p, in_resolution, out_resolution):
+        """
+        Rescales coordinates according to the given input and output resolution.
+        This function does not change physical position of coordinate origin or the direction of the axes.
+        """
+
+        if in_resolution == 'image':
+            p_um = p * self.resolutions['image']['um']
+        elif in_resolution == 'image_image_section':
+            uv_um = p[..., :2] * self.resolutions['image']['um']
+            d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
+            p_um = np.column_stack([uv_um, d_um])
+        elif in_resolution == 'image_image_index':
+            uv_um = p[..., :2] * self.resolutions['image']['um']
+            i_um = np.array([SECTION_THICKNESS * self.section_list[int(idx)] for idx in p[..., 2]])
+            p_um = np.column_stack([uv_um, i_um])
+        elif in_resolution == 'section':
+            uv_um = np.array([(np.nan, np.nan) for sec in p])
+            d_um = np.array([SECTION_THICKNESS * sec for sec in p])
+            p_um = np.column_stack([uv_um, d_um])
+        elif in_resolution == 'index':
+            uv_um = np.array([(np.nan, np.nan) for idx in p])
+            i_um = np.array([SECTION_THICKNESS * self.section_list[int(idx)] for idx in p])
+            p_um = np.column_stack([uv_um, i_um])
+        else:
+            if in_resolution in self.resolutions:
+                p_um = p * self.resolutions[in_resolution]['um']
+            else:
+                p_um = p * convert_resolution_string_to_um(resolution=in_resolution, stack=self.stack)
+
+        if out_resolution == 'image':
+            p_outResol = p_um / self.resolutions['image']['um']
+        elif out_resolution == 'image_image_section':
+            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
+            p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
+        elif out_resolution == 'image_image_index':
+            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            if hasattr(self, 'section_list'):
+                i_outResol = []
+                for d_um in p_um[..., 2]:
+                    sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                    if sec in self.section_list:
+                        index = self.section_list.index(sec)
+                    else:
+                        index = np.nan
+                    i_outResol.append(index)
+                i_outResol = np.array(i_outResol)
+            else:
+                i_outResol = p_um[..., 2] / self.resolutions['image']['um']
+            p_outResol = np.column_stack([uv_outResol, i_outResol])
+        elif out_resolution == 'section':
+            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
+            p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2]
+        elif out_resolution == 'index':
+            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            if hasattr(self, 'section_list'):
+                i_outResol = []
+                for d_um in p_um[..., 2]:
+                    sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                    if sec in self.section_list:
+                        index = self.section_list.index(sec)
+                    else:
+                        index = np.nan
+                    i_outResol.append(index)
+                i_outResol = np.array(i_outResol)
+            else:
+                i_outResol = p_um[..., 2] / self.resolutions['image']['um']
+            p_outResol = np.column_stack([uv_outResol, i_outResol])[..., 2]
+        else:
+            if out_resolution in self.resolutions:
+                p_outResol = p_um / self.resolutions[out_resolution]['um']
+            else:
+                p_outResol = p_um / convert_resolution_string_to_um(resolution=out_resolution, stack=self.stack)
+
+        return p_outResol
+
+    def convert_from_wholebrain_um(self, p_wrt_wholebrain_um, wrt, resolution):
+        """
+        Convert the coordinates expressed in "wholebrain" frame in microns to
+        coordinates expressed in the given frame and resolution.
+
+        Args:
+            p_wrt_wholebrain_um (list of 3-tuples): list of points
+            wrt (str): name of output frame
+            resolution (str): name of output resolution.
+        """
+
+        p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
+        # assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3, "Coordinates of each point must have three elements."
+
+        if wrt == 'wholebrain':
+            p_wrt_outdomain_um = p_wrt_wholebrain_um
+        else:
+            assert isinstance(wrt, tuple)
+            base_frame_name, plane = wrt
+            p_wrt_outSagittal_origin_um = p_wrt_wholebrain_um - self.frames[base_frame_name]['origin_wrt_wholebrain_um']
+            print wrt, 'origin_wrt_wholebrain_um', self.frames[base_frame_name]['origin_wrt_wholebrain_um']
+            print 'p_wrt_outSagittal_origin_um', p_wrt_outSagittal_origin_um.mean(axis=0)
+            p_wrt_outdomain_um = self.convert_three_view_frames(p=p_wrt_outSagittal_origin_um, base_frame_name=base_frame_name,
+                                                                in_plane='sagittal',
+                                                                out_plane=plane,
+                                                                p_resol='um')
+
+        p_wrt_outdomain_outResol = self.convert_resolution(p_wrt_outdomain_um, in_resolution='um', out_resolution=resolution)
+        return np.squeeze(p_wrt_outdomain_outResol)
+
+    def convert_to_wholebrain_um(self, p, wrt, resolution):
+        """
+        Convert the coordinates expressed in given frame and resolution to
+        coordinates expressed in "wholebrain" frame in microns.
+
+        Args:
+            p (list of 3-tuples): list of points
+            wrt (str): name of input frame
+            resolution (str): name of input resolution.
+        """
+
+        p = np.array(p)
+        # assert np.atleast_2d(p).shape[1] == 3, "Coordinates must have three elements."
+        p_um = self.convert_resolution(p, in_resolution=resolution, out_resolution='um')
+
+        if wrt == 'wholebrain':
+            p_wrt_wholebrain_um = p_um
+        else:
+            assert isinstance(wrt, tuple)
+            base_frame_name, plane = wrt
+
+            print 'p_um', p_um.mean(axis=0)
+            p_wrt_inSagittal_um = self.convert_three_view_frames(p=p_um, base_frame_name=base_frame_name,
+                                                                in_plane=plane,
+                                                                out_plane='sagittal',
+                                                                p_resol='um')
+            print 'p_wrt_inSagittal_um', p_wrt_inSagittal_um.mean(axis=0)
+            inSagittal_origin_wrt_wholebrain_um = self.frames[base_frame_name]['origin_wrt_wholebrain_um']
+            print 'inSagittal_origin_wrt_wholebrain_um', inSagittal_origin_wrt_wholebrain_um.mean(axis=0)
+            p_wrt_wholebrain_um = p_wrt_inSagittal_um + inSagittal_origin_wrt_wholebrain_um
+            print 'p_wrt_wholebrain_um', p_wrt_wholebrain_um.mean(axis=0)
+
+        return np.squeeze(p_wrt_wholebrain_um)
+
+    def convert_frame_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution,
+                                     stack=None):
+        """
+        Converts between coordinates that are expressed in different frames and different resolutions.
+
+        Use this in combination with DataManager.get_domain_origin().
+
+        `wrt` can be either 3-D frames or 2-D frames.
+        Detailed definitions of various frames can be found at https://goo.gl/o2Yydw.
+
+        There are two ways to specify 3-D frames.
+
+        1. The "absolute" way:
+        - wholebrain: formed by stacking all sections of prep1 (aligned + padded) images
+        - wholebrainXYcropped: formed by stacking all sections of prep2 images
+        - brainstemXYfull: formed by stacking sections of prep1 images that contain brainstem
+        - brainstem: formed by stacking brainstem sections of prep2 images
+        - brainstemXYFullNoMargin: formed by stacking brainstem sections of prep4 images
+
+        2. The "relative" way:
+        - x_sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - x_coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+        - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
+
+        2-D frames include:
+        - {0: 'original', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'originalCropped'}
+
+        Resolution specifies the physical units of the coodrinate axes.
+        `resolution` for 3-D coordinates can be any of these strings:
+        - raw
+        - down32
+        - vol
+        - image: gscene resolution, determined by data_feeder.resolution
+        - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
+        - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
+        """
+
+        if in_wrt == 'original' and out_wrt == 'alignedPadded':
+
+            assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
+            assert in_image_resolution is not None, "Must specify input image resolution."
+            assert out_image_resolution is not None, "Must specify output image resolution."
+
+            uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
+
+            p_wrt_outdomain_outResol = np.zeros(p.shape)
+
+            Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+
+            different_sections = np.unique(p[:, 2])
+            for sec in different_sections:
+                curr_section_mask = p[:, 2] == sec
+                fn = metadata_cache['sections_to_filenames'][stack][sec]
+                T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
+                uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
+                                          np.c_[uv_um[curr_section_mask, :2],
+                                                np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
+
+                uv_wrt_alignedPadded_outResol_curr_section = \
+                uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
+
+                p_wrt_outdomain_outResol[curr_section_mask] = \
+                np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
+                           sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
+
+        elif in_wrt == 'alignedPadded' and out_wrt == 'original':
+
+            assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
+            assert in_image_resolution is not None, "Must specify input image resolution."
+            assert out_image_resolution is not None, "Must specify output image resolution."
+
+            uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
+
+            p_wrt_outdomain_outResol = np.zeros(p.shape)
+
+            Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+            Ts_anchor_to_individual_section_image_resol = {fn: np.linalg.inv(T) for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems()}
+
+            different_sections = np.unique(p[:, 2])
+            for sec in different_sections:
+                curr_section_mask = p[:, 2] == sec
+                fn = metadata_cache['sections_to_filenames'][stack][sec]
+                T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
+                uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
+                                          np.c_[uv_um[curr_section_mask, :2],
+                                                np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
+
+                uv_wrt_alignedPadded_outResol_curr_section = \
+                uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
+
+                p_wrt_outdomain_outResol[curr_section_mask] = \
+                np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
+                           sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
+
+            return p_wrt_outdomain_outResol
+
+        else:
+            p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution)
+            print 'p_wrt_wholebrain_um', p_wrt_wholebrain_um.mean(axis=0)
+            p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution)
+            print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol.mean(axis=0)
+            print
+            return p_wrt_outdomain_outResol
+
+
 def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_minimal=True):
-    """    
+    """
     Args:
         images (dict of 2D images): key is section index. First section has index 1.
         spacing_um (float): spacing between adjacent sections or thickness of each section, in micron.
         in_resol_um (float): image planar resolution in micron.
         out_resol_um (float): isotropic output voxel size, in micron.
-    
+
     Returns:
         (volume, volume origin relative to the image origin of section 1)
     """
@@ -128,7 +504,7 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
     z_end = int(np.ceil(last_sec*voxel_z_size))
     z_begin = int(np.floor((first_sec-1)*voxel_z_size))
     zdim = z_end + 1 - z_begin
-    
+
     volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
 
     for i in range(len(images.keys())-1):
@@ -139,313 +515,11 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
         elif callable(images):
             im = images(sections[i])
         volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
-    
+
     if crop_to_minimal:
         return crop_volume_to_minimal(volume)
     else:
         return volume
-        
-
-def convert_frame(p, in_frame, out_frame, zdim):
-    """
-    Convert among the three frames specified by the second method in this presentation
-    https://docs.google.com/presentation/d/1o5aQbXY5wYC0BNNiEZm7qmjvngbD_dVoMyCw_tAQrkQ/edit#slide=id.g2d31ede24d_0_0
-    """
-
-    if in_frame == 'sagittal':
-        p_sagittal = p
-    elif in_frame == 'coronal':
-        x = p[..., 2]
-        y = p[..., 1]
-        z = zdim - p[..., 0]
-        p_sagittal = np.column_stack([x,y,z])
-    elif in_frame == 'horizontal':
-        x = p[..., 0]
-        y = p[..., 2]
-        z = zdim - p[..., 1]
-        p_sagittal = np.column_stack([x,y,z])
-    else:
-        print in_frame
-        raise
-
-    if out_frame == 'sagittal':
-        p_out = p_sagittal
-    elif out_frame == 'coronal':
-        x = zdim - p_sagittal[..., 2]
-        y = p_sagittal[..., 1]
-        z = p_sagittal[..., 0]
-        p_out = np.column_stack([x,y,z])
-    elif out_frame == 'horizontal':
-        x = p_sagittal[..., 0]
-        y = zdim - p_sagittal[..., 2]
-        z = p_sagittal[..., 1]
-        p_out = np.column_stack([x,y,z])
-    else:
-        print out_frame
-        raise
-
-    return p_out
-
-def convert_resolution(p, in_resolution, out_resolution,
-                       stack=None, image_resolution=None,
-                       section_list=None,
-                      volume_resolution_um=None):
-    """
-    Rescales coordinates according to the given input and output resolution.
-    This function does not change physical position of coordinate origin or the direction of the axes.
-    """
-
-    if in_resolution == 'image':
-        p_um = p * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-    elif in_resolution == 'image_image_section':
-        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-        d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
-        p_um = np.column_stack([uv_um, d_um])
-    elif in_resolution == 'image_image_index':
-        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-        i_um = np.array([SECTION_THICKNESS * section_list[int(idx)] for idx in p[..., 2]])
-        p_um = np.column_stack([uv_um, i_um])
-    elif in_resolution == 'volume':
-        p_um = p * volume_resolution_um
-    elif in_resolution == 'raw':
-        p_um = p * planar_resolution[stack]
-    elif in_resolution == 'down32':
-        p_um = p * (planar_resolution[stack] * 32.)
-    elif in_resolution == 'um':
-        p_um = p
-    else:
-        p_um = p * convert_resolution_string_to_um(stack=stack, resolution=in_resolution)
-
-    if out_resolution == 'image':
-        p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-    elif out_resolution == 'image_image_section':
-        uv_outResol = p_um[..., :2] / convert_resolution_string_to_voxel_size(stack=stack, resolution=image_resolution)
-        sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
-        p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
-    elif out_resolution == 'image_image_index':
-        uv_outResol = p_um[..., :2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-        if hasattr(self.data_feeder, 'sections'):
-            i_outResol = []
-            for d_um in p_um[..., 2]:
-                sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
-                if sec in section_list:
-                    index = section_list.index(sec)
-                else:
-                    index = np.nan
-                i_outResol.append(index)
-            i_outResol = np.array(i_outResol)
-            # i_outResol = np.array([self.data_feeder.sections.index(1 + int(np.floor(d_um / SECTION_THICKNESS))) for d_um in p_um[..., 2]])
-        else:
-            i_outResol = p_um[..., 2] / convert_resolution_string_to_um(stack=stack, resolution=image_resolution)
-        p_outResol = np.column_stack([uv_outResol, i_outResol])
-    elif out_resolution == 'volume':
-        p_outResol = p_um / volume_resolution_um
-    elif out_resolution == 'raw':
-        p_outResol = p_um / planar_resolution[stack]
-    elif out_resolution == 'down32':
-        p_outResol = p_um / (planar_resolution[stack] * 32.)
-    elif out_resolution == 'um':
-        p_outResol = p_um
-    else:
-        p_outResol = p_um / convert_resolution_string_to_um(stack=stack, resolution=out_resolution)
-
-    return p_outResol
-
-
-def get_wrt_details(wrt, stack=None, zdim_um=None):
-    """
-    Get parameters of a 3-D frame.
-
-    Args:
-        wrt (str): a 3-D frame specifier.
-
-    Returns:
-        dict whose keys are:
-            - origin_wrt_wholebrain_um: origin of this frame with respect to wholebrain in micron.
-            - plane: sagittal, coronal or horizontal
-            - zdim_um: z-dimension in micron. Used for ???
-    """
-
-    try:
-        box, plane = wrt.split('_')
-    except:
-        plane = 'sagittal'
-
-    wrt_details = {'origin_wrt_wholebrain_um': DataManager.get_domain_origin(stack, wrt, resolution='1um'),
-                'plane': plane,
-                'zdim_um': zdim_um}
-
-    return wrt_details
-
-
-def convert_from_wholebrain_um(p_wrt_wholebrain_um, wrt, resolution,
-                               image_resolution=None, stack=None, volume_resolution_um=None,
-    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
-    """
-    Convert the coordinates expressed in "wholebrain" frame in microns to
-    coordinates expressed in the given frame and resolution.
-    """
-
-    p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
-    assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3, "Coordinates must have three elements."
-
-    if wrt == 'wholebrain':
-        p_wrt_outdomain_um = p_wrt_wholebrain_um
-
-    else:
-        wrt_details = get_wrt_details(wrt, stack)
-        # if 'sagittal' in wrt or 'coronal' in wrt or 'horizontal' in wrt:
-        # box, plane = wrt.split('_')
-        p_wrt_boxSagittal_origin_um = p_wrt_wholebrain_um - wrt_details['origin_wrt_wholebrain_um']
-        # assert plane == 'sagittal', plane # otherwise, need to provide zdim to convert_frame.
-        p_wrt_outdomain_um = convert_frame(p_wrt_boxSagittal_origin_um, in_frame='sagittal',
-                                           out_frame=wrt_details['plane'],
-                                           zdim=wrt_details['zdim_um'])
-    # else:
-    #     print wrt
-    #     raise
-
-    p_wrt_outdomain_outResol = convert_resolution(p_wrt_outdomain_um, in_resolution='um', out_resolution=resolution,
-                                                 image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
-    return np.squeeze(p_wrt_outdomain_outResol)
-
-def convert_to_wholebrain_um(p, wrt, resolution,
-                             image_resolution=None, stack=None, volume_resolution_um=None,
-    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None):
-    """
-    Convert the coordinates expressed in given frame and resolution to
-    coordinates expressed in "wholebrain" frame in microns.
-
-    Args:
-        p (list of 3-tuples): list of points
-    """
-
-    p = np.array(p)
-    assert np.atleast_2d(p).shape[1] == 3, "Coordinates must have three elements."
-    p_um = convert_resolution(p, in_resolution=resolution, out_resolution='um',
-                             image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um)
-
-    if wrt == 'wholebrain':
-        p_wrt_wholebrain_um = p_um
-    else:
-        wrt_details = get_wrt_details(wrt, stack)
-        p_wrt_boxSagittal_um = convert_frame(p_um, in_frame=wrt_details['plane'], out_frame='sagittal', zdim=wrt_details['zdim_um'])
-        box_origin_wrt_wholebrain_um = wrt_details['origin_wrt_wholebrain_um']
-        p_wrt_wholebrain_um = p_wrt_boxSagittal_um + box_origin_wrt_wholebrain_um
-
-    return np.squeeze(p_wrt_wholebrain_um)
-
-def convert_frame_and_resolution(p, in_wrt, in_resolution, out_wrt, out_resolution,
-                                 image_resolution=None, stack=None, volume_resolution_um=None,
-    structure_origin=None, structure_wrt=None, structure_resolution=None, structure_zdim=None,
-                                in_image_resolution=None, out_image_resolution=None,
-                                return_transform_matrix=False):
-    """
-    Converts between coordinates that are expressed in different frames and different resolutions.
-
-    Use this in combination with DataManager.get_domain_origin().
-
-    `wrt` can be either 3-D frames or 2-D frames.
-    Detailed definitions of various frames can be found at https://goo.gl/o2Yydw.
-
-    There are two ways to specify 3-D frames.
-
-    1. The "absolute" way:
-    - wholebrain: formed by stacking all sections of prep1 (aligned + padded) images
-    - wholebrainXYcropped: formed by stacking all sections of prep2 images
-    - brainstemXYfull: formed by stacking sections of prep1 images that contain brainstem
-    - brainstem: formed by stacking brainstem sections of prep2 images
-    - brainstemXYFullNoMargin: formed by stacking brainstem sections of prep4 images
-
-    2. The "relative" way:
-    - x_sagittal: frame of lo-res sagittal scene = sagittal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    - x_coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-    - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
-
-    2-D frames include:
-    - {0: 'original', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'originalCropped'}
-
-    Resolution specifies the physical units of the coodrinate axes.
-    `resolution` for 3-D coordinates can be any of these strings:
-    - raw
-    - down32
-    - vol
-    - image: gscene resolution, determined by data_feeder.resolution
-    - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
-    - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
-    """
-
-    if in_wrt == 'original' and out_wrt == 'alignedPadded':
-
-        assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
-        assert in_image_resolution is not None, "Must specify input image resolution."
-        assert out_image_resolution is not None, "Must specify output image resolution."
-
-        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
-
-        p_wrt_outdomain_outResol = np.zeros(p.shape)
-
-        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
-
-        different_sections = np.unique(p[:, 2])
-        for sec in different_sections:
-            curr_section_mask = p[:, 2] == sec
-            fn = metadata_cache['sections_to_filenames'][stack][sec]
-            T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
-            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
-                                      np.c_[uv_um[curr_section_mask, :2],
-                                            np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
-
-            uv_wrt_alignedPadded_outResol_curr_section = \
-            uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
-
-            p_wrt_outdomain_outResol[curr_section_mask] = \
-            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
-                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
-
-    elif in_wrt == 'alignedPadded' and out_wrt == 'original':
-
-        assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
-        assert in_image_resolution is not None, "Must specify input image resolution."
-        assert out_image_resolution is not None, "Must specify output image resolution."
-
-        uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
-
-        p_wrt_outdomain_outResol = np.zeros(p.shape)
-
-        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
-        Ts_anchor_to_individual_section_image_resol = {fn: np.linalg.inv(T) for fn, T in Ts_anchor_to_individual_section_image_resol.iteritems()}
-
-        different_sections = np.unique(p[:, 2])
-        for sec in different_sections:
-            curr_section_mask = p[:, 2] == sec
-            fn = metadata_cache['sections_to_filenames'][stack][sec]
-            T_anchor_to_individual_section_image_resol = Ts_anchor_to_individual_section_image_resol[fn]
-            uv_wrt_alignedPadded_um_curr_section = np.dot(T_anchor_to_individual_section_image_resol,
-                                      np.c_[uv_um[curr_section_mask, :2],
-                                            np.ones((np.count_nonzero(curr_section_mask),))].T).T[:, :2]
-
-            uv_wrt_alignedPadded_outResol_curr_section = \
-            uv_wrt_alignedPadded_um_curr_section / convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
-
-            p_wrt_outdomain_outResol[curr_section_mask] = \
-            np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
-                       sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
-
-        return p_wrt_outdomain_outResol
-    else:
-
-        p_wrt_wholebrain_um = convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution,
-                                                       image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
-        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
-
-        p_wrt_outdomain_outResol = convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution,
-                                                              image_resolution=image_resolution, stack=stack, volume_resolution_um=volume_resolution_um,
-        structure_origin=structure_origin, structure_wrt=structure_wrt, structure_resolution=structure_resolution, structure_zdim=structure_zdim)
-    # print 'p', p
-    # print "p_wrt_wholebrain_um", p_wrt_wholebrain_um
-    # print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol
-        return p_wrt_outdomain_outResol
 
 # def get_prep_str(prep_id):
 #     return prep_id_to_str[prep_id]
@@ -455,7 +529,6 @@ class DataManager(object):
     ################################################
     ##   Conversion between coordinate systems    ##
     ################################################
-
 
     @staticmethod
     def get_crop_bbox_rel2uncropped(stack):
@@ -881,27 +954,27 @@ class DataManager(object):
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
         Return path to file that specified the cropping box of the given crop specifier.
-        
+
         Args:
             prep_id (int or str): 2D frame specifier
         """
 
         if isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
-            
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
-            
+
         fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
         return fp
-    
+
     @staticmethod
     def get_cropbox_filename(stack, anchor_fn=None, prep_id=2):
         """
         Get the filename to brainstem crop box.
 
         """
-    
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
 
@@ -909,7 +982,7 @@ class DataManager(object):
             fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
         else:
             fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
-            
+
         return fn
     #
     # @staticmethod
@@ -980,9 +1053,20 @@ class DataManager(object):
         origin_outResol = origin_loadedResol * loaded_resolution_um / out_resolution_um
 
         return origin_outResol
-    
+
     @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
+        """
+        Loads the cropping box for the given crop.
+
+        Args:
+            convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+            prep_id (int)
+        """
+        return DataManager.load_cropbox(**locals())
+
+    @staticmethod
+    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
         Loads the crop box for brainstem.
 
@@ -990,6 +1074,7 @@ class DataManager(object):
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
             prep_id (int)
         """
+
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
@@ -1006,33 +1091,6 @@ class DataManager(object):
             return cropbox[[0,2,4]]
         else:
             return cropbox
-
-#     @staticmethod
-#     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
-#         """
-#         Loads the crop box for brainstem.
-
-#         Args:
-#             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
-#             prep_id (int)
-#         """
-
-
-#         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
-#         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-
-#         if convert_section_to_z:
-#             xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
-#             zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
-#             zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
-#             cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
-#         else:
-#             cropbox = np.loadtxt(fp).astype(np.int)
-
-#         if return_origin_instead_of_bbox:
-#             return cropbox[[0,2,4]]
-#         else:
-#             return cropbox
 
     # @staticmethod
     # def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
@@ -4168,7 +4226,7 @@ class DataManager(object):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
             assert fn is not None
-            
+
         if prep_id is not None and isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
 
@@ -4260,7 +4318,7 @@ class DataManager(object):
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack=stack, prep_id=2)
+        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_v2(stack=stack, prep_id=2)
         return (xmax - xmin + 1) * 32, (ymax - ymin + 1) * 32
 
         # for i in range(10, 13):
@@ -4517,7 +4575,7 @@ class DataManager(object):
     #     else:
     #         raise Exception('version %s is not recognized.' % version)
     #     return fp
-    
+
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
@@ -4807,11 +4865,11 @@ def generate_metadata_cache():
         except:
             pass
         try:
-            metadata_cache['section_limits'][stack] = DataManager.load_cropbox(stack)[4:]
+            metadata_cache['section_limits'][stack] = DataManager.load_cropbox_v2(stack)[4:]
         except:
             pass
         try:
-            metadata_cache['cropbox'][stack] = DataManager.load_cropbox(stack)[:4]
+            metadata_cache['cropbox'][stack] = DataManager.load_cropbox_v2(stack)[:4]
         except:
             pass
 

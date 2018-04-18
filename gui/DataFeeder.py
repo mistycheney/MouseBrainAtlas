@@ -16,7 +16,7 @@ from qt_utilities import *
 gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
 # ACTIVE_SET_SIZE = 999
-ACTIVE_SET_SIZE = 10
+ACTIVE_SET_SIZE = 1
 
 class SignalEmitter(QObject):
     update_active_set = pyqtSignal(object, object)

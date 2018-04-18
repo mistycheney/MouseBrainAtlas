@@ -249,6 +249,9 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     Returns:
         voxel/pixel size in microns.
     """
+
+    assert resolution is not None, 'Resolution argument cannot be None.'
+
     if resolution in ['down32', 'thumbnail']:
         assert stack is not None
         return planar_resolution[stack] * 32.
@@ -258,6 +261,8 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     elif resolution == 'down8':
         assert stack is not None
         return planar_resolution[stack] * 8.
+    elif resolution == 'um':
+        return 1.
     elif resolution.endswith('um'):
         return float(resolution[:-2])
     else:

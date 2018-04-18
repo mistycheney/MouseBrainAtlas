@@ -124,11 +124,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             try:
             # self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=1)
             # vol_down32 = DataManager.load_intensity_volume_v2(self.stack, downscale=32, prep_id=4)
-                intensity_volume_down32, intensity_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
-                self.volume_cache[resol] = rescale_by_resampling(intensity_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
+                thumbnail_volume_down32, thumbnail_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
+                self.volume_cache[resol] = rescale_by_resampling(thumbnail_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
                 print 'Intensity volume', self.volume_cache[resol].shape
+                THUMBNAIL_VOLUME_LOADED = True
             except:
                 sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
+                THUMBNAIL_VOLUME_LOADED = False
 
         self.splitter.setSizes([500, 500, 500])
         self.splitter_2.setSizes([500, 500])
@@ -150,10 +152,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.main_sagittal_gscene.set_default_vertex_radius(10)
         self.main_sagittal_gscene.set_default_vertex_color('r')
 
-        self.gscenes = { 'main_sagittal': self.main_sagittal_gscene,
-                        'tb_coronal': self.tb_coronal_gscene,
-                        'tb_horizontal': self.tb_horizontal_gscene,
-                        'tb_sagittal': self.tb_sagittal_gscene}
+        if THUMBNAIL_VOLUME_LOADED:
+            self.gscenes = { 'main_sagittal': self.main_sagittal_gscene,
+                            'tb_coronal': self.tb_coronal_gscene,
+                            'tb_horizontal': self.tb_horizontal_gscene,
+                            'tb_sagittal': self.tb_sagittal_gscene}
+        else:
+            self.gscenes = { 'main_sagittal': self.main_sagittal_gscene}
 
         for gscene in self.gscenes.itervalues():
             gscene.drawings_updated.connect(self.drawings_updated)
@@ -197,48 +202,47 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.connect(self.gscenes['main_sagittal'], SIGNAL("image_loaded(int)"), self.image_loaded)
         self.gscenes['main_sagittal'].set_active_section(first_sec0)
 
-        cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=self.stack, prep_id=self.prep_id)[:4]
+        cropbox_origin_xy_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=self.stack, prep_id=self.prep_id)[[0,2]]
 
         self.gscenes['main_sagittal'].converter.derive_three_view_frames(base_frame_name='data',
-        origin_wrt_wholebrain_um=np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack),
-        planes=['sagittal'])
+        origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack))
 
-        volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
+        if THUMBNAIL_VOLUME_LOADED:
 
-        thumbnail_volume_origin_wrt_wholebrain_um = intensity_volume_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack)
+            volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
+            thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack)
 
-        if hasattr(self, 'volume_cache') and self.volume_cache is not None:
+            if hasattr(self, 'volume_cache') and self.volume_cache is not None:
 
-            coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
-            coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            coronal_volume_resection_feeder.set_orientation('coronal')
-            coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
-            self.gscenes['tb_coronal'].set_active_i(50)
-            self.gscenes['tb_coronal'].converter.derive_three_view_frames(base_frame_name='data',
-            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
-            )
+                coronal_volume_resection_feeder = VolumeResectionDataFeeder('coronal resection feeder', self.stack)
+                coronal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                coronal_volume_resection_feeder.set_orientation('coronal')
+                coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_coronal'].set_data_feeder(coronal_volume_resection_feeder)
+                self.gscenes['tb_coronal'].set_active_i(50)
+                self.gscenes['tb_coronal'].converter.derive_three_view_frames(base_frame_name='data',
+                origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+                )
 
-            horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
-            horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            horizontal_volume_resection_feeder.set_orientation('horizontal')
-            horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
-            self.gscenes['tb_horizontal'].set_active_i(150)
-            self.gscenes['tb_horizontal'].converter.derive_three_view_frames(base_frame_name='data',
-            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
-            )
+                horizontal_volume_resection_feeder = VolumeResectionDataFeeder('horizontal resection feeder', self.stack)
+                horizontal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                horizontal_volume_resection_feeder.set_orientation('horizontal')
+                horizontal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_horizontal'].set_data_feeder(horizontal_volume_resection_feeder)
+                self.gscenes['tb_horizontal'].set_active_i(150)
+                self.gscenes['tb_horizontal'].converter.derive_three_view_frames(base_frame_name='data',
+                origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+                )
 
-            sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
-            sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
-            sagittal_volume_resection_feeder.set_orientation('sagittal')
-            sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
-            self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
-            self.gscenes['tb_sagittal'].set_active_i(150)
-            self.gscenes['tb_sagittal'].converter.derive_three_view_frames(base_frame_name='data',
-            origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
-            )
-
+                sagittal_volume_resection_feeder = VolumeResectionDataFeeder('sagittal resection feeder', self.stack)
+                sagittal_volume_resection_feeder.set_volume_cache(self.volume_cache)
+                sagittal_volume_resection_feeder.set_orientation('sagittal')
+                sagittal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
+                self.gscenes['tb_sagittal'].set_data_feeder(sagittal_volume_resection_feeder)
+                self.gscenes['tb_sagittal'].set_active_i(150)
+                self.gscenes['tb_sagittal'].converter.derive_three_view_frames(base_frame_name='data',
+                origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+                )
 
         for gid, gs in self.gscenes.iteritems():
             print gid

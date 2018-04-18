@@ -136,7 +136,7 @@ class CoordinatesConverter(object):
             # self.frames['wholebrainXYcropped'] = dict(origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=stack),
             # plane='sagittal', 'zdim_um'=None)
 
-    def derive_three_view_frames(self, base_frame_name, origin_wrt_wholebrain_um=(0,0,0), zdim_um=None, planes=['sagittal', 'coronal', 'horizontal']):
+    def derive_three_view_frames(self, base_frame_name, origin_wrt_wholebrain_um=(0,0,0), zdim_um=None):
         """
         Generate the three new frames that correspond to three orthogonal views.
         """

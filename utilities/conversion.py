@@ -4,58 +4,58 @@ from itertools import groupby
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'utilities'))
 from data_manager import *
 
-def images_to_volume(images, voxel_size, first_sec=None, last_sec=None):
-    """
-    Assume section 1 is at z=0.
+# def images_to_volume(images, voxel_size, first_sec=None, last_sec=None):
+#     """
+#     Assume section 1 is at z = 0.
     
-    Args:
-        images (dict of 2D images): key is section index. First section has index 1.
-        voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
-        firse_sec (int): the beginning section of the bounding box.  Default is the the smallest key of `images`.
-        last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
+#     Args:
+#         images (dict of 2D images): key is section index. First section has index 1.
+#         voxel_size ((3,)-array): (xdim,ydim,zdim) in unit of pixel size.
+#         firse_sec (int): the beginning section of the bounding box.  Default is the the smallest key of `images`.
+#         last_sec (int): the ending section of the bounding box. Default is the the largest key of `images`.
     
-    Returns:
-        (volume, bbox): bbox is wrt to wholebrainXYcropped.
-    """
+#     Returns:
+#         (volume, bbox): bbox is wrt to wholebrainXYcropped.
+#     """
 
-    if isinstance(images, dict):
-        ydim, xdim = images.values()[0].shape[:2]
-        sections = images.keys()
-        if last_sec is None:
-            last_sec = np.max(sections)
-        if first_sec is None:
-            first_sec = np.min(sections)
-    elif callable(images):
-        try:
-            ydim, xdim = images(100).shape[:2]
-        except:
-            ydim, xdim = images(200).shape[:2]
-        assert last_sec is not None
-        assert first_sec is not None
-    else:
-        raise Exception('images must be dict or function.')
+#     if isinstance(images, dict):
+#         ydim, xdim = images.values()[0].shape[:2]
+#         sections = images.keys()
+#         if last_sec is None:
+#             last_sec = np.max(sections)
+#         if first_sec is None:
+#             first_sec = np.min(sections)
+#     elif callable(images):
+#         try:
+#             ydim, xdim = images(100).shape[:2]
+#         except:
+#             ydim, xdim = images(200).shape[:2]
+#         assert last_sec is not None
+#         assert first_sec is not None
+#     else:
+#         raise Exception('images must be dict or function.')
 
-    voxel_z_size = voxel_size[2]
+#     voxel_z_size = voxel_size[2]
 
-    z_end = int(np.ceil(last_sec*voxel_z_size))
-    z_begin = int(np.floor((first_sec-1)*voxel_z_size))
-    zdim = z_end + 1 - z_begin
+#     z_end = int(np.ceil(last_sec*voxel_z_size))
+#     z_begin = int(np.floor((first_sec-1)*voxel_z_size))
+#     zdim = z_end + 1 - z_begin
 
-    # print 'Volume shape:', xdim, ydim, zdim
+#     # print 'Volume shape:', xdim, ydim, zdim
 
-    volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
+#     volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
 
-    for i in range(len(images.keys())-1):
-        z1 = int(np.floor((sections[i]-1) * voxel_z_size))
-        z2 = int(np.ceil(sections[i+1] * voxel_z_size))
-        if isinstance(images, dict):
-            im = images[sections[i]]
-        elif callable(images):
-            im = images(sections[i])
-        volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
+#     for i in range(len(images.keys())-1):
+#         z1 = int(np.floor((sections[i]-1) * voxel_z_size))
+#         z2 = int(np.ceil(sections[i+1] * voxel_z_size))
+#         if isinstance(images, dict):
+#             im = images[sections[i]]
+#         elif callable(images):
+#             im = images(sections[i])
+#         volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
 
-    volume_bbox = np.array([0,xdim-1,0,ydim-1,z_begin,z_end])
-    return volume, volume_bbox
+#     volume_bbox = np.array([0,xdim-1,0,ydim-1,z_begin,z_end])
+#     return volume, volume_bbox
 
 
 def points2d_to_points3d(pts2d_grouped_by_section, pts2d_downsample, pts3d_downsample, stack, pts3d_origin=(0,0,0)):

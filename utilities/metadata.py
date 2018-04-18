@@ -484,7 +484,9 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
 
 ########################################
 
-prep_id_to_str = {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
+prep_id_to_str_2d = {0: 'raw', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'rawCropped'}
+
+prep_str_to_id_2d = {s: i for i, s in prep_id_to_str_2d.iteritems()}
 
 #######################################
 

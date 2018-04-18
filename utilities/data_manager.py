@@ -89,6 +89,62 @@ def volume_type_to_str(t):
     else:
         raise Exception('Volume type %s is not recognized.' % t)
 
+        
+################
+## Conversion ##
+################
+
+def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_minimal=True):
+    """    
+    Args:
+        images (dict of 2D images): key is section index. First section has index 1.
+        spacing_um (float): spacing between adjacent sections or thickness of each section, in micron.
+        in_resol_um (float): image planar resolution in micron.
+        out_resol_um (float): isotropic output voxel size, in micron.
+    
+    Returns:
+        (volume, volume origin relative to the image origin of section 1)
+    """
+
+    if isinstance(images, dict):
+        ydim, xdim = images.values()[0].shape[:2] * float(in_resol_um) / out_resol_um
+        sections = images.keys()
+        if last_sec is None:
+            last_sec = np.max(sections)
+        if first_sec is None:
+            first_sec = np.min(sections)
+    elif callable(images):
+        try:
+            ydim, xdim = images(100).shape[:2]
+        except:
+            ydim, xdim = images(200).shape[:2]
+        assert last_sec is not None
+        assert first_sec is not None
+    else:
+        raise Exception('images must be dict or function.')
+
+    voxel_z_size = float(spacing_um) / out_resol_um
+
+    z_end = int(np.ceil(last_sec*voxel_z_size))
+    z_begin = int(np.floor((first_sec-1)*voxel_z_size))
+    zdim = z_end + 1 - z_begin
+    
+    volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
+
+    for i in range(len(images.keys())-1):
+        z1 = int(np.floor((sections[i]-1) * voxel_z_size))
+        z2 = int(np.ceil(sections[i+1] * voxel_z_size))
+        if isinstance(images, dict):
+            im = images[sections[i]]
+        elif callable(images):
+            im = images(sections[i])
+        volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
+    
+    if crop_to_minimal:
+        return crop_volume_to_minimal(volume)
+    else:
+        return volume
+        
 
 def convert_frame(p, in_frame, out_frame, zdim):
     """
@@ -822,11 +878,30 @@ class DataManager(object):
         return anchor_fn
 
     @staticmethod
+    def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
+        """
+        Return path to file that specified the cropping box of the given crop specifier.
+        
+        Args:
+            prep_id (int or str): 2D frame specifier
+        """
+
+        if isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
+            
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+            
+        fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
+        return fp
+    
+    @staticmethod
     def get_cropbox_filename(stack, anchor_fn=None, prep_id=2):
         """
         Get the filename to brainstem crop box.
-        """
 
+        """
+    
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
 
@@ -834,6 +909,7 @@ class DataManager(object):
             fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox_thalamus.txt')
         else:
             fn = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
+            
         return fn
     #
     # @staticmethod
@@ -904,9 +980,9 @@ class DataManager(object):
         origin_outResol = origin_loadedResol * loaded_resolution_um / out_resolution_um
 
         return origin_outResol
-
+    
     @staticmethod
-    def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
+    def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
         Loads the crop box for brainstem.
 
@@ -914,7 +990,6 @@ class DataManager(object):
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
             prep_id (int)
         """
-
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
@@ -931,6 +1006,33 @@ class DataManager(object):
             return cropbox[[0,2,4]]
         else:
             return cropbox
+
+#     @staticmethod
+#     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
+#         """
+#         Loads the crop box for brainstem.
+
+#         Args:
+#             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
+#             prep_id (int)
+#         """
+
+
+#         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+#         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+
+#         if convert_section_to_z:
+#             xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
+#             zmin = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0)))
+#             zmax = int(np.mean(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0)))
+#             cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
+#         else:
+#             cropbox = np.loadtxt(fp).astype(np.int)
+
+#         if return_origin_instead_of_bbox:
+#             return cropbox[[0,2,4]]
+#         else:
+#             return cropbox
 
     # @staticmethod
     # def load_cropbox_thalamus(stack, anchor_fn=None, convert_section_to_z=False):
@@ -4047,7 +4149,7 @@ class DataManager(object):
                            section=None, fn=None, ext=None):
         """
         Args:
-        	version (str): the version string.
+            version (str): the version string.
 
         Returns:
             Absolute path of the image file.
@@ -4066,6 +4168,9 @@ class DataManager(object):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
             assert fn is not None
+            
+        if prep_id is not None and isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
         if ext is None:
@@ -4412,7 +4517,7 @@ class DataManager(object):
     #     else:
     #         raise Exception('version %s is not recognized.' % version)
     #     return fp
-
+    
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
         fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)

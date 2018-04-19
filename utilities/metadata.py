@@ -517,6 +517,7 @@ stack_to_color_float = {s: np.array(c)/255. for s, c in stack_to_color.iteritems
 
 # Colors for the iso-contours or iso-surfaces of different probabilities.
 level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
+LEVEL_TO_COLOR_VERTEX = {0.1: (0,0,255), 0.25: (125,0,125), 0.5: (0,255,0), 0.75: (255,0,0), 0.99: (0,125,0)}
 
 ####################################
 

@@ -699,16 +699,32 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
             positions = range(0, labeled_volume.shape[0])
 
     def find_contour_points_slice(p):
+        """
+        Args:
+            p (int): position
+        """
         if along_direction == 'x':
+            if p < 0 or p >= labeled_volume.shape[1]:
+                return
             vol_slice = labeled_volume[:, p, :]
         elif along_direction == 'coronal':
+            if p < 0 or p >= labeled_volume.shape[1]:
+                return
             vol_slice = labeled_volume[:, p, ::-1]
         elif along_direction == 'y':
+            if p < 0 or p >= labeled_volume.shape[0]:
+                return
             vol_slice = labeled_volume[p, :, :]
         elif along_direction == 'horizontal':
+            if p < 0 or p >= labeled_volume.shape[0]:
+                return
             vol_slice = labeled_volume[p, :, ::-1].T
         elif along_direction == 'z' or along_direction == 'sagittal':
+            if p < 0 or p >= labeled_volume.shape[2]:
+                return
             vol_slice = labeled_volume[:, :, p]
+        else:
+            raise
 
         cnts = find_contour_points(vol_slice.astype(np.uint8), sample_every=sample_every)
         if len(cnts) == 0 or 1 not in cnts:

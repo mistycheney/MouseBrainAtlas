@@ -193,11 +193,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     raise
 
+            # If image resolution > 10 um
+            if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                sample_every = 5
+            else:
+                sample_every = 5
+
             # print np.round(depths_of_all_sections).astype(np.int)
             contour_2d_wrt_structureVolume_sectionPositions_volResol = find_contour_points_3d(structure_volume_volResol >= level,
                                                             along_direction=self.data_feeder.orientation,
-                                                            sample_every=1,
-                                                            positions=np.round(depths_of_all_sections).astype(np.int))
+                                                            sample_every=sample_every,
+                                                            positions=np.floor(depths_of_all_sections).astype(np.int))
 
             for d, cnt_uv in contour_2d_wrt_structureVolume_sectionPositions_volResol.iteritems():
 
@@ -228,22 +234,36 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     assert len(np.unique(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])) == 1
                     index_wrt_dataVolume = int(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2][0])
 
-                # If this position already has a confirmed contour, do not add a new one.
-                if any([p.properties['label'] == name_u and p.properties['side'] == side and p.properties['type'] == 'confirmed'
+                # If this position already has a polygon for this structure, do not add a new one.
+                if any([p.properties['label'] == name_u \
+                and p.properties['side'] == side
+                # and p.properties['type'] == 'confirmed'
                         for p in self.drawings[index_wrt_dataVolume]]):
                     continue
 
+                # If image resolution > 10 um
                 if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
                     linewidth = 1
+                    vertex_radius = .2
                 else:
                     linewidth = 10
+                    vertex_radius = 2
+
+                if set_name == 'aligned_atlas':
+                    new_polygon_type = 'derived_from_atlas'
+                elif set_name == 'handdrawn':
+                    new_polygon_type = 'intersected'
+                else:
+                    raise Exception("Set name %s does not exist." % set_name)
 
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]),
                                                     index=index_wrt_dataVolume,
                                                     label=name_u,
                                                     linewidth=linewidth,
-                                                    linecolor=level_to_color[level], vertex_radius=.2, vertex_color=level_to_color[level],
-                                                    type='derived_from_atlas',
+                                                    linecolor=level_to_color[level],
+                                                    vertex_radius=vertex_radius,
+                                                    vertex_color=LEVEL_TO_COLOR_VERTEX[level],
+                                                    type=new_polygon_type,
                                                     level=level,
                                                     side=side,
                                                     side_manually_assigned=False)
@@ -520,7 +540,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if 'type' in contour and contour['type'] is not None:
                     contour_type = contour['type']
                 else:
-                    contour_type = None
+                    # contour_type = None
+                    contour_type = 'confirmed'
+                    # contour_type = 'intersected'
 
                 # class = neuron or contour
                 if 'class' in contour and contour['class'] is not None:
@@ -548,6 +570,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def convert_drawings_to_entries(self, timestamp, username, classes=None, types=None):
         """
+        Convert polygon objects into dict records.
+
         Args:
             classes (list of str): list of classes to gather. Default is contour.
 
@@ -560,13 +584,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         contour_entries = {}
         for idx, polygons in self.drawings.iteritems():
             for polygon in polygons:
+
+                if 'label' not in polygon.properties:
+                    sys.stderr.write("A polygon in section %d has no labels. Ignore.\n" % self.data_feeder.sections[idx])
+                    continue
+
                 if classes is not None:
                     if 'class' not in polygon.properties or ('class' in polygon.properties and polygon.properties['class'] not in classes):
                         # raise Exception("polygon has no class: %d, %s" % (self.data_feeder.sections[idx], polygon.properties['label']))
-                        if 'label' in polygon.properties:
-                            sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
-                        else:
-                            sys.stderr.write("Polygon has no class: %d. Skip." % (self.data_feeder.sections[idx]))
+                        sys.stderr.write("Polygon has no class: %d, %s. Skip." % (self.data_feeder.sections[idx], polygon.properties['label']))
                         continue
 
                 if types is not None:
@@ -772,9 +798,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         action_setLabel = myMenu.addAction("Set label")
 
-        action_confirmPolygon = myMenu.addAction("Confirm this polygon")
+        action_confirmPolygon = myMenu.addAction("Set type to CONFIRMED")
         if hasattr(self, 'active_polygon') and self.active_polygon.properties['type'] == 'confirmed':
-            action_confirmPolygon.setVisible(False)
+            action_confirmPolygon.setText('Set type to INTERSECTED')
+            # action_confirmPolygon.setVisible(False)
 
         action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
         action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using all contours)")
@@ -844,7 +871,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         elif selected_action == action_confirmPolygon:
             # self.active_polygon.set_type(None)
-            self.active_polygon.set_properties('type', 'confirmed')
+            if hasattr(self, 'active_polygon'):
+                if self.active_polygon.properties['type'] is not 'confirmed':
+                    self.active_polygon.set_properties('type', 'confirmed')
+                else:
+                    self.active_polygon.set_properties('type', 'intersected')
 
         elif selected_action == action_deletePolygon:
             self.drawings[self.active_i].remove(self.active_polygon)

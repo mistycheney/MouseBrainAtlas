@@ -116,7 +116,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': None, 'origin': None, 'edits': []}
             self.structure_volumes['aligned_atlas'][name_s] = {'volume': None, 'origin': None, 'edits': []}
 
-        self.structure_volume_resolution_um = 16.
+        # self.structure_volume_resolution_um = 16.
+        self.structure_volume_resolution_um = 8.
 
         self.volume_cache = {}
         # for resol in ['10.0um']:
@@ -221,7 +222,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     coronal_volume_resection_feeder.set_orientation(plane)
                     coronal_volume_resection_feeder.set_resolution(self.volume_cache.keys()[0])
                     self.gscenes['tb_' + plane].set_data_feeder(coronal_volume_resection_feeder)
-                    self.gscenes['tb_' + plane].set_active_i(50)
+                    self.gscenes['tb_' + plane].set_active_i(0)
                     self.gscenes['tb_' + plane].converter.derive_three_view_frames(base_frame_name='data',
                     origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
                     )

@@ -256,17 +256,20 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     raise Exception("Set name %s does not exist." % set_name)
 
-                self.add_polygon_with_circles_and_label(path=vertices_to_path(contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]),
-                                                    index=index_wrt_dataVolume,
-                                                    label=name_u,
-                                                    linewidth=linewidth,
-                                                    linecolor=level_to_color[level],
-                                                    vertex_radius=vertex_radius,
-                                                    vertex_color=LEVEL_TO_COLOR_VERTEX[level],
-                                                    type=new_polygon_type,
-                                                    level=level,
-                                                    side=side,
-                                                    side_manually_assigned=False)
+                try:
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]),
+                                                        index=index_wrt_dataVolume,
+                                                        label=name_u,
+                                                        linewidth=linewidth,
+                                                        linecolor=level_to_color[level],
+                                                        vertex_radius=vertex_radius,
+                                                        vertex_color=LEVEL_TO_COLOR_VERTEX[level],
+                                                        type=new_polygon_type,
+                                                        level=level,
+                                                        side=side,
+                                                        side_manually_assigned=False)
+                except Exception as e:
+                    sys.stderr.write("Add polygon failed: %s" % e)
 
     def update_image(self, i=None, sec=None):
         """
@@ -367,20 +370,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         label_section_lookup = self.get_label_section_lookup()
 
         structure_ranges = get_landmark_range_limits_v2(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
-        print 'structure_ranges', structure_ranges
+        print 'structure_ranges', sorted(structure_ranges.items())
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                if p.properties['label'] in structure_ranges:
-                    assert p.properties['label'] in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % p.properties['label']
-                    if section_index >= structure_ranges[p.properties['label']][0] and section_index <= structure_ranges[p.properties['label']][1]:
+                name_u = p.properties['label']
+                if name_u in structure_ranges:
+                    assert name_u in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % name_u
+                    if section_index >= structure_ranges[name_u][0] and section_index <= structure_ranges[name_u][1]:
                         if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                             p.set_properties('side', 'S')
                             p.set_properties('side_manually_assigned', False)
                     else:
                         raise Exception('Polygon is on a section not in structure_range.')
                 else:
-                    lname = convert_to_left_name(p.properties['label'])
+                    lname = convert_to_left_name(name_u)
                     if lname in structure_ranges:
                         if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
                             if p.properties['side'] is None or not p.properties['side_manually_assigned']:
@@ -541,8 +545,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     contour_type = contour['type']
                 else:
                     # contour_type = None
-                    contour_type = 'confirmed'
-                    # contour_type = 'intersected'
+                    # contour_type = 'confirmed'
+                    contour_type = 'intersected'
 
                 # class = neuron or contour
                 if 'class' in contour and contour['class'] is not None:

@@ -423,7 +423,7 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
         else: # two sides
 
             if len(secs) == 1:
-                sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
+                sys.stderr.write('Structure %s has label on only one section. Decide its sideness relative to the middle section.\n' % name_u)
                 sec = secs[0]
                 if sec < mid_sec:
                     landmark_limits[lname] = (sec, sec)
@@ -435,6 +435,7 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
                 raise
 
             else:
+
                 inferred_Ls = secs[secs < mid_sec]
                 if len(inferred_Ls) > 0:
                     inferred_maxL = np.max(inferred_Ls)
@@ -471,30 +472,30 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
                 if minR is not None:
                     landmark_limits[rname] = (minR, np.max(secs))
 
-                # if maxL >= minR:
-                #     sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-                #     # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-                #     #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
-                #
-                #     if inferred_maxL < inferred_minR:
-                #         maxL = inferred_maxL
-                #         minR = inferred_minR
-                #         sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-                #     elif labeled_maxL < labeled_minR:
-                #         maxL = labeled_maxL
-                #         minR = labeled_minR
-                #         sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-                #     else:
-                #         sys.stderr.write('#### Cannot resolve.. ignored.\n')
-                #         continue
+                if maxL >= minR:
+                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
 
-            # landmark_limits[lname] = (np.min(secs), maxL)
-            # landmark_limits[rname] = (minR, np.max(secs))
+                    if inferred_maxL < inferred_minR:
+                        maxL = inferred_maxL
+                        minR = inferred_minR
+                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+                    elif labeled_maxL < labeled_minR:
+                        maxL = labeled_maxL
+                        minR = labeled_minR
+                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+                    else:
+                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
+                        continue
 
-            # print 'label:', name_u
-            # print 'secs:', secs
-            # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
-            # print '\n'
+            landmark_limits[lname] = (np.min(secs), maxL)
+            landmark_limits[rname] = (minR, np.max(secs))
+
+            print 'label:', name_u
+            print 'secs:', secs
+            print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
+            print '\n'
 
     return landmark_limits
 

@@ -94,7 +94,7 @@ class ReadImagesThread(QThread):
 
         for sec in sections_to_load:
 
-            if sec not in metadata_cache['valid_sections'][self.stack]:
+            if not self.validity_mask[sec]:
                 sys.stderr.write('Section %d is invalid.\n' % sec)
                 continue
 
@@ -125,6 +125,7 @@ class ImageDataFeeder_v2(object):
 
         # These are just labels for each image. Not related to index of a certain image in the list.
         self.sections = sections
+        self.validity_mask = {sec: True for sec in sections} # dict {section: true/false}
 
         self.n = len(self.sections)
 
@@ -152,11 +153,14 @@ class ImageDataFeeder_v2(object):
 
             else:
                 for sec in sections:
-                    if sec not in metadata_cache['valid_sections_all'][self.stack]:
+                    if not self.validity_mask[sec]:
                         continue
 
                     qimage = load_qimage(stack=self.stack, sec=sec, prep_id=self.prep_id, resolution=self.resolution, img_version=self.version)
                     self.image_loaded(qimage, sec)
+
+    def set_validity_mask(self, mask):
+        self.validity_mask = mask
 
     @pyqtSlot(int)
     def drop_image(self, sec):
@@ -269,7 +273,7 @@ class ImageDataFeeder_v2(object):
         if resolution not in self.image_cache:
             self.image_cache[resolution] = {}
 
-        if sec not in metadata_cache['valid_sections'][self.stack]:
+        if not self.validity_mask[sec]:
             sys.stderr.write('%s: Section %s is invalid, skip retrieval.\n' % (self.name, sec))
             raise Exception("Cannot retrieve image %s" % sec)
 
@@ -283,7 +287,7 @@ class ImageDataFeeder_v2(object):
                 # loaded_sections = set(self.image_cache[downsample].keys())
                 loaded_sections = set(self.image_cache[resolution].keys())
                 active_set = set(range(max(min(self.sections), sec-ACTIVE_SET_SIZE/2), min(max(self.sections), sec+ACTIVE_SET_SIZE/2+1)))
-                active_set = active_set & set(metadata_cache['valid_sections'][self.stack])
+                active_set = active_set & set([s for s, v in self.validity_mask.iteritems() if v])
                 # active_set = set(range(max(min(self.sections), sec-1), min(max(self.sections), sec+2)))
                 # print "Active set: ", active_set
                 # print "Loaded sections:", loaded_sections

@@ -17,7 +17,7 @@ from gui_utilities import *
 from qt_utilities import *
 from preprocess_utilities import *
 sys.path.append(os.path.join(os.environ['REPO_DIR'], 'web_services'))
-from web_service import web_services_request
+#from web_service import web_services_request
 
 from ui.ui_MaskEditingGui5 import Ui_MaskEditingGui
 from widgets.DrawableZoomableBrowsableGraphicsScene import DrawableZoomableBrowsableGraphicsScene

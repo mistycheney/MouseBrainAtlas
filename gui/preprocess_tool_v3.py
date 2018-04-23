@@ -509,7 +509,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                                                 filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version='NtbNormalized', resol='thumbnail')
                                                                             for fn in filenames_to_load],
                                                 resolution='down32', load_with_cv2=False)
-
                 self.ordered_images_feeder.set_images(labels=['Placeholder'],
                                                 filenames=[self.placeholder_qimage],
                                                 resolution='down32', load_with_cv2=False)

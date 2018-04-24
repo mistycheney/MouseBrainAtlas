@@ -469,9 +469,12 @@ class CoordinatesConverter(object):
             print
             return p_wrt_outdomain_outResol
 
+from skimage.transform import resize
 
 def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_minimal=True):
     """
+    Stack images in parallel at specified z positions to form volume.
+    
     Args:
         images (dict of 2D images): key is section index. First section has index 1.
         spacing_um (float): spacing between adjacent sections or thickness of each section, in micron.
@@ -483,38 +486,46 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
     """
 
     if isinstance(images, dict):
-        ydim, xdim = images.values()[0].shape[:2] * float(in_resol_um) / out_resol_um
+        
+        shapes = np.array([im.shape[:2] for im in images.values()])
+        assert len(np.unique(shapes[:,0])) == 1, 'Height of all images must be the same.' 
+        assert len(np.unique(shapes[:,1])) == 1, 'Width of all images must be the same.' 
+        
+        ydim, xdim = map(int, np.ceil(shapes[0] * float(in_resol_um) / out_resol_um))
         sections = images.keys()
-        if last_sec is None:
-            last_sec = np.max(sections)
-        if first_sec is None:
-            first_sec = np.min(sections)
+        # if last_sec is None:
+        #     last_sec = np.max(sections)
+        # if first_sec is None:
+        #     first_sec = np.min(sections)
     elif callable(images):
         try:
             ydim, xdim = images(100).shape[:2]
         except:
             ydim, xdim = images(200).shape[:2]
-        assert last_sec is not None
-        assert first_sec is not None
+        # assert last_sec is not None
+        # assert first_sec is not None
     else:
         raise Exception('images must be dict or function.')
 
     voxel_z_size = float(spacing_um) / out_resol_um
 
-    z_end = int(np.ceil(last_sec*voxel_z_size))
-    z_begin = int(np.floor((first_sec-1)*voxel_z_size))
-    zdim = z_end + 1 - z_begin
+    zdim = int(np.ceil(np.max(sections) * voxel_z_size)) + 1
 
-    volume = np.zeros((ydim, xdim, zdim), images.values()[0].dtype)
+    dtype = images.values()[0].dtype
+    volume = np.zeros((ydim, xdim, zdim), dtype)
 
-    for i in range(len(images.keys())-1):
+    for i in range(len(sections)-1):
         z1 = int(np.floor((sections[i]-1) * voxel_z_size))
         z2 = int(np.ceil(sections[i+1] * voxel_z_size))
         if isinstance(images, dict):
             im = images[sections[i]]
         elif callable(images):
             im = images(sections[i])
-        volume[:, :, z1-z_begin:z2+1-z_begin] = im[..., None]
+        
+        if dtype == np.uint8:
+            volume[:, :, z1:z2+1] = img_as_ubyte(resize(im, (ydim, xdim)))[..., None]
+        else:
+            raise Exception("dtype must be uint8")
 
     if crop_to_minimal:
         return crop_volume_to_minimal(volume)
@@ -961,11 +972,11 @@ class DataManager(object):
 
         if isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
-
+    
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
 
-        fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_cropbox.txt')
+        fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_cropbox.json')
         return fp
 
     @staticmethod
@@ -1055,7 +1066,9 @@ class DataManager(object):
         return origin_outResol
 
     @staticmethod
-    def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
+    def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, 
+                        return_origin_instead_of_bbox=False,
+                       return_dict=False, only_2d=False):
         """
         Loads the cropping box for the given crop.
 
@@ -1063,8 +1076,85 @@ class DataManager(object):
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
             prep_id (int)
         """
-        return DataManager.load_cropbox(**locals())
+        
+        if isinstance(prep_id, str):
+            fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+        elif isinstance(prep_id, int):
+            fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+        else:
+            raise Exception("prep_id %s must be either str or int" % prep_id)
 
+        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+
+        if fp.endswith('.txt'):
+            xmin, xmax, ymin, ymax, secmin, secmax = load_data(fp).astype(np.int)
+            
+            if convert_section_to_z:
+                zmin = int(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0, mid=True))
+                zmax = int(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0, mid=True))
+
+        elif fp.endswith('.json'):
+            cropbox_dict = load_data(fp)
+            xmin = cropbox_dict['rostral_limit']
+            xmax = cropbox_dict['caudal_limit']
+            ymin = cropbox_dict['dorsal_limit']
+            ymax = cropbox_dict['ventral_limit']
+            
+            if 'left_limit_section_number' in cropbox_dict:
+                secmin = cropbox_dict['left_limit_section_number']
+            else:
+                secmin = None
+            
+            if 'right_limit_section_number' in cropbox_dict:
+                secmax = cropbox_dict['right_limit_section_number']
+            else:
+                secmax = None
+            
+            if 'left_limit' in cropbox_dict:
+                zmin = cropbox_dict['left_limit']
+            else:
+                zmin = None
+                
+            if 'right_limit' in cropbox_dict:
+                zmax = cropbox_dict['right_limit']
+            else:
+                zmax = None
+                        
+        if return_dict:
+            if convert_section_to_z:
+                cropbox_dict = {'rostral_limit': xmin,
+                'caudal_limit': xmax,
+                'dorsal_limit': ymin,
+                'ventral_limit': ymax,
+                'left_limit': zmin,
+                'right_limit': zmax}
+            else:
+                cropbox_dict = {'rostral_limit': xmin,
+                'caudal_limit': xmax,
+                'dorsal_limit': ymin,
+                'ventral_limit': ymax,
+                'left_limit_section_number': secmin,
+                'right_limit_section_number': secmax}
+            return cropbox_dict
+        
+        else:
+            if convert_section_to_z:
+                cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
+                if return_origin_instead_of_bbox:
+                    return cropbox[[0,2,4]]
+                else:
+                    if only_2d:
+                        return cropbox[:4]
+                    else:
+                        return cropbox
+            else:
+                assert not return_origin_instead_of_bbox
+                cropbox = np.array((xmin, xmax, ymin, ymax, secmin, secmax))
+                if only_2d:
+                    return cropbox[:4]
+                else:
+                    return cropbox
+    
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """
@@ -1074,7 +1164,6 @@ class DataManager(object):
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
             prep_id (int)
         """
-
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
@@ -1367,7 +1456,10 @@ class DataManager(object):
 
         components = []
         if prep_id is not None:
-            components.append('prep%(prep)d' % {'prep':prep_id})
+            if isinstance(prep_id, str):
+                components.append(prep_id)
+            elif isinstance(prep_id, int):
+                components.append('prep%(prep)d' % {'prep':prep_id})
         if detector_id is not None:
             components.append('detector%(detector_id)d' % {'detector_id':detector_id})
         if resolution is not None:
@@ -2850,6 +2942,7 @@ class DataManager(object):
     #                          '%(basename)s_%(struct)s_bbox.txt') % \
     #     {'stack':stack, 'basename':basename, 'struct':structure}
         # return fp
+    
 
     @staticmethod
     def get_score_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
@@ -3324,6 +3417,39 @@ class DataManager(object):
                             return_origin_instead_of_bbox=return_origin_instead_of_bbox)
                         for k, (v, o) in volumes.iteritems()}
 
+            
+
+    @staticmethod
+    def get_original_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
+
+        volume_type = stack_spec['vol_type']
+        
+        if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
+            assert resolution is not None
+            stack_spec['resolution'] = resolution
+            
+        if 'structure' not in stack_spec or stack_spec['structure'] is None:
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        else:
+            stack_spec_no_structure = stack_spec.copy()
+            stack_spec_no_structure['structure'] = None
+            vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+
+        if volume_type == 'score' or volume_type == 'annotationAsScore':
+            origin_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+                          '%(basename)s',
+                          'score_volumes',
+                         '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
+            {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+            
+        elif volume_type == 'intensity':
+            origin_fp = os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, vol_basename + '_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt')
+        else:
+            raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
+            
+        return origin_fp
+        
+            
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
         """
@@ -3354,8 +3480,10 @@ class DataManager(object):
             return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
         elif stack_spec['vol_type'] == 'annotationAsScore':
             return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
+        elif stack_spec['vol_type'] == 'intensity':
+            return os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, vol_basename + '.bp')
         else:
-            raise
+            raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
 
     # @staticmethod
     # def get_original_volume_filepath(stack, structure, prep_id=None, detector_id=None, volume_type='score', downscale=32):
@@ -3481,21 +3609,38 @@ class DataManager(object):
     #     download_from_s3(bbox_fp)
     #     return np.loadtxt(bbox_fp)
 
-    @staticmethod
-    def get_original_volume_origin_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
-        volume_type = stack_spec['vol_type']
-        if volume_type == 'score':
-            origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
-        elif volume_type == 'annotationAsScore':
-            origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
-        elif volume_type == 'shell':
-            raise
-        elif volume_type == 'thumbnail':
-            raise
-        else:
-            raise Exception('Type must be annotation, score, shell or thumbnail.')
+#     @staticmethod
+#     def get_original_volume_origin_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
+#         """
+#         """
+        
+#         volume_type = stack_spec['vol_type']
+#         if volume_type == 'score':
+#             origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+#         elif volume_type == 'annotationAsScore':
+#             origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
+#         elif volume_type == 'intensity':
+            
+#             if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
+#                 assert resolution is not None
+#                 stack_spec['resolution'] = resolution
 
-        return origin_fp
+#             if 'structure' not in stack_spec or stack_spec['structure'] is None:
+#                 vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+#             else:
+#                 stack_spec_no_structure = stack_spec.copy()
+#                 stack_spec_no_structure['structure'] = None
+#                 vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+            
+#             origin_fp = os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename + '_origin' + + ('_wrt_'+wrt if wrt is not None else '') + '.txt')
+#         # elif volume_type == 'shell':
+#         #     raise
+#         # elif volume_type == 'thumbnail':
+#         #     raise
+#         else:
+#             raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
+            
+#         return origin_fp
 
     @staticmethod
     def save_original_volume(volume, stack_spec, structure=None, wrt='wholebrain', **kwargs):

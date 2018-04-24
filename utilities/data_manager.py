@@ -474,7 +474,7 @@ from skimage.transform import resize
 def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_minimal=True):
     """
     Stack images in parallel at specified z positions to form volume.
-    
+
     Args:
         images (dict of 2D images): key is section index. First section has index 1.
         spacing_um (float): spacing between adjacent sections or thickness of each section, in micron.
@@ -486,11 +486,11 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
     """
 
     if isinstance(images, dict):
-        
+
         shapes = np.array([im.shape[:2] for im in images.values()])
-        assert len(np.unique(shapes[:,0])) == 1, 'Height of all images must be the same.' 
-        assert len(np.unique(shapes[:,1])) == 1, 'Width of all images must be the same.' 
-        
+        assert len(np.unique(shapes[:,0])) == 1, 'Height of all images must be the same.'
+        assert len(np.unique(shapes[:,1])) == 1, 'Width of all images must be the same.'
+
         ydim, xdim = map(int, np.ceil(shapes[0] * float(in_resol_um) / out_resol_um))
         sections = images.keys()
         # if last_sec is None:
@@ -521,7 +521,7 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
             im = images[sections[i]]
         elif callable(images):
             im = images(sections[i])
-        
+
         if dtype == np.uint8:
             volume[:, :, z1:z2+1] = img_as_ubyte(resize(im, (ydim, xdim)))[..., None]
         else:
@@ -972,7 +972,7 @@ class DataManager(object):
 
         if isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
-    
+
         if anchor_fn is None:
             anchor_fn = DataManager.load_anchor_filename(stack=stack)
 
@@ -1066,7 +1066,7 @@ class DataManager(object):
         return origin_outResol
 
     @staticmethod
-    def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, 
+    def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
                        return_dict=False, only_2d=False):
         """
@@ -1076,7 +1076,7 @@ class DataManager(object):
             convert_section_to_z (bool): If true, return (xmin,xmax,ymin,ymax,zmin,zmax) where z=0 is section #1; if false, return (xmin,xmax,ymin,ymax,secmin,secmax)
             prep_id (int)
         """
-        
+
         if isinstance(prep_id, str):
             fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         elif isinstance(prep_id, int):
@@ -1088,7 +1088,7 @@ class DataManager(object):
 
         if fp.endswith('.txt'):
             xmin, xmax, ymin, ymax, secmin, secmax = load_data(fp).astype(np.int)
-            
+
             if convert_section_to_z:
                 zmin = int(DataManager.convert_section_to_z(stack=stack, sec=secmin, downsample=32, z_begin=0, mid=True))
                 zmax = int(DataManager.convert_section_to_z(stack=stack, sec=secmax, downsample=32, z_begin=0, mid=True))
@@ -1099,27 +1099,27 @@ class DataManager(object):
             xmax = cropbox_dict['caudal_limit']
             ymin = cropbox_dict['dorsal_limit']
             ymax = cropbox_dict['ventral_limit']
-            
+
             if 'left_limit_section_number' in cropbox_dict:
                 secmin = cropbox_dict['left_limit_section_number']
             else:
                 secmin = None
-            
+
             if 'right_limit_section_number' in cropbox_dict:
                 secmax = cropbox_dict['right_limit_section_number']
             else:
                 secmax = None
-            
+
             if 'left_limit' in cropbox_dict:
                 zmin = cropbox_dict['left_limit']
             else:
                 zmin = None
-                
+
             if 'right_limit' in cropbox_dict:
                 zmax = cropbox_dict['right_limit']
             else:
                 zmax = None
-                        
+
         if return_dict:
             if convert_section_to_z:
                 cropbox_dict = {'rostral_limit': xmin,
@@ -1136,7 +1136,7 @@ class DataManager(object):
                 'left_limit_section_number': secmin,
                 'right_limit_section_number': secmax}
             return cropbox_dict
-        
+
         else:
             if convert_section_to_z:
                 cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
@@ -2942,7 +2942,7 @@ class DataManager(object):
     #                          '%(basename)s_%(struct)s_bbox.txt') % \
     #     {'stack':stack, 'basename':basename, 'struct':structure}
         # return fp
-    
+
 
     @staticmethod
     def get_score_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
@@ -3417,17 +3417,17 @@ class DataManager(object):
                             return_origin_instead_of_bbox=return_origin_instead_of_bbox)
                         for k, (v, o) in volumes.iteritems()}
 
-            
+
 
     @staticmethod
-    def get_original_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain'):
+    def get_original_volume_origin_filepath_v3(stack_spec, structure, wrt='wholebrain', resolution=None):
 
         volume_type = stack_spec['vol_type']
-        
+
         if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
             assert resolution is not None
             stack_spec['resolution'] = resolution
-            
+
         if 'structure' not in stack_spec or stack_spec['structure'] is None:
             vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
         else:
@@ -3441,15 +3441,15 @@ class DataManager(object):
                           'score_volumes',
                          '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
             {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
-            
+
         elif volume_type == 'intensity':
             origin_fp = os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, vol_basename + '_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt')
         else:
             raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
-            
+
         return origin_fp
-        
-            
+
+
     @staticmethod
     def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
         """
@@ -3503,7 +3503,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_original_volume_v2(stack_spec, structure, resolution=None, bbox_wrt='wholebrain',
+    def load_original_volume_v2(stack_spec, structure=None, resolution=None, bbox_wrt='wholebrain',
                                 return_origin_instead_of_bbox=True,
                                 crop_to_minimal=False):
         """
@@ -3522,8 +3522,7 @@ class DataManager(object):
         # download_from_s3(bbox_fp)
         # volume_bbox = DataManager.load_data(bbox_fp, filetype='bbox')
 
-        origin = load_data(DataManager.get_original_volume_origin_filepath_v2(stack_spec=stack_spec, structure=structure,
-                                                                   resolution=resolution, wrt=bbox_wrt))
+        origin = load_data(DataManager.get_original_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=bbox_wrt, resolution=resolution))
 
         if crop_to_minimal:
             volume, origin = crop_volume_to_minimal(vol=volume, origin=origin, return_origin_instead_of_bbox=True)
@@ -3613,14 +3612,14 @@ class DataManager(object):
 #     def get_original_volume_origin_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
 #         """
 #         """
-        
+
 #         volume_type = stack_spec['vol_type']
 #         if volume_type == 'score':
 #             origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
 #         elif volume_type == 'annotationAsScore':
 #             origin_fp = DataManager.get_score_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt)
 #         elif volume_type == 'intensity':
-            
+
 #             if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
 #                 assert resolution is not None
 #                 stack_spec['resolution'] = resolution
@@ -3631,7 +3630,7 @@ class DataManager(object):
 #                 stack_spec_no_structure = stack_spec.copy()
 #                 stack_spec_no_structure['structure'] = None
 #                 vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
-            
+
 #             origin_fp = os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename + '_origin' + + ('_wrt_'+wrt if wrt is not None else '') + '.txt')
 #         # elif volume_type == 'shell':
 #         #     raise
@@ -3639,7 +3638,7 @@ class DataManager(object):
 #         #     raise
 #         else:
 #             raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
-            
+
 #         return origin_fp
 
     @staticmethod

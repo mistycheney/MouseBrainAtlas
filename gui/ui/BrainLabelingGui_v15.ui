@@ -65,6 +65,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_clearSide">
+        <property name="text">
+         <string>Clear Side Assignment</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_displayOptions">
         <property name="text">
          <string>Display Options</string>

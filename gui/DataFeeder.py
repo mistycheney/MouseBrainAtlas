@@ -66,7 +66,7 @@ def load_qimage(stack, sec, prep_id, resolution, img_version):
 
 class ReadImagesThread(QThread):
     # def __init__(self, stack, sections, img_version, downsample=1, prep_id=2):
-    def __init__(self, stack, sections, img_version, resolution, prep_id=2):
+    def __init__(self, stack, sections, img_version, resolution, prep_id=2, validity_mask=None):
         """
         Args:
             resolution (str): desired resolution to show in scene.
@@ -79,6 +79,8 @@ class ReadImagesThread(QThread):
         # self.downsample = downsample
         self.resolution = resolution
         self.prep_id = prep_id
+
+        self.validity_mask = {sec: True for sec in sections} # dict {section: true/false}
 
     # def __del__(self):
     #     self.wait()

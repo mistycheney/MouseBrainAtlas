@@ -1141,19 +1141,19 @@ class DataManager(object):
             if convert_section_to_z:
                 cropbox = np.array((xmin, xmax, ymin, ymax, zmin, zmax))
                 if return_origin_instead_of_bbox:
-                    return cropbox[[0,2,4]]
+                    return cropbox[[0,2,4]].astype(np.int)
                 else:
                     if only_2d:
-                        return cropbox[:4]
+                        return cropbox[:4].astype(np.int)
                     else:
-                        return cropbox
+                        return cropbox.astype(np.int)
             else:
                 assert not return_origin_instead_of_bbox
                 cropbox = np.array((xmin, xmax, ymin, ymax, secmin, secmax))
                 if only_2d:
-                    return cropbox[:4]
+                    return cropbox[:4].astype(np.int)
                 else:
-                    return cropbox
+                    return cropbox.astype(np.int)
     
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):

@@ -119,19 +119,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.structure_volume_resolution_um = 16.
         self.structure_volume_resolution_um = 8.
 
+        # loaded_intensity_volume_resol = 'down32'
+        loaded_intensity_volume_resol = '10.0um'
+        loaded_intensity_volume_resol_um = convert_resolution_string_to_voxel_size(resolution=loaded_intensity_volume_resol, stack=self.stack)
+        # target_intensity_volume_resol = 'down32'
+        target_intensity_volume_resol = '20.0um'
+        target_intensity_volume_resol_um = convert_resolution_string_to_voxel_size(resolution=target_intensity_volume_resol, stack=self.stack)
+
         self.volume_cache = {}
-        # for resol in ['10.0um']:
-        for resol in ['down32']:
-            try:
-            # self.volume_cache[ds] = DataManager.load_intensity_volume_v2(self.stack, downscale=ds, prep_id=1)
-            # vol_down32 = DataManager.load_intensity_volume_v2(self.stack, downscale=32, prep_id=4)
-                thumbnail_volume_down32, thumbnail_volume_origin_wrt_wholebrain_tbResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
-                self.volume_cache[resol] = rescale_by_resampling(thumbnail_volume_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / convert_resolution_string_to_voxel_size(resolution=resol, stack=self.stack))
-                print 'Intensity volume', self.volume_cache[resol].shape
-                self.THUMBNAIL_VOLUME_LOADED = True
-            except:
-                sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % resol)
-                self.THUMBNAIL_VOLUME_LOADED = False
+        try:
+            intensity_volume_spec = dict(name=self.stack, resolution=loaded_intensity_volume_resol, prep_id='wholebrainWithMargin', vol_type='intensity')
+            thumbnail_volume_dataResol, thumbnail_volume_origin_wrt_wholebrain_dataResol = DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            # thumbnail_volume_dataResol, thumbnail_volume_origin_wrt_wholebrain_dataResol = DataManager.load_intensity_volume_v3(self.stack, downscale=32, prep_id=4, return_origin_instead_of_bbox=True)
+            self.volume_cache[target_intensity_volume_resol] = rescale_by_resampling(thumbnail_volume_dataResol, loaded_intensity_volume_resol_um / target_intensity_volume_resol_um)
+            thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_dataResol * loaded_intensity_volume_resol_um
+            print 'Intensity volume', self.volume_cache[target_intensity_volume_resol].shape
+            self.THUMBNAIL_VOLUME_LOADED = True
+        except:
+            sys.stderr.write('Intensity volume of resolution %s does not exist.\n' % loaded_intensity_volume_resol)
+            self.THUMBNAIL_VOLUME_LOADED = False
 
         self.splitter.setSizes([500, 500, 500])
         self.splitter_2.setSizes([500, 500])
@@ -211,7 +217,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         if self.THUMBNAIL_VOLUME_LOADED:
 
             volume_resection_feeder = VolumeResectionDataFeeder('volume resection feeder', self.stack)
-            thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack)
 
             if hasattr(self, 'volume_cache') and self.volume_cache is not None:
 
@@ -636,7 +641,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         entries = {}
         for name_s, structure_info in self.structure_volumes['aligned_atlas'].iteritems():
 
-            name_u, side = parse_label(name_s)[:2]
+            name_u, side = parse_label(name_s, singular_as_s=True)[:2]
 
             entry = {}
             vol = structure_info['volume']
@@ -1060,7 +1065,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             (volume, origin)
         """
 
-        name_u, side = parse_label(name_s)[:2]
+        name_u, side = parse_label(name_s, singular_as_s=True)[:2]
 
         print 'Re-computing volume of %s from contours.' % name_s
         gscene = self.gscenes[gscene_id]
@@ -1120,7 +1125,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     affected_gscenes = self.gscenes.keys()
 
         for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id == 'tb_coronal':
+            # if gscene_id == 'main_sagittal':
+            #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
             gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)

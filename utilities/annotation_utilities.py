@@ -382,118 +382,119 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
     Identify the section range spanned by each structure.
 
     Args:
-        label_section_lookup (dict): keys are labels, values are sections.
+        label_section_lookup (dict): {label: section list}.
     """
 
     print 'label_section_lookup:', label_section_lookup
 
     first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-    mid_sec = (first_sec + last_sec)/2
+    mid_sec = (first_sec + last_sec) / 2
     print 'Estimated mid-sagittal section = %d' % (mid_sec)
 
     landmark_limits = {}
 
-    if filtered_labels is None:
-        d = set(label_section_lookup.keys())
-    else:
-        d = set(label_section_lookup.keys()) & set(filtered_labels)
+    structures_sided = set(label_section_lookup.keys())
 
-    d_unsided = set(map(convert_to_unsided_label, d))
+    if filtered_labels is not None:
+        structures_sided = set(label_section_lookup.keys()) & set(filtered_labels)
 
-    for name_u in d_unsided:
+    structures_unsided = set(map(convert_to_unsided_label, structures_sided))
+
+    for name_u in structures_unsided:
 
         lname = convert_to_left_name(name_u)
         rname = convert_to_right_name(name_u)
 
-        secs = []
+        sections = np.array(sorted(np.concatenate([label_section_lookup[name] for name in [name_u, lname, rname] if name in label_section_lookup])))
+        assert len(sections) > 0
 
-        if name_u in label_section_lookup:
-            secs += list(label_section_lookup[name_u])
+        if name_u in singular_structures:
+            # single
+            landmark_limits[name_u] = (sections.min(), sections.max())
+        else:
+            # paired
 
-        if lname in label_section_lookup:
-            secs += list(label_section_lookup[lname])
-
-        if rname in label_section_lookup:
-            secs += list(label_section_lookup[rname])
-
-        secs = np.array(sorted(secs))
-
-        if name_u in singular_structures: # single
-            landmark_limits[name_u] = (secs.min(), secs.max())
-        else: # two sides
-
-            if len(secs) == 1:
-                sys.stderr.write('Structure %s has label on only one section. Decide its sideness relative to the middle section.\n' % name_u)
-                sec = secs[0]
+            if len(sections) == 1:
+                sys.stderr.write('Structure %s has a label on only one section. Use its side relative to the middle section.\n' % name_u)
+                sec = sections[0]
                 if sec < mid_sec:
                     landmark_limits[lname] = (sec, sec)
                 else:
                     landmark_limits[rname] = (sec, sec)
                 continue
 
-            elif len(secs) == 0:
-                raise
-
             else:
 
-                inferred_Ls = secs[secs < mid_sec]
+                inferred_Ls = sections[sections < mid_sec]
                 if len(inferred_Ls) > 0:
                     inferred_maxL = np.max(inferred_Ls)
                 else:
                     inferred_maxL = None
 
-                inferred_Rs = secs[secs >= mid_sec]
+                inferred_Rs = sections[sections >= mid_sec]
                 if len(inferred_Rs) > 0:
                     inferred_minR = np.min(inferred_Rs)
                 else:
                     inferred_minR = None
 
-                # diffs = np.diff(secs)
+                # diffs = np.diff(sections)
+                # print 'diff', diffs
                 # peak = np.argmax(diffs)
+                # print 'peak', peak
                 #
-                # inferred_maxL = secs[peak]
-                # inferred_minR = secs[peak+1]
+                # inferred_maxL = sections[peak]
+                # print 'inferred_maxL', inferred_maxL
+                # inferred_minR = sections[peak+1]
+                # print 'inferred_minR', inferred_minR
+
+                # print 'label_section_lookup', label_section_lookup
 
                 if lname in label_section_lookup:
+                    minL = np.min(sections)
                     labeled_maxL = np.max(label_section_lookup[lname])
                     maxL = max(labeled_maxL, inferred_maxL if inferred_maxL is not None else 0)
                 else:
+                    minL = None
+                    labeled_maxL = None
                     maxL = inferred_maxL
 
                 if rname in label_section_lookup:
+                    maxR = np.max(sections)
                     labeled_minR = np.min(label_section_lookup[rname])
                     minR = min(labeled_minR, inferred_minR if inferred_minR is not None else 999)
                 else:
+                    maxR = None
+                    labeled_minR = None
                     minR = inferred_minR
+            #
+            #     if maxL is not None:
+            #         landmark_limits[lname] = (np.min(sections), maxL)
+            #
+            #     if minR is not None:
+            #         landmark_limits[rname] = (minR, np.max(sections))
+            #
+            #     if maxL >= minR:
+            #         sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
+            #         # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
+            #         #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
+            #
+            #         if inferred_maxL < inferred_minR:
+            #             maxL = inferred_maxL
+            #             minR = inferred_minR
+            #             sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
+            #         elif labeled_maxL < labeled_minR:
+            #             maxL = labeled_maxL
+            #             minR = labeled_minR
+            #             sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
+            #         else:
+            #             sys.stderr.write('#### Cannot resolve.. ignored.\n')
+            #             continue
 
-                if maxL is not None:
-                    landmark_limits[lname] = (np.min(secs), maxL)
-
-                if minR is not None:
-                    landmark_limits[rname] = (minR, np.max(secs))
-
-                if maxL >= minR:
-                    sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-                    # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-                    #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
-
-                    if inferred_maxL < inferred_minR:
-                        maxL = inferred_maxL
-                        minR = inferred_minR
-                        sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-                    elif labeled_maxL < labeled_minR:
-                        maxL = labeled_maxL
-                        minR = labeled_minR
-                        sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-                    else:
-                        sys.stderr.write('#### Cannot resolve.. ignored.\n')
-                        continue
-
-            landmark_limits[lname] = (np.min(secs), maxL)
-            landmark_limits[rname] = (minR, np.max(secs))
+            landmark_limits[lname] = (minL, maxL)
+            landmark_limits[rname] = (minR, maxR)
 
             print 'label:', name_u
-            print 'secs:', secs
+            print 'sections:', sections
             print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
             print '\n'
 

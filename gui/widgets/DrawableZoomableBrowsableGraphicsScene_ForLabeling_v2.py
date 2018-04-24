@@ -155,7 +155,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         else:
             raise Exception("Set name %s does not exist." % set_name)
 
-        name_u, side = parse_label(name_s)[:2]
+        name_u, side = parse_label(name_s, singular_as_s=True)[:2]
         polygons_to_remove = {i: [p for p in polygons \
                                                     if p.properties['label'] == name_u and \
                                                     p.properties['side'] == side and \
@@ -169,8 +169,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.drawings[i].remove(p)
                 if i == self.active_i:
                     self.removeItem(p)
-        # import gc
-        # gc.get_referrers(foo)
         # sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
         for level in levels:
@@ -178,20 +176,53 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             structure_wrt = (name_s, self.data_feeder.orientation)
 
             if hasattr(self.data_feeder, 'sections'):
-                depths_of_all_sections = self.converter.convert_frame_and_resolution(
-                p=self.data_feeder.sections,
-                in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
+                in_pts = np.array(self.data_feeder.sections)
+                structure_ddim = structure_volume_volResol.shape[2]
+                in_resolution = 'section'
+
+                positions_of_all_sections_wrt_structureVolume = self.converter.convert_frame_and_resolution(
+                p=in_pts,
+                in_wrt=('data', self.data_feeder.orientation), in_resolution=in_resolution,
                 out_wrt=structure_wrt, out_resolution='volume')[..., 2]
-                depths_of_all_sections = depths_of_all_sections[(depths_of_all_sections >= 0) & (depths_of_all_sections < structure_volume_volResol.shape[2])]
+
+                valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+                positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
+                # index_of_all_sections = in_pts[valid_mask]
+
+                index_of_all_sections = \
+                self.converter.convert_frame_and_resolution(
+                p=in_pts[valid_mask],
+                in_wrt=('data', self.data_feeder.orientation), in_resolution=in_resolution,
+                out_wrt=('data', self.data_feeder.orientation), out_resolution='index')
+
             else:
                 if self.data_feeder.orientation == 'sagittal':
-                    depths_of_all_sections = range(0, structure_volume_volResol.shape[2])
+                    ddim = self.data_feeder.z_dim
+                    structure_ddim = structure_volume_volResol.shape[2]
                 elif self.data_feeder.orientation == 'horizontal':
-                    depths_of_all_sections = range(0, structure_volume_volResol.shape[0])
+                    ddim = self.data_feeder.y_dim
+                    structure_ddim = structure_volume_volResol.shape[0]
                 elif self.data_feeder.orientation == 'coronal':
-                    depths_of_all_sections = range(0, structure_volume_volResol.shape[1])
+                    ddim = self.data_feeder.x_dim
+                    structure_ddim = structure_volume_volResol.shape[1]
                 else:
                     raise
+
+                in_pts = np.column_stack([np.nan * np.ones((ddim,)), np.nan * np.ones((ddim,)), np.arange(0, ddim)])
+
+                positions_of_all_sections_wrt_structureVolume = self.converter.convert_frame_and_resolution(
+                p=in_pts,
+                in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
+                out_wrt=structure_wrt, out_resolution='volume')[..., 2]
+
+                valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+                positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
+                index_of_all_sections = in_pts[valid_mask, 2]
+
+            positions_of_all_sections_wrt_structureVolume = np.floor(positions_of_all_sections_wrt_structureVolume).astype(np.int)
+
+            # print 'index_of_all_sections', index_of_all_sections
+            # print 'positions_of_all_sections_wrt_structureVolume', positions_of_all_sections_wrt_structureVolume
 
             # If image resolution > 10 um
             if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
@@ -199,18 +230,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             else:
                 sample_every = 5
 
-            # print np.round(depths_of_all_sections).astype(np.int)
             contour_2d_wrt_structureVolume_sectionPositions_volResol = find_contour_points_3d(structure_volume_volResol >= level,
                                                             along_direction=self.data_feeder.orientation,
                                                             sample_every=sample_every,
-                                                            positions=np.floor(depths_of_all_sections).astype(np.int))
+                                                            positions=positions_of_all_sections_wrt_structureVolume)
 
-            for d, cnt_uv in contour_2d_wrt_structureVolume_sectionPositions_volResol.iteritems():
+            for d_wrt_structureVolume, cnt_uv_wrt_structureVolume in contour_2d_wrt_structureVolume_sectionPositions_volResol.iteritems():
 
-                contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv, np.ones((len(cnt_uv),)) * d])
+                print
+                print 'd_wrt_structureVolume', d_wrt_structureVolume
 
-                print 'contour_3d_wrt_structureVolume_volResol'
-                print contour_3d_wrt_structureVolume_volResol.mean(axis=0)
+                contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv_wrt_structureVolume, np.ones((len(cnt_uv_wrt_structureVolume),)) * d_wrt_structureVolume])
+
+                print 'contour_3d_wrt_structureVolume_volResol', contour_3d_wrt_structureVolume_volResol.mean(axis=0)
 
                 contour_3d_wrt_dataVolume_uv_dataResol_index = self.converter.convert_frame_and_resolution(
                 p=contour_3d_wrt_structureVolume_volResol,
@@ -218,36 +250,42 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 out_wrt=('data', self.data_feeder.orientation), out_resolution='image_image_index')
 
                 # if self.id == 'tb_sagittal':
-                #
-                #     print 'contour_3d_wrt_structureVolume_volResol'
-                #     print contour_3d_wrt_structureVolume_volResol.mean(axis=0)
-                #
-                #     print 'contour_3d_wrt_dataVolume_uv_dataResol_index'
-                #     print contour_3d_wrt_dataVolume_uv_dataResol_index.mean(axis=0)
-                #
-                #     print
 
-                if any(np.isnan(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])):
-                    sys.stderr.write("d = %.1f is beyond the section range of scene %s.\n" % (d, self.id))
-                    continue
-                else:
-                    assert len(np.unique(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])) == 1
-                    index_wrt_dataVolume = int(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2][0])
+                    # print 'contour_3d_wrt_structureVolume_volResol'
+                    # print contour_3d_wrt_structureVolume_volResol.mean(axis=0)
+
+                # print 'contour_3d_wrt_dataVolume_uv_dataResol_index', contour_3d_wrt_dataVolume_uv_dataResol_index.mean(axis=0)
+
+                # if any(np.isnan(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])):
+                #     sys.stderr.write("d_wrt_structureVolume = %.1f is beyond the section range of scene %s.\n" % (d_wrt_structureVolume, self.id))
+                #     continue
+                # else:
+                #     assert len(np.unique(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])) == 1
+                    # index_wrt_dataVolume = int(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2][0])
+
+                uv_wrt_dataVolume_dataResol = contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]
+                # Cannot use index_wrt_dataVolume as contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2] because the rounding off will cause multiple contours to be placed on the same image
+                index_wrt_dataVolume = int(index_of_all_sections[list(positions_of_all_sections_wrt_structureVolume).index(d_wrt_structureVolume)])
 
                 # If this position already has a polygon for this structure, do not add a new one.
                 if any([p.properties['label'] == name_u \
-                and p.properties['side'] == side
-                # and p.properties['type'] == 'confirmed'
+                and p.properties['side'] == side \
+                and p.properties['type'] == 'confirmed'
                         for p in self.drawings[index_wrt_dataVolume]]):
+                    sys.stderr.write("d_wrt_structureVolume = %.1f already has a confirmed polygon for %s. Skip adding interpolated polygon.\n" % (d_wrt_structureVolume, self.id))
                     continue
+
+                print 'index_wrt_dataVolume', index_wrt_dataVolume
 
                 # If image resolution > 10 um
                 if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                    # thumbnail graphics scenes
                     linewidth = 1
                     vertex_radius = .2
                 else:
+                    # raw graphics scenes
                     linewidth = 10
-                    vertex_radius = 2
+                    vertex_radius = 6
 
                 if set_name == 'aligned_atlas':
                     new_polygon_type = 'derived_from_atlas'
@@ -257,7 +295,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     raise Exception("Set name %s does not exist." % set_name)
 
                 try:
-                    self.add_polygon_with_circles_and_label(path=vertices_to_path(contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]),
+                    self.add_polygon_with_circles_and_label(path=vertices_to_path(uv_wrt_dataVolume_dataResol),
                                                         index=index_wrt_dataVolume,
                                                         label=name_u,
                                                         linewidth=linewidth,
@@ -268,8 +306,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         level=level,
                                                         side=side,
                                                         side_manually_assigned=False)
+                    sys.stderr.write("%s: %s: Added polygon to d_wrt_structureVolume = %d, index_wrt_dataVolume = %d\n" % (self.id, name_u, d_wrt_structureVolume, index_wrt_dataVolume))
                 except Exception as e:
-                    sys.stderr.write("Add polygon failed: %s" % e)
+                    sys.stderr.write("Failed adding polygon: %s\n" % e)
 
     def update_image(self, i=None, sec=None):
         """
@@ -377,6 +416,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 name_u = p.properties['label']
                 if name_u in structure_ranges:
                     assert name_u in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % name_u
+
                     if section_index >= structure_ranges[name_u][0] and section_index <= structure_ranges[name_u][1]:
                         if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                             p.set_properties('side', 'S')
@@ -386,19 +426,21 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     lname = convert_to_left_name(name_u)
                     if lname in structure_ranges:
-                        if section_index >= structure_ranges[lname][0] and section_index <= structure_ranges[lname][1]:
-                            if p.properties['side'] is None or not p.properties['side_manually_assigned']:
-                                p.set_properties('side', 'L')
-                                p.set_properties('side_manually_assigned', False)
-                                # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                        if structure_ranges[lname][1] is not None:
+                            if section_index <= structure_ranges[lname][1]:
+                                if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                    p.set_properties('side', 'L')
+                                    p.set_properties('side_manually_assigned', False)
+                                    # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
                     rname = convert_to_right_name(p.properties['label'])
                     if rname in structure_ranges:
-                        if section_index >= structure_ranges[rname][0] and section_index <= structure_ranges[rname][1]:
-                            if p.properties['side'] is None or not p.properties['side_manually_assigned']:
-                                p.set_properties('side', 'R')
-                                p.set_properties('side_manually_assigned', False)
-                                # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                        if structure_ranges[rname][0] is not None:
+                            if section_index >= structure_ranges[rname][0]:
+                                if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                    p.set_properties('side', 'R')
+                                    p.set_properties('side_manually_assigned', False)
+                                    # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
     def open_label_selection_dialog(self):
 

@@ -236,6 +236,8 @@ class CoordinatesConverter(object):
             d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
             p_um = np.column_stack([uv_um, d_um])
         elif in_resolution == 'image_image_index':
+            print 'p =', p
+            print 'section_list =', self.section_list
             uv_um = p[..., :2] * self.resolutions['image']['um']
             i_um = np.array([SECTION_THICKNESS * self.section_list[int(idx)] for idx in p[..., 2]])
             p_um = np.column_stack([uv_um, i_um])
@@ -322,7 +324,7 @@ class CoordinatesConverter(object):
             base_frame_name, plane = wrt
             p_wrt_outSagittal_origin_um = p_wrt_wholebrain_um - self.frames[base_frame_name]['origin_wrt_wholebrain_um']
             print wrt, 'origin_wrt_wholebrain_um', self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'p_wrt_outSagittal_origin_um', p_wrt_outSagittal_origin_um.mean(axis=0)
+            print 'p_wrt_outSagittal_origin_um', np.nanmean(p_wrt_outSagittal_origin_um, axis=0)
             p_wrt_outdomain_um = self.convert_three_view_frames(p=p_wrt_outSagittal_origin_um, base_frame_name=base_frame_name,
                                                                 in_plane='sagittal',
                                                                 out_plane=plane,
@@ -357,11 +359,11 @@ class CoordinatesConverter(object):
                                                                 in_plane=plane,
                                                                 out_plane='sagittal',
                                                                 p_resol='um')
-            print 'p_wrt_inSagittal_um', p_wrt_inSagittal_um.mean(axis=0)
+            print 'p_wrt_inSagittal_um', np.nanmean(p_wrt_inSagittal_um, axis=0)
             inSagittal_origin_wrt_wholebrain_um = self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'inSagittal_origin_wrt_wholebrain_um', inSagittal_origin_wrt_wholebrain_um.mean(axis=0)
+            print 'inSagittal_origin_wrt_wholebrain_um', np.nanmean(inSagittal_origin_wrt_wholebrain_um, axis=0)
             p_wrt_wholebrain_um = p_wrt_inSagittal_um + inSagittal_origin_wrt_wholebrain_um
-            print 'p_wrt_wholebrain_um', p_wrt_wholebrain_um.mean(axis=0)
+            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um, axis=0)
 
         return np.squeeze(p_wrt_wholebrain_um)
 
@@ -463,9 +465,9 @@ class CoordinatesConverter(object):
 
         else:
             p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution)
-            print 'p_wrt_wholebrain_um', p_wrt_wholebrain_um.mean(axis=0)
+            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um, axis=0)
             p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution)
-            print 'p_wrt_outdomain_outResol', p_wrt_outdomain_outResol.mean(axis=0)
+            print 'p_wrt_outdomain_outResol', np.nanmean(p_wrt_outdomain_outResol, axis=0)
             print
             return p_wrt_outdomain_outResol
 

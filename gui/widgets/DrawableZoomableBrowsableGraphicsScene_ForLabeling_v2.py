@@ -805,6 +805,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
 
     def show_context_menu(self, pos):
+
         myMenu = QMenu(self.gview)
 
         action_newPolygon = myMenu.addAction("New polygon")
@@ -849,6 +850,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         action_alignAtlasToManualStructureGlobal = myMenu.addAction("Align atlas structure to manual structure (global)")
         action_alignAtlasToManualStructureLocal = myMenu.addAction("Align atlas structure to manual structure (local)")
+
+        action_moveAtlasStructureHereGlobal = myMenu.addAction("Move atlas structure here (global)")
+        action_moveAtlasStructureHereLocal = myMenu.addAction("Move atlas structure here (local)")
 
         myMenu.addSeparator()
 
@@ -946,10 +950,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR_CHAR)
 
         elif selected_action == action_alignAtlasToManualStructureGlobal:
-            self.align_atlas_structure_to_manual_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True)
+            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='handdrawn_centroid')
 
         elif selected_action == action_alignAtlasToManualStructureLocal:
-            self.align_atlas_structure_to_manual_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False)
+            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='handdrawn_centroid')
+
+        elif selected_action == action_moveAtlasStructureHereGlobal:
+            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='mouse_click')
+
+        elif selected_action == action_moveAtlasStructureHereLocal:
+            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='mouse_click')
+
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -972,51 +983,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #
     #         self.vertex_is_moved = False
     #         # self.print_history()
-
-
-    def get_structure_centroid3d(self, set_name, name_s):
-        """
-        Args:
-            set_name (str):
-            name_s (str): name, sided
-        Return:
-            ((3,)-array): structure centroid in 3d wrt wholebrain
-        """
-
-        assert 'volume' in self.structure_volumes[set_name][name_s] and 'origin' in self.structure_volumes[set_name][name_s], 'Structure volume of set %s, %s has not been initialized.' % (set_name, name_s)
-
-        vol = self.structure_volumes[set_name][name_s]['volume']
-
-        yc_wrt_structureVolInBbox_volResol, \
-        xc_wrt_structureVolInBbox_volResol, \
-        zc_wrt_structureVolInBbox_volResol = np.mean(np.where(vol), axis=1)
-
-        structure_centroid3d_wrt_structureVolInBbox_volResol = \
-        np.array((xc_wrt_structureVolInBbox_volResol, \
-        yc_wrt_structureVolInBbox_volResol, \
-        zc_wrt_structureVolInBbox_volResol))
-
-        vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
-
-        # print vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
-        structure_centroid3d_wrt_wholebrain_volResol = structure_centroid3d_wrt_structureVolInBbox_volResol + vol_origin_wrt_wholebrain_volResol
-
-        return np.array(structure_centroid3d_wrt_wholebrain_volResol)
-
-    def align_atlas_structure_to_manual_structure(self, name_s, global_instead_of_local=False):
-
-        manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='handdrawn')
-        print "handdrawn =", manual_structure_centroid3d_wrt_wholebrain_volResol
-        prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='aligned_atlas')
-        print "atlas =", prob_structure_centroid3d_wrt_wholebrain_volResol
-
-        tf = np.column_stack([np.eye(3), - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol])
-
-        if global_instead_of_local:
-            for name in self.structure_volumes['aligned_atlas'].keys():
-                self.transform_structure(name_s=name, set_name='aligned_atlas', tf=tf)
-        else:
-            self.transform_structure(name_s=name_s, set_name='aligned_atlas', tf=tf)
 
         # print 'before', self.structure_volumes['aligned_atlas'][name_s]['origin']
         # self.structure_volumes['aligned_atlas'][name_s]['origin'] = self.structure_volumes['aligned_atlas'][name_s]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
@@ -1752,3 +1718,73 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         print "Edit entry %s added to %s, %s" % (self.mode, set_name, name_s)
 
         self.structure_volume_updated.emit(set_name, name_s, False, False)
+
+
+    def get_structure_centroid3d(self, set_name, name_s):
+        """
+        Compute given structure's centroid in 3-D wrt wholebrain.
+
+        Args:
+            set_name (str):
+            name_s (str): name, sided
+        Return:
+            ((3,)-array): structure centroid in 3d wrt wholebrain
+        """
+
+        assert 'volume' in self.structure_volumes[set_name][name_s] and 'origin' in self.structure_volumes[set_name][name_s], 'Structure volume of set %s, %s has not been initialized.' % (set_name, name_s)
+
+        vol = self.structure_volumes[set_name][name_s]['volume']
+
+        yc_wrt_structureVolInBbox_volResol, \
+        xc_wrt_structureVolInBbox_volResol, \
+        zc_wrt_structureVolInBbox_volResol = np.mean(np.where(vol), axis=1)
+
+        structure_centroid3d_wrt_structureVolInBbox_volResol = \
+        np.array((xc_wrt_structureVolInBbox_volResol, \
+        yc_wrt_structureVolInBbox_volResol, \
+        zc_wrt_structureVolInBbox_volResol))
+
+        vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
+
+        # print vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
+        structure_centroid3d_wrt_wholebrain_volResol = structure_centroid3d_wrt_structureVolInBbox_volResol + vol_origin_wrt_wholebrain_volResol
+
+        return np.array(structure_centroid3d_wrt_wholebrain_volResol)
+
+    def move_atlas_structure_to(self, name_s, global_instead_of_local=False, where='handdrawn_centroid'):
+
+        if where == 'handdrawn_centroid':
+            target_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='handdrawn')
+        elif where == 'mouse_click':
+            print (self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, self.active_i)
+            target_centroid3d_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, self.active_i),
+            in_wrt=('data', self.data_feeder.orientation), in_resolution='image_image_index', out_wrt='wholebrain', out_resolution='volume')
+        else:
+            raise Exception("where = %s is not recognized." % where)
+
+        print "target =", target_centroid3d_wrt_wholebrain_volResol
+        sys.exit()
+
+        atlas_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='aligned_atlas')
+        tf = np.column_stack([np.eye(3), - atlas_structure_centroid3d_wrt_wholebrain_volResol + target_centroid3d_wrt_wholebrain_volResol])
+
+        if global_instead_of_local:
+            for name in self.structure_volumes['aligned_atlas'].keys():
+                self.transform_structure(name_s=name, set_name='aligned_atlas', tf=tf)
+        else:
+            self.transform_structure(name_s=name_s, set_name='aligned_atlas', tf=tf)
+
+    # def align_atlas_structure_to_manual_structure(self, name_s, global_instead_of_local=False):
+    #
+    #     manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='handdrawn')
+    #     print "handdrawn =", manual_structure_centroid3d_wrt_wholebrain_volResol
+    #     prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='aligned_atlas')
+    #     print "atlas =", prob_structure_centroid3d_wrt_wholebrain_volResol
+    #
+    #     tf = np.column_stack([np.eye(3), - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol])
+    #
+    #     if global_instead_of_local:
+    #         for name in self.structure_volumes['aligned_atlas'].keys():
+    #             self.transform_structure(name_s=name, set_name='aligned_atlas', tf=tf)
+    #     else:
+    #         self.transform_structure(name_s=name_s, set_name='aligned_atlas', tf=tf)

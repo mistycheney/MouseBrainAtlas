@@ -108,6 +108,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.button_navigateToStructure.clicked.connect(self.navigate_to_structure)
+        self.button_reconstruct.clicked.connect(self.reconstruct_structure_callback)
+
         self.lineEdit_username.returnPressed.connect(self.username_changed)
 
         self.structure_volumes = {'handdrawn': defaultdict(dict), 'aligned_atlas': {}} # {set_name: {(name_unsided, side): structure_info_dict}}
@@ -154,11 +156,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.main_sagittal_gscene = DrawableZoomableBrowsableGraphicsScene_ForLabeling(id='main_sagittal', gui=self, gview=self.main_sagittal_gview)
         self.main_sagittal_gview.setScene(self.main_sagittal_gscene)
-
-        self.main_sagittal_gscene.set_default_line_width(5)
-        self.main_sagittal_gscene.set_default_line_color('b')
-        self.main_sagittal_gscene.set_default_vertex_radius(10)
-        self.main_sagittal_gscene.set_default_vertex_color('r')
 
         if self.THUMBNAIL_VOLUME_LOADED:
             self.gscenes = { 'main_sagittal': self.main_sagittal_gscene,
@@ -263,15 +260,37 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 # origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
                 # )
 
-        for gid, gs in self.gscenes.iteritems():
-            print gid
-            for frame_name, frame in gs.converter.frames.iteritems():
-                print frame_name, frame
-            print
+        # for gid, gs in self.gscenes.iteritems():
+        #     print gid
+        #     for frame_name, frame in gs.converter.frames.iteritems():
+        #         print frame_name, frame
+        #     print
+
+        for gscene in self.gscenes.itervalues():
+            # If image resolution > 10 um
+            if convert_resolution_string_to_um(resolution=gscene.data_feeder.resolution, stack=self.stack) > 10.:
+                # thumbnail graphics scenes
+                linewidth = 1
+                vertex_radius = .2
+            else:
+                # raw graphics scenes
+                linewidth = 10
+                vertex_radius = 15
+
+            gscene.set_default_line_width(linewidth)
+            gscene.set_default_line_color('b')
+            gscene.set_default_vertex_radius(vertex_radius)
+            gscene.set_default_vertex_color('r')
 
         # Syncing main scene with crossline localization requires constantly loading
         # raw images which can be slow.
         self.DISABLE_UPDATE_MAIN_SCENE = False
+
+    def reconstruct_structure_callback(self):
+        pass
+        # selected_structures, structures_to_add, structures_to_remove = self.select_structures(set_name='handdrawn')
+        # for name_s in structures_to_add:
+        #     self.handle_structure_update(set_name='handdrawn', name_s=name_s, use_confirmed_only=True, recompute_from_contours=True)
 
     def navigate_to_structure(self):
 
@@ -831,7 +850,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
 
     @pyqtSlot()
-    def select_structures(self):
+    def select_structures(self, set_name='aligned_atlas'):
+        """
+        Select structures from a list.
+        In this list, structures that are already created are pre-checked.
+
+        Returns:
+            (selected_structures, structures_to_add, structures_to_remove)
+        """
+
         possible_structures_to_load = sorted(all_known_structures_sided)
 
    #      selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
@@ -840,7 +867,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         #     self.load_atlas_volume(warped=False, structures=[str(selected_structure)])
 
         structures_loaded = set([name_s
-        for name_s, struct_info in self.structure_volumes['aligned_atlas'].iteritems()
+        for name_s, struct_info in self.structure_volumes[set_name].iteritems()
         if struct_info['volume'] is not None])
 
         dial = ListSelection("Select structures to load", "List of structures", possible_structures_to_load, structures_loaded, self)

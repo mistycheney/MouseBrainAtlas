@@ -44,6 +44,13 @@
        <widget class="QLineEdit" name="lineEdit_username"/>
       </item>
       <item>
+       <widget class="QPushButton" name="button_reconstruct">
+        <property name="text">
+         <string>3D Reconstruct</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="button_navigateToStructure">
         <property name="text">
          <string>Nagivate To Structure</string>

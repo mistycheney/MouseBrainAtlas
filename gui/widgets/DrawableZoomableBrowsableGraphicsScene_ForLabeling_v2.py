@@ -264,15 +264,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 print 'index_wrt_dataVolume', index_wrt_dataVolume
 
-                # If image resolution > 10 um
-                if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
-                    # thumbnail graphics scenes
-                    linewidth = 1
-                    vertex_radius = .2
-                else:
-                    # raw graphics scenes
-                    linewidth = 10
-                    vertex_radius = 15
+                # # If image resolution > 10 um
+                # if convert_resolution_string_to_um(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                #     # thumbnail graphics scenes
+                #     linewidth = 1
+                #     vertex_radius = .2
+                # else:
+                #     # raw graphics scenes
+                #     linewidth = 10
+                #     vertex_radius = 15
 
                 if set_name == 'aligned_atlas':
                     new_polygon_type = 'derived_from_atlas'
@@ -285,10 +285,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(uv_wrt_dataVolume_dataResol),
                                                             index=index_wrt_dataVolume,
                                                             label=name_u,
-                                                            linewidth=linewidth,
-                                                            linecolor=LEVEL_TO_COLOR_LINE[level],
-                                                            vertex_radius=vertex_radius,
-                                                            vertex_color=LEVEL_TO_COLOR_VERTEX[level],
+                                                            # linewidth=linewidth,
+                                                            linecolor=LEVEL_TO_COLOR_LINE[level] if set_name == 'handdrawn'else LEVEL_TO_COLOR_LINE2[level],
+                                                            # vertex_radius=vertex_radius,
+                                                            vertex_color=LEVEL_TO_COLOR_VERTEX[level] if set_name == 'handdrawn'else LEVEL_TO_COLOR_VERTEX2[level],
                                                             type=new_polygon_type,
                                                             level=level,
                                                             side=side,
@@ -587,15 +587,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 print self.id, convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack)
 
-                if convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
-                    linewidth = 1
-                else:
-                    linewidth = 30
+                # if convert_resolution_string_to_voxel_size(resolution=self.data_feeder.resolution, stack=self.gui.stack) > 10.:
+                #     linewidth = 1
+                # else:
+                #     linewidth = 30
 
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(vertices),
                                                         label=contour['name'], label_pos=contour['label_position'],
-                                                        linewidth=linewidth,
-                                                        linecolor=linecolor, vertex_color=vertex_color,
+                                                        # linewidth=linewidth,
+                                                        linecolor=linecolor,
+                                                        vertex_color=vertex_color,
                                                         section=sec, type=contour_type,
                                                         side=contour['side'],
                                                         side_manually_assigned=contour['side_manually_assigned'],
@@ -1041,6 +1042,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         self.active_polygon.set_properties('edits',
         [{'username': self.gui.get_username(), 'timestamp': datetime.now().strftime("%m%d%Y%H%M%S")}])
 
+        self.active_polygon.set_properties('set_name', 'handdrawn')
+
         if hasattr(self.data_feeder, 'sections'):
             self.active_polygon.set_properties('section', self.active_section)
             d_voxel = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True,
@@ -1114,7 +1117,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         contour_info_text += "Class: %(class)s\n" % {'class': self.active_polygon.properties['class']}
         contour_info_text += "Position: %(position_um).2f microns (from origin of whole brain aligned and padded volume)\n" % {'position_um': self.active_polygon.properties['position_um']}
 
-        contour_info_text += "Set name: %s\n" % set_name
+        contour_info_text += "Set name: %s\n" % self.active_polygon.properties['set_name']
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 
@@ -1555,7 +1558,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 polygon_to_delete = self.active_polygon
                 self.add_polygon_with_circles_and_label(path=vertices_to_path(post_tf_vertices, closed=True),
-                                                        label=polygon_to_delete.properties['label'], linecolor='r', vertex_radius=8, linewidth=5,
+                                                        label=polygon_to_delete.properties['label'], linecolor='r',
+                                                        # vertex_radius=8, linewidth=5,
                                                         section=polygon_to_delete.properties['section'],
                                                         type=polygon_to_delete.properties['type'],
                                                         side=polygon_to_delete.properties['side'],

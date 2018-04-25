@@ -112,7 +112,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
     def set_structure_volumes(self, structure_volumes):
         """
-        Args:
         """
         self.structure_volumes = structure_volumes
 
@@ -176,13 +175,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             structure_wrt = (name_s, self.data_feeder.orientation)
 
             if hasattr(self.data_feeder, 'sections'):
-                in_pts = np.array(self.data_feeder.sections)
+
                 structure_ddim = structure_volume_volResol.shape[2]
-                in_resolution = 'section'
+
+                in_pts = np.array(self.data_feeder.sections)
 
                 positions_of_all_sections_wrt_structureVolume = self.converter.convert_frame_and_resolution(
                 p=in_pts,
-                in_wrt=('data', self.data_feeder.orientation), in_resolution=in_resolution,
+                in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
                 out_wrt=structure_wrt, out_resolution='volume')[..., 2]
 
                 valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
@@ -192,7 +192,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 index_of_all_sections = \
                 self.converter.convert_frame_and_resolution(
                 p=in_pts[valid_mask],
-                in_wrt=('data', self.data_feeder.orientation), in_resolution=in_resolution,
+                in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
                 out_wrt=('data', self.data_feeder.orientation), out_resolution='index')
 
             else:
@@ -249,20 +249,6 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 in_wrt=structure_wrt, in_resolution='volume',
                 out_wrt=('data', self.data_feeder.orientation), out_resolution='image_image_index')
 
-                # if self.id == 'tb_sagittal':
-
-                    # print 'contour_3d_wrt_structureVolume_volResol'
-                    # print contour_3d_wrt_structureVolume_volResol.mean(axis=0)
-
-                # print 'contour_3d_wrt_dataVolume_uv_dataResol_index', contour_3d_wrt_dataVolume_uv_dataResol_index.mean(axis=0)
-
-                # if any(np.isnan(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])):
-                #     sys.stderr.write("d_wrt_structureVolume = %.1f is beyond the section range of scene %s.\n" % (d_wrt_structureVolume, self.id))
-                #     continue
-                # else:
-                #     assert len(np.unique(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2])) == 1
-                    # index_wrt_dataVolume = int(contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2][0])
-
                 uv_wrt_dataVolume_dataResol = contour_3d_wrt_dataVolume_uv_dataResol_index[..., :2]
                 # Cannot use index_wrt_dataVolume as contour_3d_wrt_dataVolume_uv_dataResol_index[..., 2] because the rounding off will cause multiple contours to be placed on the same image
                 index_wrt_dataVolume = int(index_of_all_sections[list(positions_of_all_sections_wrt_structureVolume).index(d_wrt_structureVolume)])
@@ -270,7 +256,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # If this position already has a polygon for this structure, do not add a new one.
                 if any([p.properties['label'] == name_u \
                 and p.properties['side'] == side \
-                and p.properties['type'] == 'confirmed'
+                and p.properties['type'] == 'confirmed' \
+                and p.properties['set_name'] == set_name
                         for p in self.drawings[index_wrt_dataVolume]]):
                     sys.stderr.write("d_wrt_structureVolume = %.1f already has a confirmed polygon for %s. Skip adding interpolated polygon.\n" % (d_wrt_structureVolume, self.id))
                     continue
@@ -285,7 +272,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 else:
                     # raw graphics scenes
                     linewidth = 10
-                    vertex_radius = 6
+                    vertex_radius = 15
 
                 if set_name == 'aligned_atlas':
                     new_polygon_type = 'derived_from_atlas'
@@ -296,16 +283,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 try:
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(uv_wrt_dataVolume_dataResol),
-                                                        index=index_wrt_dataVolume,
-                                                        label=name_u,
-                                                        linewidth=linewidth,
-                                                        linecolor=level_to_color[level],
-                                                        vertex_radius=vertex_radius,
-                                                        vertex_color=LEVEL_TO_COLOR_VERTEX[level],
-                                                        type=new_polygon_type,
-                                                        level=level,
-                                                        side=side,
-                                                        side_manually_assigned=False)
+                                                            index=index_wrt_dataVolume,
+                                                            label=name_u,
+                                                            linewidth=linewidth,
+                                                            linecolor=LEVEL_TO_COLOR_LINE[level],
+                                                            vertex_radius=vertex_radius,
+                                                            vertex_color=LEVEL_TO_COLOR_VERTEX[level],
+                                                            type=new_polygon_type,
+                                                            level=level,
+                                                            side=side,
+                                                            side_manually_assigned=False,
+                                                            set_name=set_name)
                     sys.stderr.write("%s: %s: Added polygon to d_wrt_structureVolume = %d, index_wrt_dataVolume = %d\n" % (self.id, name_u, d_wrt_structureVolume, index_wrt_dataVolume))
                 except Exception as e:
                     sys.stderr.write("Failed adding polygon: %s\n" % e)
@@ -413,34 +401,35 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                name_u = p.properties['label']
-                if name_u in structure_ranges:
-                    assert name_u in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % name_u
+                if p.properties['set_name'] == 'handdrawn':
+                    name_u = p.properties['label']
+                    if name_u in structure_ranges:
+                        assert name_u in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % name_u
 
-                    if section_index >= structure_ranges[name_u][0] and section_index <= structure_ranges[name_u][1]:
-                        if p.properties['side'] is None or not p.properties['side_manually_assigned']:
-                            p.set_properties('side', 'S')
-                            p.set_properties('side_manually_assigned', False)
+                        if section_index >= structure_ranges[name_u][0] and section_index <= structure_ranges[name_u][1]:
+                            if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                p.set_properties('side', 'S')
+                                p.set_properties('side_manually_assigned', False)
+                        else:
+                            raise Exception('Polygon is on a section not in structure_range.')
                     else:
-                        raise Exception('Polygon is on a section not in structure_range.')
-                else:
-                    lname = convert_to_left_name(name_u)
-                    if lname in structure_ranges:
-                        if structure_ranges[lname][1] is not None:
-                            if section_index <= structure_ranges[lname][1]:
-                                if p.properties['side'] is None or not p.properties['side_manually_assigned']:
-                                    p.set_properties('side', 'L')
-                                    p.set_properties('side_manually_assigned', False)
-                                    # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                        lname = convert_to_left_name(name_u)
+                        if lname in structure_ranges:
+                            if structure_ranges[lname][1] is not None:
+                                if section_index <= structure_ranges[lname][1]:
+                                    if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                        p.set_properties('side', 'L')
+                                        p.set_properties('side_manually_assigned', False)
+                                        # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
-                    rname = convert_to_right_name(p.properties['label'])
-                    if rname in structure_ranges:
-                        if structure_ranges[rname][0] is not None:
-                            if section_index >= structure_ranges[rname][0]:
-                                if p.properties['side'] is None or not p.properties['side_manually_assigned']:
-                                    p.set_properties('side', 'R')
-                                    p.set_properties('side_manually_assigned', False)
-                                    # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                        rname = convert_to_right_name(p.properties['label'])
+                        if rname in structure_ranges:
+                            if structure_ranges[rname][0] is not None:
+                                if section_index >= structure_ranges[rname][0]:
+                                    if p.properties['side'] is None or not p.properties['side_manually_assigned']:
+                                        p.set_properties('side', 'R')
+                                        p.set_properties('side_manually_assigned', False)
+                                        # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
 
     def open_label_selection_dialog(self):
 
@@ -612,7 +601,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                                                         side_manually_assigned=contour['side_manually_assigned'],
                                                         edits=[{'username': contour['creator'], 'timestamp': contour['time_created']}] + contour['edits'],
                                                         contour_id=contour_id,
-                                                        category=contour_class)
+                                                        category=contour_class,
+                                                        set_name='handdrawn')
 
     def convert_drawings_to_entries(self, timestamp, username, classes=None, types=None):
         """
@@ -856,7 +846,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         myMenu.addSeparator()
 
-        action_alignAtlasToManualStructure = myMenu.addAction("Align atlas structure to manual structure")
+        action_alignAtlasToManualStructureGlobal = myMenu.addAction("Align atlas structure to manual structure (global)")
+        action_alignAtlasToManualStructureLocal = myMenu.addAction("Align atlas structure to manual structure (local)")
 
         myMenu.addSeparator()
 
@@ -953,8 +944,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_mode('add vertices once')
             self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR_CHAR)
 
-        elif selected_action == action_alignAtlasToManualStructure:
-            self.align_atlas_structure_to_manual_structure(name=self.active_polygon.properties['label'], side=self.active_polygon.properties['side'])
+        elif selected_action == action_alignAtlasToManualStructureGlobal:
+            self.align_atlas_structure_to_manual_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True)
+
+        elif selected_action == action_alignAtlasToManualStructureLocal:
+            self.align_atlas_structure_to_manual_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False)
 
     # @pyqtSlot()
     # def vertex_clicked(self):
@@ -979,14 +973,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #         # self.print_history()
 
 
-    def get_structure_centroid3d(self, set_name, name_s, prob=False):
+    def get_structure_centroid3d(self, set_name, name_s):
         """
         Args:
+            set_name (str):
             name_s (str): name, sided
-            prob (bool): If true, compute centroid for `prob_structure_volumes`; if False, compute centroid for `structure_volumes`.
         Return:
             ((3,)-array): structure centroid in 3d wrt wholebrain
         """
+
+        assert 'volume' in self.structure_volumes[set_name][name_s] and 'origin' in self.structure_volumes[set_name][name_s], 'Structure volume of set %s, %s has not been initialized.' % (set_name, name_s)
 
         vol = self.structure_volumes[set_name][name_s]['volume']
 
@@ -999,22 +995,33 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         yc_wrt_structureVolInBbox_volResol, \
         zc_wrt_structureVolInBbox_volResol))
 
-        vol_origin_wrt_wholebrain_volResol = np.array(structure_volumes[set_name][name_s]['origin'])
+        vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
 
-        print prob, vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
+        # print vol_origin_wrt_wholebrain_volResol, structure_centroid3d_wrt_structureVolInBbox_volResol
         structure_centroid3d_wrt_wholebrain_volResol = structure_centroid3d_wrt_structureVolInBbox_volResol + vol_origin_wrt_wholebrain_volResol
 
         return np.array(structure_centroid3d_wrt_wholebrain_volResol)
 
-    def align_atlas_structure_to_manual_structure(self, name_s):
-        manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s, prob=False)
-        print "manual=", manual_structure_centroid3d_wrt_wholebrain_volResol
-        prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s, prob=True)
-        print "prob=", prob_structure_centroid3d_wrt_wholebrain_volResol
-        print  'before', self.structure_volumes['aligned_atlas'][name_s]['origin']
-        self.structure_volumes['aligned_atlas'][name_s]['origin'] = self.structure_volumes['aligned_atlas'][name_s]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
-        print  'after', self.structure_volumes['aligned_atlas'][name_s]['origin']
-        self.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.1, 0.25, 0.5, 0.75, 0.99])
+    def align_atlas_structure_to_manual_structure(self, name_s, global_instead_of_local=False):
+
+        manual_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='handdrawn')
+        print "handdrawn =", manual_structure_centroid3d_wrt_wholebrain_volResol
+        prob_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='aligned_atlas')
+        print "atlas =", prob_structure_centroid3d_wrt_wholebrain_volResol
+
+        tf = np.column_stack([np.eye(3), - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol])
+
+        if global_instead_of_local:
+            for name in self.structure_volumes['aligned_atlas'].keys():
+                self.transform_structure(name_s=name, set_name='aligned_atlas', tf=tf)
+        else:
+            self.transform_structure(name_s=name_s, set_name='aligned_atlas', tf=tf)
+
+        # print 'before', self.structure_volumes['aligned_atlas'][name_s]['origin']
+        # self.structure_volumes['aligned_atlas'][name_s]['origin'] = self.structure_volumes['aligned_atlas'][name_s]['origin'] - prob_structure_centroid3d_wrt_wholebrain_volResol + manual_structure_centroid3d_wrt_wholebrain_volResol
+        # print 'after', self.structure_volumes['aligned_atlas'][name_s]['origin']
+
+        # self.structure_volume_updated.emit('aligned_atlas', name_s, False, False)
 
     def start_new_polygon(self, init_properties=None, color='r'):
         """
@@ -1106,6 +1113,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         contour_info_text += "Class: %(class)s\n" % {'class': self.active_polygon.properties['class']}
         contour_info_text += "Position: %(position_um).2f microns (from origin of whole brain aligned and padded volume)\n" % {'position_um': self.active_polygon.properties['position_um']}
+
+        contour_info_text += "Set name: %s\n" % set_name
 
         QMessageBox.information(self.gview, "Information", contour_info_text)
 
@@ -1276,7 +1285,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif key == Qt.Key_R:
                 modifiers = QApplication.keyboardModifiers()
-                if modifiers & Qt.AltModifier:
+                if modifiers & Qt.AltModifier: # hold alt
                     self.set_mode('global_rotate3d')
                 else:
                     self.set_mode('prob_rotate3d')
@@ -1497,7 +1506,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 obj.mousePressEvent(event)
 
                 self.rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(gscene_x, gscene_y, 0),
-                in_wrt=('data', self.data_feeder.resolution), in_resolution='image',
+                in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
                 out_wrt='wholebrain', out_resolution='volume')
                 print "Set rotation_center_wrt_wholebrain_volResol =",  self.rotation_center_wrt_wholebrain_volResol
                 self.set_mode('idle')
@@ -1564,24 +1573,28 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
             elif self.mode == 'global_shift3d' or self.mode == 'global_rotate3d':
 
-                for name_s in self.structure_volumes['aligned_atlas'].iterkeys():
-                    self.transform_structure(name_s=name_s)
-                # Nullify the rotation center after using it.
-                self.rotation_center_wrt_wholebrain_volResol = None
-                # sys.stderr.write("nullify\n")
+                if self.active_polygon.properties['set_name'] == 'aligned_atlas':
+
+                    # Apply the given global transform to every structure.
+                    for name_s in self.structure_volumes['aligned_atlas'].iterkeys():
+                        self.transform_structure(name_s=name_s, set_name='aligned_atlas')
+                    # Nullify the rotation center after using it.
+                    self.rotation_center_wrt_wholebrain_volResol = None
+                    # sys.stderr.write("nullify\n")
+                else:
+                    sys.stderr.write("Global adjustment can only be applied to polygons in the set aligned_atlas. Do nothing.\n")
+
                 self.set_mode('idle')
 
                 # self.global_transform_updated.emit(self.get_global_transform())
 
             elif self.mode == 'prob_shift3d' or self.mode == 'prob_rotate3d':
 
-                self.transform_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']))
+                self.transform_structure(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), set_name=self.active_polygon.properties['set_name'])
                 # Nullify the rotation center after using it.
                 self.rotation_center_wrt_wholebrain_volResol = None
                 # sys.stderr.write("nullify\n")
-
                 self.set_mode('idle')
-
 
             elif self.mode == 'delete vertices':
                 items_in_rubberband = self.analyze_rubberband_selection()
@@ -1648,7 +1661,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         return tf
 
     # @profile(precision=4)
-    def transform_structure(self, name_s):
+    def transform_structure(self, name_s, set_name, tf=None):
         """
         Compute transform based on recorded mouse movements.
         Transform the given structure and save back into repository.
@@ -1661,87 +1674,69 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # structure_volumes = self.structure_volumes['aligned_atlas']
         structure_volume_resolution_um = self.structure_volumes_resolution_um
 
-        assert name_s in self.structure_volumes['aligned_atlas'], \
+        assert name_s in self.structure_volumes[set_name], \
         "`structure_volumes` does not contain %s. Need to load this structure first." % name_s
 
-        #
-        # if self.id == 'sagittal' or self.id == 'sagittal_tb':
-        #     plane = 'sagittal'
-        # elif self.id == 'coronal':
-        #     plane = 'coronal'
-        # elif self.id == 'horizontal':
-        #     plane = 'horizontal'
-        # else:
-        #     raise
-
         press_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, 0),
-        in_wrt=('data', self.data_feeder.resolution), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
 
         release_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.gscene_x, self.gscene_y, 0),
-        in_wrt=('data', self.data_feeder.resolution), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
 
-        if self.structure_volumes['aligned_atlas'][name_s]['volume'] is not None: # the volume is loaded
+        if self.structure_volumes[set_name][name_s]['volume'] is not None: # the volume is loaded
 
-            vol = self.structure_volumes['aligned_atlas'][name_s]['volume'].copy()
-            vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes['aligned_atlas'][name_s]['origin'])
+            vol = self.structure_volumes[set_name][name_s]['volume'].copy()
+            vol_origin_wrt_wholebrain_volResol = np.array(self.structure_volumes[set_name][name_s]['origin'])
             print 'vol', vol.shape, 'vol_origin_wrt_wholebrain_volResol', vol_origin_wrt_wholebrain_volResol
 
-        if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
+        if tf is None:
 
-            if self.mode == 'global_rotate3d':
+            if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
 
-                if self.rotation_center_wrt_wholebrain_volResol is None:
-                    sys.stderr.write('Must specify rotation center.\n')
-                    return
+                if self.mode == 'global_rotate3d':
 
-                print 'press', press_position_wrt_wholebrain_volResol, 'release', release_position_wrt_wholebrain_volResol, 'center', self.rotation_center_wrt_wholebrain_volResol
+                    if self.rotation_center_wrt_wholebrain_volResol is None:
+                        sys.stderr.write('Must specify rotation center.\n')
+                        return
 
-                tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
-                finish=release_position_wrt_wholebrain_volResol,
-                center=self.rotation_center_wrt_wholebrain_volResol)
+                    print 'press', press_position_wrt_wholebrain_volResol, 'release', release_position_wrt_wholebrain_volResol, 'center', self.rotation_center_wrt_wholebrain_volResol
+
+                    tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
+                    finish=release_position_wrt_wholebrain_volResol,
+                    center=self.rotation_center_wrt_wholebrain_volResol)
+
+                else:
+
+                    if self.rotation_center_wrt_wholebrain_volResol is None:
+                        sys.stderr.write('No rotation center is specified. Using contour center.\n')
+                        rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
+                        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+                    else:
+                        rotation_center_wrt_wholebrain_volResol = self.rotation_center_wrt_wholebrain_volResol
+
+                    tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
+                    finish=release_position_wrt_wholebrain_volResol,
+                    center=rotation_center_wrt_wholebrain_volResol
+                    )
+
+            elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
+
+                shift = release_position_wrt_wholebrain_volResol - press_position_wrt_wholebrain_volResol
+                print release_position_wrt_wholebrain_volResol, press_position_wrt_wholebrain_volResol, shift
+                tf = affine_components_to_vector(tx=shift[0], ty=shift[1], tz=shift[2])
 
             else:
-
-                if self.rotation_center_wrt_wholebrain_volResol is None:
-                    sys.stderr.write('No rotation center is specified. Using contour center.\n')
-                    rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
-                    in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
-                else:
-                    rotation_center_wrt_wholebrain_volResol = self.rotation_center_wrt_wholebrain_volResol
-
-                tf = self.compute_rotate_transform_vector(start=press_position_wrt_wholebrain_volResol,
-                finish=release_position_wrt_wholebrain_volResol,
-                center=rotation_center_wrt_wholebrain_volResol
-                )
-
-        elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
-
-            shift = release_position_wrt_wholebrain_volResol - press_position_wrt_wholebrain_volResol
-            print release_position_wrt_wholebrain_volResol, press_position_wrt_wholebrain_volResol, shift
-            tf = affine_components_to_vector(tx=shift[0], ty=shift[1], tz=shift[2])
-
-        else:
-            raise
+                raise
 
         # If this structure's volume has not been loaded, don't do the transform, just add edits.
 
-        if self.structure_volumes['aligned_atlas'][name_s]['volume'] is not None: # the volume is loaded
+        if self.structure_volumes[set_name][name_s]['volume'] is not None: # the volume is loaded
 
-            # tfed_structure_volume, tfed_structure_volume_origin_wrt_wholebrain_volResol = \
-            # transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
-            # tf_params=tf,
-            # return_origin_instead_of_bbox=True)
-            #
-            # self.structure_volumes['aligned_atlas'][name_s]['volume'] = tfed_structure_volume
-            # self.structure_volumes['aligned_atlas'][name_s]['origin'] = tfed_structure_volume_origin_wrt_wholebrain_volResol
+            del self.structure_volumes[set_name][name_s]['volume']
 
-            del self.structure_volumes['aligned_atlas'][name_s]['volume']
-
-            self.structure_volumes['aligned_atlas'][name_s]['volume'], \
-            self.structure_volumes['aligned_atlas'][name_s]['origin'] = \
-            transform_volume_v3(vol=vol, origin=vol_origin_wrt_wholebrain_volResol,
-            tf_params=tf,
-            return_origin_instead_of_bbox=True)
+            self.structure_volumes[set_name][name_s]['volume'], \
+            self.structure_volumes[set_name][name_s]['origin'] = \
+            transform_volume_v4(volume=(vol, vol_origin_wrt_wholebrain_volResol), transform=tf, return_origin_instead_of_bbox=True)
 
         ###################### Append edits ###############################
 
@@ -1749,7 +1744,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         'timestamp': datetime.now().strftime("%m%d%Y%H%M%S"),
         'type': self.mode,
         'transform':tf}
-        self.structure_volumes['aligned_atlas'][name_s]['edits'].append(edit_entry)
-        print name_s, 'edit added', self.mode
+        self.structure_volumes[set_name][name_s]['edits'].append(edit_entry)
+        print "Edit entry %s added to %s, %s" % (self.mode, set_name, name_s)
 
-        self.structure_volume_updated.emit('aligned_atlas', name_s, False, False)
+        self.structure_volume_updated.emit(set_name, name_s, False, False)

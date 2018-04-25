@@ -87,6 +87,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                                             category='contour', **kwargs):
         """
         Additional keyword arguments are used to set polygon properties.
+        - set_name (str): specifies the set this polygon belongs to (handdrawn or aligned_atlas)
 
         Args:
             type (str): One of the following,

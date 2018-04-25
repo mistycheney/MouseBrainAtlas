@@ -299,10 +299,13 @@ is_surround_label = lambda label: parse_label(label)[2] is not None
 get_side_from_label = lambda label: parse_label(label)[1]
 get_margin_from_label = lambda label: parse_label(label)[2]
 
-def compose_label(structure_name, side=None, surround_margin=None, surround_structure_name=None):
+def compose_label(structure_name, side=None, surround_margin=None, surround_structure_name=None, singular_as_s=False):
     label = structure_name
     if side is not None:
-        label += '_' + side
+        if not singular_as_s and side == 'S':
+            pass
+        else:
+            label += '_' + side
     if surround_margin is not None:
         label += '_surround_' + surround_margin
     if surround_structure_name is not None:
@@ -402,8 +405,12 @@ paired_structures = ['5N', '6N', '7N', '7n', 'Amb', 'LC', 'LRt', 'Pn', 'Tz', 'VL
                     'Sp5I', 'Sp5O', 'Sp5C', 'PBG', '10N', 'VCA', 'VCP', 'DC']
 # singular_structures = ['AP', '12N', 'RtTg', 'sp5', 'outerContour', 'SC', 'IC']
 singular_structures = ['AP', '12N', 'RtTg', 'SC', 'IC']
+singular_structures_with_side_suffix = ['AP_S', '12N_S', 'RtTg_S', 'SC_S', 'IC_S']
 all_known_structures = paired_structures + singular_structures
 all_known_structures_sided = sum([[n] if n in singular_structures
+                        else [convert_to_left_name(n), convert_to_right_name(n)]
+                        for n in all_known_structures], [])
+all_known_structures_sided_singular_as_s = sum([[n] if n in singular_structures_with_side_suffix
                         else [convert_to_left_name(n), convert_to_right_name(n)]
                         for n in all_known_structures], [])
 #all_known_structures_sided_surround_only = [convert_to_surround_name(s, margin='x1.5') for s in all_known_structures_sided]
@@ -516,7 +523,7 @@ stack_to_color = {n: high_contrast_colors[i%len(high_contrast_colors)] for i, n 
 stack_to_color_float = {s: np.array(c)/255. for s, c in stack_to_color.iteritems()}
 
 # Colors for the iso-contours or iso-surfaces of different probabilities.
-level_to_color = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
+LEVEL_TO_COLOR_LINE = {0.1: (125,0,125), 0.25: (0,255,0), 0.5: (255,0,0), 0.75: (0,125,0), 0.99: (0,0,255)}
 LEVEL_TO_COLOR_VERTEX = {0.1: (0,0,255), 0.25: (125,0,125), 0.5: (0,255,0), 0.75: (255,0,0), 0.99: (0,125,0)}
 
 ####################################

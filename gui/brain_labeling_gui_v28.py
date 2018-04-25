@@ -115,6 +115,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # name_u, side = parse_label(name_s, singular_as_s=True)[:2]
             # self.structure_volumes['aligned_atlas'][(name_u, side)] = {'volume': None, 'origin': None, 'edits': []}
             self.structure_volumes['aligned_atlas'][name_s] = {'volume': None, 'origin': None, 'edits': []}
+            self.structure_volumes['handdrawn'][name_s] = {'volume': None, 'origin': None, 'edits': []}
 
         # self.structure_volume_resolution_um = 16.
         self.structure_volume_resolution_um = 8.
@@ -302,6 +303,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     @pyqtSlot(object)
     def handle_global_transform_update(self, tf):
         """
+        Handle update of the global transform.
+
         Args:
             tf (12-vector)
         """
@@ -424,54 +427,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # display_structures_widget.exec_()
         display_structures_widget.show()
 
-    # @pyqtSlot()
-    # def select_display_structures(self):
-    #
-    #     display_structures_widget = QDialog(self)
-    #
-    #     scroll = QScrollArea(display_structures_widget)
-    #
-    #     viewport = QWidget(display_structures_widget)
-    #     scroll.setWidget(viewport)
-    #     scroll.setWidgetResizable(True)
-    #
-    #     viewport_layout = QVBoxLayout(viewport)
-    #
-    #     structure_names = set([convert_name_to_unsided(name_s) for name_s in self.gscenes['main_sagittal'].get_label_section_lookup().keys()])
-    #
-    #     if not hasattr(self, 'show_structure'):
-    #         self.show_structure = {}
-    #
-    #     for name in sorted(structure_names):
-    #         if name not in self.show_structure:
-    #             self.show_structure[name] = True
-    #
-    #         checkbox_showStructure = QCheckBox(name)
-    #         checkbox_showStructure.setChecked(self.show_structure[name])
-    #         checkbox_showStructure.stateChanged.connect(self.checkbox_showStructure_callback)
-    #         viewport_layout.addWidget(checkbox_showStructure)
-    #
-    #     viewport.setLayout(viewport_layout)
-    #
-    #     dialog_layout = QVBoxLayout(display_structures_widget)
-    #     dialog_layout.addWidget(scroll)
-    #     display_structures_widget.setLayout(dialog_layout)
-    #
-    #     display_structures_widget.setWindowTitle("Select structures to show")
-    #     # display_structures_widget.exec_()
-    #     display_structures_widget.show()
-
-
-    # def checkbox_showStructure_callback(self, checked):
-    #     name = str(self.sender().text())
-    #     self.show_structure[name] = bool(checked)
-    #
-    #     for gscene in self.gscenes.values():
-    #         for section_index, polygons in gscene.drawings.iteritems():
-    #             for polygon in polygons:
-    #                 if polygon.label == name:
-    #                     polygon.setVisible(bool(checked))
-
     @pyqtSlot()
     def select_display_options(self):
 
@@ -561,15 +516,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             self.gscenes['tb_horizontal'].infer_side()
         except:
             pass
-    #
-    # def merge_contour_entries(self, new_entries_df):
-    #     """
-    #     Merge new entries into loaded entries.
-    #     new_entries: dict. {polygon_id: entry}FileName
-    #     Return: new dict.
-    #     """
-    #
-    #     self.contour_df_loaded.update(new_entries_df)
+
 
     @pyqtSlot()
     def save_markers(self):
@@ -627,7 +574,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     #     save_hdf_v2(structure_df, structure_df_fp)
     #     upload_to_s3(structure_df_fp)
     #     print '3D structures saved to %s.' % structure_df_fp
-
 
     @pyqtSlot()
     def save_structures(self):
@@ -807,10 +753,9 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     #             print global_tf_from_wholebrain_to_wholebrain_volResol.reshape((4,4))
     #     return global_tf_from_wholebrain_to_wholebrain_volResol[:3]
 
-
     def load_atlas_volume(self, warped=True, structures=all_known_structures_sided):
 
-        atlas_spec = dict(name='atlasV5',
+        atlas_spec = dict(name='atlasV6',
                        vol_type='score',
                        detector_id=None,
                        prep_id=None,
@@ -819,7 +764,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if not warped:
             atlas_volumes = DataManager.load_original_volume_all_known_structures_v3(stack_spec=atlas_spec,
-            in_bbox_wrt='atlasSpace',
+            in_bbox_wrt='canonicalAtlasSpace',
             return_label_mappings=False,
             name_or_index_as_key='name',
             structures=structures,
@@ -849,10 +794,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.structure_volumes['aligned_atlas'][name_s]['origin'] = origin_wrt_fixedWholebrain_volResol
                 print 'Load', name_s, "volume", volume_volResol.shape, "; origin (wrt fixedwholebrain) =", origin_wrt_fixedWholebrain_volResol
 
-                # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
-                for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
-                # self.gscenes['tb_sagittal'].update_drawings_from_structure_volume(set_name='aligned_atlas', name_u=name_u, side=side, levels=[0.5])
+                self.handle_structure_update(set_name='aligned_atlas', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
 
         else:
             if stack in ['MD661', 'MD662']:
@@ -890,7 +832,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
     @pyqtSlot()
     def select_structures(self):
-        possible_structures_to_load = all_known_structures_sided
+        possible_structures_to_load = sorted(all_known_structures_sided)
 
    #      selected_structure, ok = QInputDialog.getItem(self, "Select one structure",
    # "list of structures", possible_structures_to_load, 0, False)
@@ -924,14 +866,6 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         selected_structures, new_structures_to_load, structures_to_remove = self.select_structures()
         self.load_atlas_volume(warped=False, structures=new_structures_to_load)
-    #
-    # @pyqtSlot()
-    # def load_warped_atlas_volume(self):
-    #     """
-    #     Load warped atlas volumes.
-    #     This populates the graphicsScenes with contours. Note that no volumes are reconstructed from them yet.
-    #     """
-    #     self.load_atlas_volume(warped=True)
 
     @pyqtSlot()
     def load_warped_structure(self):
@@ -1056,13 +990,15 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         Reconstruct the 3-D structure from 2-D contours.
 
+        Can put this into graphic scene class?
+
         Args:
             name_s (str): the sided name of the structure to reconstruct.
             use_confirmed_only (bool): if true, reconstruct using only the confirmed contours; if false, use all contours including interpolated ones.
             gscene_id (str): reconstruct based on contours on which graphics scene.
 
         Returns:
-            (volume, origin)
+            (volume, origin): in the pre-set volume resolution.
         """
 
         name_u, side = parse_label(name_s, singular_as_s=True)[:2]
@@ -1088,26 +1024,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         interpolate_contours_to_volume(contours_xyz=contours_xyz_wrt_wholebrain_volResol,
         interpolation_direction='z', return_origin_instead_of_bbox=True)
 
-        # Register structure wise frames for every converter.
-        structure_volume_origin_wrt_wholebrain_um = structure_volume_origin_wrt_wholebrain_volResol * self.structure_volume_resolution_um
-
-        for gscene_id, gscene in self.gscenes.iteritems():
-            gscene.converter.derive_three_view_frames(base_frame_name=name_s,
-            origin_wrt_wholebrain_um=structure_volume_origin_wrt_wholebrain_um,
-            zdim_um=structure_volume_volResol.shape[2] * self.structure_volume_resolution_um)
-
-        for gid, gs in self.gscenes.iteritems():
-            print gid
-            for frame_name, frame in gs.converter.frames.iteritems():
-                print frame_name, frame
-            print
-
         return structure_volume_volResol, structure_volume_origin_wrt_wholebrain_volResol
 
     @pyqtSlot(str, str, bool, bool)
     def handle_structure_update(self, set_name, name_s, use_confirmed_only, recompute_from_contours):
-
-        from_gscene_id = self.sender().id
+        """
+        Handler for the signal structure_updated.
+        """
 
         # Arguments passed in are Qt Strings. This guarantees they are python str.
         # name_u = str(name_u)
@@ -1119,15 +1042,25 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             if name_s not in self.structure_volumes[set_name] or recompute_from_contours:
                 self.structure_volumes[set_name][name_s]['volume'] , \
                 self.structure_volumes[set_name][name_s]['origin'] = \
-                self.reconstruct_structure_from_contours(name_s, use_confirmed_only=use_confirmed_only,  gscene_id=from_gscene_id)
+                self.reconstruct_structure_from_contours(name_s, use_confirmed_only=use_confirmed_only,  gscene_id=self.sender().id)
 
-        # if affected_gscenes is None:
-        #     affected_gscenes = self.gscenes.keys()
+        # print set_name, name_s, self.structure_volumes[set_name][name_s]['origin']
 
-        for gscene_id, gscene in self.gscenes.iteritems():
-            # if gscene_id == 'main_sagittal':
-            #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
-            gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+        if self.structure_volumes[set_name][name_s]['volume'] is not None \
+        and self.structure_volumes[set_name][name_s]['origin'] is not None:
+
+            for gscene_id, gscene in self.gscenes.iteritems():
+                gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+                origin_wrt_wholebrain_um=self.structure_volumes[set_name][name_s]['origin'] * self.structure_volume_resolution_um,
+                zdim_um=self.structure_volumes[set_name][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+
+            # if affected_gscenes is None:
+            #     affected_gscenes = self.gscenes.keys()
+
+            for gscene_id, gscene in self.gscenes.iteritems():
+                # if gscene_id == 'main_sagittal':
+                #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+                gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)
@@ -1209,62 +1142,63 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             #         self.update_structure_volume(name_u=curr_structure_label, side=curr_structure_side, use_confirmed_only=False, recompute_from_contours=False)
 
             elif key == Qt.Key_U:
+                pass
 
                 # For all structures on the current section
                 # structures_curr_section = [(p.properties['label'], p.properties['side'])
                 #                             for p in self.gscenes['main_sagittal'].drawings[self.gscenes['main_sagittal'].active_i]]
                 # for curr_structure_label, curr_structure_side in structures_curr_section:
 
-                curr_structure_label = self.gscenes['main_sagittal'].active_polygon.properties['label']
-                curr_structure_side = self.gscenes['main_sagittal'].active_polygon.properties['side']
-
-                name_side_tuple = (curr_structure_label, curr_structure_side)
-                assert name_side_tuple in self.structure_volumes, \
-                "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
-
-                if name_side_tuple in self.gscenes['main_sagittal'].uncertainty_lines:
-                    print "Remove uncertainty line"
-                    for gscene in self.gscenes.itervalues():
-                        gscene.hide_uncertainty_line(name_side_tuple)
-                else:
-                    print "Add uncertainty line"
-                    if curr_structure_side == 'S':
-                        name = curr_structure_label
-                    else:
-                        name = curr_structure_label + '_' + curr_structure_side
-                    current_structure_hessians = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
-                    param_suffix=name, what='hessians')
-                    H, fmax = current_structure_hessians[84.64]
-
-                    U, S, UT = np.linalg.svd(H)
-                    flattest_dir = U[:,-1]
-
-                    current_structure_peakwidth = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
-                    param_suffix=name, what='peak_radius')
-                    pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
-                    len_lossless_res = pw_max_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
-
-                    vol = self.structure_volumes[name_side_tuple]['volume']
-                    bbox = self.structure_volumes[name_side_tuple]['bbox']
-                    c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
-
-                    e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir
-                    e2 = c_vol_res_gl * self.volume_downsample_factor + len_lossless_res * flattest_dir
-
-                    for gscene in self.gscenes.itervalues():
-                        e1_gscene = point3d_to_point2d(e1, gscene)
-                        e2_gscene = point3d_to_point2d(e2, gscene)
-                        print gscene.id, e1_gscene, e2_gscene
-                        gscene.set_uncertainty_line(name_side_tuple, e1_gscene, e2_gscene)
-
-                if name_side_tuple in self.gscenes['main_sagittal'].structure_onscreen_messages:
-                    self.gscenes['main_sagittal'].hide_structure_onscreen_message(name_side_tuple)
-                else:
-                    current_structure_zscores = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
-                    param_suffix=name, what='zscores')
-                    zscore, fmax, mean, std = current_structure_zscores[118.75]
-                    print str((zscore, fmax, mean, std)), np.array(e1_gscene + e2_gscene)/2
-                    self.gscenes['main_sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
+                # curr_structure_label = self.gscenes['main_sagittal'].active_polygon.properties['label']
+                # curr_structure_side = self.gscenes['main_sagittal'].active_polygon.properties['side']
+                #
+                # name_side_tuple = (curr_structure_label, curr_structure_side)
+                # assert name_side_tuple in self.structure_volumes, \
+                # "structure_volumes does not have %s. Need to reconstruct this structure first." % str(name_side_tuple)
+                #
+                # if name_side_tuple in self.gscenes['main_sagittal'].uncertainty_lines:
+                #     print "Remove uncertainty line"
+                #     for gscene in self.gscenes.itervalues():
+                #         gscene.hide_uncertainty_line(name_side_tuple)
+                # else:
+                #     print "Add uncertainty line"
+                #     if curr_structure_side == 'S':
+                #         name = curr_structure_label
+                #     else:
+                #         name = curr_structure_label + '_' + curr_structure_side
+                #     current_structure_hessians = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                #     param_suffix=name, what='hessians')
+                #     H, fmax = current_structure_hessians[84.64]
+                #
+                #     U, S, UT = np.linalg.svd(H)
+                #     flattest_dir = U[:,-1]
+                #
+                #     current_structure_peakwidth = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                #     param_suffix=name, what='peak_radius')
+                #     pw_max_um, _, _ = current_structure_peakwidth[118.75][84.64]
+                #     len_lossless_res = pw_max_um / convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless')
+                #
+                #     vol = self.structure_volumes[name_side_tuple]['volume']
+                #     bbox = self.structure_volumes[name_side_tuple]['bbox']
+                #     c_vol_res_gl = np.mean(np.where(vol), axis=1)[[1,0,2]] + (bbox[0], bbox[2], bbox[4])
+                #
+                #     e1 = c_vol_res_gl * self.volume_downsample_factor - len_lossless_res * flattest_dir
+                #     e2 = c_vol_res_gl * self.volume_downsample_factor + len_lossless_res * flattest_dir
+                #
+                #     for gscene in self.gscenes.itervalues():
+                #         e1_gscene = point3d_to_point2d(e1, gscene)
+                #         e2_gscene = point3d_to_point2d(e2, gscene)
+                #         print gscene.id, e1_gscene, e2_gscene
+                #         gscene.set_uncertainty_line(name_side_tuple, e1_gscene, e2_gscene)
+                #
+                # if name_side_tuple in self.gscenes['main_sagittal'].structure_onscreen_messages:
+                #     self.gscenes['main_sagittal'].hide_structure_onscreen_message(name_side_tuple)
+                # else:
+                #     current_structure_zscores = DataManager.load_confidence(stack_m='atlasV3', stack_f=self.stack, classifier_setting_m=37, classifier_setting_f=37, warp_setting=8,
+                #     param_suffix=name, what='zscores')
+                #     zscore, fmax, mean, std = current_structure_zscores[118.75]
+                #     print str((zscore, fmax, mean, std)), np.array(e1_gscene + e2_gscene)/2
+                #     self.gscenes['main_sagittal'].set_structure_onscreen_message(name_side_tuple, "zscore = %.2f" % zscore, (e1_gscene + e2_gscene)/2)
 
             elif key == Qt.Key_O:
                 self.DISABLE_UPDATE_MAIN_SCENE = not self.DISABLE_UPDATE_MAIN_SCENE
@@ -1279,22 +1213,22 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         return False
 
-def point3d_to_point2d(pt3d, gscene):
-    """
-    Convert a 3D point to 2D point on a gscene.
-
-    Args:
-        pt3d ((3,)-ndarray): a point coordinate in lossless-resolution coordinate.
-        gscene (QGraphicScene)
-    """
-    pt3d_gscene_res = pt3d / gscene.data_feeder.downsample
-    if gscene.id == 'main_sagittal' or gscene.id == 'tb_sagittal':
-        pt2d = (pt3d_gscene_res[0], pt3d_gscene_res[1])
-    elif gscene.id == 'tb_coronal':
-        pt2d = (gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2], pt3d_gscene_res[1])
-    elif gscene.id == 'tb_horizontal':
-        pt2d = (pt3d_gscene_res[0], gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2])
-    return np.array(pt2d)
+# def point3d_to_point2d(pt3d, gscene):
+#     """
+#     Convert a 3D point to 2D point on a gscene.
+#
+#     Args:
+#         pt3d ((3,)-ndarray): a point coordinate in lossless-resolution coordinate.
+#         gscene (QGraphicScene)
+#     """
+#     pt3d_gscene_res = pt3d / gscene.data_feeder.downsample
+#     if gscene.id == 'main_sagittal' or gscene.id == 'tb_sagittal':
+#         pt2d = (pt3d_gscene_res[0], pt3d_gscene_res[1])
+#     elif gscene.id == 'tb_coronal':
+#         pt2d = (gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2], pt3d_gscene_res[1])
+#     elif gscene.id == 'tb_horizontal':
+#         pt2d = (pt3d_gscene_res[0], gscene.data_feeder.z_dim - 1 - pt3d_gscene_res[2])
+#     return np.array(pt2d)
 
 def load_structure_names(fn):
     """

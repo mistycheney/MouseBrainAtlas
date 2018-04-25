@@ -352,7 +352,7 @@ class CoordinatesConverter(object):
             assert isinstance(wrt, tuple)
             base_frame_name, plane = wrt
 
-            print 'p_um', p_um.mean(axis=0)
+            print 'p_um', np.nanmean(p_um, axis=0)
             p_wrt_inSagittal_um = self.convert_three_view_frames(p=p_um, base_frame_name=base_frame_name,
                                                                 in_plane=plane,
                                                                 out_plane='sagittal',
@@ -1154,7 +1154,7 @@ class DataManager(object):
                     return cropbox[:4].astype(np.int)
                 else:
                     return cropbox.astype(np.int)
-    
+
     @staticmethod
     def load_cropbox(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2, return_origin_instead_of_bbox=False):
         """

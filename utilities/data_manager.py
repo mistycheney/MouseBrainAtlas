@@ -229,25 +229,30 @@ class CoordinatesConverter(object):
         This function does not change physical position of coordinate origin or the direction of the axes.
         """
 
+        p = np.array(p)
+        if p.ndim != 2:
+            print p, in_resolution, out_resolution
+        assert p.ndim == 2
+
         if in_resolution == 'image':
             p_um = p * self.resolutions['image']['um']
         elif in_resolution == 'image_image_section':
             uv_um = p[..., :2] * self.resolutions['image']['um']
-            d_um = np.array([SECTION_THICKNESS * sec for sec in p[..., 2]])
+            d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p[..., 2]])
             p_um = np.column_stack([uv_um, d_um])
         elif in_resolution == 'image_image_index':
-            print 'p =', p
-            print 'section_list =', self.section_list
             uv_um = p[..., :2] * self.resolutions['image']['um']
-            i_um = np.array([SECTION_THICKNESS * self.section_list[int(idx)] for idx in p[..., 2]])
+            i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p[..., 2]])
             p_um = np.column_stack([uv_um, i_um])
         elif in_resolution == 'section':
-            uv_um = np.array([(np.nan, np.nan) for sec in p])
-            d_um = np.array([SECTION_THICKNESS * sec for sec in p])
-            p_um = np.column_stack([uv_um, d_um])
+            uv_um = np.array([(np.nan, np.nan) for _ in p])
+            # d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p])
+            d_um = SECTION_THICKNESS * (p[:, 0] - 0.5)
+            p_um = np.column_stack([np.atleast_2d(uv_um), np.atleast_1d(d_um)])
         elif in_resolution == 'index':
-            uv_um = np.array([(np.nan, np.nan) for idx in p])
-            i_um = np.array([SECTION_THICKNESS * self.section_list[int(idx)] for idx in p])
+            uv_um = np.array([(np.nan, np.nan) for _ in p])
+            # i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p])
+            i_um = SECTION_THICKNESS * (np.array(self.section_list)[p[:,0].astype(np.int)] - 0.5)
             p_um = np.column_stack([uv_um, i_um])
         else:
             if in_resolution in self.resolutions:
@@ -279,7 +284,7 @@ class CoordinatesConverter(object):
         elif out_resolution == 'section':
             uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
             sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
-            p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2]
+            p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2][:, None]
         elif out_resolution == 'index':
             uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
             if hasattr(self, 'section_list'):
@@ -294,12 +299,14 @@ class CoordinatesConverter(object):
                 i_outResol = np.array(i_outResol)
             else:
                 i_outResol = p_um[..., 2] / self.resolutions['image']['um']
-            p_outResol = np.column_stack([uv_outResol, i_outResol])[..., 2]
+            p_outResol = np.column_stack([uv_outResol, i_outResol])[..., 2][:, None]
         else:
             if out_resolution in self.resolutions:
                 p_outResol = p_um / self.resolutions[out_resolution]['um']
             else:
                 p_outResol = p_um / convert_resolution_string_to_um(resolution=out_resolution, stack=self.stack)
+
+        assert p_outResol.ndim == 2
 
         return p_outResol
 
@@ -316,6 +323,7 @@ class CoordinatesConverter(object):
 
         p_wrt_wholebrain_um = np.array(p_wrt_wholebrain_um)
         # assert np.atleast_2d(p_wrt_wholebrain_um).shape[1] == 3, "Coordinates of each point must have three elements."
+        assert p_wrt_wholebrain_um.ndim == 2
 
         if wrt == 'wholebrain':
             p_wrt_outdomain_um = p_wrt_wholebrain_um
@@ -323,15 +331,18 @@ class CoordinatesConverter(object):
             assert isinstance(wrt, tuple)
             base_frame_name, plane = wrt
             p_wrt_outSagittal_origin_um = p_wrt_wholebrain_um - self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print wrt, 'origin_wrt_wholebrain_um', self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'p_wrt_outSagittal_origin_um', np.nanmean(p_wrt_outSagittal_origin_um, axis=0)
+            # print wrt, 'origin_wrt_wholebrain_um', self.frames[base_frame_name]['origin_wrt_wholebrain_um']
+            print 'p_wrt_outSagittal_origin_um', np.nanmean(p_wrt_outSagittal_origin_um[None, :], axis=0)
+            assert p_wrt_outSagittal_origin_um.ndim == 2
             p_wrt_outdomain_um = self.convert_three_view_frames(p=p_wrt_outSagittal_origin_um, base_frame_name=base_frame_name,
                                                                 in_plane='sagittal',
                                                                 out_plane=plane,
                                                                 p_resol='um')
 
+        assert p_wrt_outdomain_um.ndim == 2
         p_wrt_outdomain_outResol = self.convert_resolution(p_wrt_outdomain_um, in_resolution='um', out_resolution=resolution)
-        return np.squeeze(p_wrt_outdomain_outResol)
+        assert p_wrt_outdomain_outResol.ndim == 2
+        return p_wrt_outdomain_outResol
 
     def convert_to_wholebrain_um(self, p, wrt, resolution):
         """
@@ -354,18 +365,20 @@ class CoordinatesConverter(object):
             assert isinstance(wrt, tuple)
             base_frame_name, plane = wrt
 
-            print 'p_um', np.nanmean(p_um, axis=0)
+            print 'p_um', np.nanmean(p_um[None, :], axis=0)
+            assert p_um.ndim == 2
             p_wrt_inSagittal_um = self.convert_three_view_frames(p=p_um, base_frame_name=base_frame_name,
                                                                 in_plane=plane,
                                                                 out_plane='sagittal',
                                                                 p_resol='um')
-            print 'p_wrt_inSagittal_um', np.nanmean(p_wrt_inSagittal_um, axis=0)
+            assert p_wrt_inSagittal_um.ndim == 2
+            print 'p_wrt_inSagittal_um', np.nanmean(p_wrt_inSagittal_um[None, :], axis=0)
             inSagittal_origin_wrt_wholebrain_um = self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'inSagittal_origin_wrt_wholebrain_um', np.nanmean(inSagittal_origin_wrt_wholebrain_um, axis=0)
+            print 'inSagittal_origin_wrt_wholebrain_um', np.nanmean(inSagittal_origin_wrt_wholebrain_um[None, :], axis=0)
             p_wrt_wholebrain_um = p_wrt_inSagittal_um + inSagittal_origin_wrt_wholebrain_um
-            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um, axis=0)
+            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None, :], axis=0)
 
-        return np.squeeze(p_wrt_wholebrain_um)
+        return p_wrt_wholebrain_um
 
     def convert_frame_and_resolution(self, p, in_wrt, in_resolution, out_wrt, out_resolution,
                                      stack=None):
@@ -464,10 +477,15 @@ class CoordinatesConverter(object):
             return p_wrt_outdomain_outResol
 
         else:
+            p = np.array(p)
+            assert p.ndim == 2
+            print 'p', np.nanmean(p_wrt_wholebrain_um[None,:], axis=0)
             p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution)
-            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um, axis=0)
+            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None,:], axis=0)
+            assert p_wrt_wholebrain_um.ndim == 2
             p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution)
-            print 'p_wrt_outdomain_outResol', np.nanmean(p_wrt_outdomain_outResol, axis=0)
+            print p_wrt_outdomain_outResol
+            print 'p_wrt_outdomain_outResol', np.nanmean(p_wrt_outdomain_outResol[None,:], axis=0)
             print
             return p_wrt_outdomain_outResol
 

@@ -698,7 +698,7 @@ try: # for environment that does not have vtk.
             # return
 except:
     pass
-            
+
 class vtkRecordVideoTimerCallback():
     def __init__(self, win, iren, camera, movie_fp, framerate=10):
         self.timer_count = 0
@@ -708,7 +708,7 @@ class vtkRecordVideoTimerCallback():
         self.win = win
         self.camera = camera
 
-        self.start_tick = 5
+        self.start_tick = 5 # wait 5 second then start
 
         self.azimuth_stepsize = 5.
         self.elevation_stepsize = 5.

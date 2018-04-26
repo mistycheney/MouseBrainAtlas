@@ -896,7 +896,7 @@ def interpolate_contours_to_volume(contours_grouped_by_pos=None, interpolation_d
         return volume, np.array((xmin,xmax,ymin,ymax,zmin,zmax))
 
 
-def get_interpolated_contours(contours_grouped_by_pos, len_interval):
+def get_interpolated_contours(contours_grouped_by_pos, len_interval, level_interval=1):
     """
     Interpolate contours at integer levels.
     Snap minimum z to the minimum integer .
@@ -969,7 +969,7 @@ def signed_curvatures(s, d=7):
 
 def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0=20):
     '''
-    Interpolate contours between (including) cnt1 and cnt2.
+    Interpolate additional contours between (including) two contours cnt1 and cnt2.
 
     Args:
         cnt1 ((n,2)-ndarray): contour 1

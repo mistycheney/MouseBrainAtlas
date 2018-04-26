@@ -181,19 +181,23 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 in_pts = np.array(self.data_feeder.sections)
 
                 positions_of_all_sections_wrt_structureVolume = self.converter.convert_frame_and_resolution(
-                p=in_pts,
+                p=in_pts[:,None],
                 in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
-                out_wrt=structure_wrt, out_resolution='volume')[..., 2]
+                out_wrt=structure_wrt, out_resolution='volume')[..., 2].flatten()
 
                 valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+                if np.count_nonzero(valid_mask) == 0:
+                    sys.stderr.write("valid_mask is empty.\n")
+                    continue
+
                 positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
                 # index_of_all_sections = in_pts[valid_mask]
 
                 index_of_all_sections = \
                 self.converter.convert_frame_and_resolution(
-                p=in_pts[valid_mask],
+                p=in_pts[valid_mask][:,None],
                 in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
-                out_wrt=('data', self.data_feeder.orientation), out_resolution='index')
+                out_wrt=('data', self.data_feeder.orientation), out_resolution='index').flatten()
 
             else:
                 if self.data_feeder.orientation == 'sagittal':
@@ -216,10 +220,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 out_wrt=structure_wrt, out_resolution='volume')[..., 2]
 
                 valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+                if np.count_nonzero(valid_mask) == 0:
+                    sys.stderr.write("valid_mask is empty.\n")
+                    continue
+                    
                 positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
                 index_of_all_sections = in_pts[valid_mask, 2]
 
-            positions_of_all_sections_wrt_structureVolume = np.floor(positions_of_all_sections_wrt_structureVolume).astype(np.int)
+            positions_of_all_sections_wrt_structureVolume = np.round(positions_of_all_sections_wrt_structureVolume).astype(np.int)
 
             # print 'index_of_all_sections', index_of_all_sections
             # print 'positions_of_all_sections_wrt_structureVolume', positions_of_all_sections_wrt_structureVolume
@@ -841,18 +849,48 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             action_confirmPolygon.setText('Set type to INTERSECTED')
             # action_confirmPolygon.setVisible(False)
 
-        action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
-        action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using all contours)")
+        reconstruct_menu = QMenu("Update 3D structure (using only confirmed contours)", myMenu)
+        myMenu.addMenu(reconstruct_menu)
+        reconstruct_menu_actions = \
+        [reconstruct_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
+
+        reconstructUnconfirmed_menu = QMenu("Update 3D structure (using all contours)", myMenu)
+        myMenu.addMenu(reconstructUnconfirmed_menu)
+        reconstructUnconfirmed_menu_actions = \
+        [reconstructUnconfirmed_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
+
+        # action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
+        # action_reconstructUsingUnconfirmed = myMenu.addAction("Update 3D structure (using all contours)")
+
         action_showInfo = myMenu.addAction("Show contour information")
         action_showReferences = myMenu.addAction("Show reference resources")
 
         myMenu.addSeparator()
 
-        action_alignAtlasToManualStructureGlobal = myMenu.addAction("Align atlas structure to manual structure (global)")
-        action_alignAtlasToManualStructureLocal = myMenu.addAction("Align atlas structure to manual structure (local)")
+        # action_alignAtlasToManualStructureGlobal = myMenu.addAction("Align atlas structure to manual structure (global)")
+        # action_alignAtlasToManualStructureLocal = myMenu.addAction("Align atlas structure to manual structure (local)")
+        # action_moveAtlasStructureHereGlobal = myMenu.addAction("Move atlas structure here (global)")
+        # action_moveAtlasStructureHereLocal = myMenu.addAction("Move atlas structure here (local)")
 
-        action_moveAtlasStructureHereGlobal = myMenu.addAction("Move atlas structure here (global)")
-        action_moveAtlasStructureHereLocal = myMenu.addAction("Move atlas structure here (local)")
+        moveAtlasStructureToHanddrawnGlobal_menu = QMenu("Move atlas structure to fit handdrawn annotation (global)", myMenu)
+        myMenu.addMenu(moveAtlasStructureToHanddrawnGlobal_menu)
+        moveAtlasStructureToHanddrawnGlobal_menu_actions = \
+        [moveAtlasStructureToHanddrawnGlobal_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
+
+        moveAtlasStructureToHanddrawnLocal_menu = QMenu("Move atlas structure to fit handdrawn annotation (local)", myMenu)
+        myMenu.addMenu(moveAtlasStructureToHanddrawnLocal_menu)
+        moveAtlasStructureToHanddrawnLocal_menu_actions = \
+        [moveAtlasStructureToHanddrawnLocal_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
+
+        moveAtlasStructureToMouseClickGlobal_menu = QMenu("Move atlas structure to here (global)", myMenu)
+        myMenu.addMenu(moveAtlasStructureToMouseClickGlobal_menu)
+        moveAtlasStructureToMouseClickGlobal_menu_actions = \
+        [moveAtlasStructureToMouseClickGlobal_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
+
+        moveAtlasStructureToMouseClickLocal_menu = QMenu("Move atlas structure to here (local)", myMenu)
+        myMenu.addMenu(moveAtlasStructureToMouseClickLocal_menu)
+        moveAtlasStructureToMouseClickLocal_menu_actions = \
+        [moveAtlasStructureToMouseClickLocal_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
 
         myMenu.addSeparator()
 
@@ -923,13 +961,19 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.drawings[self.active_i].remove(self.active_polygon)
             self.removeItem(self.active_polygon)
 
-        elif selected_action == action_reconstruct:
-            assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
-            self.structure_volume_updated.emit('handdrawn', compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side']), True, True)
+        # elif selected_action == action_reconstruct:
+        elif selected_action in reconstruct_menu_actions:
+            # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+            # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
+            name_s = str(selected_action.text())
+            self.structure_volume_updated.emit('handdrawn', name_s, True, True)
 
-        elif selected_action == action_reconstructUsingUnconfirmed:
-            assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
-            self.structure_volume_updated.emit('handdrawn', compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side']), False, True)
+        # elif selected_action == action_reconstructUsingUnconfirmed:
+        elif selected_action in reconstructUnconfirmed_menu_actions:
+            # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+            # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
+            name_s = str(selected_action.text())
+            self.structure_volume_updated.emit('handdrawn', name_s, False, True)
 
         # elif selected_action in action_resolutions:
         #     selected_downsample_factor = action_resolutions[selected_action]
@@ -949,17 +993,33 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             self.set_mode('add vertices once')
             self.start_new_polygon(init_properties={'class': 'neuron'}, color=MARKER_COLOR_CHAR)
 
-        elif selected_action == action_alignAtlasToManualStructureGlobal:
-            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='handdrawn_centroid')
+        elif selected_action in moveAtlasStructureToHanddrawnGlobal_menu_actions:
+            name_s = str(selected_action.text())
+            self.move_atlas_structure_to(name_s=name_s, global_instead_of_local=True, where='handdrawn_centroid')
 
-        elif selected_action == action_alignAtlasToManualStructureLocal:
-            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='handdrawn_centroid')
+        elif selected_action in moveAtlasStructureToHanddrawnLocal_menu_actions:
+            name_s = str(selected_action.text())
+            self.move_atlas_structure_to(name_s=name_s, global_instead_of_local=False, where='handdrawn_centroid')
 
-        elif selected_action == action_moveAtlasStructureHereGlobal:
-            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='mouse_click')
+        elif selected_action in moveAtlasStructureToMouseClickGlobal_menu_actions:
+            name_s = str(selected_action.text())
+            self.move_atlas_structure_to(name_s=name_s, global_instead_of_local=True, where='mouse_click')
 
-        elif selected_action == action_moveAtlasStructureHereLocal:
-            self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='mouse_click')
+        elif selected_action in moveAtlasStructureToMouseClickLocal_menu_actions:
+            name_s = str(selected_action.text())
+            self.move_atlas_structure_to(name_s=name_s, global_instead_of_local=False, where='mouse_click')
+
+        # elif selected_action == action_alignAtlasToManualStructureGlobal:
+        #     self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='handdrawn_centroid')
+        #
+        # elif selected_action == action_alignAtlasToManualStructureLocal:
+        #     self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='handdrawn_centroid')
+        #
+        # elif selected_action == action_moveAtlasStructureHereGlobal:
+        #     self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='mouse_click')
+        #
+        # elif selected_action == action_moveAtlasStructureHereLocal:
+        #     self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=False, where='mouse_click')
 
 
     # @pyqtSlot()
@@ -1012,10 +1072,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if hasattr(self.data_feeder, 'sections'):
             self.active_polygon.set_properties('section', self.active_section)
-            d_voxel = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True,
-            stack=self.gui.stack)
+            # d_voxel = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True,
+            # stack=self.gui.stack)
             # d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution='lossless') * self.data_feeder.downsample
-            d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack,  resolution=self.data_feeder.resolution)
+            # d_um = d_voxel * convert_resolution_string_to_voxel_size(stack=self.gui.stack, resolution=self.data_feeder.resolution)
+
+            d_um = self.converter.convert_frame_and_resolution([[self.active_section]],
+            in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
+            out_wrt=('wholebrain', self.data_feeder.orientation), out_resolution='um')[0,0]
+
             self.active_polygon.set_properties('position_um', d_um)
             # print 'd_voxel', d_voxel, 'position_um', d_um
         else:
@@ -1113,22 +1178,39 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         # self.hline.setVisible(True)
         # self.vline.setVisible(True)
 
-        u, v, d = self.converter.convert_frame_and_resolution(cross, in_wrt='wholebrain', in_resolution='raw',
-        out_wrt=('data', self.data_feeder.orientation), out_resolution='image')
+        if hasattr(self.data_feeder, 'sections'):
+            u, v, sec = self.converter.convert_frame_and_resolution([cross],
+            in_wrt='wholebrain', in_resolution='raw',
+            out_wrt=('data', self.data_feeder.orientation), out_resolution='image_image_section')[0]
+            self.set_active_section(sec)
+        else:
+            u, v, d = self.converter.convert_frame_and_resolution([cross],
+            in_wrt='wholebrain', in_resolution='raw',
+            out_wrt=('data', self.data_feeder.orientation), out_resolution='image_image_index')[0]
+            self.set_active_i(int(np.ceil(d)))
+
         udim, vdim = self.get_uv_dimension(plane=self.data_feeder.orientation)
         self.vline.setLine(u, 0, u, vdim)
         self.hline.setLine(0, v, udim, v)
 
-        if hasattr(self.data_feeder, 'sections'):
+        # if hasattr(self.data_feeder, 'sections'):
+        #
+        #     sec = self.converter.convert_frame_and_resolution([[d]],
+        #     in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
+        #     out_wrt=('data', self.data_feeder.orientation), out_resolution='section')[0,0]
 
-            sec = DataManager.convert_z_to_section(z=d, resolution=self.data_feeder.resolution, stack=self.gui.stack,
-            z_first_sec=0)
-            self.set_active_section(sec)
+            # sec = DataManager.convert_z_to_section(z=d, resolution=self.data_feeder.resolution, stack=self.gui.stack,
+            # z_first_sec=0)
+            # sec = self.converter.convert_frame_and_resolution([[d]],
+            # in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
+            # out_wrt=('data', self.data_feeder.orientation), out_resolution='section')[0,0]
+
+            # self.set_active_section(sec)
 
             # z = DataManager.convert_section_to_z(sec=sec, resolution=self.data_feeder.resolution, stack=self.gui.stack, mid=True)
             # print d, sec, z
-        else:
-            self.set_active_i(int(np.ceil(d)))
+        # else:
+        #     self.set_active_i(int(np.ceil(d)))
 
     # def set_active_i(self, index, emit_changed_signal=True, update_crossline=False):
     #     super(DrawableZoomableBrowsableGraphicsScene_ForLabeling, self).set_active_i(i=index, emit_changed_signal=emit_changed_signal)
@@ -1171,16 +1253,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         """
 
         if hasattr(self.data_feeder, 'sections'):
-            d = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True, stack=self.gui.stack)
+            # d = DataManager.convert_section_to_z(sec=self.active_section, resolution=self.data_feeder.resolution, mid=True, stack=self.gui.stack)
+            # d = self.converter.convert_frame_and_resolution(p=[[self.active_section]],
+            # in_wrt=('data', self.data_feeder.orientation), in_resolution='section',
+            # out_wrt=('data', self.data_feeder.orientation), out_resolution='index')[0][0]
+            cross_wrt_wholebrain_rawResol = self.converter.convert_frame_and_resolution([(gscene_x, gscene_y, self.active_section)],
+            in_wrt=('data', self.data_feeder.orientation), in_resolution='image_image_section',
+            out_wrt='wholebrain', out_resolution='raw')[0]
         else:
-            d = self.active_i
-        print "(gscene_x, gscene_y, d) =", (gscene_x, gscene_y, d)
+            cross_wrt_wholebrain_rawResol = self.converter.convert_frame_and_resolution([(gscene_x, gscene_y, self.active_i)],
+            in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
+            out_wrt='wholebrain', out_resolution='raw')[0]
 
-        cross_wrt_wholebrain_rawResol = self.converter.convert_frame_and_resolution((gscene_x, gscene_y, d),
-        in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
-        out_wrt='wholebrain', out_resolution='raw')
+        # print "(gscene_x, gscene_y, d) =", (gscene_x, gscene_y, d)
 
-        print self.id, ': emit', cross_wrt_wholebrain_rawResol
+        # cross_wrt_wholebrain_rawResol = self.converter.convert_frame_and_resolution([(gscene_x, gscene_y, d)],
+        # in_wrt=('data', self.data_feeder.orientation), in_resolution='image_image_index',
+        # out_wrt='wholebrain', out_resolution='raw')[0]
+
+        print self.id, ': emit crossline_updated signal', '; cross_wrt_wholebrain_rawResol', cross_wrt_wholebrain_rawResol
         self.crossline_updated.emit(cross_wrt_wholebrain_rawResol)
         return True
 
@@ -1474,9 +1565,9 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif self.mode == 'place_rotation_center':
                 obj.mousePressEvent(event)
 
-                self.rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(gscene_x, gscene_y, 0),
+                self.rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=[(gscene_x, gscene_y, 0)],
                 in_wrt=('data', self.data_feeder.orientation), in_resolution='image',
-                out_wrt='wholebrain', out_resolution='volume')
+                out_wrt='wholebrain', out_resolution='volume')[0]
                 print "Set rotation_center_wrt_wholebrain_volResol =",  self.rotation_center_wrt_wholebrain_volResol
                 self.set_mode('idle')
                 return True
@@ -1647,11 +1738,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         assert name_s in self.structure_volumes[set_name], \
         "`structure_volumes` does not contain %s. Need to load this structure first." % name_s
 
-        press_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, 0),
-        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+        press_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=[(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, 0)],
+        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')[0]
 
-        release_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.gscene_x, self.gscene_y, 0),
-        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+        release_position_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=[(self.gscene_x, self.gscene_y, 0)],
+        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')[0]
 
         if self.structure_volumes[set_name][name_s]['volume'] is not None: # the volume is loaded
 
@@ -1731,7 +1822,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             ((3,)-array): structure centroid in 3d wrt wholebrain
         """
 
-        assert 'volume' in self.structure_volumes[set_name][name_s] and 'origin' in self.structure_volumes[set_name][name_s], 'Structure volume of set %s, %s has not been initialized.' % (set_name, name_s)
+        assert 'volume' in self.structure_volumes[set_name][name_s] and \
+        self.structure_volumes[set_name][name_s]['volume'] is not None and \
+        'origin' in self.structure_volumes[set_name][name_s] and \
+        self.structure_volumes[set_name][name_s]['origin'] is not None, \
+        'Structure volume of set %s, %s has not been initialized.' % (set_name, name_s)
 
         vol = self.structure_volumes[set_name][name_s]['volume']
 
@@ -1757,13 +1852,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             target_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='handdrawn')
         elif where == 'mouse_click':
             print (self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, self.active_i)
-            target_centroid3d_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, self.active_i),
-            in_wrt=('data', self.data_feeder.orientation), in_resolution='image_image_index', out_wrt='wholebrain', out_resolution='volume')
+            target_centroid3d_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=[(self.press_x_wrt_imageData_gsceneResol, self.press_y_wrt_imageData_gsceneResol, self.active_i)],
+            in_wrt=('data', self.data_feeder.orientation), in_resolution='image_image_index', out_wrt='wholebrain', out_resolution='volume')[0]
         else:
             raise Exception("where = %s is not recognized." % where)
 
         print "target =", target_centroid3d_wrt_wholebrain_volResol
-        sys.exit()
 
         atlas_structure_centroid3d_wrt_wholebrain_volResol = self.get_structure_centroid3d(name_s=name_s, set_name='aligned_atlas')
         tf = np.column_stack([np.eye(3), - atlas_structure_centroid3d_wrt_wholebrain_volResol + target_centroid3d_wrt_wholebrain_volResol])

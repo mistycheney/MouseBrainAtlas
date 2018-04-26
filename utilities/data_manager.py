@@ -528,15 +528,16 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
         raise Exception('images must be dict or function.')
 
     voxel_z_size = float(spacing_um) / out_resol_um
-
     zdim = int(np.ceil(np.max(sections) * voxel_z_size)) + 1
 
     dtype = images.values()[0].dtype
     volume = np.zeros((ydim, xdim, zdim), dtype)
 
     for i in range(len(sections)-1):
-        z1 = int(np.floor((sections[i]-1) * voxel_z_size))
-        z2 = int(np.ceil(sections[i+1] * voxel_z_size))
+        # z1 = int(np.floor((sections[i]-1) * voxel_z_size))
+        # z2 = int(np.ceil(sections[i+1] * voxel_z_size))
+        z1 = int(np.round((sections[i]-1) * voxel_z_size))
+        z2 = int(np.round(sections[i+1] * voxel_z_size))
         if isinstance(images, dict):
             im = images[sections[i]]
         elif callable(images):
@@ -544,6 +545,8 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
 
         if dtype == np.uint8:
             volume[:, :, z1:z2+1] = img_as_ubyte(resize(im, (ydim, xdim)))[..., None]
+            # assert in_resol_um == out_resol_um
+            # volume[:, :, z1:z2+1] = im[..., None]
         else:
             raise Exception("dtype must be uint8")
 

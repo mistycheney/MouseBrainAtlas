@@ -141,12 +141,12 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
 
     return structure_contours
 
+def convert_structure_annotation_to_volume_origin_dict_v2(structures_df, out_resolution=None, stack=None):
 
-def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolution=None, stack=None):
     volume_origin_dict = {}
     for sid, structure_info in structures_df.iterrows():
         name_s = compose_label(structure_info['name'], structure_info['side'])
-        v = bp.unpack_ndarray_str(structure_info['volume_in_bbox'])
+        v = bp.unpack_ndarray_str(structure_info['volume'])
 
         if out_resolution is None:
             out_resolution = structure_info['resolution']
@@ -160,6 +160,26 @@ def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolu
 
         volume_origin_dict[name_s] = (out_v, out_origin)
     return volume_origin_dict, out_resolution
+
+
+# def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolution=None, stack=None):
+#     volume_origin_dict = {}
+#     for sid, structure_info in structures_df.iterrows():
+#         name_s = compose_label(structure_info['name'], structure_info['side'])
+#         v = bp.unpack_ndarray_str(structure_info['volume_in_bbox'])
+#
+#         if out_resolution is None:
+#             out_resolution = structure_info['resolution']
+#             out_v = v
+#             out_origin = structure_info['origin']
+#         else:
+#             in_voxel_um = convert_resolution_string_to_voxel_size(resolution=structure_info['resolution'], stack=stack)
+#             out_voxel_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack)
+#             out_v = rescale_by_resampling(v, in_voxel_um/out_voxel_um)
+#             out_origin = structure_info['origin'] * in_voxel_um/out_voxel_um
+#
+#         volume_origin_dict[name_s] = (out_v, out_origin)
+#     return volume_origin_dict, out_resolution
 
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
     """

@@ -20,13 +20,13 @@ from metadata import *
 from data_manager import *
 from visualization_utilities import *
 from annotation_utilities import *
-    
+
 from sklearn.externals import joblib
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC, SVC
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import GradientBoostingClassifier 
+from sklearn.ensemble import GradientBoostingClassifier
 from skimage.feature import local_binary_pattern, greycoprops, greycomatrix
 
 sys.path.append('/home/yuncong/csd395/xgboost/python-package')
@@ -34,13 +34,13 @@ try:
     from xgboost.sklearn import XGBClassifier
 except:
     sys.stderr.write('xgboost is not loaded.')
-    
+
 def compute_classification_metrics(probs, labels):
     """
     Args:
         probs ((n,)-array of prediction value between 0 and 1): prediction.
         labels ((n,)-array of 0/1 or -1/1): ground-truth labels.
-        
+
     Returns:
         dict
     """
@@ -51,11 +51,11 @@ def compute_classification_metrics(probs, labels):
     tp_normalized_allthresh = {}
     fp_normalized_allthresh = {}
     acc_allthresh = {}
-    
+
     n_pos = np.count_nonzero(labels == 1)
     n_neg = np.count_nonzero(labels != 1)
     n = len(labels)
-    
+
     for th in np.arange(0., 1., 0.01):
 
         cm = compute_confusion_matrix(np.c_[probs, 1-probs], [0 if l==1. else 1 for l in labels], soft=False,
@@ -64,7 +64,7 @@ def compute_classification_metrics(probs, labels):
         fn = cm[0,1]
         fp = cm[1,0]
         tn = cm[1,1]
-        
+
         acc = (tp + tn) / float(n)
 
         tp_normalized = tp / n_pos
@@ -82,18 +82,18 @@ def compute_classification_metrics(probs, labels):
         recall_allthresh[float(th)] = recall
         f1score_allthresh[float(th)] = f1score
         acc_allthresh[float(th)] = acc
-        
+
     fps = [fp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     tps = [tp_normalized_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     auroc = np.sum([.5 * (tps[k] + tps[k-1]) * np.abs(fps[k] - fps[k-1]) for k in range(1, len(fps))])
-        
+
     rs = [recall_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     ps = [precision_allthresh[float(th)] for th in np.arange(0., 1., 0.01)]
     auprc = np.sum([.5 * (rs[k] + rs[k-1]) * np.abs(ps[k] - ps[k-1]) for k in range(1, len(ps))])
-    
-    optimal_th = np.arange(0, 1, 0.01)[np.nanargmax([f1score_allthresh[th] for th in np.arange(0, 1, 0.01)])]            
+
+    optimal_th = np.arange(0, 1, 0.01)[np.nanargmax([f1score_allthresh[th] for th in np.arange(0, 1, 0.01)])]
     fopt = f1score_allthresh[optimal_th]
-    
+
     return {'acc': acc_allthresh,
         'tp': tp_normalized_allthresh,
 #             fn_normalized_all_clfs_all_structures_all_negcomprule[classifier_id][structure][neg_composition_rule] = fn_normalized_allthresh
@@ -112,7 +112,7 @@ def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
     Args:
         train_data ((n,d)-array):
         train_labels ((n,)-array of 1/-1):
-        alg (str): 
+        alg (str):
             - lr: logistic regression
             - lin_svc: linear SVM
             - lin_svc_calib: calibrated linear SVM
@@ -121,70 +121,70 @@ def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
             - gb1: sklearn gradient boosting classifier, 3-layer x 200
             - gb2: sklearn gradient boosting classifier, 5-layer x 100
     """
-    
+
     if alg == 'lr':
-        clf = LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1, 
-                                 fit_intercept=True, intercept_scaling=1, class_weight=None, 
-                                 random_state=None, solver='liblinear', max_iter=100, multi_class='ovr', 
+        clf = LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1,
+                                 fit_intercept=True, intercept_scaling=1, class_weight=None,
+                                 random_state=None, solver='liblinear', max_iter=100, multi_class='ovr',
                                  verbose=0, warm_start=False, n_jobs=1)
 
     elif alg == 'lin_svc':
-        clf = SVC(C=1.0, kernel='linear', degree=3, gamma='auto', coef0=0.0, shrinking=True, 
+        clf = SVC(C=1.0, kernel='linear', degree=3, gamma='auto', coef0=0.0, shrinking=True,
                   probability=True, tol=0.001, cache_size=1000, max_iter=-1,
               decision_function_shape=None, random_state=None)
-        
+
     elif alg == 'rbf_svc':
-        clf = SVC(C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0, shrinking=True, 
+        clf = SVC(C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0, shrinking=True,
                   probability=True, tol=0.001, cache_size=1000, max_iter=-1,
               decision_function_shape=None, random_state=None)
 
     elif alg == 'lin_svc_calib':
 
-        sv_uncalibrated = LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=0.0001, 
-                                C=1.0, multi_class='ovr', 
+        sv_uncalibrated = LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=0.0001,
+                                C=1.0, multi_class='ovr',
                                 fit_intercept=True, intercept_scaling=1, max_iter=100)
         clf = CalibratedClassifierCV(sv_uncalibrated)
 
 
     elif alg == 'xgb1':
-        clf = XGBClassifier(max_depth=3, learning_rate=0.2, n_estimators=200, 
-                            silent=False, objective='binary:logistic', nthread=-1, gamma=0, 
-                            min_child_weight=20, max_delta_step=0, subsample=.8, 
-                            colsample_bytree=.8, colsample_bylevel=1, reg_alpha=0, reg_lambda=1, 
+        clf = XGBClassifier(max_depth=3, learning_rate=0.2, n_estimators=200,
+                            silent=False, objective='binary:logistic', nthread=-1, gamma=0,
+                            min_child_weight=20, max_delta_step=0, subsample=.8,
+                            colsample_bytree=.8, colsample_bylevel=1, reg_alpha=0, reg_lambda=1,
                             scale_pos_weight=1, base_score=0.5, seed=0, missing=None)
 
     elif alg == 'xgb2':
-        clf = XGBClassifier(max_depth=5, learning_rate=0.2, n_estimators=100, 
+        clf = XGBClassifier(max_depth=5, learning_rate=0.2, n_estimators=100,
                             silent=False, objective='binary:logistic')
         # 40s, 10,000 pos and 10,000 neg samples
 
     elif alg == 'gb1':
-        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=200, 
-                                         subsample=1., criterion='friedman_mse', 
-                                         min_samples_split=50, min_samples_leaf=20, 
-                                         min_weight_fraction_leaf=0.0, max_depth=3, 
-                                         min_impurity_split=1e-07, init=None, random_state=None, 
-                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=200,
+                                         subsample=1., criterion='friedman_mse',
+                                         min_samples_split=50, min_samples_leaf=20,
+                                         min_weight_fraction_leaf=0.0, max_depth=3,
+                                         min_impurity_split=1e-07, init=None, random_state=None,
+                                         max_features=None, verbose=1, max_leaf_nodes=None,
                                          warm_start=False, presort='auto')
 
     elif alg == 'gb2':
-        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=100, 
-                                         subsample=1., criterion='friedman_mse', 
-                                         min_samples_split=50, min_samples_leaf=20, 
-                                         min_weight_fraction_leaf=0.0, max_depth=5, 
-                                         min_impurity_split=1e-07, init=None, random_state=None, 
-                                         max_features=None, verbose=1, max_leaf_nodes=None, 
+        clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.3, n_estimators=100,
+                                         subsample=1., criterion='friedman_mse',
+                                         min_samples_split=50, min_samples_leaf=20,
+                                         min_weight_fraction_leaf=0.0, max_depth=5,
+                                         min_impurity_split=1e-07, init=None, random_state=None,
+                                         max_features=None, verbose=1, max_leaf_nodes=None,
                                          warm_start=False, presort='auto')
 
     else:
 #         sys.stderr.write('Setting is not recognized.\n')
         raise "Alg %s is not recognized." % alg
-            
-    
-    t = time.time()    
+
+
+    t = time.time()
     clf.fit(train_data, train_labels, sample_weight=sample_weights)
     sys.stderr.write('Fitting classifier: %.2f seconds\n' % (time.time() - t))
-    
+
     return clf
 
 def get_negative_labels(structure, neg_composition, margin_um, labels_found):
@@ -192,7 +192,7 @@ def get_negative_labels(structure, neg_composition, margin_um, labels_found):
     Args:
         labels_found (list of str): get labels only from this list.
     """
-    
+
     if neg_composition == 'neg_has_only_surround_noclass':
         neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
     elif neg_composition == 'neg_has_all_surround':
@@ -212,7 +212,7 @@ def get_negative_labels(structure, neg_composition, margin_um, labels_found):
         neg_classes += [structure + '_negative']
     else:
         raise Exception('neg_composition %s is not recognized.' % neg_composition)
-    
+
     return neg_classes
 
 def plot_roc_curve(fp_allthresh, tp_allthresh, optimal_th, title=''):
@@ -288,17 +288,17 @@ def get_glcm_feature_vector(patch, levels):
     g_energy = greycoprops(glcm, prop='energy')
     g_corr = greycoprops(glcm, prop='correlation')
 
-    g = np.r_[g_contrast.flatten(), 
-    g_dissim.flatten(), 
-    g_homo.flatten(), 
-    g_asm.flatten(), 
-    g_energy.flatten(), 
+    g = np.r_[g_contrast.flatten(),
+    g_dissim.flatten(),
+    g_homo.flatten(),
+    g_asm.flatten(),
+    g_energy.flatten(),
     g_corr.flatten()]
     return g
 
 
 def convert_image_patches_to_features_alternative(patches, method):
-        
+
     if method == 'mean_intensity':
         # Form feature vector using mean intensities
 #         feats = np.array([[np.mean(img)] for img in imgs])
@@ -306,41 +306,41 @@ def convert_image_patches_to_features_alternative(patches, method):
         # Form feature vector using mean intensities
         focal_size_um = 25
         focal_size_px = int(np.ceil(focal_size_um / XY_PIXEL_DISTANCE_LOSSLESS))
-        feats = np.array([[np.mean(img[img.shape[0]/2-focal_size_px:img.shape[0]/2+focal_size_px, 
-                                       img.shape[1]/2-focal_size_px:img.shape[1]/2+focal_size_px])] 
+        feats = np.array([[np.mean(img[img.shape[0]/2-focal_size_px:img.shape[0]/2+focal_size_px,
+                                       img.shape[1]/2-focal_size_px:img.shape[1]/2+focal_size_px])]
                           for img in patches])
     elif method == 'intensity_vector':
         # Form feature vector using all pixel intensities
-        feats = patches.reshape((patches.size, 1))  
+        feats = patches.reshape((patches.size, 1))
     elif method == 'center_intensity':
         # Feature vector is only the center pixel intensity
-        feats = np.array([[img[img.shape[0]/2, img.shape[1]/2]] for img in patches]) 
+        feats = np.array([[img[img.shape[0]/2, img.shape[1]/2]] for img in patches])
     elif method == 'glcm':
         # Feature vector is the GLCM
         glcm_levels = 10
-        
-#         feats = np.array([get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), levels=glcm_levels) 
+
+#         feats = np.array([get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), levels=glcm_levels)
 #                           for img in patches])
         pool = Pool(NUM_CORES-1)
-        feats = np.array(pool.map(lambda img: get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)), 
+        feats = np.array(pool.map(lambda img: get_glcm_feature_vector(img/int(np.ceil(256./glcm_levels)),
                                                                       levels=glcm_levels),
                                   patches))
         pool.close()
         pool.join()
-    
+
     elif method == 'lbp':
-        # LBP        
+        # LBP
         radius = 3
         n_points = 8 * radius
-        
+
         # lbps = [local_binary_pattern(img, P=n_points, R=radius, method='uniform') for img in patches]
         # feats = np.array([np.histogram(lbp, bins=int(lbp.max()+1), normed=True)[0] for lbp in lbps])
-        
+
         pool = Pool(NUM_CORES-1)
         feats = np.array(pool.map(lambda img: compute_lbp_features(img, n_points, radius), patches))
         pool.close()
         pool.join()
-    
+
     return feats
 
 def compute_lbp_features(img, n_points, radius):
@@ -355,12 +355,12 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
 
     features_list = []
     for i in range(0, len(patches), 80000):
-        
+
         patches_mean_subtracted = patches[i:i+80000] - mean_img
         patches_mean_subtracted_input = patches_mean_subtracted[:, None, :, :] # n x 1 x 224 x 224
 
         ni = len(patches[i:i+80000])
-        
+
         if ni < batch_size:
             n_pad = batch_size - ni
             patches_mean_subtracted_input = np.concatenate([patches_mean_subtracted_input, np.zeros((n_pad,1) + mean_img.shape, mean_img.dtype)])
@@ -376,9 +376,9 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
         if ni < batch_size:
             features = features[:ni]
 
-        # features = convert_image_patches_to_features(patches[i:i+80000], model=model, 
+        # features = convert_image_patches_to_features(patches[i:i+80000], model=model,
         #                                          mean_img=mean_img, batch_size=batch_size)
-        
+
         features_list.append(features)
     return np.concatenate(features_list)
 
@@ -739,10 +739,10 @@ def locate_patches_given_addresses_v2(addresses):
 
     patch_locations_all_inOriginalOrder = [patch_locations_all[i] for i in np.argsort(addressList_indices_all)]
     return patch_locations_all_inOriginalOrder
-    
-    
+
+
 # def normalize(patches, stack):
-    
+
 #     patches_normalized_uint8 = []
 #     for p in patches:
 #         mu = p.mean()
@@ -781,10 +781,10 @@ def locate_patches_given_addresses_v2(addresses):
 #     t = time.time()
 #     patches = patches_flattened.reshape((len(patches), patches[0].shape[0], patches[0].shape[1]))
 #     sys.stderr.write('Reshape back: %.2f seconds.\n' % (time.time() - t))
-    
+
     # return patches
-    
-def extract_patches_given_locations(patch_size, 
+
+def extract_patches_given_locations(patch_size,
                                     locs,
                                     img=None,
                                     stack=None, sec=None, fn=None, version=None, prep_id=2,
@@ -804,10 +804,10 @@ def extract_patches_given_locations(patch_size,
     """
 
     from utilities2015 import rescale_intensity_v2 # Without this, rescale_intensity_v2 has wrong behavior. WHY?
-    
+
     if img is None:
         t = time.time()
-        
+
         if is_nissl is None:
             if sec is not None:
                 fn = metadata_cache['sections_to_filenames'][stack][sec]
@@ -817,7 +817,7 @@ def extract_patches_given_locations(patch_size,
                     is_nissl = fn.split('-')[1][0] == 'N'
             else:
                 raise Exception("Must specify whether image is Nissl by providing is_nissl.")
-        
+
         if stack == 'ChatCryoJane201710':
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='Ntb')
         elif stack in all_nissl_stacks:
@@ -837,18 +837,18 @@ def extract_patches_given_locations(patch_size,
                     img = img[...,2] # use blue channel of neurotrace
 
         sys.stderr.write('Load image: %.2f seconds.\n' % (time.time() - t))
-        
+
     if patch_size != output_patch_size:
         t = time.time()
         rescale_factor = float(output_patch_size) / patch_size
         img = rescale_by_resampling(img, rescale_factor)
         locs = np.round(np.array(locs) * rescale_factor).astype(np.int)
         sys.stderr.write('Rescale image from %d to %d: %.2f seconds.\n' % (patch_size, output_patch_size, time.time() - t))
-        
+
     half_size = output_patch_size / 2
-    
+
     if normalization_scheme == 'stretch_min_max_global':
-        
+
         if stack in all_nissl_stacks:
             img = rescale_intensity_v2(img, img.min(), img.max())
         else:
@@ -856,14 +856,14 @@ def extract_patches_given_locations(patch_size,
                 img = rescale_intensity_v2(img, img.min(), img.max())
             else:
                 img = rescale_intensity_v2(img, img.max(), img.min())
-        
+
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
     else:
-        
+
         t = time.time()
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
         sys.stderr.write('Crop patches: %.2f seconds.\n' % (time.time() - t))
-        
+
         if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
             patches_normalized_uint8 = []
             for p in patches:
@@ -883,8 +883,8 @@ def extract_patches_given_locations(patch_size,
             patches = patches_normalized_uint8
 
         elif normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,5)':
-            
-############################################            
+
+############################################
             # print "NUM_CORES = %d" % NUM_CORES
             # n_per_job = int(np.ceil(len(patches) / 4))
             # pool = Pool(4)
@@ -893,7 +893,7 @@ def extract_patches_given_locations(patch_size,
             # pool.close()
             # pool.join()
 ############################################
-            
+
 #             t = time.time()
 #             patches_flattened = np.reshape(patches, (len(patches), -1))
 #             sys.stderr.write('Flatten: %.2f seconds.\n' % (time.time() - t))
@@ -901,7 +901,7 @@ def extract_patches_given_locations(patch_size,
 #             t = time.time()
 #             patches_flattened = (patches_flattened - patches_flattened.mean(axis=1)[:,None]) / patches_flattened.std(axis=1)[:,None]
 #             sys.stderr.write('Normalize: %.2f seconds.\n' % (time.time() - t))
-            
+
 #             t = time.time()
 #             if stack in all_nissl_stacks:
 #                 patches_flattened = rescale_intensity_v2(patches_flattened, -6, 1)
@@ -911,7 +911,7 @@ def extract_patches_given_locations(patch_size,
 #                 else:
 #                     patches_flattened = rescale_intensity_v2(patches_flattened, 6, -1)
 #             sys.stderr.write('Rescale to uint8: %.2f seconds.\n' % (time.time() - t))
-            
+
 #             t = time.time()
 #             patches = patches_flattened.reshape((len(patches), patch_size, patch_size))
 #             sys.stderr.write('Reshape back: %.2f seconds.\n' % (time.time() - t))
@@ -933,7 +933,7 @@ def extract_patches_given_locations(patch_size,
                 # p_normalized_uint8 = p_normalized
                 patches_normalized_uint8.append(p_normalized_uint8)
             patches = patches_normalized_uint8
-            
+
         elif normalization_scheme == 'normalize_mu_sigma_global_(-1,5)':
             mean_std_sample_locations = load_pickle('/tmp/%s_sample_locations_mean_std.pkl' % stack)
             patches_normalized_uint8 = []
@@ -957,7 +957,7 @@ def extract_patches_given_locations(patch_size,
         elif normalization_scheme == 'median_curve':
             if stack == 'ChatCryoJane201710':
                 ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath(stack=stack))
-            else:    
+            else:
                 ntb_to_nissl_map = np.load(DataManager.get_ntb_to_nissl_intensity_profile_mapping_filepath())
             patches = [ntb_to_nissl_map[p].astype(np.uint8) for p in patches]
 
@@ -968,13 +968,13 @@ def extract_patches_given_locations(patch_size,
                 if is_nissl:
                     patches = [rescale_intensity_v2(p, p.min(), p.max()) for p in patches]
                 else:
-                    patches = [rescale_intensity_v2(p, p.max(), p.min()) for p in patches]    
+                    patches = [rescale_intensity_v2(p, p.max(), p.min()) for p in patches]
 
         elif normalization_scheme == 'none':
             pass
         else:
             raise Exception("Normalization scheme %s is not recognized.\n" % normalization_scheme)
-                
+
     return patches
 
 def extract_patches_given_locations_multiple_sections(addresses,
@@ -990,7 +990,7 @@ def extract_patches_given_locations_multiple_sections(addresses,
         addresses (list of tuples):
             if location_or_grid_index is 'location', then this is a list of (stack, section, location), `patch_size` or `win_id` is required.
             if location_or_grid_index is 'grid_index', then this is a list of (stack, section, framewise_index), win_id is required.
-        images (dict {(stack, section): image}): 
+        images (dict {(stack, section): image}):
 
     Returns:
         list of (patch_size, patch_size)-arrays.
@@ -1012,7 +1012,7 @@ def extract_patches_given_locations_multiple_sections(addresses,
             if patch_size is None:
                 assert win_id is not None
                 patch_size = windowing_settings[win_id]['patch_size_um'] / convert_resolution_string_to_voxel_size(stack=stack, resolution='raw')
-                
+
         else:
             ginds_thisSec, list_indices = map(list, zip(*locations_allSections))
             assert win_id is not None, "If using grid indices, must specify win_id."
@@ -1022,21 +1022,21 @@ def extract_patches_given_locations_multiple_sections(addresses,
                                                        stride=windowing_settings[win_id]['spacing'],
                                                       w=metadata_cache['image_shape'][stack][0],
                                                        h=metadata_cache['image_shape'][stack][1])[ginds_thisSec]
-        
+
         if images is not None and stack_sec in images:
-            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
-                                                                img=images[stack_sec], 
-                                                                patch_size=patch_size, 
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec,
+                                                                img=images[stack_sec],
+                                                                patch_size=patch_size,
                                                                 prep_id=prep_id,
                                                                 normalization_scheme=normalization_scheme)
         else:
             sys.stderr.write("No images are provided. Load instead.\n")
-            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec, 
+            extracted_patches = extract_patches_given_locations(stack=stack, sec=sec, locs=locs_thisSec,
                                                                 version=version,
-                                                                patch_size=patch_size, 
+                                                                patch_size=patch_size,
                                                                 prep_id=prep_id,
                                                                 normalization_scheme=normalization_scheme)
-            
+
         patches_all += extracted_patches
         list_indices_all += list_indices
 
@@ -1281,38 +1281,328 @@ def locate_annotated_patches_v2(stack, grid_spec=None, sections=None, surround_m
 def win_id_to_gridspec(win_id, stack=None, image_shape=None):
     """
     Derive a gridspec from window id.
-    
+
     Args:
         stack (str): stack is needed because different stacks have different span width and height, and may have different planar resolution.
         image_shape (2-tuple): (width, height) in pixel
-    
+
     Returns:
         4-tuple: a gridspec tuple (patch size in pixel, spacing in pixel, span width in pixel, span height in pixel)
     """
-    
+
     from metadata import planar_resolution
-    
+
     windowing_properties = windowing_settings[win_id]
     if 'patch_size' in windowing_properties:
         patch_size_px = windowing_properties['patch_size']
     elif 'patch_size_um' in windowing_properties:
-        patch_size_um = windowing_properties['patch_size_um']        
+        patch_size_um = windowing_properties['patch_size_um']
         patch_size_px = int(np.round(patch_size_um / planar_resolution[stack]))
-        
+
     if 'spacing' in windowing_properties:
         spacing_px = windowing_properties['spacing']
     elif 'spacing_um' in windowing_properties:
         spacing_um = windowing_properties['spacing_um']
         spacing_px = int(np.round(spacing_um / planar_resolution[stack]))
-    
+
     if stack in metadata_cache['image_shape']:
         w_px, h_px = metadata_cache['image_shape'][stack]
     else:
         assert image_shape is not None
         w_px, h_px = image_shape
-        
+
     grid_spec = (patch_size_px, spacing_px, w_px, h_px)
     return grid_spec
+
+
+def generate_annotation_to_grid_indices_lookup_v2(stack, by_human, win_id,
+                                               stack_m='atlasV5',
+                                               detector_id_m=None,
+                                                detector_id_f=None,
+                                                warp_setting=17, trial_idx=None,
+                                              surround_margins=None, suffix='contours', timestamp='latest', prep_id=2,
+                                                positive_level=0.8, negative_level=0.2,
+                                              return_timestamp=False,
+                                              structures=None):
+    """
+    Load the structure annotation.
+    Use the default grid spec.
+    Find grid indices for each class label.
+
+    Args:
+        by_human (bool): whether the annotation is created by human or is obtained from fitted anatomical model.
+        win_id (int): the spatial sample scheme
+        positive_level (float or dict {str:float}): If float, this is the level used for all structures. If dict, this is {structure unsided: level}.
+        negative_level (float or dict {str:float}): If float, this is the level used for all structures. If dict, this is {structure unsided: level}.
+        structures (list): Default is all sided structures. This works only for by_human=False; if by_human=True all structures are loaded. Note that in the output table, the columns "X_surround_200_Y", X and Y both have to be in this list.
+
+    Returns:
+        DataFrame: Columns are class labels and rows are section indices.
+        timestamp (str)
+    """
+
+    # windowing_properties = windowing_settings[win_id]
+    # patch_size = windowing_properties['patch_size']
+    # spacing = windowing_properties['spacing']
+    # w, h = metadata_cache['image_shape'][stack]
+    # half_size = patch_size/2
+    # grid_spec = (patch_size, spacing, w, h)
+    grid_spec = win_id_to_gridspec(win_id, stack=stack)
+
+    if by_human and suffix == 'contours':
+
+        if return_timestamp:
+            contours_df, timestamp = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+                                                          stack_m=stack_m,
+                                                               detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting,
+                                                              trial_idx=trial_idx, suffix='contours', timestamp=timestamp,
+                                                    return_timestamp=True)
+        else:
+            contours_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+                                                          stack_m=stack_m,
+                                                               detector_id_m=detector_id_m,
+                                                              detector_id_f=detector_id_f,
+                                                              warp_setting=warp_setting,
+                                                              trial_idx=trial_idx, suffix='contours', timestamp=timestamp,
+                                                    return_timestamp=False)
+
+        contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
+        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
+
+        contours_df = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+
+        download_from_s3(DataManager.get_thumbnail_mask_dir_v3(stack=stack, prep_id=prep_id), is_dir=True)
+
+        contours_grouped = contours_df.groupby('section')
+
+        patch_indices_allSections_allStructures = {}
+        for sec, cnt_group in contours_grouped:
+            sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+            if is_invalid(sec=sec, stack=stack):
+                continue
+            polygons_this_sec = [(contour['name'], contour['vertices']) for contour_id, contour in cnt_group.iterrows()]
+            mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
+            patch_indices_allSections_allStructures[sec] = \
+            locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
+                              surround_margins=surround_margins)
+    else:
+        if by_human and suffix == 'structures':
+
+            structures_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
+                                                           suffix='structures', timestamp=timestamp)
+
+            warped_volumes, warped_volumes_resolution = \
+            convert_structure_annotation_to_volume_origin_dict(structures_df=structures_df, out_resolution='down32', stack=stack)
+
+            # structure_contours_pos_level and structure_contours_neg_level are wrt wholebrain in volume resol.
+
+            if isinstance(positive_level, float):
+                structure_contours_pos_level = \
+                get_structure_contours_from_structure_volumes(warped_volumes,
+                                                          stack=stack,
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                          resolution=warped_volumes_resolution,
+                                                              level=positive_level,
+                                                          sample_every=1,
+                                                          first_sec=metadata_cache['section_limits'][stack][0])
+            elif isinstance(positive_level, dict):
+                structure_contours_pos_level = defaultdict(dict)
+                for name_s, (v, o) in warped_volumes.iteritems():
+                    cnts_all_secs = \
+                    get_structure_contours_from_structure_volumes({name_s: (v, o)},
+                                                              stack=stack,
+                                              sections=metadata_cache['valid_sections'][stack],
+                                                        resolution=warped_volumes_resolution,
+                                                level=positive_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
+                                              first_sec=metadata_cache['section_limits'][stack][0])
+                    for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                        structure_contours_pos_level[sec][name_s] = cnts_allStructures[name_s]
+                structure_contours_pos_level.default_factory = None
+            else:
+                raise
+
+            if isinstance(negative_level, float):
+                structure_contours_neg_level = \
+                get_structure_contours_from_structure_volumes(warped_volumes,
+                                                          stack=stack,
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                              resolution=warped_volumes_resolution,
+                                                              level=negative_level,
+                                                          sample_every=1,
+                                                          first_sec=metadata_cache['section_limits'][stack][0])
+            elif isinstance(negative_level, dict):
+                structure_contours_neg_level = defaultdict(dict)
+                for name_s, (v, o) in warped_volumes.iteritems():
+                    cnts_all_secs = \
+                    get_structure_contours_from_structure_volumes({name_s: (v, o)},
+                                                              stack=stack,
+                                              sections=metadata_cache['valid_sections'][stack],
+                                              resolution=warped_volumes_resolution,
+                                              level=negative_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
+                                              first_sec=metadata_cache['section_limits'][stack][0])
+                    for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                        structure_contours_neg_level[sec][name_s] = cnts_allStructures[name_s]
+                structure_contours_neg_level.default_factory = None
+
+            else:
+                raise
+
+            # Convert keys to unsided structure names.
+            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
+                                            for sec, x in structure_contours_pos_level.iteritems()}
+
+            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
+                                            for sec, x in structure_contours_neg_level.iteritems()}
+
+            patch_indices_allSections_allStructures = {}
+
+            sections = set(structure_contours_pos_level.keys()) | set(structure_contours_neg_level.keys())
+
+            cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=stack, prep_id=prep_id)[:4]
+            prep2_origin_rawResol = np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=stack)
+
+            for sec in sections:
+                sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+                if is_invalid(sec=sec, stack=stack):
+                    continue
+
+                mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id) # down32 resol.
+
+                patch_indices_thisSection_allStructures = {}
+
+                structure_contours_pos_level_wrt_prep2_rawResol = \
+                {sec: {name_s: cnt_wrt_wholebrain_volResol * convert_resolution_string_to_voxel_size(resolution=warped_volumes_resolution, stack=stack) / convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) - prep2_origin_rawResol[:2]
+                for name_s, cnt_wrt_wholebrain_volResol in x.iteritems()}
+                for sec, x in structure_contours_pos_level.iteritems()}
+
+                structure_contours_neg_level_wrt_prep2_rawResol = \
+                {sec: {name_s: cnt_wrt_wholebrain_volResol * convert_resolution_string_to_voxel_size(resolution=warped_volumes_resolution, stack=stack) / convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) - prep2_origin_rawResol[:2]
+                for name_s, cnt_wrt_wholebrain_volResol in x.iteritems()}
+                for sec, x in structure_contours_neg_level.iteritems()}
+
+
+                if sec in structure_contours_pos_level_wrt_prep2_rawResol:
+                    patch_indices_thisSection_allStructures.update(
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
+                                      polygons=structure_contours_pos_level_wrt_prep2_rawResol[sec].items(), \
+                                      surround_margins=surround_margins, categories=['positive']))
+
+                if sec in structure_contours_neg_level_wrt_prep2_rawResol:
+                    patch_indices_thisSection_allStructures.update(
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
+                                      polygons=structure_contours_neg_level_wrt_prep2_rawResol[sec].items(), \
+                                      surround_margins=surround_margins, categories=['surround']))
+
+                if len(patch_indices_thisSection_allStructures) > 0:
+                    patch_indices_allSections_allStructures[sec] = patch_indices_thisSection_allStructures
+
+        else:
+            warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_m,
+                                                                              stack_f=stack,
+                                                                                detector_id_f=detector_id_f,
+                                                                              prep_id_f=prep_id,
+                                                                                warp_setting=warp_setting,
+                                                                              sided=True,
+                                                                                 structures=structures)
+
+            if isinstance(positive_level, float):
+                structure_contours_pos_level = \
+                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0),
+                                                          stack=stack,
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                          downsample_factor=32, level=positive_level,
+                                                          sample_every=1,
+                                                          first_sec=metadata_cache['section_limits'][stack][0])
+            elif isinstance(positive_level, dict):
+                structure_contours_pos_level = defaultdict(dict)
+                for name_s, v in warped_volumes.iteritems():
+                    cnts_all_secs = \
+                    get_structure_contours_from_aligned_atlas({name_s: v},
+                                              volume_origin=(0,0,0),
+                                                              stack=stack,
+                                              sections=metadata_cache['valid_sections'][stack],
+                                              downsample_factor=32,
+                                              level=positive_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
+                                              first_sec=metadata_cache['section_limits'][stack][0])
+                    for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                        structure_contours_pos_level[sec][name_s] = cnts_allStructures[name_s]
+                structure_contours_pos_level.default_factory = None
+            else:
+                raise
+
+            if isinstance(negative_level, float):
+                structure_contours_neg_level = \
+                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0),
+                                                          stack=stack,
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                          downsample_factor=32, level=negative_level,
+                                                          sample_every=1,
+                                                          first_sec=metadata_cache['section_limits'][stack][0])
+            elif isinstance(negative_level, dict):
+                structure_contours_neg_level = defaultdict(dict)
+                for name_s, v in warped_volumes.iteritems():
+                    cnts_all_secs = \
+                    get_structure_contours_from_aligned_atlas({name_s: v},
+                                              volume_origin=(0,0,0),
+                                                              stack=stack,
+                                              sections=metadata_cache['valid_sections'][stack],
+                                              downsample_factor=32,
+                                              level=negative_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
+                                              first_sec=metadata_cache['section_limits'][stack][0])
+                    for sec, cnts_allStructures in cnts_all_secs.iteritems():
+                        structure_contours_neg_level[sec][name_s] = cnts_allStructures[name_s]
+                structure_contours_neg_level.default_factory = None
+
+            else:
+                raise
+
+            # Convert keys to unsided structure names.
+            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
+                                            for sec, x in structure_contours_pos_level.iteritems()}
+
+            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
+                                            for sec, x in structure_contours_neg_level.iteritems()}
+
+            patch_indices_allSections_allStructures = {}
+
+            sections = set(structure_contours_pos_level.keys()) | set(structure_contours_neg_level.keys())
+
+            for sec in sections:
+                sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
+                if is_invalid(sec=sec, stack=stack):
+                    continue
+
+                mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
+
+                a = {}
+
+                if sec in structure_contours_pos_level:
+                    a.update(
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
+                                      polygons=structure_contours_pos_level[sec].items(), \
+                                      surround_margins=surround_margins, categories=['positive']))
+
+                if sec in structure_contours_neg_level:
+                    a.update(
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
+                                      polygons=structure_contours_neg_level[sec].items(), \
+                                      surround_margins=surround_margins, categories=['surround']))
+
+                if len(a) > 0:
+                    patch_indices_allSections_allStructures[sec] = a
+
+
+    if return_timestamp:
+        return DataFrame(patch_indices_allSections_allStructures).T, timestamp
+    else:
+        return DataFrame(patch_indices_allSections_allStructures).T
+
 
 
 def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
@@ -1350,7 +1640,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
     grid_spec = win_id_to_gridspec(win_id, stack=stack)
 
     if by_human and suffix == 'contours':
-    
+
         if return_timestamp:
             contours_df, timestamp = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
                                                           stack_m=stack_m,
@@ -1386,37 +1676,37 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
             mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id)
             patch_indices_allSections_allStructures[sec] = \
             locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, polygons=polygons_this_sec, \
-                              surround_margins=surround_margins)        
+                              surround_margins=surround_margins)
     else:
         if by_human and suffix == 'structures':
-        
-            structures_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human, 
+
+            structures_df = DataManager.load_annotation_v4(stack=stack, by_human=by_human,
                                                            suffix='structures', timestamp=timestamp)
-            
+
             warped_volumes, warped_volumes_resolution = \
             convert_structure_annotation_to_volume_origin_dict(structures_df=structures_df, out_resolution='down32', stack=stack)
-            
+
             # structure_contours_pos_level and structure_contours_neg_level are wrt wholebrain in volume resol.
-            
+
             if isinstance(positive_level, float):
                 structure_contours_pos_level = \
-                get_structure_contours_from_structure_volumes(warped_volumes, 
+                get_structure_contours_from_structure_volumes(warped_volumes,
                                                           stack=stack,
-                                                          sections=metadata_cache['valid_sections'][stack], 
-                                                          resolution=warped_volumes_resolution, 
-                                                              level=positive_level, 
-                                                          sample_every=1, 
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                          resolution=warped_volumes_resolution,
+                                                              level=positive_level,
+                                                          sample_every=1,
                                                           first_sec=metadata_cache['section_limits'][stack][0])
             elif isinstance(positive_level, dict):
                 structure_contours_pos_level = defaultdict(dict)
                 for name_s, (v, o) in warped_volumes.iteritems():
                     cnts_all_secs = \
-                    get_structure_contours_from_structure_volumes({name_s: (v, o)}, 
+                    get_structure_contours_from_structure_volumes({name_s: (v, o)},
                                                               stack=stack,
                                               sections=metadata_cache['valid_sections'][stack],
-                                                        resolution=warped_volumes_resolution,    
-                                                level=positive_level[convert_to_unsided_label(name_s)], 
-                                              sample_every=1, 
+                                                        resolution=warped_volumes_resolution,
+                                                level=positive_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
                                               first_sec=metadata_cache['section_limits'][stack][0])
                     for sec, cnts_allStructures in cnts_all_secs.iteritems():
                         structure_contours_pos_level[sec][name_s] = cnts_allStructures[name_s]
@@ -1426,23 +1716,23 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
 
             if isinstance(negative_level, float):
                 structure_contours_neg_level = \
-                get_structure_contours_from_structure_volumes(warped_volumes, 
+                get_structure_contours_from_structure_volumes(warped_volumes,
                                                           stack=stack,
                                                           sections=metadata_cache['valid_sections'][stack],
                                                               resolution=warped_volumes_resolution,
-                                                              level=negative_level, 
-                                                          sample_every=1, 
+                                                              level=negative_level,
+                                                          sample_every=1,
                                                           first_sec=metadata_cache['section_limits'][stack][0])
             elif isinstance(negative_level, dict):
                 structure_contours_neg_level = defaultdict(dict)
                 for name_s, (v, o) in warped_volumes.iteritems():
                     cnts_all_secs = \
-                    get_structure_contours_from_structure_volumes({name_s: (v, o)}, 
+                    get_structure_contours_from_structure_volumes({name_s: (v, o)},
                                                               stack=stack,
-                                              sections=metadata_cache['valid_sections'][stack], 
+                                              sections=metadata_cache['valid_sections'][stack],
                                               resolution=warped_volumes_resolution,
-                                              level=negative_level[convert_to_unsided_label(name_s)], 
-                                              sample_every=1, 
+                                              level=negative_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
                                               first_sec=metadata_cache['section_limits'][stack][0])
                     for sec, cnts_allStructures in cnts_all_secs.iteritems():
                         structure_contours_neg_level[sec][name_s] = cnts_allStructures[name_s]
@@ -1450,21 +1740,21 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
 
             else:
                 raise
-                
-            # Convert keys to unsided structure names.                
-            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+
+            # Convert keys to unsided structure names.
+            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
                                             for sec, x in structure_contours_pos_level.iteritems()}
 
-            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
                                             for sec, x in structure_contours_neg_level.iteritems()}
 
             patch_indices_allSections_allStructures = {}
 
             sections = set(structure_contours_pos_level.keys()) | set(structure_contours_neg_level.keys())
-            
+
             cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=stack, prep_id=prep_id)[:4]
             prep2_origin_rawResol = np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=stack)
-            
+
             for sec in sections:
                 sys.stderr.write('Computing grid indices lookup for section %d...\n' % sec)
                 if is_invalid(sec=sec, stack=stack):
@@ -1473,7 +1763,7 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                 mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, section=sec, prep_id=prep_id) # down32 resol.
 
                 patch_indices_thisSection_allStructures = {}
-                
+
                 structure_contours_pos_level_wrt_prep2_rawResol = \
                 {sec: {name_s: cnt_wrt_wholebrain_volResol * convert_resolution_string_to_voxel_size(resolution=warped_volumes_resolution, stack=stack) / convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) - prep2_origin_rawResol[:2]
                 for name_s, cnt_wrt_wholebrain_volResol in x.iteritems()}
@@ -1484,51 +1774,51 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
                 for name_s, cnt_wrt_wholebrain_volResol in x.iteritems()}
                 for sec, x in structure_contours_neg_level.iteritems()}
 
-                
+
                 if sec in structure_contours_pos_level_wrt_prep2_rawResol:
                     patch_indices_thisSection_allStructures.update(
-                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                       polygons=structure_contours_pos_level_wrt_prep2_rawResol[sec].items(), \
                                       surround_margins=surround_margins, categories=['positive']))
 
                 if sec in structure_contours_neg_level_wrt_prep2_rawResol:
                     patch_indices_thisSection_allStructures.update(
-                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                       polygons=structure_contours_neg_level_wrt_prep2_rawResol[sec].items(), \
                                       surround_margins=surround_margins, categories=['surround']))
 
                 if len(patch_indices_thisSection_allStructures) > 0:
                     patch_indices_allSections_allStructures[sec] = patch_indices_thisSection_allStructures
-       
+
         else:
-            warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_m, 
+            warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m=stack_m,
                                                                               stack_f=stack,
                                                                                 detector_id_f=detector_id_f,
                                                                               prep_id_f=prep_id,
-                                                                                warp_setting=warp_setting, 
+                                                                                warp_setting=warp_setting,
                                                                               sided=True,
                                                                                  structures=structures)
-        
+
 
             if isinstance(positive_level, float):
                 structure_contours_pos_level = \
-                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0),
                                                           stack=stack,
-                                                          sections=metadata_cache['valid_sections'][stack], 
-                                                          downsample_factor=32, level=positive_level, 
-                                                          sample_every=1, 
+                                                          sections=metadata_cache['valid_sections'][stack],
+                                                          downsample_factor=32, level=positive_level,
+                                                          sample_every=1,
                                                           first_sec=metadata_cache['section_limits'][stack][0])
             elif isinstance(positive_level, dict):
                 structure_contours_pos_level = defaultdict(dict)
                 for name_s, v in warped_volumes.iteritems():
                     cnts_all_secs = \
-                    get_structure_contours_from_aligned_atlas({name_s: v}, 
-                                              volume_origin=(0,0,0), 
+                    get_structure_contours_from_aligned_atlas({name_s: v},
+                                              volume_origin=(0,0,0),
                                                               stack=stack,
-                                              sections=metadata_cache['valid_sections'][stack], 
+                                              sections=metadata_cache['valid_sections'][stack],
                                               downsample_factor=32,
-                                              level=positive_level[convert_to_unsided_label(name_s)], 
-                                              sample_every=1, 
+                                              level=positive_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
                                               first_sec=metadata_cache['section_limits'][stack][0])
                     for sec, cnts_allStructures in cnts_all_secs.iteritems():
                         structure_contours_pos_level[sec][name_s] = cnts_allStructures[name_s]
@@ -1538,23 +1828,23 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
 
             if isinstance(negative_level, float):
                 structure_contours_neg_level = \
-                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0), 
+                get_structure_contours_from_aligned_atlas(warped_volumes, volume_origin=(0,0,0),
                                                           stack=stack,
                                                           sections=metadata_cache['valid_sections'][stack],
-                                                          downsample_factor=32, level=negative_level, 
-                                                          sample_every=1, 
+                                                          downsample_factor=32, level=negative_level,
+                                                          sample_every=1,
                                                           first_sec=metadata_cache['section_limits'][stack][0])
             elif isinstance(negative_level, dict):
                 structure_contours_neg_level = defaultdict(dict)
                 for name_s, v in warped_volumes.iteritems():
                     cnts_all_secs = \
-                    get_structure_contours_from_aligned_atlas({name_s: v}, 
-                                              volume_origin=(0,0,0), 
+                    get_structure_contours_from_aligned_atlas({name_s: v},
+                                              volume_origin=(0,0,0),
                                                               stack=stack,
-                                              sections=metadata_cache['valid_sections'][stack], 
+                                              sections=metadata_cache['valid_sections'][stack],
                                               downsample_factor=32,
-                                              level=negative_level[convert_to_unsided_label(name_s)], 
-                                              sample_every=1, 
+                                              level=negative_level[convert_to_unsided_label(name_s)],
+                                              sample_every=1,
                                               first_sec=metadata_cache['section_limits'][stack][0])
                     for sec, cnts_allStructures in cnts_all_secs.iteritems():
                         structure_contours_neg_level[sec][name_s] = cnts_allStructures[name_s]
@@ -1563,11 +1853,11 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
             else:
                 raise
 
-            # Convert keys to unsided structure names.                
-            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+            # Convert keys to unsided structure names.
+            structure_contours_pos_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
                                             for sec, x in structure_contours_pos_level.iteritems()}
 
-            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()} 
+            structure_contours_neg_level = {sec: {convert_to_unsided_label(name_s): cnt for name_s, cnt in x.iteritems()}
                                             for sec, x in structure_contours_neg_level.iteritems()}
 
             patch_indices_allSections_allStructures = {}
@@ -1585,20 +1875,20 @@ def generate_annotation_to_grid_indices_lookup(stack, by_human, win_id,
 
                 if sec in structure_contours_pos_level:
                     a.update(
-                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                       polygons=structure_contours_pos_level[sec].items(), \
                                       surround_margins=surround_margins, categories=['positive']))
 
                 if sec in structure_contours_neg_level:
                     a.update(
-                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+                    locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                       polygons=structure_contours_neg_level[sec].items(), \
                                       surround_margins=surround_margins, categories=['surround']))
 
                 if len(a) > 0:
                     patch_indices_allSections_allStructures[sec] = a
 
-                
+
     if return_timestamp:
         return DataFrame(patch_indices_allSections_allStructures).T, timestamp
     else:
@@ -1638,7 +1928,7 @@ def sample_locations(grid_indices_lookup, labels, num_samples_per_polygon=None, 
         location_list.default_factory = None
         return location_list
 
-    
+
 from shapely.geometry.multipolygon import MultiPolygon
 
 def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, stride=None, image_shape=None,
@@ -1657,7 +1947,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
         grid_spec: If none, use the default grid spec.
         surround_margins: list of surround margin for which patches are extracted, in unit of microns. Default: [100,200,...1000]
         return_locations (bool): If True, return patch center locations (list of x-y coordinates); if False, return indices into the default grid locations given by grid_parameters_to_sample_locations(). Default is False.
-        
+
     Returns:
         If polygons are given, returns dict {label: list of grid indices}.
         Otherwise, return a list of grid indices.
@@ -1771,10 +2061,10 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
                                               path.contains_points(sample_locations_lr) &\
                                               path.contains_points(sample_locations_ul) &\
                                               path.contains_points(sample_locations_ur))[0]
-            
+
             if len(indices_inside[label]) == 0:
                 continue
-            
+
             if 'positive' in categories:
                 indices_allLandmarks[label] = indices_inside[label]
 
@@ -1782,9 +2072,9 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
 
         for label, poly in polygon_list:
             for margin_um in surround_margins_um:
-                
+
                 # t = time.time()
-                
+
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
                 surround = Polygon(poly).buffer(margin, resolution=2)
 
@@ -1796,7 +2086,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
                     path = Path(list(surround.exterior.coords))
                 else:
                     raise
-            
+
                 indices_sur =  np.where(path.contains_points(sample_locations_ll) &\
                                         path.contains_points(sample_locations_lr) &\
                                         path.contains_points(sample_locations_ul) &\
@@ -1812,7 +2102,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
                     if len(indices) > 0:
                         if 'surround' in categories:
                             indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
-                            
+
                 # sys.stderr.write("all: %.2f s\n" % (time.time() - t))
 
             if 'negative' in categories:
@@ -1821,7 +2111,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
 
         if 'background' in categories:
             indices_allLandmarks['bg'] = indices_bg
-        
+
         if 'noclass' in categories:
             indices_allLandmarks['noclass'] = np.setdiff1d(range(sample_locations.shape[0]), np.r_[indices_bg, indices_allInside])
 
@@ -1829,7 +2119,7 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
             return {name: sample_locations[list(indices)] for name, indices in indices_allLandmarks.iteritems()}
         else:
             return indices_allLandmarks
-            
+
 
 def generate_dataset_addresses(num_samples_per_label, stacks, labels_to_sample, grid_indices_lookup_fps):
     """
@@ -1986,10 +2276,10 @@ def grid_parameters_to_sample_locations(grid_spec=None, patch_size=None, stride=
     """
 
     from metadata import planar_resolution
-    
+
     if win_id is not None:
         grid_spec = win_id_to_gridspec(win_id, stack=stack)
-        
+
     if grid_spec is not None:
         patch_size, stride, w, h = grid_spec
 
@@ -2036,7 +2326,7 @@ def addresses_to_locations(addresses, win_id):
     Args:
         addresses (list of 3-tuple): a list of (stack, section, gridpoint_index)
         win_id:
-    
+
     Returns:
         ((n,2)-array): x,y coordinates (lossless).
     """
@@ -2190,31 +2480,31 @@ def visualize_filters(model, name, input_channel=0, title=''):
         axes[i].axis('equal')
     plt.show()
 
-    
-def get_local_regions(stack, by_human, margin_um=500, level=None, 
+
+def get_local_regions(stack, by_human, margin_um=500, level=None,
                       structures=None, detector_id_f=None, suffix='contours', prep_id=2):
     """
     Find the bounding boxes around a structure on every section.
     Bounding boxes are wrt cropped images in lossless resolution.
-    
+
     Args:
         by_human (bool):
         level (int): if using probabilistic annotation
         structures (list of str): list of sided structures.
         detector_id_f (int): used if loading aligned atlas directly.
-    
+
     Returns:
         dict {str: {int: 6-tuple}}: {sided structure name: {section: bounding box wrt prep2 in raw resol}}.
     """
-    
+
     w, h = metadata_cache['image_shape'][stack]
     margin_pixel = margin_um / planar_resolution[stack]
-    
+
     if structures is None:
         structures = all_known_structures_sided
-        
+
     if by_human and suffix == 'contours':
-    
+
         contours_df = DataManager.load_annotation_v4(stack=stack, by_human=True, suffix='contours', timestamp='latest')
         contours = contours_df[(contours_df['orientation'] == 'sagittal') & (contours_df['downsample'] == 1)]
         contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'downsample', 'creator'])
@@ -2233,57 +2523,57 @@ def get_local_regions(stack, by_human, margin_um=500, level=None,
             q = contours_df[(contours_df['name'] == name) & (contours_df['side'] == side)]
             for cnt_id, cnt in q.iterrows():
                 vs = np.array(cnt['vertices'])
-                xmin, ymin = vs.min(axis=0) 
+                xmin, ymin = vs.min(axis=0)
                 xmax, ymax = vs.max(axis=0)
                 local_region_bboxes_allStructures_allSections[structure][cnt['section']] = \
                 (max(0, int(np.floor(xmin-margin_pixel))),
                 min(w-1, int(np.ceil(xmax+margin_pixel))),
                 max(0, int(np.floor(ymin-margin_pixel))),
                 min(h-1, int(np.ceil(ymax+margin_pixel))))
-                
+
     elif by_human and suffix == 'structures':
-        structures_df = DataManager.load_annotation_v4(stack=stack, by_human=True, 
+        structures_df = DataManager.load_annotation_v4(stack=stack, by_human=True,
                                                     timestamp='latest', suffix='structures')
-        
+
         volume_origin_dict, volume_resolution = convert_structure_annotation_to_volume_origin_dict(structures_df=structures_df)
-        
+
         if structures is not None:
             volume_origin_dict = {name_s: vo for name_s, vo in volume_origin_dict.iteritems() if name_s in structures}
-        
+
         sections = range(metadata_cache['section_limits'][stack][0], metadata_cache['section_limits'][stack][1] + 1)
-        
+
         structures_all_sections_all_names = \
         get_structure_contours_from_structure_volumes(volumes=volume_origin_dict, stack=stack, sections=sections, resolution=volume_resolution, level=level, sample_every=1)
-        
+
         local_region_bboxes_allStructures_allSections = {name_s: {} for name_s in volume_origin_dict.keys()}
 
         cropboxXY_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=stack, prep_id=prep_id)[:4]
         prep2_origin_wrt_wholebrain_rawResol = np.r_[cropboxXY_wrt_wholebrain_tbResol[[0,2]], 0] * 32. * convert_resolution_string_to_voxel_size(resolution='raw', stack=stack)
-        
+
         def convert_wrt_wholebrain_volResol_to_wrt_alignedCropped_rawResol(p2d):
              return p2d * convert_resolution_string_to_voxel_size(resolution=volume_resolution, stack=stack) / convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) - prep2_origin_wrt_wholebrain_rawResol[:2]
-            
+
         for sec, structures_this_section_all_names in structures_all_sections_all_names.iteritems():
             for name_s, contour2d_wrt_wholebrain_volResol in structures_this_section_all_names.iteritems():
-                
+
                 cnt2d_xymin_wrt_wholebrain_volResol = contour2d_wrt_wholebrain_volResol.min(axis=0)
                 cnt2d_xymax_wrt_wholebrain_volResol = contour2d_wrt_wholebrain_volResol.max(axis=0)
-                
+
                 cnt2d_xymin_wrt_alignedCropped_rawResol =\
                 convert_wrt_wholebrain_volResol_to_wrt_alignedCropped_rawResol(cnt2d_xymin_wrt_wholebrain_volResol)
                 cnt2d_xymax_wrt_alignedCropped_rawResol =\
                 convert_wrt_wholebrain_volResol_to_wrt_alignedCropped_rawResol(cnt2d_xymax_wrt_wholebrain_volResol)
 
                 # print sec, name_s, cnt2d_xymin_wrt_alignedCropped_rawResol, cnt2d_xymax_wrt_alignedCropped_rawResol
-                
+
                 local_region_bboxes_allStructures_allSections[name_s][sec] = \
-                (max(0, int(cnt2d_xymin_wrt_alignedCropped_rawResol[0] - margin_pixel)), 
-                 min(w-1, int(cnt2d_xymax_wrt_alignedCropped_rawResol[0] + margin_pixel)), 
+                (max(0, int(cnt2d_xymin_wrt_alignedCropped_rawResol[0] - margin_pixel)),
+                 min(w-1, int(cnt2d_xymax_wrt_alignedCropped_rawResol[0] + margin_pixel)),
                  max(0, int(cnt2d_xymin_wrt_alignedCropped_rawResol[1] - margin_pixel)),
                  min(h-1, int(cnt2d_xymax_wrt_alignedCropped_rawResol[1] + margin_pixel)))
 
     else:
-        
+
         warped_volumes = {}
 
         for structure in structures:
@@ -2315,11 +2605,11 @@ def get_local_regions(stack, by_human, margin_um=500, level=None,
                                structure=None,
                                resolution='down32')
 
-            initial_alignment_spec = dict(stack_m=init_alignment_stack_m_spec, 
+            initial_alignment_spec = dict(stack_m=init_alignment_stack_m_spec,
                                   stack_f=init_alignment_stack_f_spec,
                                   warp_setting=20)
 
-            local_alignment_spec = dict(stack_m=stack_m_spec, 
+            local_alignment_spec = dict(stack_m=stack_m_spec,
                                   stack_f=stack_f_spec,
                                   warp_setting=17,
                                        initial_alignment_spec=initial_alignment_spec)
@@ -2327,20 +2617,20 @@ def get_local_regions(stack, by_human, margin_um=500, level=None,
             warped_volumes[structure] = \
             DataManager.load_transformed_volume_all_known_structures_v3(alignment_spec=local_alignment_spec,
                                                                         resolution='down32',
-                                                                        structures=[structure], 
-                                                                        sided=True, 
-                                                                        return_label_mappings=False, 
-                                                                        name_or_index_as_key='name', 
+                                                                        structures=[structure],
+                                                                        sided=True,
+                                                                        return_label_mappings=False,
+                                                                        name_or_index_as_key='name',
                                                                         common_shape=False,
                                                                        return_origin_instead_of_bbox=True,
                                                                        legacy=True)[structure]
-                        
+
 #         try:
-#             structures = DataManager.load_annotation_v4(stack=stack_fixed, 
+#             structures = DataManager.load_annotation_v4(stack=stack_fixed,
 #                                                 by_human=True,
 #                                                 timestamp='latest', suffix='structures')
 #             # These only contain structures that have been modified, not those that are untouched.
-            
+
 #             human_correction_tf_tbResol = {}
 #             for _, entry in structures.iterrows():
 #                 tf = np.eye(4)
@@ -2350,91 +2640,91 @@ def get_local_regions(stack, by_human, margin_um=500, level=None,
 #                         if edit['type'] == 'shift3d' or edit['type'] == 'rotation3d':
 #                             centroid_m_wrt_wholebrainXYcropped_volRes = np.array(edit['centroid_m'])
 #                             centroid_f_wrt_wholebrainXYcropped_volRes = np.array(edit['centroid_f'])
-#                             T = consolidate(edit['transform'], 
+#                             T = consolidate(edit['transform'],
 #                                             centroid_m_wrt_wholebrainXYcropped_volRes / 8.,
 #                                             centroid_f_wrt_wholebrainXYcropped_volRes / 8.)
 #                             T[:3, 3] = T[:3, 3] / 8.
 #                             tf = np.dot(T, tf)
 #                 print entry['name'], entry['side']
 #                 human_correction_tf_tbResol[(entry['name'], entry['side'])] = tf
-                
+
 #             for name_s, (vol, bbox_wrt_wholebrainXYcropped_volResol) in warped_volumes.iteritems():
 #                 name, side, _, _ = parse_label(name_s)
 
 #                 if (name, side) in human_correction_tf_tbResol:
 
 #                     human_corrected_vol, human_corrected_vol_bbox_wrt_wholebrainXYcropped_volResol = \
-#                     transform_volume_v3(vol=vol, bbox=bbox_wrt_wholebrainXYcropped_volResol, 
+#                     transform_volume_v3(vol=vol, bbox=bbox_wrt_wholebrainXYcropped_volResol,
 #                                         tf_params=human_correction_tf_tbResol[(name, side)][:3].flatten())
 
-#                     human_corrected_vol = crop_and_pad_volume(in_vol=human_corrected_vol, 
+#                     human_corrected_vol = crop_and_pad_volume(in_vol=human_corrected_vol,
 #                                         in_bbox=human_corrected_vol_bbox_wrt_wholebrainXYcropped_volResol,
 #                                        out_bbox=bbox_wrt_wholebrainXYcropped_volResol)
 
 #                     warped_volumes[name_s] = human_corrected_vol
 #                     sys.stderr.write("Used human corrected version for %s.\n" % name_s)
-            
+
 #         except:
 #             sys.stderr.write("Cannot load human corrected aligned structures. Using automated local aligned result.\n")
-                
+
         #########################################################################
-        
-        # warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', 
+
+        # warped_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5',
         #                                                                       stack_f=stack,
         #                                                                         detector_id_f=detector_id_f,
         #                                                                       prep_id_f=2,
-        #                                                                         warp_setting=17, 
+        #                                                                         warp_setting=17,
         #                                                                       sided=True,
         #                                                                          structures=structures)
         # Origin of `warped_volumes` is at cropped domain.
-        
+
         local_region_bboxes_allStructures_allSections = {structure: {} for structure in warped_volumes.keys()}
-        
+
         for name_s, (vol_alignedTo_f, o) in warped_volumes.iteritems():
-            
+
             vol_alignedTo_f_binary = vol_alignedTo_f >= level
             vol_xmin_wrt_fixedvol_volResol, vol_xmax_wrt_fixedvol_volResol, \
             vol_ymin_wrt_fixedvol_volResol, vol_ymax_wrt_fixedvol_volResol, \
             vol_zmin_wrt_fixedvol_volResol, vol_zmax_wrt_fixedvol_volResol = bbox_3d(vol_alignedTo_f_binary)
-            
+
             for sec in range(metadata_cache['section_limits'][stack][0], metadata_cache['section_limits'][stack][1]+1):
                 if is_invalid(sec=sec, stack=stack):
                     continue
-                
+
                 z_wrtFixedVol = int(DataManager.convert_section_to_z(sec, downsample=32,
                                     first_sec=metadata_cache['section_limits'][stack][0], mid=True, stack=stack))
-                
+
                 if z_wrtFixedVol > vol_zmin_wrt_fixedvol_volResol and z_wrtFixedVol < vol_zmax_wrt_fixedvol_volResol:
-                
+
                     xmin_2d_wrt_fixedVol_volResol, \
                     xmax_2d_wrt_fixedVol_volResol, \
                     ymin_2d_wrt_fixedVol_volResol, \
                     ymax_2d_wrt_fixedVol_volResol= bbox_2d(vol_alignedTo_f_binary[..., z_wrtFixedVol])
 
                     local_region_bboxes_allStructures_allSections[name_s][sec] = \
-                    (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)), 
-                     min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)), 
+                    (max(0, int(xmin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)),
+                     min(w-1, int(xmax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)),
                      max(0, int(ymin_2d_wrt_fixedVol_volResol * 32 - margin_pixel)),
                      min(h-1, int(ymax_2d_wrt_fixedVol_volResol * 32 + margin_pixel)))
-            
+
     return local_region_bboxes_allStructures_allSections
 
 
 
 from scipy.ndimage.interpolation import map_coordinates
 
-def resample_scoremap(sparse_scores, sample_locations, 
+def resample_scoremap(sparse_scores, sample_locations,
                       gridspec=None,
                       downscale=None,
-                      out_resolution_um=None, 
+                      out_resolution_um=None,
                       in_resolution_um=None,
                         return_sparse_map=False,
                      interpolation_order=2):
     """
     Resample a dense scoremap based on score at sparse locations.
-    
+
     Note: Make sure `sample_locations` are on the grid specified by `gridspec`.
-    
+
     Args:
         sparse_scores ((n,) float): scores
         sample_locations ((n,2) int): locations of the scores
@@ -2443,7 +2733,7 @@ def resample_scoremap(sparse_scores, sample_locations,
         in_resolution_um (float):
         out_resolution_um (float):
         return_sparse_map (bool): if true, return tuple (dense map, sparse map), else return only dense map.
-        
+
     Returns:
         (2d-array): scoremap over the entire grid
     """
@@ -2458,9 +2748,9 @@ def resample_scoremap(sparse_scores, sample_locations,
         patch_size_px, spacing_px, w, h, grid_origin = gridspec
     else:
         raise
-    
+
 #     half_size_px = patch_size_px / 2
-    
+
     if downscale is None:
         assert out_resolution_um is not None and in_resolution_um is not None
         downscale = out_resolution_um / in_resolution_um
@@ -2469,18 +2759,18 @@ def resample_scoremap(sparse_scores, sample_locations,
     downscaled_grid_xs = np.arange(0, w, downscale)
     downscaled_ny = len(downscaled_grid_ys)
     downscaled_nx = len(downscaled_grid_xs)
-        
+
     scores_on_unit_grid = np.zeros(((h - grid_origin[1]) / spacing_px + 1, (w - grid_origin[0]) / spacing_px + 1))
     sample_locations_unit_grid = (sample_locations - grid_origin) / spacing_px
     scores_on_unit_grid[sample_locations_unit_grid[:,1], sample_locations_unit_grid[:,0]] = sparse_scores
-    
+
     out_ys_on_unit_grid = (downscaled_grid_ys - grid_origin[1]) / float(spacing_px)
     out_xs_on_unit_grid = (downscaled_grid_xs - grid_origin[0]) / float(spacing_px)
 
     points_y, points_x = np.broadcast_arrays(out_ys_on_unit_grid.reshape(-1,1), out_xs_on_unit_grid)
     out_yxs_on_unit_grid = np.c_[points_y.flat, points_x.flat]
-    f_interp = map_coordinates(scores_on_unit_grid, out_yxs_on_unit_grid.T, 
-                               order=interpolation_order, 
+    f_interp = map_coordinates(scores_on_unit_grid, out_yxs_on_unit_grid.T,
+                               order=interpolation_order,
                                prefilter=False)
     dense_scoremap = f_interp.reshape((downscaled_ny, downscaled_nx))
 
@@ -2492,7 +2782,7 @@ def resample_scoremap(sparse_scores, sample_locations,
 # def resample_scoremap(sparse_scores, sample_locations, gridspec,
 #                       out_dtype=np.float16,
 #                       downscale=None,
-#                       out_resolution_um=None, 
+#                       out_resolution_um=None,
 #                       in_resolution_um=None):
 #     """
 #     Args:
@@ -2503,17 +2793,17 @@ def resample_scoremap(sparse_scores, sample_locations,
 #         spacing (int): minimal spacing in pixel
 #         in_resolution_um (float):
 #         out_resolution_um (float):
-        
+
 #     Returns:
 #         2d-array: scoremap
 #     """
 
 #     assert len(sparse_scores) == len(sample_locations)
-    
+
 #     # w, h = img_shape
 #     patch_size_px, spacing_px, w, h = gridspec
 #     half_size_px = patch_size_px / 2
-    
+
 #     if downscale is None:
 #         assert out_resolution_um is not None and in_resolution_um is not None
 #         downscale = out_resolution_um / in_resolution_um
@@ -2522,7 +2812,7 @@ def resample_scoremap(sparse_scores, sample_locations,
 #     downscaled_grid_x = np.arange(0, w, downscale)
 #     downscaled_ny = len(downscaled_grid_y)
 #     downscaled_nx = len(downscaled_grid_x)
-    
+
 #     f_grid = np.zeros(((h-half_size_px)/spacing_px+1, (w-half_size_px)/spacing_px+1))
 #     a = (sample_locations - half_size_px)/spacing_px
 #     f_grid[a[:,1], a[:,0]] = sparse_scores
@@ -2546,10 +2836,10 @@ def group_by_stack_and_section(addresses, return_full_address=False):
     Returns:
         (grouped_addresses, grouped_rank). `grouped_rank` is {(stack, section): list of ranks}. If `return_full_address` is False, grouped_addresses is {(stack, section): list of (x,y)},. If return_full_address is True, grouped_addresses is {(stack, section): list of full addresses}.
     """
-    
+
     res = {}
     ranks = {}
-    for stack_sec, rank_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (r, addr): (addr[0], addr[1])), 
+    for stack_sec, rank_and_address_grouper in groupby(sorted(enumerate(addresses), key=lambda (r, addr): (addr[0], addr[1])),
                                                        key=lambda (r, addr): (addr[0], addr[1])):
         if return_full_address:
             res[stack_sec], ranks[stack_sec] = map(list, zip(*[(addr, r) for r, addr in rank_and_address_grouper]))
@@ -2568,29 +2858,29 @@ def convert_dict_to_list(data_dict, rank_dict):
             res.append(zip(r, v))
     return map(itemgetter(1), sorted(chain(*res), key=itemgetter(0)))
 
-def read_features(addresses, scheme, win_id, prep_id=2, 
-                      model=None, mean_img=None, model_name=None, batch_size=None, method='cnn', 
+def read_features(addresses, scheme, win_id, prep_id=2,
+                      model=None, mean_img=None, model_name=None, batch_size=None, method='cnn',
                   compute_new_addresses=True):
     """
     Args:
         addresses (list of tuples): each tuple is (stack, section, (patch center x, patch center y))
     """
-    
+
     addresses_grouped, rank_grouped = group_by_stack_and_section(addresses, return_full_address=False)
-    
+
     features = defaultdict(list)
     for (stack, section), locations in addresses_grouped.iteritems():
         print (stack, section)
-        
+
         if method == 'cnn':
             features_pool, locations_pool = DataManager.load_dnn_features_v2(stack=stack, sec=section,
-                                                                         prep_id=prep_id, win_id=win_id, 
+                                                                         prep_id=prep_id, win_id=win_id,
                                                                          normalization_scheme=scheme,
                                                                          model_name=model_name)
         else:
             features_pool = []
             locations_pool = []
-            
+
         location_to_pool_index = {tuple(loc): idx for idx, loc in enumerate(locations_pool)}
 
         locations_to_compute = []
@@ -2603,33 +2893,33 @@ def read_features(addresses, scheme, win_id, prep_id=2,
                 features[(stack, section)].append(None)
                 locations_to_compute.append(loc)
                 ranks_locations_to_compute.append(i)
-        
+
         if len(locations_to_compute) > 0 and compute_new_addresses:
 
             t = time.time()
             features_newly_computed = \
-            compute_features_at_one_section_locations(scheme=scheme, win_id=win_id, 
+            compute_features_at_one_section_locations(scheme=scheme, win_id=win_id,
                                           stack=stack, section=section, locations=locations_to_compute,
                                           model=model, mean_img=mean_img, batch_size=batch_size, method=method)
             sys.stderr.write('Compute features at one section, multiple locations: %.2f seconds\n' % (time.time() - t))
-            
+
             for r, f in izip(ranks_locations_to_compute, features_newly_computed):
                 features[(stack, section)][r] = f
-                
+
     features_list = convert_dict_to_list(features, rank_grouped)
     return features_list
 
-def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2, 
+def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                               locations_roi=None,
                   bbox=None,
                   sec=None, fn=None,
-                  method='cnn', 
+                  method='cnn',
                   model=None, mean_img=None, model_name=None,
-                  batch_size=None, 
+                  batch_size=None,
                                           attach_timestamp=False):
     """
     Generate the scoremap for a given region.
-    
+
     Args:
         scheme (str): normalization scheme
         win_id (int): windowing id, determines patch size and spacing.
@@ -2637,14 +2927,14 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
         bbox (4-tuple): (xmin, xmax, ymin, ymax) in raw resolution. If not given, use the whole image.
         feature (str): cnn or mean
         model_name (str): model name. For forming filename of saved features.
-        
+
     Returns:
         (2d-array of uint8): scoremap overlayed on image.
         (2d-array of float): scoremap array, optional
     """
-    
+
     if locations_roi is None:
-    
+
         if bbox is None:
             roi_xmin = 0
             roi_ymin = 0
@@ -2662,41 +2952,41 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
         t = time.time()
         mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=prep_id, fn=fn)
         grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack)
-        locations_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+        locations_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                         bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h),
                                        return_locations=True)
         sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
-    
+
     features_roi = np.zeros((len(locations_roi), 1024))
-    
+
     try:
         t = time.time()
         if method == 'cnn':
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn, 
-                                                                   prep_id=prep_id, win_id=win_id, 
+            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                   prep_id=prep_id, win_id=win_id,
                                                                    normalization_scheme=scheme,
                                                                    model_name=model_name)
         else:
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn, 
-                                                                   prep_id=prep_id, win_id=win_id, 
+            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                   prep_id=prep_id, win_id=win_id,
                                                                    normalization_scheme=scheme,
                                                                    model_name=method)
 
         locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
         sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
 
-    except Exception as e:    
-        
+    except Exception as e:
+
         sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
         features = []
         locations = []
         locations_to_compute = locations_roi
-        
+
     if len(locations_to_compute) > 0:
-        
+
         t = time.time()
         features_newly_computed = \
-        compute_features_at_one_section_locations(scheme=scheme, win_id=win_id, 
+        compute_features_at_one_section_locations(scheme=scheme, win_id=win_id,
                                           stack=stack, section=sec, locations=locations_to_compute,
                                           model=model, mean_img=mean_img, batch_size=batch_size, method=method)
         sys.stderr.write('Compute features at one section, multiple locations: %.2f seconds\n' % (time.time() - t))
@@ -2710,31 +3000,31 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
 
         t = time.time()
         if method == 'cnn':
-            DataManager.save_dnn_features_v2(features=features, locations=locations_roi, 
+            DataManager.save_dnn_features_v2(features=features, locations=locations_roi,
                                          stack=stack, sec=sec, fn=fn, prep_id=prep_id,
                                          win_id=win_id, normalization_scheme=scheme,
-                                         model_name=model_name, 
+                                         model_name=model_name,
                                          timestamp='now' if attach_timestamp else None)
         else:
-            DataManager.save_dnn_features_v2(features=features, locations=locations_roi, 
+            DataManager.save_dnn_features_v2(features=features, locations=locations_roi,
                              stack=stack, sec=sec, fn=fn, prep_id=prep_id,
                              win_id=win_id, normalization_scheme=scheme,
-                             model_name=method, 
+                             model_name=method,
                              timestamp='now' if attach_timestamp else None)
-        
+
         sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
 
-        
+
 def compute_features_at_one_section_locations(scheme, win_id, stack, section, locations, method,
                                       model=None, mean_img=None, batch_size=None):
-    
+
     t = time.time()
 
     patch_size_px = win_id_to_gridspec(win_id=win_id, stack=stack)[0]
 
     test_patches = extract_patches_given_locations(stack=stack, sec=section,
-                                                   locs=locations, 
-                                                   patch_size=patch_size_px, 
+                                                   locs=locations,
+                                                   patch_size=patch_size_px,
                                                    output_patch_size=224,
                                                    normalization_scheme=scheme)
 
@@ -2746,23 +3036,23 @@ def compute_features_at_one_section_locations(scheme, win_id, stack, section, lo
     else:
         features = convert_image_patches_to_features_alternative(test_patches, method=method)
     sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
-    
-    return features
-    
 
-def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2, 
+    return features
+
+
+def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                   bbox=None,
                   sec=None, fn=None, bg_img=None,
-                  bg_img_local_region=None, return_scoremap=False, 
+                  bg_img_local_region=None, return_scoremap=False,
                   out_resolution_um=None, in_resolution_um=None,
-                  feature='cnn', 
+                  feature='cnn',
                   model=None, mean_img=None, model_name=None,
                   batch_size=None, image_shape=None, is_nissl=None, output_patch_size=None,
                   version=None,
                  ):
     """
     Generate the scoremap for a given region.
-    
+
     Args:
         clfs: sklearn classifiers
         scheme (str): normalization scheme
@@ -2775,14 +3065,14 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         out_resolution_um (float): resolution of output scoremap in microns
         feature (str): cnn or mean
         model_name (str): model name. For forming filename of saved features.
-        
+
     Returns:
         (2d-array of uint8): scoremap overlayed on image.
         (2d-array of float): scoremap array, optional
     """
-    
+
     # structures = [convert_to_original_name(structure)]
-    
+
     if bbox is None:
         roi_xmin = 0
         roi_ymin = 0
@@ -2794,48 +3084,48 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         roi_xmin, roi_xmax, roi_ymin, roi_ymax = bbox
         roi_w = roi_xmax + 1 - roi_xmin
         roi_h = roi_ymax + 1 - roi_ymin
-    
+
     if fn is None:
         fn = metadata_cache['sections_to_filenames'][stack][sec]
-        
+
     ##########################################################################################
-        
+
     t = time.time()
     mask_tb = DataManager.load_thumbnail_mask_v3(stack=stack, prep_id=prep_id, fn=fn)
     grid_spec = win_id_to_gridspec(win_id=win_id, stack=stack, image_shape=image_shape)
-    indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb, 
+    indices_roi = locate_patches_v2(grid_spec=grid_spec, mask_tb=mask_tb,
                                     bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h))
-    sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))       
-    
+    sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
+
     sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
-    
+
     try:
         t = time.time()
-        
+
         assert feature == 'cnn'
-        
+
         features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
                                                     prep_id=prep_id,
-                                                    win_id=win_id, 
+                                                    win_id=win_id,
                               normalization_scheme=scheme,
                                              model_name=model_name)
-        
+
         location_to_index = {tuple(loc): idx for idx, loc in enumerate(locations)}
         indices_roi = [location_to_index[tuple(loc)] for loc in sample_locations_roi]
         features = features[indices_roi]
-        
+
         sys.stderr.write('Load pre-computed features: %.2f seconds\n' % (time.time() - t))
-        
+
     except Exception as e:
-        
+
         sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
-        
+
         t = time.time()
-            
+
         test_patches = extract_patches_given_locations(stack=stack, sec=sec, fn=fn,
                                                        prep_id=prep_id,
-                                                       locs=sample_locations_roi, 
-                                                       patch_size=grid_spec[0], 
+                                                       locs=sample_locations_roi,
+                                                       patch_size=grid_spec[0],
                                                        normalization_scheme=scheme,
                                                        output_patch_size=output_patch_size,
                                                        version=version,
@@ -2853,26 +3143,26 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         if feature == 'mean':
             features = np.array([[p.mean()] for p in test_patches])
         elif feature == 'cnn':
-            features = convert_image_patches_to_features_v2(test_patches, model=model, 
-                                                 mean_img=mean_img, 
+            features = convert_image_patches_to_features_v2(test_patches, model=model,
+                                                 mean_img=mean_img,
                                                  batch_size=batch_size)
         else:
             raise
         sys.stderr.write('Compute features: %.2f seconds\n' % (time.time() - t))
-        
+
         t = time.time()
-        DataManager.save_dnn_features_v2(features=features, locations=sample_locations_roi, 
+        DataManager.save_dnn_features_v2(features=features, locations=sample_locations_roi,
                                          stack=stack, sec=sec, fn=fn, prep_id=prep_id,
                                          win_id=win_id, normalization_scheme=scheme,
                                          model_name=model_name)
         sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
 
-        
+
     scoremap_viz_all_clfs = {}
     scoremap_local_region_all_clfs = {}
 
     t = time.time()
-    if bg_img_local_region is None:    
+    if bg_img_local_region is None:
         if bg_img is None:
             if stack == 'CHATM2':
                 # bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbJpeg', fn=fn)
@@ -2881,52 +3171,52 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn)
         bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
     sys.stderr.write('Load background image: %.2f seconds\n' % (time.time() - t))
-    
+
     if in_resolution_um is None:
         in_resolution_um = planar_resolution[stack]
     else:
         assert in_resolution_um == planar_resolution[stack]
     out_downscale = out_resolution_um / in_resolution_um
-        
+
     t = time.time()
     bg_img_local_region_at_out_downscale = rescale(bg_img_local_region, 1./out_downscale)
     sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
-    
+
     for name, clf in clfs.iteritems():
-        
+
         t = time.time()
         sparse_scores = clf.predict_proba(features)[:,1]
         sys.stderr.write('Predict scores %s: %.2f seconds\n' % (name, time.time() - t))
 
         t = time.time()
-        scoremap = resample_scoremap(sparse_scores, sample_locations_roi, 
+        scoremap = resample_scoremap(sparse_scores, sample_locations_roi,
                                      gridspec=grid_spec,
                                      downscale=out_downscale)
         sys.stderr.write('Rescample scoremap %s: %.2f seconds\n' % (name, time.time() - t))
 
-        scoremap_local_region = scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)), 
+        scoremap_local_region = scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)),
                                          int(np.round(roi_xmin/out_downscale)):int(np.round((roi_xmin+roi_w)/out_downscale))]
-        
+
         t = time.time()
-        scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region_at_out_downscale, 
+        scoremap_viz = scoremap_overlay_on(bg=bg_img_local_region_at_out_downscale,
                                            stack=stack,
-                                           out_downscale=out_downscale, 
-                                           in_downscale=out_downscale,  
-                                           fn=fn, 
+                                           out_downscale=out_downscale,
+                                           in_downscale=out_downscale,
+                                           fn=fn,
                                            scoremap=scoremap_local_region,
                                           in_scoremap_downscale=out_downscale,
                                           cmap_name= 'jet')
         sys.stderr.write('Genearte scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
-        
+
         scoremap_viz_all_clfs[name] = scoremap_viz
         scoremap_local_region_all_clfs[name] = scoremap_local_region
-        
+
     if return_scoremap:
         return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
     else:
         return scoremap_viz_all_clfs
-    
-    
+
+
 
 
 def plot_result_wrt_ntrain(test_metrics_all_ntrain, ylabel='', title=''):
@@ -2942,7 +3232,7 @@ def plot_result_wrt_ntrain(test_metrics_all_ntrain, ylabel='', title=''):
     plt.ylim([0.5, 1.]);
     plt.xlim([0,16000]);
     plt.show()
-    
+
 def extract_one_metric(metrics_all_ntrain, which, thresh=None):
     if thresh is None:
         return {ntrain: {test_cond: [res[which] for res in res_all_trials]

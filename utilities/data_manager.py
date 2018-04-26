@@ -95,7 +95,7 @@ def volume_type_to_str(t):
 ################
 
 class CoordinatesConverter(object):
-    def __init__(self):
+    def __init__(self, stack=None, section_list=None):
         """
         """
         # A 3-D frame is defined by the following information:
@@ -118,6 +118,16 @@ class CoordinatesConverter(object):
         }
 
         self.resolutions = {}
+
+        if stack is not None:
+            self.stack = stack
+
+            cropbox_origin_xy_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=stack, prep_id='alignedBrainstemCrop', only_2d=True)[[0,2]]
+            self.derive_three_view_frames(base_frame_name='wholebrainXYcropped',
+            origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack))
+
+        if section_list is not None:
+            self.section_list = section_list
 
     def set_data(self, data_feeder, stack=None):
 
@@ -188,7 +198,6 @@ class CoordinatesConverter(object):
         if in_plane == 'coronal' or in_plane == 'horizontal' or out_plane == 'coronal' or out_plane == 'horizontal':
             zdim_um = self.frames[base_frame_name]['zdim_um']
             zdim = zdim_um / convert_resolution_string_to_um(resolution=p_resol)
-            print 'zdim_um =', zdim_um, 'zdim = ', zdim
 
         if in_plane == 'sagittal':
             p_sagittal = p
@@ -209,7 +218,6 @@ class CoordinatesConverter(object):
             p_out = p_sagittal
         elif out_plane == 'coronal':
             x = zdim - p_sagittal[..., 2]
-            print 'p_sagittal', p_sagittal.mean(axis=0)
             y = p_sagittal[..., 1]
             z = p_sagittal[..., 0]
             p_out = np.column_stack([x,y,z])
@@ -286,7 +294,8 @@ class CoordinatesConverter(object):
             sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
             p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2][:, None]
         elif out_resolution == 'index':
-            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            uv_outResol = np.array([(np.nan, np.nan) for _ in p_um])
+            # uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
             if hasattr(self, 'section_list'):
                 i_outResol = []
                 for d_um in p_um[..., 2]:
@@ -332,7 +341,7 @@ class CoordinatesConverter(object):
             base_frame_name, plane = wrt
             p_wrt_outSagittal_origin_um = p_wrt_wholebrain_um - self.frames[base_frame_name]['origin_wrt_wholebrain_um']
             # print wrt, 'origin_wrt_wholebrain_um', self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'p_wrt_outSagittal_origin_um', np.nanmean(p_wrt_outSagittal_origin_um[None, :], axis=0)
+            # print 'p_wrt_outSagittal_origin_um', np.nanmean(p_wrt_outSagittal_origin_um[None, :], axis=0)
             assert p_wrt_outSagittal_origin_um.ndim == 2
             p_wrt_outdomain_um = self.convert_three_view_frames(p=p_wrt_outSagittal_origin_um, base_frame_name=base_frame_name,
                                                                 in_plane='sagittal',
@@ -365,18 +374,18 @@ class CoordinatesConverter(object):
             assert isinstance(wrt, tuple)
             base_frame_name, plane = wrt
 
-            print 'p_um', np.nanmean(p_um[None, :], axis=0)
+            # print 'p_um', np.nanmean(p_um[None, :], axis=0)
             assert p_um.ndim == 2
             p_wrt_inSagittal_um = self.convert_three_view_frames(p=p_um, base_frame_name=base_frame_name,
                                                                 in_plane=plane,
                                                                 out_plane='sagittal',
                                                                 p_resol='um')
             assert p_wrt_inSagittal_um.ndim == 2
-            print 'p_wrt_inSagittal_um', np.nanmean(p_wrt_inSagittal_um[None, :], axis=0)
+            # print 'p_wrt_inSagittal_um', np.nanmean(p_wrt_inSagittal_um[None, :], axis=0)
             inSagittal_origin_wrt_wholebrain_um = self.frames[base_frame_name]['origin_wrt_wholebrain_um']
-            print 'inSagittal_origin_wrt_wholebrain_um', np.nanmean(inSagittal_origin_wrt_wholebrain_um[None, :], axis=0)
+            # print 'inSagittal_origin_wrt_wholebrain_um', np.nanmean(inSagittal_origin_wrt_wholebrain_um[None, :], axis=0)
             p_wrt_wholebrain_um = p_wrt_inSagittal_um + inSagittal_origin_wrt_wholebrain_um
-            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None, :], axis=0)
+            # print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None, :], axis=0)
 
         return p_wrt_wholebrain_um
 
@@ -479,14 +488,13 @@ class CoordinatesConverter(object):
         else:
             p = np.array(p)
             assert p.ndim == 2
-            print 'p', np.nanmean(p_wrt_wholebrain_um[None,:], axis=0)
+            # print 'p', np.nanmean(p[None,:], axis=0)
             p_wrt_wholebrain_um = self.convert_to_wholebrain_um(p, wrt=in_wrt, resolution=in_resolution)
-            print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None,:], axis=0)
             assert p_wrt_wholebrain_um.ndim == 2
+            # print 'p_wrt_wholebrain_um', np.nanmean(p_wrt_wholebrain_um[None,:], axis=0)
             p_wrt_outdomain_outResol = self.convert_from_wholebrain_um(p_wrt_wholebrain_um=p_wrt_wholebrain_um, wrt=out_wrt, resolution=out_resolution)
-            print p_wrt_outdomain_outResol
-            print 'p_wrt_outdomain_outResol', np.nanmean(p_wrt_outdomain_outResol[None,:], axis=0)
-            print
+            # print 'p_wrt_outdomain_outResol', np.nanmean(p_wrt_outdomain_outResol[None,:], axis=0)
+            # print
             return p_wrt_outdomain_outResol
 
 from skimage.transform import resize
@@ -785,13 +793,14 @@ class DataManager(object):
                                return_timestamp=False,
                                annotation_rootdir=ANNOTATION_ROOTDIR):
         """
+        Return the annotation file path.
+
         Args:
             timestamp (str): can be "latest".
             return_timestamp (bool)
         Returns:
             fp
             timestamp (str): actual timestamp
-
         """
 
 
@@ -4714,6 +4723,9 @@ class DataManager(object):
         """
         Get filepath of thumbnail mask.
         """
+
+        if isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
 
         dir_path = DataManager.get_thumbnail_mask_dir_v3(stack, prep_id=prep_id)
         if fn is None:

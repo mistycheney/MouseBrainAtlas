@@ -676,7 +676,7 @@ def find_contour_points_3d(labeled_volume, along_direction, positions=None, samp
 
     Args:
         labeled_volume (3D ndarray of int): integer-labeled volume.
-        along_direction (str): 'x', 'y' or 'z'.
+        along_direction (str): x/coronal, y/horizontal or z/sagittal.
         positions (None or list of int): if None, find contours at all positions of input volume, from 0 to the depth of volume.
 
     Returns:

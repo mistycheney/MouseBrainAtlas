@@ -355,8 +355,10 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
 
     features_list = []
     for i in range(0, len(patches), 80000):
-
-        patches_mean_subtracted = patches[i:i+80000] - mean_img
+                
+        assert all([p.shape == (224, 224) for p in patches])
+                    
+        patches_mean_subtracted = np.array(patches[i:i+80000]) - mean_img
         patches_mean_subtracted_input = patches_mean_subtracted[:, None, :, :] # n x 1 x 224 x 224
 
         ni = len(patches[i:i+80000])
@@ -818,8 +820,8 @@ def extract_patches_given_locations(patch_size,
             else:
                 raise Exception("Must specify whether image is Nissl by providing is_nissl.")
 
-        if stack == 'ChatCryoJane201710':
-            img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='Ntb')
+        if stack in ['CHATM2', 'CHATM3']:
+            img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGamma')
         elif stack in all_nissl_stacks:
             img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
         else:
@@ -861,8 +863,12 @@ def extract_patches_given_locations(patch_size,
     else:
 
         t = time.time()
+        print img.shape
+        print locs
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
         sys.stderr.write('Crop patches: %.2f seconds.\n' % (time.time() - t))
+        
+        assert all([p.shape == (output_patch_size, output_patch_size) for p in patches])
 
         if normalization_scheme == 'normalize_mu_region_sigma_wholeImage_(-1,9)':
             patches_normalized_uint8 = []
@@ -2076,7 +2082,13 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
                 # t = time.time()
 
                 margin = margin_um / XY_PIXEL_DISTANCE_LOSSLESS
-                surround = Polygon(poly).buffer(margin, resolution=2)
+                try:
+                    surround = Polygon(poly).buffer(margin, resolution=2)
+                except Exception as e:
+                    sys.stderr.write("%s %s\n"% (label, e))
+                    continue
+                    # print poly
+                    # raise
 
                 if isinstance(surround, Polygon):
                     path = Path(list(surround.exterior.coords))
@@ -2094,14 +2106,14 @@ def locate_patches_v2(grid_spec=None, win_id=None, stack=None, patch_size=None, 
 
                 # surround classes do not include patches of any non-surround class
                 if 'surround' in categories:
-                    indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
+                    indices_allLandmarks[convert_to_surround_name(label, margin='%dum'%margin_um, suffix='noclass')] = np.setdiff1d(indices_sur, np.r_[indices_bg, indices_allInside])
 
                 for l, inds_in in indices_inside.iteritems():
                     if l == label: continue
                     indices = np.intersect1d(indices_sur, inds_in)
                     if len(indices) > 0:
                         if 'surround' in categories:
-                            indices_allLandmarks[convert_to_surround_name(label, margin=margin_um, suffix=l)] = indices
+                            indices_allLandmarks[convert_to_surround_name(label, margin='%dum'%margin_um, suffix=l)] = indices
 
                 # sys.stderr.write("all: %.2f s\n" % (time.time() - t))
 
@@ -2860,7 +2872,7 @@ def convert_dict_to_list(data_dict, rank_dict):
 
 def read_features(addresses, scheme, win_id, prep_id=2,
                       model=None, mean_img=None, model_name=None, batch_size=None, method='cnn',
-                  compute_new_addresses=True):
+                  compute_new_addresses=True, version=None):
     """
     Args:
         addresses (list of tuples): each tuple is (stack, section, (patch center x, patch center y))
@@ -2900,7 +2912,8 @@ def read_features(addresses, scheme, win_id, prep_id=2,
             features_newly_computed = \
             compute_features_at_one_section_locations(scheme=scheme, win_id=win_id,
                                           stack=stack, section=section, locations=locations_to_compute,
-                                          model=model, mean_img=mean_img, batch_size=batch_size, method=method)
+                                          model=model, mean_img=mean_img, batch_size=batch_size, method=method,
+                                                     version=version)
             sys.stderr.write('Compute features at one section, multiple locations: %.2f seconds\n' % (time.time() - t))
 
             for r, f in izip(ranks_locations_to_compute, features_newly_computed):
@@ -2916,7 +2929,8 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                   method='cnn',
                   model=None, mean_img=None, model_name=None,
                   batch_size=None,
-                                          attach_timestamp=False):
+                                          attach_timestamp=False,
+                                         version=None):
     """
     Generate the scoremap for a given region.
 
@@ -2956,7 +2970,7 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                                         bbox_lossless=(roi_xmin, roi_ymin, roi_w, roi_h),
                                        return_locations=True)
         sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
-
+        
     features_roi = np.zeros((len(locations_roi), 1024))
 
     try:
@@ -2988,7 +3002,8 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
         features_newly_computed = \
         compute_features_at_one_section_locations(scheme=scheme, win_id=win_id,
                                           stack=stack, section=sec, locations=locations_to_compute,
-                                          model=model, mean_img=mean_img, batch_size=batch_size, method=method)
+                                          model=model, mean_img=mean_img, batch_size=batch_size, method=method,
+                                                 version=version)
         sys.stderr.write('Compute features at one section, multiple locations: %.2f seconds\n' % (time.time() - t))
 
         if len(features) == 0:
@@ -3016,7 +3031,7 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
 
 
 def compute_features_at_one_section_locations(scheme, win_id, stack, section, locations, method,
-                                      model=None, mean_img=None, batch_size=None):
+                                      model=None, mean_img=None, batch_size=None, version=None):
 
     t = time.time()
 
@@ -3026,7 +3041,8 @@ def compute_features_at_one_section_locations(scheme, win_id, stack, section, lo
                                                    locs=locations,
                                                    patch_size=patch_size_px,
                                                    output_patch_size=224,
-                                                   normalization_scheme=scheme)
+                                                   normalization_scheme=scheme,
+                                                  version=version)
 
     sys.stderr.write('Extract patches: %.2f seconds\n' % (time.time() - t))
 

@@ -705,7 +705,7 @@ class DataManager(object):
                                                prep_id_m=None,
                                                prep_id_f=2,
                                                 warp_setting=17, trial_idx=None, timestamp=None,
-                                              return_locations=False):
+                                              return_locations=False, suffix=None):
 
         from learning_utilities import grid_parameters_to_sample_locations
 
@@ -730,8 +730,7 @@ class DataManager(object):
                         locations_lookup[label][sec] = [grids_to_locations[i] for i in indices]
 
             return DataFrame(locations_lookup)
-
-
+        
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
                                                        detector_id_m=None, detector_id_f=None,
@@ -749,17 +748,28 @@ class DataManager(object):
                                  include_only="*win%(win_id)d*warp*grid_indices_lookup*" % {'win_id':win_id}, redownload=True)
                 timestamps = []
                 for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
+                    if 'lookup' not in fn:
+                        continue
+                        
+                    ts = None
                     if by_human:
-                        m = re.match('%(stack)s_annotation_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
-                    else:
-                        m = re.match('%(stack)s_annotation_(.*?)_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
-                    # print fn, m
-                    if m is not None:
-                        if by_human:
-                            ts = m.groups()[0]
+                        if suffix is not None:
+                            m = re.match('%(stack)s_annotation_%(suffix)s_(.*)_win%(win_id)d_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id, 'suffix':suffix}, fn)
+                            if m is not None:
+                                ts = m.groups()[0]
                         else:
-                            ts = m.groups()[1]
-                        timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                            m = re.match('%(stack)s_annotation_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                            if m is not None:
+                                ts = m.groups()[0]
+                    else:
+                        m = re.match('%(stack)s_annotation_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
+                        if m is not None:
+                            ts = m.groups()[0]                       
+                    
+                    if ts is None:
+                        print fn
+                    timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
+                assert len(timestamps) > 0, 'No annotation files can be found.'
                 timestamp = sorted(timestamps)[-1][1]
                 print "latest timestamp: ", timestamp
             elif timestamp == 'now':

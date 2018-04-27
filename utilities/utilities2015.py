@@ -125,6 +125,8 @@ def save_data(data, fp, upload_s3=True):
         save_json(data, fp)
     elif fp.endswith('.pkl'):
         save_pickle(data, fp)
+    elif fp.endswith('.hdf'):
+        save_hdf_v2(data, fp)
     elif fp.endswith('.stl'):
         save_mesh_stl(data, fp)
     elif fp.endswith('.txt'):

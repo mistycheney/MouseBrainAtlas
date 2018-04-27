@@ -20,10 +20,10 @@ parser.add_argument("input_fp", type=str, help="input filename")
 parser.add_argument("output_fp", type=str, help="output filename")
 parser.add_argument("transform", type=str, help="transform for thumbnail resolution")
 parser.add_argument("suffix", type=str, help="resolution, thumbnail or raw")
-parser.add_argument("x", type=int, help="x on thumbnail", default=0)
-parser.add_argument("y", type=int, help="y on thumbnail", default=0)
-parser.add_argument("w", type=int, help="w on thumbnail", default=2000)
-parser.add_argument("h", type=int, help="h on thumbnail", default=1500)
+parser.add_argument("x_tb", type=int, help="x on thumbnail", default=0)
+parser.add_argument("y_tb", type=int, help="y on thumbnail", default=0)
+parser.add_argument("w_tb", type=int, help="w on thumbnail", default=2000)
+parser.add_argument("h_tb", type=int, help="h on thumbnail", default=1500)
 parser.add_argument("background_color", type=str, help="background color (black or white)", default='white')
 parser.add_argument("-r", "--init_rotate", type=str, help="escaped imagemagick convert option string for initial flipping and rotation", default='')
 args = parser.parse_args()
@@ -41,10 +41,10 @@ if args.init_rotate == '':
 else:
     init_rotate = orientation_argparse_str_to_imagemagick_str[args.init_rotate]
 
-x = args.x
-y = args.y
-w = args.w
-h = args.h
+x_tb = args.x_tb
+y_tb = args.y_tb
+w_tb = args.w_tb
+h_tb = args.h_tb
 
 if suffix == 'thumbnail':
     scale_factor = 1
@@ -72,9 +72,9 @@ execute_command("convert \"%(input_fp)s\" %(init_rotate)s +repage -virtual-pixel
      'ty':T[1,2],
      'input_fp': input_fp,
      'output_fp': output_fp,
-     'x': '+' + str(x * scale_factor) if int(x) >= 0 else str(x * scale_factor),
-     'y': '+' + str(y * scale_factor) if int(y) >= 0 else str(y * scale_factor),
-     'w': str(w * scale_factor),
-     'h': str(h * scale_factor),
+     'x': '+' + str(x_tb * scale_factor) if int(x_tb) >= 0 else str(x_tb * scale_factor),
+     'y': '+' + str(y_tb * scale_factor) if int(y_tb) >= 0 else str(y_tb * scale_factor),
+     'w': str(w_tb * scale_factor),
+     'h': str(h_tb * scale_factor),
      'bg_color': background_color
     })

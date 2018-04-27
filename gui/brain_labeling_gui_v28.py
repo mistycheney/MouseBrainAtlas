@@ -298,6 +298,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         loaded_structures = defaultdict(set)
         for index, elements in self.gscenes['main_sagittal'].drawings.iteritems():
+            assert index is not None
             section = self.gscenes['main_sagittal'].data_feeder.sections[index]
             print section, [elem.properties['label'] for elem in elements]
             for elem in elements:
@@ -936,6 +937,11 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             'origin': origin_wrt_wholebrain_volResol,
             'edits': struct_info['edits']
             }
+
+            for gscene_id, gscene in self.gscenes.iteritems():
+                gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+                origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
+                zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
 
             for gscene in self.gscenes.itervalues():
                 gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])

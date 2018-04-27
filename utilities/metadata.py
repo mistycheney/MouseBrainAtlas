@@ -354,6 +354,10 @@ def convert_to_nonsurround_name(name):
         return name
 
 def convert_to_surround_name(name, margin=None, suffix=None):
+    """
+    Args:
+        margin (str):
+    """
 
     elements = name.split('_')
     if margin is None:

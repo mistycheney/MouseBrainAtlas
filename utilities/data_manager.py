@@ -4265,12 +4265,12 @@ class DataManager(object):
         """
 
         if version is None:
-            if resol == 'thumbnail':
+            if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
-            if resol == 'thumbnail':
+            if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)

@@ -40,7 +40,7 @@ if args.init_rotate == '':
     init_rotate = ''
 else:
     init_rotate = orientation_argparse_str_to_imagemagick_str[args.init_rotate]
-
+    
 x_tb = args.x_tb
 y_tb = args.y_tb
 w_tb = args.w_tb

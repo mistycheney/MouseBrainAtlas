@@ -187,26 +187,26 @@ def train_binary_classifier(train_data, train_labels, alg, sample_weights=None):
 
     return clf
 
-def get_negative_labels(structure, neg_composition, margin_um, labels_found):
+def get_negative_labels(structure, neg_composition, margin, labels_found):
     """
     Args:
         labels_found (list of str): get labels only from this list.
     """
 
     if neg_composition == 'neg_has_only_surround_noclass':
-        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+        neg_classes = [convert_to_surround_name(structure, margin=margin, suffix='noclass')]
     elif neg_composition == 'neg_has_all_surround':
-        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+        neg_classes = [convert_to_surround_name(structure, margin=margin, suffix='noclass')]
         for surr_s in all_known_structures:
-            c = convert_to_surround_name(structure, margin=margin_um, suffix=surr_s)
+            c = convert_to_surround_name(structure, margin=margin, suffix=surr_s)
             if c in labels_found:
                 neg_classes.append(c)
     elif neg_composition == 'neg_has_everything_else':
         neg_classes = [structure + '_negative']
     elif neg_composition == 'neg_has_surround_and_negative':
-        neg_classes = [convert_to_surround_name(structure, margin=margin_um, suffix='noclass')]
+        neg_classes = [convert_to_surround_name(structure, margin=margin, suffix='noclass')]
         for surr_s in all_known_structures:
-            c = convert_to_surround_name(structure, margin=margin_um, suffix=surr_s)
+            c = convert_to_surround_name(structure, margin=margin, suffix=surr_s)
             if c in labels_found:
                 neg_classes.append(c)
         neg_classes += [structure + '_negative']
@@ -863,8 +863,6 @@ def extract_patches_given_locations(patch_size,
     else:
 
         t = time.time()
-        print img.shape
-        print locs
         patches = [img[y-half_size:y+half_size, x-half_size:x+half_size].copy() for x, y in locs]
         sys.stderr.write('Crop patches: %.2f seconds.\n' % (time.time() - t))
         
@@ -2885,10 +2883,14 @@ def read_features(addresses, scheme, win_id, prep_id=2,
         print (stack, section)
 
         if method == 'cnn':
-            features_pool, locations_pool = DataManager.load_dnn_features_v2(stack=stack, sec=section,
-                                                                         prep_id=prep_id, win_id=win_id,
-                                                                         normalization_scheme=scheme,
-                                                                         model_name=model_name)
+            try:
+                features_pool, locations_pool = DataManager.load_dnn_features_v2(stack=stack, sec=section,
+                                                                             prep_id=prep_id, win_id=win_id,
+                                                                             normalization_scheme=scheme,
+                                                                             model_name=model_name)
+            except:
+                features_pool = []
+                locations_pool = []
         else:
             features_pool = []
             locations_pool = []
@@ -2932,7 +2934,8 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                                           attach_timestamp=False,
                                          version=None):
     """
-    Generate the scoremap for a given region.
+    Compute features for one section.
+    First try loading the saved list, then only compute the difference and save augmented list.
 
     Args:
         scheme (str): normalization scheme
@@ -3180,9 +3183,8 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     t = time.time()
     if bg_img_local_region is None:
         if bg_img is None:
-            if stack == 'CHATM2':
-                # bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbJpeg', fn=fn)
-                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='Ntb', fn=fn)
+            if stack in ['CHATM2', 'CHATM3']:
+                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGammaJpeg', fn=fn)
             else:
                 bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn)
         bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]

@@ -556,7 +556,9 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
             # assert in_resol_um == out_resol_um
             # volume[:, :, z1:z2+1] = im[..., None]
         else:
-            raise Exception("dtype must be uint8")
+            volume[:, :, z1:z2+1] = resize(im, (ydim, xdim))[..., None]
+        # else:
+        #     raise Exception("dtype must be uint8 ot float32")
 
     if crop_to_minimal:
         return crop_volume_to_minimal(volume)
@@ -3812,6 +3814,9 @@ class DataManager(object):
         Args:
             out_resolution_um (float):
         """
+        
+        if isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -4091,6 +4096,9 @@ class DataManager(object):
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features')
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
+        if not os.path.exists(features_fp):
+            raise Exception("Features for %s, %s/%s does not exist." % (stack, sec, fn))
+            
         features = bp.unpack_ndarray_file(features_fp)
 
         locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,

@@ -281,7 +281,7 @@ def parse_label(label, singular_as_s=False):
     """
     import re
     try:
-        m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_([0-9]+))?(_([0-9a-zA-Z]*))?", label)
+        m = re.match("([0-9a-zA-Z]*)(_(L|R))?(_surround_(.+)_([0-9a-zA-Z]*))?", label)
     except:
         raise Exception("Parse label error: %s" % label)
     g = m.groups()
@@ -291,7 +291,8 @@ def parse_label(label, singular_as_s=False):
         if singular_as_s:
             side = 'S'
     surround_margin = g[4]
-    surround_structure_name = g[6]
+    surround_structure_name = g[5]
+
     return structure_name, side, surround_margin, surround_structure_name
 
 is_sided_label = lambda label: parse_label(label)[1] is not None
@@ -353,6 +354,10 @@ def convert_to_nonsurround_name(name):
         return name
 
 def convert_to_surround_name(name, margin=None, suffix=None):
+    """
+    Args:
+        margin (str):
+    """
 
     elements = name.split('_')
     if margin is None:

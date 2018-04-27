@@ -223,7 +223,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 if np.count_nonzero(valid_mask) == 0:
                     sys.stderr.write("valid_mask is empty.\n")
                     continue
-                    
+
                 positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
                 index_of_all_sections = in_pts[valid_mask, 2]
 
@@ -1770,8 +1770,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                     if self.rotation_center_wrt_wholebrain_volResol is None:
                         sys.stderr.write('No rotation center is specified. Using contour center.\n')
-                        rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0],
-                        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')
+                        rotation_center_wrt_wholebrain_volResol = self.converter.convert_frame_and_resolution(p=[np.r_[np.mean(vertices_from_polygon(polygon=self.active_polygon), axis=0), 0]],
+                        in_wrt=('data', self.data_feeder.orientation), in_resolution='image', out_wrt='wholebrain', out_resolution='volume')[0]
                     else:
                         rotation_center_wrt_wholebrain_volResol = self.rotation_center_wrt_wholebrain_volResol
 

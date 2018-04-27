@@ -705,7 +705,7 @@ class DataManager(object):
                                                prep_id_m=None,
                                                prep_id_f=2,
                                                 warp_setting=17, trial_idx=None, timestamp=None,
-                                              return_locations=False):
+                                              return_locations=False, suffix=None):
 
         from learning_utilities import grid_parameters_to_sample_locations
 
@@ -4247,12 +4247,12 @@ class DataManager(object):
         """
 
         if version is None:
-            if resol == 'thumbnail':
+            if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
         else:
-            if resol == 'thumbnail':
+            if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)
             else:
                 image_dir = os.path.join(data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)

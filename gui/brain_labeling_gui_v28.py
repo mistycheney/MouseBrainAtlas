@@ -95,10 +95,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.button_save.clicked.connect(self.save_contours)
         self.button_saveMarkers.clicked.connect(self.save_markers)
         self.button_saveStructures.clicked.connect(self.save_structures)
+        self.button_saveHanddrawnStructures.clicked.connect(self.save_handdrawn_structures)
         # self.button_saveProbStructures.clicked.connect(self.save_structures)
         self.button_load.clicked.connect(self.load_contours)
         self.button_loadMarkers.clicked.connect(self.load_markers)
         self.button_loadStructures.clicked.connect(self.load_structures)
+        self.button_loadHanddrawnStructures.clicked.connect(self.load_handdrawn_structures)
         # self.button_loadProbStructures.clicked.connect(self.load_structures)
         # self.button_loadWarpedAtlas.clicked.connect(self.load_warped_atlas_volume)
         self.button_loadWarpedAtlas.clicked.connect(self.load_warped_structure)
@@ -644,6 +646,55 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         print 'Probabilistic structures saved to %s.' % structure_df_fp
 
     @pyqtSlot()
+    def save_handdrawn_structures(self):
+        """
+        Save handdrawn structure volumes in a file.
+        """
+
+        # timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        import uuid
+
+        entries = {}
+        for name_s, structure_info in self.structure_volumes['handdrawn'].iteritems():
+
+            name_u, side = parse_label(name_s, singular_as_s=True)[:2]
+
+            entry = {}
+            vol = structure_info['volume']
+            sys.stderr.write("Saved structure %s\n" % name_s)
+
+            if vol is None:
+                entry['volume'] = None
+                entry['origin'] = None
+            else:
+                entry['volume'] = bp.pack_ndarray_str(vol)
+                entry['origin'] = structure_info['origin']
+            entry['name'] = name_u
+            entry['side'] = side
+            entry['resolution'] = '%.1fum' % self.structure_volume_resolution_um
+            if 'edits' not in structure_info or structure_info['edits'] is None or len(structure_info['edits']) == 0:
+                entry['edits'] = []
+            else:
+                entry['edits'] = structure_info['edits']
+
+            if hasattr(structure_info, 'structure_id') and structure_info.properties['structure_id'] is not None:
+                structure_id = structure_info.properties['structure_id']
+            else:
+                structure_id = str(uuid.uuid4().fields[-1])
+
+            entries[structure_id] = entry
+
+        structure_df = DataFrame(entries).T
+        if self.prep_id == 3: # thalamus
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structuresHanddrawn', timestamp='now', annotation_rootdir=ANNOTATION_THALAMUS_ROOTDIR)
+        else:
+            structure_df_fp = DataManager.get_annotation_filepath(stack=self.stack, by_human=True, suffix='structuresHanddrawn', timestamp='now')
+        save_hdf_v2(structure_df, structure_df_fp)
+        # upload_to_s3(structure_df_fp)
+        print 'Handdrawn structures saved to %s.' % structure_df_fp
+
+
+    @pyqtSlot()
     def save_contours(self):
         """
         Save 2-D boundaries (main sagittal scene).
@@ -817,38 +868,80 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 self.handle_structure_update(set_name='aligned_atlas', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
 
         else:
-            if stack in ['MD661', 'MD662']:
-                detector_id_f = 1
-            elif stack in ['MD653', 'MD652', 'MD642', 'MD657', 'MD658']:
-                detector_id_f = 13
+
+            if stack in ['CHATM2', 'CHATM3']:
+                detector_id_f = 799
+
+                atlas_volumes = {}
+                for structure in structures:
+
+                    stack_m_spec = dict(name='atlasV6',
+                                       vol_type='score',
+                                       structure=structure,
+                                        resolution='10.0um'
+                                       )
+
+                    stack_f_spec = dict(name=self.stack,
+                                       vol_type='score',
+                                       detector_id=799,
+                                       structure=convert_to_original_name(structure),
+                                        resolution='10.0um'
+                                       )
+
+                    local_alignment_spec = dict(stack_m=stack_m_spec,
+                                          stack_f=stack_f_spec,
+                                          warp_setting=27)
+
+                    atlas_volumes[structure] = DataManager.load_transformed_volume_v2(alignment_spec=local_alignment_spec, return_origin_instead_of_bbox=True)
+
+                for name_s, (v, o) in atlas_volumes.iteritems():
+
+                    print o
+
+                    self.structure_volumes['aligned_atlas'][name_s]['volume'] = rescale_by_resampling(v, convert_resolution_string_to_voxel_size(resolution='10.0um', stack=self.stack) / self.structure_volume_resolution_um)
+                    self.structure_volumes['aligned_atlas'][name_s]['origin'] = o * convert_resolution_string_to_voxel_size(resolution='10.0um', stack=self.stack) / self.structure_volume_resolution_um
+                    print 'Load', name_s, self.structure_volumes['aligned_atlas'][name_s]['origin']
+
+                    self.handle_structure_update(set_name='aligned_atlas', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
+
+                    # # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
+                    # for gscene in self.gscenes.values():
+                    #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
+
             else:
-                detector_id_f = 15
 
-            atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack,
-            warp_setting=17, prep_id_f=2, detector_id_f=detector_id_f,
-            return_label_mappings=False,
-            name_or_index_as_key='name',
-            structures=structures
-            ) # down32 resolution
+                if stack in ['MD661', 'MD662']:
+                    detector_id_f = 1
+                elif stack in ['MD653', 'MD652', 'MD642', 'MD657', 'MD658']:
+                    detector_id_f = 13
+                else:
+                    detector_id_f = 15
 
-            # atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack,
-            # warp_setting=20, prep_id_f=2, detector_id_f=detector_id_f,
-            # return_label_mappings=False,
-            # name_or_index_as_key='name',
-            # structures=structures
-            # ) # down32 resolution
+                atlas_volumes = DataManager.load_transformed_volume_all_known_structures_v3(stack_m='atlasV5', stack_f=self.stack,
+                warp_setting=17, prep_id_f=2, detector_id_f=detector_id_f,
+                return_label_mappings=False,
+                name_or_index_as_key='name',
+                structures=structures
+                ) # down32 resolution
 
-            atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True, prep_id=self.prep_id, return_origin_instead_of_bbox=True)
+                # atlas_volumes = DataManager.load_transformed_volume_all_known_structures(stack_m='atlasV5', stack_f=self.stack,
+                # warp_setting=20, prep_id_f=2, detector_id_f=detector_id_f,
+                # return_label_mappings=False,
+                # name_or_index_as_key='name',
+                # structures=structures
+                # ) # down32 resolution
 
-            for name_s, v_down32 in atlas_volumes.iteritems():
+                atlas_origin_wrt_wholebrain_tbResol = DataManager.load_cropbox(stack=self.stack, convert_section_to_z=True, prep_id=self.prep_id, return_origin_instead_of_bbox=True)
 
-                self.structure_volumes['aligned_atlas'][name_s]['volume'] = rescale_by_resampling(v_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um)
-                self.structure_volumes['aligned_atlas'][name_s]['origin'] = atlas_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um
-                print 'Load', name_s, self.structure_volumes['aligned_atlas'][name_s]['origin']
+                for name_s, v_down32 in atlas_volumes.iteritems():
 
-                # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
-                for gscene in self.gscenes.values():
-                    gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
+                    self.structure_volumes['aligned_atlas'][name_s]['volume'] = rescale_by_resampling(v_down32, convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um)
+                    self.structure_volumes['aligned_atlas'][name_s]['origin'] = atlas_origin_wrt_wholebrain_tbResol * convert_resolution_string_to_voxel_size(resolution='down32', stack=self.stack) / self.structure_volume_resolution_um
+                    print 'Load', name_s, self.structure_volumes['aligned_atlas'][name_s]['origin']
+
+                    # Update drawings on all gscenes based on `structure_volumes` that was just assigned.
+                    for gscene in self.gscenes.values():
+                        gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[0.5], set_name='aligned_atlas')
 
     @pyqtSlot()
     def select_structures(self, set_name='aligned_atlas'):
@@ -938,13 +1031,63 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             'edits': struct_info['edits']
             }
 
-            for gscene_id, gscene in self.gscenes.iteritems():
-                gscene.converter.derive_three_view_frames(base_frame_name=name_s,
-                origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
-                zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+            self.handle_structure_update(set_name='aligned_atlas', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
+            #
+            # for gscene_id, gscene in self.gscenes.iteritems():
+            #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+            #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
+            #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+            #
+            # for gscene in self.gscenes.itervalues():
+            #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
+            #
 
-            for gscene in self.gscenes.itervalues():
-                gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
+
+
+    @pyqtSlot()
+    def load_handdrawn_structures(self):
+        """
+        Load 3-D structure annotations from file. Same as load_structures, except for set name.
+        """
+
+        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file",
+        os.path.join((ANNOTATION_THALAMUS_ROOTDIR if self.prep_id == 3 else ANNOTATION_ROOTDIR), self.stack)))
+
+        if structures_df_fp == '':
+            return
+
+        structure_df = load_hdf_v2(structures_df_fp)
+
+        for sid, struct_info in structure_df.iterrows():
+            name_s = compose_label(struct_info['name'], side=struct_info['side'])
+            print name_s
+
+            if struct_info['volume'] is None:
+                volume_volResol = None
+                origin_wrt_wholebrain_volResol = None
+            else:
+                volume = bp.unpack_ndarray_str(struct_info['volume'])
+                origin_wrt_wholebrain_storedVolResol = struct_info['origin']
+
+                scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
+                volume_volResol = rescale_by_resampling(volume, scaling)
+                origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
+
+            self.structure_volumes['handdrawn'][name_s] = {
+            'volume': volume_volResol,
+            'origin': origin_wrt_wholebrain_volResol,
+            'edits': struct_info['edits']
+            }
+
+            self.handle_structure_update(set_name='handdrawn', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
+
+            # for gscene_id, gscene in self.gscenes.iteritems():
+            #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+            #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
+            #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+            #
+            # for gscene in self.gscenes.itervalues():
+            #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
 
     @pyqtSlot()
     def load_contours(self):
@@ -1093,7 +1236,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             for gscene_id, gscene in self.gscenes.iteritems():
                 # if gscene_id == 'main_sagittal':
                 #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
-                gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+                # gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+                gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.1, .25, .5, .75, .99], set_name=set_name)
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)

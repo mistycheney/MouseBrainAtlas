@@ -732,7 +732,7 @@ class DataManager(object):
                         locations_lookup[label][sec] = [grids_to_locations[i] for i in indices]
 
             return DataFrame(locations_lookup)
-        
+
     @staticmethod
     def get_annotation_to_grid_indices_lookup_filepath(stack, win_id, by_human, stack_m='atlasV5',
                                                        detector_id_m=None, detector_id_f=None,
@@ -752,7 +752,7 @@ class DataManager(object):
                 for fn in os.listdir(os.path.join(ANNOTATION_ROOTDIR, stack)):
                     if 'lookup' not in fn:
                         continue
-                        
+
                     ts = None
                     if by_human:
                         if suffix is not None:
@@ -766,8 +766,8 @@ class DataManager(object):
                     else:
                         m = re.match('%(stack)s_annotation_win%(win_id)d_(.*)_grid_indices_lookup.hdf' % {'stack':stack, 'win_id':win_id}, fn)
                         if m is not None:
-                            ts = m.groups()[0]                       
-                    
+                            ts = m.groups()[0]
+
                     if ts is None:
                         print fn
                     timestamps.append((datetime.strptime(ts, '%m%d%Y%H%M%S'), ts))
@@ -2297,6 +2297,13 @@ class DataManager(object):
     #     else:
     #         raise Exception('Not implemented.')
 
+
+    @staticmethod
+    def save_transformed_volume_v2(volume, alignment_spec, structure=None, wrt='wholebrain'):
+        vol, ori = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
+        save_data(vol, DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure))
+        save_data(ori, DataManager.get_transformed_volume_origin_filepath(alignment_spec=alignment_spec, structure=structure, wrt='fixedWholebrain'))
+
     @staticmethod
     def save_transformed_volume(volume, bbox, alignment_spec, resolution=None, structure=None):
         """
@@ -2328,7 +2335,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_transformed_volume_v2(alignment_spec, resolution, structure=None, trial_idx=None,
+    def load_transformed_volume_v2(alignment_spec, resolution=None, structure=None, trial_idx=None,
                                    return_origin_instead_of_bbox=False, legacy=False):
         """
         Args:
@@ -2354,26 +2361,37 @@ class DataManager(object):
                                                         structure=structure)
 
             bbox = np.array((origin[0], origin[0]+vol.shape[1], origin[1], origin[1]+vol.shape[0], origin[2], origin[2]+vol.shape[2]))
+            origin = bbox[[0,2,4]]
+            if return_origin_instead_of_bbox:
+                return (vol, origin)
+            else:
+                return (vol, bbox)
+
         else:
 
-            fp = DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec,
+            vol = load_data(DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec,
                                                                 resolution=resolution,
-                                                                structure=structure)
-            download_from_s3(fp)
-            vol = DataManager.load_data(fp, filetype='bp')
+                                                                structure=structure))
+            # download_from_s3(fp)
+            # vol = DataManager.load_data(fp, filetype='bp')
 
-            bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain',
+            # bbox_fp = DataManager.get_transformed_volume_bbox_filepath_v2(wrt='fixedWholebrain',
+            #                                                              alignment_spec=alignment_spec,
+            #                                                     resolution=resolution,
+            #                                                     structure=structure)
+            # download_from_s3(bbox_fp)
+            # bbox = np.loadtxt(bbox_fp)
+            # origin = bbox[[0,2,4]]
+
+            origin = load_data(DataManager.get_transformed_volume_origin_filepath(wrt='fixedWholebrain',
                                                                          alignment_spec=alignment_spec,
                                                                 resolution=resolution,
-                                                                structure=structure)
-            download_from_s3(bbox_fp)
-            bbox = np.loadtxt(bbox_fp)
-            origin = bbox[[0,2,4]]
+                                                                structure=structure))
+            if return_origin_instead_of_bbox:
+                return (vol, origin)
+            else:
+                return convert_volume_forms((vol, origin), out_form=('volume','bbox'))
 
-        if return_origin_instead_of_bbox:
-            return (vol, origin)
-        else:
-            return (vol, bbox)
 
     @staticmethod
     def load_transformed_volume(stack_m, stack_f,
@@ -2446,36 +2464,39 @@ class DataManager(object):
             index = 1
 
         for structure in structures:
-            try:
+            # try:
 
-                if loaded:
-                    index = structure_to_label[structure]
+            if loaded:
+                index = structure_to_label[structure]
 
-                if trial_idx is None or isinstance(trial_idx, int):
-                    trial_idx_ = trial_idx
-                else:
-                    trial_idx_ = trial_idx[convert_to_nonsurround_label(structure)]
+            if trial_idx is None or isinstance(trial_idx, int):
+                trial_idx_ = trial_idx
+            else:
+                trial_idx_ = trial_idx[convert_to_nonsurround_label(structure)]
 
-                v, b = DataManager.load_transformed_volume_v2(alignment_spec=alignment_spec,
-                                                              structure=structure,
-                                                              trial_idx=trial_idx_,
-                                                             resolution=resolution,
-                                                             legacy=legacy)
+            assert return_origin_instead_of_bbox
 
-                if name_or_index_as_key == 'name':
-                    volumes[structure] = (v,b)
-                else:
-                    volumes[index] = (v,b)
+            v, b = DataManager.load_transformed_volume_v2(alignment_spec=alignment_spec,
+                                                          structure=structure,
+                                                          trial_idx=trial_idx_,
+                                                         resolution=resolution,
+                                                         return_origin_instead_of_bbox=False,
+                                                         legacy=legacy)
 
-                if not loaded:
-                    structure_to_label[structure] = index
-                    label_to_structure[index] = structure
-                    index += 1
+            if name_or_index_as_key == 'name':
+                volumes[structure] = (v,b)
+            else:
+                volumes[index] = (v,b)
 
-            except Exception as e:
+            if not loaded:
+                structure_to_label[structure] = index
+                label_to_structure[index] = structure
+                index += 1
+
+            # except Exception as e:
                 # raise e
-                sys.stderr.write('%s\n' % e)
-                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+                # sys.stderr.write('%s\n' % e)
+                # sys.stderr.write('Cannot load score volume for %s.\n' % structure)
 
         if common_shape:
             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)
@@ -2714,7 +2735,12 @@ class DataManager(object):
     def get_transformed_volume_filepath_v2(alignment_spec, resolution=None, trial_idx=None, structure=None):
 
         if resolution is None:
-            resolution = alignment_spec['stack_m']['resolution']
+            if 'resolution' in alignment_spec['stack_m']:
+                resolution = alignment_spec['stack_m']['resolution']
+
+        if structure is None:
+            if 'structure' in alignment_spec['stack_m']:
+                structure = alignment_spec['stack_m']['structure']
 
         warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec,
                                                              trial_idx=trial_idx)
@@ -2764,12 +2790,9 @@ class DataManager(object):
     #     download_from_s3(fp)
     #     return np.loadtxt(fp)
 
+
     @staticmethod
-    def get_transformed_volume_bbox_filepath_v2(alignment_spec,
-                                                wrt,
-                                                resolution=None,
-                                        structure=None,
-                                        trial_idx=None):
+    def get_transformed_volume_origin_filepath(alignment_spec, structure=None, wrt='wholebrain', resolution=None):
         """
         Args:
             alignment_spec (dict): specifies the multi-map.
@@ -2779,14 +2802,70 @@ class DataManager(object):
         """
 
         if resolution is None:
-            resolution = alignment_spec['stack_m']['resolution']
+            if 'resolution' in alignment_spec['stack_m']:
+                resolution = alignment_spec['stack_m']['resolution']
 
-        warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec, trial_idx=trial_idx)
+        if structure is None:
+            if 'structure' in alignment_spec['stack_m']:
+                structure = alignment_spec['stack_m']['structure']
+
+        warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec, trial_idx=None)
         vol_basename = warp_basename + '_' + resolution
         vol_basename_with_structure_suffix = vol_basename + ('_' + structure if structure is not None else '')
 
         return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
-                            vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '_bbox_wrt_' + wrt + '.txt')
+                            vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '_origin_wrt_' + wrt + '.txt')
+
+        # volume_type = stack_spec['vol_type']
+        #
+        # if 'resolution' not in stack_spec or stack_spec['resolution'] is None:
+        #     assert resolution is not None
+        #     stack_spec['resolution'] = resolution
+        #
+        # if 'structure' not in stack_spec or stack_spec['structure'] is None:
+        #     vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec)
+        # else:
+        #     stack_spec_no_structure = stack_spec.copy()
+        #     stack_spec_no_structure['structure'] = None
+        #     vol_basename = DataManager.get_original_volume_basename_v2(stack_spec=stack_spec_no_structure)
+        #
+        # if volume_type == 'score' or volume_type == 'annotationAsScore':
+        #     origin_fp = os.path.join(VOLUME_ROOTDIR, '%(stack)s',
+        #                   '%(basename)s',
+        #                   'score_volumes',
+        #                  '%(basename)s_%(struct)s_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt') % \
+        #     {'stack':stack_spec['name'], 'basename':vol_basename, 'struct':structure}
+        #
+        # elif volume_type == 'intensity':
+        #     origin_fp = os.path.join(VOLUME_ROOTDIR, stack_spec['name'], vol_basename, vol_basename + '_origin' + ('_wrt_'+wrt if wrt is not None else '') + '.txt')
+        # else:
+        #     raise Exception("vol_type of %s is not recognized." % stack_spec['vol_type'])
+        #
+        # return origin_fp
+
+    # @staticmethod
+    # def get_transformed_volume_bbox_filepath_v2(alignment_spec,
+    #                                             wrt,
+    #                                             resolution=None,
+    #                                     structure=None,
+    #                                     trial_idx=None):
+    #     """
+    #     Args:
+    #         alignment_spec (dict): specifies the multi-map.
+    #         wrt (str): specify which domain is the bounding box relative to.
+    #         resolution (str): specifies the resolution of the multi-map.
+    #         structure (str): specifies one map of the multi-map.
+    #     """
+    #
+    #     if resolution is None:
+    #         resolution = alignment_spec['stack_m']['resolution']
+    #
+    #     warp_basename = DataManager.get_warped_volume_basename_v2(alignment_spec=alignment_spec, trial_idx=trial_idx)
+    #     vol_basename = warp_basename + '_' + resolution
+    #     vol_basename_with_structure_suffix = vol_basename + ('_' + structure if structure is not None else '')
+    #
+    #     return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
+    #                         vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '_bbox_wrt_' + wrt + '.txt')
 
     # @staticmethod
     # def get_transformed_volume_bbox_filepath(stack_m, stack_f,
@@ -3815,7 +3894,7 @@ class DataManager(object):
         Args:
             out_resolution_um (float):
         """
-        
+
         if isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
 
@@ -4099,7 +4178,7 @@ class DataManager(object):
         download_from_s3(features_fp, local_root=DATA_ROOTDIR)
         if not os.path.exists(features_fp):
             raise Exception("Features for %s, %s/%s does not exist." % (stack, sec, fn))
-            
+
         features = bp.unpack_ndarray_file(features_fp)
 
         locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,

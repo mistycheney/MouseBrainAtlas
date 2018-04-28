@@ -58,7 +58,7 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
         #     # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
 
         gradients = {ind: compute_gradient_v2((v, o), smooth_first=smooth_first)
-                     for ind, (v, o) in volumes.iteritems()}
+                     for ind, (v, o) in volume.iteritems()}
 
         return gradients
 
@@ -134,9 +134,7 @@ def save_data(data, fp, upload_s3=True):
             np.savetxt(fp, data)
         else:
             raise
-    elif fp.endswith('.png'):
-        imsave(fp, data)
-    elif fp.endswith('.tif'):
+    elif fp.endswith('.png') or fp.endswith('.tif') or fp.endswith('.jpg'):
         imsave(fp, data)
     else:
         raise

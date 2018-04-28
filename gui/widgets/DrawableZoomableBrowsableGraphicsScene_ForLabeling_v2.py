@@ -172,6 +172,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         for level in levels:
 
+            print "level", level
+
             structure_wrt = (name_s, self.data_feeder.orientation)
 
             if hasattr(self.data_feeder, 'sections'):
@@ -335,7 +337,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif self.showing_which == 'scoremap':
             assert self.active_polygon is not None, 'Must have an active polygon first.'
             name_u = self.active_polygon.properties['label']
-            scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=8, section=sec, structure=name_u, detector_id=15, prep_id=2)
+            # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
+            # scoremap_viz_fp = DataManager.get_scoremap_viz_filepath(stack=self.gui.stack, downscale=8, section=sec, structure=name_u, detector_id=15, prep_id=2)
+
+            if self.gui.stack in ['CHATM2', 'CHATM3']:
+                scoremap_viz_fp = DataManager.get_scoremap_viz_filepath_v2(stack=self.gui.stack, out_resolution='10.0um', detector_id=799, prep_id=2, section=sec, structure=name_u)
             download_from_s3(scoremap_viz_fp)
             w, h = metadata_cache['image_shape'][self.gui.stack]
             scoremap_pixmap = QPixmap(scoremap_viz_fp).scaled(w, h)
@@ -363,14 +369,16 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedBlue', ext='jpg')
                 # qimage_blue = QImage(blue_fp)
 
-                blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='ChatJpeg', ext='jpg')
+                # blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='ChatJpeg', ext='jpg')
+                blue_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='raw', version='CHATJpeg')
                 qimage_blue = QImage(blue_fp)
-                if self.data_feeder.downsample != 1:
-                    # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
-                    raw_width, raw_height = (qimage_blue.width(), qimage_blue.height())
-                    new_width, new_height = (raw_width / self.data_feeder.downsample, raw_height / self.data_feeder.downsample)
-                    qimage_blue = qimage_blue.scaled(new_width, new_height)
-                    sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (self.data_feeder.downsample, raw_width, raw_height, new_width, new_height))
+
+                # if self.data_feeder.downsample != 1:
+                #     # Downsample the image for CryoJane data, which is too large and exceeds QPixmap size limit.
+                #     raw_width, raw_height = (qimage_blue.width(), qimage_blue.height())
+                #     new_width, new_height = (raw_width / self.data_feeder.downsample, raw_height / self.data_feeder.downsample)
+                #     qimage_blue = qimage_blue.scaled(new_width, new_height)
+                #     sys.stderr.write("Downsampling image by %.2f from size (w=%d,h=%d) to (w=%d,h=%d)\n" % (self.data_feeder.downsample, raw_width, raw_height, new_width, new_height))
 
                 # green_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedGreen', ext='jpg')
                 # qimage_green = QImage(green_fp)

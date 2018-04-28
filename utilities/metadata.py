@@ -296,7 +296,8 @@ def parse_label(label, singular_as_s=False):
     return structure_name, side, surround_margin, surround_structure_name
 
 is_sided_label = lambda label: parse_label(label)[1] is not None
-is_surround_label = lambda label: parse_label(label)[2] is not None
+# is_surround_label = lambda label: parse_label(label)[2] is not None
+is_surround_label = lambda label: 'surround' in label
 get_side_from_label = lambda label: parse_label(label)[1]
 get_margin_from_label = lambda label: parse_label(label)[2]
 

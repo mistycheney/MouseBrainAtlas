@@ -243,7 +243,8 @@ def generate_aligner_parameters_v2(alignment_spec,
                                    structures_m=all_known_structures_sided,
                                    structures_f=None,
                                   fixed_structures_are_sided=False,
-                                  fixed_surroundings_have_positive_value=False):
+                                  fixed_surroundings_have_positive_value=False,
+                                  fixed_use_surround=False):
     """
     Args:
         alignment_spec (dict):
@@ -366,6 +367,9 @@ def generate_aligner_parameters_v2(alignment_spec,
         else:
             structures_f = set([convert_to_original_name(s) for s in structures_m])
 
+    if not fixed_use_surround:
+        structures_f = [s for s in structures_f if not is_surround_label(s)]
+
     # if stack_f_spec['name'] in ['MD589', 'MD585', 'MD594', 'LM27', 'LM17']:
     in_bbox_wrt = 'wholebrain'
     # else:
@@ -377,7 +381,8 @@ def generate_aligner_parameters_v2(alignment_spec,
                                                      # out_bbox_wrt='wholebrain',
                                                              structures=structures_f,
                                                     # sided=False,
-                                                    include_surround=include_surround,
+                                                    # include_surround=include_surround,
+                                                    include_surround=include_surround if fixed_use_surround else False,
                                                      return_label_mappings=True,
                                                      name_or_index_as_key='index',
                                                      common_shape=False,
@@ -417,13 +422,21 @@ def generate_aligner_parameters_v2(alignment_spec,
         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin='200um') for s in structure_subset_m]
 
     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
-        label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
+
+        # label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
+        #      for label_m, name_m in label_to_structure_moving.iteritems()
+            #  if name_m in structure_subset_m and name_m in structure_to_label_fixed}
+
+        # Temp: revert to above if has problem.
+        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_nonsurround_name(name_m)]
                      for label_m, name_m in label_to_structure_moving.iteritems()
-                     if name_m in structure_subset_m and name_m in structure_to_label_fixed}
+                    if name_m in structure_subset_m and convert_to_nonsurround_name(name_m) in structure_to_label_fixed}
     else:
         label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_original_name(name_m)]
                      for label_m, name_m in label_to_structure_moving.iteritems()
                      if name_m in structure_subset_m and convert_to_original_name(name_m) in structure_to_label_fixed}
+
+    print 'label_mapping_m2f', label_mapping_m2f
 
     if positive_weight == 'inverse' or surround_weight == 'inverse':
         t = time.time()
@@ -463,7 +476,10 @@ def generate_aligner_parameters_v2(alignment_spec,
                     # fixed brain has only 7N prob. map
                     label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns] / float(volume_moving_structure_sizes[label_m])
             elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
-                label_weights_m[label_m] = surround_weight
+                if fixed_surroundings_have_positive_value:
+                    label_weights_m[label_m] = surround_weight
+                else:
+                    label_weights_m[label_m] = - surround_weight
             else:
                 sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 
@@ -2064,7 +2080,10 @@ def compose_alignment_parameters(list_of_transform_parameters):
             T = np.vstack([transform_parameters, [0,0,0,1]])
         elif transform_parameters.shape == (12,):
             T = np.vstack([transform_parameters.reshape((3,4)), [0,0,0,1]])
+        elif transform_parameters.shape == (4,4):
+            T = transform_parameters
         else:
+            print transform_parameters.shape
             raise
 
         T0 = np.dot(T, T0)

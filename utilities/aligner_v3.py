@@ -250,7 +250,7 @@ class Aligner(object):
             if centroid_f == 'centroid_m':
                 self.centroid_f = self.centroid_m
             elif centroid_m == 'structure_centroid':
-                self.centroid_f = np.array([np.mean(np.where(volume_f[self.labelIndexMap_m2f[i]]), axis=1)[[1,0,2]] + volume_f_origin[i] for i in indices_m]).mean(axis=0)
+                self.centroid_f = np.array([np.mean(np.where(volume_f[self.labelIndexMap_m2f[i]]), axis=1)[[1,0,2]] + volume_f_origin[self.labelIndexMap_m2f[i]] for i in indices_m]).mean(axis=0)
             elif centroid_f == 'volume_centroid':
                 bboxes = np.array([volume_origin_to_bbox(volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]) for i in indices_m])
                 xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2

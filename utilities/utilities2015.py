@@ -58,7 +58,7 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
         #     # sys.stderr.write("Overall: %.2f seconds.\n" % (time.time()-t1))
 
         gradients = {ind: compute_gradient_v2((v, o), smooth_first=smooth_first)
-                     for ind, (v, o) in volumes.iteritems()}
+                     for ind, (v, o) in volume.iteritems()}
 
         return gradients
 

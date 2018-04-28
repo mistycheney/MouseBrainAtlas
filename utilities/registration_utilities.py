@@ -438,7 +438,7 @@ def generate_aligner_parameters_v2(alignment_spec,
         sys.stderr.write("Computing structure sizes: %.2f s\n" % (time.time() - t))
 
     label_weights_m = {}
-
+    
     for label_m in label_mapping_m2f.iterkeys():
         name_m = label_to_structure_moving[label_m]
         if not is_surround_label(name_m):
@@ -463,7 +463,10 @@ def generate_aligner_parameters_v2(alignment_spec,
                     # fixed brain has only 7N prob. map
                     label_weights_m[label_m] = - label_weights_m[label_ns] * volume_moving_structure_sizes[label_ns] / float(volume_moving_structure_sizes[label_m])
             elif isinstance(surround_weight, int) or isinstance(surround_weight, float):
-                label_weights_m[label_m] = surround_weight
+                if fixed_surroundings_have_positive_value:
+                    label_weights_m[label_m] = surround_weight
+                else:
+                    label_weights_m[label_m] = - surround_weight
             else:
                 sys.stderr.write("surround_weight %s is not recognized. Using the default.\n" % surround_weight)
 

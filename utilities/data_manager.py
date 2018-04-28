@@ -1052,7 +1052,7 @@ class DataManager(object):
     #     return fn
 
     @staticmethod
-    def get_domain_origin(stack, domain, resolution):
+    def get_domain_origin(stack, domain, resolution, loaded_resolution='down32'):
         """
         Loads the 3D origin of a domain for a given stack.
 
@@ -1063,6 +1063,7 @@ class DataManager(object):
 
         Args:
             domain (str): domain name
+            resolution (str): output resolution
         """
 
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
@@ -1084,7 +1085,7 @@ class DataManager(object):
                 raise
         else:
 
-            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
+            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution=loaded_resolution, stack=stack)
 
             if domain == 'wholebrain':
                 origin_loadedResol = np.zeros((3,))
@@ -3695,7 +3696,7 @@ class DataManager(object):
         vol, ori = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
 
         save_data(vol, DataManager.get_original_volume_filepath_v2(stack_spec=stack_spec, structure=structure))
-        save_data(ori, DataManager.get_original_volume_origin_filepath_v2(stack_spec=stack_spec, structure=structure, wrt=wrt))
+        save_data(ori, DataManager.get_original_volume_origin_filepath_v3(stack_spec=stack_spec, structure=structure, wrt=wrt))
 
     # @staticmethod
     # def get_original_volume_bbox_filepath_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):

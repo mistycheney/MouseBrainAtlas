@@ -982,7 +982,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if self.gscenes['main_sagittal'].active_section is not None else -1,
                 fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['main_sagittal'].active_section] \
                 if self.gscenes['main_sagittal'].active_section is not None else '',
-                z=self.gscenes['tb_sagittal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
+                z=self.gscenes['tb_sagittal'].active_i if self.gscenes['tb_sagittal'].active_i is not None else 0,
                 x=self.gscenes['tb_coronal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
                 y=self.gscenes['tb_horizontal'].active_i if self.gscenes['tb_horizontal'].active_i is not None else 0))
 

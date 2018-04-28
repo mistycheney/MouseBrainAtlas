@@ -197,3 +197,10 @@ Each row of the contour annotation file is indexed by a random `contour_id`. The
 * `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
 * `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution (~0.45 microns).
 * `filename`: the file name of the section.
+
+## Train classifiers
+
+`$ ./train_classifiers <structure_name> <path_to_annotation_file>`
+
+First compute patch features for all images using `compute_features_for_entire_stacks.ipynb`.
+

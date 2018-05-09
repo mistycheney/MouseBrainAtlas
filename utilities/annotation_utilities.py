@@ -437,7 +437,7 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             confirmed_right_sections = sorted(label_section_lookup[rname]) if rname in label_section_lookup else []
             unconfirmed_side_sections = sorted(label_section_lookup[name_u]) if name_u in label_section_lookup else []
 
-            sections = sorted(np.concatenate(np.r_[confirmed_left_sections, confirmed_right_sections, unconfirmed_side_sections]))
+            sections = sorted(confirmed_left_sections + confirmed_right_sections + unconfirmed_side_sections)
             assert len(sections) > 0
 
             # Initialize votes according to whether a section is to the left or right of the mid-sagittal section.
@@ -463,14 +463,23 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
                         if s >= sec:
                             votes[s] += 1
 
-            print votes
+            print sorted(votes.items())
 
-            inferred_left_sections = sorted([vote for sec, vote in votes.iteritems() if vote < 0])
-            inferred_right_sections = sorted([vote for sec, vote in votes.iteritems() if vote > 0])
-            minL = np.min(inferred_left_sections)
-            maxL = np.max(inferred_left_sections)
-            minR = np.min(inferred_right_sections)
-            maxR = np.max(inferred_right_sections)
+            inferred_left_sections = sorted([sec for sec, vote in votes.iteritems() if vote < 0])
+            if len(inferred_left_sections) > 0:
+                minL = np.min(inferred_left_sections)
+                maxL = np.max(inferred_left_sections)
+            else:
+                minL = None
+                maxL = None
+
+            inferred_right_sections = sorted([sec for sec, vote in votes.iteritems() if vote > 0])
+            if len(inferred_right_sections) > 0:
+                minR = np.min(inferred_right_sections)
+                maxR = np.max(inferred_right_sections)
+            else:
+                minR = None
+                maxR = None
 
             landmark_limits[lname] = (minL, maxL)
             landmark_limits[rname] = (minR, maxR)

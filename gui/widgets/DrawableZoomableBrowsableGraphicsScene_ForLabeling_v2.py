@@ -417,9 +417,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Automatically assigns side to each polygon in this graphics scene.
         """
 
-        label_section_lookup = self.get_label_section_lookup()
+        # label_section_lookup = self.get_label_section_lookup()
+        label_indices_lookup = self.get_label_indices_lookup()
+        label_sections_lookup = {l: [self.data_feeder.sections[idx] for idx in indices] for l, indices in label_indices_lookup.iteritems()}
 
-        structure_ranges = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
+        structure_ranges = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_sections_lookup)
         print 'structure_ranges', sorted(structure_ranges.items())
 
         for section_index, polygons in self.drawings.iteritems():
@@ -726,10 +728,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         return contour_entries
 
-    def get_label_section_lookup(self):
+    # def get_label_section_lookup(self):
+    def get_label_indices_lookup(self):
         """
         Returns:
-            dict: {label: section list}. Labels are sided if the sides are confirmed. Otherwise labels are unsided.
+            dict: {label: index list}. Labels are sided if the sides are confirmed. Otherwise labels are unsided. Values are list of image indices, NOT sections.
         """
 
         label_section_lookup = defaultdict(list)

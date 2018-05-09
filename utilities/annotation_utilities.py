@@ -465,6 +465,9 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
 
             print votes
 
+            unknown_side_sections = sorted([vote for sec, vote in votes.iteritems() if vote == 0])
+            print 'unknown_side_sections', unknown_side_sections
+
             inferred_left_sections = sorted([vote for sec, vote in votes.iteritems() if vote < 0])
             inferred_right_sections = sorted([vote for sec, vote in votes.iteritems() if vote > 0])
             minL = np.min(inferred_left_sections)

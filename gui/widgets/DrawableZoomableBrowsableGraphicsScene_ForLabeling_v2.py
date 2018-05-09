@@ -419,7 +419,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         label_section_lookup = self.get_label_section_lookup()
 
-        structure_ranges = get_landmark_range_limits_v2(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
+        structure_ranges = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_section_lookup)
         print 'structure_ranges', sorted(structure_ranges.items())
 
         for section_index, polygons in self.drawings.iteritems():
@@ -727,6 +727,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         return contour_entries
 
     def get_label_section_lookup(self):
+        """
+        Returns:
+            dict: {label: section list}. Labels are sided if the sides are confirmed. Otherwise labels are unsided.
+        """
 
         label_section_lookup = defaultdict(list)
 

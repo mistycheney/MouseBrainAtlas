@@ -486,7 +486,7 @@ def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered
                     maxR = None
                     labeled_minR = None
                     minR = inferred_minR
-            #
+
             #     if maxL is not None:
             #         landmark_limits[lname] = (np.min(sections), maxL)
             #

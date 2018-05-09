@@ -232,7 +232,8 @@ class Aligner(object):
             if centroid_m == 'structure_centroid':
                 self.centroid_m = np.concatenate([nzvoxels_m[i] for i in indices_m]).mean(axis=0)
             elif centroid_m == 'volume_centroid':
-                bboxes = np.array([volume_origin_to_bbox(volume_m[i], volume_m_origin[i]) for i in indices_m])
+                # bboxes = np.array([volume_origin_to_bbox(volume_m[i], volume_m_origin[i]) for i in indices_m])
+                bboxes = np.array([convert_volume_forms((volume_m[i], volume_m_origin[i]), out_form=('volume','bbox'))[1] for i in indices_m])
                 xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2
                 yc = (bboxes[:,2].min(axis=0) + bboxes[:,3].max(axis=0)) / 2
                 zc = (bboxes[:,4].min(axis=0) + bboxes[:,5].max(axis=0)) / 2
@@ -252,7 +253,8 @@ class Aligner(object):
             elif centroid_m == 'structure_centroid':
                 self.centroid_f = np.array([np.mean(np.where(volume_f[self.labelIndexMap_m2f[i]]), axis=1)[[1,0,2]] + volume_f_origin[self.labelIndexMap_m2f[i]] for i in indices_m]).mean(axis=0)
             elif centroid_f == 'volume_centroid':
-                bboxes = np.array([volume_origin_to_bbox(volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]) for i in indices_m])
+                # bboxes = np.array([volume_origin_to_bbox(volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]) for i in indices_m])
+                bboxes = np.array([convert_volume_forms((volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]), out_form=('volume', 'bbox'))[1] for i in indices_m])
                 xc = (bboxes[:,0].min(axis=0) + bboxes[:,1].max(axis=0)) / 2
                 yc = (bboxes[:,2].min(axis=0) + bboxes[:,3].max(axis=0)) / 2
                 zc = (bboxes[:,4].min(axis=0) + bboxes[:,5].max(axis=0)) / 2
@@ -1179,8 +1181,10 @@ class Aligner(object):
 
             if tf_type == 'affine' or tf_type == 'rigid':
                 if iteration > history_len:
-                    if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) & \
-                    np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
+                    # if np.all([np.std(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) and \
+                    # np.all([np.std(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
+                    if np.all([np.max(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) - np.min(Ts[iteration-history_len:iteration, [3,7,11]], axis=0) < terminate_thresh_trans]) and \
+                    np.all([np.max(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) - np.min(Ts[iteration-history_len:iteration, [0,1,2,4,5,6,8,9,10]], axis=0) < terminate_thresh_rot]):
                         break
             elif tf_type == 'bspline':
                 if iteration > history_len:

@@ -107,6 +107,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         # self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_atlas_volume)
         self.button_loadUnwarpedAtlas.clicked.connect(self.load_unwarped_structure)
         self.button_inferSide.clicked.connect(self.infer_side)
+        self.button_clearSide.clicked.connect(self.clear_side)
         self.button_displayOptions.clicked.connect(self.select_display_options)
         self.button_displayStructures.clicked.connect(self.select_display_structures)
         self.button_navigateToStructure.clicked.connect(self.navigate_to_structure)
@@ -536,6 +537,26 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         try:
             self.gscenes['tb_horizontal'].infer_side()
+        except:
+            pass
+
+
+    @pyqtSlot()
+    def clear_side(self):
+        self.gscenes['main_sagittal'].clear_side()
+
+        try:
+            self.gscenes['tb_sagittal'].clear_side()
+        except:
+            pass
+
+        try:
+            self.gscenes['tb_coronal'].clear_side()
+        except:
+            pass
+
+        try:
+            self.gscenes['tb_horizontal'].clear_side()
         except:
             pass
 
@@ -1125,7 +1146,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 if self.gscenes['main_sagittal'].active_section is not None else -1,
                 fn=metadata_cache['sections_to_filenames'][self.stack][self.gscenes['main_sagittal'].active_section] \
                 if self.gscenes['main_sagittal'].active_section is not None else '',
-                z=self.gscenes['tb_sagittal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
+                z=self.gscenes['tb_sagittal'].active_i if self.gscenes['tb_sagittal'].active_i is not None else 0,
                 x=self.gscenes['tb_coronal'].active_i if self.gscenes['tb_coronal'].active_i is not None else 0,
                 y=self.gscenes['tb_horizontal'].active_i if self.gscenes['tb_horizontal'].active_i is not None else 0))
 

@@ -384,7 +384,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # qimage_green = QImage(green_fp)
                 # red_fp = DataManager.get_image_filepath_v2(stack=self.gui.stack, section=self.active_section, prep_id=2, resol='lossless', version='contrastStretchedRed', ext='jpg')
                 # qimage_red = QImage(red_fp)
-                print 'read images', time.time() - t # 9s for first read, 4s for subsequent
+                sys.stderr.write('read images: %.2fs\n' % (time.time() - t))
 
                 if 'b' in self.per_channel_pixmap_cached:
                     del self.per_channel_pixmap_cached['b']
@@ -404,6 +404,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         else:
             raise Exception("Show option %s is not recognized." % self.showing_which)
+
+
+    def clear_side(self):
+        for section_index, polygons in self.drawings.iteritems():
+            for p in polygons:
+                if not p.properties['side_manually_assigned']:
+                    p.set_properties('side', None)
 
     def infer_side(self):
         """

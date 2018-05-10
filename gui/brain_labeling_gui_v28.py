@@ -525,40 +525,40 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
     def infer_side(self):
         self.gscenes['main_sagittal'].infer_side()
 
-        try:
-            self.gscenes['tb_sagittal'].infer_side()
-        except:
-            pass
-
-        try:
-            self.gscenes['tb_coronal'].infer_side()
-        except:
-            pass
-
-        try:
-            self.gscenes['tb_horizontal'].infer_side()
-        except:
-            pass
+        # try:
+        #     self.gscenes['tb_sagittal'].infer_side()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.gscenes['tb_coronal'].infer_side()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.gscenes['tb_horizontal'].infer_side()
+        # except:
+        #     pass
 
 
     @pyqtSlot()
     def clear_side(self):
         self.gscenes['main_sagittal'].clear_side()
-
-        try:
-            self.gscenes['tb_sagittal'].clear_side()
-        except:
-            pass
-
-        try:
-            self.gscenes['tb_coronal'].clear_side()
-        except:
-            pass
-
-        try:
-            self.gscenes['tb_horizontal'].clear_side()
-        except:
-            pass
+        #
+        # try:
+        #     self.gscenes['tb_sagittal'].clear_side()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.gscenes['tb_coronal'].clear_side()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.gscenes['tb_horizontal'].clear_side()
+        # except:
+        #     pass
 
 
     @pyqtSlot()
@@ -1175,8 +1175,10 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             # if gscene_id == 'tb_sagittal':
             # if gscene_id == source_gscene_id: # Skip updating the crossline if the update is triggered from this gscene
             #     continue
-            if gscene.mode == 'crossline':
-                gscene.update_cross(cross)
+
+
+            # if gscene.mode == 'crossline': # WHY need this ?
+            gscene.update_cross(cross)
 
     @pyqtSlot(object)
     def drawings_updated(self, polygon):

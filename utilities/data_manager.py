@@ -533,7 +533,7 @@ def images_to_volume_v2(images, spacing_um, in_resol_um, out_resol_um, crop_to_m
         assert len(np.unique(shapes[:,1])) == 1, 'Width of all images must be the same.'
 
         ydim, xdim = map(int, np.ceil(shapes[0] * float(in_resol_um) / out_resol_um))
-        sections = images.keys()
+        sections = sorted(images.keys())
         # if last_sec is None:
         #     last_sec = np.max(sections)
         # if first_sec is None:

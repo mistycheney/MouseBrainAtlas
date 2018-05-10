@@ -417,44 +417,48 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         Automatically assigns side to each polygon in this graphics scene.
         """
 
-        # label_section_lookup = self.get_label_section_lookup()
+        assert hasattr(self.data_feeder, 'sections')
+        first_sec, last_sec = DataManager.load_cropbox(self.gui.stack)[4:]
+        mid_sec = int(round((first_sec + last_sec) / 2))
+
         label_indices_lookup = self.get_label_indices_lookup()
-        label_sections_lookup = {l: [self.data_feeder.sections[idx] for idx in indices] for l, indices in label_indices_lookup.iteritems()}
+        # label_sections_lookup = {l: [self.data_feeder.sections[idx] for idx in indices] for l, indices in label_indices_lookup.iteritems()}
 
-        structure_ranges = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_sections_lookup)
-        print 'structure_ranges', sorted(structure_ranges.items())
+        index_ranges_all_structures = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_indices_lookup,
+        mid_index=self.data_feeder.sections.index(mid_sec))
+        print 'index_ranges_all_structures', sorted(index_ranges_all_structures.items())
 
-        for section_index, polygons in self.drawings.iteritems():
+        for idx, polygons in self.drawings.iteritems():
             for p in polygons:
                 if p.properties['set_name'] == 'handdrawn':
                     name_u = p.properties['label']
-                    if name_u in structure_ranges:
-                        assert name_u in singular_structures, 'Label %s is in structure_ranges, but it is not singular.' % name_u
+                    if name_u in index_ranges_all_structures:
+                        assert name_u in singular_structures, 'Label %s is in index_ranges_all_structures, but it is not singular.' % name_u
 
-                        if section_index >= structure_ranges[name_u][0] and section_index <= structure_ranges[name_u][1]:
+                        if idx >= index_ranges_all_structures[name_u][0] and idx <= index_ranges_all_structures[name_u][1]:
                             if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                                 p.set_properties('side', 'S')
                                 p.set_properties('side_manually_assigned', False)
                         else:
-                            raise Exception('Polygon is on a section not in structure_range.')
+                            raise Exception('Polygon for %s is on image index %d, but is not in structure_range.' % (name_u, idx ))
                     else:
                         lname = convert_to_left_name(name_u)
-                        if lname in structure_ranges:
-                            if structure_ranges[lname][1] is not None:
-                                if section_index <= structure_ranges[lname][1]:
+                        if lname in index_ranges_all_structures:
+                            if index_ranges_all_structures[lname][1] is not None:
+                                if idx <= index_ranges_all_structures[lname][1]:
                                     if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                                         p.set_properties('side', 'L')
                                         p.set_properties('side_manually_assigned', False)
-                                        # sys.stderr.write('%d, %d %s set to L\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                                        # sys.stderr.write('%d, %d %s set to L\n' % (idx, self.data_feeder.sections[idx], p.properties['label']))
 
                         rname = convert_to_right_name(p.properties['label'])
-                        if rname in structure_ranges:
-                            if structure_ranges[rname][0] is not None:
-                                if section_index >= structure_ranges[rname][0]:
+                        if rname in index_ranges_all_structures:
+                            if index_ranges_all_structures[rname][0] is not None:
+                                if idx >= index_ranges_all_structures[rname][0]:
                                     if p.properties['side'] is None or not p.properties['side_manually_assigned']:
                                         p.set_properties('side', 'R')
                                         p.set_properties('side_manually_assigned', False)
-                                        # sys.stderr.write('%d, %d %s set to R\n' % (section_index, self.data_feeder.sections[section_index], p.properties['label']))
+                                        # sys.stderr.write('%d, %d %s set to R\n' % (idx, self.data_feeder.sections[idx], p.properties['label']))
 
     def open_label_selection_dialog(self):
 
@@ -834,7 +838,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
     #     pass
 
 
-    def show_context_menu(self, pos):
+    def show_context_menu(self, pos_wrt_gview):
 
         myMenu = QMenu(self.gview)
 
@@ -886,6 +890,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         action_showInfo = myMenu.addAction("Show contour information")
         action_showReferences = myMenu.addAction("Show reference resources")
+        action_syncCrossline = myMenu.addAction("Sync crossline")
 
         myMenu.addSeparator()
 
@@ -937,7 +942,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         # action_doneDrawing = myMenu.addAction("Done drawing")
 
-        selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos))
+        selected_action = myMenu.exec_(self.gview.viewport().mapToGlobal(pos_wrt_gview))
 
         # if selected_action == action_changeIndexMode:
         #     if self.indexing_mode == 'section':
@@ -970,6 +975,10 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             msgBox.setTextFormat(Qt.RichText)
             msgBox.setText(reference_text)
             msgBox.exec_()
+
+        elif selected_action == action_syncCrossline:
+            pos_wrt_gscene = self.gview.mapToScene((pos_wrt_gview))
+            self.compute_crossline(pos_wrt_gscene.x(), pos_wrt_gscene.y())
 
         elif selected_action == action_confirmPolygon:
             # self.active_polygon.set_type(None)

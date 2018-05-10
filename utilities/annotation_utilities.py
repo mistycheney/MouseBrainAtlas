@@ -396,19 +396,17 @@ def assign_sideness(label_polygons, landmark_range_limits=None):
 #
 #     return annotation_on_sections
 
-def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered_labels=None):
+def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered_labels=None, mid_index=None):
     """
-    Identify the section range spanned by each structure.
+    Identify the index range spanned by each structure.
 
     Args:
-        label_section_lookup (dict): {label: section list}.
+        label_section_lookup (dict): {label: index list}.
     """
 
     print 'label_section_lookup:', label_section_lookup
 
-    first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-    mid_sec = (first_sec + last_sec) / 2
-    print 'Estimated mid-sagittal section = %d' % (mid_sec)
+    print 'Estimated mid-sagittal image index = %d' % (mid_index)
 
     landmark_limits = {}
 
@@ -441,12 +439,12 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             assert len(sections) > 0
 
             # Initialize votes according to whether a section is to the left or right of the mid-sagittal section.
-            votes = {sec: 1 if sec > mid_sec else -1 for sec in sections}
+            votes = {sec: 1 if sec > mid_index else -1 for sec in sections}
 
             if len(sections) == 1:
                 sys.stderr.write('Structure %s has a label on only one section. Use its side relative to the middle section.\n' % name_u)
                 sec = sections[0]
-                if sec < mid_sec:
+                if sec < mid_index:
                     landmark_limits[lname] = (sec, sec)
                 else:
                     landmark_limits[rname] = (sec, sec)
@@ -466,7 +464,8 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             print sorted(votes.items())
 
             unknown_side_sections = sorted([vote for sec, vote in votes.iteritems() if vote == 0])
-            print 'unknown_side_sections', unknown_side_sections
+            if len(unknown_side_sections) > 0:
+                print 'unknown_side_sections', unknown_side_sections
 
             inferred_left_sections = sorted([sec for sec, vote in votes.iteritems() if vote < 0])
             if len(inferred_left_sections) > 0:

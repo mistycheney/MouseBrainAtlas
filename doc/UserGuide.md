@@ -134,7 +134,7 @@ You are only required to draw such initial contours on 5-10 sections where the e
 
 `learning/pipeline_aws.ipynb`
 
-Step 1: Convert image to scoremap.
+Step 1: Convert the image stack to a 3-D probability map.
 
 `$ ./images_to_scoremaps.py <stack>`
 

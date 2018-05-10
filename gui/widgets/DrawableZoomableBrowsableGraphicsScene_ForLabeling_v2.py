@@ -874,11 +874,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         reconstruct_menu = QMenu("Update 3D structure (using only confirmed contours)", myMenu)
         myMenu.addMenu(reconstruct_menu)
         reconstruct_menu_actions = \
+        [reconstruct_menu.addAction('All')] + \
         [reconstruct_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
 
         reconstructUnconfirmed_menu = QMenu("Update 3D structure (using all contours)", myMenu)
         myMenu.addMenu(reconstructUnconfirmed_menu)
         reconstructUnconfirmed_menu_actions = \
+        [reconstructUnconfirmed_menu.addAction('All')] + \
         [reconstructUnconfirmed_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
 
         # action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
@@ -988,14 +990,25 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
-            self.structure_volume_updated.emit('handdrawn', name_s, True, True)
+
+            if name_s == 'all':
+                label_indices_lookup = self.get_label_indices_lookup()
+                for s in label_indices_lookup.keys():
+                    self.structure_volume_updated.emit('handdrawn', s, True, True)
+            else:
+                self.structure_volume_updated.emit('handdrawn', name_s, True, True)
 
         # elif selected_action == action_reconstructUsingUnconfirmed:
         elif selected_action in reconstructUnconfirmed_menu_actions:
             # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
-            self.structure_volume_updated.emit('handdrawn', name_s, False, True)
+            if name_s == 'all':
+                label_indices_lookup = self.get_label_indices_lookup()
+                for s in label_indices_lookup.keys():
+                    self.structure_volume_updated.emit('handdrawn', s, False, True)
+            else:
+                self.structure_volume_updated.emit('handdrawn', name_s, False, True)
 
         # elif selected_action in action_resolutions:
         #     selected_downsample_factor = action_resolutions[selected_action]

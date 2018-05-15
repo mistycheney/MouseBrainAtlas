@@ -55,6 +55,6 @@ Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 * Load image: 3.15 seconds.
 * Crop patches: 0.69 seconds.
 * Extract patches: 3.85 seconds (23960, 1, 224, 224)
-* Compute features: 77.74 seconds
-* Compute features at one section, multiple locations: 81.60 seconds
+* Compute features: 77.74 seconds (15.06 seconds if using 8 GPUs)
+* (total) Compute features at one section, multiple locations: 81.60 seconds (16.85 seconds if using 8 GPUs)
 * Save features: 2.64 seconds

@@ -120,7 +120,8 @@ def save_data(data, fp, upload_s3=True):
     create_parent_dir_if_not_exists(fp)
 
     if fp.endswith('.bp'):
-        bp.pack_ndarray_file(data, fp)
+        bp.pack_ndarray_file(np.ascontiguousarray(data), fp) 
+        # ascontiguousarray is important, without which sometimes the loaded array will be different from saved.
     elif fp.endswith('.json'):
         save_json(data, fp)
     elif fp.endswith('.pkl'):
@@ -200,11 +201,12 @@ def convert_volume_forms(volume, out_form):
     else:
         raise Exception("out_form %s is not recognized.")
 
-# def volume_origin_to_bbox(v, o):
-#     """
-#     Convert a (volume, origin) tuple into a bounding box.
-#     """
-#     return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
+        
+def volume_origin_to_bbox(v, o):
+    """
+    Convert a (volume, origin) tuple into a bounding box.
+    """
+    return np.array([o[0], o[0] + v.shape[1]-1, o[1], o[1] + v.shape[0]-1, o[2], o[2] + v.shape[2]-1])
 
 ####################################################################
 
@@ -256,33 +258,44 @@ def plot_by_method_by_structure(data_all_stacks_all_structures, structures, stac
     plt.legend();
     plt.title(title, fontsize=20);
 
+
 def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                                yticks=None, yticklabel_fmt='%.2f', yticks_fontsize=15,
                                stack_to_color=None, ylabel='', title='', style='scatter',
                                figsize=(20, 6), xticks_fontsize=12, xlabel='Structures', xlim=None,
                               ):
+    """
+    Plot the input data, with structures as x-axis. Different stacks are represented using different colors.
+    
+    Args:
+        style (str): scatter or boxplot.
+    """
 
     if stack_to_color is None:
         stack_to_color = {stack: random_colors(1)[0] for stack in data_all_stacks_all_structures.keys()}
 
-    plt.figure(figsize=figsize);
+    fig, ax = plt.subplots(figsize=figsize)
 
     if style == 'scatter':
         for stack in sorted(data_all_stacks_all_structures.keys()):
             data_all_structures = data_all_stacks_all_structures[stack]
             vals = [data_all_structures[s] if s in data_all_structures else None
                     for i, s in enumerate(structures)]
-            plt.scatter(range(len(vals)), vals, marker='o', s=100, label=stack, c=np.array(stack_to_color[stack])/255.);
+            ax.scatter(range(len(vals)), vals, marker='o', s=100, label=stack, c=np.array(stack_to_color[stack])/255.);
     elif style == 'boxplot':
-        for stack, data_all_structures in data_all_stacks_all_structures.iteritems():
-            D = np.array([data_all_structures[struct] if struct in data_all_structures else np.nan*np.ones((len(data_all_structures),)) for struct in structures]).T
-            bplot = plt.boxplot(D, positions=range(0, len(structures)), patch_artist=True);
-            for patch in bplot['boxes']:
-                patch.set_facecolor(np.array(stack_to_color[stack])/255.)
+        
+        D = [[data_all_stacks_all_structures[stack][struct] 
+              for stack in data_all_stacks_all_structures.iterkeys() 
+             if struct in data_all_stacks_all_structures[stack]]
+            for struct in structures]
+        
+        bplot = plt.boxplot(np.array(D), positions=range(0, len(structures)), patch_artist=True);
+#         for patch in bplot['boxes']:
+#             patch.set_facecolor(np.array(stack_to_color[stack])/255.)
 
-        plt.gca().yaxis.grid(True, linestyle='-', which='major', color='grey', alpha=0.5)
+        ax.yaxis.grid(True, linestyle='-', which='major', color='grey', alpha=0.5)
         # Hide these grid behind plot objects
-        plt.gca().set_axisbelow(True)
+        ax.set_axisbelow(True)
     else:
         raise Exception("%s is not recognized." % style)
 
@@ -296,10 +309,12 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     plt.ylabel(ylabel, fontsize=20);
     if xlim is None:
         xlim = [-1, len(structures)+1]
-    plt.xlim(xlim);
-    plt.ylim([yticks[0], yticks[-1]+yticks[-1]-yticks[-2]]);
+    ax.set_xlim(xlim);
+    ax.set_ylim([yticks[0], yticks[-1]+yticks[-1]-yticks[-2]]);
     plt.legend();
-    plt.title(title, fontsize=20);
+    ax.set_title(title, fontsize=20);
+    
+    return fig, ax
 
 #####################################################################
 

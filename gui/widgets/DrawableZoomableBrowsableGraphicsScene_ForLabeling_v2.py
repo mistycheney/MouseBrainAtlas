@@ -292,6 +292,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     raise Exception("Set name %s does not exist." % set_name)
 
                 try:
+                    # if index_wrt_dataVolume  is None:
+                    #     sys.exit()
                     self.add_polygon_with_circles_and_label(path=vertices_to_path(uv_wrt_dataVolume_dataResol),
                                                             index=index_wrt_dataVolume,
                                                             label=name_u,
@@ -733,7 +735,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         return contour_entries
 
     # def get_label_section_lookup(self):
-    def get_label_indices_lookup(self):
+    def get_label_indices_lookup(self, only_use_confirmed_sides=True):
         """
         Returns:
             dict: {label: index list}. Labels are sided if the sides are confirmed. Otherwise labels are unsided. Values are list of image indices, NOT sections.
@@ -743,19 +745,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
-                if p.properties['side_manually_assigned']:
-                    if p.properties['side'] is None:
-                        label = p.properties['label']
-                    elif p.properties['side'] == 'S':
-                        label = p.properties['label']
-                    elif p.properties['side'] == 'L':
+                if p.properties['side'] is None:
+                    label = p.properties['label']
+                elif p.properties['side'] == 'S':
+                    label = p.properties['label']
+                elif p.properties['side'] == 'L':
+                    if (only_use_confirmed_sides and p.properties['side_manually_assigned']) or not only_use_confirmed_sides:
                         label = convert_to_left_name(p.properties['label'])
-                    elif p.properties['side'] == 'R':
+                    else:
+                        label = p.properties['label']
+                elif p.properties['side'] == 'R':
+                    if (only_use_confirmed_sides and p.properties['side_manually_assigned']) or not only_use_confirmed_sides:
                         label = convert_to_right_name(p.properties['label'])
                     else:
-                        raise Exception('Side property must be None, L or R.')
+                        label = p.properties['label']
                 else:
-                    label = p.properties['label']
+                    raise Exception('Side property must be None, L or R.')
 
                 label_section_lookup[label].append(section_index)
 
@@ -1000,8 +1005,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
 
-            if name_s == 'all':
-                label_indices_lookup = self.get_label_indices_lookup()
+            if name_s == 'All':
+                label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in label_indices_lookup.keys():
                     self.structure_volume_updated.emit('handdrawn', s, True, True)
             else:
@@ -1012,8 +1017,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
-            if name_s == 'all':
-                label_indices_lookup = self.get_label_indices_lookup()
+            if name_s == 'All':
+                label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in label_indices_lookup.keys():
                     self.structure_volume_updated.emit('handdrawn', s, False, True)
             else:

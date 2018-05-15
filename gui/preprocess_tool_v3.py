@@ -32,7 +32,7 @@ from qt_utilities import *
 # Use the third method in http://pyqt.sourceforge.net/Docs/PyQt4/designer.html
 class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
-    def __init__(self, parent=None, stack=None, tb_fmt='png'):
+    def __init__(self, parent=None, stack=None, tb_fmt='png', tb_res='down32', tb_version=None):
         """
         Initialization of preprocessing tool.
         """
@@ -42,6 +42,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.stack = stack
         self.currently_showing = 'original'
         self.tb_fmt = tb_fmt
+        self.tb_res = tb_res
+        self.tb_version = tb_version
         self.stack_data_dir = os.path.join(THUMBNAIL_DATA_DIR, stack)
 
         self.show_valid_only = True
@@ -248,7 +250,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.overlay_gscene = MultiplePixmapsGraphicsScene(id='overlay', pixmap_labels=['moving', 'fixed'], gview=self.alignment_ui.aligned_gview)
         self.alignment_ui.aligned_gview.setScene(self.overlay_gscene)
         self.transformed_images_feeder = ImageDataFeeder_v2('overlay image feeder', stack=self.stack,
-                                                sections=section_filenames, resolution='down32')
+                                                sections=section_filenames, resolution=self.tb_res)
         self.update_transformed_images_feeder()
         self.overlay_gscene.set_data_feeder(self.transformed_images_feeder, 'moving')
         self.overlay_gscene.set_data_feeder(self.ordered_images_feeder, 'fixed')
@@ -267,7 +269,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             fp = DataManager.load_image_filepath_warped_to_adjacent_section(stack=self.stack, moving_fn=section_filenames[i], fixed_fn=section_filenames[i-1])
             transformed_image_filenames.append(fp)
 
-        self.transformed_images_feeder.set_images(labels=section_filenames[1:], filenames=transformed_image_filenames, resolution='down32', load_with_cv2=True)
+        self.transformed_images_feeder.set_images(labels=section_filenames[1:], filenames=transformed_image_filenames, resolution=self.tb_res, load_with_cv2=True)
 
     def align_using_elastix(self):
         selected_elastix_parameter_name = str(self.alignment_ui.comboBox_parameters.currentText())
@@ -277,8 +279,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         prev_fn = self.prev_gscene.active_section
         out_dir = os.path.join(self.stack_data_dir, self.stack + '_custom_transforms', curr_fn + '_to_' + prev_fn)
 
-        curr_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=curr_fn, resol='thumbnail', version='NtbNormalized')
-        prev_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=prev_fn, resol='thumbnail', version='NtbNormalized' )
+        curr_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=curr_fn, resol=self.tb_res, version=self.tb_version)
+        prev_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=prev_fn, resol=self.tb_res, version=self.tb_version )
 
         # curr_fp = os.path.join(RAW_DATA_DIR, self.stack, curr_fn + '.' + self.tb_fmt)
         # prev_fp = os.path.join(RAW_DATA_DIR, self.stack, prev_fn + '.' + self.tb_fmt)
@@ -366,8 +368,8 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         with open(custom_tf_fn, 'r') as f:
             t11, t12, t13, t21, t22, t23 = map(float, f.readline().split())
 
-        prev_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=prev_section_fn, resol='thumbnail', version='NtbNormalized' )
-        curr_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=curr_section_fn, resol='thumbnail', version='NtbNormalized' )
+        prev_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=prev_section_fn, resol=self.tb_res, version=self.tb_version )
+        curr_fp = DataManager.get_image_filepath_v2(stack=self.stack, prep_id=None, fn=curr_section_fn, resol=self.tb_res, version=self.tb_version )
         prev_img_w, prev_img_h = identify_shape(prev_fp)
 
         output_image_fp = os.path.join(self.stack_data_dir, '%(stack)s_custom_transforms/%(curr_fn)s_to_%(prev_fn)s/%(curr_fn)s_alignedTo_%(prev_fn)s.tif' % \
@@ -490,7 +492,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             else:
                 filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
                 shapes = \
-                    [identify_shape(DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version='NtbNormalized', resol='thumbnail'))
+                    [identify_shape(DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version=self.tb_version, resol=self.tb_res))
                     for fn in filenames_to_load]
                 largest_idx = np.argmax([h*w for h, w in shapes])
                 print 'largest section is ', filenames_to_load[largest_idx]
@@ -504,14 +506,14 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
             if not hasattr(self, 'ordered_images_feeder') or self.ordered_images_feeder is None:
                 self.ordered_images_feeder = ImageDataFeeder_v2('ordered image feeder', stack=self.stack,
-                                    sections=filenames_to_load, resolution='down32', use_thread=False, auto_load=False)
+                                    sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
                 self.ordered_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version='NtbNormalized', resol='thumbnail')
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
-                                                resolution='down32', load_with_cv2=False)
+                                                resolution=self.tb_res, load_with_cv2=False)
                 self.ordered_images_feeder.set_images(labels=['Placeholder'],
                                                 filenames=[self.placeholder_qimage],
-                                                resolution='down32', load_with_cv2=False)
+                                                resolution=self.tb_res, load_with_cv2=False)
             else:
                 self.ordered_images_feeder.set_sections(filenames_to_load)
 
@@ -530,15 +532,15 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
             if not hasattr(self, 'aligned_images_feeder') or self.aligned_images_feeder is None:
                 self.aligned_images_feeder = ImageDataFeeder_v2('aligned image feeder', stack=self.stack,
-                                    sections=filenames_to_load, resolution='down32', use_thread=False, auto_load=False)
+                                    sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
                 self.aligned_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=1, version='NtbNormalized', resol='thumbnail')
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=1, version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
-                                                resolution='down32', load_with_cv2=False)
+                                                resolution=self.tb_res, load_with_cv2=False)
 
                 self.aligned_images_feeder.set_images(labels=['Placeholder'],
                                                 filenames=[self.placeholder_qimage],
-                                                resolution='down32', load_with_cv2=False)
+                                                resolution=self.tb_res, load_with_cv2=False)
             else:
                 self.aligned_images_feeder.set_sections(filenames_to_load)
 
@@ -553,13 +555,13 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         # elif self.currently_showing == 'mask_contour':
         #
         #     self.maskContourViz_images_feeder = ImageDataFeeder_v2('mask contoured image feeder', stack=self.stack,
-        #                                         sections=self.valid_section_indices, resolution='down32')
+        #                                         sections=self.valid_section_indices, resolution=self.tb_res)
         #     self.maskContourViz_images_dir = self.stack_data_dir + '/%(stack)s_maskContourViz_unsorted' % {'stack': self.stack}
         #     maskContourViz_image_filenames = [os.path.join(self.maskContourViz_images_dir, '%(fn)s_mask_contour_viz.tif' % {'fn': fn})
         #                                 for fn in self.valid_section_filenames]
         #
-        #     self.maskContourViz_images_feeder.set_images(self.valid_section_indices, maskContourViz_image_filenames, resolution='down32', load_with_cv2=False)
-        #     # self.maskContourViz_images_feeder.set_resolution('down32')
+        #     self.maskContourViz_images_feeder.set_images(self.valid_section_indices, maskContourViz_image_filenames, resolution=self.tb_res, load_with_cv2=False)
+        #     # self.maskContourViz_images_feeder.set_resolution(self.tb_res)
         #
         #     active_i = self.sorted_sections_gscene.active_i
         #     self.sorted_sections_gscene.set_data_feeder(self.maskContourViz_images_feeder)
@@ -760,10 +762,12 @@ if __name__ == "__main__":
 
     parser.add_argument("stack_name", type=str, help="stack name")
     parser.add_argument("--tb_fmt", type=str, help="thumbnail format", default='png')
+    parser.add_argument("--tb_res", type=str, help="resolution of displayed thumbnail images", default='down32')
+    parser.add_argument("--tb_version", type=str, help="version of displayed thumbnail images", default=None)
     args = parser.parse_args()
     app = QApplication(sys.argv)
 
-    m = PreprocessGUI(stack=args.stack_name, tb_fmt=args.tb_fmt)
+    m = PreprocessGUI(stack=args.stack_name, tb_fmt=args.tb_fmt, tb_res=args.tb_res, tb_version=args.tb_version)
 
     m.showMaximized()
     sys.exit(app.exec_())

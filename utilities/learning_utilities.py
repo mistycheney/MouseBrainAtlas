@@ -354,6 +354,7 @@ def convert_image_patches_to_features_v2(patches, model, mean_img, batch_size):
     """
 
     features_list = []
+        
     for i in range(0, len(patches), 80000):
                 
         assert all([p.shape == (224, 224) for p in patches])
@@ -823,7 +824,8 @@ def extract_patches_given_locations(patch_size,
         if stack in ['CHATM2', 'CHATM3']:
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGamma')
         elif stack in all_nissl_stacks:
-            img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
+            # img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
+            img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='gray')
         else:
             if is_nissl:
                 # if version is None:

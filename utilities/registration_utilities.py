@@ -438,17 +438,18 @@ def generate_aligner_parameters_v2(alignment_spec,
 
     print 'label_mapping_m2f', label_mapping_m2f
 
-    if positive_weight == 'inverse' or surround_weight == 'inverse':
-        t = time.time()
-        cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
-    #     pool = Pool(NUM_CORES)
-    #     volume_moving_structure_sizes = dict(zip(volume_moving.keys(),
-    #                                              pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff),
-    #                                                       volume_moving.keys())))
-    #     pool.close()
-    #     pool.join()
-        volume_moving_structure_sizes = {k: np.count_nonzero(v > cutoff) for k, (v, o) in volume_moving.iteritems()}
-        sys.stderr.write("Computing structure sizes: %.2f s\n" % (time.time() - t))
+    if include_surround:
+        if positive_weight == 'inverse' or surround_weight == 'inverse':
+            t = time.time()
+            cutoff = .5 # Structure size is defined as the number of voxels whose value is above this cutoff probability.
+        #     pool = Pool(NUM_CORES)
+        #     volume_moving_structure_sizes = dict(zip(volume_moving.keys(),
+        #                                              pool.map(lambda l: np.count_nonzero(volume_moving[l] > cutoff),
+        #                                                       volume_moving.keys())))
+        #     pool.close()
+        #     pool.join()
+            volume_moving_structure_sizes = {k: np.count_nonzero(v > cutoff) for k, (v, o) in volume_moving.iteritems()}
+            sys.stderr.write("Computing structure sizes: %.2f s\n" % (time.time() - t))
 
     label_weights_m = {}
 
@@ -2196,10 +2197,14 @@ def average_location(centroid_allLandmarks=None, mean_centroid_allLandmarks=None
     points_midplane_oriented = {name: transform_points(p, transform=transform_matrix_to_atlasCanonicalSpace)
                                 for name, p in mean_centroid_allLandmarks.iteritems()}
 
-    instance_centroid_rel2atlasCanonicalSpace = \
-{n: transform_points(s,transform=transform_matrix_to_atlasCanonicalSpace)
-for n, s in centroid_allLandmarks.iteritems()}
-
+    if centroid_allLandmarks is not None:
+    
+        instance_centroid_rel2atlasCanonicalSpace = \
+    {n: transform_points(s,transform=transform_matrix_to_atlasCanonicalSpace)
+    for n, s in centroid_allLandmarks.iteritems()}
+    else:
+        instance_centroid_rel2atlasCanonicalSpace = None
+    
     canonical_locations = {}
 
     for name in names:

@@ -130,8 +130,10 @@ class CoordinatesConverter(object):
 
             # Define frame:wholebrainWithMargin
             intensity_volume_spec = dict(name=stack, resolution='10.0um', prep_id='wholebrainWithMargin', vol_type='intensity')
-            _, thumbnail_volume_origin_wrt_wholebrain_dataResol = DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
-            thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_dataResol * 10.
+            _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
+            DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            
+            thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
             
             self.derive_three_view_frames(base_frame_name='wholebrainWithMargin', 
                                    origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um)
@@ -1374,14 +1376,14 @@ class DataManager(object):
             use_inverse (bool): If True, load the 2-d rigid transforms that when multiplied
                                 to coordinates on the raw image space converts it to on aligned space.
                                 In preprocessing, set to False, which means simply parse the transform files as they are.
-            downsample_factor (float): the downsample factor of images that the output transform will be applied to.
-            resolution (str): resolution of the image that the output transform will be applied to.
+            in_image_resolution (str): resolution of the image that the loaded transforms are derived from.
+            out_image_resolution (str): resolution of the image that the output transform will be applied to.
         """
 
         rescale_in_resol_to_1um = convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
         rescale_1um_to_out_resol = convert_resolution_string_to_um(stack=stack, resolution=out_image_resolution)
 
-        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True)
+        Ts_anchor_to_individual_section_image_resol = DataManager.load_transforms(stack=stack, resolution='1um', use_inverse=True, anchor_fn=anchor_fn)
 
         Ts = {}
 
@@ -1530,37 +1532,38 @@ class DataManager(object):
             basename += '_' + structure
         return basename
 
-    # @staticmethod
-    # def get_warped_volume_basename(stack_m,
-    #                                stack_f=None,
-    #                                warp_setting=None,
-    #                                prep_id_m=None,
-    #                                prep_id_f=None,
-    #                                detector_id_m=None,
-    #                                detector_id_f=None,
-    #                                downscale=32,
-    #                                structure_m=None,
-    #                                structure_f=None,
-    #                                vol_type_m='score',
-    #                                vol_type_f='score',
-    #                                trial_idx=None,
-    #                                **kwargs):
-    #
-    #     basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-    #                                               resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-    #
-    #     if stack_f is None:
-    #         assert warp_setting is None
-    #         vol_name = basename_m
-    #     else:
-    #         basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-    #                                               resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
-    #         vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
-    #
-    #     if trial_idx is not None:
-    #         vol_name += '_trial_%d' % trial_idx
-    #
-    #     return vol_name
+    # OBSOLETE
+    @staticmethod
+    def get_warped_volume_basename(stack_m,
+                                   stack_f=None,
+                                   warp_setting=None,
+                                   prep_id_m=None,
+                                   prep_id_f=None,
+                                   detector_id_m=None,
+                                   detector_id_f=None,
+                                   downscale=32,
+                                   structure_m=None,
+                                   structure_f=None,
+                                   vol_type_m='score',
+                                   vol_type_f='score',
+                                   trial_idx=None,
+                                   **kwargs):
+    
+        basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
+                                                  resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
+    
+        if stack_f is None:
+            assert warp_setting is None
+            vol_name = basename_m
+        else:
+            basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
+                                                  resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
+            vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
+    
+        if trial_idx is not None:
+            vol_name += '_trial_%d' % trial_idx
+    
+        return vol_name
 
     @staticmethod
     def get_warped_volume_basename_v2(alignment_spec, trial_idx=None):
@@ -1579,36 +1582,38 @@ class DataManager(object):
 
         return vol_name
 
-    # @staticmethod
-    # def get_alignment_parameters_filepath(stack_f, stack_m,
-    #                                       warp_setting,
-    #                                       prep_id_m=None, prep_id_f=None,
-    #                                       detector_id_m=None, detector_id_f=None,
-    #                                       structure_f=None, structure_m=None,
-    #                                       vol_type_f='score', vol_type_m='score',
-    #                                       downscale=32,
-    #                                       trial_idx=None):
-    #     basename = DataManager.get_warped_volume_basename(**locals())
-    #     fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
-    #                           '%(basename)s',
-    #                           '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
-    #     return fp
+    # OBSOLETE
+    @staticmethod
+    def get_alignment_parameters_filepath(stack_f, stack_m,
+                                          warp_setting,
+                                          prep_id_m=None, prep_id_f=None,
+                                          detector_id_m=None, detector_id_f=None,
+                                          structure_f=None, structure_m=None,
+                                          vol_type_f='score', vol_type_m='score',
+                                          downscale=32,
+                                          trial_idx=None):
+        basename = DataManager.get_warped_volume_basename(**locals())
+        fp = os.path.join(REGISTRATION_PARAMETERS_ROOTDIR, '%(stack_m)s',
+                              '%(basename)s',
+                              '%(basename)s_parameters.txt') % {'stack_m': stack_m, 'basename':basename}
+        return fp
 
-    # @staticmethod
-    # def load_alignment_parameters(stack_f, stack_m, warp_setting,
-    #                               prep_id_m=None, prep_id_f=None,
-    #                               detector_id_m=None, detector_id_f=None,
-    #                               structure_f=None, structure_m=None,
-    #                               vol_type_f='score', vol_type_m='score',
-    #                               downscale=32, trial_idx=None):
-    #     """
-    #     Returns
-    #         (flattened parameters, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f)
-    #     """
-    #     params_fp = DataManager.get_alignment_parameters_filepath(**locals())
-    #     # download_from_s3(params_fp, redownload=True)
-    #     download_from_s3(params_fp, redownload=False)
-    #     return DataManager.load_data(params_fp, 'transform_params')
+    # OBSOLETE
+    @staticmethod
+    def load_alignment_parameters(stack_f, stack_m, warp_setting,
+                                  prep_id_m=None, prep_id_f=None,
+                                  detector_id_m=None, detector_id_f=None,
+                                  structure_f=None, structure_m=None,
+                                  vol_type_f='score', vol_type_m='score',
+                                  downscale=32, trial_idx=None):
+        """
+        Returns
+            (flattened parameters, centroid_m, centroid_f, xdim_m, ydim_m, zdim_m, xdim_f, ydim_f, zdim_f)
+        """
+        params_fp = DataManager.get_alignment_parameters_filepath(**locals())
+        # download_from_s3(params_fp, redownload=True)
+        download_from_s3(params_fp, redownload=False)
+        return DataManager.load_data(params_fp, 'transform_params')
 
     # @staticmethod
     # def load_alignment_parameters_v2(stack_f, stack_m, warp_setting,
@@ -2175,12 +2180,12 @@ class DataManager(object):
         """
         return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_' + resolution + '_meanPositions.pkl')
 
-    # @staticmethod
-    # def get_instance_centroids_filepath(atlas_name, **kwargs):
-    #     """
-    #     Filepath of the structure mean positions.
-    #     """
-    #     return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_instanceCentroids.pkl')
+    @staticmethod
+    def get_instance_centroids_filepath(atlas_name, **kwargs):
+        """
+        Filepath of the structure mean positions.
+        """
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_instanceCentroids.pkl')
 
     @staticmethod
     def get_structure_viz_filepath(atlas_name, structure, suffix, **kwargs):
@@ -3703,38 +3708,39 @@ class DataManager(object):
     #         volume = volume.astype(np.float32)
     #     return volume
 
-    # @staticmethod
-    # def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32,
-    #                              relative_to_uncropped=False):
-    #     """
-    #     This returns the 3D bounding box of the volume.
-    #     (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
-    #
-    #     Args:
-    #         volume_type (str): score or annotationAsScore.
-    #         relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
-    #
-    #     Returns:
-    #         (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
-    #     """
-    #
-    #     bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
-    #     download_from_s3(bbox_fp)
-    #     volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
-    #     # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
-    #     # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
-    #
-    #     if relative_to_uncropped:
-    #         if volume_type == 'score' or volume_type == 'thumbnail':
-    #             # bbox of "brainstem" wrt "wholebrain"
-    #             brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
-    #             volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
-    #             return volume_bbox_wrt_wholebrain
-    #         # else:
-    #         #     continue
-    #             # raise
-    #
-    #     return volume_bbox_wrt_wholebrainXYcropped
+    # OBSOLETE
+    @staticmethod
+    def load_original_volume_bbox(stack, volume_type, prep_id=None, detector_id=None, structure=None, downscale=32,
+                                 relative_to_uncropped=False):
+        """
+        This returns the 3D bounding box of the volume.
+        (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
+    
+        Args:
+            volume_type (str): score or annotationAsScore.
+            relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
+    
+        Returns:
+            (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
+        """
+    
+        bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
+        download_from_s3(bbox_fp)
+        volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
+        # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
+        # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
+    
+        if relative_to_uncropped:
+            if volume_type == 'score' or volume_type == 'thumbnail':
+                # bbox of "brainstem" wrt "wholebrain"
+                brainstem_bbox_wrt_wholebrain = DataManager.get_crop_bbox_rel2uncropped(stack=stack)
+                volume_bbox_wrt_wholebrain = np.r_[volume_bbox_wrt_wholebrainXYcropped[:4] + brainstem_bbox_wrt_wholebrain[[0,0,2,2]], brainstem_bbox_wrt_wholebrain[4:]]
+                return volume_bbox_wrt_wholebrain
+            # else:
+            #     continue
+                # raise
+    
+        return volume_bbox_wrt_wholebrainXYcropped
 
     # @staticmethod
     # def load_original_volume_bbox_v2(stack_spec, structure=None, wrt='wholebrain', **kwargs):
@@ -3808,28 +3814,29 @@ class DataManager(object):
     #
     #     return bbox_fn
 
-    # @staticmethod
-    # def get_original_volume_bbox_filepath(stack,
-    #                             detector_id=None,
-    #                                       prep_id=None,
-    #                             downscale=32,
-    #                              volume_type='score',
-    #                             structure=None, **kwargs):
-    #     if volume_type == 'annotation':
-    #         bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
-    #     elif volume_type == 'score':
-    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
-    #     elif volume_type == 'annotationAsScore':
-    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
-    #     elif volume_type == 'shell':
-    #         bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
-    #     elif volume_type == 'thumbnail':
-    #         bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
-    #         detector_id=detector_id)
-    #     else:
-    #         raise Exception('Type must be annotation, score, shell or thumbnail.')
-    #
-    #     return bbox_fn
+    # OBSOLETE
+    @staticmethod
+    def get_original_volume_bbox_filepath(stack,
+                                detector_id=None,
+                                          prep_id=None,
+                                downscale=32,
+                                 volume_type='score',
+                                structure=None, **kwargs):
+        if volume_type == 'annotation':
+            bbox_fn = DataManager.get_annotation_volume_bbox_filepath(stack=stack)
+        elif volume_type == 'score':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
+        elif volume_type == 'annotationAsScore':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(**locals())
+        elif volume_type == 'shell':
+            bbox_fn = DataManager.get_shell_bbox_filepath(stack, structure, downscale)
+        elif volume_type == 'thumbnail':
+            bbox_fn = DataManager.get_score_volume_bbox_filepath(stack=stack, structure='7N', downscale=downscale,
+            detector_id=detector_id)
+        else:
+            raise Exception('Type must be annotation, score, shell or thumbnail.')
+    
+        return bbox_fn
 
     @staticmethod
     def get_shell_bbox_filepath(stack, label, downscale):
@@ -4439,16 +4446,24 @@ class DataManager(object):
             sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
             if img is None:
-                img = imread(img_fp, -1)
-                if img is None:
-                    raise Exception("Image loading returns None")
+                try:
+                    img = imread(img_fp, -1)
+                except:
+                    img = None
+                    # raise Exception("Image loading failed.")
+                # if img is None:
+                    # raise Exception("Image loading returns None")
             print img_fp
 
         if img is None:
             if version == 'blue':
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)[..., 2]
             elif version == 'grayJpeg':
-                sys.stderr.write("Version %s is not available. Instead, load lossless RGB and convert to uint8 grayscale...\n" % version)
+                sys.stderr.write("Version %s is not available. Instead, load raw RGB JPEG and convert to uint8 grayscale...\n" % version)
+                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version='jpeg', section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                img = img_as_ubyte(rgb2gray(img))
+            elif version == 'gray':
+                sys.stderr.write("Version %s is not available. Instead, load raw RGB and convert to uint8 grayscale...\n" % version)
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
                 img = img_as_ubyte(rgb2gray(img))
             elif version == 'Ntb':
@@ -4458,6 +4473,9 @@ class DataManager(object):
             else:
                 raise Exception("Image loading failed.")
 
+        if version == 'mask':
+            img = img.astype(np.bool)
+                
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:
@@ -4518,17 +4536,18 @@ class DataManager(object):
             prep_id = prep_str_to_id_2d[prep_id]
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
-        if ext is None:
-            if version == 'mask':
-                ext = 'png'
-            elif version == 'contrastStretched' or version.endswith('Jpeg') or version == 'jpeg':
-                ext = 'jpg'
-            else:
-                ext = 'tif'
+        
 
         if version is None:
-            image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '.' + ext
+            image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '.' + 'tif'
         else:
+            if ext is None:
+                if version == 'mask':
+                    ext = 'png'
+                elif version == 'contrastStretched' or version.endswith('Jpeg') or version == 'jpeg':
+                    ext = 'jpg'
+                else:
+                    ext = 'tif'
             image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_' + resol + '_' + version + '.' + ext
         image_path = os.path.join(image_dir, image_name)
 

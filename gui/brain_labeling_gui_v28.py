@@ -130,6 +130,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         loaded_intensity_volume_resol_um = convert_resolution_string_to_voxel_size(resolution=loaded_intensity_volume_resol, stack=self.stack)
         # target_intensity_volume_resol = 'down32'
         target_intensity_volume_resol = '20.0um'
+        # target_intensity_volume_resol = '20.0um'
         target_intensity_volume_resol_um = convert_resolution_string_to_voxel_size(resolution=target_intensity_volume_resol, stack=self.stack)
 
         self.volume_cache = {}
@@ -1018,9 +1019,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         self.load_atlas_volume(warped=True, structures=new_structures_to_load)
 
     @pyqtSlot()
-    def load_structures(self):
+    def load_structures(self, set_name='aligned_atlas'):
         """
         Load 3-D structure annotations from file.
+
+        Args:
+            set_name (str): default to 'aligned_atlas'
         """
 
         structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file",
@@ -1030,6 +1034,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             return
 
         structure_df = load_hdf_v2(structures_df_fp)
+
+        selected_structures, new_structures_to_load, structures_to_remove = self.select_structures()
 
         for sid, struct_info in structure_df.iterrows():
             name_s = compose_label(struct_info['name'], side=struct_info['side'])
@@ -1046,23 +1052,24 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
                 volume_volResol = rescale_by_resampling(volume, scaling)
                 origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
 
-            self.structure_volumes['aligned_atlas'][name_s] = {
+            self.structure_volumes[set_name][name_s] = {
             'volume': volume_volResol,
             'origin': origin_wrt_wholebrain_volResol,
             'edits': struct_info['edits']
             }
 
-            self.handle_structure_update(set_name='aligned_atlas', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
-            #
-            # for gscene_id, gscene in self.gscenes.iteritems():
-            #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
-            #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
-            #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
-            #
-            # for gscene in self.gscenes.itervalues():
-            #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
-            #
 
+            if name_s in selected_structures or name_s in new_structures_to_load:
+                self.handle_structure_update(set_name=set_name, name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
+                #
+                # for gscene_id, gscene in self.gscenes.iteritems():
+                #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+                #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
+                #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+                #
+                # for gscene in self.gscenes.itervalues():
+                #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
+                #
 
 
     @pyqtSlot()
@@ -1070,45 +1077,47 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         """
         Load 3-D structure annotations from file. Same as load_structures, except for set name.
         """
+        self.load_structures(set_name='handdrawn')
 
-        structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file",
-        os.path.join((ANNOTATION_THALAMUS_ROOTDIR if self.prep_id == 3 else ANNOTATION_ROOTDIR), self.stack)))
-
-        if structures_df_fp == '':
-            return
-
-        structure_df = load_hdf_v2(structures_df_fp)
-
-        for sid, struct_info in structure_df.iterrows():
-            name_s = compose_label(struct_info['name'], side=struct_info['side'])
-            print name_s
-
-            if struct_info['volume'] is None:
-                volume_volResol = None
-                origin_wrt_wholebrain_volResol = None
-            else:
-                volume = bp.unpack_ndarray_str(struct_info['volume'])
-                origin_wrt_wholebrain_storedVolResol = struct_info['origin']
-
-                scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
-                volume_volResol = rescale_by_resampling(volume, scaling)
-                origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
-
-            self.structure_volumes['handdrawn'][name_s] = {
-            'volume': volume_volResol,
-            'origin': origin_wrt_wholebrain_volResol,
-            'edits': struct_info['edits']
-            }
-
-            self.handle_structure_update(set_name='handdrawn', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
-
-            # for gscene_id, gscene in self.gscenes.iteritems():
-            #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
-            #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
-            #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
-            #
-            # for gscene in self.gscenes.itervalues():
-            #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
+    #
+    #     structures_df_fp = str(QFileDialog.getOpenFileName(self, "Choose the structure annotation file",
+    #     os.path.join((ANNOTATION_THALAMUS_ROOTDIR if self.prep_id == 3 else ANNOTATION_ROOTDIR), self.stack)))
+    #
+    #     if structures_df_fp == '':
+    #         return
+    #
+    #     structure_df = load_hdf_v2(structures_df_fp)
+    #
+    #     for sid, struct_info in structure_df.iterrows():
+    #         name_s = compose_label(struct_info['name'], side=struct_info['side'])
+    #         print name_s
+    #
+    #         if struct_info['volume'] is None:
+    #             volume_volResol = None
+    #             origin_wrt_wholebrain_volResol = None
+    #         else:
+    #             volume = bp.unpack_ndarray_str(struct_info['volume'])
+    #             origin_wrt_wholebrain_storedVolResol = struct_info['origin']
+    #
+    #             scaling = convert_resolution_string_to_voxel_size(stack=self.stack, resolution=struct_info['resolution']) / self.structure_volume_resolution_um
+    #             volume_volResol = rescale_by_resampling(volume, scaling)
+    #             origin_wrt_wholebrain_volResol = origin_wrt_wholebrain_storedVolResol * scaling
+    #
+    #         self.structure_volumes['handdrawn'][name_s] = {
+    #         'volume': volume_volResol,
+    #         'origin': origin_wrt_wholebrain_volResol,
+    #         'edits': struct_info['edits']
+    #         }
+    #
+    #         self.handle_structure_update(set_name='handdrawn', name_s=name_s, use_confirmed_only=False, recompute_from_contours=False)
+    #
+    #         # for gscene_id, gscene in self.gscenes.iteritems():
+    #         #     gscene.converter.derive_three_view_frames(base_frame_name=name_s,
+    #         #     origin_wrt_wholebrain_um=self.structure_volumes['aligned_atlas'][name_s]['origin'] * self.structure_volume_resolution_um,
+    #         #     zdim_um=self.structure_volumes['aligned_atlas'][name_s]['volume'].shape[2] * self.structure_volume_resolution_um)
+    #         #
+    #         # for gscene in self.gscenes.itervalues():
+    #         #     gscene.update_drawings_from_structure_volume(set_name='aligned_atlas', name_s=name_s, levels=[0.5])
 
     @pyqtSlot()
     def load_contours(self):
@@ -1140,7 +1149,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
             if self.THUMBNAIL_VOLUME_LOADED:
 
-                self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f' % \
+                self.setWindowTitle('BrainLabelingGUI, stack %(stack)s, fn %(fn)s, section %(sec)d, z=%(z).2f, x=%(x).2f, y=%(y).2f voxel units' % \
                 dict(stack=self.stack,
                 sec=self.gscenes['main_sagittal'].active_section
                 if self.gscenes['main_sagittal'].active_section is not None else -1,
@@ -1239,9 +1248,13 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         if set_name == 'handdrawn':
             if name_s not in self.structure_volumes[set_name] or recompute_from_contours:
-                self.structure_volumes[set_name][name_s]['volume'] , \
-                self.structure_volumes[set_name][name_s]['origin'] = \
-                self.reconstruct_structure_from_contours(name_s, use_confirmed_only=use_confirmed_only,  gscene_id=self.sender().id)
+                try:
+                    self.structure_volumes[set_name][name_s]['volume'] , \
+                    self.structure_volumes[set_name][name_s]['origin'] = \
+                    self.reconstruct_structure_from_contours(name_s, use_confirmed_only=use_confirmed_only,  gscene_id=self.sender().id)
+                except Exception as e:
+                    sys.stderr.write('%s\n' % e)
+                    return
 
         # print set_name, name_s, self.structure_volumes[set_name][name_s]['origin']
 

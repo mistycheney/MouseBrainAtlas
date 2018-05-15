@@ -32,14 +32,13 @@ Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 
 * locate patches: 0.02 seconds
 
-* No pre-computed features found... computing from scratch.
-* Load image: 20.64 seconds.
-* Crop patches: 0.09 seconds.
-* Extract patches: 20.74 seconds
-* Compute features: 4.67 seconds
-* Save features: 2.34 seconds
-
 * Load pre-computed features: 0.07 seconds
+* No pre-computed features found... computing from scratch.
+  * Load image: 20.64 seconds.
+  * Crop patches: 0.09 seconds.
+  * Extract patches: 20.74 seconds
+  * Compute features: 4.67 seconds
+  * Save features: 2.34 seconds
 
 * Load background image: 19.82 seconds (Load background image: 1.48 seconds if already exist)
 * Rescale background image to output resolution: 0.17 seconds

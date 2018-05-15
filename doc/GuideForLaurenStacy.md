@@ -1,6 +1,6 @@
 Notebook `annotation/parse_neurolucida_xml_lauren.ipynb`
 
-`parse_neurolucida_xml.py <xml_file>`
+`parse_neurolucida_xml.py <brain_name> <xml_file>`
 
 Generate annotated brain of type `annotationAsScore`.
 

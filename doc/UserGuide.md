@@ -42,8 +42,26 @@ All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi f
 
 Create a JSON file that describes the image file paths. The file contains the following information:
 - `raw_data_dirs`: this is a dict with a list of (version, resolution)-tuples as keys. For example they keys might be ('CHAT', 'raw') or ('Ntb', 'thumbnail').
-- `input_image_filename_mapping`.
 - `input_image_filename_to_imagename_re_pattern_mapping`
+
+Example json file content:
+
+```
+raw_data_dirs = \
+{('Ntb', 'raw'): '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_Ntb',
+('CHAT', 'raw'): '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_CHAT',
+('AF', 'raw'): '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_AF',
+('Ntb', 'thumbnail'): None}
+
+input_image_filename_to_imagename_re_pattern_mapping = \
+{('Ntb', 'raw'): \
+ '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_Ntb/(.*)_.*?_.*?.tif',
+ ('CHAT', 'raw'): \
+ '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_CHAT/(.*)_.*?_.*?.tif', 
+ ('AF', 'raw'): \
+ '/media/yuncong/BethandHannah_External1/CHATM2/CHATM2_raw_AF/(.*)_.*?_.*?.tif', 
+}
+```
 
 The image file path mappings are indexed by (version, resolution) tuples.
 

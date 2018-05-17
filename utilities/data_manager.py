@@ -1067,7 +1067,7 @@ class DataManager(object):
     #     return fn
 
     @staticmethod
-    def get_domain_origin(stack, domain, resolution, loaded_resolution='down32'):
+    def get_domain_origin(stack, domain, resolution, loaded_cropbox_resolution='down32'):
         """
         Loads the 3D origin of a domain for a given stack.
 
@@ -1079,6 +1079,7 @@ class DataManager(object):
         Args:
             domain (str): domain name
             resolution (str): output resolution
+            loaded_cropbox_resolution (str): the resolution in which the loaded crop boxes are defined
         """
 
         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack)
@@ -1086,21 +1087,22 @@ class DataManager(object):
         if stack.startswith('atlas'):
             if domain == 'atlasSpace':
                 origin_loadedResol = np.zeros((3,))
-                loaded_resolution_um = 0. # does not matter
+                loaded_cropbox_resolution_um = 0. # does not matter
             elif domain == 'canonicalAtlasSpace':
                 origin_loadedResol = np.zeros((3,))
-                loaded_resolution_um = 0. # does not matter
+                loaded_cropbox_resolution_um = 0. # does not matter
             elif domain == 'atlasSpaceBrainstem': # obsolete?
                 b = DataManager.load_original_volume_bbox(stack=stack, volume_type='score',
                                         downscale=32,
                                           structure='7N_L')
                 origin_loadedResol = b[[0,2,4]]
-                loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589')
+                loaded_cropbox_resolution_um = convert_resolution_string_to_voxel_size(resolution='down32', stack='MD589')
             else:
                 raise
         else:
 
-            loaded_resolution_um = convert_resolution_string_to_voxel_size(resolution=loaded_resolution, stack=stack)
+            print 'loaded_cropbox_resolution', loaded_cropbox_resolution
+            loaded_cropbox_resolution_um = convert_resolution_string_to_voxel_size(resolution=loaded_cropbox_resolution, stack=stack)
 
             if domain == 'wholebrain':
                 origin_loadedResol = np.zeros((3,))
@@ -1121,7 +1123,7 @@ class DataManager(object):
             else:
                 raise "Domain %s is not recognized.\n" % domain
 
-        origin_outResol = origin_loadedResol * loaded_resolution_um / out_resolution_um
+        origin_outResol = origin_loadedResol * loaded_cropbox_resolution_um / out_resolution_um
 
         return origin_outResol
 
@@ -1481,7 +1483,7 @@ class DataManager(object):
                 - prep_id
                 - detector_id
                 - vol_type
-                - structure
+                - structure (str or list)
                 - name
                 - resolution
         """
@@ -1529,7 +1531,13 @@ class DataManager(object):
         basename = '%(stack)s_%(tmp_str)s%(volstr)s' % \
             {'stack':stack, 'tmp_str': (tmp_str+'_') if tmp_str != '' else '', 'volstr':volume_type_to_str(volume_type)}
         if structure is not None:
-            basename += '_' + structure
+            if isinstance(structure, str):
+                basename += '_' + structure
+            elif isinstance(structure, list):
+                basename += '_' + '_'.join(structure)
+            else:
+                raise
+                
         return basename
 
     # OBSOLETE
@@ -3484,6 +3492,7 @@ class DataManager(object):
         Args:
             common_shape (bool): If true, volumes are padded to the same shape.
             in_bbox_wrt (str): the bbox origin for the bbox files currently stored.
+            loaded_cropbox_resolution (str): resolution in which the loaded cropbox is defined on.
 
         Returns:
             If `common_shape` is True:
@@ -3523,7 +3532,8 @@ class DataManager(object):
             v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
             in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
-                                                                         resolution=stack_spec['resolution'])
+                                                                         resolution=stack_spec['resolution'],
+                                                                         loaded_cropbox_resolution=stack_spec['resolution'])
             o = o + in_bbox_origin_wrt_wholebrain
 
             if name_or_index_as_key == 'name':

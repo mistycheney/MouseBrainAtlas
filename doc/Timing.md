@@ -48,3 +48,17 @@ Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 * Generate scoremap overlay: 0.04 seconds.
 * Scoremap size does not match background image size. Need to resize: 0.06 seconds.
 * Generate scoremap overlay image 7N: 0.12 seconds
+
+### Compute features for entire images
+* locate patches: 0.73 seconds
+* No pre-computed features found... computing from scratch.
+* Load image: 3.15 seconds.
+* Crop patches: 0.69 seconds.
+* Extract patches: 3.85 seconds (23960, 1, 224, 224)
+* Compute features: 77.74 seconds (15.06 seconds if using 8 GPUs)
+* (total) Compute features at one section, multiple locations: 81.60 seconds (16.85 seconds if using 8 GPUs)
+* Save features: 2.64 seconds
+-----------------
+One stack: 17s * ~300 sections = 85 mins
+
+

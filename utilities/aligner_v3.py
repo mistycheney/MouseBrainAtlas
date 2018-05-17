@@ -128,12 +128,24 @@ class Aligner(object):
         self.inv_covar_mats_all_indices = {ind_m: np.eye(3) for ind_m in self.all_indices_m}
 
 
-    def set_initial_transform(self, params=None, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+    # def set_initial_transform(self, params=None, centroid_m=(0,0,0), centroid_f=(0,0,0)):
+#         """
+#         Set the initial transform. 
+        
+#         Set member variable `init_T`.
+#         """
+
+#         self.init_T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)[:3].flatten()
+#         sys.stderr.write('Set initial transform to %s.\n' % self.init_T)
+
+    def set_initial_transform(self, transform):
         """
-        Set the initial transform.
+        Set the initial transform. 
+        
+        Set member variable `init_T`.
         """
 
-        self.init_T = consolidate(params=params, centroid_m=centroid_m, centroid_f=centroid_f)[:3].flatten()
+        self.init_T = convert_transform_forms(transform=transform, out_form=(12,))
         sys.stderr.write('Set initial transform to %s.\n' % self.init_T)
 
     def set_label_weights(self, label_weights):
@@ -220,6 +232,9 @@ class Aligner(object):
 
     def set_centroid(self, centroid_m=None, centroid_f=None, indices_m=None):
         """
+        Set the `cp` and `cq`.
+        The transform (R,t) is defined by q - cq = R * (p-cp) + t.
+        
         Args:
             centroid_m (str or (3,)-ndarray): Coordinates or one of structure_centroid, volume_centroid, origin
             centroid_f (str or (3,)-ndarray): Coordinates or one of centroid_m, structure_centroid, volume_centroid, origin
@@ -245,12 +260,12 @@ class Aligner(object):
         else:
             self.centroid_m = centroid_m
 
-        self.centroid_m = transform_points_affine(T=self.init_T, pts=np.array([self.centroid_m]))[0]
+        self.centroid_m = transform_points_affine(T=self.init_T, pts=np.array([self.centroid_m]))[0] # T0(cp)
 
         if isinstance(centroid_f, basestring):
             if centroid_f == 'centroid_m':
                 self.centroid_f = self.centroid_m
-            elif centroid_m == 'structure_centroid':
+            elif centroid_f == 'structure_centroid':
                 self.centroid_f = np.array([np.mean(np.where(volume_f[self.labelIndexMap_m2f[i]]), axis=1)[[1,0,2]] + volume_f_origin[self.labelIndexMap_m2f[i]] for i in indices_m]).mean(axis=0)
             elif centroid_f == 'volume_centroid':
                 # bboxes = np.array([volume_origin_to_bbox(volume_f[self.labelIndexMap_m2f[i]], volume_f_origin[self.labelIndexMap_m2f[i]]) for i in indices_m])
@@ -272,9 +287,12 @@ class Aligner(object):
         # nzvoxels_centered_m = {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m.iteritems()}
 
         # global nzvoxels_m_after_init_T
-        nzvoxels_m_after_init_T = {ind_m: np.round(transform_points_affine(T=self.init_T, pts=p)).astype(np.int) for ind_m, p in nzvoxels_m.iteritems()}
+        nzvoxels_m_after_init_T = {ind_m: np.round(transform_points_affine(T=self.init_T, pts=p)).astype(np.int) 
+                                   for ind_m, p in nzvoxels_m.iteritems()} # p' = T0(p)
         global nzvoxels_centered_m_after_init_T
-        nzvoxels_centered_m_after_init_T =  {ind_m: nzvs - self.centroid_m for ind_m, nzvs in nzvoxels_m_after_init_T.iteritems()}
+        nzvoxels_centered_m_after_init_T =  {ind_m: nzvs - self.centroid_m 
+                                             for ind_m, nzvs in nzvoxels_m_after_init_T.iteritems()} # T0(p)-T0(cp) = T0(p-cp)
+        
         # print nzvoxels_centered_m_after_init_T[1].mean(axis=0)
 
     
@@ -403,7 +421,7 @@ class Aligner(object):
             if tf_type == 'affine' or tf_type == 'rigid':
                 pts_prime_sampled = transform_points_affine(np.array(T),
                                             pts_centered=nzvoxels_centered_m_after_init_T[ind_m][random_indices],
-                                            c_prime=self.centroid_f).astype(np.int16)
+                                            c_prime=self.centroid_f).astype(np.int16) # q = R(T0(p)-T0(cp))+t+cf
             elif tf_type == 'bspline':
                 n_params = len(T)
                 buvwx = T[:n_params/3]
@@ -437,7 +455,7 @@ class Aligner(object):
             if tf_type == 'affine' or tf_type == 'rigid':
                 pts_prime = transform_points_affine(np.array(T),
                                             pts_centered=nzvoxels_centered_m_after_init_T[ind_m],
-                                            c_prime=self.centroid_f).astype(np.int16)
+                                            c_prime=self.centroid_f).astype(np.int16) # q = R(T0(p)-T0(cp))+t+cf
             elif tf_type == 'bspline':
                 n_params = len(T)
                 buvwx = T[:n_params/3]
@@ -504,7 +522,7 @@ class Aligner(object):
 
         # Moving volume's valid voxel coordinates (centralized).
         # t = time.time()
-        dxs, dys, dzs = nzvoxels_centered_m_after_init_T[ind_m][valid_moving_voxel_indicators].T
+        dxs, dys, dzs = nzvoxels_centered_m_after_init_T[ind_m][valid_moving_voxel_indicators].T # T0(p)-T0(cp)
         # sys.stderr.write("fancy indexing into centralized moving volume nzvoxels: %.2f s\n" % (time.time() - t))
 
         if tf_type == 'bspline':
@@ -932,6 +950,8 @@ class Aligner(object):
          Args:
              grid_search_iteration_number (int): number of iteration
              eta: sample number and sigma = initial value * np.exp(-iter/eta), default = 3.
+             std_tx (float): +- range of voxels in x direction to search
+             
          Returns:
              params_best_upToNow ((12,) float array): found parameters
         """
@@ -1015,7 +1035,10 @@ class Aligner(object):
 
                 # self.logger.info('%f %f %f', tx_best, ty_best, tz_best)
         # sys.stderr.write('deviations_best_upToNow: %f %f %f %f\n' % (dx_best, dy_best, dz_best, dthetaxy_best))
-
+        
+        T_best_upToNow = compose_alignment_parameters([convert_transform_forms(transform={'parameters': T_best_upToNow, 'centroid_m_wrt_wholebrain': self.centroid_m, 'centroid_f_wrt_wholebrain': self.centroid_f}, out_form=(3,4)), 
+                                                       convert_transform_forms(transform=self.init_T, out_form=(3,4))])[:3].flatten()
+        
         if return_best_score:
             return T_best_upToNow, score_best_upToNow
         else:
@@ -1056,6 +1079,7 @@ class Aligner(object):
                 affine_scaling_limits=None,
                 bspline_deformation_limit=None):
         """Optimize.
+        
         # Objective = texture score - reg_weights[0] * tx**2 - reg_weights[1] * ty**2 - reg_weights[2] * tz**2
         Objective = texture score - reg_weights * [tx, ty, tz]^T * CovMat^{-1} * [tx, ty, tz]
 

@@ -1,4 +1,4 @@
-#! /usr/env/bin python
+#! /usr/bin/env python
 
 import csv
 import xml.etree.ElementTree as ET
@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(
     description='')
 
 parser.add_argument("brain_name", type=str, help="Brain name")
-parser.add_argument("xml_filepath", "--xml", type=str, help="Path to Neurolucida exported XML file")
+parser.add_argument("xml_filepath", type=str, help="Path to Neurolucida exported XML file")
 args = parser.parse_args()
 
 brain_name = args.brain_name
@@ -136,12 +136,11 @@ for s, v in reconstructed_brain.iteritems():
                                         structure=s)
     save_data(v[0], vol_fp)
 
-    bbox = volume_origin_to_bbox(v[0], v[1])
-    bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(stack_spec=dict(name=brain_name, 
+    origin_fp = DataManager.get_original_volume_origin_filepath_v3(stack_spec=dict(name=brain_name, 
                                                                      vol_type='annotationAsScore',
                                                                     resolution=out_resolution),
                                         structure=s)
-    save_data(bbox, bbox_fp)
+    save_data(v[1], origin_fp)
 
 # Export markers.
 

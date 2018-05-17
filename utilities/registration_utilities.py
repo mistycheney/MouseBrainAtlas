@@ -248,6 +248,10 @@ def generate_aligner_parameters_v2(alignment_spec,
     """
     Args:
         alignment_spec (dict):
+        
+        fixed_structures_are_sided (bool):
+        fixed_surroundings_have_positive_value (bool): if true, fixed surroundings are represented by separate structures (in the case of Neurolucida annotations). If False, fixed brain only has score volumes whose values are existence probabilities of certain structures.
+        fixed_use_surround (bool): whether fixed structures include surround.
 
     Returns:
         - 'volume_moving': dict {ind_m: 3d array},
@@ -423,12 +427,13 @@ def generate_aligner_parameters_v2(alignment_spec,
 
     if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
 
-        # label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
-        #      for label_m, name_m in label_to_structure_moving.iteritems()
-            #  if name_m in structure_subset_m and name_m in structure_to_label_fixed}
+        if include_surround:
+            label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
+             for label_m, name_m in label_to_structure_moving.iteritems()
+             if name_m in structure_subset_m and name_m in structure_to_label_fixed}
 
-        # Temp: revert to above if has problem.
-        label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_nonsurround_name(name_m)]
+        else:
+            label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_nonsurround_name(name_m)]
                      for label_m, name_m in label_to_structure_moving.iteritems()
                     if name_m in structure_subset_m and convert_to_nonsurround_name(name_m) in structure_to_label_fixed}
     else:
@@ -1940,7 +1945,7 @@ def convert_transform_forms(out_form, transform=None, aligner=None, select_best=
     elif out_form == (4,4):
         return T
     elif out_form == (12,):
-        return T.flatten()
+        return T[:3].flatten()
     elif out_form == 'dict':
         return dict(centroid_f_wrt_wholebrain = np.zeros((3,)),
                     centroid_m_wrt_wholebrain = np.zeros((3,)),
@@ -2064,28 +2069,30 @@ def compose_alignment_parameters(list_of_transform_parameters):
     T0 = np.eye(4)
 
     for transform_parameters in list_of_transform_parameters:
+        
+        T = convert_transform_forms(out_form=(4,4), transform=transform_parameters)
 
-        if isinstance(transform_parameters, dict):
-            # cf = np.array(transform_parameters['centroid_f'])
-            # cm = np.array(transform_parameters['centroid_m'])
-            # of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
-            # om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
-            # params = np.array(transform_parameters['parameters'])
-            # T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)
+#         if isinstance(transform_parameters, dict):
+#             # cf = np.array(transform_parameters['centroid_f'])
+#             # cm = np.array(transform_parameters['centroid_m'])
+#             # of = np.array(transform_parameters['domain_f_origin_wrt_wholebrain'])
+#             # om = np.array(transform_parameters['domain_m_origin_wrt_wholebrain'])
+#             # params = np.array(transform_parameters['parameters'])
+#             # T = consolidate(params=params, centroid_m=cm+om, centroid_f=cf+of)
 
-            cf = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
-            cm = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
-            params = np.array(transform_parameters['parameters'])
-            T = consolidate(params=params, centroid_m=cm, centroid_f=cf)
-        elif transform_parameters.shape == (3,4):
-            T = np.vstack([transform_parameters, [0,0,0,1]])
-        elif transform_parameters.shape == (12,):
-            T = np.vstack([transform_parameters.reshape((3,4)), [0,0,0,1]])
-        elif transform_parameters.shape == (4,4):
-            T = transform_parameters
-        else:
-            print transform_parameters.shape
-            raise
+#             cf = np.array(transform_parameters['centroid_f_wrt_wholebrain'])
+#             cm = np.array(transform_parameters['centroid_m_wrt_wholebrain'])
+#             params = np.array(transform_parameters['parameters'])
+#             T = consolidate(params=params, centroid_m=cm, centroid_f=cf)
+#         elif transform_parameters.shape == (3,4):
+#             T = np.vstack([transform_parameters, [0,0,0,1]])
+#         elif transform_parameters.shape == (12,):
+#             T = np.vstack([transform_parameters.reshape((3,4)), [0,0,0,1]])
+#         elif transform_parameters.shape == (4,4):
+#             T = transform_parameters
+#         else:
+#             print transform_parameters.shape
+#             raise
 
         T0 = np.dot(T, T0)
 

@@ -15,3 +15,5 @@ For each registration, the following results are stored:
 - `<registration_identifier>_scoreHistory.bp`: the score history as a list
 - `<registration_identifier>_scoreEvolution.png`: plot of the score over iterations
 - `<registration_identifier>_trajectory.bp`: trajectory of the parameters during optimization, a list of 12 parameters.
+
+q - q0 = R * T0(p-p0) + t

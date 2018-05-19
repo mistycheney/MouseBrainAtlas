@@ -877,19 +877,22 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         action_confirmPolygon = myMenu.addAction("Set type to CONFIRMED")
         if hasattr(self, 'active_polygon') and self.active_polygon.properties['type'] == 'confirmed':
+            print self.active_polygon.properties['type'],
             action_confirmPolygon.setText('Set type to INTERSECTED')
             # action_confirmPolygon.setVisible(False)
 
         reconstruct_menu = QMenu("Update 3D structure (using only confirmed contours)", myMenu)
         myMenu.addMenu(reconstruct_menu)
         reconstruct_menu_actions = \
-        [reconstruct_menu.addAction('All')] + \
+        [reconstruct_menu.addAction('All annotated')] + \
+        [reconstruct_menu.addAction('All atlas structures')] + \
         [reconstruct_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
 
         reconstructUnconfirmed_menu = QMenu("Update 3D structure (using all contours)", myMenu)
         myMenu.addMenu(reconstructUnconfirmed_menu)
         reconstructUnconfirmed_menu_actions = \
-        [reconstructUnconfirmed_menu.addAction('All')] + \
+        [reconstructUnconfirmed_menu.addAction('All annotated')] + \
+        [reconstructUnconfirmed_menu.addAction('All atlas structures')] + \
         [reconstructUnconfirmed_menu.addAction(name_s) for name_s in sorted(all_known_structures_sided)]
 
         # action_reconstruct = myMenu.addAction("Update 3D structure (using only confirmed contours)")
@@ -990,7 +993,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif selected_action == action_confirmPolygon:
             # self.active_polygon.set_type(None)
             if hasattr(self, 'active_polygon'):
-                if self.active_polygon.properties['type'] is not 'confirmed':
+                if self.active_polygon.properties['type'] != 'confirmed':
                     self.active_polygon.set_properties('type', 'confirmed')
                 else:
                     self.active_polygon.set_properties('type', 'intersected')
@@ -1005,9 +1008,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
 
-            if name_s == 'All':
+            if name_s == 'All annotated':
                 label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in label_indices_lookup.keys():
+                    self.structure_volume_updated.emit('handdrawn', s, True, True)
+            elif name_s == 'All atlas structures':
+                label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
+                for s in set(label_indices_lookup.keys()) & set(all_known_structures_sided):
                     self.structure_volume_updated.emit('handdrawn', s, True, True)
             else:
                 self.structure_volume_updated.emit('handdrawn', name_s, True, True)
@@ -1017,10 +1024,14 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             # name_s = compose_label(self.active_polygon.properties['label'], self.active_polygon.properties['side'])
             # assert 'side' in self.active_polygon.properties and self.active_polygon.properties['side'] is not None, 'Must specify side first.'
             name_s = str(selected_action.text())
-            if name_s == 'All':
+            if name_s == 'All annotated':
                 label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in label_indices_lookup.keys():
                     self.structure_volume_updated.emit('handdrawn', s, False, True)
+            elif name_s == 'All atlas structures':
+                label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
+                for s in set(label_indices_lookup.keys()) & set(all_known_structures_sided):
+                    self.structure_volume_updated.emit('handdrawn', s, True, True)
             else:
                 self.structure_volume_updated.emit('handdrawn', name_s, False, True)
 

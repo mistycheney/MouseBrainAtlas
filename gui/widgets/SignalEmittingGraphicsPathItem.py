@@ -33,8 +33,12 @@ class SignalEmittingGraphicsPathItem(QGraphicsPathItem):
 
         # The second condition uses tuple because a multi-value list may either be represented by tuple or list
         # print property_name, property_value
+        if property_name in self.properties:
+            old_value = self.properties[property_name]
+        else:
+            old_value = None
         self.properties[property_name] = property_value
-        self.signal_emitter.property_changed.emit(property_name, property_value)
+        self.signal_emitter.property_changed.emit(property_name, property_value, old_value)
 
     def mousePressEvent(self, event):
         QGraphicsPathItem.mousePressEvent(self, event)

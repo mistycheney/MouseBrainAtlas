@@ -155,11 +155,10 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         return polygon
 
-    @pyqtSlot(str, object)
-    def polygon_property_changed(self, property_name, property_value):
+    @pyqtSlot(str, object, object)
+    def polygon_property_changed(self, property_name, new_value, old_value):
         """
-        This function deals with cases when changes of polygon property affect
-        gscene display.
+        This function deals with cases when setting polygon property affect gscene display.
         """
 
         # print 'polygon_property_changed triggered:\n', property_name, property_value, '\n'
@@ -169,11 +168,12 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
 
         # Set polygon color if polygon type property is changed.
         if property_name == 'type':
-            if polygon.properties['type'] == 'interpolated' and property_value is None:
+            print property_name, new_value, old_value
+            if new_value == 'confirmed':
                 curr_pen = polygon.pen()
                 curr_pen.setColor(Qt.red)
                 polygon.setPen(curr_pen)
-            elif polygon.properties['type'] == None and property_value == 'interpolated':
+            elif new_value == 'intersected':
                 curr_pen = polygon.pen()
                 curr_pen.setColor(Qt.green)
                 polygon.setPen(curr_pen)

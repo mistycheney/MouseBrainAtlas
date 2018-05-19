@@ -596,7 +596,7 @@ class PolygonSignalEmitter(QObject):
     label_added = pyqtSignal(object)
     # polygon_closed = pyqtSignal([], [object])
     polygon_completed = pyqtSignal()
-    property_changed = pyqtSignal(str, object)
+    property_changed = pyqtSignal(str, object, object)
 
     def __init__(self, parent):
         super(self.__class__, self).__init__()

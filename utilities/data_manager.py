@@ -4363,7 +4363,7 @@ class DataManager(object):
 #         return image_basename
 
     @staticmethod
-    def get_image_dir_v2(stack, prep_id, version=None, resol='lossless',
+    def get_image_dir_v2(stack, prep_id=None, version=None, resol='lossless',
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         """
         Args:
@@ -4376,9 +4376,9 @@ class DataManager(object):
 
         if version is None:
             if resol == 'thumbnail' or resol == 'down64':
-                image_dir = os.path.join(thumbnail_data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
+                image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol)
             else:
-                image_dir = os.path.join(data_dir, stack, stack + '_prep%d' % prep_id + '_%s' % resol)
+                image_dir = os.path.join(data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol)
         else:
             if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '_' + version)
@@ -4517,7 +4517,7 @@ class DataManager(object):
         return imread(img_fp)
 
     @staticmethod
-    def get_image_filepath_v2(stack, prep_id, version=None, resol='lossless',
+    def get_image_filepath_v2(stack, prep_id, version=None, resol='raw',
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
                            section=None, fn=None, ext=None):
         """
@@ -4531,9 +4531,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        elif resol == 'raw':
-            if stack not in ['CHATM2', 'CHATM3']:
-                resol = 'lossless'
+        # elif resol == 'raw':
+        #     if stack not in ['CHATM2', 'CHATM3']:
+        #         resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]

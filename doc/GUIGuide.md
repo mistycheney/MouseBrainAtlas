@@ -34,7 +34,7 @@ Each row of the contour annotation file is indexed by a random `contour_id`. The
 Results are at `<stack>_annotation_structuresHanddrawn_<timestamp>.hdf`
 
 Each row of this file contains information for one 3-D structure.
-The columns of the file are:
+The columns are:
 - `edits`: list of edit operations. Each operation is represented by a dict with the following keys:
   - `timestamp`: the time this edit is made
   - `transform`: 3x4 matrix representing the transform

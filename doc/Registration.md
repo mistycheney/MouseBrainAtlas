@@ -9,6 +9,7 @@
 ## Register to atlas.
 
 ### Simple global registration
+Use the GUI to select the 2D center of 12N and 3N(either L or R). Then
 `registration/registration_v7_atlasV6_simpleGlobal`
 
 ### Local registration

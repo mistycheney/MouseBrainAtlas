@@ -54,6 +54,12 @@ q - q0 = R * T0(p-p0) + t
 # Using `Aligner` class
 
 - First prepare the registration specification.
+
+## Registration settings
+
+`registration/registration_settings.csv`
+
+## Run registration
 - Generate parameters based on the registration specification, using `generate_aligner_parameters_v2`
 - Create an `Aligner` object.
 - Compute gradients of fixed volumes, using `Aligner.compute_gradient`

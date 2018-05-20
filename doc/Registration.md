@@ -7,7 +7,7 @@
 Use the GUI to select the 2D center of 12N and 3N(either L or R). Then
 `registration/registration_v7_atlasV6_simpleGlobal`
 
-This helps reduce the computational cost for the following detection step.
+This helps reduce the area considered by the following detection step.
 
 ## Convert the image stack to 3-D probability maps.
 `learning/from_images_to_score_volume.ipynb`

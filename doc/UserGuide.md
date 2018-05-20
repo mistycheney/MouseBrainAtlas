@@ -148,16 +148,7 @@ You are only required to draw such initial contours on 5-10 sections where the e
 5. Click "Crop" button to generate cropped versions of the masks. They are stored in `<stack>_prep2_thumbnail_mask`.
 
 
-# Processing a new stack given a trained atlas
 
-## Compute the features at sparse locations on each image.
-`learning/compute_features_for_entire_stacks.ipynb`
-
-## Convert the image stack to 3-D probability maps.
-`learning/from_images_to_score_volume.ipynb`
-
-## Register to atlas.
-`$ ./register.py <transform_spec>`
 
 ## Visualize and revise annotations using the labeling GUI
 

@@ -150,18 +150,13 @@ You are only required to draw such initial contours on 5-10 sections where the e
 
 # Processing a new stack given a trained atlas
 
-`learning/pipeline_aws.ipynb`
+## Compute the features at sparse locations on each image.
+`learning/compute_features_for_entire_stacks.ipynb`
 
-Step 1: Convert the image stack to a 3-D probability map.
+## Convert the image stack to 3-D probability maps.
+`learning/from_images_to_score_volume.ipynb`
 
-`$ ./images_to_scoremaps.py <stack>`
-
-Step 2: Reconstruct score volume and compute spatial gradient.
-
-`$ ./reconstruct_score_volume.py <stack>`
-
-Step 3: Register to atlas.
-
+## Register to atlas.
 `$ ./register.py <transform_spec>`
 
 ## Visualize and revise annotations using the labeling GUI

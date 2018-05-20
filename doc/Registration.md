@@ -65,7 +65,7 @@ q - q0 = R * T0(p-p0) + t
 - Compose initial transform and estimated transform using `compose_alignment_parameters`.
 - Save registration results using `DataManager.save_alignment_results_v3`.
 
-## Apply estimated transforms.
+## Apply estimated transforms
 
 - Load registration results using `DataManager.load_alignment_results_v3`.
 - Load original moving volumes using `DataManager.load_original_volume_v2`.

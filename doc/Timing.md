@@ -1,10 +1,6 @@
-### Convert to JPEG
-Convert to JPEG: 5.48 seconds. (without uploading to s3): 6s * 300 sections = 30 mins
+# Preprocessing
 
-### Convert from RGB to gray
-Load: 8.50 seconds.
-Convert RGB to gray: 14.33 seconds. # 0 if only taking the blue channel
-Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
+## General Steps
 
 ### For nissl data
 * raw -> thumbnail
@@ -28,7 +24,30 @@ Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 * prep5_raw_NtbNormalizedAdaptive -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
-### Images to score volume
+## Convert to JPEG
+Convert to JPEG: 5.48 seconds. (without uploading to s3): 6s * 300 sections = 30 mins
+
+## Convert from RGB to gray
+Load: 8.50 seconds.
+Convert RGB to gray: 14.33 seconds. # 0 if only taking the blue channel
+Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
+
+
+# Detection
+
+## Compute features for entire images
+* locate patches: 0.73 seconds
+* No pre-computed features found... computing from scratch.
+* Load image: 3.15 seconds.
+* Crop patches: 0.69 seconds.
+* Extract patches: 3.85 seconds (23960, 1, 224, 224)
+* Compute features: 77.74 seconds (15.06 seconds if using 8 GPUs)
+* (total) Compute features at one section, multiple locations: 81.60 seconds (16.85 seconds if using 8 GPUs)
+* Save features: 2.64 seconds
+-----------------
+One stack: 17s * ~300 sections = 85 mins
+
+## Images to score volume
 
 * locate patches: 0.02 seconds
 
@@ -49,16 +68,5 @@ Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 * Scoremap size does not match background image size. Need to resize: 0.06 seconds.
 * Generate scoremap overlay image 7N: 0.12 seconds
 
-### Compute features for entire images
-* locate patches: 0.73 seconds
-* No pre-computed features found... computing from scratch.
-* Load image: 3.15 seconds.
-* Crop patches: 0.69 seconds.
-* Extract patches: 3.85 seconds (23960, 1, 224, 224)
-* Compute features: 77.74 seconds (15.06 seconds if using 8 GPUs)
-* (total) Compute features at one section, multiple locations: 81.60 seconds (16.85 seconds if using 8 GPUs)
-* Save features: 2.64 seconds
------------------
-One stack: 17s * ~300 sections = 85 mins
-
+Overall, if features are pre-computed, 2s/section * 300 sections = 10 mins.
 

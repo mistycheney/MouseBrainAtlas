@@ -1,14 +1,12 @@
 # Create annotations using the labeling GUI
 
-There are two modes to place annotation on images.
+There are two ways to place annotation on images.
 
 ## 3-D reconstruction from manually drawn contours.
 
-## Manual adjustment of pre-built atlas structures.
-
-If you want to edit previously saved contours, click "Load contours".
-
 Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](gui/README.md).
+
+### Saving 2-D contours
 
 Click "Save contours". All contours currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_contours_<timestamp>.hdf`.
 
@@ -30,3 +28,21 @@ Each row of the contour annotation file is indexed by a random `contour_id`. The
 * `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
 * `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution (~0.45 microns).
 * `filename`: the file name of the section.
+
+### Saving 3-D structures
+
+Results are at `<stack>_annotation_structuresHanddrawn_<timestamp>.hdf`
+
+The columns of the file are:
+- `edits`: list of edit operations. Each operation is represented by a dict with the following keys:
+  - `timestamp`: the time this edit is made
+  - `transform`: 3x4 matrix representing the transform
+  - `type`: one of _global_rotate3d_, _prob_shift3d_, _prob_rotate3d_
+  - `username`: user who made this edit
+- `name`: name of the structure
+- `origin`: 3-D origin of the volume with respect to wholebrain frame, in unit of voxels.
+- `resolution`: a string representing voxel size
+- `side`: L or R or S (singular)
+- `volume`: the 3-D volume encoded by bloscpack as string
+
+## Manual adjustment of pre-built atlas structures.

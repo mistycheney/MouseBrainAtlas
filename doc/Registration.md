@@ -21,7 +21,6 @@ Structures are further adjusted either individually or in groups.
 `$ ./register.py <transform_spec>`
 
 
-
 # Transform parameters
 
 A transform can be expressed in any of the following ways:

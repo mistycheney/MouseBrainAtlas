@@ -70,3 +70,14 @@ One stack: 17s * ~300 sections = 85 mins
 
 Overall, if features are pre-computed, 2s/section * 300 sections = 10 mins.
 
+
+# Registration
+
+## Simple global registration
+
+negligible
+
+## Local registration
+
+
+

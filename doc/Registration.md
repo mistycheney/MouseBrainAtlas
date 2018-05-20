@@ -40,4 +40,22 @@ For each registration, the following results are stored:
 - `<registration_identifier>_scoreEvolution.png`: plot of the score over iterations
 - `<registration_identifier>_trajectory.bp`: trajectory of the parameters during optimization, a list of 12 parameters.
 
+Mathematically, a transform is expressed as:
+
 q - q0 = R * T0(p-p0) + t
+
+- `p` is a point in moving brain (wrt wholebrain in the case of a subject brain, or canonicalAtlasSpace in the case of atlas)
+- `p0` is the rotation center defined on moving brain.
+- `q` is a point in fixed brain (wrt wholebrain)
+- `q0` is the shift of fixed brain.
+- `R`, the 3x3 rotation matrix, which is part of the computed transform.
+- `t`, 3-array, which is part of the computed transform.
+- `T0` is the initial transform. 
+
+# Using `Aligner` class
+
+- Specify `T0` with `Aligner.set_initial_transform`.
+- Specify `p0` and `q0` with `Aligner.set_centroids`
+- Optionally, `Aligner.do_grid_search`.
+- Run `Aligner.optimize` to compute `R` and `t`.
+- Compose initial transform and estimated transform using `compose_alignment_parameters`.

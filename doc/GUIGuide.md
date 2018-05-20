@@ -2,7 +2,7 @@
 
 There are two ways to place annotation on images.
 
-## 3-D reconstruction from manually drawn contours.
+## Method 1: 3-D reconstruction from manually drawn contours.
 
 Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](gui/README.md).
 
@@ -45,4 +45,4 @@ The columns of the file are:
 - `side`: L or R or S (singular)
 - `volume`: the 3-D volume encoded by bloscpack as string
 
-## Manual adjustment of pre-built atlas structures.
+## Method 2: Manual adjustment of pre-built atlas structures.

@@ -5,13 +5,26 @@
 ### For nissl data
 * raw -> thumbnail
 * thumbnail -> prep1_thumbnail
+* Supply prep1_thumbnail_mask
+* prep1_thumbnail_mask -> thumbnail_mask
 * raw -> prep1_raw
-* prep1_raw -> prep5_raw (optional):
+
+* Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask.
+* prep1_raw -> prep5_raw:
 * prep1_thumbnail -> prep5_thumbnail:
+* prep1_thumbnail_mask -> prep5_thumbnail_mask:
+
+* Specify prep2 (alignedBrainstemCrop) cropping box.
 * prep5_raw -> prep2_raw
+* prep5_thumbnail -> prep2_thumbnail
+* prep5_thumbnail_mask -> prep2_thumbnail_mask
+
 * prep2_raw -> prep2_raw_gray: 30s * ~300 sections = 150 mins
 * prep2_raw_gray -> prep2_raw_grayJpeg: 20s * ~300 sections = 100 mins
 * prep2_raw -> prep2_raw_jpeg: 20s * ~300 sections = 100 mins
+
+_prep2_raw_gray_ are used for structure detection.
+_prep5_raw_ will be published online.
 
 ### For neurotrace data
 * raw_Ntb -> thumbnail_Ntb

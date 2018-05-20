@@ -161,8 +161,6 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
         This function deals with cases when setting polygon property affect gscene display.
         """
 
-        # print 'polygon_property_changed triggered:\n', property_name, property_value, '\n'
-
         polygon = self.sender().parent
         # sender is signal_emitter; its parent is polygon
 
@@ -183,7 +181,7 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
             if 'label_textItem' not in polygon.properties or polygon.properties['label_textItem'] is None:
                 # assert polygon.properties['label_pos'] is None
                 # Use the centroid of polygon vertices.
-                label_textItem = QGraphicsSimpleTextItem(QString(property_value), parent=polygon)
+                label_textItem = QGraphicsSimpleTextItem(QString(new_value), parent=polygon)
                 label_textItem.setScale(1.5)
                 label_textItem.setFlags(QGraphicsItem.ItemIgnoresTransformations | QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemClipsToShape | QGraphicsItem.ItemSendsGeometryChanges | QGraphicsItem.ItemSendsScenePositionChanges)
                 label_textItem.setZValue(99)
@@ -192,11 +190,11 @@ class DrawableZoomableBrowsableGraphicsScene(ZoomableBrowsableGraphicsSceneWithR
                     centroid = np.mean([(v.scenePos().x(), v.scenePos().y()) for v in polygon.vertex_circles], axis=0)
                     polygon.set_properties('label_pos', centroid)
             else:
-                polygon.properties['label_textItem'].setText(property_value)
+                polygon.properties['label_textItem'].setText(new_value)
 
         if property_name == 'label_pos':
             assert polygon.properties['label_textItem'] is not None
-            polygon.properties['label_textItem'].setPos(property_value[0], property_value[1])
+            polygon.properties['label_textItem'].setPos(new_value[0], new_value[1])
 
 
     def add_polygon(self, path=QPainterPath(), color=None, linewidth=None, section=None, index=None, z_value=50, vertex_color=None, vertex_radius=None):

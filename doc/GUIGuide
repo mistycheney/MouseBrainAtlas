@@ -1,5 +1,11 @@
 # Create annotations using the labeling GUI
 
+There are two modes to place annotation on images.
+
+## 3-D reconstruction from manually drawn contours.
+
+## Manual adjustment of pre-built atlas structures.
+
 If you want to edit previously saved contours, click "Load contours".
 
 Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).

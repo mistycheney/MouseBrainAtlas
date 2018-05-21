@@ -121,10 +121,10 @@ class CoordinatesConverter(object):
 
         if stack is not None:
             self.stack = stack
-            
+
             # Define frame:wholebrainXYcropped
             cropbox_origin_xy_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=stack, prep_id='alignedBrainstemCrop', only_2d=True)[[0,2]]
-            
+
             self.derive_three_view_frames(base_frame_name='wholebrainXYcropped',
             origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack))
 
@@ -132,15 +132,15 @@ class CoordinatesConverter(object):
             intensity_volume_spec = dict(name=stack, resolution='10.0um', prep_id='wholebrainWithMargin', vol_type='intensity')
             _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
             DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
-            
+
             thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
-            
-            self.derive_three_view_frames(base_frame_name='wholebrainWithMargin', 
+
+            self.derive_three_view_frames(base_frame_name='wholebrainWithMargin',
                                    origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um)
-            
+
             # Define resolution:image
             self.register_new_resolution('image', convert_resolution_string_to_um(resolution='raw', stack=stack))
-            
+
         if section_list is not None:
             self.section_list = section_list
 
@@ -1589,7 +1589,7 @@ class DataManager(object):
                 basename += '_' + '_'.join(structure)
             else:
                 raise
-                
+
         return basename
 
     # OBSOLETE
@@ -1608,10 +1608,10 @@ class DataManager(object):
                                    vol_type_f='score',
                                    trial_idx=None,
                                    **kwargs):
-    
+
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-    
+
         if stack_f is None:
             assert warp_setting is None
             vol_name = basename_m
@@ -1619,10 +1619,10 @@ class DataManager(object):
             basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
                                                   resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
             vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
-    
+
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-    
+
         return vol_name
 
     @staticmethod
@@ -3777,21 +3777,21 @@ class DataManager(object):
         """
         This returns the 3D bounding box of the volume.
         (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
-    
+
         Args:
             volume_type (str): score or annotationAsScore.
             relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
-    
+
         Returns:
             (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
         """
-    
+
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
         download_from_s3(bbox_fp)
         volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
         # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
         # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
-    
+
         if relative_to_uncropped:
             if volume_type == 'score' or volume_type == 'thumbnail':
                 # bbox of "brainstem" wrt "wholebrain"
@@ -3801,7 +3801,7 @@ class DataManager(object):
             # else:
             #     continue
                 # raise
-    
+
         return volume_bbox_wrt_wholebrainXYcropped
 
     # @staticmethod
@@ -3897,7 +3897,7 @@ class DataManager(object):
             detector_id=detector_id)
         else:
             raise Exception('Type must be annotation, score, shell or thumbnail.')
-    
+
         return bbox_fn
 
     @staticmethod
@@ -4537,7 +4537,7 @@ class DataManager(object):
 
         if version == 'mask':
             img = img.astype(np.bool)
-                
+
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:
@@ -4583,9 +4583,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        # elif resol == 'raw':
-        #     if stack not in ['CHATM2', 'CHATM3']:
-        #         resol = 'lossless'
+        elif resol == 'raw':
+            if stack not in ['CHATM2', 'CHATM3']:
+                resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -4598,7 +4598,7 @@ class DataManager(object):
             prep_id = prep_str_to_id_2d[prep_id]
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
-        
+
 
         if version is None:
             image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '.' + 'tif'

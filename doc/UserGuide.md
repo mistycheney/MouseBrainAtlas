@@ -148,21 +148,7 @@ You are only required to draw such initial contours on 5-10 sections where the e
 5. Click "Crop" button to generate cropped versions of the masks. They are stored in `<stack>_prep2_thumbnail_mask`.
 
 
-# Processing a new stack given a trained atlas
 
-`learning/pipeline_aws.ipynb`
-
-Step 1: Convert the image stack to a 3-D probability map.
-
-`$ ./images_to_scoremaps.py <stack>`
-
-Step 2: Reconstruct score volume and compute spatial gradient.
-
-`$ ./reconstruct_score_volume.py <stack>`
-
-Step 3: Register to atlas.
-
-`$ ./register.py <transform_spec>`
 
 ## Visualize and revise annotations using the labeling GUI
 
@@ -186,39 +172,4 @@ Each row of the structure annotation file is indexed by a random `structure_id`.
 	* `centroid_m`
 	* `centroid_f`
 
-
-# Training the atlas:
-
-## Create annotations using the labeling GUI
-
-If you want to edit previously saved contours, click "Load contours".
-
-Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
-
-Click "Save contours". All contours currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_contours_<timestamp>.hdf`.
-
-Each row of the contour annotation file is indexed by a random `contour_id`. The columns are
-
-* `class`: "contour" or "neuron"
-* `creator`: username of the creator
-* `downsample`: the downsample factor the vertices are defined on
-* `edits`: the list of edits made on this contour
-* `id`: a random uuid for this contour
-* `label_position`: the position of the structure name text item relative to the whole image
-* `name`: unsided name of this structure
-* `orientation`: sagittal, coronal or horizontal
-* `parent_structure`: currently not used
-* `section`: the section number
-* `side`: L or R
-* `side_manually_assigned`: True if the side is confirmed by human; False if the side is automatically inferred.
-* `time_created`: the time that the contour is created
-* `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
-* `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution (~0.45 microns).
-* `filename`: the file name of the section.
-
-## Train classifiers
-
-`$ ./train_classifiers <structure_name> <path_to_annotation_file>`
-
-First compute patch features for all images using `compute_features_for_entire_stacks.ipynb`.
 

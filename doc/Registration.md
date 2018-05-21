@@ -1,3 +1,26 @@
+# Processing a new stack given a trained atlas
+
+## Compute the features at sparse locations on each image.
+`learning/compute_features_for_entire_stacks.ipynb`
+
+## Simple global registration
+Use the GUI to select the 2D center of 12N and 3N(either L or R). Then
+`registration/registration_v7_atlasV6_simpleGlobal`
+
+This helps reduce the area considered by the following detection step.
+
+## Convert the image stack to 3-D probability maps.
+`learning/from_images_to_score_volume.ipynb`
+
+## Local registration
+
+Structures are further adjusted either individually or in groups.
+
+`registration/registration_v7_atlasV6_local_allstructures`
+
+`$ ./register.py <transform_spec>`
+
+
 # Transform parameters
 
 A transform can be expressed in any of the following ways:
@@ -16,4 +39,41 @@ For each registration, the following results are stored:
 - `<registration_identifier>_scoreEvolution.png`: plot of the score over iterations
 - `<registration_identifier>_trajectory.bp`: trajectory of the parameters during optimization, a list of 12 parameters.
 
+Mathematically, a transform is expressed as:
+
 q - q0 = R * T0(p-p0) + t
+
+- `p` is a point in moving brain (wrt wholebrain in the case of a subject brain, or canonicalAtlasSpace in the case of atlas)
+- `p0` is the rotation center defined on moving brain.
+- `q` is a point in fixed brain (wrt wholebrain)
+- `q0` is the shift of fixed brain.
+- `R`, the 3x3 rotation matrix, which is part of the computed transform.
+- `t`, 3-array, which is part of the computed transform.
+- `T0` is the initial transform. 
+
+# Using `Aligner` class
+
+- First prepare the registration specification.
+
+## Registration settings
+
+`registration/registration_settings.csv`
+
+## Run registration
+- Generate parameters based on the registration specification, using `generate_aligner_parameters_v2`
+- Create an `Aligner` object.
+- Compute gradients of fixed volumes, using `Aligner.compute_gradient`
+- (Optional) Set label weights with `Aligner.set_label_weights`.
+- Specify `T0` with `Aligner.set_initial_transform`.
+- Specify `p0` and `q0` with `Aligner.set_centroids`.
+- Optionally, `Aligner.do_grid_search`.
+- Run `Aligner.optimize` to compute `R` and `t`.
+- Compose initial transform and estimated transform using `compose_alignment_parameters`.
+- Save registration results using `DataManager.save_alignment_results_v3`.
+
+## Apply estimated transforms
+
+- Load registration results using `DataManager.load_alignment_results_v3`.
+- Load original moving volumes using `DataManager.load_original_volume_v2`.
+- Transform moving volumes using `transform_volume_v4`
+- Save transformed volumes using `DataManager.save_transformed_volume_v2`.

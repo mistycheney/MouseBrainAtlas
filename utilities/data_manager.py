@@ -1020,6 +1020,33 @@ class DataManager(object):
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
+    
+    @staticmethod
+    def load_section_limits_v2(stack, anchor_fn=None, prep_id=2):
+        """
+        """
+
+        d = load_data(DataManager.get_section_limits_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id))
+        return np.r_[d['left_section_limit'], d['right_section_limit']]
+    
+    @staticmethod
+    def get_section_limits_filename_v2(stack, anchor_fn=None, prep_id=2):
+        """
+        Return path to file that specified the cropping box of the given crop specifier.
+
+        Args:
+            prep_id (int or str): 2D frame specifier
+        """
+
+        if isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
+
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+
+        fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_sectionLimits.json')
+        return fp
+    
     @staticmethod
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1128,9 +1155,33 @@ class DataManager(object):
         return origin_outResol
 
     @staticmethod
+    def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
+            
+        alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
+        alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
+
+        alignedWithMargin_xmin_down32, alignedWithMargin_xmax_down32,\
+        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None, 
+                                                                prep_id=wrt_prep_id,
+                                                               return_dict=False, only_2d=True)
+
+        alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmin_down32 - alignedWithMargin_xmin_down32
+        alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmax_down32 - alignedWithMargin_xmin_down32
+        alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymin_down32 - alignedWithMargin_ymin_down32
+        alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymax_down32 - alignedWithMargin_ymin_down32
+        
+        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack) 
+        
+        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 * scale_factor]).astype(np.int)
+    
+    
+    @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
-                       return_dict=False, only_2d=False):
+                       return_dict=False, only_2d=True):
         """
         Loads the cropping box for the given crop.
 
@@ -1142,7 +1193,8 @@ class DataManager(object):
         if isinstance(prep_id, str):
             fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         elif isinstance(prep_id, int):
-            fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+            # fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+            fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         else:
             raise Exception("prep_id %s must be either str or int" % prep_id)
 
@@ -4427,13 +4479,13 @@ class DataManager(object):
     #     return image_dir
 
     @staticmethod
-    def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
+    def load_image_v2(stack, prep_id, resol='raw', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
 
         img_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=prep_id, resol=resol, version=version,
                                                        section=section, fn=fn, data_dir=data_dir, ext=ext,
                                                       thumbnail_data_dir=thumbnail_data_dir)
 
-        if resol == 'lossless' or resol == 'down8':
+        if resol == 'lossless' or resol == 'raw' or resol == 'down8':
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
@@ -4634,7 +4686,7 @@ class DataManager(object):
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_v2(stack=stack, prep_id=2)
+        xmin, xmax, ymin, ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=2)
         return (xmax - xmin + 1) * 32, (ymax - ymin + 1) * 32
 
         # for i in range(10, 13):
@@ -4897,10 +4949,41 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
-        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        mask = imread(fp).astype(np.bool)
-        return mask
+
+        try:
+            fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
+            download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+            mask = imread(fp).astype(np.bool)
+            return mask
+        except:
+            sys.stderr.write('Cannot load mask %s, section=%d, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+            
+            if isinstance(prep_id, str):
+                prep_id = prep_str_to_id_2d[prep_id]
+
+            if prep_id == 2:        
+                # get prep 2 masks directly from prep 5 masks.
+                try:
+                    sys.stderr.write('Try finding prep5 masks.\n')
+                    fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=5)
+                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    mask_prep5 = imread(fp).astype(np.bool)
+
+                    xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
+                    mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
+                    return mask_prep2
+                except:                            
+                    # get prep 2 masks directly from prep 1 masks.
+                    sys.stderr.write('Cannot load mask %s, section=%d, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                    sys.stderr.write('Try finding prep1 masks.\n')
+                    fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
+                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    mask_prep1 = imread(fp).astype(np.bool)
+
+                    xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                    mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                    return mask_prep2
+        
 
     # @staticmethod
     # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
@@ -5184,11 +5267,12 @@ def generate_metadata_cache():
         except:
             pass
         try:
-            metadata_cache['section_limits'][stack] = DataManager.load_cropbox_v2(stack)[4:]
+            metadata_cache['section_limits'][stack] = DataManager.load_section_limits_v2(stack, prep_id=2)
         except:
             pass
         try:
-            metadata_cache['cropbox'][stack] = DataManager.load_cropbox_v2(stack)[:4]
+            # alignedBrainstemCrop cropping box
+            metadata_cache['cropbox'][stack] = DataManager.load_cropbox_v2(stack, prep_id=2)
         except:
             pass
 

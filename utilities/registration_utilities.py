@@ -425,12 +425,12 @@ def generate_aligner_parameters_v2(alignment_spec,
     if include_surround:
         structure_subset_m = structure_subset_m + [convert_to_surround_name(s, margin='200um') for s in structure_subset_m]
 
-    if any(map(is_sided_label, structures_f)): # fixed volumes have structures both sides.
-
+    if any(map(is_sided_label, structures_f)): # fixed volumes have structures of both sides.
+        
         if include_surround:
-            label_mapping_m2f = {label_m: structure_to_label_fixed[name_m]
+            label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_nonsurround_name(name_m)]
              for label_m, name_m in label_to_structure_moving.iteritems()
-             if name_m in structure_subset_m and name_m in structure_to_label_fixed}
+             if name_m in structure_subset_m and convert_to_nonsurround_name(name_m) in structure_to_label_fixed}
 
         else:
             label_mapping_m2f = {label_m: structure_to_label_fixed[convert_to_nonsurround_name(name_m)]

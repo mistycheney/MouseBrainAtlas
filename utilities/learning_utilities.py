@@ -2934,7 +2934,7 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                   model=None, mean_img=None, model_name=None,
                   batch_size=None,
                                           attach_timestamp=False,
-                                         version=None):
+                                         version=None, recompute=False):
     """
     Compute features for one section.
     First try loading the saved list, then only compute the difference and save augmented list.
@@ -2978,28 +2978,34 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
         
     features_roi = np.zeros((len(locations_roi), 1024))
 
-    try:
-        t = time.time()
-        if method == 'cnn':
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                                   prep_id=prep_id, win_id=win_id,
-                                                                   normalization_scheme=scheme,
-                                                                   model_name=model_name)
-        else:
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                                   prep_id=prep_id, win_id=win_id,
-                                                                   normalization_scheme=scheme,
-                                                                   model_name=method)
-
-        locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
-        sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
-
-    except Exception as e:
-
-        sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
+    if recompute:
+        sys.stderr.write('Recompute features requested... computing from scratch.\n')
         features = []
         locations = []
         locations_to_compute = locations_roi
+    else:
+        try:
+            t = time.time()
+            if method == 'cnn':
+                features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                       prep_id=prep_id, win_id=win_id,
+                                                                       normalization_scheme=scheme,
+                                                                       model_name=model_name)
+            else:
+                features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                       prep_id=prep_id, win_id=win_id,
+                                                                       normalization_scheme=scheme,
+                                                                       model_name=method)
+
+            locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
+            sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
+
+        except Exception as e:
+
+            sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
+            features = []
+            locations = []
+            locations_to_compute = locations_roi
 
     if len(locations_to_compute) > 0:
 

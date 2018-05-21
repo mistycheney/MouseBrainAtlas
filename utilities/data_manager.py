@@ -4532,6 +4532,43 @@ class DataManager(object):
                 sys.stderr.write("Version %s is not available. Instead, load lossless and take the blue channel...\n" % version)
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
                 img = img[..., 2]
+            elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
+                if isinstance(prep_id, str):
+                    prep_id = prep_str_to_id_2d[prep_id]
+                    
+                if prep_id == 2:
+                    # get prep 2 masks directly from prep 5 masks.
+                    try:
+                        sys.stderr.write('Try finding prep5 masks.\n')
+                        mask_prep5 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=5, version='mask', resol='thumbnail')
+                        # fp = DataManager.get_thumbnail_mask_filename_v3()
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask_prep5 = imread(fp).astype(np.bool)
+
+                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
+                        mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
+                        return mask_prep2.astype(np.bool)
+                    except:                            
+                        # get prep 2 masks directly from prep 1 masks.
+                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                        sys.stderr.write('Try finding prep1 masks.\n')
+                        mask_prep1 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=1, version='mask', resol='thumbnail')
+                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask_prep1 = imread(fp).astype(np.bool)
+
+                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                        mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                        return mask_prep2.astype(np.bool)
+                else:
+                    try:
+                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask = imread(fp).astype(np.bool)
+                        mask = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=prep_id, version='mask', resol='down32')
+                        return mask.astype(np.bool)
+                    except:
+                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
             else:
                 raise Exception("Image loading failed.")
 
@@ -4583,9 +4620,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        elif resol == 'raw':
-            if stack not in ['CHATM2', 'CHATM3']:
-                resol = 'lossless'
+        # elif resol == 'raw':
+        #     if stack not in ['CHATM2', 'CHATM3']:
+        #         resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -4956,7 +4993,7 @@ class DataManager(object):
             mask = imread(fp).astype(np.bool)
             return mask
         except:
-            sys.stderr.write('Cannot load mask %s, section=%d, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+            sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
             
             if isinstance(prep_id, str):
                 prep_id = prep_str_to_id_2d[prep_id]
@@ -4974,7 +5011,7 @@ class DataManager(object):
                     return mask_prep2
                 except:                            
                     # get prep 2 masks directly from prep 1 masks.
-                    sys.stderr.write('Cannot load mask %s, section=%d, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                    sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                     sys.stderr.write('Try finding prep1 masks.\n')
                     fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
                     download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)

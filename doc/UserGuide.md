@@ -8,8 +8,8 @@ Edit `global_setting.py`. In particular, specify the following variables:
 - `DATA_DIR`
 - `REPO_DIR`
 
-[Data Organization](FileOrganization.md)
-[Preprocessing](Preprocessing.md)
-[Registration](Registration.md)
-[Detection](Detection.md)
+- [Data Organization](FileOrganization.md)
+- [Preprocessing](Preprocessing.md)
+- [Registration](Registration.md)
+- [Detection](Detection.md)
 

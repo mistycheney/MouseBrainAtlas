@@ -4,16 +4,16 @@
 
 ### For nissl data
 * raw -> thumbnail
-* Compute tranforms
+* **Compute tranforms**
 * thumbnail -> prep1_thumbnail
-* Supply prep1_thumbnail_mask
+* **Supply prep1_thumbnail_mask**
 * prep1_thumbnail_mask -> thumbnail_mask
 * raw -> prep1_raw
-* Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask.
+* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
 * prep1_raw -> prep5_raw:
 * prep1_thumbnail -> prep5_thumbnail:
 * prep1_thumbnail_mask -> prep5_thumbnail_mask:
-* Specify prep2 (alignedBrainstemCrop) cropping box.
+* **Specify prep2 (alignedBrainstemCrop) cropping box**
 * prep5_raw -> prep2_raw
 * prep5_thumbnail -> prep2_thumbnail
 * prep5_thumbnail_mask -> prep2_thumbnail_mask
@@ -27,11 +27,15 @@ _prep5_raw_ will be published online.
 ### For neurotrace data
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized
-* Compute transforms
+* **Compute transforms**
 * thumbnail_NtbNormalized -> prep1_thumbnail_NtbNormalized
-* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma
+* **Supply prep1_thumbnail_mask**
+* prep1_thumbnail_mask -> thumbnail_mask
+* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
+* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
 * raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma
 * prep1_thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
+* **Specify prep2 (alignedBrainstemCrop) cropping box**
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
@@ -43,6 +47,17 @@ Load: 8.50 seconds.
 Convert RGB to gray: 14.33 seconds. # 0 if only taking the blue channel
 Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 
+## Brightness correction
+Load image: 23.39 seconds.
+Rescale mask: 24.36 seconds.
+Compute mean/std for sample regions: 8.19 seconds.
+Interpolate mean map: 6.42 seconds.
+Scale up mean map: 14.60 seconds.
+Interpolate std map: 6.18 seconds.
+Scale up std map: 17.01 seconds.
+Normalize: 9.15 seconds.
+Save float version: 6.89 seconds.
+Rescale to uint8: 14.76 seconds.
 
 # Detection
 

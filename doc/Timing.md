@@ -85,23 +85,21 @@ For each section:
  * Compute features: 4.67 seconds
  * Save features: 2.34 seconds
 * Load background image: 19.82 seconds (Load background image: 2.5 seconds if already exist)
-* Rescale background image to output resolution: 0.82 seconds
+* Rescale background image to output resolution: 3.08 seconds
 * Predict scores 7N: 0.01 seconds
 * Resample scoremap 7N: 0.08 seconds
 * Load and rescale background image: 0.00 seconds
 * Generate scoremap overlay: 0.04 seconds.
 * Scoremap size does not match background image size. Need to resize: 0.06 seconds.
 * Generate scoremap overlay image 7N: 0.12 seconds
-* Save scoremap:
-* Save scoremap viz:
+* Save scoremap: 0.01 seconds
+* Save scoremap viz: 0.04 seconds
+- Overall, if features are pre-computed and background images already exist, 8 s/section * 300 sections = 40 mins.
 
 * Images to volume:
 * Save score volume:
 * Compute gradient:
 * Save gradient:
-
-Overall, if features are pre-computed and background images already exist, 5 s/section * 300 sections = 25 mins.
-
 
 # Registration
 

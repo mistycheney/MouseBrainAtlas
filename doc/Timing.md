@@ -33,7 +33,7 @@ _prep5_raw_ will be published online.
 * prep1_thumbnail_mask -> thumbnail_mask
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
 * **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
-* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section * 300 sections = 7.5 hrs
 * prep1_thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
 * **Specify prep2 (alignedBrainstemCrop) cropping box**
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma

@@ -77,7 +77,7 @@ One stack: 17s * ~300 sections = 85 mins
 
 * locate patches: 0.02 seconds
 
-* Load pre-computed features: 0.07 seconds
+* Load pre-computed features: 1 seconds
 * No pre-computed features found... computing from scratch.
   * Load image: 20.64 seconds.
   * Crop patches: 0.09 seconds.
@@ -85,8 +85,8 @@ One stack: 17s * ~300 sections = 85 mins
   * Compute features: 4.67 seconds
   * Save features: 2.34 seconds
 
-* Load background image: 19.82 seconds (Load background image: 1.48 seconds if already exist)
-* Rescale background image to output resolution: 0.17 seconds
+* Load background image: 19.82 seconds (Load background image: 2.5 seconds if already exist)
+* Rescale background image to output resolution: 0.82 seconds
 * Predict scores 7N: 0.01 seconds
 * Resample scoremap 7N: 0.08 seconds
 * Load and rescale background image: 0.00 seconds
@@ -94,7 +94,7 @@ One stack: 17s * ~300 sections = 85 mins
 * Scoremap size does not match background image size. Need to resize: 0.06 seconds.
 * Generate scoremap overlay image 7N: 0.12 seconds
 
-Overall, if features are pre-computed, 2s/section * 300 sections = 10 mins.
+Overall, if features are pre-computed and background images already exist, 5 s/section * 300 sections = 25 mins.
 
 
 # Registration

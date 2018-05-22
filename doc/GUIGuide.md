@@ -47,3 +47,28 @@ The columns are:
 - `volume`: the 3-D volume encoded by bloscpack as string
 
 ## Method 2: Manual adjustment of pre-built atlas structures.
+
+
+
+
+## Visualize and revise annotations using the labeling GUI
+
+Download warped atlas maps into `VOLUME_DIR/<atlasName>/<atlasName>_<warp>_<fixedMapName>`.
+
+Click "Load warped structures". Select structure. The structure contour (p=0.5) will be displayed over the images. You can move or rotate with respect to structure center. Each structure is manipulated as one integral 3-D entity. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
+
+Click "Save prob. structures". All structures currently loaded are saved into the file `ANNOTATION_DIR/<stack>/<stack>_annotation_probStructures_<timestamp>.hdf`.
+
+Each row of the structure annotation file is indexed by a random `structure_id`. The columns are
+
+* `volume_in_bbox`: bloscpack-encoded string of 3-D volume, isotropic voxel size ~ 0.45 micron * 32 = 14.4 micron.
+* `bbox`: (xmin,xmax,ymin,ymax,zmin,zmax), wrt "wholebrain", same voxel size as above.
+* `name`: structure name, unsided
+* `side`: L or R or S
+* `edits`. list. Each entry is a dict.
+	* `username`
+	* `timestamp`
+	* `type`: shift3d or rotate3d
+	* `transform`: flattened 3x4 matrix
+	* `centroid_m`
+	* `centroid_f`

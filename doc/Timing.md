@@ -4,6 +4,7 @@
 
 ### For nissl data
 * raw -> thumbnail
+* Compute tranforms
 * thumbnail -> prep1_thumbnail
 * Supply prep1_thumbnail_mask
 * prep1_thumbnail_mask -> thumbnail_mask
@@ -29,12 +30,12 @@ _prep5_raw_ will be published online.
 ### For neurotrace data
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized
+* Compute transforms
 * thumbnail_NtbNormalized -> prep1_thumbnail_NtbNormalized
-* raw_Ntb -> raw_NtbNormalizedAdaptive
-* raw_NtbNormalizedAdaptive -> prep1_raw_NtbNormalizedAdaptive
-* prep1_raw_NtbNormalizedAdaptive -> prep5_raw_NtbNormalizedAdaptive:
-* prep1_thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized:
-* prep5_raw_NtbNormalizedAdaptive -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
+* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma
+* prep1_thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
 ## Convert to JPEG

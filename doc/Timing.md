@@ -94,12 +94,13 @@ For each section:
 * Generate scoremap overlay image 7N: 0.12 seconds
 * Save scoremap: 0.01 seconds
 * Save scoremap viz: 0.04 seconds
-- Overall, if features are pre-computed and background images already exist, 8 s/section * 300 sections = 40 mins.
 
 * Images to volume:
 * Save score volume:
 * Compute gradient:
 * Save gradient:
+
+Overall, if features are pre-computed and background images already exist, 8 s/section * 300 sections = 40 mins.
 
 # Registration
 

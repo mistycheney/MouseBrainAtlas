@@ -196,7 +196,7 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
 
         self.installEventFilter(self)
 
-        first_sec0, last_sec0 = DataManager.load_cropbox_v2(self.stack, prep_id=self.prep_id)[4:]
+        first_sec0, last_sec0 = DataManager.load_section_limits_v2(self.stack, prep_id=self.prep_id)
         self.sections = range(first_sec0, last_sec0 + 1)
 
         image_feeder = ImageDataFeeder_v2('image feeder', stack=self.stack, sections=self.sections,

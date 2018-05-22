@@ -2934,7 +2934,7 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
                   model=None, mean_img=None, model_name=None,
                   batch_size=None,
                                           attach_timestamp=False,
-                                         version=None):
+                                         version=None, recompute=False):
     """
     Compute features for one section.
     First try loading the saved list, then only compute the difference and save augmented list.
@@ -2978,28 +2978,34 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
         
     features_roi = np.zeros((len(locations_roi), 1024))
 
-    try:
-        t = time.time()
-        if method == 'cnn':
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                                   prep_id=prep_id, win_id=win_id,
-                                                                   normalization_scheme=scheme,
-                                                                   model_name=model_name)
-        else:
-            features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
-                                                                   prep_id=prep_id, win_id=win_id,
-                                                                   normalization_scheme=scheme,
-                                                                   model_name=method)
-
-        locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
-        sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
-
-    except Exception as e:
-
-        sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
+    if recompute:
+        sys.stderr.write('Recompute features requested... computing from scratch.\n')
         features = []
         locations = []
         locations_to_compute = locations_roi
+    else:
+        try:
+            t = time.time()
+            if method == 'cnn':
+                features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                       prep_id=prep_id, win_id=win_id,
+                                                                       normalization_scheme=scheme,
+                                                                       model_name=model_name)
+            else:
+                features, locations = DataManager.load_dnn_features_v2(stack=stack, sec=sec, fn=fn,
+                                                                       prep_id=prep_id, win_id=win_id,
+                                                                       normalization_scheme=scheme,
+                                                                       model_name=method)
+
+            locations_to_compute = list(set(map(tuple, locations_roi)) - set(map(tuple, locations)))
+            sys.stderr.write("Need to compute features at %d locations.\n" % len(locations_to_compute))
+
+        except Exception as e:
+
+            sys.stderr.write('%s\nNo pre-computed features found... computing from scratch.\n' % str(e))
+            features = []
+            locations = []
+            locations_to_compute = locations_roi
 
     if len(locations_to_compute) > 0:
 
@@ -3015,8 +3021,9 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
             features = features_newly_computed
             locations = locations_to_compute
         else:
-            features = features + features_newly_computed
-            locations = locations + locations_to_compute
+            # features = features + features_newly_computed
+            features = np.concatenate([features, features_newly_computed])
+            locations = np.concatenate([locations, locations_to_compute])
 
         t = time.time()
         if method == 'cnn':
@@ -3065,7 +3072,8 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                   bbox=None,
                   user_mask=None,
                   sec=None, fn=None, bg_img=None,
-                  bg_img_local_region=None, return_scoremap=False,
+                  bg_img_local_region=None, 
+                  return_what='both',
                   out_resolution_um=None, in_resolution_um=None,
                   feature='cnn',
                   model=None, mean_img=None, model_name=None,
@@ -3084,7 +3092,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         bbox (4-tuple): (xmin, xmax, ymin, ymax) in raw resolution. If not given, use the whole image.
         bg_img: background image.
         bg_img_local_region: the part of background image in bbox.
-        return_scoremap (bool): If True, return (viz, scoremap); otherwise, return viz.
+        return_what (str): 'viz', 'scoremap' or 'both'
         out_resolution_um (float): resolution of output scoremap in microns
         feature (str): cnn or mean
         model_name (str): model name. For forming filename of saved features.
@@ -3122,6 +3130,8 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     sys.stderr.write('locate patches: %.2f seconds\n' % (time.time() - t))
 
     sample_locations_roi = grid_parameters_to_sample_locations(grid_spec=grid_spec)[indices_roi]
+    if len(sample_locations_roi) == 0:
+        raise Exception('No samples are within the given ROI.')        
 
     try:
         t = time.time()
@@ -3182,31 +3192,36 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
         sys.stderr.write('Save features: %.2f seconds\n' % (time.time() - t))
 
 
-    scoremap_viz_all_clfs = {}
-    scoremap_local_region_all_clfs = {}
-
-    t = time.time()
-    if bg_img_local_region is None:
-        if bg_img is None:
-            if stack in ['CHATM2', 'CHATM3']:
-                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGammaJpeg', fn=fn)
-            else:
-                bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn)
-        
-        bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
-    sys.stderr.write('Load background image: %.2f seconds\n' % (time.time() - t))
-
     if in_resolution_um is None:
         in_resolution_um = planar_resolution[stack]
     else:
         assert in_resolution_um == planar_resolution[stack]
     out_downscale = out_resolution_um / in_resolution_um
 
-    t = time.time()
-    bg_img_local_region_outResol = rescale(bg_img_local_region, 1./out_downscale)
-    sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
+    #############################
+        
+    scoremap_viz_all_clfs = {}
+    scoremap_local_region_all_clfs = {}
+    
+    if return_what == 'both' or return_what == 'viz':
 
-    bg_img_outResol = rescale(bg_img, 1./out_downscale)
+        t = time.time()
+        if bg_img_local_region is None:
+            if bg_img is None:
+                if stack in ['CHATM2', 'CHATM3']:
+                    bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGammaJpeg', fn=fn, resol='raw')
+                else:
+                    bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn, resol='raw')
+
+            bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
+        sys.stderr.write('Load background image: %.2f seconds\n' % (time.time() - t))
+
+        t = time.time()
+        bg_img_local_region_outResol = rescale(bg_img_local_region, 1./out_downscale)
+        sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
+
+        bg_img_outResol = rescale(bg_img, 1./out_downscale)
+    
     
     for name, clf in clfs.iteritems():
 
@@ -3225,45 +3240,55 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
             scoremap_local_region = \
             scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)),
                                          int(np.round(roi_xmin/out_downscale)):int(np.round((roi_xmin+roi_w)/out_downscale))]
-
-            t = time.time()
-            scoremap_viz_localRegion = scoremap_overlay_on(bg=bg_img_local_region_outResol,
-                                               stack=stack,
-                                               out_downscale=out_downscale,
-                                               in_downscale=out_downscale,
-                                               fn=fn,
-                                               scoremap=scoremap_local_region,
-                                              in_scoremap_downscale=out_downscale,
-                                              cmap_name= 'jet')
-            sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
-            
-            scoremap_viz_all_clfs[name] = scoremap_viz_localRegion
             scoremap_local_region_all_clfs[name] = scoremap_local_region
+
+            if return_waht == 'scoremap':
+                return scoremap_local_region_all_clfs
             
-            if return_scoremap:
-                return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
-            else:
-                return scoremap_viz_all_clfs
+            elif return_what == 'both' or return_what == 'viz':
+                t = time.time()
+                scoremap_viz_localRegion = scoremap_overlay_on(bg=bg_img_local_region_outResol,
+                                                   stack=stack,
+                                                   out_downscale=out_downscale,
+                                                   in_downscale=out_downscale,
+                                                   fn=fn,
+                                                   scoremap=scoremap_local_region,
+                                                  in_scoremap_downscale=out_downscale,
+                                                  cmap_name= 'jet')
+                sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
+
+                scoremap_viz_all_clfs[name] = scoremap_viz_localRegion
+
+                if return_what == 'both':
+                    return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
+                else:
+                    return scoremap_viz_all_clfs
 
         else:
-            t = time.time()
-            scoremap_viz = scoremap_overlay_on(bg=bg_img_outResol,
-                                               stack=stack,
-                                               out_downscale=out_downscale,
-                                               in_downscale=out_downscale,
-                                               fn=fn,
-                                               scoremap=scoremap,
-                                              in_scoremap_downscale=out_downscale,
-                                              cmap_name= 'jet')
-            sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
             
-            scoremap_viz_all_clfs[name] = scoremap_viz
             scoremap_local_region_all_clfs[name] = scoremap
             
-            if return_scoremap:
-                return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
-            else:
-                return scoremap_viz_all_clfs
+            if return_what == 'scoremap':
+                return scoremap_local_region_all_clfs
+            
+            elif return_what == 'both' or return_what == 'viz':
+                t = time.time()
+                scoremap_viz = scoremap_overlay_on(bg=bg_img_outResol,
+                                                   stack=stack,
+                                                   out_downscale=out_downscale,
+                                                   in_downscale=out_downscale,
+                                                   fn=fn,
+                                                   scoremap=scoremap,
+                                                  in_scoremap_downscale=out_downscale,
+                                                  cmap_name= 'jet')
+                sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
+
+                scoremap_viz_all_clfs[name] = scoremap_viz
+
+                if return_what == 'both':
+                    return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
+                else:
+                    return scoremap_viz_all_clfs
 
             
 def plot_result_wrt_ntrain(test_metrics_all_ntrain, ylabel='', title=''):

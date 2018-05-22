@@ -604,7 +604,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 # type = confirmed or intersected
                 if 'type' in contour and contour['type'] is not None:
-                    contour_type = contour['type']
+                    # contour_type = contour['type']
+                    contour_type = 'intersected'
                 else:
                     # contour_type = None
                     # contour_type = 'confirmed'

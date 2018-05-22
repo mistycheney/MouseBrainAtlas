@@ -121,10 +121,10 @@ class CoordinatesConverter(object):
 
         if stack is not None:
             self.stack = stack
-            
+
             # Define frame:wholebrainXYcropped
             cropbox_origin_xy_wrt_wholebrain_tbResol = DataManager.load_cropbox_v2(stack=stack, prep_id='alignedBrainstemCrop', only_2d=True)[[0,2]]
-            
+
             self.derive_three_view_frames(base_frame_name='wholebrainXYcropped',
             origin_wrt_wholebrain_um=np.r_[cropbox_origin_xy_wrt_wholebrain_tbResol, 0] * convert_resolution_string_to_um(resolution='thumbnail', stack=self.stack))
 
@@ -132,15 +132,15 @@ class CoordinatesConverter(object):
             intensity_volume_spec = dict(name=stack, resolution='10.0um', prep_id='wholebrainWithMargin', vol_type='intensity')
             _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
             DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
-            
+
             thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
-            
-            self.derive_three_view_frames(base_frame_name='wholebrainWithMargin', 
+
+            self.derive_three_view_frames(base_frame_name='wholebrainWithMargin',
                                    origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um)
-            
+
             # Define resolution:image
             self.register_new_resolution('image', convert_resolution_string_to_um(resolution='raw', stack=stack))
-            
+
         if section_list is not None:
             self.section_list = section_list
 
@@ -1020,6 +1020,33 @@ class DataManager(object):
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
+    
+    @staticmethod
+    def load_section_limits_v2(stack, anchor_fn=None, prep_id=2):
+        """
+        """
+
+        d = load_data(DataManager.get_section_limits_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id))
+        return np.r_[d['left_section_limit'], d['right_section_limit']]
+    
+    @staticmethod
+    def get_section_limits_filename_v2(stack, anchor_fn=None, prep_id=2):
+        """
+        Return path to file that specified the cropping box of the given crop specifier.
+
+        Args:
+            prep_id (int or str): 2D frame specifier
+        """
+
+        if isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
+
+        if anchor_fn is None:
+            anchor_fn = DataManager.load_anchor_filename(stack=stack)
+
+        fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_sectionLimits.json')
+        return fp
+    
     @staticmethod
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1128,9 +1155,33 @@ class DataManager(object):
         return origin_outResol
 
     @staticmethod
+    def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
+            
+        alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
+        alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
+
+        alignedWithMargin_xmin_down32, alignedWithMargin_xmax_down32,\
+        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None, 
+                                                                prep_id=wrt_prep_id,
+                                                               return_dict=False, only_2d=True)
+
+        alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmin_down32 - alignedWithMargin_xmin_down32
+        alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmax_down32 - alignedWithMargin_xmin_down32
+        alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymin_down32 - alignedWithMargin_ymin_down32
+        alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymax_down32 - alignedWithMargin_ymin_down32
+        
+        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack) 
+        
+        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 * scale_factor]).astype(np.int)
+    
+    
+    @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
-                       return_dict=False, only_2d=False):
+                       return_dict=False, only_2d=True):
         """
         Loads the cropping box for the given crop.
 
@@ -1142,7 +1193,8 @@ class DataManager(object):
         if isinstance(prep_id, str):
             fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         elif isinstance(prep_id, int):
-            fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+            # fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
+            fp = DataManager.get_cropbox_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
         else:
             raise Exception("prep_id %s must be either str or int" % prep_id)
 
@@ -1537,7 +1589,7 @@ class DataManager(object):
                 basename += '_' + '_'.join(structure)
             else:
                 raise
-                
+
         return basename
 
     # OBSOLETE
@@ -1556,10 +1608,10 @@ class DataManager(object):
                                    vol_type_f='score',
                                    trial_idx=None,
                                    **kwargs):
-    
+
         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
-    
+
         if stack_f is None:
             assert warp_setting is None
             vol_name = basename_m
@@ -1567,10 +1619,10 @@ class DataManager(object):
             basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
                                                   resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
             vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
-    
+
         if trial_idx is not None:
             vol_name += '_trial_%d' % trial_idx
-    
+
         return vol_name
 
     @staticmethod
@@ -3725,21 +3777,21 @@ class DataManager(object):
         """
         This returns the 3D bounding box of the volume.
         (?) Bounding box coordinates are with respect to coordinates origin of the contours. (?)
-    
+
         Args:
             volume_type (str): score or annotationAsScore.
             relative_to_uncropped (bool): if True, the returned bounding box is with respect to "wholebrain"; if False, wrt "wholebrainXYcropped". Default is False.
-    
+
         Returns:
             (6-tuple): bounding box of the volume (xmin, xmax, ymin, ymax, zmin, zmax).
         """
-    
+
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
         download_from_s3(bbox_fp)
         volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
         # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
         # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
-    
+
         if relative_to_uncropped:
             if volume_type == 'score' or volume_type == 'thumbnail':
                 # bbox of "brainstem" wrt "wholebrain"
@@ -3749,7 +3801,7 @@ class DataManager(object):
             # else:
             #     continue
                 # raise
-    
+
         return volume_bbox_wrt_wholebrainXYcropped
 
     # @staticmethod
@@ -3845,7 +3897,7 @@ class DataManager(object):
             detector_id=detector_id)
         else:
             raise Exception('Type must be annotation, score, shell or thumbnail.')
-    
+
         return bbox_fn
 
     @staticmethod
@@ -4427,13 +4479,13 @@ class DataManager(object):
     #     return image_dir
 
     @staticmethod
-    def load_image_v2(stack, prep_id, resol='lossless', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
+    def load_image_v2(stack, prep_id, resol='raw', version=None, section=None, fn=None, data_dir=DATA_DIR, ext=None, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
 
         img_fp = DataManager.get_image_filepath_v2(stack=stack, prep_id=prep_id, resol=resol, version=version,
                                                        section=section, fn=fn, data_dir=data_dir, ext=ext,
                                                       thumbnail_data_dir=thumbnail_data_dir)
 
-        if resol == 'lossless' or resol == 'down8':
+        if resol == 'lossless' or resol == 'raw' or resol == 'down8':
             download_from_s3(img_fp, local_root=DATA_ROOTDIR)
         else:
             download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
@@ -4480,12 +4532,49 @@ class DataManager(object):
                 sys.stderr.write("Version %s is not available. Instead, load lossless and take the blue channel...\n" % version)
                 img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
                 img = img[..., 2]
+            elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
+                if isinstance(prep_id, str):
+                    prep_id = prep_str_to_id_2d[prep_id]
+                    
+                if prep_id == 2:
+                    # get prep 2 masks directly from prep 5 masks.
+                    try:
+                        sys.stderr.write('Try finding prep5 masks.\n')
+                        mask_prep5 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=5, version='mask', resol='thumbnail')
+                        # fp = DataManager.get_thumbnail_mask_filename_v3()
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask_prep5 = imread(fp).astype(np.bool)
+
+                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
+                        mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
+                        return mask_prep2.astype(np.bool)
+                    except:                            
+                        # get prep 2 masks directly from prep 1 masks.
+                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                        sys.stderr.write('Try finding prep1 masks.\n')
+                        mask_prep1 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=1, version='mask', resol='thumbnail')
+                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask_prep1 = imread(fp).astype(np.bool)
+
+                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                        mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                        return mask_prep2.astype(np.bool)
+                else:
+                    try:
+                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
+                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                        # mask = imread(fp).astype(np.bool)
+                        mask = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=prep_id, version='mask', resol='down32')
+                        return mask.astype(np.bool)
+                    except:
+                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
             else:
                 raise Exception("Image loading failed.")
 
         if version == 'mask':
             img = img.astype(np.bool)
-                
+
         if img.ndim == 3:
             return img[...,::-1] # cv2 load images in BGR, this converts it to RGB.
         else:
@@ -4546,7 +4635,7 @@ class DataManager(object):
             prep_id = prep_str_to_id_2d[prep_id]
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)
-        
+
 
         if version is None:
             image_name = fn + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol + '.' + 'tif'
@@ -4634,7 +4723,7 @@ class DataManager(object):
         # anchor_fn = DataManager.load_anchor_filename(stack)
         # filename_to_section, section_to_filename = DataManager.load_sorted_filenames(stack)
 
-        xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_v2(stack=stack, prep_id=2)
+        xmin, xmax, ymin, ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=2)
         return (xmax - xmin + 1) * 32, (ymax - ymin + 1) * 32
 
         # for i in range(10, 13):
@@ -4897,10 +4986,41 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
-        fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-        mask = imread(fp).astype(np.bool)
-        return mask
+
+        try:
+            fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
+            download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+            mask = imread(fp).astype(np.bool)
+            return mask
+        except:
+            sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+            
+            if isinstance(prep_id, str):
+                prep_id = prep_str_to_id_2d[prep_id]
+
+            if prep_id == 2:        
+                # get prep 2 masks directly from prep 5 masks.
+                try:
+                    sys.stderr.write('Try finding prep5 masks.\n')
+                    fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=5)
+                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    mask_prep5 = imread(fp).astype(np.bool)
+
+                    xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
+                    mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
+                    return mask_prep2
+                except:                            
+                    # get prep 2 masks directly from prep 1 masks.
+                    sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                    sys.stderr.write('Try finding prep1 masks.\n')
+                    fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
+                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    mask_prep1 = imread(fp).astype(np.bool)
+
+                    xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                    mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                    return mask_prep2
+        
 
     # @staticmethod
     # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
@@ -5184,11 +5304,12 @@ def generate_metadata_cache():
         except:
             pass
         try:
-            metadata_cache['section_limits'][stack] = DataManager.load_cropbox_v2(stack)[4:]
+            metadata_cache['section_limits'][stack] = DataManager.load_section_limits_v2(stack, prep_id=2)
         except:
             pass
         try:
-            metadata_cache['cropbox'][stack] = DataManager.load_cropbox_v2(stack)[:4]
+            # alignedBrainstemCrop cropping box
+            metadata_cache['cropbox'][stack] = DataManager.load_cropbox_v2(stack, prep_id=2)
         except:
             pass
 

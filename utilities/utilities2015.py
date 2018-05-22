@@ -1387,7 +1387,7 @@ def create_if_not_exists(path):
     return path
 
 def execute_command(cmd, stdout=None, stderr=None):
-    print cmd
+    sys.stderr.write(cmd + '\n')
 
     # try:
 #     from errand_boy.transports.unixsocket import UNIXSocketTransport
@@ -1400,7 +1400,8 @@ def execute_command(cmd, stdout=None, stderr=None):
     # import os
     # retcode = os.system(cmd)
     retcode = call(cmd, shell=True, stdout=stdout, stderr=stderr)
-    print retcode
+    sys.stderr.write('return code: %d\n' % retcode)
+
     # if retcode < 0:
     #     print >>sys.stderr, "Child was terminated by signal", -retcode
     # else:

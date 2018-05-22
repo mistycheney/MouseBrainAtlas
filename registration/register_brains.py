@@ -92,8 +92,9 @@ grid_search_T, _ = aligner.do_grid_search(grid_search_iteration_number=0, grid_s
 
 # grid_search_T = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0]])
 
-init_T = compose_alignment_parameters([T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol, grid_search_T])
+# init_T = compose_alignment_parameters([T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol, grid_search_T])
 
+init_T = grid_search_T
 aligner.set_initial_transform(init_T)
 aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m')
 

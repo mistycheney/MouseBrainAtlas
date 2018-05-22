@@ -75,16 +75,15 @@ One stack: 17s * ~300 sections = 85 mins
 
 ## Images to score volume
 
+For each section:
 * locate patches: 0.02 seconds
-
 * Load pre-computed features: 1 seconds
 * No pre-computed features found... computing from scratch.
-  * Load image: 20.64 seconds.
-  * Crop patches: 0.09 seconds.
-  * Extract patches: 20.74 seconds
-  * Compute features: 4.67 seconds
-  * Save features: 2.34 seconds
-
+ * Load image: 20.64 seconds.
+ * Crop patches: 0.09 seconds.
+ * Extract patches: 20.74 seconds
+ * Compute features: 4.67 seconds
+ * Save features: 2.34 seconds
 * Load background image: 19.82 seconds (Load background image: 2.5 seconds if already exist)
 * Rescale background image to output resolution: 0.82 seconds
 * Predict scores 7N: 0.01 seconds
@@ -93,6 +92,13 @@ One stack: 17s * ~300 sections = 85 mins
 * Generate scoremap overlay: 0.04 seconds.
 * Scoremap size does not match background image size. Need to resize: 0.06 seconds.
 * Generate scoremap overlay image 7N: 0.12 seconds
+* Save scoremap:
+* Save scoremap viz:
+
+* Images to volume:
+* Save score volume:
+* Compute gradient:
+* Save gradient:
 
 Overall, if features are pre-computed and background images already exist, 5 s/section * 300 sections = 25 mins.
 

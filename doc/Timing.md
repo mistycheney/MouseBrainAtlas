@@ -94,7 +94,7 @@ For each section:
 * Generate scoremap overlay image 7N: 0.12 seconds
 * Save scoremap: 0.01 seconds
 * Save scoremap viz: 0.04 seconds
-
+----------
 * Images to volume:
 * Save score volume:
 * Compute gradient:

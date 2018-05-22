@@ -40,24 +40,24 @@ _prep5_raw_ will be published online.
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
 ## Convert to JPEG
-Convert to JPEG: 5.48 seconds. (without uploading to s3): 6s * 300 sections = 30 mins
+- Convert to JPEG: 5.48 seconds. (without uploading to s3): 6s * 300 sections = 30 mins
 
 ## Convert from RGB to gray
-Load: 8.50 seconds.
-Convert RGB to gray: 14.33 seconds. # 0 if only taking the blue channel
-Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
+- Load: 8.50 seconds.
+- Convert RGB to gray: 14.33 seconds. # 0 if only taking the blue channel
+- Save: 5.19 seconds. # 2.5 seconds if not uploading to s3
 
 ## Brightness correction
-Load image: 23.39 seconds.
-Rescale mask: 24.36 seconds.
-Compute mean/std for sample regions: 8.19 seconds.
-Interpolate mean map: 6.42 seconds.
-Scale up mean map: 14.60 seconds.
-Interpolate std map: 6.18 seconds.
-Scale up std map: 17.01 seconds.
-Normalize: 9.15 seconds.
-Save float version: 6.89 seconds.
-Rescale to uint8: 14.76 seconds.
+- Load image: 23.39 seconds.
+- Rescale mask: 24.36 seconds.
+- Compute mean/std for sample regions: 8.19 seconds.
+- Interpolate mean map: 6.42 seconds.
+- Scale up mean map: 14.60 seconds.
+- Interpolate std map: 6.18 seconds.
+- Scale up std map: 17.01 seconds.
+- Normalize: 9.15 seconds.
+- Save float version: 6.89 seconds.
+- Rescale to uint8: 14.76 seconds.
 
 # Detection
 

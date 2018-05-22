@@ -181,7 +181,7 @@ def detect_responsive_nodes(exclude_nodes=[], use_nodes=None):
 
     return up_hostids
 
-def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False):
+def run_distributed(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False, use_aws=False):
     run_distributed5(**locals())
 
 # def run_distributed(command, kwargs_list=None, stdout=open('/tmp/log', 'ab+'), exclude_nodes=[], use_nodes=None, argument_type='list', cluster_size=None, jobs_per_node=1):
@@ -243,9 +243,9 @@ def get_num_nodes():
     n_hosts = (check_output('qhost')).count('\n') - 3
     return n_hosts
 
-def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False):
+def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per_node=1, node_list=None, local_only=False, use_aws=False):
     """
-    Distributed executing a command on AWS.
+    Distributed executing a command.
 
     Args:
         local_only: run on local computer instead of AWS cluster
@@ -254,7 +254,10 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         argument_type: one of list, list2, single. If command takes one input item as argument, use "single". If command takes a list of input items as argument, use "list2". If command takes an argument called "kwargs_str", use "list".
     """
 
-    execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
+    if use_aws:
+        execute_command('rm -f /home/ubuntu/stderr_*; rm -f /home/ubuntu/stdout_*')
+    else:
+        execute_command('rm -f ~/stderr_*; rm -f ~/stdout_*')
 
     if local_only:
         sys.stderr.write("Run locally.\n")
@@ -317,14 +320,22 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
         # Explicitly specify the node to submit jobs.
         # By doing so, we can control which files are available in the local scratch space of which node.
         # One can then assign downstream programs to specific nodes so they can read corresponding files from local scratch.
+        
+        if use_aws:
+            stdout_template = '/home/ubuntu/stdout_%d.log'
+            stderr_template = '/home/ubuntu/stderr_%d.log'
+        else:
+            stdout_template = '/home/yuncong/stdout_%d.log'
+            stderr_template = '/home/yuncong/stderr_%d.log'
+        
         if local_only:
-            stdout_f = open('/home/yuncong/stdout_%d.log' % node_i, "w")
-            stderr_f = open('/home/yuncong/stderr_%d.log' % node_i, "w")
+            stdout_f = open(stdout_template % node_i, "w")
+            stderr_f = open(stderr_template % node_i, "w")
             call(temp_script, shell=True, stdout=stdout_f, stderr=stderr_f)
         else:
             call('qsub -V -q all.q@%(node)s -o %(stdout_log)s -e %(stderr_log)s %(script)s' % \
              dict(node=node_list[node_i], script=temp_script,
-                  stdout_log='~/stdout_%d.log' % node_i, stderr_log='~/stderr_%d.log' % node_i),
+                  stdout_log=stdout_template % node_i, stderr_log=stderr_template % node_i),
                  shell=True)
 
     sys.stderr.write('Jobs submitted. Use wait_qsub_complete() to wait for all execution to finish.\n')

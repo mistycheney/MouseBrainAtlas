@@ -26,7 +26,7 @@ _prep5_raw_ will be published online.
 
 ### For neurotrace data
 * raw_Ntb -> thumbnail_Ntb
-* thumbnail_Ntb -> thumbnail_NtbNormalized
+* thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
 * **Compute transforms**
 * thumbnail_NtbNormalized -> prep1_thumbnail_NtbNormalized
 * **Supply prep1_thumbnail_mask**

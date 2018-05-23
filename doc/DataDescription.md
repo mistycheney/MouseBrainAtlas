@@ -1,7 +1,7 @@
 Image data
 ==========
 
-An image has extension `.tif` or `.jpg` of type unit8 or uint16.
+An image has extension either `.tif` or `.jpg`. The type is either unit8 or uint16.
 
 Volume data
 =======

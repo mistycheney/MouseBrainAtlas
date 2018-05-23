@@ -1,7 +1,7 @@
 Image data
 ==========
 
-A processed image has extension either `.tif` or `.jpg`. The type is either unit8 or uint16.
+A processed image has extension either `.tif` or `.jpg`. Data type is either unit8 or uint16.
 
 Volume data
 =======

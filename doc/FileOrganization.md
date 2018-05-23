@@ -36,7 +36,7 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 ## File Organization ##
 
-Processed images are under `$DATA_ROOTDIR`. The path to each image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<stack>_prep<prep_id>_<resol>_<version>.<ext>`.
+Processed images are under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
 
 ## Transfer files to/from birdstore
 

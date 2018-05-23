@@ -18,7 +18,7 @@ The principle is that one can trace back from an image name to the physical sect
 
 Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
-It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand as they will not be parsed correctly in Linux commandline.**
+It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand** as they will not be parsed correctly in Linux commandline.
 
 # Convert raw data to TIFs
 ## CSHL data

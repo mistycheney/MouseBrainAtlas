@@ -1,14 +1,18 @@
 # Detection
 
-## Compute the features on a grid for every image.
+## Compute features for sparse locations of each image
 
-Run `learning/compute_features.py <brain_name> [--section <section_number>]`
+Run `learning/compute_features.py <brain_name> [--section <section_number>] [--win_id <window_id>]`
+
+Output is under `/data/CSHL_patch_features/inception-bn-blue/<brain>/<brain>_prep2_none_win7`
+- `<image_name>_prep2_none_win7_inception-bn-blue_features.bp`: feature vectors. n x 1024 array (float), each row is the feature at one location.
+- `<image_name>_prep2_none_win7_inception-bn-blue_locations.bp`: location of each feature. n x 2(?) array (int), each row is (x,y,??)
 
 Reference: `learning/compute_features_for_entire_stacks.ipynb`
 
 ## Simple global registration
 
-This step perform a simple texture-independent registration that roughly aligns the atlas to the subject.
+This step performs a simple texture-independent registration that roughly aligns the atlas to the subject.
 The purpose is to find a small 3-D extent (compared to the full subject) to run the subsequent detection.
 
 This can be achieved by any of the following:

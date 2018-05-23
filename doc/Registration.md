@@ -58,7 +58,7 @@ Notebook: `registration/registration_v7_atlasV6_local_allstructures.ipynb`
 - Run `Aligner.optimize` to compute `R` and `t`.
 - Compose initial transform and estimated transform using `compose_alignment_parameters`.
 - Save registration results using `DataManager.save_alignment_results_v3`.
-Also see [Explanation of registration results](FileOrganization.md)
+Also see [Explanation of registration results](DataDescription.md)
 
 
 ## Apply estimated transforms

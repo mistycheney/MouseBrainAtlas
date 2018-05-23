@@ -1,4 +1,4 @@
-This page describes the common data types and their representations in this system.
+This page describes the common data types in this system and how they are represented and stored.
 
 Images
 ==========

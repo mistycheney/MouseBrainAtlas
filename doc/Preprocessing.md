@@ -87,7 +87,13 @@ Raw data from the scanner are CZI files. In these files individual sections are 
 Use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
 
 Use the graphical interface with the following settings:
-??
+- Create BigTIFF files (check)
+- One file per scene (check)
+- Use JPEG (check)
+- Enforce LZW for FL (check)
+- Use DisplaySetting for FL images (uncheck)
+- Use Channel Names (check)
+- Use Scene Names (check)
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 

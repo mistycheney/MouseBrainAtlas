@@ -1,3 +1,5 @@
+This page describes the common data types and their representations in this system.
+
 Images
 ==========
 

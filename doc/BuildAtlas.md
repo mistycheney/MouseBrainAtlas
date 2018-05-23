@@ -1,4 +1,4 @@
-# Building atlas:
+# Building atlas
 
 Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 

@@ -8,9 +8,11 @@ Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 
 ## Compute average shapes
 
-- Mean shape volumes
+- Mean shapes
     - `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_volume.bp`
     - `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_origin_wrt_meanShapeCentroid.txt`.
+    
+- Individual instance shapes
   - Instance number to brain/side map. `/CSHL_meshes/<atlas_name>/instance_sources/<atlas_name>_<unsided_structure>_sources.pkl`
   - Instance-to-instance registration parameters
     - `/CSHL_meshes/<atlas_name>/mean_shapes/instance_registration/<unsided_structure>_instance<instance_num>/

@@ -1272,8 +1272,12 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
             for gscene_id, gscene in self.gscenes.iteritems():
                 # if gscene_id == 'main_sagittal':
                 #     gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
-                # gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
-                gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.1, .25, .5, .75, .99], set_name=set_name)
+                if set_name == 'handdrawn':
+                    gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.5], set_name=set_name)
+                elif set_name == 'aligned_atlas':
+                    gscene.update_drawings_from_structure_volume(name_s=name_s, levels=[.1, .25, .5, .75, .99], set_name=set_name)
+                else:
+                    raise
 
         print '3D structure %s of set %s updated.' % (name_s, set_name)
         self.statusBar().showMessage('3D structure of set %s updated.' % set_name)

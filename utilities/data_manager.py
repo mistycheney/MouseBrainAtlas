@@ -1020,7 +1020,7 @@ class DataManager(object):
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
-    
+
     @staticmethod
     def load_section_limits_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1028,7 +1028,7 @@ class DataManager(object):
 
         d = load_data(DataManager.get_section_limits_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id))
         return np.r_[d['left_section_limit'], d['right_section_limit']]
-    
+
     @staticmethod
     def get_section_limits_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1046,7 +1046,7 @@ class DataManager(object):
 
         fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_sectionLimits.json')
         return fp
-    
+
     @staticmethod
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1156,12 +1156,12 @@ class DataManager(object):
 
     @staticmethod
     def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
-            
+
         alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
         alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
 
         alignedWithMargin_xmin_down32, alignedWithMargin_xmax_down32,\
-        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None, 
+        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None,
                                                                 prep_id=wrt_prep_id,
                                                                return_dict=False, only_2d=True)
 
@@ -1169,15 +1169,15 @@ class DataManager(object):
         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmax_down32 - alignedWithMargin_xmin_down32
         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymin_down32 - alignedWithMargin_ymin_down32
         alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymax_down32 - alignedWithMargin_ymin_down32
-        
-        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack) 
-        
-        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor, 
-                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor, 
-                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor, 
+
+        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack)
+
+        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor,
+                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor,
+                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor,
                          alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 * scale_factor]).astype(np.int)
-    
-    
+
+
     @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
@@ -4535,7 +4535,7 @@ class DataManager(object):
             elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
                 if isinstance(prep_id, str):
                     prep_id = prep_str_to_id_2d[prep_id]
-                    
+
                 if prep_id == 2:
                     # get prep 2 masks directly from prep 5 masks.
                     try:
@@ -4548,7 +4548,7 @@ class DataManager(object):
                         xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                         mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                         return mask_prep2.astype(np.bool)
-                    except:                            
+                    except:
                         # get prep 2 masks directly from prep 1 masks.
                         sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                         sys.stderr.write('Try finding prep1 masks.\n')
@@ -4620,9 +4620,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        # elif resol == 'raw':
-        #     if stack not in ['CHATM2', 'CHATM3']:
-        #         resol = 'lossless'
+        elif resol == 'raw':
+            if stack not in ['CHATM2', 'CHATM3']:
+                resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -4994,11 +4994,11 @@ class DataManager(object):
             return mask
         except:
             sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
-            
+
             if isinstance(prep_id, str):
                 prep_id = prep_str_to_id_2d[prep_id]
 
-            if prep_id == 2:        
+            if prep_id == 2:
                 # get prep 2 masks directly from prep 5 masks.
                 try:
                     sys.stderr.write('Try finding prep5 masks.\n')
@@ -5009,7 +5009,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                     mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-                except:                            
+                except:
                     # get prep 2 masks directly from prep 1 masks.
                     sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                     sys.stderr.write('Try finding prep1 masks.\n')
@@ -5020,7 +5020,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
                     mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-        
+
 
     # @staticmethod
     # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):

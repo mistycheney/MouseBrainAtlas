@@ -166,8 +166,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         for i in self.drawings.keys():
             for p in polygons_to_remove[i]:
                 self.drawings[i].remove(p)
-                if i == self.active_i:
-                    self.removeItem(p)
+                # if i == self.active_i:
+                self.removeItem(p)
         # sys.stderr.write("Remove unconfirmed polygons: %.2f seconds\n" % (time.time()-t))
 
         for level in levels:
@@ -265,11 +265,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 # If this position already has a polygon for this structure, do not add a new one.
                 if any([p.properties['label'] == name_u \
-                and p.properties['side'] == side \
+                # and p.properties['side'] == side \
                 and p.properties['type'] == 'confirmed' \
                 and p.properties['set_name'] == set_name
                         for p in self.drawings[index_wrt_dataVolume]]):
-                    sys.stderr.write("d_wrt_structureVolume = %.1f already has a confirmed polygon for %s. Skip adding interpolated polygon.\n" % (d_wrt_structureVolume, self.id))
+                    sys.stderr.write("d_wrt_structureVolume = %.1f already has a confirmed polygon for %s (set %s) on %s. Skip adding interpolated polygon.\n" % (d_wrt_structureVolume, name_u, set_name, self.id))
                     continue
 
                 print 'index_wrt_dataVolume', index_wrt_dataVolume
@@ -603,13 +603,18 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 vertices = contour['vertices']
 
                 # type = confirmed or intersected
-                if 'type' in contour and contour['type'] is not None:
-                    # contour_type = contour['type']
-                    contour_type = 'intersected'
+                if 'type' in contour:
+                    if contour['type'] is not None:
+                        if contour['name'] == 'SC' or contour['name'] == 'IC':
+                            contour_type = 'intersected'
+                        else:
+                            contour_type = contour['type']
+                    else:
+                        contour_type = 'confirmed'
                 else:
                     # contour_type = None
-                    # contour_type = 'confirmed'
-                    contour_type = 'intersected'
+                    contour_type = 'confirmed'
+                    # contour_type = 'intersected'
 
                 # class = neuron or contour
                 if 'class' in contour and contour['class'] is not None:
@@ -905,6 +910,11 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         myMenu.addSeparator()
 
+        action_gotoNextConfirmed = myMenu.addAction("Go to next confirmed")
+        action_gotoPreviousConfirmed = myMenu.addAction("Go to previous confirmed")
+
+        myMenu.addSeparator()
+
         # action_alignAtlasToManualStructureGlobal = myMenu.addAction("Align atlas structure to manual structure (global)")
         # action_alignAtlasToManualStructureLocal = myMenu.addAction("Align atlas structure to manual structure (local)")
         # action_moveAtlasStructureHereGlobal = myMenu.addAction("Move atlas structure here (global)")
@@ -1069,6 +1079,64 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         elif selected_action in moveAtlasStructureToMouseClickLocal_menu_actions:
             name_s = str(selected_action.text())
             self.move_atlas_structure_to(name_s=name_s, global_instead_of_local=False, where='mouse_click')
+
+        elif selected_action == action_gotoNextConfirmed:
+
+            items = all_known_structures_sided
+            item, ok = QInputDialog.getItem(self.gui, "Which structure?", "list of structures", items, 0, False)
+            if ok and item:
+                name_u = convert_to_original_name(str(item))
+            else:
+                return
+
+            all_indices_with_confirmed_contours = []
+            for ind, polygons in self.drawings.iteritems():
+                for p in polygons:
+                    if p.properties['label'] == name_u and p.properties['type'] == 'confirmed':
+                        all_indices_with_confirmed_contours.append(ind)
+            all_indices_with_confirmed_contours = np.array(sorted(all_indices_with_confirmed_contours))
+            print all_indices_with_confirmed_contours
+            diffs = all_indices_with_confirmed_contours - self.active_i
+            print diffs
+
+            next_index_args = np.where(diffs > 0)[0]
+            print next_index_args
+            if len(next_index_args) == 0:
+                print 'No more next confirmed contour for %s' % name_u
+                return
+            else:
+                next_index_with_confirmed_contour = all_indices_with_confirmed_contours[next_index_args[0]]
+                print next_index_with_confirmed_contour
+                self.set_active_i(next_index_with_confirmed_contour)
+
+        elif selected_action == action_gotoPreviousConfirmed:
+
+            items = all_known_structures_sided
+            item, ok = QInputDialog.getItem(self.gui, "Which structure?", "list of structures", items, 0, False)
+            if ok and item:
+                name_u = convert_to_original_name(str(item))
+            else:
+                return
+
+            all_indices_with_confirmed_contours = []
+            for ind, polygons in self.drawings.iteritems():
+                for p in polygons:
+                    if p.properties['label'] == name_u and p.properties['type'] == 'confirmed':
+                        all_indices_with_confirmed_contours.append(ind)
+            all_indices_with_confirmed_contours = np.array(sorted(all_indices_with_confirmed_contours))
+            print all_indices_with_confirmed_contours
+            diffs = all_indices_with_confirmed_contours - self.active_i
+            print diffs
+
+            previous_index_args = np.where(diffs < 0)[0]
+            print previous_index_args
+            if len(previous_index_args) == 0:
+                print 'No more previous confirmed contour for %s' % name_u
+                return
+            else:
+                previous_index_with_confirmed_contour = all_indices_with_confirmed_contours[previous_index_args[-1]]
+                print previous_index_with_confirmed_contour
+                self.set_active_i(previous_index_with_confirmed_contour)
 
         # elif selected_action == action_alignAtlasToManualStructureGlobal:
         #     self.move_atlas_structure_to(name_s=compose_label(self.active_polygon.properties['label'], side=self.active_polygon.properties['side']), global_instead_of_local=True, where='handdrawn_centroid')

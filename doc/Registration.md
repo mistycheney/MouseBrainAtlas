@@ -41,7 +41,7 @@ Each setting specifies the following parameters:
 
 # Local registration
 
-Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id>`
+Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--use_simple_global]`
 
 Notebook: `registration/registration_v7_atlasV6_local_allstructures.ipynb`
 

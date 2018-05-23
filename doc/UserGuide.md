@@ -9,4 +9,5 @@
 - [Visualization](Visualization.md)
 - [Build Atlas](BuildAtlas.md)
 - [Train Classifiers](TrainClassifiers.md)
+- [Using GUI](GUIGuide.md)
 - [Timing](Timing)

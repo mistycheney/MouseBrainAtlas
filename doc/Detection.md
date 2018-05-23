@@ -1,6 +1,6 @@
 # Detection
 
-## Compute features for sparse locations of each image
+## Compute features using a moving window
 
 Run `learning/compute_features.py <brain_name> [--section <section_number>] [--win_id <window_id>]`
 
@@ -22,6 +22,19 @@ For example, we can use two points: the centroid of 12N and 3N(either L or R). T
 - Automatically align the 3-D brain outline.
 
 ## Convert the image stack to 3-D probability maps.
+
 Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --structure_list <json-encoded list str>`
+
+2-D score map output is under 
+- `/home/yuncong/CSHL_scoremaps/10.0um/<brain_name>/<brain_name>_prep2_10.0um_detector<detector_id>/<image_name>_prep2_10.0um_detector<detector_id>/<image_name>_prep2_10.0um_detector<detector_id>_<structure>_scoremap.bp`. 2-d probability map for one classifier (float between 0 and 1).
+- `/home/yuncong/CSHL_scoremap_viz/10.0um/<structure>/<brain_name>/detector<detector_id>/prep2/<image_name>_prep2_10.0um_<structure>_detector<detector_id>_scoremapViz.jpg`. Tissue image with probability map overlay.
+
+3-D score map output is under
+-`/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume/score_volumes`. Score volume; 3-d float array.
+  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>.bp`.
+  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_origin_wrt_wholebrain.txt`.
+- `/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume/score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
+  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
+  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
 
 Reference: `learning/from_images_to_score_volume.ipynb`

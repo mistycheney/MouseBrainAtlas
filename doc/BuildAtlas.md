@@ -3,6 +3,7 @@
 Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 
 ## Compute average positions
+
 - Mean positions (wrt _canonicalAtlasSpace_). `/CSHL_meshes/<atlas_name>/<atlas_name>_1um_meanPositions.pkl`
 
 ## Compute average shapes
@@ -22,6 +23,7 @@ Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 ##  Put average shape at average position
 
 - Atlas structures. 
-`/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_origin_wrt_canonicalAtlasSpace.txt`.
+    - `/CSHL_volumes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/score_volumes/<atlas_name>_10.0um_scoreVolume_<sided_or_surround_structure>.bp`.
+    - `/CSHL_volumes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/score_volumes/<atlas_name>_10.0um_scoreVolume_<sided_or_surround_structure>_origin_wrt_canonicalAtlasSpace.txt`.
 
 

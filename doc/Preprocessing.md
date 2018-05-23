@@ -20,7 +20,53 @@ Other than that, the brain id is optional but desired. Other information such as
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
 It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand** as they will not be parsed correctly in Linux commandline.
 
-# Convert raw data to TIFs
+
+# General Steps:
+
+## Convert raw data to TIFs
+- jp2 -> raw
+- raw -> raw_Ntb:
+
+## For thionin (brightfield) data
+* raw -> thumbnail
+* **Compute tranforms using thumbnail**
+* thumbnail -> prep1_thumbnail
+* **Supply prep1_thumbnail_mask**
+* prep1_thumbnail_mask -> thumbnail_mask
+* raw -> prep1_raw
+* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
+* prep1_raw -> prep5_raw:
+* prep1_thumbnail -> prep5_thumbnail:
+* prep1_thumbnail_mask -> prep5_thumbnail_mask:
+* **Specify prep2 (alignedBrainstemCrop) cropping box**
+* prep5_raw -> prep2_raw
+* prep5_thumbnail -> prep2_thumbnail
+* prep5_thumbnail_mask -> prep2_thumbnail_mask
+* prep2_raw -> prep2_raw_gray: 30s * ~300 sections = 150 mins
+* prep2_raw_gray -> prep2_raw_grayJpeg: 20s * ~300 sections = 100 mins
+* prep2_raw -> prep2_raw_jpeg: 20s * ~300 sections = 100 mins
+
+_prep2_raw_gray_ are used for structure detection.
+_prep5_raw_ will be published online.
+
+## For Neurotrace (fluorescent) data
+* raw_Ntb -> thumbnail_Ntb
+* thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
+* **Compute transforms using thumbnail_NtbNormalized**
+* **Supply prep1_thumbnail_mask**
+* prep1_thumbnail_mask -> thumbnail_mask
+* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
+* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section * 300 sections = 7.5 hrs
+* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: 70s/stack (8 threads)
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: 5s/section
+* **Specify prep2 (alignedBrainstemCrop) cropping box**
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: 1500s/stack (4 threads)
+* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: 14s/section
+
+
+# jp2/czi -> raw
+
 ## CSHL data
 Data from CSHL are acquired using Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
@@ -44,6 +90,17 @@ Use the graphical interface with the following settings:
 ??
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
+
+# raw -> Ntb/CHAT or raw -> gray
+
+Extract from data a single channel that shows Nissl cytoarchitecture and optionally, another single channel that shows cell markers.
+
+For Nanozoomer fluorescent images (e.g. those from CSHL), use the blue channel for Neurotrace, green or red channel for markers.
+
+For Axioscan fluorescent images, channels are labeled with meaningful names.
+
+For Nissl images, convert RGB to grayscale.
+
 
 # Rectify images
 

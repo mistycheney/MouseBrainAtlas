@@ -22,7 +22,7 @@ STL files are under:
 - Subject.
 `/home/yuncong/CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_structure>.stl`
 - Atlas.
-  - Structure meshes (different levels, located in _canonicalAtlasSpace_ (see [Definition of frames]))).  `/CSHL_meshes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/<atlasname>_10.0um_scoreVolume_<sided_or_surround_structure>.stl`
+  - Structure meshes (different levels, located in _canonicalAtlasSpace_).  `/CSHL_meshes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/<atlasname>_10.0um_scoreVolume_<sided_or_surround_structure>.stl`
   - Mean positions (wrt _canonicalAtlasSpace_). `/CSHL_meshes/<atlas_name>/<atlas_name>_1um_meanPositions.pkl`
   - Mean shape meshes (different levels). `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_mesh_level<level>.stl`
   - Mean shape volumes

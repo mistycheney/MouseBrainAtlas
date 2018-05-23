@@ -22,7 +22,7 @@
 _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
 
-### For neurotrace data
+### For Neurotrace data
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
 * **Compute transforms using thumbnail_NtbNormalized**
@@ -32,7 +32,7 @@ _prep5_raw_ will be published online.
 * **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
 * raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section * 300 sections = 7.5 hrs
 * thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: 70s/stack (8 threads)
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: 5s/section
 * **Specify prep2 (alignedBrainstemCrop) cropping box**
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: 1500s/stack (4 threads)
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: 14s/section

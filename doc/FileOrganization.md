@@ -19,7 +19,7 @@ Data Path
 - `REGISTRATION_VIZ_ROOTDIR`
 - `MXNET_MODEL_ROOTDIR`
 
-Image data
+Images
 ==========
 
 Raw and processed images are stored in two places:

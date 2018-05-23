@@ -1,3 +1,5 @@
+# Mesh
+
 Meshes are stored as STL files.
 An STL file contains 
 - 3-D coordinates of the vertices 
